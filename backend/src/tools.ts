@@ -125,6 +125,23 @@ Notes for editing a file:
     `.trim(),
   },
   {
+    name: 'str_replace',
+    description: `
+### str_replace
+Description: Replace a string in a file with a new string. This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
+Parameters:
+- path: (required) The path to the file to edit.
+- old: (required) The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
+- new: (required) The new string to replace the old string with.
+Usage:
+${getToolCallString('str_replace', {
+  path: 'path/to/file',
+  old: 'old',
+  new: 'new',
+})}
+    `.trim(),
+  },
+  {
     name: 'read_files',
     description: `
 ### read_files
@@ -417,6 +434,12 @@ const writeFileSchema = z.object({
   content: z.string(),
 })
 
+const strReplaceSchema = z.object({
+  path: z.string().min(1, 'Path cannot be empty'),
+  old: z.string().min(1, 'Old cannot be empty'),
+  new: z.string(),
+})
+
 const readFilesSchema = z.object({
   paths: z.string().min(1, 'Paths cannot be empty'),
 })
@@ -463,6 +486,7 @@ const toolSchemas = {
   add_subgoal: addSubgoalSchema,
   update_subgoal: updateSubgoalSchema,
   write_file: writeFileSchema,
+  str_replace: strReplaceSchema,
   read_files: readFilesSchema,
   find_files: findFilesSchema,
   code_search: codeSearchSchema,
@@ -752,12 +776,22 @@ export interface RawToolCall {
 export type ClientToolCall =
   | {
       id: string
-      name: Exclude<ToolName, 'write_file'>
+      name: Exclude<ToolName, 'write_file' | 'str_replace' | 'create_plan'>
       parameters: Record<string, string>
     }
   | {
       id: string
       name: 'write_file'
+      parameters: FileChange
+    }
+  | {
+      id: string
+      name: 'str_replace'
+      parameters: FileChange
+    }
+  | {
+      id: string
+      name: 'create_plan'
       parameters: FileChange
     }
 

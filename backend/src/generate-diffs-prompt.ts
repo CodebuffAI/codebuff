@@ -90,7 +90,7 @@ export const parseAndGetDiffBlocksSingleFile = (
   }
 }
 
-const tryToDoStringReplacementWithExtraIndentation = (
+export const tryToDoStringReplacementWithExtraIndentation = (
   oldFileContent: string,
   searchContent: string,
   replaceContent: string

@@ -63,6 +63,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
+import { processStrReplace } from './process-str-replace'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
@@ -482,7 +483,12 @@ export const mainPrompt = async (
   let fullResponse = ''
   const fileProcessingPromisesByPath: Record<
     string,
-    Promise<{ path: string; content: string; patch?: string } | null>[]
+    Promise<{
+      tool: 'write_file' | 'str_replace' | 'create_plan'
+      path: string
+      content: string
+      patch?: string
+    } | null>[]
   > = {}
 
   // Add deep thinking for experimental or max mode
@@ -521,6 +527,16 @@ export const mainPrompt = async (
   )
 
   const streamWithTags = processStreamWithTags(stream, {
+    ...Object.fromEntries(
+      TOOL_LIST.map((tool) => [
+        tool,
+        {
+          attributeNames: [],
+          onTagStart: () => {},
+          onTagEnd: () => false,
+        },
+      ])
+    ),
     write_file: {
       attributeNames: [],
       onTagStart: () => {},
@@ -570,16 +586,41 @@ export const mainPrompt = async (
         return false
       },
     },
-    ...Object.fromEntries(
-      TOOL_LIST.filter((tool) => tool !== 'write_file').map((tool) => [
-        tool,
-        {
-          attributeNames: [],
-          onTagStart: () => {},
-          onTagEnd: () => false,
-        },
-      ])
-    ),
+    str_replace: {
+      attributeNames: [],
+      onTagStart: () => {},
+      onTagEnd: (body) => {
+        const { path, old, new: newStr } = parseToolCallXml(body)
+        if (!old || typeof old !== 'string') return false
+
+        if (!fileProcessingPromisesByPath[path]) {
+          fileProcessingPromisesByPath[path] = []
+        }
+        const previousPromises = fileProcessingPromisesByPath[path]
+        const previousEdit = previousPromises[previousPromises.length - 1]
+
+        const latestContentPromise = previousEdit
+          ? previousEdit.then(
+              (maybeResult) =>
+                maybeResult?.content ?? requestOptionalFile(ws, path)
+            )
+          : requestOptionalFile(ws, path)
+
+        const newPromise = processStrReplace(
+          path,
+          old,
+          newStr || '',
+          latestContentPromise
+        ).catch((error: any) => {
+          logger.error(error, 'Error processing str_replace block')
+          return null
+        })
+
+        fileProcessingPromisesByPath[path].push(newPromise)
+
+        return false
+      },
+    },
   })
 
   for await (const chunk of streamWithTags) {
@@ -649,8 +690,8 @@ export const mainPrompt = async (
       tool: name,
       parameters,
     })
-    if (name === 'write_file') {
-      // write_file tool calls are handled as they are streamed in.
+    if (name === 'write_file' || name === 'str_replace') {
+      // write_file and str_replace tool calls are handled as they are streamed in.
     } else if (name === 'add_subgoal' || name === 'update_subgoal') {
       // add_subgoal and update_subgoal tool calls are handled above
     } else if (
@@ -792,6 +833,7 @@ export const mainPrompt = async (
         fileProcessingPromisesByPath[path] = []
       }
       const change = {
+        tool: 'create_plan' as const,
         path,
         content: plan,
       }
@@ -819,8 +861,8 @@ export const mainPrompt = async (
     onResponseChunk(`\n`)
   }
 
-  const changeToolCalls = changes.map(({ path, content, patch }) => ({
-    name: 'write_file' as const,
+  const changeToolCalls = changes.map(({ path, content, patch, tool }) => ({
+    name: tool,
     parameters: patch
       ? {
           type: 'patch' as const,
@@ -886,19 +928,6 @@ const getInitialFiles = (fileContext: ProjectFileContext) => {
       // Only keep top-level knowledge files.
       .filter((f) => f.path.split('/').length === 1),
   ]
-}
-
-function getRelevantFileInfoMessage(filePaths: string[], isFirstTime: boolean) {
-  const readFilesMessage =
-    (isFirstTime ? 'Reading files:\n' : 'Reading additional files:\n') +
-    `${filePaths
-      .slice(0, 3)
-      .map((path) => `- ${path}`)
-      .join(
-        '\n'
-      )}${filePaths.length > 3 ? `\nand ${filePaths.length - 3} more: ` : ''}${filePaths.slice(3).join(', ')}`
-
-  return filePaths.length === 0 ? undefined : readFilesMessage
 }
 
 async function getFileReadingUpdates(
