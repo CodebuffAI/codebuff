@@ -25,3 +25,8 @@ runs:
           node_modules
           */node_modules
         key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+
+    - name: Set Environment Variables
+      run: |
+        echo "${{ secrets.ENV_LOCAL }}" > .env.local
+        echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
