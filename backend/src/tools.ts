@@ -128,7 +128,7 @@ Notes for editing a file:
     name: 'str_replace',
     description: `
 ### str_replace
-Description: Replace a string in a file with a new string. This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended.
+Description: Replace a string in a file with a new string. This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
 Parameters:
 - path: (required) The path to the file to edit.
 - old: (required) The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
