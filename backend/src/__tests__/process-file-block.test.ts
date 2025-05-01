@@ -5,6 +5,17 @@ import { applyPatch } from 'common/util/patch'
 
 import { processFileBlock } from '../process-file-block'
 
+// Mock logger
+mock.module('../util/logger', () => ({
+  logger: {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  },
+  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+}))
+
 // Mock database interactions
 mock.module('pg-pool', () => ({
   Pool: class {

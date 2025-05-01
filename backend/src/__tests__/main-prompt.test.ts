@@ -23,16 +23,20 @@ import * as geminiWithFallbacks from '../llm-apis/gemini-with-fallbacks'
 import * as openai from '../llm-apis/openai-api'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
-// import { logger } from '../util/logger'
+
 import { renderToolResults } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
-const logger = {
-  debug: () => {},
-  error: () => {},
-  info: () => {},
-  warn: () => {},
-}
+// Mock logger
+mock.module('../util/logger', () => ({
+  logger: {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  },
+  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+}))
 
 const mockAgentStream = (streamOutput: string) => {
   spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {

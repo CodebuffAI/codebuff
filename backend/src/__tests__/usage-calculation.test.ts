@@ -8,11 +8,33 @@ import { GrantType } from 'common/db/schema'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
 import { and, asc, gt, isNull, or, eq } from 'drizzle-orm'
 
+// Mock logger - this is needed because @codebuff/billing likely uses the logger
+mock.module('../util/logger', () => ({
+  logger: {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  },
+  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+}))
+
 describe('Usage Calculation System', () => {
   describe('calculateUsageAndBalance', () => {
     beforeEach(() => {
       // Reset the mock between tests
       mock.restore()
+
+      // Re-mock logger after restore
+      mock.module('../util/logger', () => ({
+        logger: {
+          debug: () => {},
+          error: () => {},
+          info: () => {},
+          warn: () => {},
+        },
+        withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+      }))
     })
 
     it('should calculate total remaining credits correctly', async () => {
