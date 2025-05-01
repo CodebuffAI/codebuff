@@ -23,11 +23,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Create .env.local file
-      - name: Get Credentials
-        run: |
-          echo "${{ secrets.ENV_LOCAL }}" > .env.local
-          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
+      # # Create .env.local file
+      # - name: Get Credentials
+      #   run: |
+      #     echo "${{ secrets.ENV_LOCAL }}" > .env.local
+      #     echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
       - uses: ./.github/actions/setup-job
 
@@ -36,6 +36,8 @@ jobs:
 
       - name: Build and typecheck
         run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
           bun run build
           bun run typecheck-only
 
