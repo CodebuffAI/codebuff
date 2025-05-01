@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, writeFileSync } from 'fs'
 
-import { getTracesWithRelabels } from 'common/bigquery/client'
+import { getTracesWithRelabels } from '@codebuff/bigquery'
 import { Message } from 'common/types/message'
 
 // Get model from command line args

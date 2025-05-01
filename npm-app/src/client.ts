@@ -6,6 +6,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'fs'
+import os from 'os'
 import path from 'path'
 import { Interface } from 'readline'
 
@@ -54,6 +55,7 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
+import packageJson from '../package.json'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -66,11 +68,12 @@ import {
   getFiles,
   getProjectFileContext,
   getProjectRoot,
+  getWorkingDirectory,
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
-
 import { GitCommand, MakeNullable } from './types'
-import { identifyUser, trackEvent } from './utils/analytics'
+import { identifyUser } from './utils/analytics'
+import { gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
@@ -186,7 +189,15 @@ export class Client {
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
     this.rl = rl
-    logger.info({ eventId: AnalyticsEvent.APP_LAUNCHED }, 'App launched')
+    logger.info(
+      {
+        eventId: AnalyticsEvent.APP_LAUNCHED,
+        platform: os.platform(),
+        costMode: this.costMode,
+        model: this.model,
+      },
+      'App launched'
+    )
   }
 
   async exit() {
@@ -219,6 +230,9 @@ export class Client {
         email: user.email,
         name: user.name,
         fingerprintId: this.fingerprintId,
+        platform: os.platform(),
+        version: packageJson.version,
+        hasGit: gitCommandIsAvailable(),
       })
       loggerContext.userId = user.id
       loggerContext.userEmail = user.email
@@ -496,6 +510,9 @@ export class Client {
               email: user.email,
               name: user.name,
               fingerprintId: fingerprintId,
+              platform: os.platform(),
+              version: packageJson.version,
+              hasGit: gitCommandIsAvailable(),
             })
             loggerContext.userId = user.id
             loggerContext.userEmail = user.email
@@ -691,12 +708,12 @@ export class Client {
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
         Spinner.get().stop()
-        this.displayChunk(chunk)
+        process.stdout.write(chunk)
       },
       userInputId,
       () => {
         Spinner.get().stop()
-        this.displayChunk(green(underline('\nCodebuff') + ':') + ' ')
+        process.stdout.write(green(underline('\nCodebuff') + ': '))
       },
       prompt
     )
@@ -728,28 +745,13 @@ export class Client {
       authToken: this.user?.authToken,
       costMode: this.costMode,
       model: this.model,
+      cwd: getWorkingDirectory(),
     })
 
     return {
       responsePromise,
       stopResponse,
     }
-  }
-
-  /**
-   * Shrinks all instances of more than 2 newlines in a row.
-   * Note: don't start or end colored text with newlines
-   * @param chunk chunk to display
-   */
-  public displayChunk(chunk: string) {
-    // Process chunk to limit consecutive newlines
-    const combinedContent = this.responseBuffer + chunk
-    const processedContent = combinedContent.replace(/\n{3,}/g, '\n\n')
-    const processedChunk = processedContent.slice(this.responseBuffer.length)
-
-    this.responseBuffer = processedContent
-
-    process.stdout.write(processedChunk)
   }
 
   private subscribeToResponse(
@@ -832,7 +834,7 @@ export class Client {
           const warningMessage = trimmed
             .replace(`<${tag}>`, '')
             .replace(`</${tag}>`, '')
-          this.displayChunk(yellow(`\n\n${warningMessage}\n\n`))
+          process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
           this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
           return
         }
@@ -893,21 +895,17 @@ export class Client {
             ) {
               this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
             }
-            if (toolCall.name === 'run_terminal_command') {
-              this.displayChunk('\n\n')
-              this.responseBuffer = '\n'
-            }
-            const toolResult = await handleToolCall(toolCall, getProjectRoot())
+            const toolResult = await handleToolCall(toolCall)
             toolResults.push(toolResult)
           } catch (error) {
-            this.displayChunk(
+            console.error(
               '\n\n' +
                 red(`Error parsing tool call ${toolCall.name}:\n${error}`) +
-                '\n\n'
+                '\n'
             )
           }
         }
-        this.displayChunk('\n\n')
+        console.log('\n')
 
         // If we had any file changes, update the project context
         if (this.hadFileChanges) {
@@ -944,13 +942,13 @@ export class Client {
             break askConfig
           }
 
-          this.displayChunk(
+          console.log(
             '\n\n' +
               yellow(`✨ Recommended: run the 'init' command in order to create a configuration file!
 
 If you would like background processes (like this one) to run automatically whenever Codebuff starts, creating a ${CONFIG_FILE_NAME} config file can improve your workflow.
 Go to https://www.codebuff.com/config for more information.`) +
-              '\n\n'
+              '\n'
           )
         }
 
@@ -962,8 +960,8 @@ Go to https://www.codebuff.com/config for more information.`) +
         const credits =
           this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
         if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
-          this.displayChunk(
-            `\n\n${pluralize(credits, 'credit')} used for this request.\n`
+          console.log(
+            `\n\n${pluralize(credits, 'credit')} used for this request.`
           )
         }
 
@@ -974,8 +972,8 @@ Go to https://www.codebuff.com/config for more information.`) +
           } catch (error) {
             // No latest checkpoint, don't show addendum
           }
-          this.displayChunk(
-            `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n\n`
+          console.log(
+            `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n`
           )
           this.hadFileChanges = false
           this.freshPrompt()

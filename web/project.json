@@ -1,0 +1,45 @@
+{
+  "name": "web",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "src",
+  "projectType": "application",
+  "targets": {
+    "contentlayer": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "contentlayer build",
+        "cwd": "web"
+      },
+      "outputs": ["{projectRoot}/.contentlayer", "{projectRoot}/.contentlayer/generated"]
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/.next"],
+      "options": {
+        "commands": [
+          "next build"
+        ],
+        "cwd": "web",
+        "parallel": false
+      },
+      "dependsOn": ["contentlayer", "^build"]
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "next dev",
+        "cwd": "web"
+      },
+      "dependsOn": ["contentlayer"]
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "next start",
+        "cwd": "web"
+      },
+      "dependsOn": ["build"]
+    }
+  },
+  "implicitDependencies": ["common", "@codebuff/billing"]
+}

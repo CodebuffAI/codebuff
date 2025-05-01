@@ -41,7 +41,7 @@ export interface ToolCallRenderer {
  */
 export const defaultToolCallRenderer: ToolCallRenderer = {
   onToolStart: (toolName) => {
-    return gray(`[${bold(snakeToTitleCase(toolName))}]`) + '\n'
+    return '\n\n' + gray(`[${bold(snakeToTitleCase(toolName))}]`) + '\n'
   },
 
   onParamChunk: (content, paramName, toolName) => {
@@ -50,7 +50,7 @@ export const defaultToolCallRenderer: ToolCallRenderer = {
 
   onParamEnd: () => null,
 
-  onToolEnd: () => null,
+  onToolEnd: () => '\n\n',
 }
 
 export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
@@ -95,7 +95,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
     onToolEnd: (toolName, params) => {
       // Add a final newline after the file list
-      return '\n'
+      return '\n\n'
     },
   },
   find_files: {

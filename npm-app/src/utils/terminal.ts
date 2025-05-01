@@ -5,6 +5,7 @@ import * as os from 'os'
 import path, { dirname } from 'path'
 
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { buildArray } from 'common/util/array'
 import { stripColors, truncateStringWithMessage } from 'common/util/string'
 import { green } from 'picocolors'
@@ -14,7 +15,13 @@ import {
   BackgroundProcessInfo,
   spawnAndTrack,
 } from '../background-process-manager'
-import { setProjectRoot } from '../project-files'
+import {
+  getProjectRoot,
+  getWorkingDirectory,
+  isDir,
+  setWorkingDirectory,
+} from '../project-files'
+import { trackEvent } from './analytics'
 import { detectShell } from './detect-shell'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
@@ -108,7 +115,9 @@ const createPersistantProcess = (dir: string): PersistentProcess => {
     }
     // Set prompt for Unix shells after sourcing config
     if (!isWindows) {
-      persistentPty.write(`PS1='${promptIdentifier}'\n`)
+      persistentPty.write(
+        `PS1=${promptIdentifier} && PS2=${promptIdentifier}\n`
+      )
     }
 
     return { type: 'pty', shell: 'pty', pty: persistentPty, timerId: null }
@@ -148,11 +157,11 @@ export const isCommandRunning = () => {
   return commandIsRunning
 }
 
-export const recreateShell = (projectPath: string) => {
-  persistentProcess = createPersistantProcess(projectPath)
+export const recreateShell = (cwd: string) => {
+  persistentProcess = createPersistantProcess(cwd)
 }
 
-export const resetShell = (projectPath: string) => {
+export const resetShell = (cwd: string) => {
   commandIsRunning = false
   if (persistentProcess) {
     if (persistentProcess.timerId) {
@@ -162,7 +171,7 @@ export const resetShell = (projectPath: string) => {
 
     if (persistentProcess.type === 'pty') {
       persistentProcess.pty.kill()
-      recreateShell(projectPath)
+      recreateShell(cwd)
     } else {
       persistentProcess.childProcess?.kill()
       persistentProcess = {
@@ -190,14 +199,17 @@ export function runBackgroundCommand(
     toolCallId: string
     command: string
     mode: 'user' | 'assistant'
-    projectPath: string
+    cwd: string
     stdoutFile?: string
     stderrFile?: string
   },
-  resolveCommand: (value: { result: string; stdout: string }) => void
+  resolveCommand: (value: {
+    result: string
+    stdout: string
+    exitCode: number | null
+  }) => void
 ): void {
-  const { toolCallId, command, mode, projectPath, stdoutFile, stderrFile } =
-    options
+  const { toolCallId, command, mode, cwd, stdoutFile, stderrFile } = options
   const isWindows = os.platform() === 'win32'
   const shell = isWindows ? 'cmd.exe' : 'bash'
   const shellArgs = isWindows ? ['/c'] : ['-c']
@@ -211,7 +223,7 @@ export function runBackgroundCommand(
 
   try {
     const childProcess = spawnAndTrack(shell, [...shellArgs, command], {
-      cwd: projectPath,
+      cwd,
       env: { ...process.env, FORCE_COLOR: '1' },
       // Ensure detached is always false to link child lifetime to parent
       detached: false,
@@ -250,7 +262,7 @@ export function runBackgroundCommand(
     if (stdoutFile) {
       const stdoutAbs = path.isAbsolute(stdoutFile)
         ? stdoutFile
-        : path.join(projectPath, stdoutFile)
+        : path.join(cwd, stdoutFile)
       mkdirSync(dirname(stdoutAbs), { recursive: true })
       stdoutStream = createWriteStream(stdoutAbs)
     }
@@ -259,7 +271,7 @@ export function runBackgroundCommand(
     if (realStderrFile) {
       const stderrAbs = path.isAbsolute(realStderrFile)
         ? realStderrFile
-        : path.join(projectPath, realStderrFile)
+        : path.join(cwd, realStderrFile)
       mkdirSync(dirname(stderrAbs), { recursive: true })
       stderrStream = createWriteStream(stderrAbs)
     }
@@ -296,7 +308,10 @@ export function runBackgroundCommand(
       stderrStream?.end()
     })
 
+    let exitCode = null
+
     childProcess.on('close', (code) => {
+      exitCode = code
       processInfo.status = code === 0 ? 'completed' : 'error'
       processInfo.endTime = Date.now()
 
@@ -316,10 +331,15 @@ export function runBackgroundCommand(
     resolveCommand({
       result: resultMessage,
       stdout: initialStdout + initialStderr,
+      exitCode,
     })
   } catch (error: any) {
     const errorMessage = `<background_process>\n<command>${command}</command>\n<error>${error.message}</error>\n</background_process>`
-    resolveCommand({ result: errorMessage, stdout: error.message })
+    resolveCommand({
+      result: errorMessage,
+      stdout: error.message,
+      exitCode: null,
+    })
   }
 }
 
@@ -327,18 +347,18 @@ export const runTerminalCommand = async (
   toolCallId: string,
   command: string,
   mode: 'user' | 'assistant',
-  projectPath: string,
   processType: 'SYNC' | 'BACKGROUND',
   stdoutFile?: string,
   stderrFile?: string
 ): Promise<{ result: string; stdout: string }> => {
+  const cwd = mode === 'assistant' ? getProjectRoot() : getWorkingDirectory()
   return new Promise((resolve) => {
     if (!persistentProcess) {
       throw new Error('Shell not initialized')
     }
 
     if (commandIsRunning) {
-      resetShell(projectPath)
+      resetShell(cwd)
     }
 
     commandIsRunning = true
@@ -347,8 +367,20 @@ export const runTerminalCommand = async (
     const modifiedCommand =
       command.trim() === 'git log' ? 'git log -n 5' : command
 
-    const resolveCommand = (value: { result: string; stdout: string }) => {
+    const resolveCommand = (value: {
+      result: string
+      stdout: string
+      exitCode: number | null
+    }) => {
       commandIsRunning = false
+      trackEvent(AnalyticsEvent.TERMINAL_COMMAND_COMPLETED, {
+        command,
+        result: value.result,
+        stdout: value.stdout,
+        exitCode: value.exitCode,
+        mode,
+        processType,
+      })
       resolve(value)
     }
 
@@ -358,7 +390,7 @@ export const runTerminalCommand = async (
           toolCallId,
           command: modifiedCommand,
           mode,
-          projectPath,
+          cwd,
           stdoutFile,
           stderrFile,
         },
@@ -370,7 +402,7 @@ export const runTerminalCommand = async (
         modifiedCommand,
         mode,
         resolveCommand,
-        projectPath
+        cwd
       )
     } else {
       // Fallback to child_process implementation
@@ -379,34 +411,113 @@ export const runTerminalCommand = async (
         modifiedCommand,
         mode,
         resolveCommand,
-        projectPath
+        cwd
       )
     }
   })
 }
 
+function handleChangeDirectory(
+  mode: 'user' | 'assistant',
+  command: string,
+  ptyProcess: IPty,
+  cwd: string
+): string | null {
+  if (!command.startsWith('cd ')) {
+    return null
+  }
+  if (mode === 'assistant') {
+    return null
+  }
+
+  let newWorkingDirectory = command.split(' ')[1]
+  if (newWorkingDirectory === '~') {
+    newWorkingDirectory = os.homedir()
+  } else if (newWorkingDirectory.startsWith('~/')) {
+    newWorkingDirectory = path.join(os.homedir(), newWorkingDirectory.slice(2))
+  } else if (!path.isAbsolute(newWorkingDirectory)) {
+    newWorkingDirectory = path.join(cwd, newWorkingDirectory)
+  }
+
+  trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
+    from: cwd,
+    to: newWorkingDirectory,
+    isSubdir: !path.relative(cwd, newWorkingDirectory).startsWith('..'),
+  })
+  const projectRoot = getProjectRoot()
+  if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
+    console.log(`
+Unable to cd outside of the project root (${projectRoot})
+      
+If you want to change the project root:
+1. Exit Codebuff (type "exit").
+2. Navigate into the target directory.
+3. Restart Codebuff.`)
+    return cwd
+  }
+
+  if (isDir(newWorkingDirectory)) {
+    setWorkingDirectory(newWorkingDirectory)
+    ptyProcess.write(`cd ${newWorkingDirectory}\r`)
+    return newWorkingDirectory
+  }
+
+  return null
+}
+
+const echoLinePattern = new RegExp(`${promptIdentifier}[^\n]*\n`, 'g')
+const unixCommandDonePattern = new RegExp(
+  `^${promptIdentifier}[\\s\\S]*${promptIdentifier}`
+)
 export const runCommandPty = (
   persistentProcess: PersistentProcess & {
     type: 'pty'
   },
   command: string,
   mode: 'user' | 'assistant',
-  resolve: (value: { result: string; stdout: string }) => void,
-  projectPath: string
+  resolve: (value: {
+    result: string
+    stdout: string
+    exitCode: number | null
+  }) => void,
+  cwd: string
 ) => {
   const ptyProcess = persistentProcess.pty
-  let commandOutput = ''
-  let pendingOutput = ''
-  let linesToSkip = command.split('\n').length // Count command lines to skip
+
+  const newDir = handleChangeDirectory(mode, command, ptyProcess, cwd)
+  if (newDir) {
+    resolve({
+      result: formatResult(command, '', `Complete`),
+      stdout: '',
+      exitCode: 0,
+    })
+    return
+  }
+
+  if (command.trim() === 'clear') {
+    // `clear` needs access to the main process stdout. This is a workaround.
+    execSync('clear', { stdio: 'inherit' })
+    resolve({
+      result: formatResult(command, '', `Complete`),
+      stdout: '',
+      exitCode: 0,
+    })
+    return
+  }
 
   if (mode === 'assistant') {
     console.log(green(`> ${command}`))
   }
 
+  let commandOutput = ''
+  let buffer = promptIdentifier
+  const isWindows = os.platform() === 'win32'
+  let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
+
   const timer = setTimeout(() => {
     if (mode === 'assistant') {
       // Kill and recreate PTY
-      resetShell(projectPath)
+      resetShell(cwd)
 
       resolve({
         result: formatResult(
@@ -415,95 +526,77 @@ export const runCommandPty = (
           `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
         ),
         stdout: commandOutput,
+        exitCode: 124,
       })
     }
   }, MAX_EXECUTION_TIME)
 
   persistentProcess.timerId = timer
 
+  const longestSuffixThatsPrefixOf = (str: string, target: string): string => {
+    for (let len = target.length; len > 0; len--) {
+      const prefix = target.slice(0, len)
+      if (str.endsWith(prefix)) {
+        return prefix
+      }
+    }
+
+    return ''
+  }
+
   const dataDisposable = ptyProcess.onData((data: string) => {
-    // Trim first line if it's the prompt identifier
-    if (
-      (commandOutput + pendingOutput).trim() === '' &&
-      data.trimStart().startsWith(promptIdentifier)
-    ) {
-      data = data.trimStart().slice(promptIdentifier.length)
+    buffer += data
+    const suffix = longestSuffixThatsPrefixOf(buffer, promptIdentifier)
+    let toProcess = buffer.slice(0, buffer.length - suffix.length)
+    buffer = suffix
+
+    const matches = toProcess.match(echoLinePattern)
+    if (matches) {
+      echoLinesRemaining -= matches.length
+      echoLinesRemaining = Math.max(echoLinesRemaining, 0)
+      // Process normal output line
+      toProcess = toProcess.replaceAll(echoLinePattern, '')
     }
 
-    const prefix = commandOutput + pendingOutput + data
-
-    // Skip initial command echo lines
-    if (linesToSkip > 0) {
-      const lines = prefix.split('\n')
-
-      if (lines.length <= linesToSkip) {
-        // Not enough lines to finish skipping yet
-        pendingOutput = lines[lines.length - 1]
-        linesToSkip -= lines.length - 1
-        return
-      } else {
-        // We have enough lines to finish skipping and start processing
-        pendingOutput = ''
-        data = lines.slice(linesToSkip).join('\n')
-        linesToSkip = 0
-      }
+    const indexOfPromptIdentifier = toProcess.indexOf(promptIdentifier)
+    if (indexOfPromptIdentifier !== -1) {
+      buffer = toProcess.slice(indexOfPromptIdentifier) + buffer
+      toProcess = toProcess.slice(0, indexOfPromptIdentifier)
     }
 
-    const dataLines = (pendingOutput + data).split('\r\n')
-    for (const [index, l] of dataLines.entries()) {
-      const isLast = index === dataLines.length - 1
-      const line = isLast ? l : l + '\r\n'
+    process.stdout.write(toProcess)
+    commandOutput += toProcess
 
-      if (line.includes(promptIdentifier)) {
-        // Last line is the prompt, command is done
-        clearTimeout(timer)
-        dataDisposable.dispose()
+    const commandDone = isWindows
+      ? buffer.startsWith(promptIdentifier)
+      : unixCommandDonePattern.test(buffer)
+    if (commandDone && echoLinesRemaining === 0) {
+      // Command is done
+      clearTimeout(timer)
+      dataDisposable.dispose()
 
-        if (command.startsWith('cd ') && mode === 'user') {
-          let newWorkingDirectory = command.split(' ')[1]
-          if (newWorkingDirectory === '~') {
-            newWorkingDirectory = os.homedir()
-          } else if (newWorkingDirectory.startsWith('~/')) {
-            newWorkingDirectory = path.join(
-              os.homedir(),
-              newWorkingDirectory.slice(2)
-            )
-          } else if (!path.isAbsolute(newWorkingDirectory)) {
-            newWorkingDirectory = path.join(projectPath, newWorkingDirectory)
-          }
-          projectPath = setProjectRoot(newWorkingDirectory)
-        }
+      const exitCode = buffer.includes('Command completed')
+        ? 0
+        : (() => {
+            const match = buffer.match(/Command failed with exit code (\d+)\./)
+            return match ? parseInt(match[1]) : null
+          })()
 
-        // Reset the PTY to the project root
-        ptyProcess.write(`cd ${projectPath}\r`)
+      ptyProcess.write(`cd ${cwd}\r`)
 
-        resolve({
-          result: formatResult(command, commandOutput, 'Command completed'),
-          stdout: commandOutput,
-        })
-        return
-      } else if (isLast) {
-        // Doesn't end in newline character, wait for more data
-        pendingOutput = line
-      } else {
-        // Process the line
-        process.stdout.write(line)
-        commandOutput += line
-      }
+      resolve({
+        result: formatResult(command, commandOutput, `Complete`),
+        stdout: commandOutput,
+        exitCode,
+      })
+      return
     }
   })
 
-  const isWindows = os.platform() === 'win32'
-
-  if (command.trim() === 'clear') {
-    // `clear` needs access to the main process stdout. This is a workaround.
-    execSync('clear', { stdio: 'inherit' })
-  }
-
   // Write the command
   const commandWithCheck = isWindows
-    ? command
-    : `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "Command completed. "; else printf "Command failed with exit code $ec. "; fi`
+    ? `${command}\r\necho "${promptIdentifier}"`
+    : `${command}; ec=$?; if [ $ec -eq 0 ]; then printf "${promptIdentifier}Command completed."; else printf "${promptIdentifier}Command failed with exit code $ec."; fi`
   ptyProcess.write(commandWithCheck + '\r')
 }
 
@@ -513,8 +606,12 @@ const runCommandChildProcess = (
   },
   command: string,
   mode: 'user' | 'assistant',
-  resolve: (value: { result: string; stdout: string }) => void,
-  projectPath: string
+  resolve: (value: {
+    result: string
+    stdout: string
+    exitCode: number | null
+  }) => void,
+  cwd: string
 ) => {
   const isWindows = os.platform() === 'win32'
   let commandOutput = ''
@@ -527,7 +624,7 @@ const runCommandChildProcess = (
     persistentProcess.shell,
     [isWindows ? '/c' : '-c', command],
     {
-      cwd: projectPath,
+      cwd,
       env: {
         ...process.env,
         PAGER: 'cat',
@@ -543,7 +640,7 @@ const runCommandChildProcess = (
   }
 
   const timer = setTimeout(() => {
-    resetShell(projectPath)
+    resetShell(cwd)
     if (mode === 'assistant') {
       resolve({
         result: formatResult(
@@ -552,6 +649,7 @@ const runCommandChildProcess = (
           `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated.`
         ),
         stdout: commandOutput,
+        exitCode: 124,
       })
     }
   }, MAX_EXECUTION_TIME)
@@ -575,7 +673,7 @@ const runCommandChildProcess = (
 
     if (command.startsWith('cd ') && mode === 'user') {
       const newWorkingDirectory = command.split(' ')[1]
-      projectPath = setProjectRoot(path.join(projectPath, newWorkingDirectory))
+      cwd = setWorkingDirectory(path.join(cwd, newWorkingDirectory))
     }
 
     if (mode === 'assistant') {
@@ -583,8 +681,9 @@ const runCommandChildProcess = (
     }
 
     resolve({
-      result: formatResult(command, commandOutput, `Command completed`),
+      result: formatResult(command, commandOutput, `complete`),
       stdout: commandOutput,
+      exitCode: childProcess.exitCode,
     })
   })
 }

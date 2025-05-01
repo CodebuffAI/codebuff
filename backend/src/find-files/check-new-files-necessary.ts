@@ -16,6 +16,7 @@ export const checkNewFilesNecessary = async (
   costMode: CostMode
 ) => {
   const startTime = Date.now()
+  const systemWithCodebuffInfo = `${systemIntro}\n\n${system}`
   const prompt = `
 Considering the conversation history above, and the following user request (in quotes), determine if new files should be read (YES or NO) to fulfill the request.
 
@@ -39,6 +40,7 @@ You should not read new files (NO) if:
 - The user says something like "hi" or "hello" with no specific request
 - The user just wants to run a straight-forward terminal command (e.g. "run npm install")
 - The request is purely about executing commands without needing file context
+- The request is about the Codebuff application itself: which LLM model is being used, how many credits have been used, asking to revert to a checkpoint or undo a change, etc.
 
 Answer with just 'YES' if reading new files is helpful, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
@@ -49,7 +51,7 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
       [...messages, { role: 'user', content: prompt }],
       bufferTokens
     ),
-    system,
+    systemWithCodebuffInfo,
     {
       model: models.gemini2flash,
       clientSessionId,
@@ -64,3 +66,7 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
   const newFilesNecessary = response.trim().toUpperCase().includes('YES')
   return { newFilesNecessary, response, duration }
 }
+
+const systemIntro = `
+You are assisting the user with their software project, in the application Codebuff. Codebuff is a coding agent that helps developers write code or perform utility tasks.
+`.trim()

@@ -23,7 +23,7 @@ export const StartupProcessSchema = z
       .boolean()
       .optional()
       .default(true)
-      .describe('Whether this process should be run.'),
+      .describe('Whether this process should be run'),
     stdoutFile: z
       .string()
       .optional()

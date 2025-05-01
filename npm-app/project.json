@@ -1,0 +1,34 @@
+{
+  "name": "npm-app",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "outputs": ["{projectRoot}/dist"],
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "tsc",
+          "tsc-alias -p tsconfig.json",
+          "mkdir -p dist/common",
+          "cp -r ../common/dist/* dist/common",
+          "mkdir -p dist/code-map",
+          "cp -r ../packages/code-map/dist/* dist/code-map",
+          "mkdir -p dist/utils/__tests__",
+          "cp -r src/utils/__tests__/*.txt dist/utils/__tests__"
+        ],
+        "cwd": "npm-app",
+        "parallel": false
+      }
+    },
+    "clean": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
+        "cwd": "npm-app"
+      }
+    }
+  },
+  "implicitDependencies": ["common", "code-map"]
+}

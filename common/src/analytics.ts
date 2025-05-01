@@ -1,9 +1,9 @@
-import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 import { PostHog } from 'posthog-node'
 
-import { logger } from './logger'
+import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 
-import { env } from '@/env.mjs'
+import { env } from './env.mjs'
+import { logger } from './util/logger'
 
 let client: PostHog | undefined
 
@@ -16,13 +16,15 @@ export function initAnalytics() {
 
   client = new PostHog(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
     host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
+    flushAt: 1,
+    flushInterval: 0,
   })
 }
-export function flushAnalytics() {
+export async function flushAnalytics() {
   if (!client) {
     return
   }
-  client.flush()
+  await client.flush()
 }
 
 export function trackEvent(
@@ -35,7 +37,7 @@ export function trackEvent(
   }
 
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
-    logger.info({ event }, 'Analytics event tracked')
+    logger.info({ payload: { event, properties } }, 'Analytics event tracked')
     return
   }
 

@@ -1,10 +1,12 @@
 import { readdirSync } from 'fs'
+import * as os from 'os'
 import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
 import { type ApiKeyType } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
@@ -32,10 +34,11 @@ import { showEasterEgg } from './cli-handlers/easter-egg'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
 import { Client } from './client'
 import { websocketUrl } from './config'
+import { disableSquashNewlines, enableSquashNewlines } from './display'
 import { displayGreeting, displayMenu } from './menu'
-import { getProjectRoot, isDir } from './project-files'
+import { getProjectRoot, getWorkingDirectory, isDir } from './project-files'
 import { CliOptions, GitCommand } from './types'
-import { flushAnalytics } from './utils/analytics'
+import { flushAnalytics, trackEvent } from './utils/analytics'
 import { Spinner } from './utils/spinner'
 import {
   isCommandRunning,
@@ -164,7 +167,7 @@ export class CLI {
       : dirname(input)
     const partial = input.endsWith(directorySuffix) ? '' : basename(input)
 
-    let baseDir = isAbsolute(dir) ? dir : path.join(getProjectRoot(), dir)
+    let baseDir = isAbsolute(dir) ? dir : path.join(getWorkingDirectory(), dir)
 
     try {
       const files = readdirSync(baseDir)
@@ -181,7 +184,16 @@ export class CLI {
   }
 
   private setPrompt() {
-    this.rl.setPrompt(green(`${parse(getProjectRoot()).base} > `))
+    const projectRoot = getProjectRoot()
+    const cwd = getWorkingDirectory()
+    const projectDirName = parse(projectRoot).base
+    const ps1Dir =
+      projectDirName +
+      (cwd === projectRoot
+        ? ''
+        : (os.platform() === 'win32' ? '\\' : '/') +
+          path.relative(projectRoot, cwd))
+    this.rl.setPrompt(green(`${ps1Dir} > `))
   }
 
   /**
@@ -201,12 +213,12 @@ export class CLI {
 
     // Check for pending auto-topup message before showing prompt
     if (this.client.pendingTopUpMessageAmount > 0) {
-      this.client.displayChunk(
+      console.log(
         '\n\n' +
           green(
             `Auto top-up successful! ${this.client.pendingTopUpMessageAmount.toLocaleString()} credits added.`
           ) +
-          '\n\n'
+          '\n'
       )
       this.client.pendingTopUpMessageAmount = 0
     }
@@ -217,6 +229,8 @@ export class CLI {
 
     // then prompt
     this.rl.prompt()
+
+    disableSquashNewlines()
 
     if (!userInput) {
       return
@@ -275,6 +289,7 @@ export class CLI {
   }
 
   private async handleUserInput(userInput: string) {
+    enableSquashNewlines()
     this.rl.setPrompt('')
     if (!userInput) {
       this.freshPrompt()
@@ -346,6 +361,9 @@ export class CLI {
 
     // Checkpoint commands
     if (isCheckpointCommand(userInput)) {
+      trackEvent(AnalyticsEvent.CHECKPOINT_COMMAND_USED, {
+        command: userInput,
+      })
       if (isCheckpointCommand(userInput, 'undo')) {
         await saveCheckpoint(userInput, this.client, this.readyPromise)
         const toRestore = await handleUndo(this.client, this.rl)
@@ -447,11 +465,11 @@ export class CLI {
       this.stopResponse()
       this.stopResponse = null
     }
-    console.error(yellow('\nCould not connect. Retrying...'))
+    console.error('\n' + yellow('Could not connect. Retrying...'))
   }
 
   private onWebSocketReconnect() {
-    console.log(green('\nReconnected!'))
+    console.log('\n' + green('Reconnected!'))
     this.freshPrompt()
   }
 

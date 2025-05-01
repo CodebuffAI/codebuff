@@ -1,14 +1,15 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
+import { AgentResponseTrace, insertTrace } from '@codebuff/bigquery'
 import { ClientAction } from 'common/actions'
-import { insertTrace } from 'common/bigquery/client'
-import { AgentResponseTrace } from 'common/bigquery/schema'
 import {
   HIDDEN_FILE_READ_STATUS,
   models,
   ONE_TIME_LABELS,
   type CostMode,
 } from 'common/constants'
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { getToolCallString } from 'common/constants/tools'
+import { trackEvent } from 'common/src/analytics'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
@@ -40,7 +41,7 @@ import {
 } from './tools'
 import { logger } from './util/logger'
 import {
-  asSystemInstructions,
+  asSystemInstruction,
   asSystemMessage,
   getMessagesSubset,
 } from './util/messages'
@@ -62,6 +63,7 @@ import {
   requestOptionalFile,
 } from './websockets/websocket-action'
 import { processStrReplace } from './process-str-replace'
+
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
 export const mainPrompt = async (
@@ -76,8 +78,15 @@ export const mainPrompt = async (
   toolCalls: Array<ClientToolCall>
   toolResults: Array<ToolResult>
 }> => {
-  const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
-    action
+  const {
+    prompt,
+    agentState,
+    fingerprintId,
+    costMode,
+    promptId,
+    toolResults,
+    cwd,
+  } = action
   const { messageHistory, fileContext, agentContext } = agentState
 
   const { getStream, model } = getAgentStream({
@@ -187,10 +196,16 @@ export const mainPrompt = async (
       role: 'user' as const,
       content: renderToolResults(toolResults),
     },
-    prompt && {
-      role: 'user' as const,
-      content: prompt,
-    }
+    prompt && [
+      cwd && {
+        role: 'user' as const,
+        content: asSystemMessage(`cwd: ${cwd}`),
+      },
+      {
+        role: 'user' as const,
+        content: prompt,
+      },
+    ]
   )
 
   if (prompt) {
@@ -353,7 +368,7 @@ export const mainPrompt = async (
     readFileMessages.push(
       {
         role: 'user' as const,
-        content: asSystemInstructions(
+        content: asSystemInstruction(
           'Before continuing with the user request, read some relevant files first.'
         ),
       },
@@ -391,12 +406,12 @@ export const mainPrompt = async (
       ? // Add in new copy of user instructions.
         {
           role: 'user' as const,
-          content: asSystemInstructions(userInstructions),
+          content: asSystemInstruction(userInstructions),
         }
       : // Add in new copy of tool instructions.
         toolInstructions && {
           role: 'user' as const,
-          content: asSystemInstructions(toolInstructions),
+          content: asSystemInstruction(toolInstructions),
         },
 
     relevantDocumentation && {
@@ -407,13 +422,14 @@ export const mainPrompt = async (
     },
 
     prompt && [
+      cwd && { role: 'user' as const, content: asSystemMessage(`cwd: ${cwd}`) },
       {
         role: 'user' as const,
         content: prompt,
       },
       prompt in additionalSystemPrompts && {
         role: 'user' as const,
-        content: asSystemInstructions(
+        content: asSystemInstruction(
           additionalSystemPrompts[
             prompt as keyof typeof additionalSystemPrompts
           ]
@@ -663,6 +679,10 @@ export const mainPrompt = async (
     }
 
     const { name, parameters } = toolCall
+    trackEvent(AnalyticsEvent.TOOL_USE, userId ?? '', {
+      tool: name,
+      parameters,
+    })
     if (name === 'write_file' || name === 'str_replace') {
       // write_file and str_replace tool calls are handled as they are streamed in.
     } else if (name === 'add_subgoal' || name === 'update_subgoal') {

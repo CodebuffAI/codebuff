@@ -28,8 +28,9 @@
     "bump": "bun run scripts/bump-version.ts",
     "deploy:npm-app": "bun run bump && cd npm-app && npm publish",
     "test:patch": "bun test test/__src__/patch.test.ts",
-    "build": "bun run --filter common --filter './packages/**' --filter backend --filter codebuff --filter web build",
-    "typecheck-only": "bun run --filter common --filter './packages/**' --filter backend --filter codebuff --filter web typecheck-only",
+    "build": "nx run-many --target=build --projects=common,packages/*,backend,npm-app,web",
+    "clean": "nx run-many --target=clean --projects=common,packages/*,backend,npm-app,web",
+    "typecheck-only": "nx run-many --target=typecheck-only --projects=common,packages/*,backend,npm-app,web",
     "typecheck": "bun run build && bun run typecheck-only"
   },
   "devDependencies": {
@@ -40,6 +41,7 @@
     "bun-types": "^1.2.2",
     "ignore": "^6.0.2",
     "lodash": "4.17.21",
+    "nx": "^20.8.1",
     "prettier": "3.3.2",
     "ts-node": "^10.9.2",
     "ts-pattern": "^5.5.0",

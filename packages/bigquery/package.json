@@ -1,5 +1,5 @@
 {
-  "name": "@codebuff/billing",
+  "name": "@codebuff/bigquery",
   "version": "1.0.0",
   "license": "UNLICENSED",
   "main": "dist/index.js",
@@ -11,8 +11,8 @@
     "typecheck-only": "tsc --noEmit"
   },
   "dependencies": {
-    "common": "workspace:*",
-    "zod": "3.23.8"
+    "@google-cloud/bigquery": "^7.9.4",
+    "common": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

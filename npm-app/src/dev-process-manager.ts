@@ -39,7 +39,7 @@ export function startDevProcesses(
     }
 
     // Resolve working directory
-    const workingDir = cwd
+    const absoluteCwd = cwd
       ? path.isAbsolute(cwd)
         ? cwd
         : path.resolve(projectPath, cwd)
@@ -51,7 +51,7 @@ export function startDevProcesses(
         toolCallId: generateCompactId(),
         command,
         mode: 'user',
-        projectPath: workingDir,
+        cwd: absoluteCwd,
         stdoutFile,
         stderrFile,
       },
@@ -65,4 +65,6 @@ export function startDevProcesses(
       }
     )
   }
+
+  console.log()
 }

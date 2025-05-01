@@ -1,0 +1,34 @@
+name: 'Setup Job'
+description: 'Common setup steps for CI jobs'
+
+inputs:
+  bun-version:
+    description: 'Version of Bun to use'
+    required: false
+    default: '1.1.26'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check out repository
+      uses: actions/checkout@v3
+
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+
+    # Create .env.local file
+    - name: Get Credentials
+      shell: bash
+      run: |
+        echo "${{ env.ENV_LOCAL }}" > .env.local
+        echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
+
+    - name: Restore dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          node_modules
+          */node_modules
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}

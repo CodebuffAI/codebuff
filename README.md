@@ -101,6 +101,23 @@ If you want to set up Codebuff for local development:
    bun run start-client
    ```
 
+## Troubleshooting
+
+### Build Issues
+
+If you encounter a build error like this:
+
+```bash
+NX  DB transaction operation error: SqliteFailure(Error { code: DatabaseCorrupt, extended_code: 11 }, Some("database disk image is malformed"))
+```
+
+This means the Nx build cache database has become corrupted. This can happen due to sudden process termination, disk errors, or system crashes. To fix it:
+
+1. Run `bunx nx reset` to clear the cache and stop the Nx daemon
+2. Try your build command again
+
+Note that the next build will be slower since the cache needs to be rebuilt.
+
 ## Licensing
 
 1. NPM Package: The npm package contained in this project is licensed under the MIT License. See the LICENSE file in the npm package directory for details.

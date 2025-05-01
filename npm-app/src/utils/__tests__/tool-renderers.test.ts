@@ -38,7 +38,7 @@ describe('Tool renderers with XML parser', () => {
     })
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
-    expect(stripped).toBe('[Write File]\nEditing file at test.ts...\n')
+    expect(stripped).toBe('\n\n[Write File]\nEditing file at test.ts...\n\n\n')
   })
 
   test('formats read_files tool call', async () => {
@@ -47,6 +47,6 @@ describe('Tool renderers with XML parser', () => {
     })
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
-    expect(stripped).toBe('[Read Files]\nfile1.ts\nfile2.ts\n')
+    expect(stripped).toBe('\n\n[Read Files]\nfile1.ts\nfile2.ts\n\n')
   })
 })

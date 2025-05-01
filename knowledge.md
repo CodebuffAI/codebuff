@@ -303,3 +303,17 @@ Only run type checking when:
 1. Specifically requested by the user
 2. Making non-trivial changes that could affect types
 3. Changing code that is imported by other files
+
+## Build System Notes
+
+The project uses Nx for build management and caching. Some important notes:
+
+- Nx maintains a SQLite cache database to speed up subsequent builds
+- The cache can become corrupted in certain scenarios:
+  - Sudden process termination during builds
+  - Multiple Nx processes writing simultaneously
+  - Disk errors or space issues
+  - System crashes
+- If you see `database disk image is malformed` errors, run `npx nx reset` to clear the cache
+- Don't include `nx reset` in build scripts as it defeats the purpose of incremental builds
+- The reset command should be used as a troubleshooting step only

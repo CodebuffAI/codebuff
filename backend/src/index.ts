@@ -1,6 +1,7 @@
 import http from 'http'
 
-import { setupBigQuery } from 'common/src/bigquery/client'
+import { setupBigQuery } from '@codebuff/bigquery'
+import { flushAnalytics, initAnalytics } from 'common/src/analytics'
 import cors from 'cors'
 import express from 'express'
 
@@ -10,7 +11,6 @@ import {
 } from './admin/relabelRuns'
 import usageHandler from './api/usage'
 import { env } from './env.mjs'
-import { flushAnalytics, initAnalytics } from './util/analytics'
 import { checkAdmin } from './util/check-auth'
 import { logger } from './util/logger'
 import {

@@ -8,21 +8,34 @@ import { red } from 'picocolors'
 import packageJson from '../package.json'
 import { CLI } from './cli'
 import { createTemplateProject } from './create-template-project'
+import { enableSquashNewlines } from './display'
 import {
+  getStartingDirectory,
   initProjectFileContextWithWorker,
   setProjectRoot,
+  setWorkingDirectory,
 } from './project-files'
 import { logAndHandleStartup } from './startup-process-handler'
 import { CliOptions } from './types'
 import { updateCodebuff } from './update-codebuff'
 import { initAnalytics } from './utils/analytics'
+import { findGitRoot } from './utils/git'
 import { recreateShell } from './utils/terminal'
 
 async function codebuff(
   projectDir: string | undefined,
   { initialInput, git, costMode, runInitFlow, model }: CliOptions
 ) {
-  const dir = setProjectRoot(projectDir)
+  enableSquashNewlines()
+
+  // First try to find a git root directory
+  if (!projectDir) {
+    projectDir = getStartingDirectory()
+  }
+  const gitRoot = findGitRoot(projectDir)
+  const dir = setProjectRoot(gitRoot || projectDir)
+  setWorkingDirectory(projectDir)
+
   recreateShell(dir)
 
   // Load config file if it exists

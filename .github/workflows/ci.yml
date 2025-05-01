@@ -1,3 +1,27 @@
+# This workflow runs CI checks including building, typechecking, and testing the codebase
+# Tests are parallelized to run faster by splitting them into separate jobs that run concurrently
+#
+# Workflow visualization:
+# ```mermaid
+# graph TD
+#     setup[Setup - Install & Cache Dependencies]
+#     build[Build - Compile Project]
+#     typecheck[Typecheck - Ensure Type Safety]
+#     test1[Test npm-app]
+#     test2[Test backend]
+#     test3[Test common]
+#
+#     setup --> build
+#     build --> typecheck
+#     typecheck --> test1
+#     typecheck --> test2
+#     typecheck --> test3
+#
+#     style test1 fill:#f9f,stroke:#333,stroke-width:2px
+#     style test2 fill:#f9f,stroke:#333,stroke-width:2px
+#     style test3 fill:#f9f,stroke:#333,stroke-width:2px
+# ```
+
 name: CI
 
 on:
@@ -7,47 +31,176 @@ on:
     branches: ['main']
 
 jobs:
-  build-and-test:
+  # Initial setup job that installs dependencies and caches them for other jobs
+  setup:
     runs-on: ubuntu-latest
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
 
       - name: Install dependencies
-        run: bun install
-
-      - name: Build dependencies
-        run: |
-          bun run --cwd common build
-          bun run --cwd packages/billing build
-
-      - name: Typecheck all packages
-        run: bun run typecheck
+        run: bun install --frozen-lockfile
 
       - name: Get Credentials
-        run: echo "${{ secrets.ENV_LOCAL }}" > .env.local
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
+
+      # Cache node_modules to speed up subsequent jobs
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+  # Build job that compiles the project
+  # Depends on: setup
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
+
+      # Create .env.local file
+      - name: Get Credentials
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
+
+      # Restore cached dependencies from setup job
+      - name: Restore dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+
+      - name: Build dependencies
+        run: bun run build
+
+      - name: Typecheck dependencies
+        run: bun run typecheck-only
+
+  # The following three test jobs run in parallel after build completes
+  # Each job uses retry logic to handle flaky tests
+
+  # Test job for npm-app package
+  # Depends on: build
+  test-npm-app:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
+
+      # Create .env.local file
+      - name: Get Credentials
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
+
+      - name: Restore dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
 
       - name: Run npm-app tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: CODEBUFF_GITHUB_ACTIONS=true cd npm-app && bun test
+          command: bun test ./npm-app/**/*.test.ts
+
+  # Test job for backend package
+  # Depends on: build
+  test-backend:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
+
+      # Create .env.local file
+      - name: Get Credentials
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
+
+      - name: Restore dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
 
       - name: Run backend tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: CODEBUFF_GITHUB_ACTIONS=true cd backend && bun test
+          command: bun test ./backend/**/*.test.ts
+
+  # Test job for common package
+  # Depends on: build
+  test-common:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.1.26
+
+      # Create .env.local file
+      - name: Get Credentials
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
+
+      - name: Restore dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
 
       - name: Run common tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: CODEBUFF_GITHUB_ACTIONS=true cd common && bun test
+          command: bun test ./common/**/*.test.ts

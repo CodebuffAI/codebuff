@@ -1,19 +1,21 @@
-import type { NextAuthOptions, User, DefaultSession } from 'next-auth'
-import GitHubProvider from 'next-auth/providers/github'
 import { DrizzleAdapter } from '@auth/drizzle-adapter'
-
-import { env } from '@/env.mjs'
-import { stripeServer } from 'common/src/util/stripe'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
-import { eq } from 'drizzle-orm'
-import { Adapter } from 'next-auth/adapters'
 import { processAndGrantCredit } from '@codebuff/billing'
 import { DEFAULT_FREE_CREDITS_GRANT } from 'common/constants'
-import { logger } from '@/util/logger'
-import { logSyncFailure } from 'common/src/util/sync-failure'
-import { generateCompactId } from 'common/src/util/string'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { trackEvent } from 'common/src/analytics'
+import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 import { getNextQuotaReset } from 'common/src/util/dates'
+import { generateCompactId } from 'common/src/util/string'
+import { stripeServer } from 'common/src/util/stripe'
+import { logSyncFailure } from 'common/src/util/sync-failure'
+import { eq } from 'drizzle-orm'
+import type { NextAuthOptions } from 'next-auth'
+import { Adapter } from 'next-auth/adapters'
+import GitHubProvider from 'next-auth/providers/github'
+
+import { env } from '@/env.mjs'
+import { logger } from '@/util/logger'
 
 async function createAndLinkStripeCustomer(
   userId: string,
@@ -234,6 +236,8 @@ export const authOptions: NextAuthOptions = {
       }
 
       await sendSignupEventToLoops(userData.id, userData.email, userData.name)
+
+      trackEvent(AnalyticsEvent.SIGNUP, userData.id)
 
       logger.info({ user }, 'createUser event processing finished.')
     },

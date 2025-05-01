@@ -16,12 +16,23 @@ import { countTokensJson } from './token-counter'
 export const messagesWithSystem = (messages: Message[], system: System) =>
   [{ role: 'system', content: system }, ...messages] as OpenAIMessage[]
 
-export function asSystemInstructions(str: string): string {
+export function asSystemInstruction(str: string): string {
   return `<system_instructions>${str}</system_instructions>`
 }
 
 export function asSystemMessage(str: string): string {
   return `<system>${str}</system>`
+}
+
+export function isSystemInstruction(str: string): boolean {
+  return (
+    str.startsWith('<system_instructions>') &&
+    str.endsWith('</system_instructions>')
+  )
+}
+
+export function isSystemMessage(str: string): boolean {
+  return str.startsWith('<system>') && str.endsWith('</system>')
 }
 
 /**

@@ -22,7 +22,7 @@ Important:
 
 # Subgoals
 
-First, create and edit subgoals if none exist and pursue the most appropriate one. This is important, as you may forget what happened later! Use the <add_subgoal> and <update_subgoal> tools for this.
+First, create and edit subgoals if none exist and pursue the most appropriate one. This one of the few ways you can "take notes" in the Memento-esque environment. This is important, as you may forget what happened later! Use the <add_subgoal> and <update_subgoal> tools for this.
 
 The following is a mock example of the subgoal schema:
 <subgoal>

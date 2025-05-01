@@ -1,8 +1,8 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { insertTrace } from 'common/bigquery/client'
-import { GetRelevantFilesTrace } from 'common/bigquery/schema'
+import { insertTrace } from '@codebuff/bigquery'
+import { GetRelevantFilesTrace } from '@codebuff/bigquery'
 import { models, type CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { Message } from 'common/types/message'
@@ -12,7 +12,7 @@ import {
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
 } from 'common/util/file'
-import { range, shuffle, uniq } from 'lodash'
+import { uniq, shuffle, range } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { System } from '../llm-apis/claude'
