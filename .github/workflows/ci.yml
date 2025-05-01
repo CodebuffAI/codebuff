@@ -74,7 +74,7 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: bun test ./backend/src/**/*.test.ts
+          command: cd backend && bun test ./src/**/*.test.ts
 
   # Test job for common package
   # Depends on: build
