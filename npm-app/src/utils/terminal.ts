@@ -373,6 +373,7 @@ export const runTerminalCommand = async (
   command: string,
   mode: 'user' | 'assistant',
   processType: 'SYNC' | 'BACKGROUND',
+  timeout_seconds: number,
   stdoutFile?: string,
   stderrFile?: string
 ): Promise<{ result: string; stdout: string }> => {
@@ -426,8 +427,9 @@ export const runTerminalCommand = async (
         persistentProcess,
         modifiedCommand,
         mode,
-        resolveCommand,
-        cwd
+        cwd,
+        timeout_seconds,
+        resolveCommand
       )
     } else {
       // Fallback to child_process implementation
@@ -435,8 +437,9 @@ export const runTerminalCommand = async (
         persistentProcess,
         modifiedCommand,
         mode,
-        resolveCommand,
-        cwd
+        cwd,
+        timeout_seconds,
+        resolveCommand
       )
     }
   })
@@ -452,12 +455,13 @@ export const runCommandPty = (
   },
   command: string,
   mode: 'user' | 'assistant',
+  cwd: string,
+  timeout_seconds: number,
   resolve: (value: {
     result: string
     stdout: string
     exitCode: number | null
-  }) => void,
-  cwd: string
+  }) => void
 ) => {
   const ptyProcess = persistentProcess.pty
 
@@ -491,13 +495,13 @@ export const runCommandPty = (
         result: formatResult(
           command,
           commandOutput,
-          `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated. Shell has been restarted.`
+          `Command timed out after ${timeout_seconds} seconds and was terminated. Shell has been restarted.`
         ),
         stdout: commandOutput,
         exitCode: 124,
       })
     }
-  }, MAX_EXECUTION_TIME)
+  }, timeout_seconds * 1000)
 
   persistentProcess.timerId = timer
 
@@ -601,12 +605,13 @@ const runCommandChildProcess = (
   },
   command: string,
   mode: 'user' | 'assistant',
+  cwd: string,
+  timeout_seconds: number,
   resolve: (value: {
     result: string
     stdout: string
     exitCode: number | null
-  }) => void,
-  cwd: string
+  }) => void
 ) => {
   const isWindows = os.platform() === 'win32'
   let commandOutput = ''
@@ -641,13 +646,13 @@ const runCommandChildProcess = (
         result: formatResult(
           command,
           commandOutput,
-          `Command timed out after ${MAX_EXECUTION_TIME / 1000} seconds and was terminated.`
+          `Command timed out after ${timeout_seconds} seconds and was terminated.`
         ),
         stdout: commandOutput,
         exitCode: 124,
       })
     }
-  }, MAX_EXECUTION_TIME)
+  }, timeout_seconds * 1000)
 
   persistentProcess.timerId = timer
 

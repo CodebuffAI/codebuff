@@ -76,16 +76,23 @@ export const handleRunTerminalCommand = async (
   parameters: {
     command: string
     mode?: 'user' | 'assistant'
-    process_type: 'SYNC' | 'BACKGROUND'
+    process_type?: 'SYNC' | 'BACKGROUND'
+    timeout_seconds?: number
   },
   id: string
 ): Promise<{ result: string; stdout: string }> => {
-  const { command, mode = 'assistant', process_type = 'SYNC' } = parameters
+  const {
+    command,
+    mode = 'assistant',
+    process_type = 'SYNC',
+    timeout_seconds = 30,
+  } = parameters
   return runTerminalCommand(
     id,
     command,
     mode,
-    process_type.toUpperCase() as 'SYNC' | 'BACKGROUND'
+    process_type.toUpperCase() as 'SYNC' | 'BACKGROUND',
+    timeout_seconds
   )
 }
 

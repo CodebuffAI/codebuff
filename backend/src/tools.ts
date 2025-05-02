@@ -15,13 +15,15 @@ const tools = [
     name: 'add_subgoal',
     description: `
 ### add_subgoal
-Description: Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!
-Parameters:
-- id: (required) A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.
-- objective: (required) The objective of the subgoal, concisely and clearly stated.
-- status: (required) The status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "ABORTED"]
-- plan: (optional) A plan for the subgoal.
-Usage:
+
+Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!
+Params:
+- \`id\`: (required) A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.
+- \`objective\`: (required) The objective of the subgoal, concisely and clearly stated.
+- \`status\`: (required) The status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "ABORTED"]
+- \`plan\`: (optional) A plan for the subgoal.
+
+Example:
 ${getToolCallString('add_subgoal', {
   id: '1',
   objective: 'Add a new "deploy api" subgoal',
@@ -33,12 +35,17 @@ ${getToolCallString('add_subgoal', {
     name: 'update_subgoal',
     description: `
 ### update_subgoal
-Description: Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.
-Parameters:
-- id: (required) The id of the subgoal to update.
-- status: (optional) Change the status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "FAILED"]
-- plan: (optional) Change the plan for the subgoal.
-- log: (optional) Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.
+
+Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.
+
+Params:
+- \`id\`: (required) The id of the subgoal to update.
+- \`status\`: (optional) Change the status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "FAILED"]
+- \`plan\`: (optional) Change the plan for the subgoal.
+- \`log\`: (optional) Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.
+
+Examples:
+
 Usage 1 (update status):
 ${getToolCallString('update_subgoal', {
   id: '1',
@@ -48,20 +55,20 @@ ${getToolCallString('update_subgoal', {
 Usage 2 (update plan):
 ${getToolCallString('update_subgoal', {
   id: '3',
-  plan: 'Create a file for the endpoint in the api, and register it in the router',
+  plan: 'Create file for endpoint in the api. Register it in the router.',
 })}
 
 Usage 3 (add log):
 ${getToolCallString('update_subgoal', {
   id: '1',
-  log: "I found the error in the tests, it's in the foo function.",
+  log: 'Found the error in the tests. Culprit: foo function.',
 })}
 
 Usage 4 (update status and add log):
 ${getToolCallString('update_subgoal', {
   id: '1',
   status: 'COMPLETE',
-  log: 'I reran the tests and they passed.',
+  log: 'Reran the tests (passed)',
 })}
     `.trim(),
   },
@@ -69,7 +76,8 @@ ${getToolCallString('update_subgoal', {
     name: 'write_file',
     description: `
 ### write_file
-Description: Create or edit a file with the given content.
+
+Create or edit a file with the given content.
 
 When editing a file, please use this tool to output a simplified version of the code block that highlights the changes necessary and adds comments to indicate where unchanged code has been skipped.
 
@@ -84,10 +92,19 @@ These edit codeblocks will be parsed and then read by a less intelligent "apply"
 
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
+Notes for editing a file:
+- Don't use XML attributes. If you do, the tool will NOT write to the file.
+- If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
+- When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
+- You can also use this tool to create new files.
+- After you have written out a write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
+- Don't escape characters — write them out directly! E.g. write out '&' instead of '&amp;', '>' instead of '&gt;', '<' instead of '&lt;', and '"' instead of '&quot;' in the content.
+
 Parameters:
-- path: (required) Path to the file relative to the **project root**
-- content: (required) Content to write to the file. You should abridge the content of the file using placeholder comments like: \`// ... existing code ...\` or \`# ... existing code ...\` (or whichever is appropriate for the language).
-Usage:
+- \`path\`: (required) Path to the file relative to the **project root**
+- \`content\`: (required) Content to write to the file. You should abridge the content of the file using placeholder comments like: \`// ... existing code ...\` or \`# ... existing code ...\` (or whichever is appropriate for the language).
+
+Examples:
 ${getToolCallString('write_file', {
   path: 'path/to/file',
   content: 'Your file content here',
@@ -115,42 +132,39 @@ function foo() {
 // ... existing code ...`,
 })}
 
-Notes for editing a file:
-- Don't use XML attributes. If you do, the tool will NOT write to the file.
-- If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
-- When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
-- You can also use this tool to create new files.
-- After you have written out a write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
-- Don't escape characters — write them out directly! E.g. write out '&' instead of '&amp;', '>' instead of '&gt;', '<' instead of '&lt;', and '"' instead of '&quot;' in the content.
     `.trim(),
   },
   {
     name: 'str_replace',
     description: `
 ### str_replace
-Description: Replace a string in a file with a new string. This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
-Parameters:
-- path: (required) The path to the file to edit.
-- old: (required) The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
-- new: (required) The new string to replace the old string with.
-Usage:
+
+Replace a string in a file with a new string. This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
+
+Note: You can create a new file with a new path by setting old to an empty string.
+
+Params:
+- \`path\`: (required) The path to the file to edit.
+- \`old\`: (required) The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
+- \`new\`: (required) The new string to replace the old string with.
+
+Example:
 ${getToolCallString('str_replace', {
   path: 'path/to/file',
   old: 'old',
   new: 'new',
 })}
-
-Note: You can create a new file with a new path by setting old to an empty string.
     `.trim(),
   },
   {
     name: 'read_files',
     description: `
 ### read_files
-Description: Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request. Make sure to read any files before you write to them with the write_file tool.
-Parameters:
-- paths: (required) List of file paths to read relative to the **project root**, separated by newlines. Absolute file paths will not work.
-Usage:
+Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request. Make sure to read any files before you write to them with the write_file tool.
+Params:
+- \`paths\`: (required) List of file paths to read relative to the **project root**, separated by newlines. Absolute file paths will not work.
+
+Example:
 ${getToolCallString('read_files', {
   paths: 'path/to/file1.ts\npath/to/file2.ts',
 })}
@@ -162,13 +176,15 @@ Note that there's no need to call this tool if you're already reading the files 
     name: 'find_files',
     description: `
 ### find_files
-Description: Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.
-Parameters:
-- description: (required) A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
-Usage:
-<find_files>
-<description>The implementation of function foo</description>
-</find_files>
+Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.
+
+Params:
+- \`description\`: (required) A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
+
+Example:
+${getToolCallString('find_files', {
+  description: 'The implementation of function foo',
+})}
 
 Purpose: Better fulfill the user request by reading files which could contain information relevant to the user's request.
 Use cases:
@@ -187,12 +203,7 @@ In general, prefer using read_files instead of find_files.
     name: 'code_search',
     description: `
 ### code_search
-Description: Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.
-Parameters:
-- pattern: (required) The pattern to search for.
-Usage:
-${getToolCallString('code_search', { pattern: 'foo' })}
-${getToolCallString('code_search', { pattern: 'import.*foo' })}
+Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.
 
 Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
 
@@ -214,23 +225,21 @@ The pattern supports regular expressions and will search recursively through all
 - Automatically ignores binary files, hidden files, and files in .gitignore
 - Case-sensitive by default. Use -i to make it case insensitive.
 - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
+
+Params:
+- pattern: (required) The pattern to search for.
+
+Examples:
+${getToolCallString('code_search', { pattern: 'foo' })}
+${getToolCallString('code_search', { pattern: 'import.*foo' })}
+
     `.trim(),
   },
   {
     name: 'run_terminal_command',
     description: `
 ### run_terminal_command
-Description: Request to execute a CLI command on the system. Use this when you need to perform system operations or run specific commands to accomplish any step in the user's task. You must tailor your command to the user's system and provide a clear explanation of what the command does. For command chaining, use the appropriate chaining syntax for the user's shell. Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run. Commands will be executed in the current working directory: ${process.cwd()}
-Parameters:
-- command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
-- process_type: (required) What type of process to run. One of SYNC or BACKGROUND.
-  - SYNC: the command will be run in (and block) the current process. This is required if the output of the command is needed immediately. Most commands will be run in this way. Do not try to run processes in the background with process_type=SYNC and using & at the end of the command. Instead, use the process_type=BACKGROUND option.
-  - BACKGROUND: the command will be run in a child background process. This is for running servers or other long-running processes.
-Usage:
-${getToolCallString('run_terminal_command', {
-  command: 'Your command here',
-  process_type: 'value',
-})}
+Execute a CLI command in the user's working directory.
 
 Stick to these use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
@@ -249,13 +258,8 @@ When using this tool, please adhere to the following rules:
 5. Do not use the run_terminal_command tool to create or edit files. Do not use \`cat\` or \`echo\` to create or edit files. You should instead write out <write_file> blocks for for editing or creating files as detailed above in the <editing_instructions> block.
 6. Do not install packages without asking, unless it is within a small, new-ish project. Users working on a larger project will want to manage packages themselves, so ask first.
 7. Do not use the wrong package manager for the project. For example, if the project uses \`pnpm\` or \`bun\` or \`yarn\`, you should not use \`npm\`. Similarly not everyone uses \`pip\` for python, etc.
-8. You must write out ampersands without escaping them. E.g. write out '&' instead of '&amp;'.
-Incorrect:
-\`cd backend &amp;&amp; npm typecheck\` 
-Correct:
-\`cd backend && npm typecheck\`
-10. Do not use more than one run_terminal_command tool call in a single response. Wait for the tool results of each command before invoking the next one.
-11. The user will not be able to interact with these processes, e.g. confirming the command. So if there's an opportunity to use "-y" or "--yes" flags, use them. Any command that prompts for confirmation will hang if you don't use the flags.
+8. Do not use more than one run_terminal_command tool call in a single response. Wait for the tool results of each command before invoking the next one.
+9. The user will not be able to interact with these processes, e.g. confirming the command. So if there's an opportunity to use "-y" or "--yes" flags, use them. Any command that prompts for confirmation will hang if you don't use the flags.
 
 Notes:
 - The current working directory will always reset to **user's** working directory directory for each command you run. You can only access files within this directory (or sub-directories). So if you run cd in one command, the directory change won't persist to the next command.
@@ -264,66 +268,62 @@ Notes:
 - Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
 
 ${gitCommitGuidePrompt}
+
+Params:  
+- \`command\`: (required) CLI command valid for user's OS.
+- \`process_type\`: (optional) Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC
+- \`timeout_seconds\`: (optional) Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30
+
+Example:
+${getToolCallString('run_terminal_command', {
+  command: 'echo "hello world"',
+  process_type: 'SYNC',
+})}
     `.trim(),
   },
   {
     name: 'think_deeply',
     description: `
 ### think_deeply
-Description: Think through a complex change to the codebase, like implementing a new feature or refactoring some code. Brainstorm. Go deep on alternative approaches and consider the tradeoffs.
-Parameters: thought: (required) Your detailed thoughts.
-Usage:
+
+Deeply consider complex tasks by brainstorming approaches and tradeoffs step-by-step.
+
+Use when user request:
+- Explicitly asks for deep planning.
+- Requires multi-file changes or complex logic.
+- Involves significant architecture or potential edge cases.
+
+Avoid for simple changes (e.g., single functions, minor edits).
+
+Params:
+- \`thought\`: (required) Detailed step-by-step analysis. Initially keep each step concise (max ~5-7 words per step).
+
+Example:
 ${getToolCallString('think_deeply', {
-  thought: '[Insert detailed thoughts here]',
+  thought: [
+    '1. Check current user authentication',
+    '2. Refactor auth logic into module',
+    '3. Update imports across project',
+    '4. Add tests for new module',
+  ].join('\n'),
 })}
-
-Think step by step. For the first section of your thinking, only keep a minimum draft for each thinking step, with 5 words at most.
-
-Use this tool when the user request meets multiple of these criteria:
-- Explicitly asks you to plan or think through something.
-- Always use this tool right before using the create_plan tool.
-- Requires changes across multiple files or systems
-- Involves complex logic or architectural decisions
-- Would benefit from breaking down into smaller steps
-- Has potential edge cases or risks that need consideration
-
-Examples of when to use it:
-- Adding a new feature that touches multiple parts of the system
-- Refactoring core functionality used by many components
-- Making architectural changes that affect the system design
-- Implementing complex business logic with many edge cases
-
-Do not use it for simple changes like:
-- Adding a single function or endpoint
-- Updating text or styles
     `.trim(),
   },
   {
     name: 'create_plan',
     description: `
 ### create_plan
-Description: Create a plan for a complex change to the codebase, like implementing a new feature or refactoring some code.
-Parameters:
-- path: (required) The path including the filename of a markdown file that will be overwritten with the plan.
-- plan: (required) A detailed plan to solve the user's request.
 
-Usage:
-${getToolCallString('create_plan', {
-  path: 'feature-name-plan.md',
-  plan: '[Insert long detailed plan here]',
-})}
+Generate a detailed markdown plan for complex tasks.
 
-Use this tool when the user asks you to plan something, or asks you to help with a new feature or refactoring that requires planning.
+Use when:  
+- User explicitly requests a detailed plan.  
+- Task involves significant architectural or multi-file changes.
+- Only use this tool to create new plans. Do not modify existing plans using this tool—use the \`write_file\` tool instead for modifications.
 
-Examples of when to use it:
-- Adding a new feature that touches multiple parts of the system
-- Refactoring core functionality used by many components
-- Making architectural changes that affect the system design
-- Implementing complex business logic with many edge cases
-
-Do not use it for simple changes like:
-- Adding a single function or endpoint
-- Updating text or styles
+Don't include:
+- Goals, timelines, benefits, next steps.  
+- Background context or extensive explanations.
 
 For a technical plan, act as an expert architect engineer and provide direction to your editor engineer.
 - Study the change request and the current code.
@@ -345,32 +345,37 @@ Do not include any of the following sections in the plan:
 After creating than plan, you should end turn to let the user review the plan.
 
 Important: Use this tool sparingly. Do not use this tool more than once in a conversation, if a plan was already created, or for similar user requests.
+
+Params:
+- \`path\`: (required) The path including the filename of a markdown file that will be overwritten with the plan.
+- \`plan\`: (required) A detailed plan to solve the user's request.
+
+Examples:
+${getToolCallString('create_plan', {
+  path: 'feature-x-plan.md',
+  plan: [
+    '1. Create module `auth.ts` in `/src/auth/`.',
+    '```ts',
+    'export function authenticate(user: User): boolean { /* pseudo-code logic */ }',
+    '```',
+    '2. Refactor existing auth logic into this module.',
+    '3. Update imports across codebase.',
+    '4. Write integration tests covering new module logic.',
+  ].join('\n'),
+})}
     `.trim(),
   },
   {
     name: 'browser_logs',
     description: `
 ### browser_logs
-Description: In a headless browser, navigate to a web page and get the console logs after page load.
+
+In a headless browser, navigate to a web page and get the console logs after page load.
+
 Purpose: Use this tool to check the output of console.log or errors in order to debug issues, test functionality, or verify expected behavior.
 
 IMPORTANT: Assume the user's development server is ALREADY running and active, unless you see logs indicating otherwise. Never start the user's development server for them, unless they ask you to do so.
 Never offer to interact with the website aside from reading them (see available actions below). The user will manipulate the website themselves and bring you to the UI they want you to interact with.
-
-There is currently only one type of browser action available:
-Navigate:
-   - Load a new URL in the current browser window and get the logs after page load.
-   - Required: <url>, <type>navigate</type>
-   - Optional: <waitUntil> ('load', 'domcontentloaded', 'networkidle0')
-
-Usage:
-${getToolCallString('browser_logs', {
-  type: 'navigate',
-  url: 'localhost:3000',
-  waitUntil: 'domcontentloaded',
-})}
-
-IMPORTANT: make absolutely totally sure that you're using the XML tags as shown in the examples. Don't use JSON or any other formatting, only XML tags.
 
 ### Response Analysis
 
@@ -399,15 +404,33 @@ Use this data to:
 - Collect data at each step
 - Analyze results before next action
 - Take screenshots to track your changes after each UI change you make
+
+There is currently only one type of browser action available:
+Navigate:
+   - Load a new URL in the current browser window and get the logs after page load.
+   Params:
+   - \`type\`: Must be equal to 'navigate'
+   - \`url\`: (required)
+   - \`waitUntil\`: (required) One of 'load', 'domcontentloaded', 'networkidle0'
+
+Example:
+${getToolCallString('browser_logs', {
+  type: 'navigate',
+  url: 'localhost:3000',
+  waitUntil: 'domcontentloaded',
+})}
     `.trim(),
   },
   {
     name: 'end_turn',
     description: `
 ### end_turn
-Description: End your turn. You must use this tool when you've fully responded to the user. Either you've completed the user's request, need more information from the user, or feel like you are not making progress and want help from the user.
-Parameters: None
-Usage:
+
+End your turn. You must use this tool when you've fully responded to the user. Either you've completed the user's request, need more information from the user, or feel like you are not making progress and want help from the user.
+
+Params: None
+
+Example:
 ${getToolCallString('end_turn', {})}
     `.trim(),
   },
@@ -454,16 +477,10 @@ const codeSearchSchema = z.object({
   pattern: z.string().min(1, 'Pattern cannot be empty'),
 })
 
-const ProcessTypeEnum = z.enum(['SYNC', 'BACKGROUND'])
-
-const processTypeSchema = z
-  .string({ required_error: 'process_type must be either SYNC or BACKGROUND' })
-  .transform((val) => val.toUpperCase())
-  .pipe(ProcessTypeEnum)
-
 const runTerminalCommandSchema = z.object({
   command: z.string().min(1, 'Command cannot be empty'),
-  process_type: processTypeSchema,
+  process_type: z.enum(['SYNC', 'BACKGROUND']).default('SYNC'),
+  timeout_seconds: z.coerce.number().default(30),
 })
 
 const thinkDeeplySchema = z.object({
