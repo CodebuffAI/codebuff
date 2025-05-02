@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { CursorMazeVisualization } from './cursor'
+import { cn } from '@/lib/utils'
+import { motion } from 'framer-motion'
+import Image from 'next/image'
+import { useEffect, useState } from 'react'
 import { ClaudeCodeVisualization } from './claude-code'
 import { ClineVisualization } from './cline'
+import { CursorMazeVisualization } from './cursor'
 import { GithubCopilotVisualization } from './github-copilot'
-import Image from 'next/image'
 
 export const competitors = [
   'github-copilot',
@@ -179,12 +179,12 @@ export function CompetitionTabs({
                   animate={
                     activeTab === competitor
                       ? {
-                          scale: [1, 1.1, 1],
-                          rotate:
-                            competitor === 'cursor'
-                              ? [0, -5, 0, 5, 0]
-                              : undefined,
-                        }
+                        scale: [1, 1.1, 1],
+                        rotate:
+                          competitor === 'cursor'
+                            ? [0, -5, 0, 5, 0]
+                            : undefined,
+                      }
                       : {}
                   }
                   transition={{
@@ -200,7 +200,7 @@ export function CompetitionTabs({
                     )}
                   >
                     <Image
-                      src={`/competitors/${competitor}.png`}
+                      src={`/logos/${competitor}.png`}
                       alt={competitorInfo[competitor].name}
                       width={18}
                       height={18}
