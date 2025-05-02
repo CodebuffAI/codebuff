@@ -31,7 +31,14 @@ export async function flushAnalytics() {
   if (!client) {
     return
   }
-  await client.flush()
+  try {
+    await client.flush()
+  } catch (error) {
+    // Silently handle PostHog network errors
+    if (DEBUG_DEV_EVENTS) {
+      console.error('PostHog error:', error)
+    }
+  }
 }
 
 export function trackEvent(
