@@ -1,8 +1,10 @@
 /**
  * This is a modified version of the Saxy library that emits text nodes immediately
  */
-import { Transform } from 'readable-stream'
 import { StringDecoder } from 'string_decoder'
+
+import { Transform } from 'readable-stream'
+
 import { isWhitespace } from './string'
 
 export type TextNode = {
@@ -119,43 +121,44 @@ const parseEntities = (input: string) => {
 
     // ignore unterminated entities
     if (end === -1) {
+      parts.push(input.slice(next))
       break
     }
 
-    const entity = input.slice(next, end)
+    const entity = input.slice(next + 1, end)
 
-    if (entity === '&quot') {
+    if (entity === 'quot') {
       parts.push('"')
-    } else if (entity === '&amp') {
+    } else if (entity === 'amp') {
       parts.push('&')
-    } else if (entity === '&apos') {
+    } else if (entity === 'apos') {
       parts.push("'")
-    } else if (entity === '&lt') {
+    } else if (entity === 'lt') {
       parts.push('<')
-    } else if (entity === '&gt') {
+    } else if (entity === 'gt') {
       parts.push('>')
     } else {
       // ignore unrecognized character entities
-      if (entity[1] !== '#') {
-        parts.push(entity + ';')
+      if (entity[0] !== '#') {
+        parts.push('&' + entity + ';')
       } else {
         // hexadecimal numeric entities
-        if (entity[2] == 'x') {
-          const value = parseInt(entity.slice(3), 16)
+        if (entity[1] === 'x') {
+          const value = parseInt(entity.slice(2), 16)
 
           // ignore non-numeric numeric entities
           if (isNaN(value)) {
-            parts.push(entity + ';')
+            parts.push('&' + entity + ';')
           } else {
             parts.push(String.fromCharCode(value))
           }
         } else {
           // decimal numeric entities
-          const value = parseInt(entity.slice(2), 10)
+          const value = parseInt(entity.slice(1), 10)
 
           // ignore non-numeric numeric entities
           if (isNaN(value)) {
-            parts.push(entity + ';')
+            parts.push('&' + entity + ';')
           } else {
             parts.push(String.fromCharCode(value))
           }
@@ -273,6 +276,7 @@ export class Saxy extends Transform {
   private _tagStack: string[]
   private _waiting: { token: string; data: unknown } | null
   private _schema: TagSchema | null
+  private _pendingEntity: string | null
 
   /**
    * Parse a string of XML attributes to a map of attribute names
@@ -313,6 +317,9 @@ export class Saxy extends Transform {
 
     // Store schema if provided
     this._schema = schema || null
+
+    // Pending entity for incomplete entities
+    this._pendingEntity = null
   }
 
   /**
@@ -347,6 +354,11 @@ export class Saxy extends Transform {
       if (err) {
         callback(err)
         return
+      }
+
+      // Handle any remaining pending entity
+      if (this._pendingEntity) {
+        this.emit(Node.text, { contents: this._pendingEntity })
       }
 
       // Handle unclosed nodes
@@ -473,17 +485,31 @@ export class Saxy extends Transform {
    * an optional error argument.
    */
   private _parseChunk(input: string, callback: NextFunction) {
+    // Handle pending entity if exists
+    if (this._pendingEntity) {
+      input = this._pendingEntity + input
+      this._pendingEntity = null
+    }
+
     // Use pending data if applicable and get out of waiting mode
-    input = this._unwait() + input
+    const waitingData = this._unwait()
+    input = waitingData + input
 
     let chunkPos = 0
     const end = input.length
 
     while (chunkPos < end) {
-      if (input[chunkPos] !== '<' || (chunkPos + 1 < end && !this._isXMLTagStart(input, chunkPos + 1))) {
+      if (
+        input[chunkPos] !== '<' ||
+        (chunkPos + 1 < end && !this._isXMLTagStart(input, chunkPos + 1))
+      ) {
         // Find next potential tag, but verify it's actually a tag
         let nextTag = input.indexOf('<', chunkPos)
-        while (nextTag !== -1 && nextTag + 1 < end && !this._isXMLTagStart(input, nextTag + 1)) {
+        while (
+          nextTag !== -1 &&
+          nextTag + 1 < end &&
+          !this._isXMLTagStart(input, nextTag + 1)
+        ) {
           nextTag = input.indexOf('<', nextTag + 1)
         }
 
@@ -492,13 +518,16 @@ export class Saxy extends Transform {
         if (nextTag === -1) {
           let chunk = input.slice(chunkPos)
 
-          if (this._tagStack.length === 1) {
-            // Trim whitespace for text within top level tags
-            chunk = chunk.trim()
+          // Check for incomplete entity at end
+          const lastAmp = chunk.lastIndexOf('&')
+          if (lastAmp !== -1 && chunk.indexOf(';', lastAmp) === -1) {
+            // Store incomplete entity for next chunk
+            this._pendingEntity = chunk.slice(lastAmp)
+            chunk = chunk.slice(0, lastAmp)
           }
 
           if (chunk.length > 0) {
-            // NOTE (James): We changed this to emit the partial text node immediately
+            chunk = parseEntities(chunk)
             this.emit(Node.text, { contents: chunk })
           }
 
@@ -509,13 +538,18 @@ export class Saxy extends Transform {
         // A tag follows, so we can be confident that
         // we have all the data needed for the TEXT node
         let chunk = input.slice(chunkPos, nextTag)
-        if (this._tagStack.length === 1) {
-          // Trim whitespace for text within top level tags
-          chunk = chunk.trim()
+
+        // Check for incomplete entity at end
+        const lastAmp = chunk.lastIndexOf('&')
+        if (lastAmp !== -1 && chunk.indexOf(';', lastAmp) === -1) {
+          // Store incomplete entity for next chunk
+          this._pendingEntity = chunk.slice(lastAmp)
+          chunk = chunk.slice(0, lastAmp)
         }
 
         // Only emit non-whitespace text or text within a single tag (not between tags)
         if (chunk.length > 0) {
+          chunk = parseEntities(chunk)
           this.emit(Node.text, { contents: chunk })
         }
 
@@ -593,21 +627,27 @@ export class Saxy extends Transform {
 
       if (whitespace === -1 || whitespace >= tagClose - chunkPos) {
         // Tag without any attribute
-        this._handleTagOpening({
-          name: input.slice(chunkPos, realTagClose),
-          attrs: '',
-          isSelfClosing,
-        }, rawTag)
+        this._handleTagOpening(
+          {
+            name: input.slice(chunkPos, realTagClose),
+            attrs: '',
+            isSelfClosing,
+          },
+          rawTag
+        )
       } else if (whitespace === 0) {
         // Invalid tag starting with whitespace - emit as text
         this.emit(Node.text, { contents: rawTag })
       } else {
         // Tag with attributes
-        this._handleTagOpening({
-          name: input.slice(chunkPos, chunkPos + whitespace),
-          attrs: input.slice(chunkPos + whitespace, realTagClose),
-          isSelfClosing,
-        }, rawTag)
+        this._handleTagOpening(
+          {
+            name: input.slice(chunkPos, chunkPos + whitespace),
+            attrs: input.slice(chunkPos + whitespace, realTagClose),
+            isSelfClosing,
+          },
+          rawTag
+        )
       }
 
       chunkPos = tagClose + 1
