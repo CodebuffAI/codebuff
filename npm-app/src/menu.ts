@@ -120,6 +120,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
     '- Use "!command" to explicitly run a terminal command (e.g. "!ls -la")'
   )
   console.log('- Press ESC to cancel generation')
+  console.log('- Type "usage" to see your credits remaining')
   console.log(
     '- Type "init" to have Codebuff automatically configure your project for a smoother experience'
   )
