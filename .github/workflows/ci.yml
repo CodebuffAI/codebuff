@@ -29,21 +29,27 @@ jobs:
         with:
           bun-version: '1.1.26'
 
-      - name: Restore dependencies
+      - name: Cache dependencies
         uses: actions/cache@v3
         with:
           path: |
             node_modules
             */node_modules
+            packages/*/node_modules
           key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build and typecheck
+      - name: Set Environment Variables
         run: |
           echo "${{ secrets.ENV_LOCAL }}" > .env.local
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
+
+      - name: Build and typecheck
+        run: |
           bun run build
           bun run typecheck-only
 
@@ -71,13 +77,19 @@ jobs:
         with:
           bun-version: '1.1.26'
 
-      - name: Restore dependencies
+      - name: Cache dependencies
         uses: actions/cache@v3
         with:
           path: |
             node_modules
             */node_modules
+            packages/*/node_modules
           key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
       - name: Set Environment Variables
         run: |
