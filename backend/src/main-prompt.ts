@@ -23,6 +23,7 @@ import { checkTerminalCommand } from './check-terminal-command'
 import { requestRelevantFiles } from './find-files/request-files-prompt'
 import { getDocumentationForQuery } from './get-documentation-for-query'
 import { processFileBlock } from './process-file-block'
+import { processStrReplace } from './process-str-replace'
 import { processStreamWithTags } from './process-stream'
 import { getAgentStream } from './prompt-agent-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
@@ -63,7 +64,6 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
-import { processStrReplace } from './process-str-replace'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
@@ -104,16 +104,6 @@ export const mainPrompt = async (
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
   // This is used to link logs within a single agent loop
   const agentStepId = crypto.randomUUID()
-
-  const relevantDocumentationPromise = prompt
-    ? getDocumentationForQuery(prompt, {
-        tokens: 5000,
-        clientSessionId,
-        userInputId: promptId,
-        fingerprintId,
-        userId,
-      })
-    : Promise.resolve(null)
 
   const hasKnowledgeFiles =
     Object.keys(fileContext.knowledgeFiles).length > 0 ||
@@ -251,42 +241,52 @@ export const mainPrompt = async (
         toolResults: [],
       }
     }
-  } else {
-    // Check number of assistant messages since last user message with prompt
-    const consecutiveAssistantMessages =
-      agentState.consecutiveAssistantMessages ?? 0
-    if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
-      logger.warn(
-        `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
-      )
+  }
 
-      const warningString = [
-        "I've made quite a few responses in a row.",
-        "Let me pause here to make sure we're still on the right track.",
-        "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
-      ].join(' ')
+  // Check number of assistant messages since last user message with prompt
+  const consecutiveAssistantMessages =
+    agentState.consecutiveAssistantMessages ?? 0
+  if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
+    logger.warn(
+      `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
+    )
 
-      onResponseChunk(`${warningString}\n\n`)
+    const warningString = [
+      "I've made quite a few responses in a row.",
+      "Let me pause here to make sure we're still on the right track.",
+      "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+    ].join(' ')
 
-      return {
-        agentState: {
-          ...agentState,
-          messageHistory: [
-            ...messageHistory,
-            { role: 'assistant', content: warningString },
-          ],
-        },
-        toolCalls: [
-          {
-            id: generateCompactId(),
-            name: 'end_turn',
-            parameters: {},
-          },
+    onResponseChunk(`${warningString}\n\n`)
+
+    return {
+      agentState: {
+        ...agentState,
+        messageHistory: [
+          ...messageHistory,
+          { role: 'assistant', content: warningString },
         ],
-        toolResults: [],
-      }
+      },
+      toolCalls: [
+        {
+          id: generateCompactId(),
+          name: 'end_turn',
+          parameters: {},
+        },
+      ],
+      toolResults: [],
     }
   }
+
+  const relevantDocumentationPromise = prompt
+    ? getDocumentationForQuery(prompt, {
+        tokens: 5000,
+        clientSessionId,
+        userInputId: promptId,
+        fingerprintId,
+        userId,
+      })
+    : Promise.resolve(null)
 
   const fileRequestMessagesTokens = countTokensJson(
     messagesWithToolResultsAndUser
@@ -847,7 +847,7 @@ export const mainPrompt = async (
   }
 
   if (Object.keys(fileProcessingPromisesByPath).length > 0) {
-    onResponseChunk('Applying file changes, please wait.\n')
+    onResponseChunk('\n\nApplying file changes, please wait.\n')
   }
 
   // Flatten all promises while maintaining order within each file path

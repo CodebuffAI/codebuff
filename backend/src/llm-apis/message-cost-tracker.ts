@@ -478,7 +478,7 @@ export const saveMessage = async (value: {
       }
 
       const costInCents = Math.max(
-        1,
+        0,
         Math.round(
           cost *
             100 *
@@ -486,7 +486,7 @@ export const saveMessage = async (value: {
         )
       )
 
-      const creditsUsed = Math.max(1, costInCents)
+      const creditsUsed = Math.max(0, costInCents)
 
       logger.debug(
         {
