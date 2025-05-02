@@ -40,7 +40,7 @@ export function InstallDialog() {
 
   const handleInstallCommandCopy = () => {
     navigator.clipboard.writeText("npm install -g codebuff")
-    posthog.capture('home.install_command_copied')
+    posthog.capture('install_dialog.install_command_copied')
     installCopyButtonRef.current?.click()
   }
 

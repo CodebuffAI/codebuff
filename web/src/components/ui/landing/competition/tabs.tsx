@@ -180,10 +180,6 @@ export function CompetitionTabs({
                     activeTab === competitor
                       ? {
                         scale: [1, 1.1, 1],
-                        rotate:
-                          competitor === 'cursor'
-                            ? [0, -5, 0, 5, 0]
-                            : undefined,
                       }
                       : {}
                   }
