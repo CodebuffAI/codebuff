@@ -916,6 +916,7 @@ export class Client {
           // Append process updates to existing tool results
           toolResults.push(...getBackgroundProcessUpdates())
           // Continue the prompt with the tool results.
+          Spinner.get().start()
           this.webSocket.sendAction({
             type: 'prompt',
             promptId: userInputId,
