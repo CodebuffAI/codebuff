@@ -1,13 +1,10 @@
-'use client'
-
-import { ArrowRight } from 'lucide-react'
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
-import { Button } from './button'
-import { TerminalCopyButton } from './enhanced-copy-button'
-import { useInstallDialog } from '@/hooks/use-install-dialog'
-import posthog from 'posthog-js'
+import { useInstallDialog } from '@/hooks/use-install-dialog';
+import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import posthog from 'posthog-js';
+import { useState } from 'react';
+import { Button } from './button';
+import { TerminalCopyButton } from './enhanced-copy-button';
 
 interface HeroButtonsProps {
   className?: string
@@ -34,14 +31,15 @@ export function HeroButtons({ className }: HeroButtonsProps) {
         onMouseEnter={() => setButtonHovered(true)}
         onMouseLeave={() => setButtonHovered(false)}
       >
-        <div className="absolute inset-0 bg-[rgb(143,228,87)] -translate-x-1 translate-y-1" />
-        
+        <div className="absolute inset-0 bg-[rgb(143,228,87)] -translate-x-1 translate-y-1 rounded-md" />
+
         <motion.div
           animate={{
             x: buttonHovered ? 2 : 0,
             y: buttonHovered ? -2 : 0,
           }}
           transition={{ duration: 0.2 }}
+          className="relative"
         >
           <Button
             size="lg"
@@ -49,22 +47,13 @@ export function HeroButtons({ className }: HeroButtonsProps) {
               'relative w-full',
               'px-8 py-4 h-auto text-base font-medium',
               'bg-white text-black hover:bg-white',
-              'border border-white/50',
+              'border border-black/50',
               'transition-all duration-300'
             )}
             onClick={handleTryFreeClick}
+            aria-label="Get Started"
           >
-            <div className="flex items-center gap-2">
-              <span>Try Free</span>
-              <motion.div
-                animate={{
-                  x: buttonHovered ? 4 : 0,
-                }}
-                transition={{ duration: 0.2 }}
-              >
-                <ArrowRight className="w-4 h-4" />
-              </motion.div>
-            </div>
+            <span>Get Started</span>
           </Button>
         </motion.div>
       </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { Separator } from '@/components/ui/separator'
-import { Copy, Check } from 'lucide-react'
+import { Check, Copy } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 type CodeDemoChildren = string | JSX.Element | JSX.Element[]
