@@ -1,20 +1,24 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { GetRelevantFilesTrace, insertTrace } from '@codebuff/bigquery'
+import {
+  GetExpandedFileContextForTrainingTrace,
+  GetRelevantFilesTrace,
+  insertTrace,
+} from '@codebuff/bigquery'
 import { models, type CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { Message } from 'common/types/message'
 import { filterDefined } from 'common/util/array'
 import {
-  ProjectFileContext,
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
+  ProjectFileContext,
 } from 'common/util/file'
 import { range, shuffle, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
-import { System } from '../llm-apis/claude'
+import { promptClaude, System } from '../llm-apis/claude'
 import { logger } from '../util/logger'
 import { countTokens } from '../util/token-counter'
 import { requestFiles } from '../websockets/websocket-action'
@@ -36,6 +40,7 @@ export async function requestRelevantFiles(
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
+  fileRequestId: string,
   agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
@@ -87,6 +92,7 @@ export async function requestRelevantFiles(
     },
     keyPrompt,
     'Key',
+    fileRequestId,
     agentStepId,
     clientSessionId,
     fingerprintId,
@@ -116,6 +122,7 @@ export async function requestRelevantFiles(
       },
       nonObviousPrompt,
       'Non-Obvious',
+      fileRequestId,
       agentStepId,
       clientSessionId,
       fingerprintId,
@@ -164,6 +171,64 @@ export async function requestRelevantFiles(
   return firstPassFiles.slice(0, MAX_FILES_PER_REQUEST)
 }
 
+export async function requestRelevantFilesForTraining(
+  {
+    messages,
+    system,
+  }: {
+    messages: Message[]
+    system: string | Array<TextBlockParam>
+  },
+  fileContext: ProjectFileContext,
+  assistantPrompt: string | null,
+  fileRequestId: string,
+  agentStepId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined,
+  costMode: CostMode
+) {
+  const COUNT = 50
+
+  const lastMessage = messages[messages.length - 1]
+  const messagesExcludingLastIfByUser =
+    lastMessage.role === 'user' ? messages.slice(0, -1) : messages
+  const userPrompt =
+    lastMessage.role === 'user'
+      ? typeof lastMessage.content === 'string'
+        ? lastMessage.content
+        : JSON.stringify(lastMessage.content)
+      : ''
+
+  const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
+    userPrompt,
+    assistantPrompt,
+    fileContext,
+    COUNT
+  )
+
+  const nonObviousFiles = await getRelevantFilesForTraining(
+    {
+      messages: messagesExcludingLastIfByUser,
+      system,
+    },
+    nonObviousPrompt,
+    'Non-Obvious',
+    fileRequestId,
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    costMode
+  )
+
+  const candidateFiles = nonObviousFiles
+
+  return validateFilePaths(uniq(candidateFiles.files))
+}
+
 async function getRelevantFiles(
   {
     messages,
@@ -174,6 +239,7 @@ async function getRelevantFiles(
   },
   userPrompt: string,
   requestType: string,
+  fileRequestId: string,
   agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
@@ -208,11 +274,81 @@ async function getRelevantFiles(
   const files = validateFilePaths(response.split('\n'))
 
   const trace: GetRelevantFilesTrace = {
-    id: crypto.randomUUID(),
+    id: fileRequestId,
     agent_step_id: agentStepId,
     user_id: userId ?? '',
     created_at: new Date(),
     type: 'get-relevant-files',
+    payload: {
+      messages: messagesWithPrompt,
+      system,
+      output: response,
+      request_type: requestType,
+      cost_mode: costMode,
+      user_input_id: userInputId,
+      client_session_id: clientSessionId,
+      fingerprint_id: fingerprintId,
+      model: models.ft_filepicker_005,
+    },
+  }
+
+  insertTrace(trace).catch((error: Error) => {
+    logger.error({ error }, 'Failed to insert trace')
+  })
+
+  return { files, duration, requestType, response }
+}
+
+async function getRelevantFilesForTraining(
+  {
+    messages,
+    system,
+  }: {
+    messages: Message[]
+    system: string | Array<TextBlockParam>
+  },
+  userPrompt: string,
+  requestType: string,
+  fileRequestId: string,
+  agentStepId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined,
+  costMode: CostMode
+) {
+  const bufferTokens = 100_000
+  const messagesWithPrompt = getMessagesSubset(
+    [
+      ...messages,
+      {
+        role: 'user' as const,
+        content: userPrompt,
+      },
+    ],
+    bufferTokens
+  )
+  const start = performance.now()
+  let response = await promptClaude(messagesWithPrompt, {
+    system,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model: models.sonnet,
+    userId,
+  })
+
+  const end = performance.now()
+  const duration = end - start
+
+  const files = validateFilePaths(response.split('\n'))
+
+  const trace: GetExpandedFileContextForTrainingTrace = {
+    id: fileRequestId,
+    agent_step_id: agentStepId,
+    user_id: userId ?? '',
+    created_at: new Date(),
+    type: 'get-expanded-file-context-for-training',
     payload: {
       messages: messagesWithPrompt,
       system,
