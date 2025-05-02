@@ -63,7 +63,7 @@ const execAsync = promisify(exec)
 
 let projectRoot: string
 
-export function setProjectRoot(dir: string) {
+export function setProjectRoot(dir: string, setCwd: boolean = false) {
   if (existsSync(dir)) {
     if (projectRoot) {
       checkpointManager.clearCheckpoints(true)
@@ -74,10 +74,14 @@ export function setProjectRoot(dir: string) {
       )
     }
     projectRoot = dir
-    setWorkingDirectory(dir)
+    if (setCwd) {
+      setWorkingDirectory(dir)
+    }
     return dir
   }
-  setWorkingDirectory(projectRoot)
+  if (setCwd) {
+    setWorkingDirectory(projectRoot)
+  }
   return projectRoot
 }
 
@@ -95,9 +99,10 @@ export function getWorkingDirectory() {
   return workingDirectory
 }
 
-export function getStartingDirectory(
-  path: string | undefined = undefined
-): string {
+export function getStartingDirectory(dir: string | undefined = undefined): {
+  cwd: string
+  shouldSearch: boolean
+} {
   let base
   try {
     base = process.cwd()
@@ -107,10 +112,15 @@ export function getStartingDirectory(
       { cause: error }
     )
   }
-  if (!path) {
-    return base
+  if (!dir) {
+    return { cwd: base, shouldSearch: true }
   }
-  return toAbsolutePath(path, base)
+  const dirAbsolute = path.normalize(path.resolve(base, dir))
+  if (!existsSync(dirAbsolute) || !statSync(dirAbsolute).isDirectory()) {
+    console.log(`Could not find directory ${dirAbsolute}\n`)
+    return { cwd: base, shouldSearch: true }
+  }
+  return { cwd: dirAbsolute, shouldSearch: false }
 }
 
 /**

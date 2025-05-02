@@ -1,5 +1,6 @@
 import { parentPort as maybeParentPort } from 'worker_threads'
-import { storeFileState, restoreFileState } from '../checkpoints/file-manager'
+
+import { restoreFileState, storeFileState } from '../checkpoints/file-manager'
 
 /**
  * Message format for worker operations

@@ -29,27 +29,24 @@ async function codebuff(
   enableSquashNewlines()
 
   // Initialize starting directory
-  const startingDirectory = getStartingDirectory(projectDir)
-  // If starting directory not provided, find git root
-  const gitRoot = projectDir
-    ? startingDirectory
-    : findGitRoot(startingDirectory) ?? startingDirectory
-  const dir = setProjectRoot(gitRoot)
-  setWorkingDirectory(startingDirectory)
+  const { cwd, shouldSearch } = getStartingDirectory(projectDir)
+  const gitRoot = shouldSearch ? findGitRoot(cwd) ?? cwd : cwd
+  const projectRoot = setProjectRoot(gitRoot)
+  setWorkingDirectory(cwd)
 
-  recreateShell(dir)
+  recreateShell(cwd)
 
   // Load config file if it exists
-  const config = loadCodebuffConfig(dir)
+  const config = loadCodebuffConfig(projectRoot)
 
   // Kill all processes we failed to kill before
-  const processCleanupPromise = logAndHandleStartup(dir, config)
+  const processCleanupPromise = logAndHandleStartup(projectRoot, config)
 
   initAnalytics()
 
   const updatePromise = updateCodebuff()
 
-  const initFileContextPromise = initProjectFileContextWithWorker(dir)
+  const initFileContextPromise = initProjectFileContextWithWorker(projectRoot)
 
   const readyPromise = Promise.all([
     initFileContextPromise,
