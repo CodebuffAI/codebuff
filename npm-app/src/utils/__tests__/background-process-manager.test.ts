@@ -2,8 +2,7 @@
 import { test } from 'bun:test'
 // @ts-ignore: bun:test types aren't available
 import { afterEach, beforeEach, describe, expect, mock, spyOn } from 'bun:test'
-
-// Import only the type, not the implementation
+import { getBackgroundProcessInfoString } from '../../background-process-manager'
 import type { BackgroundProcessInfo } from '../../background-process-manager'
 
 // Mock the child process
@@ -12,351 +11,334 @@ const mockChildProcess = {
   signalCode: null,
 } as any
 
-// Check if we are in CI/CD
-const isCI = process.env.CODEBUFF_GITHUB_ACTIONS === 'true';
+describe('getBackgroundProcessInfoString', () => {
+  let dateNowSpy: ReturnType<typeof spyOn>
+  const currentTime = 3000
 
-// Skip tests entirely in CI
-if (!isCI) {
-  // Wrap the dynamic import and tests in an async IIFE to avoid top-level await
-  (async () => {
-    // Only import the implementation if not in CI
-    const { getBackgroundProcessInfoString } = await import('../../background-process-manager');
+  beforeEach(() => {
+    spyOn(Date, 'now').mockReturnValue(currentTime)
+  })
 
-    describe('getBackgroundProcessInfoString', () => {
-      let dateNowSpy: ReturnType<typeof spyOn>
-      const currentTime = 3000
+  afterEach(() => {
+    mock.restore()
+  })
 
-      beforeEach(() => {
-        spyOn(Date, 'now').mockReturnValue(currentTime)
-      })
+  test('formats a running process correctly', () => {
+    const startTime = 1000
 
-      afterEach(() => {
-        mock.restore()
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 123,
+      toolCallId: 'toolCall123',
+      command: 'npm test',
+      process: mockChildProcess,
+      stdoutBuffer: ['test output'],
+      stderrBuffer: ['test error'],
+      status: 'running',
+      startTime,
+      endTime: null,
+      lastReportedStdoutLength: 0,
+      lastReportedStderrLength: 0,
+      lastReportedStatus: null,
+    }
 
-      test('formats a running process correctly', () => {
-        const startTime = 1000
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 123,
-          toolCallId: 'toolCall123',
-          command: 'npm test',
-          process: mockChildProcess,
-          stdoutBuffer: ['test output'],
-          stderrBuffer: ['test error'],
-          status: 'running',
-          startTime,
-          endTime: null,
-          lastReportedStdoutLength: 0,
-          lastReportedStderrLength: 0,
-          lastReportedStatus: null,
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('formats a completed process correctly', () => {
+    const startTime = 1000
+    const endTime = 2000
 
-        expect(result).toMatchSnapshot()
-      })
+    const mockCompletedProcess = {
+      ...mockChildProcess,
+      exitCode: 0,
+    }
 
-      test('formats a completed process correctly', () => {
-        const startTime = 1000
-        const endTime = 2000
+    const info: BackgroundProcessInfo = {
+      pid: 456,
+      toolCallId: 'toolCall456',
+      command: 'npm build',
+      process: mockCompletedProcess,
+      stdoutBuffer: ['build successful'],
+      stderrBuffer: [],
+      status: 'completed',
+      startTime,
+      endTime,
+      lastReportedStdoutLength: 0,
+      lastReportedStderrLength: 0,
+      lastReportedStatus: null,
+    }
 
-        const mockCompletedProcess = {
-          ...mockChildProcess,
-          exitCode: 0,
-        }
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 456,
-          toolCallId: 'toolCall456',
-          command: 'npm build',
-          process: mockCompletedProcess,
-          stdoutBuffer: ['build successful'],
-          stderrBuffer: [],
-          status: 'completed',
-          startTime,
-          endTime,
-          lastReportedStdoutLength: 0,
-          lastReportedStderrLength: 0,
-          lastReportedStatus: null,
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('formats an errored process correctly', () => {
+    const startTime = 1000
+    const endTime = 2500
 
-        expect(result).toMatchSnapshot()
-      })
+    const mockErroredProcess = {
+      ...mockChildProcess,
+      exitCode: 1,
+      signalCode: 'SIGTERM',
+    }
 
-      test('formats an errored process correctly', () => {
-        const startTime = 1000
-        const endTime = 2500
+    const info: BackgroundProcessInfo = {
+      pid: 789,
+      toolCallId: 'toolCall789',
+      command: 'invalid-command',
+      process: mockErroredProcess,
+      stdoutBuffer: [],
+      stderrBuffer: ['command not found'],
+      status: 'error',
+      startTime,
+      endTime,
+      lastReportedStdoutLength: 0,
+      lastReportedStderrLength: 0,
+      lastReportedStatus: null,
+    }
 
-        const mockErroredProcess = {
-          ...mockChildProcess,
-          exitCode: 1,
-          signalCode: 'SIGTERM',
-        }
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 789,
-          toolCallId: 'toolCall789',
-          command: 'invalid-command',
-          process: mockErroredProcess,
-          stdoutBuffer: [],
-          stderrBuffer: ['command not found'],
-          status: 'error',
-          startTime,
-          endTime,
-          lastReportedStdoutLength: 0,
-          lastReportedStderrLength: 0,
-          lastReportedStatus: null,
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('returns empty string for completed process with no changes', () => {
+    const startTime = 1000
+    const endTime = 2000
 
-        expect(result).toMatchSnapshot()
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 101,
+      toolCallId: 'toolCall101',
+      command: 'echo test',
+      process: mockChildProcess,
+      stdoutBuffer: ['test'],
+      stderrBuffer: [],
+      status: 'completed',
+      startTime,
+      endTime,
+      lastReportedStdoutLength: 4, // Length of 'test'
+      lastReportedStderrLength: 0,
+      lastReportedStatus: 'completed',
+    }
 
-      test('returns empty string for completed process with no changes', () => {
-        const startTime = 1000
-        const endTime = 2000
+    const result = getBackgroundProcessInfoString(info)
+    expect(result).toBe('')
+  })
 
-        const info: BackgroundProcessInfo = {
-          pid: 101,
-          toolCallId: 'toolCall101',
-          command: 'echo test',
-          process: mockChildProcess,
-          stdoutBuffer: ['test'],
-          stderrBuffer: [],
-          status: 'completed',
-          startTime,
-          endTime,
-          lastReportedStdoutLength: 4, // Length of 'test'
-          lastReportedStderrLength: 0,
-          lastReportedStatus: 'completed',
-        }
+  test('handles new output since last report', () => {
+    const startTime = 1000
+    const endTime = 2000
 
-        const result = getBackgroundProcessInfoString(info)
-        expect(result).toBe('')
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 102,
+      toolCallId: 'toolCall102',
+      command: 'echo test',
+      process: mockChildProcess,
+      stdoutBuffer: ['test', ' more output'],
+      stderrBuffer: [],
+      status: 'completed',
+      startTime,
+      endTime,
+      lastReportedStdoutLength: 4, // Only 'test' was reported
+      lastReportedStderrLength: 0,
+      lastReportedStatus: 'completed',
+    }
 
-      test('handles new output since last report', () => {
-        const startTime = 1000
-        const endTime = 2000
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 102,
-          toolCallId: 'toolCall102',
-          command: 'echo test',
-          process: mockChildProcess,
-          stdoutBuffer: ['test', ' more output'],
-          stderrBuffer: [],
-          status: 'completed',
-          startTime,
-          endTime,
-          lastReportedStdoutLength: 4, // Only 'test' was reported
-          lastReportedStderrLength: 0,
-          lastReportedStatus: 'completed',
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('handles no new content', () => {
+    const startTime = 1000
+    const endTime = 2000
 
-        expect(result).toMatchSnapshot()
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 103,
+      toolCallId: 'toolCall103',
+      command: 'echo test',
+      process: mockChildProcess,
+      stdoutBuffer: ['test'],
+      stderrBuffer: [],
+      status: 'running',
+      startTime,
+      endTime,
+      lastReportedStdoutLength: 4, // All content reported
+      lastReportedStderrLength: 0,
+      lastReportedStatus: 'running',
+    }
 
-      test('handles no new content', () => {
-        const startTime = 1000
-        const endTime = 2000
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 103,
-          toolCallId: 'toolCall103',
-          command: 'echo test',
-          process: mockChildProcess,
-          stdoutBuffer: ['test'],
-          stderrBuffer: [],
-          status: 'running',
-          startTime,
-          endTime,
-          lastReportedStdoutLength: 4, // All content reported
-          lastReportedStderrLength: 0,
-          lastReportedStatus: 'running',
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('handles new stderr without when no previous stderr', () => {
+    const startTime = 1000
+    const endTime = 2000
 
-        expect(result).toMatchSnapshot()
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 104,
+      toolCallId: 'toolCall104',
+      command: 'echo test',
+      process: mockChildProcess,
+      stdoutBuffer: [],
+      stderrBuffer: ['new error'],
+      status: 'error',
+      startTime,
+      endTime,
+      lastReportedStdoutLength: 0,
+      lastReportedStderrLength: 0, // No previous stderr
+      lastReportedStatus: null,
+    }
 
-      test('handles new stderr without when no previous stderr', () => {
-        const startTime = 1000
-        const endTime = 2000
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 104,
-          toolCallId: 'toolCall104',
-          command: 'echo test',
-          process: mockChildProcess,
-          stdoutBuffer: [],
-          stderrBuffer: ['new error'],
-          status: 'error',
-          startTime,
-          endTime,
-          lastReportedStdoutLength: 0,
-          lastReportedStderrLength: 0, // No previous stderr
-          lastReportedStatus: null,
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('handles new stdout without when no previous stdout', () => {
+    const startTime = 1000
 
-        expect(result).toMatchSnapshot()
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 105,
+      toolCallId: 'toolCall105',
+      command: 'echo test',
+      process: mockChildProcess,
+      stdoutBuffer: ['first output'],
+      stderrBuffer: [],
+      status: 'running',
+      startTime,
+      endTime: null,
+      lastReportedStdoutLength: 0, // No previous stdout
+      lastReportedStderrLength: 0,
+      lastReportedStatus: null,
+    }
 
-      test('handles new stdout without when no previous stdout', () => {
-        const startTime = 1000
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 105,
-          toolCallId: 'toolCall105',
-          command: 'echo test',
-          process: mockChildProcess,
-          stdoutBuffer: ['first output'],
-          stderrBuffer: [],
-          status: 'running',
-          startTime,
-          endTime: null,
-          lastReportedStdoutLength: 0, // No previous stdout
-          lastReportedStderrLength: 0,
-          lastReportedStatus: null,
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('reports completed process with new stderr even if stdout unchanged', () => {
+    const startTime = 1000
+    const endTime = 2000
 
-        expect(result).toMatchSnapshot()
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 106,
+      toolCallId: 'toolCall106',
+      command: 'echo test',
+      process: mockChildProcess,
+      stdoutBuffer: ['test'],
+      stderrBuffer: ['new error'],
+      status: 'completed',
+      startTime,
+      endTime,
+      lastReportedStdoutLength: 4, // All stdout reported
+      lastReportedStderrLength: 0, // No stderr reported
+      lastReportedStatus: 'completed',
+    }
 
-      test('reports completed process with new stderr even if stdout unchanged', () => {
-        const startTime = 1000
-        const endTime = 2000
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 106,
-          toolCallId: 'toolCall106',
-          command: 'echo test',
-          process: mockChildProcess,
-          stdoutBuffer: ['test'],
-          stderrBuffer: ['new error'],
-          status: 'completed',
-          startTime,
-          endTime,
-          lastReportedStdoutLength: 4, // All stdout reported
-          lastReportedStderrLength: 0, // No stderr reported
-          lastReportedStatus: 'completed',
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('reports completed process with new stdout even if stderr unchanged', () => {
+    const startTime = 1000
+    const endTime = 2000
 
-        expect(result).toMatchSnapshot()
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 107,
+      toolCallId: 'toolCall107',
+      command: 'echo test',
+      process: mockChildProcess,
+      stdoutBuffer: ['test', ' more'],
+      stderrBuffer: ['error'],
+      status: 'completed',
+      startTime,
+      endTime,
+      lastReportedStdoutLength: 4, // Only 'test' reported
+      lastReportedStderrLength: 5, // All stderr reported
+      lastReportedStatus: 'completed',
+    }
 
-      test('reports completed process with new stdout even if stderr unchanged', () => {
-        const startTime = 1000
-        const endTime = 2000
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 107,
-          toolCallId: 'toolCall107',
-          command: 'echo test',
-          process: mockChildProcess,
-          stdoutBuffer: ['test', ' more'],
-          stderrBuffer: ['error'],
-          status: 'completed',
-          startTime,
-          endTime,
-          lastReportedStdoutLength: 4, // Only 'test' reported
-          lastReportedStderrLength: 5, // All stderr reported
-          lastReportedStatus: 'completed',
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('reports process when status changes even without output changes', () => {
+    const startTime = 1000
+    const endTime = 2000
 
-        expect(result).toMatchSnapshot()
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 108,
+      toolCallId: 'toolCall108',
+      command: 'echo test',
+      process: mockChildProcess,
+      stdoutBuffer: ['test'],
+      stderrBuffer: [],
+      status: 'completed',
+      startTime,
+      endTime,
+      lastReportedStdoutLength: 4, // All output reported
+      lastReportedStderrLength: 0,
+      lastReportedStatus: 'running', // Status changed from running to completed
+    }
 
-      test('reports process when status changes even without output changes', () => {
-        const startTime = 1000
-        const endTime = 2000
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 108,
-          toolCallId: 'toolCall108',
-          command: 'echo test',
-          process: mockChildProcess,
-          stdoutBuffer: ['test'],
-          stderrBuffer: [],
-          status: 'completed',
-          startTime,
-          endTime,
-          lastReportedStdoutLength: 4, // All output reported
-          lastReportedStderrLength: 0,
-          lastReportedStatus: 'running', // Status changed from running to completed
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('calculates duration from endTime when available', () => {
+    const startTime = 1000
+    const endTime = 2500
 
-        expect(result).toMatchSnapshot()
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 109,
+      toolCallId: 'toolCall109',
+      command: 'echo test',
+      process: mockChildProcess,
+      stdoutBuffer: ['test'],
+      stderrBuffer: [],
+      status: 'completed',
+      startTime,
+      endTime,
+      lastReportedStdoutLength: 0,
+      lastReportedStderrLength: 0,
+      lastReportedStatus: null,
+    }
 
-      test('calculates duration from endTime when available', () => {
-        const startTime = 1000
-        const endTime = 2500
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 109,
-          toolCallId: 'toolCall109',
-          command: 'echo test',
-          process: mockChildProcess,
-          stdoutBuffer: ['test'],
-          stderrBuffer: [],
-          status: 'completed',
-          startTime,
-          endTime,
-          lastReportedStdoutLength: 0,
-          lastReportedStderrLength: 0,
-          lastReportedStatus: null,
-        }
+    expect(result).toMatchSnapshot()
+  })
 
-        const result = getBackgroundProcessInfoString(info)
+  test('calculates duration from current time when no endTime', () => {
+    const startTime = 1000
 
-        expect(result).toMatchSnapshot()
-      })
+    const info: BackgroundProcessInfo = {
+      pid: 110,
+      toolCallId: 'toolCall110',
+      command: 'echo test',
+      process: mockChildProcess,
+      stdoutBuffer: ['test'],
+      stderrBuffer: [],
+      status: 'running',
+      startTime,
+      endTime: null,
+      lastReportedStdoutLength: 0,
+      lastReportedStderrLength: 0,
+      lastReportedStatus: null,
+    }
 
-      test('calculates duration from current time when no endTime', () => {
-        const startTime = 1000
+    const result = getBackgroundProcessInfoString(info)
 
-        const info: BackgroundProcessInfo = {
-          pid: 110,
-          toolCallId: 'toolCall110',
-          command: 'echo test',
-          process: mockChildProcess,
-          stdoutBuffer: ['test'],
-          stderrBuffer: [],
-          status: 'running',
-          startTime,
-          endTime: null,
-          lastReportedStdoutLength: 0,
-          lastReportedStderrLength: 0,
-          lastReportedStatus: null,
-        }
-
-        const result = getBackgroundProcessInfoString(info)
-
-        expect(result).toMatchSnapshot()
-      })
-    })
-  })()
-} else {
-  // Add a skipped describe block for clarity in test reports
-  describe.skip('getBackgroundProcessInfoString (skipped in CI)', () => {
-    test.skip('skipped', () => {});
-  });
-}
+    expect(result).toMatchSnapshot()
+  })
+})
