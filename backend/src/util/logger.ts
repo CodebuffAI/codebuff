@@ -9,7 +9,7 @@ import { env } from '../env.mjs'
 import { splitData } from './split-data'
 
 // --- Constants ---
-const MAX_LENGTH = 100_000 // Max total log size
+const MAX_LENGTH = 70_000 // Max total log size is 100k, put some buffer
 const BUFFER = 1000 // Buffer for context, etc.
 
 export interface LoggerContext {
