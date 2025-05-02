@@ -1,8 +1,10 @@
+import { Writable } from 'stream'
+
 // @ts-ignore
 import { describe, expect, test } from 'bun:test'
-import { Writable } from 'stream'
 import { getToolCallString } from 'common/constants/tools'
 import stripAnsi from 'strip-ansi'
+
 import { toolRenderers } from '../tool-renderers'
 import { createXMLStreamParser } from '../xml-stream-parser'
 
@@ -34,7 +36,7 @@ describe('Tool renderers with XML parser', () => {
   test('formats write_file tool call', async () => {
     const xml = getToolCallString('write_file', {
       path: 'test.ts',
-      content: 'console.log("test");',
+      content: 'console.log("test");\n',
     })
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
