@@ -49,9 +49,9 @@ export const getToolCallString = (
     .map(([param, value]) => `<${param}>${value}</${param}>`)
 
   // Combine ordered and additional parameters
-  const paramsString = [...orderedParams, ...additionalParams].join('')
+  const paramsString = [...orderedParams, ...additionalParams].join('\n')
 
   return paramsString
-    ? `${openTag}${paramsString}${closeTag}`
+    ? `${openTag}\n${paramsString}\n${closeTag}`
     : `${openTag}${closeTag}`
 }
