@@ -47,7 +47,6 @@ export function HeroButtons({ className }: HeroButtonsProps) {
               'relative w-full',
               'px-8 py-4 h-auto text-base font-medium',
               'bg-white text-black hover:bg-white',
-              'border border-black/50',
               'transition-all duration-300'
             )}
             onClick={handleTryFreeClick}

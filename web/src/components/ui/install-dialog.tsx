@@ -1,6 +1,7 @@
 'use client'
 
 import { useInstallDialog } from '@/hooks/use-install-dialog'
+import { cn } from '@/lib/utils'
 import { ExternalLink } from 'lucide-react'
 import Image from 'next/image'
 import posthog from 'posthog-js'
@@ -17,8 +18,8 @@ export function InstallDialog() {
   const editors = [
     { name: 'VS Code', href: 'vscode://~/', icon: '/logos/visual-studio.png' },
     { name: 'Cursor', href: 'cursor://~/', icon: '/logos/cursor.png' },
-    { name: 'IntelliJ', href: 'idea://~/', icon: '/logos/intellij.png' },
-    { name: 'PyCharm', href: 'pycharm://~/', icon: '/logos/pycharm.png' },
+    { name: 'IntelliJ', href: 'idea://~/', icon: '/logos/intellij.png', needsWhiteBg: true },
+    { name: 'PyCharm', href: 'pycharm://~/', icon: '/logos/pycharm.png', needsWhiteBg: true },
   ]
 
   const handleEditorClick = (editorName: string, href: string) => {
@@ -51,27 +52,30 @@ export function InstallDialog() {
           <ol className="list-decimal list-inside space-y-6">
             <li className="text-lg leading-relaxed">
               <span>Open your terminal in your favorite IDE</span>
-              <div className="grid grid-cols-2 gap-3 mt-2">
+              <div className="grid grid-cols-2 gap-3 mt-3">
                 {editors.map(ed => (
                   <button
                     key={ed.name}
-                    className="relative w-full bg-zinc-800/60 hover:bg-zinc-800/80 rounded-lg border border-zinc-600/70 hover:border-white/40 flex flex-row items-center justify-start group transition-all duration-200 py-1 px-3"
+                    className="relative w-full bg-zinc-800/60 hover:bg-zinc-800/80 rounded-lg border border-zinc-600/70 hover:border-white/40 flex flex-row items-center justify-between group transition-all duration-200 py-1 px-3"
                     onClick={() => handleEditorClick(ed.name, ed.href)}
                     aria-label={`Open in ${ed.name}`}
                   >
-                    <div className="mr-3">
-                      <div className={ed.name !== 'Cursor' && ed.name !== 'VS Code' ? 'bg-white inline-flex h-6 w-6 items-center justify-center' : ''}>
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "w-4 h-4 relative flex-shrink-0",
+                        ed.needsWhiteBg && "bg-white rounded-sm p-[1px]"
+                      )}>
                         <Image
                           src={ed.icon}
                           alt={ed.name}
-                          width={24}
-                          height={24}
+                          fill
+                          className="object-contain"
                         />
                       </div>
+                      <span className="text-white/90 font-mono text-sm">{ed.name}</span>
                     </div>
-                    <span className="text-white/90 font-mono text-sm">{ed.name}</span>
                     <ExternalLink
-                      className="absolute right-2 w-3.5 h-3.5 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="w-3.5 h-3.5 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity"
                     />
                   </button>
                 ))}

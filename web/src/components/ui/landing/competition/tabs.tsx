@@ -34,7 +34,7 @@ const competitorInfo = {
     color: 'text-red-400',
     description: 'Confusing maze of dead ends',
     emoji: '😫',
-    className: 'invert',
+    className: '',
     component: CursorMazeVisualization,
   },
   'claude-code': {
