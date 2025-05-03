@@ -48,7 +48,7 @@ Guidelines:
 - It's highly recommended to have a very short thinking session, like 1 sentence long, if the next action is clear.
 - Do not write anything outside of the <think_deeply> tool call.
 - DO NOT use any other tools! You are only thinking, not taking any actions.
-- Do not include <end_turn> tags (or any other tool call tags).
+- Do not include <end_turn> tags (or any other tool call tags). You should refer to tool calls without angle brackets when talking about them: "we should use the end_turn tool" and NOT "we should use <end_turn>"
 - Make sure to end your response with "</thought>\n</think_deeply>"
 
 Misc Guidelines:
