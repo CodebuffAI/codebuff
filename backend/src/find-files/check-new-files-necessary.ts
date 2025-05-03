@@ -16,7 +16,9 @@ export const checkNewFilesNecessary = async (
   costMode: CostMode
 ) => {
   const startTime = Date.now()
-  const systemWithCodebuffInfo = `${systemIntro}\n\n${system}`
+  const systemString =
+    typeof system === 'string' ? system : system.map((m) => m.text).join('\n\n')
+  const systemWithCodebuffInfo = `${systemIntro}\n\n${systemString}`
   const prompt = `
 Considering the conversation history above, and the following user request (in quotes), determine if new files should be read (YES or NO) to fulfill the request.
 
