@@ -2,6 +2,7 @@ import { ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { toContentString } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
+import { TokenCallerMap } from './file-metadata'
 
 /**
  * Parses XML content for a tool call into a structured object with only string values.
@@ -68,28 +69,33 @@ export const parseToolResults = (xmlString: string): ToolResult[] => {
 }
 
 export function renderReadFilesResult(
-  files: { path: string; content: string }[]
+  files: { path: string; content: string }[],
+  tokenCallers: TokenCallerMap
 ) {
   return files
-    .map(
-      (file) =>
-        `<read_file>\n<path>${file.path}</path>\n<content>${file.content}</content>\n</read_file>`
-    )
+    .map((file) => {
+      const referencedBy = Object.entries(tokenCallers[file.path] ?? {})
+        .filter(([_, callers]) => callers.length > 0)
+        .map(([token, callers]) => `${token}: ${callers.join(', ')}`)
+        .join('\n')
+      console.log('referencedBy', referencedBy)
+      return `<read_file>\n<path>${file.path}</path>\n<content>${file.content}</content>\n<referenced_by>${referencedBy}</referenced_by>\n</read_file>`
+    })
     .join('\n\n')
 }
 
 export function parseReadFilesResult(
   xmlString: string
-): { path: string; content: string }[] {
-  const files: { path: string; content: string }[] = []
+): { path: string; content: string; referencedBy: string }[] {
+  const files: { path: string; content: string; referencedBy: string }[] = []
   const filePattern =
-    /<read_file>\n<path>([^<>]+)<\/path>\n<content>([\s\S]*?)<\/content>\n<\/read_file>/g
+    /<read_file>\n<path>([^<>]+)<\/path>\n<content>([\s\S]*?)<\/content>\n<referenced_by>([\s\S]*?)<\/referenced_by>\n<\/read_file>/g
   let match
 
   while ((match = filePattern.exec(xmlString)) !== null) {
-    const [, filePath, content] = match
+    const [, filePath, content, referencedBy] = match
     if (filePath.trim()) {
-      files.push({ path: filePath.trim(), content })
+      files.push({ path: filePath.trim(), content, referencedBy })
     }
   }
 

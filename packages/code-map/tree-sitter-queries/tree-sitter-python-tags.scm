@@ -6,4 +6,7 @@
 
 (call
   function: (identifier) @call.identifier)
-  
+
+(call
+  function: (attribute
+    attribute: (identifier) @call.identifier))

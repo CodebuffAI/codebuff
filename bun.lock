@@ -179,6 +179,8 @@
         "tree-sitter-typescript": "0.23.0",
       },
       "devDependencies": {
+        "@types/bun": "^1.2.11",
+        "@types/jest": "^29.5.12",
         "@types/node": "22",
       },
     },

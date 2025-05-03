@@ -360,7 +360,7 @@ export const mainPrompt = async (
       name: 'file_updates',
       result:
         `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes:\n` +
-        renderReadFilesResult(updatedFiles),
+        renderReadFilesResult(updatedFiles, fileContext.tokenCallers ?? {}),
     })
   }
 
@@ -369,7 +369,7 @@ export const mainPrompt = async (
     const readFilesToolResult = {
       id: generateCompactId(),
       name: 'read_files',
-      result: renderReadFilesResult(newFiles),
+      result: renderReadFilesResult(newFiles, fileContext.tokenCallers ?? {}),
     }
 
     readFileMessages.push(
@@ -754,7 +754,10 @@ export const mainPrompt = async (
       serverToolResults.push({
         id: generateCompactId(),
         name: 'read_files',
-        result: renderReadFilesResult(addedFiles),
+        result: renderReadFilesResult(
+          addedFiles,
+          fileContext.tokenCallers ?? {}
+        ),
       })
     } else if (name === 'find_files') {
       const { addedFiles, updatedFilePaths, printedPaths } =
@@ -800,7 +803,7 @@ export const mainPrompt = async (
         name: 'find_files',
         result:
           addedFiles.length > 0
-            ? renderReadFilesResult(addedFiles)
+            ? renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
             : `No new files found for description: ${parameters.description}`,
       })
       if (printedPaths.length > 0) {

@@ -1075,6 +1075,9 @@ Go to https://www.codebuff.com/config for more information.`) +
 
   public async warmContextCache() {
     const fileContext = await getProjectFileContext(getProjectRoot(), {})
+    if (!fileContext) {
+      throw new Error('Failed to initialize project file context')
+    }
 
     this.webSocket.subscribe('init-response', (a) => {
       const parsedAction = InitResponseSchema.safeParse(a)

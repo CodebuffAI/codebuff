@@ -37,6 +37,9 @@ export const ProjectFileContextSchema = z.object({
   currentWorkingDirectory: z.string(),
   fileTree: z.array(z.custom<FileTreeNode>()),
   fileTokenScores: z.record(z.string(), z.record(z.string(), z.number())),
+  tokenCallers: z
+    .record(z.string(), z.record(z.string(), z.array(z.string())))
+    .optional(),
   knowledgeFiles: z.record(z.string(), z.string()),
   userKnowledgeFiles: z.record(z.string(), z.string()).optional(),
   gitChanges: z.object({

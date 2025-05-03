@@ -6,7 +6,8 @@
     "build": "tsc && cp -R tree-sitter-queries ./dist/",
     "typecheck": "tsc --noEmit",
     "build-and-typecheck": "bun run build && bun run typecheck",
-    "typecheck-only": "tsc --noEmit"
+    "typecheck-only": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "tree-sitter": "0.22.4",
@@ -23,6 +24,8 @@
     "tree-sitter-typescript": "0.23.0"
   },
   "devDependencies": {
-    "@types/node": "22"
+    "@types/node": "22",
+    "@types/jest": "^29.5.12",
+    "@types/bun": "^1.2.11"
   }
 }
