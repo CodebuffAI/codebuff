@@ -211,6 +211,8 @@ export const mainPrompt = async (
     })
     const duration = Date.now() - startTime
 
+    agentState.consecutiveAssistantMessages = 0
+
     if (terminalCommand) {
       logger.debug(
         {
