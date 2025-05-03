@@ -3,6 +3,7 @@ import * as os from 'os'
 import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
+import fs from 'fs'
 
 import { type ApiKeyType } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
@@ -46,6 +47,11 @@ import {
   persistentProcess,
   resetShell,
 } from './utils/terminal'
+
+import { CONFIG_DIR } from './credentials'
+import { uniq } from 'lodash'
+
+const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
 
 type ApiKeyDetectionResult =
   | { status: 'found'; type: ApiKeyType; key: string }
@@ -138,6 +144,39 @@ export class CLI {
     // Doesn't catch SIGKILL (e.g. `kill -9`)
   }
 
+  private _loadHistory(): string[] {
+    try {
+      if (fs.existsSync(PROMPT_HISTORY_PATH)) {
+        const content = fs.readFileSync(PROMPT_HISTORY_PATH, 'utf8')
+        const history = JSON.parse(content) as string[]
+        // Filter out empty lines and duplicates
+        return uniq(history.filter((line) => line.trim())).reverse()
+      }
+    } catch (error) {
+      console.error('Error loading prompt history:', error)
+      // If file doesn't exist or is invalid JSON, create empty history file
+      fs.writeFileSync(PROMPT_HISTORY_PATH, '[]')
+    }
+    return []
+  }
+
+  private _appendToHistory(line: string) {
+    try {
+      let history: string[] = []
+      if (fs.existsSync(PROMPT_HISTORY_PATH)) {
+        const content = fs.readFileSync(PROMPT_HISTORY_PATH, 'utf8')
+        history = JSON.parse(content)
+      }
+      // Only add non-empty, non-duplicate lines
+      if (line.trim() && !history.includes(line)) {
+        history.push(line)
+        fs.writeFileSync(PROMPT_HISTORY_PATH, JSON.stringify(history, null, 2))
+      }
+    } catch (error) {
+      console.error('Error appending to prompt history:', error)
+    }
+  }
+
   private initReadlineInterface() {
     this.rl = readline.createInterface({
       input: process.stdin,
@@ -146,6 +185,10 @@ export class CLI {
       terminal: true,
       completer: this.filePathCompleter.bind(this),
     })
+
+    // Load and populate history
+    const history = this._loadHistory()
+    ;(this.rl as any).history.push(...history)
 
     this.rl.on('line', (line) => this.handleLine(line))
     this.rl.on('SIGINT', async () => await this.handleSigint())
@@ -279,12 +322,10 @@ export class CLI {
     if (this.isPasting) {
       this.pastedContent += line + '\n'
     } else if (!this.isReceivingResponse) {
-      if (this.pastedContent) {
-        await this.handleUserInput((this.pastedContent + line).trim())
-        this.pastedContent = ''
-      } else {
-        await this.handleUserInput(line.trim())
-      }
+      const input = (this.pastedContent + line).trim()
+      this.pastedContent = ''
+      await this.handleUserInput(input)
+      this._appendToHistory(input)
     }
   }
 
