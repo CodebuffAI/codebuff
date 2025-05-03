@@ -1,6 +1,9 @@
 import { ToolName } from 'common/constants/tools'
+import { isFileIgnored } from 'common/project-file-tree'
 import { capitalize, snakeToTitleCase } from 'common/util/string'
-import { bold, gray } from 'picocolors'
+import { bold, gray, strikethrough } from 'picocolors'
+
+import { getProjectRoot } from '../project-files'
 
 /**
  * Interface for handling tool call rendering
@@ -74,7 +77,15 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
 
     onParamEnd: (paramName, toolName, content) => {
-      const files = content.trim().split('\n').filter(Boolean) // Split by newline and remove empty entries
+      const files = content
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((fname) =>
+          isFileIgnored(fname, getProjectRoot())
+            ? strikethrough(fname) + ' (blocked)'
+            : fname
+        )
       const numFiles = files.length
       const maxInitialFiles = 3
 
@@ -134,13 +145,16 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       return null
     },
     onParamChunk: (content, paramName, toolName) => {
-      if (paramName === 'path') {
-        return gray(content)
-      }
       return null
     },
-    onParamEnd: (paramName) =>
-      paramName === 'path' ? gray('...') + '\n' : null,
+    onParamEnd: (paramName, toolName, content) => {
+      if (paramName !== 'path') {
+        return null
+      }
+      return isFileIgnored(content, getProjectRoot())
+        ? gray(strikethrough(content) + ' (blocked)')
+        : gray(content + '...')
+    },
   },
   str_replace: {
     onParamStart: (paramName) => {
