@@ -426,7 +426,9 @@ ${getToolCallString('browser_logs', {
     description: `
 ### end_turn
 
-End your turn. You must use this tool when you've fully responded to the user. Either you've completed the user's request, need more information from the user, or feel like you are not making progress and want help from the user.
+End your turn. This will allow the user to type another prompt. You must use this tool when you've fully responded to the user. Either you've completed the user's request, need more information from the user, or feel like you are not making progress and want help from the user.
+
+Do not ask the user any questions without ending your turn. Otherwise, the user will not be able to answer your question.
 
 Params: None
 
