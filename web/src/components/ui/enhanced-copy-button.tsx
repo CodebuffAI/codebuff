@@ -1,27 +1,30 @@
 'use client'
 
-import { useState } from 'react'
-import { Copy, Check, Terminal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
-import { BlockColor } from './decorative-blocks'
+import { Check, Copy, Terminal } from 'lucide-react'
 import posthog from 'posthog-js'
+import { forwardRef, useState } from 'react'
+import { BlockColor } from './decorative-blocks'
 
 interface EnhancedCopyButtonProps {
   value: string
   className?: string
+  onClick?: () => void
 }
 
-export function EnhancedCopyButton({
+export const EnhancedCopyButton = forwardRef<HTMLButtonElement, EnhancedCopyButtonProps>(({
   value,
   className,
-}: EnhancedCopyButtonProps) {
+  onClick,
+}, ref) => {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(value)
       setCopied(true)
+      onClick?.()
 
       // Reset after 2 seconds
       setTimeout(() => {
@@ -34,6 +37,7 @@ export function EnhancedCopyButton({
 
   return (
     <motion.button
+      ref={ref}
       className={cn(
         'flex items-center justify-center p-2 rounded-md',
         'text-white/60 hover:text-white',
@@ -59,7 +63,9 @@ export function EnhancedCopyButton({
       )}
     </motion.button>
   )
-}
+})
+
+EnhancedCopyButton.displayName = 'EnhancedCopyButton'
 
 interface TerminalCopyButtonProps {
   className?: string
@@ -67,7 +73,6 @@ interface TerminalCopyButtonProps {
 
 export function TerminalCopyButton({
   className,
-
   size = 'default',
   pulseBorder = false,
 }: TerminalCopyButtonProps & {
