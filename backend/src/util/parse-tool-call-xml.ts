@@ -2,7 +2,6 @@ import { ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
 import { toContentString } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
-import { TokenCallerMap } from './file-metadata'
 
 /**
  * Parses XML content for a tool call into a structured object with only string values.
@@ -66,6 +65,12 @@ export const parseToolResults = (xmlString: string): ToolResult[] => {
   }
 
   return results
+}
+
+export interface TokenCallerMap {
+  [filePath: string]: {
+    [token: string]: string[] // Array of files that call this token
+  }
 }
 
 export function renderReadFilesResult(
