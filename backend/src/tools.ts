@@ -160,7 +160,7 @@ ${getToolCallString('str_replace', {
     name: 'read_files',
     description: `
 ### read_files
-Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request. Make sure to read any files before you write to them with the write_file tool.
+Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.
 Params:
 - \`paths\`: (required) List of file paths to read relative to the **project root**, separated by newlines. Absolute file paths will not work.
 

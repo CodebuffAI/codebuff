@@ -151,16 +151,13 @@ export const mainPrompt = async (
 
     // Experimental gemini thinking
     costMode === 'experimental' || costMode === 'max'
-      ? 'Start your response with the <think_deeply> tool call to decide how to proceed.'
+      ? 'Start your response with the think_deeply tool call to decide how to proceed.'
       : !justUsedATool &&
           !recentlyDidThinking &&
-          'If the user request is very complex, consider invoking "<think_deeply></think_deeply>".',
+          'If the user request is very complex, consider invoking think_deeply.',
 
-    'If the user is starting a new feature or refactoring, consider invoking "<create_plan></create_plan>".',
-
-    recentlyDidThinking &&
-      "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
-
+    'If the user is starting a new feature or refactoring, consider invoking the create_plan tool.',
+    "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
     'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
 
     hasKnowledgeFiles &&
