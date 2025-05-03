@@ -8,6 +8,7 @@
     "debug-log-subset": "bun run debug-log-subset.ts"
   },
   "dependencies": {
+    "@codebuff/bigquery": "../packages/bigquery",
     "backend": "file:../backend",
     "drizzle-orm": "0.36.4",
     "lodash": "^4.17.21"
