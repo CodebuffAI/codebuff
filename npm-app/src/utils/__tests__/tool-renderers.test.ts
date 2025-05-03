@@ -1,14 +1,18 @@
 import { Writable } from 'stream'
 
 // @ts-ignore
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, spyOn, test } from 'bun:test'
 import { getToolCallString } from 'common/constants/tools'
+import * as projectFileTree from 'common/project-file-tree'
 import stripAnsi from 'strip-ansi'
 
 import { toolRenderers } from '../tool-renderers'
 import { createXMLStreamParser } from '../xml-stream-parser'
 
 describe('Tool renderers with XML parser', () => {
+  // Mock isFileIgnored to always return false
+  spyOn(projectFileTree, 'isFileIgnored').mockImplementation(() => false)
+
   // Helper function to process XML through parser and get output
   async function processXML(xml: string): Promise<string> {
     let result = ''
@@ -40,7 +44,7 @@ describe('Tool renderers with XML parser', () => {
     })
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
-    expect(stripped).toBe('\n\n[Write File]\nEditing file at test.ts...\n\n\n')
+    expect(stripped).toBe('\n\n[Write File]\nEditing file at test.ts...\n\n')
   })
 
   test('formats read_files tool call', async () => {

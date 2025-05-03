@@ -39,15 +39,19 @@ export interface ToolCallRenderer {
   ) => string | null
 }
 
+let toolStart = true
 /**
  * Default renderer for tool calls that formats them nicely for the console
  */
 export const defaultToolCallRenderer: ToolCallRenderer = {
   onToolStart: (toolName) => {
+    toolStart = true
     return '\n\n' + gray(`[${bold(snakeToTitleCase(toolName))}]`) + '\n'
   },
 
   onParamChunk: (content, paramName, toolName) => {
+    if (toolStart && content.startsWith('\n')) content = content.slice(1)
+    toolStart = false
     return gray(content)
   },
 
