@@ -9,6 +9,7 @@ import { logger } from '../util/logger'
 import { sampleSize } from 'lodash'
 
 type TruncationLevel = 'none' | 'unimportant-files' | 'tokens' | 'depth-based'
+const DEBUG = false
 
 export const truncateFileTreeBasedOnTokenBudget = (
   fileContext: ProjectFileContext,
@@ -44,14 +45,16 @@ export const truncateFileTreeBasedOnTokenBudget = (
     )
     const filteredTreeWithTokensCount = countTokensJson(filteredTreeWithTokens)
     if (filteredTreeWithTokensCount <= tokenBudget) {
-      logger.debug(
-        {
-          tokenBudget,
-          filteredTreeWithTokensCount,
-          duration: performance.now() - startTime,
-        },
-        'truncateFileTreeBasedOnTokenBudget unimportant-files'
-      )
+      if (DEBUG) {
+        logger.debug(
+          {
+            tokenBudget,
+            filteredTreeWithTokensCount,
+            duration: performance.now() - startTime,
+          },
+          'truncateFileTreeBasedOnTokenBudget unimportant-files'
+        )
+      }
       return {
         printedTree: filteredTreeWithTokens,
         tokenCount: filteredTreeWithTokensCount,
@@ -65,10 +68,12 @@ export const truncateFileTreeBasedOnTokenBudget = (
     )
 
     if (tokenCount <= tokenBudget) {
-      logger.debug(
-        { tokenBudget, tokenCount, duration: performance.now() - startTime },
-        'truncateFileTreeBasedOnTokenBudget tokens'
-      )
+      if (DEBUG) {
+        logger.debug(
+          { tokenBudget, tokenCount, duration: performance.now() - startTime },
+          'truncateFileTreeBasedOnTokenBudget tokens'
+        )
+      }
       return {
         printedTree,
         tokenCount,
@@ -123,7 +128,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
   let iterationCount = 0
   const MAX_ITERATIONS = 10
   let previousTokenCount = Infinity
-  
+
   while (estimatedFilesToRemove > 0 && iterationCount < MAX_ITERATIONS) {
     // Build a set of files to remove, taking deepest ones first
     const filesToRemove = new Set(
@@ -152,7 +157,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
 
     currentPrintedTree = printFileTree(currentTree)
     currentTokenCount = countTokensJson(currentPrintedTree)
-    
+
     // Safety check - if we're not making progress, break
     if (currentTokenCount >= previousTokenCount) {
       logger.warn(
@@ -162,13 +167,13 @@ export const truncateFileTreeBasedOnTokenBudget = (
       break
     }
     previousTokenCount = currentTokenCount
-    
+
     const tokensToRemove = currentTokenCount - tokenBudget
     estimatedFilesToRemove =
       tokensToRemove > 0
         ? Math.ceil((0.5 * tokensToRemove) / avgTokensPerFileName) + 100
         : 0
-        
+
     iterationCount++
   }
 
@@ -186,14 +191,16 @@ export const truncateFileTreeBasedOnTokenBudget = (
       'fileNameTruncation took a while'
     )
   }
-  logger.debug(
-    {
-      tokenBudget,
-      tokenCount: currentTokenCount,
-      duration: performance.now() - startTime,
-    },
-    'truncateFileTreeBasedOnTokenBudget depth-based'
-  )
+  if (DEBUG) {
+    logger.debug(
+      {
+        tokenBudget,
+        tokenCount: currentTokenCount,
+        duration: performance.now() - startTime,
+      },
+      'truncateFileTreeBasedOnTokenBudget depth-based'
+    )
+  }
   return {
     printedTree: currentPrintedTree,
     tokenCount: currentTokenCount,
