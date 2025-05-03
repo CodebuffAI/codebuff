@@ -6,14 +6,9 @@ export async function GET(
   _req: Request,
   { params }: { params: { version: string; file: string } }
 ) {
-  // Use the specific file path regardless of params
-  const filePath = path.join(
-    process.cwd(),
-    'web',
-    'public',
-    'codecane-darwin-arm64.tar.gz'
-  )
-
+  // Always serve the same file regardless of params
+  const filePath = path.join(process.cwd(), 'web', 'public', 'codecane-darwin-arm64.tar.gz')
+  
   try {
     // Check if file exists
     if (!fs.existsSync(filePath)) {
@@ -27,8 +22,8 @@ export async function GET(
     return new NextResponse(fileBuffer, {
       headers: {
         'Content-Type': 'application/gzip',
-        'Content-Disposition':
-          'attachment; filename=codecane-darwin-arm64.tar.gz',
+        'Content-Disposition': 'attachment; filename=codecane-darwin-arm64.tar.gz',
+        'Cache-Control': 'no-store', // Prevent caching
       },
     })
   } catch (error) {
