@@ -2,8 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { uniq } from 'lodash'
 import Parser from 'tree-sitter'
-
-import { getLanguageConfig } from './languages'
+import { LanguageConfig, getLanguageConfig } from './languages'
 
 export const DEBUG_PARSING = false
 const IGNORE_TOKENS = ['__init__', '__post_init__', '__call__', 'constructor']
@@ -34,7 +33,10 @@ export async function getFileTokenScores(
     const fullPath = path.join(projectRoot, filePath)
     const languageConfig = await getLanguageConfig(fullPath)
     if (languageConfig) {
-      const { identifiers, calls, numLines } = await parseTokens(fullPath)
+      const { identifiers, calls, numLines } = await parseTokens(
+        fullPath,
+        languageConfig
+      )
 
       const tokenScoresForFile: { [token: string]: number } = {}
       tokenScores[filePath] = tokenScoresForFile
@@ -133,42 +135,42 @@ export async function getFileTokenScores(
   return { tokenScores, tokenCallers }
 }
 
-export async function parseTokens(filePath: string) {
-  const languageConfig = await getLanguageConfig(filePath)
-  if (languageConfig) {
-    const { parser, query } = languageConfig
+export async function parseTokens(
+  filePath: string,
+  languageConfig: LanguageConfig
+) {
+  const { parser, query } = languageConfig
 
-    try {
-      const sourceCode = fs.readFileSync(filePath, 'utf8')
-      const numLines = sourceCode.match(/\n/g)?.length ?? 0 + 1
-      const parseResults = parseFile(parser, query, sourceCode)
-      const identifiers = uniq(parseResults.identifier)
-      const calls = uniq(parseResults['call.identifier'])
+  try {
+    const sourceCode = fs.readFileSync(filePath, 'utf8')
+    const numLines = sourceCode.match(/\n/g)?.length ?? 0 + 1
+    const parseResults = parseFile(parser, query, sourceCode)
+    const identifiers = uniq(parseResults.identifier)
+    const calls = uniq(parseResults['call.identifier'])
 
-      if (DEBUG_PARSING) {
-        console.log(`\nParsing ${filePath}:`)
-        console.log('Source:', sourceCode)
-        console.log('Parse results:', parseResults)
-        console.log('Identifiers:', identifiers)
-        console.log('Calls:', calls)
-      }
-
-      return {
-        numLines,
-        identifiers: identifiers ?? [],
-        calls: calls ?? [],
-      }
-    } catch (e) {
-      if (DEBUG_PARSING) {
-        console.error(`Error parsing query: ${e}`)
-        console.log(filePath)
-      }
+    if (DEBUG_PARSING) {
+      console.log(`\nParsing ${filePath}:`)
+      console.log('Source:', sourceCode)
+      console.log('Parse results:', parseResults)
+      console.log('Identifiers:', identifiers)
+      console.log('Calls:', calls)
     }
-  }
-  return {
-    numLines: 0,
-    identifiers: [] as string[],
-    calls: [] as string[],
+
+    return {
+      numLines,
+      identifiers: identifiers ?? [],
+      calls: calls ?? [],
+    }
+  } catch (e) {
+    if (DEBUG_PARSING) {
+      console.error(`Error parsing query: ${e}`)
+      console.log(filePath)
+    }
+    return {
+      numLines: 0,
+      identifiers: [] as string[],
+      calls: [] as string[],
+    }
   }
 }
 
