@@ -1,4 +1,4 @@
-(class_definition "class"
+(class_definition
   name: (identifier) @identifier)
 
 (function_definition

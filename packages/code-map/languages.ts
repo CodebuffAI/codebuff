@@ -84,40 +84,41 @@ export async function getLanguageConfig(
   const extension = path.extname(filePath)
   const config = languageConfigs.find((config) =>
     config.extensions.includes(extension)
-  ) as LanguageConfig | undefined
+  )
   if (!config) return undefined
 
-  if (!config.parser) {
-    const parser = new Parser()
+  const parser = new Parser()
 
-    try {
-      const languageModule = await import(config.packageName)
-      const language =
-        extension === '.ts'
-          ? languageModule.typescript
-          : extension === '.tsx'
-            ? languageModule.tsx
-            : extension === '.php'
-              ? languageModule.php
-              : languageModule
-      parser.setLanguage(language)
+  try {
+    const languageModule = await import(config.packageName)
+    const language =
+      extension === '.ts'
+        ? languageModule.typescript
+        : extension === '.tsx'
+          ? languageModule.tsx
+          : extension === '.php'
+            ? languageModule.php
+            : languageModule
+    parser.setLanguage(language)
 
-      const queryFilePath = path.join(
-        __dirname,
-        'tree-sitter-queries',
-        config.queryFile
-      )
-      const queryString = fs.readFileSync(queryFilePath, 'utf8')
-      config.query = new Query(parser.getLanguage(), queryString)
-      config.parser = parser
-      config.language = language
-    } catch (e) {
-      if (DEBUG_PARSING) {
-        console.log('error', filePath, e)
-      }
-      return undefined
+    const queryFilePath = path.join(
+      __dirname,
+      'tree-sitter-queries',
+      config.queryFile
+    )
+    const queryString = fs.readFileSync(queryFilePath, 'utf8')
+    const query = new Query(parser.getLanguage(), queryString)
+
+    return {
+      ...config,
+      parser,
+      query,
+      language,
     }
+  } catch (e) {
+    if (DEBUG_PARSING) {
+      console.log('error', filePath, e)
+    }
+    return undefined
   }
-
-  return config 
 }

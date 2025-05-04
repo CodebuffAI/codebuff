@@ -177,6 +177,10 @@ function parseFile(
   const captures = query.captures(tree.rootNode)
   const result: { [key: string]: string[] } = {}
 
+  if (DEBUG_PARSING) {
+    console.log('\nCaptures:', captures)
+  }
+
   for (const capture of captures) {
     const { name, node } = capture
     if (!result[name]) {

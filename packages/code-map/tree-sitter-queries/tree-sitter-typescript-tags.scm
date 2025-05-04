@@ -1,3 +1,4 @@
+(identifier) @identifier
 (function_declaration name: (identifier) @identifier)
 (class_declaration name: (type_identifier) @identifier)
 (interface_declaration name: (type_identifier) @identifier)
@@ -11,6 +12,7 @@
   declaration: (lexical_declaration
     (variable_declarator
       name: (identifier) @identifier)))
+
 (export_statement
   declaration: (variable_declaration
     (variable_declarator

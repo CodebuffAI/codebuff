@@ -5,5 +5,11 @@
     "typeRoots": ["node_modules/@types", "../../node_modules/@types"],
     "outDir": "./dist",
     "esModuleInterop": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "__tests__"
+  ]
 }

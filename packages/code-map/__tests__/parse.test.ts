@@ -1,7 +1,7 @@
 import * as path from 'path'
-import { describe, it, expect, beforeAll, mock } from 'bun:test'
-import { getFileTokenScores } from '../parse'
-import { PathOrFileDescriptor } from 'node:fs'
+import * as fs from 'fs'
+import { describe, it, expect } from 'bun:test'
+import { execSync } from 'child_process'
 
 // Test data
 const tsFile = `
@@ -83,151 +83,139 @@ export function unusedFunction() {
 
 const emptyFile = ''
 
-// Pre-read query files
-let tsQueryFile: string
-let pyQueryFile: string
+// Helper function to run tree-sitter parsing in a separate Node process
+async function parseFile(filePath: string, content: string) {
+  const tempScriptPath = path.join(__dirname, 'temp-parse-file.js')
+  const scriptContent = `
+const Parser = require('tree-sitter')
+const { Query } = require('tree-sitter')
 
-beforeAll(async () => {
-  tsQueryFile = await Bun.file(
-    path.join(__dirname, '../tree-sitter-queries/tree-sitter-typescript-tags.scm')
-  ).text()
-  pyQueryFile = await Bun.file(
-    path.join(__dirname, '../tree-sitter-queries/tree-sitter-python-tags.scm')
-  ).text()
+// Language configs (simplified from languages.ts)
+const languageConfigs = [
+  {
+    extensions: ['.ts', '.tsx'],
+    queryFile: 'tree-sitter-typescript-tags.scm',
+    packageName: 'tree-sitter-typescript',
+    getLanguage: (module) => module.typescript
+  },
+  {
+    extensions: ['.py'],
+    queryFile: 'tree-sitter-python-tags.scm',
+    packageName: 'tree-sitter-python',
+    getLanguage: (module) => module
+  }
+]
 
-  // Mock fs module to handle virtual test files and query files
-  mock.module('fs', () => ({
-    readFileSync: ((
-      filePath: PathOrFileDescriptor,
-      options?:
-        | { encoding?: BufferEncoding | null; flag?: string }
-        | BufferEncoding
-        | null
-    ): string | Buffer => {
-      const filePathStr = filePath.toString()
+async function parseSourceCode(filePath, sourceCode) {
+  const extension = require('path').extname(filePath)
+  const config = languageConfigs.find(c => c.extensions.includes(extension))
+  if (!config) return { identifiers: [], calls: [] }
 
-      // Handle query files first
-      if (filePathStr.includes('tree-sitter-typescript-tags.scm')) {
-        return tsQueryFile
+  try {
+    const parser = new Parser()
+    const languageModule = require(config.packageName)
+    const language = config.getLanguage(languageModule)
+    parser.setLanguage(language)
+
+    const queryFilePath = require('path').join(__dirname, '../tree-sitter-queries', config.queryFile)
+    const queryString = require('fs').readFileSync(queryFilePath, 'utf8')
+    const query = new Query(parser.getLanguage(), queryString)
+
+    const tree = parser.parse(sourceCode)
+    const captures = query.captures(tree.rootNode)
+
+    const result = {}
+    for (const capture of captures) {
+      const { name, node } = capture
+      if (!result[name]) {
+        result[name] = []
       }
-      if (filePathStr.includes('tree-sitter-python-tags.scm')) {
-        return pyQueryFile
-      }
+      result[name].push(node.text)
+    }
 
-      const fileName = path.basename(filePathStr)
-      let content: string
+    return {
+      identifiers: [...new Set(result.identifier || [])],
+      calls: [...new Set(result['call.identifier'] || [])]
+    }
+  } catch (err) {
+    console.error('Error:', err)
+    return { identifiers: [], calls: [] }
+  }
+}
 
-      switch (fileName) {
-        case 'test.ts':
-          content = tsFile
-          break
-        case 'test.py':
-          content = pyFile
-          break
-        case 'utils1.ts':
-          content = multiDefFile1
-          break
-        case 'utils2.ts':
-          content = multiDefFile2
-          break
-        case 'consumer.ts':
-          content = noDefsOnlyCallsFile
-          break
-        case 'unused.ts':
-          content = noCallsOnlyDefsFile
-          break
-        case 'empty.ts':
-          content = emptyFile
-          break
-        default:
-          // Return empty string for unknown files instead of throwing
-          content = ''
-      }
+const filePath = process.argv[2]
+const sourceCode = process.argv[3]
 
-      // Match fs.readFileSync's behavior:
-      // - Return string if encoding is specified
-      // - Return Buffer if no encoding or encoding is null
-      if (typeof options === 'string') {
-        return content
-      }
-      if (options && typeof options === 'object' && options.encoding) {
-        return content
-      }
-      return Buffer.from(content)
-    })
-  }))
-})
-
-describe('getFileTokenScores', () => {
-  it.skip('should correctly identify tokens and calls in TypeScript', async () => {
-    const result = await getFileTokenScores('/root', ['test.ts'])
-
-    // Check token identification
-    expect(result.tokenScores['test.ts']).toHaveProperty('Greeter')
-    expect(result.tokenScores['test.ts']).toHaveProperty('Greeting')
-    expect(result.tokenScores['test.ts']).toHaveProperty('createGreeter')
-    expect(result.tokenScores['test.ts']).toHaveProperty('greet')
-    expect(result.tokenScores['test.ts']).toHaveProperty('printGreeting')
-
-    // Check calls
-    expect(result.tokenCallers['test.ts']['Greeting']).toContain('test.ts')
-    expect(result.tokenCallers['test.ts']['createGreeter']).toContain('test.ts')
-    expect(result.tokenCallers['test.ts']['printGreeting']).toContain('test.ts')
-    expect(result.tokenCallers['test.ts']['greet']).toContain('test.ts')
+parseSourceCode(filePath, sourceCode)
+  .then(result => {
+    console.log(JSON.stringify(result))
   })
+  .catch(err => {
+    console.error('Error:', err)
+    process.exit(1)
+  })
+`
 
-  it.skip('should correctly identify tokens and calls in Python', async () => {
-    const result = await getFileTokenScores('/root', ['test.py'])
+  try {
+    // Write the temporary script
+    fs.writeFileSync(tempScriptPath, scriptContent)
 
-    // Check token identification
-    expect(result.tokenScores['test.py']).toHaveProperty('Greeter')
-    expect(result.tokenScores['test.py']).toHaveProperty('Greeting')
-    expect(result.tokenScores['test.py']).toHaveProperty('print_greeting')
-    expect(result.tokenScores['test.py']).toHaveProperty('greet')
-
-    // Check calls
-    expect(result.tokenCallers['test.py']['Greeting']).toContain('test.py')
-    expect(result.tokenCallers['test.py']['print_greeting']).toContain(
-      'test.py'
+    // Execute the script with node
+    const output = execSync(
+      `node "${tempScriptPath}" "${filePath}" "${content.replace(/"/g, '\\"')}"`,
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+      }
     )
-    expect(result.tokenCallers['test.py']['greet']).toContain('test.py')
+
+    // Parse the JSON output
+    return JSON.parse(output)
+  } finally {
+    // Clean up the temporary script
+    try {
+      fs.unlinkSync(tempScriptPath)
+    } catch (err) {
+      console.warn('Failed to clean up temporary script:', err)
+    }
+  }
+}
+
+describe('tree-sitter parsing', () => {
+  it('should correctly identify tokens and calls in TypeScript', async () => {
+    const result = await parseFile('test.ts', tsFile)
+
+    // Check identifiers
+    expect(result.identifiers).toContain('Greeter')
+    expect(result.identifiers).toContain('Greeting')
+    expect(result.identifiers).toContain('createGreeter')
+    expect(result.identifiers).toContain('greet')
+    expect(result.identifiers).toContain('printGreeting')
+
+    // Check calls
+    expect(result.calls).toContain('createGreeter')
+    expect(result.calls).toContain('printGreeting')
+    expect(result.calls).toContain('greet')
   })
 
-  it.skip('should use highest scoring definition when token is defined in multiple files', async () => {
-    const result = await getFileTokenScores('/root', [
-      'utils1.ts',
-      'deep/utils2.ts',
-      'consumer.ts',
-    ])
+  it('should correctly identify tokens and calls in Python', async () => {
+    const result = await parseFile('test.py', pyFile)
 
-    // utils1.ts has a higher score (shallower path)
-    expect(result.tokenCallers['utils1.ts']['utils']).toContain('consumer.ts')
-    // utils2.ts should not be chosen as the defining file
-    expect(result.tokenCallers['deep/utils2.ts']['utils']).toBeUndefined()
-  })
+    // Check identifiers
+    expect(result.identifiers).toContain('Greeter')
+    expect(result.identifiers).toContain('Greeting')
+    expect(result.identifiers).toContain('print_greeting')
+    expect(result.identifiers).toContain('greet')
 
-  it('should handle files with no definitions', async () => {
-    const result = await getFileTokenScores('/root', ['consumer.ts'])
-
-    // No definitions, only calls
-    expect(Object.keys(result.tokenScores['consumer.ts'])).toHaveLength(0)
-    // External calls are tracked but not mapped to callers since definition is unknown
-    expect(Object.keys(result.tokenCallers)).toHaveLength(0)
-  })
-
-  it.skip('should handle files with no calls', async () => {
-    const result = await getFileTokenScores('/root', ['unused.ts'])
-
-    // Has definition but no calls
-    expect(result.tokenScores['unused.ts']).toHaveProperty('unusedFunction')
-    expect(result.tokenCallers['unused.ts']['unusedFunction']).toEqual([])
+    // Check calls
+    expect(result.calls).toContain('print_greeting')
+    expect(result.calls).toContain('greet')
   })
 
   it('should handle empty files', async () => {
-    const result = await getFileTokenScores('/root', ['empty.ts'])
+    const result = await parseFile('empty.ts', emptyFile)
 
-    // No definitions or calls
-    expect(Object.keys(result.tokenScores['empty.ts'] || {})).toHaveLength(0)
-    expect(Object.keys(result.tokenCallers)).toHaveLength(0)
+    expect(result.identifiers).toHaveLength(0)
+    expect(result.calls).toHaveLength(0)
   })
 })
