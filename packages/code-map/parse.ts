@@ -89,6 +89,11 @@ export async function getFileTokenScores(
         continue
       }
 
+      // Skip token names in default objects, e.g. toString, hasOwnProperty
+      if (call in {}) {
+        continue
+      }
+
       if (!tokenCallers[definingFile]) {
         tokenCallers[definingFile] = {}
       }
