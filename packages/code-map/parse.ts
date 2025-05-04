@@ -118,10 +118,15 @@ export async function getFileTokenScores(
     const endTime = Date.now()
     console.log(`Parsed ${filePaths.length} files in ${endTime - startTime}ms`)
 
-    console.log('externalCalls', externalCalls)
-    console.log('tokenCallers', tokenCallers)
-    console.log('tokenScores', tokenScores)
-    console.log('fileCallsMap', Object.fromEntries(fileCallsMap))
+    fs.writeFileSync(
+      '../debug/debug-parse.json',
+      JSON.stringify({
+        tokenCallers,
+        tokenScores,
+        fileCallsMap,
+        externalCalls,
+      })
+    )
   }
 
   return { tokenScores, tokenCallers }
