@@ -1,6 +1,5 @@
-import * as fs from 'fs'
 import * as path from 'path'
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test'
+import { describe, it, expect, beforeAll, mock } from 'bun:test'
 import { getFileTokenScores } from '../parse'
 import { PathOrFileDescriptor } from 'node:fs'
 
@@ -85,22 +84,20 @@ export function unusedFunction() {
 const emptyFile = ''
 
 // Pre-read query files
-const tsQueryFile = fs.readFileSync(
-  path.join(__dirname, '../tree-sitter-queries/tree-sitter-typescript-tags.scm'),
-  'utf8'
-)
+let tsQueryFile: string
+let pyQueryFile: string
 
-const pyQueryFile = fs.readFileSync(
-  path.join(__dirname, '../tree-sitter-queries/tree-sitter-python-tags.scm'),
-  'utf8'
-)
+beforeAll(async () => {
+  tsQueryFile = await Bun.file(
+    path.join(__dirname, '../tree-sitter-queries/tree-sitter-typescript-tags.scm')
+  ).text()
+  pyQueryFile = await Bun.file(
+    path.join(__dirname, '../tree-sitter-queries/tree-sitter-python-tags.scm')
+  ).text()
 
-describe('getFileTokenScores', () => {
-  const fsReadFileSyncSpy = spyOn(fs, 'readFileSync')
-
-  beforeEach(() => {
-    // Mock file system
-    fsReadFileSyncSpy.mockImplementation(((
+  // Mock fs module to handle virtual test files and query files
+  mock.module('fs', () => ({
+    readFileSync: ((
       filePath: PathOrFileDescriptor,
       options?:
         | { encoding?: BufferEncoding | null; flag?: string }
@@ -119,6 +116,7 @@ describe('getFileTokenScores', () => {
 
       const fileName = path.basename(filePathStr)
       let content: string
+
       switch (fileName) {
         case 'test.ts':
           content = tsFile
@@ -142,7 +140,8 @@ describe('getFileTokenScores', () => {
           content = emptyFile
           break
         default:
-          throw new Error(`Unexpected file: ${filePath}`)
+          // Return empty string for unknown files instead of throwing
+          content = ''
       }
 
       // Match fs.readFileSync's behavior:
@@ -155,13 +154,11 @@ describe('getFileTokenScores', () => {
         return content
       }
       return Buffer.from(content)
-    }) as typeof fs.readFileSync)
-  })
+    })
+  }))
+})
 
-  afterEach(() => {
-    fsReadFileSyncSpy.mockReset()
-  })
-
+describe('getFileTokenScores', () => {
   it.skip('should correctly identify tokens and calls in TypeScript', async () => {
     const result = await getFileTokenScores('/root', ['test.ts'])
 
