@@ -1,4 +1,3 @@
-(identifier) @identifier
 (function_declaration name: (identifier) @identifier)
 (class_declaration name: (type_identifier) @identifier)
 (interface_declaration name: (type_identifier) @identifier)
