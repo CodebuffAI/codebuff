@@ -487,7 +487,7 @@ export const runCommandPty = (
   let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
   const projectRoot = getProjectRoot()
 
-  let timer: NodeJS.Timeout | null = null;
+  let timer: NodeJS.Timeout | null = null
   if (maybeTimeoutSeconds !== null) {
     timer = setTimeout(() => {
       if (mode === 'assistant') {
@@ -585,9 +585,7 @@ If you want to change the project root:
 
       const cwdMessage = outsideProject
         ? `\nDetected final cwd outside project root. Reset cwd to ${cwd}`
-        : newWorkingDirectory === cwd
-          ? ''
-          : `\nFinal cwd: ${cwd}`
+        : `\nFinal cwd: ${cwd}`
 
       resolve({
         result: formatResult(command, commandOutput, `Complete${cwdMessage}`),
@@ -645,7 +643,7 @@ const runCommandChildProcess = (
     childProcess,
   }
 
-  let timer: NodeJS.Timeout | null = null;
+  let timer: NodeJS.Timeout | null = null
   if (maybeTimeoutSeconds !== null) {
     timer = setTimeout(() => {
       resetShell(cwd)

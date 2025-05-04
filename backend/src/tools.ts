@@ -239,7 +239,7 @@ ${getToolCallString('code_search', { pattern: 'import.*foo' })}
     name: 'run_terminal_command',
     description: `
 ### run_terminal_command
-Execute a CLI command in the user's working directory.
+Execute a CLI command in the user's working directory. **Make sure to take note of the working directory before running a command. This may not be the same as the project directory.**
 
 Stick to these use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
@@ -560,10 +560,6 @@ export const toolsInstructions = `
 # Tools
 
 You (Buffy) have access to the following tools. Call them when needed. Remember your Buffy persona!
-
-## [CRITICAL] Working Directory
-
-The user may change directories. If the user does this, your working directory does **NOT** change for tool calls such as write_file, read_file, etc. The relative filepaths are **always** from the project root.
 
 ## [CRITICAL] Formatting Requirements
 
