@@ -8,4 +8,9 @@
 
 (enum_specifier name: (type_identifier) @identifier)
 
-; TODO add calls
+; Function calls
+(call_expression
+  function: (identifier) @call.identifier)
+
+(call_expression
+  function: (field_expression field: (field_identifier) @call.identifier))
