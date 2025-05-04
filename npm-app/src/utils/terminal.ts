@@ -373,10 +373,11 @@ export const runTerminalCommand = async (
   command: string,
   mode: 'user' | 'assistant',
   processType: 'SYNC' | 'BACKGROUND',
-  timeout_seconds: number,
+  timeoutSeconds: number,
   stdoutFile?: string,
   stderrFile?: string
 ): Promise<{ result: string; stdout: string }> => {
+  const maybeTimeoutSeconds = timeoutSeconds < 0 ? null : timeoutSeconds
   const cwd = getWorkingDirectory()
   return new Promise((resolve) => {
     if (!persistentProcess) {
@@ -428,7 +429,7 @@ export const runTerminalCommand = async (
         modifiedCommand,
         mode,
         cwd,
-        timeout_seconds,
+        maybeTimeoutSeconds,
         resolveCommand
       )
     } else {
@@ -438,7 +439,7 @@ export const runTerminalCommand = async (
         modifiedCommand,
         mode,
         cwd,
-        timeout_seconds,
+        maybeTimeoutSeconds,
         resolveCommand
       )
     }
@@ -456,7 +457,7 @@ export const runCommandPty = (
   command: string,
   mode: 'user' | 'assistant',
   cwd: string,
-  timeout_seconds: number,
+  maybeTimeoutSeconds: number | null,
   resolve: (value: {
     result: string
     stdout: string
@@ -486,22 +487,25 @@ export const runCommandPty = (
   let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
   const projectRoot = getProjectRoot()
 
-  const timer = setTimeout(() => {
-    if (mode === 'assistant') {
-      // Kill and recreate PTY
-      resetShell(cwd)
+  let timer: NodeJS.Timeout | null = null;
+  if (maybeTimeoutSeconds !== null) {
+    timer = setTimeout(() => {
+      if (mode === 'assistant') {
+        // Kill and recreate PTY
+        resetShell(cwd)
 
-      resolve({
-        result: formatResult(
-          command,
-          commandOutput,
-          `Command timed out after ${timeout_seconds} seconds and was terminated. Shell has been restarted.`
-        ),
-        stdout: commandOutput,
-        exitCode: 124,
-      })
-    }
-  }, timeout_seconds * 1000)
+        resolve({
+          result: formatResult(
+            command,
+            commandOutput,
+            `Command timed out after ${maybeTimeoutSeconds} seconds and was terminated. Shell has been restarted.`
+          ),
+          stdout: commandOutput,
+          exitCode: 124,
+        })
+      }
+    }, maybeTimeoutSeconds * 1000)
+  }
 
   persistentProcess.timerId = timer
 
@@ -542,7 +546,9 @@ export const runCommandPty = (
     const commandDone = buffer.match(commandDonePattern)
     if (commandDone && echoLinesRemaining === 0) {
       // Command is done
-      clearTimeout(timer)
+      if (timer) {
+        clearTimeout(timer)
+      }
       dataDisposable.dispose()
 
       const exitCode = buffer.includes('Command completed')
@@ -606,7 +612,7 @@ const runCommandChildProcess = (
   command: string,
   mode: 'user' | 'assistant',
   cwd: string,
-  timeout_seconds: number,
+  maybeTimeoutSeconds: number | null,
   resolve: (value: {
     result: string
     stdout: string
@@ -639,20 +645,23 @@ const runCommandChildProcess = (
     childProcess,
   }
 
-  const timer = setTimeout(() => {
-    resetShell(cwd)
-    if (mode === 'assistant') {
-      resolve({
-        result: formatResult(
-          command,
-          commandOutput,
-          `Command timed out after ${timeout_seconds} seconds and was terminated.`
-        ),
-        stdout: commandOutput,
-        exitCode: 124,
-      })
-    }
-  }, timeout_seconds * 1000)
+  let timer: NodeJS.Timeout | null = null;
+  if (maybeTimeoutSeconds !== null) {
+    timer = setTimeout(() => {
+      resetShell(cwd)
+      if (mode === 'assistant') {
+        resolve({
+          result: formatResult(
+            command,
+            commandOutput,
+            `Command timed out after ${maybeTimeoutSeconds} seconds and was terminated.`
+          ),
+          stdout: commandOutput,
+          exitCode: 124,
+        })
+      }
+    }, maybeTimeoutSeconds * 1000)
+  }
 
   persistentProcess.timerId = timer
 
@@ -669,7 +678,9 @@ const runCommandChildProcess = (
   })
 
   childProcess.on('close', (code) => {
-    clearTimeout(timer)
+    if (timer) {
+      clearTimeout(timer)
+    }
 
     if (command.startsWith('cd ') && mode === 'user') {
       const newWorkingDirectory = command.split(' ')[1]
