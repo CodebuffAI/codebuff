@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test'
-import { getFileTokenScores } from './parse'
+import { getFileTokenScores } from '../parse'
 import { PathOrFileDescriptor } from 'node:fs'
 
 // Test data
@@ -86,12 +86,12 @@ const emptyFile = ''
 
 // Pre-read query files
 const tsQueryFile = fs.readFileSync(
-  path.join(__dirname, 'tree-sitter-queries/tree-sitter-typescript-tags.scm'),
+  path.join(__dirname, '../tree-sitter-queries/tree-sitter-typescript-tags.scm'),
   'utf8'
 )
 
 const pyQueryFile = fs.readFileSync(
-  path.join(__dirname, 'tree-sitter-queries/tree-sitter-python-tags.scm'),
+  path.join(__dirname, '../tree-sitter-queries/tree-sitter-python-tags.scm'),
   'utf8'
 )
 
