@@ -54,7 +54,9 @@ async function codebuff(
     processCleanupPromise,
   ])
 
-  const cli = new CLI(readyPromise, { git, costMode, model })
+  // Initialize the CLI singleton
+  CLI.initialize(readyPromise, { git, costMode, model });
+  const cli = CLI.getInstance();
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })
 }

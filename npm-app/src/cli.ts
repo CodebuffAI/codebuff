@@ -59,6 +59,7 @@ type ApiKeyDetectionResult =
   | { status: 'not_found' }
 
 export class CLI {
+  private static instance: CLI | null = null;
   private client: Client
   private readyPromise: Promise<any>
   private git: GitCommand
@@ -73,7 +74,7 @@ export class CLI {
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
 
-  constructor(
+  private constructor(
     readyPromise: Promise<[ProjectFileContext, void, void]>,
     { git, costMode, model }: CliOptions
   ) {
@@ -118,6 +119,23 @@ export class CLI {
       console.error(err.stack)
       this.freshPrompt()
     })
+  }
+
+  public static initialize(
+    readyPromise: Promise<[ProjectFileContext, void, void]>,
+    options: CliOptions
+  ): void {
+    if (CLI.instance) {
+      throw new Error('CLI is already initialized');
+    }
+    CLI.instance = new CLI(readyPromise, options);
+  }
+
+  public static getInstance(): CLI {
+    if (!CLI.instance) {
+      throw new Error('CLI must be initialized before getting an instance');
+    }
+    return CLI.instance;
   }
 
   private setupSignalHandlers() {
