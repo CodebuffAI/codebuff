@@ -16,5 +16,8 @@
 (function_call_expression
   function: (name) @call.identifier)
 
+(scoped_call_expression
+  name: (name) @call.identifier)
+
 (member_call_expression
   name: (name) @call.identifier)
