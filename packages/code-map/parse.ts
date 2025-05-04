@@ -1,12 +1,13 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import Parser from 'tree-sitter'
 import { uniq } from 'lodash'
+import Parser from 'tree-sitter'
 
 import { getLanguageConfig } from './languages'
 
 export const DEBUG_PARSING = false
 const IGNORE_TOKENS = ['__init__', '__post_init__', '__call__', 'constructor']
+const MAX_CALLERS = 25
 
 export interface TokenCallerMap {
   [filePath: string]: {
@@ -76,31 +77,29 @@ export async function getFileTokenScores(
     }
   }
 
-  // Initialize tokenCallers only for files that define tokens
   const tokenCallers: TokenCallerMap = {}
-  for (const [filePath, scores] of Object.entries(tokenScores)) {
-    if (Object.keys(scores).length > 0) {
-      tokenCallers[filePath] = {}
-      for (const token of Object.keys(scores)) {
-        tokenCallers[filePath][token] = []
-      }
-    }
-  }
 
   // For each file's calls, add it as a caller to the defining file's tokens
   for (const [callingFile, calls] of fileCallsMap.entries()) {
     for (const call of calls) {
       const definingFile = tokenDefinitionMap.get(call)
-      if (definingFile && tokenCallers[definingFile]) {
-        if (!tokenCallers[definingFile][call]) {
-          tokenCallers[definingFile][call] = []
-        }
-        if (
-          !tokenCallers[definingFile][call].includes(callingFile) &&
-          callingFile !== definingFile
-        ) {
-          tokenCallers[definingFile][call].push(callingFile)
-        }
+      if (!definingFile || callingFile === definingFile) {
+        continue
+      }
+
+      if (!tokenCallers[definingFile]) {
+        tokenCallers[definingFile] = {}
+      }
+
+      if (!tokenCallers[definingFile][call]) {
+        tokenCallers[definingFile][call] = []
+      }
+      const callerFiles = tokenCallers[definingFile][call]
+      if (
+        callerFiles.length < MAX_CALLERS &&
+        !callerFiles.includes(callingFile)
+      ) {
+        callerFiles.push(callingFile)
       }
     }
   }
@@ -111,6 +110,8 @@ export async function getFileTokenScores(
       const numCalls = externalCalls[token] ?? 0
       if (typeof numCalls !== 'number') continue
       scores[token] *= 1 + Math.log(1 + numCalls)
+      // Round to 3 decimal places
+      scores[token] = Math.round(scores[token] * 1000) / 1000
     }
   }
 
