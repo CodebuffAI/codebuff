@@ -1,3 +1,6 @@
+(interface_declaration
+  name: (name) @identifier)
+
 (class_declaration
   name: (name) @identifier)
 
@@ -8,19 +11,10 @@
   name: (name) @identifier)
 
 (object_creation_expression
-  [
-    (qualified_name (name) @call.identifier)
-    (variable_name (name) @call.identifier)
-  ])
+  type: (qualified_name) @call.identifier)
 
 (function_call_expression
-  function: [
-    (qualified_name (name) @call.identifier)
-    (variable_name (name)) @call.identifier
-  ])
-
-(scoped_call_expression
-  name: (name) @call.identifier)
+  function: (name) @call.identifier)
 
 (member_call_expression
   name: (name) @call.identifier)

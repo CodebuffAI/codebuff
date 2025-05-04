@@ -12,4 +12,5 @@
       name: (identifier) @identifier)))
 
 (call_expression function: (identifier) @call.identifier)
+(call_expression function: (member_expression property: (property_identifier) @call.identifier))
 (new_expression constructor: (identifier) @call.identifier)
