@@ -262,9 +262,7 @@ When using this tool, please adhere to the following rules:
 9. The user will not be able to interact with these processes, e.g. confirming the command. So if there's an opportunity to use "-y" or "--yes" flags, use them. Any command that prompts for confirmation will hang if you don't use the flags.
 
 Notes:
-- The current working directory will always reset to **user's** working directory directory for each command you run. You can only access files within this directory (or sub-directories). So if you run cd in one command, the directory change won't persist to the next command.
-  - \`cd subdir && some_command\` will work as expected.
-  - \`cd subdir\` in followed by \`some_command\` in two different commands will run some_command from whatever the user's cwd is.
+- The current working directory is persistent. If you cd into something, you will still be in that directory until you cd out of it.
 - Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
 
 ${gitCommitGuidePrompt}
