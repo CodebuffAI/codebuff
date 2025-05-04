@@ -1,21 +1,42 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { uniq } from 'lodash'
 import Parser from 'tree-sitter'
-
-import { getLanguageConfig } from './languages'
+import { LanguageConfig, getLanguageConfig } from './languages'
 
 export const DEBUG_PARSING = false
 const IGNORE_TOKENS = ['__init__', '__post_init__', '__call__', 'constructor']
+const MAX_CALLERS = 25
 
-export async function getFileTokenScores(projectRoot: string, filePaths: string[]) {
+export interface TokenCallerMap {
+  [filePath: string]: {
+    [token: string]: string[] // Array of files that call this token
+  }
+}
+
+export interface FileTokenData {
+  tokenScores: { [filePath: string]: { [token: string]: number } }
+  tokenCallers: TokenCallerMap
+}
+
+export async function getFileTokenScores(
+  projectRoot: string,
+  filePaths: string[]
+): Promise<FileTokenData> {
   const startTime = Date.now()
   const tokenScores: { [filePath: string]: { [token: string]: number } } = {}
   const externalCalls: { [token: string]: number } = {}
+  const fileCallsMap = new Map<string, string[]>()
 
+  // First pass: collect all identifiers and calls
   for (const filePath of filePaths) {
     const fullPath = path.join(projectRoot, filePath)
-    if (!!getLanguageConfig(fullPath)) {
-      const { identifiers, calls, numLines } = await parseTokens(fullPath)
+    const languageConfig = await getLanguageConfig(fullPath)
+    if (languageConfig) {
+      const { identifiers, calls, numLines } = await parseTokens(
+        fullPath,
+        languageConfig
+      )
 
       const tokenScoresForFile: { [token: string]: number } = {}
       tokenScores[filePath] = tokenScoresForFile
@@ -25,11 +46,17 @@ export async function getFileTokenScores(projectRoot: string, filePaths: string[
       const tokenBaseScore =
         0.8 ** depth * Math.sqrt(numLines / (identifiers.length + 1))
 
+      // Store defined tokens
       for (const identifier of identifiers) {
         if (!IGNORE_TOKENS.includes(identifier)) {
           tokenScoresForFile[identifier] = tokenBaseScore
         }
       }
+
+      // Store calls for this file
+      fileCallsMap.set(filePath, calls)
+
+      // Track external calls
       for (const call of calls) {
         if (!tokenScoresForFile[call]) {
           externalCalls[call] = (externalCalls[call] ?? 0) + 1
@@ -38,11 +65,55 @@ export async function getFileTokenScores(projectRoot: string, filePaths: string[
     }
   }
 
+  // Build a map of tokens to their defining files for O(1) lookup
+  const tokenDefinitionMap = new Map<string, string>()
+  const highestScores = new Map<string, number>()
+  for (const [filePath, scores] of Object.entries(tokenScores)) {
+    for (const [token, score] of Object.entries(scores)) {
+      const currentHighestScore = highestScores.get(token) ?? -Infinity
+      // Keep the file with the higher score for this token
+      if (score > currentHighestScore) {
+        highestScores.set(token, score)
+        tokenDefinitionMap.set(token, filePath)
+      }
+    }
+  }
+
+  const tokenCallers: TokenCallerMap = {}
+
+  // For each file's calls, add it as a caller to the defining file's tokens
+  for (const [callingFile, calls] of fileCallsMap.entries()) {
+    for (const call of calls) {
+      const definingFile = tokenDefinitionMap.get(call)
+      if (!definingFile || callingFile === definingFile) {
+        continue
+      }
+
+      if (!tokenCallers[definingFile]) {
+        tokenCallers[definingFile] = {}
+      }
+
+      if (!tokenCallers[definingFile][call]) {
+        tokenCallers[definingFile][call] = []
+      }
+      const callerFiles = tokenCallers[definingFile][call]
+      if (
+        callerFiles.length < MAX_CALLERS &&
+        !callerFiles.includes(callingFile)
+      ) {
+        callerFiles.push(callingFile)
+      }
+    }
+  }
+
+  // Apply call frequency boost to token scores
   for (const scores of Object.values(tokenScores)) {
     for (const token of Object.keys(scores)) {
       const numCalls = externalCalls[token] ?? 0
       if (typeof numCalls !== 'number') continue
       scores[token] *= 1 + Math.log(1 + numCalls)
+      // Round to 3 decimal places
+      scores[token] = Math.round(scores[token] * 1000) / 1000
     }
   }
 
@@ -50,54 +121,56 @@ export async function getFileTokenScores(projectRoot: string, filePaths: string[
     const endTime = Date.now()
     console.log(`Parsed ${filePaths.length} files in ${endTime - startTime}ms`)
 
-    console.log('externalCalls', externalCalls)
-
-    // Save exportedTokens to a file
-    const exportedTokensFilePath = path.join(
-      projectRoot,
-      'exported-tokens.json'
+    fs.writeFileSync(
+      '../debug/debug-parse.json',
+      JSON.stringify({
+        tokenCallers,
+        tokenScores,
+        fileCallsMap,
+        externalCalls,
+      })
     )
-    try {
-      fs.writeFileSync(
-        exportedTokensFilePath,
-        JSON.stringify(tokenScores, null, 2)
-      )
-      console.log(`Exported tokens saved to ${exportedTokensFilePath}`)
-    } catch (error) {
-      console.error(`Failed to save exported tokens to file: ${error}`)
-    }
   }
 
-  return tokenScores
+  return { tokenScores, tokenCallers }
 }
 
-export async function parseTokens(filePath: string) {
-  const languageConfig = await getLanguageConfig(filePath)
-  if (languageConfig) {
-    const { parser, query } = languageConfig
+export async function parseTokens(
+  filePath: string,
+  languageConfig: LanguageConfig
+) {
+  const { parser, query } = languageConfig
 
-    try {
-      const sourceCode = fs.readFileSync(filePath, 'utf8')
-      const numLines = sourceCode.match(/\n/g)?.length ?? 0 + 1
-      const parseResults = parseFile(parser, query, sourceCode)
-      const identifiers = parseResults.identifier
-      const calls = parseResults['call.identifier']
-      return {
-        numLines,
-        identifiers: identifiers ?? [],
-        calls: calls ?? [],
-      }
-    } catch (e) {
-      if (DEBUG_PARSING) {
-        console.error(`Error parsing query: ${e}`)
-        console.log(filePath)
-      }
+  try {
+    const sourceCode = fs.readFileSync(filePath, 'utf8')
+    const numLines = sourceCode.match(/\n/g)?.length ?? 0 + 1
+    const parseResults = parseFile(parser, query, sourceCode)
+    const identifiers = uniq(parseResults.identifier)
+    const calls = uniq(parseResults['call.identifier'])
+
+    if (DEBUG_PARSING) {
+      console.log(`\nParsing ${filePath}:`)
+      console.log('Source:', sourceCode)
+      console.log('Parse results:', parseResults)
+      console.log('Identifiers:', identifiers)
+      console.log('Calls:', calls)
     }
-  }
-  return {
-    numLines: 0,
-    identifiers: [] as string[],
-    calls: [] as string[],
+
+    return {
+      numLines,
+      identifiers: identifiers ?? [],
+      calls: calls ?? [],
+    }
+  } catch (e) {
+    if (DEBUG_PARSING) {
+      console.error(`Error parsing query: ${e}`)
+      console.log(filePath)
+    }
+    return {
+      numLines: 0,
+      identifiers: [] as string[],
+      calls: [] as string[],
+    }
   }
 }
 
@@ -111,6 +184,10 @@ function parseFile(
   })
   const captures = query.captures(tree.rootNode)
   const result: { [key: string]: string[] } = {}
+
+  if (DEBUG_PARSING) {
+    console.log('\nCaptures:', captures)
+  }
 
   for (const capture of captures) {
     const { name, node } = capture

@@ -9,6 +9,9 @@ if (maybeParentPort) {
   parentPort.on('message', async ({ dir }) => {
     setProjectRoot(dir)
     const initFileContext = await getProjectFileContext(dir, {})
+    if (!initFileContext) {
+      throw new Error('Failed to initialize project file context')
+    }
 
     const relativeFilepaths = getAllFilePaths(initFileContext.fileTree)
     await initializeCheckpointFileManager({

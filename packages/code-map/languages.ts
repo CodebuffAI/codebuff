@@ -5,7 +5,7 @@ import { Query } from 'tree-sitter'
 
 import { DEBUG_PARSING } from './parse'
 
-interface LanguageConfig {
+export interface LanguageConfig {
   language: any
   extensions: string[]
   packageName: string
@@ -108,8 +108,10 @@ export async function getLanguageConfig(
         config.queryFile
       )
       const queryString = fs.readFileSync(queryFilePath, 'utf8')
-      config.query = new Query(parser.getLanguage(), queryString)
+      const query = new Query(parser.getLanguage(), queryString)
+
       config.parser = parser
+      config.query = query
       config.language = language
     } catch (e) {
       if (DEBUG_PARSING) {
@@ -119,5 +121,5 @@ export async function getLanguageConfig(
     }
   }
 
-  return config 
+  return config
 }

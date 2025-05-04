@@ -218,12 +218,13 @@ export const getProjectFileContext = async (
       await addScrapedContentToFiles(userKnowledgeFiles)
 
     const shellConfigFiles = loadShellConfigFiles()
-    const fileTokenScores = await getFileTokenScores(projectRoot, allFilePaths)
+    const { tokenScores, tokenCallers } = await getFileTokenScores(projectRoot, allFilePaths)
 
     cachedProjectFileContext = {
       currentWorkingDirectory: projectRoot,
       fileTree,
-      fileTokenScores,
+      fileTokenScores: tokenScores,
+      tokenCallers,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
       shellConfigFiles,
       systemInfo: getSystemInfo(),

@@ -1,4 +1,4 @@
-(class_definition "class"
+(class_definition
   name: (identifier) @identifier)
 
 (function_definition
@@ -6,4 +6,7 @@
 
 (call
   function: (identifier) @call.identifier)
-  
+
+(call
+  function: (attribute
+    attribute: (identifier) @call.identifier))
