@@ -79,11 +79,11 @@ export function renderReadFilesResult(
 ) {
   return files
     .map((file) => {
-      const referencedBy = Object.entries(tokenCallers[file.path] ?? {})
-        .filter(([_, callers]) => callers.length > 0)
-        .map(([token, callers]) => `${token}: ${callers.join(', ')}`)
-        .join('\n')
-      console.log('referencedBy', referencedBy)
+      const referencedBy =
+        Object.entries(tokenCallers[file.path] ?? {})
+          .filter(([_, callers]) => callers.length > 0)
+          .map(([token, callers]) => `${token}: ${callers.join(', ')}`)
+          .join('\n') || 'None'
       return `<read_file>\n<path>${file.path}</path>\n<content>${file.content}</content>\n<referenced_by>${referencedBy}</referenced_by>\n</read_file>`
     })
     .join('\n\n')
