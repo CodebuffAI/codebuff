@@ -122,6 +122,7 @@ const parseEntities = (input: string) => {
     // ignore unterminated entities
     if (end === -1) {
       parts.push(input.slice(next))
+      position = input.length // NEW: Set position to end to avoid double-adding
       break
     }
 
@@ -277,6 +278,7 @@ export class Saxy extends Transform {
   private _waiting: { token: string; data: unknown } | null
   private _schema: TagSchema | null
   private _pendingEntity: string | null
+  private _textBuffer: string // NEW: Text buffer as class member
 
   /**
    * Parse a string of XML attributes to a map of attribute names
@@ -320,6 +322,9 @@ export class Saxy extends Transform {
 
     // Pending entity for incomplete entities
     this._pendingEntity = null
+
+    // Initialize text buffer
+    this._textBuffer = ''
   }
 
   /**
@@ -354,6 +359,13 @@ export class Saxy extends Transform {
       if (err) {
         callback(err)
         return
+      }
+
+      // Handle any remaining text buffer
+      if (this._textBuffer.length > 0) {
+        const parsedText = parseEntities(this._textBuffer)
+        this.emit(Node.text, { contents: parsedText })
+        this._textBuffer = ''
       }
 
       // Handle any remaining pending entity
@@ -525,14 +537,20 @@ export class Saxy extends Transform {
           // Check for incomplete entity at end
           const lastAmp = chunk.lastIndexOf('&')
           if (lastAmp !== -1 && chunk.indexOf(';', lastAmp) === -1) {
-            // Store incomplete entity for next chunk
-            this._pendingEntity = chunk.slice(lastAmp)
-            chunk = chunk.slice(0, lastAmp)
+            // Only consider it a pending entity if it looks like the start of one
+            const nextChar = chunk[lastAmp + 1]
+            const isPotentialEntity =
+              nextChar === '#' || // Numeric entity
+              /[a-zA-Z]/.test(nextChar) // Named entity
+            if (isPotentialEntity) {
+              // Store incomplete entity for next chunk
+              this._pendingEntity = chunk.slice(lastAmp)
+              chunk = chunk.slice(0, lastAmp)
+            }
           }
 
           if (chunk.length > 0) {
-            chunk = parseEntities(chunk)
-            this.emit(Node.text, { contents: chunk })
+            this._textBuffer += chunk
           }
 
           chunkPos = end
@@ -550,15 +568,28 @@ export class Saxy extends Transform {
         // Check for incomplete entity at end
         const lastAmp = chunk.lastIndexOf('&')
         if (lastAmp !== -1 && chunk.indexOf(';', lastAmp) === -1) {
-          // Store incomplete entity for next chunk
-          this._pendingEntity = chunk.slice(lastAmp)
-          chunk = chunk.slice(0, lastAmp)
+          // Only consider it a pending entity if it looks like the start of one
+          const nextChar = chunk[lastAmp + 1]
+          const isPotentialEntity =
+            nextChar === '#' || // Numeric entity
+            /[a-zA-Z]/.test(nextChar) // Named entity
+          if (isPotentialEntity) {
+            // Store incomplete entity for next chunk
+            this._pendingEntity = chunk.slice(lastAmp)
+            chunk = chunk.slice(0, lastAmp)
+          }
         }
 
         // Only emit non-whitespace text or text within a single tag (not between tags)
         if (chunk.length > 0) {
-          chunk = parseEntities(chunk)
-          this.emit(Node.text, { contents: chunk })
+          this._textBuffer += chunk
+        }
+
+        // We've reached a tag boundary, emit any buffered text
+        if (this._textBuffer.length > 0) {
+          const parsedText = parseEntities(this._textBuffer)
+          this.emit(Node.text, { contents: parsedText })
+          this._textBuffer = ''
         }
 
         chunkPos = nextTag
@@ -659,6 +690,13 @@ export class Saxy extends Transform {
       }
 
       chunkPos = tagClose + 1
+    }
+
+    // Emit any buffered text at the end of the chunk if there's no pending entity
+    if (this._textBuffer.length > 0 && !this._pendingEntity) {
+      const parsedText = parseEntities(this._textBuffer)
+      this.emit(Node.text, { contents: parsedText })
+      this._textBuffer = ''
     }
 
     callback()

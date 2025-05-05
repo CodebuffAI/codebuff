@@ -211,6 +211,39 @@ describe('Saxy Stream Processor', () => {
     expect(outputChunks.length).toBeGreaterThan(3)
   })
 
+  test('handles xml entities in chunks correctly', async () => {
+    // This test demonstrates an issue where chunks containing & are delayed
+    const chunks = ['start', ' <tag>before & after</tag> ', 'end']
+
+    const outputChunks: string[] = []
+
+    const writable = new Writable({
+      write(chunk, encoding, callback) {
+        const chunkStr = chunk.toString()
+        outputChunks.push(chunkStr)
+        callback()
+      },
+    })
+
+    const processor = createXMLStreamParser(toolRenderers)
+    processor.pipe(writable)
+
+    // Process each chunk with a small delay
+    for (const chunk of chunks) {
+      processor.write(chunk)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    processor.end()
+
+    // Wait for stream to finish
+    await new Promise<void>((resolve) => {
+      writable.on('finish', resolve)
+    })
+
+    // The test should fail because the chunk containing & is delayed
+    expect(outputChunks.join('')).toEqual(chunks.join(''))
+  })
+
   test('real world example write to 4 files', async () => {
     // Read the file content directly - no need for complex unescaping
     const response = fs.readFileSync(
