@@ -580,15 +580,21 @@ If you want to change the project root:
           ptyProcess.write(`cd ${cwd}\r`)
         } else {
           setWorkingDirectory(newWorkingDirectory)
+          cwd = newWorkingDirectory
         }
       }
 
-      const cwdMessage = outsideProject
-        ? `\nDetected final cwd outside project root. Reset cwd to ${cwd}`
-        : `\nFinal cwd: ${cwd}`
-
       resolve({
-        result: formatResult(command, commandOutput, `Complete${cwdMessage}`),
+        result: formatResult(
+          command,
+          commandOutput,
+          buildArray([
+            'Complete\n',
+            outsideProject &&
+              `Detected final cwd outside project root. Reset cwd to ${cwd}`,
+            `Final cwd: ${cwd}`,
+          ]).join('\n')
+        ),
         stdout: commandOutput,
         exitCode,
       })
