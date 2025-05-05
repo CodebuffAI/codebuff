@@ -1,7 +1,7 @@
 import * as readline from 'readline'
 
 import { green } from 'picocolors'
-import { getPrevious, setPrevious } from 'src/display'
+import { getPrevious, setPrevious } from '../display'
 
 const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
