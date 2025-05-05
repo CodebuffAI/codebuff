@@ -1,11 +1,14 @@
-import { green } from 'picocolors'
 import * as readline from 'readline'
+
+import { green } from 'picocolors'
+import { getPrevious, setPrevious } from 'src/display'
 
 const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
 export class Spinner {
   private static instance: Spinner | null = null
   private loadingInterval: NodeJS.Timeout | null = null
+  private previous: string | null = null
 
   private constructor() {}
 
@@ -21,6 +24,7 @@ export class Spinner {
       return
     }
 
+    this.previous = getPrevious()
     let i = 0
     // Hide cursor while spinner is active
     process.stdout.write('\u001B[?25l')
@@ -39,6 +43,10 @@ export class Spinner {
     this.loadingInterval = null
     this.rewriteLine('') // Clear the spinner line
     this.restoreCursor() // Show cursor after spinner stops
+    if (this.previous) {
+      setPrevious(this.previous)
+    }
+    this.previous = null
   }
 
   restoreCursor() {

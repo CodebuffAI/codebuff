@@ -9,11 +9,19 @@
 let enabled = false
 let previous = ''
 
-export function enableSquashNewlines() {
+export function getPrevious(): string {
+  return previous
+}
+
+export function setPrevious(str: string): void {
+  previous = str
+}
+
+export function enableSquashNewlines(): void {
   enabled = true
 }
 
-export function disableSquashNewlines() {
+export function disableSquashNewlines(): void {
   enabled = false
 }
 
