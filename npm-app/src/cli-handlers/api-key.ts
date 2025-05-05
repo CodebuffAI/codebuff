@@ -1,6 +1,7 @@
-import { yellow } from 'picocolors'
-import { Client } from '../client'
 import { API_KEY_TYPES, ApiKeyType, KEY_LENGTHS, KEY_PREFIXES } from 'common/api-keys/constants'
+import { yellow } from 'picocolors'
+
+import { Client } from '../client'
 
 export type ApiKeyDetectionResult =
   | { status: 'found'; type: ApiKeyType; key: string }

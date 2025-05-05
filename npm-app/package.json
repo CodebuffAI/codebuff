@@ -76,5 +76,10 @@
   "trustedDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",
     "@vscode/ripgrep"
-  ]
+  ],
+  "devDependencies": {
+    "eslint-config-prettier": "^10.1.2",
+    "globals": "^16.0.0",
+    "typescript-eslint": "^8.32.0"
+  }
 }

@@ -9,6 +9,7 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
+          "eslint src/index.ts",
           "tsc",
           "tsc-alias -p tsconfig.json",
           "mkdir -p dist/common",
@@ -26,6 +27,13 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
+        "cwd": "npm-app"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "eslint src/**/*.ts",
         "cwd": "npm-app"
       }
     }

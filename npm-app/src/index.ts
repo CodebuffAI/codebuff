@@ -55,8 +55,8 @@ async function codebuff(
   ])
 
   // Initialize the CLI singleton
-  CLI.initialize(readyPromise, { git, costMode, model });
-  const cli = CLI.getInstance();
+  CLI.initialize(readyPromise, { git, costMode, model })
+  const cli = CLI.getInstance()
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })
 }

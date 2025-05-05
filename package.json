@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "license": "UNLICENSED",
+  "type": "module",
   "workspaces": [
     "common",
     "backend",

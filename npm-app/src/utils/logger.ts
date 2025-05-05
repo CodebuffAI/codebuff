@@ -3,7 +3,7 @@ import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
 
 import { AnalyticsEvent } from 'common/constants/analytics-events'
-import pino from 'pino'
+import { pino } from 'pino'
 
 import { getCurrentChatDir } from '../project-files'
 import { trackEvent } from './analytics'

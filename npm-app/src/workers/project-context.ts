@@ -1,5 +1,7 @@
-import { getAllFilePaths } from 'common/project-file-tree'
 import { parentPort as maybeParentPort } from 'worker_threads'
+
+import { getAllFilePaths } from 'common/project-file-tree'
+
 import { initializeCheckpointFileManager } from '../checkpoints/file-manager'
 import { getProjectFileContext, setProjectRoot } from '../project-files'
 
