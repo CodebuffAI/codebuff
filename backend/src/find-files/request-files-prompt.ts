@@ -1,8 +1,7 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { insertTrace } from '@codebuff/bigquery'
-import { GetRelevantFilesTrace } from '@codebuff/bigquery'
+import { GetRelevantFilesTrace, insertTrace } from '@codebuff/bigquery'
 import { models, type CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { Message } from 'common/types/message'
@@ -12,7 +11,7 @@ import {
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
 } from 'common/util/file'
-import { uniq, shuffle, range } from 'lodash'
+import { range, shuffle, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { System } from '../llm-apis/claude'
@@ -44,8 +43,9 @@ export async function requestRelevantFiles(
   userId: string | undefined,
   costMode: CostMode
 ) {
-  const countPerRequest =
-    costMode === 'lite' ? 8 : costMode === 'normal' ? 12 : 14
+  const countPerRequest = { lite: 12, normal: 14, max: 14, experimental: 14 }[
+    costMode
+  ]
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -101,7 +101,7 @@ export async function requestRelevantFiles(
   let nonObviousPromise:
     | Promise<{ files: string[]; duration: number }>
     | undefined
-  if (costMode === 'max') {
+  if (costMode === 'max' || costMode == 'normal') {
     const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
       userPrompt,
       assistantPrompt,

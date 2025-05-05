@@ -150,7 +150,7 @@ export const mainPrompt = async (
       'When using write_file, do NOT rewrite the entire file. Only write the parts of the file that have changed and write "... existing code ..." comments around the changed area.',
 
     // Experimental gemini thinking
-    costMode === 'experimental' || costMode === 'max'
+    costMode === 'experimental' || costMode === 'max' || costMode === 'normal'
       ? 'Start your response with the think_deeply tool call to decide how to proceed.'
       : !justUsedATool &&
           !recentlyDidThinking &&
@@ -170,7 +170,9 @@ export const mainPrompt = async (
 
     'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
-    (costMode === 'max' || costMode === 'experimental') &&
+    (costMode === 'normal' ||
+      costMode === 'max' ||
+      costMode === 'experimental') &&
       `Before you use the end_turn tool, you must see tool results that all file changes went through properly, that all relevant tests are passing, and there are no type or lint errors (if applicable). You should check that you left the project in a good state using any tools you have available, like the browser_logs tool before ending turn. You must do these checks every time you make a change to the project.`,
 
     'Important: You must write "<end_turn></end_turn>" at the end of your response, when you are done or want the user to respond -- but not if you are still working on the user\'s request!',
@@ -494,7 +496,11 @@ export const mainPrompt = async (
   > = {}
 
   // Add deep thinking for experimental or max mode
-  if (costMode === 'experimental' || costMode === 'max') {
+  if (
+    costMode === 'experimental' ||
+    costMode === 'max' ||
+    costMode === 'normal'
+  ) {
     let response = await getThinkingStream(
       agentMessages,
       system,

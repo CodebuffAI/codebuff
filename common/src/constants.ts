@@ -102,17 +102,28 @@ export const getModelForMode = (
   operation: 'agent' | 'file-requests' | 'check-new-files'
 ) => {
   if (operation === 'agent') {
-    return costMode === 'experimental'
-      ? models.gpt4_1
-      : costMode === 'lite'
-        ? models.gemini2_5_flash_thinking
-        : claudeModels.sonnet
+    return {
+      lite: claudeModels.sonnet,
+      normal: claudeModels.sonnet,
+      max: claudeModels.sonnet,
+      experimental: models.gpt4_1,
+    }[costMode]
   }
   if (operation === 'file-requests') {
-    return costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku
+    return {
+      lite: claudeModels.haiku,
+      normal: claudeModels.sonnet,
+      max: claudeModels.sonnet,
+      experimental: claudeModels.haiku,
+    }[costMode]
   }
   if (operation === 'check-new-files') {
-    return costMode === 'lite' ? models.gpt4omini : models.gpt4o
+    return {
+      lite: models.gpt4o,
+      normal: models.gpt4o,
+      max: models.gpt4o,
+      experimental: models.gpt4o,
+    }[costMode]
   }
   throw new Error(`Unknown operation: ${operation}`)
 }
