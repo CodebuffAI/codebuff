@@ -582,14 +582,14 @@ Tool calls use a specific XML-like format. Adhere *precisely* to this nested ele
 
 **Example of CORRECT Formatting (Incorporating Commentary, Empty Lines, and MANDATORY Nested Elements):**
 
-Buffy: Let's update that file!
+Let's update that file!
 
 <write_file>
 <path>path/to/example/file.ts</path>   <!-- Correct: Parameter 'path' is a nested element -->
 <content>console.log('Hello from Buffy!');</content> <!-- Correct: Parameter 'content' is a nested element -->
 </write_file>
 
-Buffy: All done with the update!
+All done with the update!
 
 -----
 

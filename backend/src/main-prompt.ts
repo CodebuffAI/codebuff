@@ -37,6 +37,7 @@ import {
   parseToolCalls,
   TOOL_LIST,
   TOOLS_WHICH_END_THE_RESPONSE,
+  toolsInstructions,
   transformRunTerminalCommand,
   updateContextFromToolCalls,
 } from './tools'
@@ -120,13 +121,12 @@ export const mainPrompt = async (
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
-    'Instructions:',
-    'Proceed toward the user request and any subgoals.',
-
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
     !isGPT4_1 &&
       "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
+
+    toolsInstructions,
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
@@ -173,9 +173,9 @@ export const mainPrompt = async (
     (costMode === 'normal' ||
       costMode === 'max' ||
       costMode === 'experimental') &&
-      `Before you use the end_turn tool, you must see tool results that all file changes went through properly, that all relevant tests are passing, and there are no type or lint errors (if applicable). You should check that you left the project in a good state using any tools you have available, like the browser_logs tool before ending turn. You must do these checks every time you make a change to the project.`,
+      `Before you use the <end_turn></end_turn> tool, you must see tool results that all file changes went through properly, that all relevant tests are passing, and there are no type or lint errors (if applicable). You should check that you left the project in a good state using any tools you have available, like the browser_logs tool before ending turn. You must do these checks every time you make a change to the project.`,
 
-    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you are done or want the user to respond -- but not if you are still working on the user\'s request!',
+    'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response if you need the user to answer a question or if you are completely done with the user request. However, if you are still working on the user\'s request, do not end turn!',
     "DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
   ).join('\n\n')
 
@@ -399,7 +399,11 @@ export const mainPrompt = async (
   const relevantDocumentation = await relevantDocumentationPromise
 
   const messagesWithUserMessage = buildArray(
-    ...messageHistory,
+    ...messageHistory.filter(
+      (m) =>
+        costMode === 'experimental' &&
+        (typeof m.content !== 'string' || !isSystemInstruction(m.content))
+    ),
 
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -413,17 +417,10 @@ export const mainPrompt = async (
         content: asSystemMessage(agentContext.trim()),
       },
 
-    prompt
-      ? // Add in new copy of user instructions.
-        {
-          role: 'user' as const,
-          content: asSystemInstruction(userInstructions),
-        }
-      : // Add in new copy of tool instructions.
-        toolInstructions && {
-          role: 'user' as const,
-          content: asSystemInstruction(toolInstructions),
-        },
+    {
+      role: 'user' as const,
+      content: asSystemInstruction(userInstructions),
+    },
 
     relevantDocumentation && {
       role: 'user' as const,
@@ -496,11 +493,7 @@ export const mainPrompt = async (
   > = {}
 
   // Add deep thinking for experimental or max mode
-  if (
-    costMode === 'experimental' ||
-    costMode === 'max' ||
-    costMode === 'normal'
-  ) {
+  if (costMode === 'normal' || costMode === 'max') {
     let response = await getThinkingStream(
       agentMessages,
       system,
