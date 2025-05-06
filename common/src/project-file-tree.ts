@@ -127,11 +127,22 @@ export function parseGitignore(
         }
 
         let finalPattern = pattern
+        // All patterns added to the ignore instance should be relative to the projectRoot.
         if (pattern.startsWith('/')) {
+          // A pattern starting with '/' is relative to the .gitignore file's directory.
+          // Remove the leading '/' and prepend the relativeDirPath to make it relative to projectRoot.
           finalPattern = pattern.slice(1)
           if (relativeDirPath !== '') {
             finalPattern = path.join(relativeDirPath, finalPattern)
           }
+        } else {
+          // A pattern not starting with '/' is also relative to the .gitignore file's directory.
+          // Prepend relativeDirPath (if it exists) to make it relative to projectRoot.
+          // If relativeDirPath is empty, the pattern is already relative to projectRoot.
+          if (relativeDirPath !== '') {
+            finalPattern = path.join(relativeDirPath, pattern)
+          }
+          // else: pattern is already relative to projectRoot, so finalPattern remains pattern
         }
         finalPattern = finalPattern.replace(/\\/g, '/')
 
