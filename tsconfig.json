@@ -6,6 +6,7 @@
     { "path": "npm-app" },
     { "path": "web" },
     { "path": "packages/code-map" },
-    { "path": "packages/bigquery" }
+    { "path": "packages/bigquery" },
+    { "path": "client" }
   ]
 }

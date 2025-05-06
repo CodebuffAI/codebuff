@@ -55,6 +55,12 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     authToken: z.string().optional(),
     stagedChanges: z.string(),
   }),
+  z.object({
+    type: z.literal('tool-result'),
+    id: z.string(),
+    name: z.string(),
+    result: z.string(),
+  }),
 ])
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
