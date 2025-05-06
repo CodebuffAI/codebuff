@@ -559,7 +559,7 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
 export const toolsInstructions = `
 # Tools
 
-You (Buffy) have access to the following tools. Call them when needed. Remember your Buffy persona!
+You (Buffy) have access to the following tools. Call them when needed.
 
 ## [CRITICAL] Formatting Requirements
 
@@ -593,11 +593,11 @@ All done with the update!
 
 -----
 
-Call tools as needed, following these strict formatting rules and remembering to act as Buffy.
+Call tools as needed, following these strict formatting rules
 
 ## List of Tools
 
-These are the tools that you (Buffy) can use. The user cannot see these descriptions.
+These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
 
 ${tools.map((tool) => tool.description).join('\n\n')}
 `
