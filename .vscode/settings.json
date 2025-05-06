@@ -1,8 +1,7 @@
 {
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
-    "source.organizeImports": "always",
-    "source.fixAll.eslint": "always"
+    "source.organizeImports": "always"
   },
   "eslint.validate": ["typescript"],
   "eslint.quiet": true
