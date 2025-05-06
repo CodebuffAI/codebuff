@@ -6,6 +6,7 @@ import {
   CoreMessage,
   CoreToolMessage,
   CoreUserMessage,
+  generateObject,
   generateText,
   LanguageModelV1,
   streamText,
@@ -24,6 +25,7 @@ import {
 
 import { generateCompactId } from 'common/util/string'
 
+import { z } from 'zod'
 import { System } from '../claude'
 import { GeminiMessage } from '../gemini-vertex-api'
 import { saveMessage } from '../message-cost-tracker'
@@ -137,6 +139,53 @@ export const promptAiSdk = async function (
     model: options.model,
     request: messages,
     response: content,
+    inputTokens,
+    outputTokens,
+    finishedAt: new Date(),
+    latencyMs: Date.now() - startTime,
+  })
+
+  return content
+}
+
+// Copied over exactly from promptAiSdk but with a schema
+export const promptAiSdkStructured = async function <T>(
+  messages: CoreMessage[],
+  options: {
+    schema: z.ZodType<T>
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: Model
+    userId: string | undefined
+    maxTokens?: number
+    temperature?: number
+  }
+): Promise<T> {
+  const startTime = Date.now()
+  let aiSDKModel = modelToAiSDKModel(options.model)
+
+  const response = await generateObject({
+    model: aiSDKModel,
+    schema: options.schema,
+    messages,
+    maxTokens: options.maxTokens,
+    temperature: options.temperature,
+  })
+
+  const content = response.object
+  const inputTokens = response.usage.promptTokens
+  const outputTokens = response.usage.completionTokens
+
+  saveMessage({
+    messageId: generateCompactId(),
+    userId: options.userId,
+    clientSessionId: options.clientSessionId,
+    fingerprintId: options.fingerprintId,
+    userInputId: options.userInputId,
+    model: options.model,
+    request: messages,
+    response: JSON.stringify(content),
     inputTokens,
     outputTokens,
     finishedAt: new Date(),
