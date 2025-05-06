@@ -1,8 +1,7 @@
 import { models } from 'common/constants'
 import { withTimeout } from 'common/util/promise'
 
-import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
-import { promptOpenAI } from './llm-apis/openai-api'
+import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 
 /**
@@ -36,49 +35,37 @@ export async function checkTerminalCommand(
 
   const messages = [
     {
-      role: 'user' as const,
-      content: `You are checking if the following input (in quotes) is a terminal command that can be run directly without any modification. Only respond with "yes" or "no". Do not explain your reasoning.
+      role: 'system' as const,
+      content: `You are checking if the following input (in quotes) is a terminal command that can be run directly without any modification. Only respond with y or n without quotes. Do not explain your reasoning
 
-Examples of terminal commands ('yes'):
+Examples of terminal commands (y):
 - "git pull"
 - "npm install"
 - "cd .."
 - "ls"
 
-Examples of non-terminal commands ('no'):
+Examples of non-terminal commands (n):
 - "yes"
 - "hi"
 - "I need to install the dependencies"
 - "run cargo check" (this is a natural language instruction to run a terminal command, not a terminal command itself)
-- [... long request ...]
-
-Input: ${JSON.stringify(prompt)}`,
+- [... long request ...]`,
     },
+    { role: 'user' as const, content: JSON.stringify(prompt) },
   ]
 
   try {
     // Race between OpenAI and Gemini with timeouts
-    const response = await Promise.race([
-      withTimeout(
-        promptOpenAI(messages, {
-          model: models.gpt4omini,
-          ...options,
-        }),
-        30000,
-        'OpenAI API request timed out'
-      ),
-      withTimeout(
-        promptFlashWithFallbacks(messages, undefined, {
-          model: models.gemini2flash,
-          ...options,
-        }),
-        30000,
-        'Gemini API request timed out'
-      ),
-    ])
+    const response = await withTimeout(
+      promptAiSdk(messages, {
+        model: models.gpt4omini,
+        ...options,
+      }).then((response) => response.toLowerCase().includes('y')),
+      30000,
+      'OpenAI API request timed out'
+    )
 
-    const isTerminalCommand = response.toLowerCase().includes('yes')
-    if (isTerminalCommand) {
+    if (response) {
       return prompt
     }
     return null
