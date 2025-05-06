@@ -1,3 +1,6 @@
+import { anthropic } from '@ai-sdk/anthropic'
+import { google } from '@ai-sdk/google'
+import { openai } from '@ai-sdk/openai'
 import {
   CoreAssistantMessage,
   CoreMessage,
@@ -8,10 +11,17 @@ import {
   streamText,
 } from 'ai'
 import {
+  AnthropicModel,
+  claudeModels,
   FinetunedVertexModel,
   finetunedVertexModels,
+  geminiModels,
   Model,
+  OpenAIModel,
+  openaiModels,
+  type GeminiModel,
 } from 'common/constants'
+
 import { generateCompactId } from 'common/util/string'
 
 import { System } from '../claude'
@@ -27,6 +37,15 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
     )
   ) {
     return vertexFinetuned(model)
+  }
+  if (Object.values(geminiModels).includes(model as GeminiModel)) {
+    return google.languageModel(model)
+  }
+  if (Object.values(openaiModels).includes(model as OpenAIModel)) {
+    return openai.languageModel(model)
+  }
+  if (Object.values(claudeModels).includes(model as AnthropicModel)) {
+    return anthropic.languageModel(model)
   }
   throw new Error('Unknown model: ' + model)
 }
