@@ -419,7 +419,12 @@ export const mainPrompt = async (
 
     {
       role: 'user' as const,
-      content: asSystemInstruction(userInstructions),
+      content: asSystemInstruction(
+        prompt
+          ? userInstructions
+          : (costMode === 'experimental' ? toolsInstructions + '\n\n' : '') +
+              toolInstructions
+      ),
     },
 
     relevantDocumentation && {
