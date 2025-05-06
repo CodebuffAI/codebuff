@@ -175,6 +175,7 @@ export async function* streamGemini25ProWithFallbacks(
     maxTokens?: number
     temperature?: number
     stopSequences?: string[]
+    thinkingBudget?: number
   }
 ): AsyncGenerator<string, void, any> {
   const {
@@ -185,6 +186,7 @@ export async function* streamGemini25ProWithFallbacks(
     maxTokens,
     temperature,
     stopSequences,
+    thinkingBudget,
   } = options
 
   // Initialize the message list for the first attempt
@@ -202,6 +204,7 @@ export async function* streamGemini25ProWithFallbacks(
     maxTokens,
     temperature,
     stopSequences,
+    thinkingBudget,
   }
   try {
     for await (const chunk of promptGeminiStream(
