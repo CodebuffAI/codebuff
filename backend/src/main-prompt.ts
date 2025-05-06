@@ -403,8 +403,9 @@ export const mainPrompt = async (
   const messagesWithUserMessage = buildArray(
     ...messageHistory.filter(
       (m) =>
-        costMode === 'experimental' &&
-        (typeof m.content !== 'string' || !isSystemInstruction(m.content))
+        costMode !== 'experimental' ||
+        typeof m.content !== 'string' ||
+        !isSystemInstruction(m.content)
     ),
 
     toolResults.length > 0 && {
@@ -419,15 +420,22 @@ export const mainPrompt = async (
         content: asSystemMessage(agentContext.trim()),
       },
 
-    {
-      role: 'user' as const,
-      content: asSystemInstruction(
-        prompt
-          ? userInstructions
-          : (costMode === 'experimental' ? toolsInstructions + '\n\n' : '') +
-              toolInstructions
-      ),
-    },
+    prompt
+      ? {
+          role: 'user' as const,
+          content: asSystemInstruction(userInstructions),
+        }
+      : costMode === 'experimental'
+        ? {
+            role: 'user' as const,
+            content: asSystemInstruction(
+              buildArray([toolsInstructions, toolInstructions]).join('\n\n')
+            ),
+          }
+        : toolInstructions && {
+            role: 'user' as const,
+            content: asSystemInstruction(toolInstructions),
+          },
 
     relevantDocumentation && {
       role: 'user' as const,
