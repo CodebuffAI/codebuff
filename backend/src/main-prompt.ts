@@ -496,7 +496,11 @@ export const mainPrompt = async (
   > = {}
 
   // Add deep thinking for experimental or max mode
-  if (costMode === 'experimental' || costMode === 'max') {
+  if (
+    costMode === 'experimental' ||
+    costMode === 'max' ||
+    costMode === 'normal'
+  ) {
     let response = await getThinkingStream(
       agentMessages,
       system,
