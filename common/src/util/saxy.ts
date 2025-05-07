@@ -106,9 +106,9 @@ const Node = {
  * @param input A string of XML text
  * @return The input string, expanded
  */
-const parseEntities = (input: string) => {
-  let position = 0,
-    next = 0
+const parseEntities = (input: string): string => {
+  let position = 0
+  let next = 0
   const parts = []
 
   while ((next = input.indexOf('&', position)) !== -1) {
@@ -277,7 +277,7 @@ export class Saxy extends Transform {
   private _tagStack: string[]
   private _waiting: { token: string; data: unknown } | null
   private _schema: TagSchema | null
-  private _pendingEntity: string | null
+  private _entityBuffer: string | null
   private _textBuffer: string // NEW: Text buffer as class member
 
   /**
@@ -321,7 +321,7 @@ export class Saxy extends Transform {
     this._schema = schema || null
 
     // Pending entity for incomplete entities
-    this._pendingEntity = null
+    this._entityBuffer = null
 
     // Initialize text buffer
     this._textBuffer = ''
@@ -369,8 +369,8 @@ export class Saxy extends Transform {
       }
 
       // Handle any remaining pending entity
-      if (this._pendingEntity) {
-        this.emit(Node.text, { contents: this._pendingEntity })
+      if (this._entityBuffer) {
+        this.emit(Node.text, { contents: this._entityBuffer })
       }
 
       // Handle unclosed nodes
@@ -498,9 +498,9 @@ export class Saxy extends Transform {
    */
   private _parseChunk(input: string, callback: NextFunction) {
     // Handle pending entity if exists
-    if (this._pendingEntity) {
-      input = this._pendingEntity + input
-      this._pendingEntity = null
+    if (this._entityBuffer) {
+      input = this._entityBuffer + input
+      this._entityBuffer = null
     }
 
     // Use pending data if applicable and get out of waiting mode
@@ -544,7 +544,7 @@ export class Saxy extends Transform {
               /[a-zA-Z]/.test(nextChar) // Named entity
             if (isPotentialEntity) {
               // Store incomplete entity for next chunk
-              this._pendingEntity = chunk.slice(lastAmp)
+              this._entityBuffer = chunk.slice(lastAmp)
               chunk = chunk.slice(0, lastAmp)
             }
           }
@@ -575,7 +575,7 @@ export class Saxy extends Transform {
             /[a-zA-Z]/.test(nextChar) // Named entity
           if (isPotentialEntity) {
             // Store incomplete entity for next chunk
-            this._pendingEntity = chunk.slice(lastAmp)
+            this._entityBuffer = chunk.slice(lastAmp)
             chunk = chunk.slice(0, lastAmp)
           }
         }
@@ -693,7 +693,7 @@ export class Saxy extends Transform {
     }
 
     // Emit any buffered text at the end of the chunk if there's no pending entity
-    if (this._textBuffer.length > 0 && !this._pendingEntity) {
+    if (this._textBuffer.length > 0) {
       const parsedText = parseEntities(this._textBuffer)
       this.emit(Node.text, { contents: parsedText })
       this._textBuffer = ''

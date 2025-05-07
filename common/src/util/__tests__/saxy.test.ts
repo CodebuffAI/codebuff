@@ -340,18 +340,11 @@ describe('Saxy XML Parser', () => {
       parser.end()
 
       expect(events).toEqual([
-        {
-          type: 'text',
-          data: { contents: 'Text with & and' },
-        },
-        {
-          type: 'text',
-          data: { contents: ' < entities ' },
-        },
-        {
-          type: 'text',
-          data: { contents: '&g' },
-        },
+        { type: 'text', data: { contents: 'Text with ' } },
+        { type: 'text', data: { contents: '& and' } },
+        { type: 'text', data: { contents: ' ' } },
+        { type: 'text', data: { contents: '< entities ' } },
+        { type: 'text', data: { contents: '&g' } },
       ])
       expect(events.map((chunk) => chunk.data.contents).join('')).toEqual(
         'Text with & and < entities &g'
@@ -451,14 +444,9 @@ describe('Saxy XML Parser', () => {
           type: 'tagopen',
           data: { name: 'tag', isSelfClosing: false, attrs: '' },
         },
-        {
-          type: 'text',
-          data: { contents: 'before & after' },
-        },
-        {
-          type: 'tagclose',
-          data: { name: 'tag' },
-        },
+        { type: 'text', data: { contents: 'before ' } },
+        { type: 'text', data: { contents: '& after' } },
+        { type: 'tagclose', data: { name: 'tag' } },
       ])
 
       // The text content should be properly reconstructed
@@ -508,8 +496,9 @@ describe('Saxy XML Parser', () => {
         },
         {
           type: 'text',
-          data: { contents: 'before & after' },
+          data: { contents: 'before ' },
         },
+        { type: 'text', data: { contents: '& after' } },
         {
           type: 'tagclose',
           data: { name: 'tag' },
@@ -536,6 +525,10 @@ describe('Saxy XML Parser', () => {
       parser.write(' more text')
       parser.end()
 
+      expect(events).toEqual([
+        { type: 'text', data: { contents: 'Text with ' } },
+        { type: 'text', data: { contents: '& more text' } },
+      ])
       // The text content should be properly reconstructed
       const textContent = events
         .filter((e) => e.type === 'text')
