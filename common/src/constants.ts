@@ -104,8 +104,8 @@ export const getModelForMode = (
   if (operation === 'agent') {
     return {
       lite: claudeModels.sonnet,
-      normal: models.gemini2_5_pro_preview,
-      max: models.gemini2_5_pro_preview,
+      normal: models.sonnet,
+      max: models.sonnet,
       experimental: models.gemini2_5_pro_preview,
     }[costMode]
   }

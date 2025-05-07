@@ -114,6 +114,7 @@ export const mainPrompt = async (
   const justRanTerminalCommand = toolResults.some(
     (t) => t.name === 'run_terminal_command'
   )
+  const geminiThinkingEnabled = costMode !== 'lite'
   const isGeminiPro = model === models.gemini2_5_pro_preview
   const isGPT4_1 = model === models.gpt4_1
   const isFlash =
@@ -122,7 +123,8 @@ export const mainPrompt = async (
   const userInstructions = buildArray(
     'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter with the <run_terminal_command> tool or else using the <await_tool_results> tool, and finally use the tool <end_turn></end_turn>, once you have completed the user request. YOU MUST use the tool <run_terminal_command> or <await_tool_results> periodically after significant changes to get feedback from tool results before continuing (recommended after each subgoal completed!), however these tools can be skipped for trivial changes. If the changes are all made and verified, you must finally use end_turn at the end of your response.',
 
-    'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response!',
+    (isFlash || isGeminiPro) &&
+      'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response!',
 
     'If the user asks a question, simply answer the question rather than making changes to the code, then end_turn.',
 
@@ -136,7 +138,8 @@ export const mainPrompt = async (
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
-    'When mentioning a file path, make sure to include all the directories in the path to the file. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts.',
+    (isFlash || isGeminiPro) &&
+      'When mentioning a file path, make sure to include all the directories in the path to the file. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts.',
 
     'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
@@ -158,8 +161,7 @@ export const mainPrompt = async (
     (isFlash || isGeminiPro) &&
       'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
 
-    // Experimental gemini thinking
-    costMode != 'lite'
+    geminiThinkingEnabled
       ? 'Start your response with the think_deeply tool call to decide how to proceed.'
       : 'If the user request is very complex, consider invoking think_deeply.',
 
@@ -404,7 +406,10 @@ export const mainPrompt = async (
 
   const messagesWithUserMessage = buildArray(
     ...messageHistory.filter(
-      (m) => !(typeof m.content === 'string' && isSystemInstruction(m.content))
+      (m) =>
+        costMode !== 'experimental' ||
+        typeof m.content !== 'string' ||
+        !isSystemInstruction(m.content)
     ),
 
     toolResults.length > 0 && {
