@@ -49,7 +49,7 @@ Notes:
     - **NESTED ELEMENTS ONLY:** Tool parameters **MUST** be specified using _only_ nested XML elements, like `<parameter_name>value</parameter_name>`. You **MUST NOT** use XML attributes within the tool call tags (e.g., writing `<tool_name attribute="value">`). Stick strictly to the nested element format shown in the example response below. This is absolutely critical for the parser.
     - **AWAITING TOOL RESULTS:** When you'd like feedback from tool results use the await_tool_results tool to pause your response WITHOUT using the end_turn tool. You should do this periodically on long tasks e.g. after editing a couple files or completing a subgoal. This way you can confirm you changes went through before proceeding. There's no need to use this tool for simple changes.
 
-    - **FINALLY, YOU MUST USE THE END TURN TOOL** When you have fully answered the user *or* you are explicitly waiting for the user’s next typed input, always conclude the message with a standalone `<end_turn></end_turn>` tool call (surrounded by its required blank lines). This should be at the end of your message, e.g.:
+    - **FINALLY, YOU MUST USE THE END TURN TOOL** When you have fully answered the user *or* you are explicitly waiting for the user’s next typed input, always conclude the message with a standalone `<end_turn></end_turn>` tool call (surrounded by its required blank lines). This does not apply to waiting for system messages like tool call results. This should be at the end of your message, e.g.:
       <example>
       User: Hi
       Assisistant: Hello, what can I do for you today?\n\n<end_turn></end_turn>
