@@ -30,6 +30,7 @@ import { System } from '../claude'
 import { GeminiMessage } from '../gemini-vertex-api'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
+import { withTimeout } from 'common/util/promise'
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
@@ -160,18 +161,23 @@ export const promptAiSdkStructured = async function <T>(
     userId: string | undefined
     maxTokens?: number
     temperature?: number
+    timeout?: number
   }
 ): Promise<T> {
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
-  const response = await generateObject({
+  const responsePromise = generateObject({
     model: aiSDKModel,
     schema: options.schema,
     messages,
     maxTokens: options.maxTokens,
     temperature: options.temperature,
   })
+
+  const response = await (options.timeout === undefined
+    ? responsePromise
+    : withTimeout(responsePromise, options.timeout))
 
   const content = response.object
   const inputTokens = response.usage.promptTokens

@@ -77,10 +77,11 @@ ${JSON.stringify(query)}
         model: geminiModels.gemini2flash,
         temperature: 0,
         schema: zodSchema,
+        timeout: 10_000,
       }
     )
   } catch (error) {
-    logger.error({ error }, 'Failed to get Gemini response')
+    logger.error({ error }, 'Failed to get Gemini response getDocumentationForQuery')
     return null
   }
   geminiDuration = Date.now() - geminiStartTime

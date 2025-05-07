@@ -1,13 +1,9 @@
+import { withTimeout } from 'common/util/promise'
 import { logger } from '../util/logger'
 
 const CONTEXT7_API_BASE_URL = 'https://context7.com/api'
 const DEFAULT_TYPE = 'txt'
 const FETCH_TIMEOUT_MS = 10_000
-
-const timeoutPromise = (ms: number) =>
-  new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Request timed out')), ms)
-  )
 
 export interface SearchResponse {
   projects: Array<{
@@ -44,10 +40,7 @@ export async function listLibraries(): Promise<
 > {
   try {
     const url = new URL(`${CONTEXT7_API_BASE_URL}/projects`)
-    const response = (await Promise.race([
-      fetch(url),
-      timeoutPromise(FETCH_TIMEOUT_MS),
-    ])) as Response
+    const response = await withTimeout(fetch(url), FETCH_TIMEOUT_MS)
 
     if (!response.ok) {
       logger.error(`Failed to search libraries: ${response.status}`)
@@ -91,14 +84,14 @@ export async function fetchContext7LibraryDocumentation(
     if (options.folders) url.searchParams.set('folders', options.folders)
     url.searchParams.set('type', DEFAULT_TYPE)
 
-    const response = (await Promise.race([
+    const response = await withTimeout(
       fetch(url, {
         headers: {
           'X-Context7-Source': 'codebuff',
         },
       }),
-      timeoutPromise(FETCH_TIMEOUT_MS),
-    ])) as Response
+      FETCH_TIMEOUT_MS
+    )
 
     if (!response.ok) {
       logger.error(
