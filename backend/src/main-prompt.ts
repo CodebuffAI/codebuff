@@ -511,8 +511,8 @@ export const mainPrompt = async (
     } | null>[]
   > = {}
 
-  // Add deep thinking for non-lite mode
-  if (costMode !== 'lite') {
+  // Think deeply at the start of every response
+  if (geminiThinkingEnabled) {
     let response = await getThinkingStream(
       agentMessages,
       system,
