@@ -121,7 +121,7 @@ export const mainPrompt = async (
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
-    'Proceed toward the user request and any subgoals. Please complete the entire request and all subgoals from the user before ending turn. However, you should use await_tool_results periodically to get feedback from tool results before continuing (recommended after each subgoal completed!) and use must use await_tool_results before using end_turn to confirm your changes.',
+    'Proceed toward the user request and any subgoals. Please complete the entire request from the user before ending turn. However, YOU MUST use await_tool_results periodically to get feedback from tool results before continuing (recommended after each subgoal completed!) and use must use await_tool_results before using end_turn to confirm your changes. If the changes are all made, you can simply use end_turn.',
 
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
