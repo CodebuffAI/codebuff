@@ -428,7 +428,9 @@ Pause your response and await tool results.
 
 Do not write anything else after using this tool. You will be called again when the tool results return so you can continue your response.
 
-Prefer this tool over end_turn if you have not completed the user's request yet. It's a good idea to use this tool in between each subgoal you complete.
+Prefer to use run_terminal_command to run the typechecker or linter as is appropriate for the project to verify changes.
+
+Otherwise, use this tool to see if changes made from other tools are applied properly! It's a good idea to use this tool in between each subgoal you complete.
 
 Params: None
 

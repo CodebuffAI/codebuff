@@ -91,12 +91,7 @@ export const getAgentStream = (params: {
                 userId,
                 temperature: 0,
                 stopSequences,
-                thinkingBudget:
-                  costMode === 'normal' ||
-                  costMode === 'max' ||
-                  costMode === 'experimental'
-                    ? 0
-                    : undefined,
+                thinkingBudget: 0,
               })
           : (() => {
               throw new Error(

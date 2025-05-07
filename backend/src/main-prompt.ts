@@ -111,26 +111,32 @@ export const mainPrompt = async (
     Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
   const isNotFirstUserMessage =
     messageHistory.filter((m) => m.role === 'user').length > 0
-  const recentlyDidThinking = toolResults.some((t) => t.name === 'think_deeply')
-  const justUsedATool = toolResults.length > 0
   const justRanTerminalCommand = toolResults.some(
     (t) => t.name === 'run_terminal_command'
   )
+  const isGeminiPro = model === models.gemini2_5_pro_preview
   const isGPT4_1 = model === models.gpt4_1
   const isFlash =
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
-    'Proceed toward the user request and any subgoals. Please complete the entire request from the user before ending turn. However, YOU MUST use await_tool_results periodically to get feedback from tool results before continuing (recommended after each subgoal completed!) and use must use await_tool_results before using end_turn to confirm your changes. If the changes are all made, you can simply use end_turn.',
+    'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter with the <run_terminal_command> tool or else using the <await_tool_results> tool, and finally use the tool <end_turn></end_turn>, once you have completed the user request. YOU MUST use the tool <run_terminal_command> or <await_tool_results> periodically after significant changes to get feedback from tool results before continuing (recommended after each subgoal completed!), however these tools can be skipped for trivial changes. If the changes are all made and verified, you must finally use end_turn at the end of your response.',
 
-    'If the user asks a question, simply answer the question rather than making changes to the code.',
+    'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response!',
+
+    'If the user asks a question, simply answer the question rather than making changes to the code, then end_turn.',
 
     !isGPT4_1 &&
       "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
-    costMode === 'experimental' && toolsInstructions,
+    (isFlash || isGeminiPro) &&
+      'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
+
+    isGeminiPro && toolsInstructions,
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
+
+    'When mentioning a file path, make sure to include all the directories in the path to the file. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts.',
 
     'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
@@ -148,15 +154,14 @@ export const mainPrompt = async (
       "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
     isFlash &&
       'If you have thought of a whole plan, please execute the ENTIRE plan before using the end_turn tool.',
-    isFlash &&
-      'When using write_file, do NOT rewrite the entire file. Only write the parts of the file that have changed and write "... existing code ..." comments around the changed area.',
+
+    (isFlash || isGeminiPro) &&
+      'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
 
     // Experimental gemini thinking
-    costMode === 'experimental' || costMode === 'max' || costMode === 'normal'
+    costMode != 'lite'
       ? 'Start your response with the think_deeply tool call to decide how to proceed.'
-      : !justUsedATool &&
-          !recentlyDidThinking &&
-          'If the user request is very complex, consider invoking think_deeply.',
+      : 'If the user request is very complex, consider invoking think_deeply.',
 
     'If the user is starting a new feature or refactoring, consider invoking the create_plan tool.',
     "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
@@ -172,12 +177,10 @@ export const mainPrompt = async (
 
     'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
-    `Before you use the end_turn tool, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
+    `Before you use the end_turn tool, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). If there's not typechecker or linter you can use, you should use the tool <await_tool_results> to see if your file changes were applied properly. You must do these checks every time you make a change to the project.`,
 
-    'Finally, you must use the await_tool_results tool to see tool results that all file changes went through properly before using end_turn.',
-
-    'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response if you need the user to answer a question or if you are completely done with the user request. However, if you are still working on the user\'s request, do not end turn, use await_tool_results instead!',
-    "DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
+    'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response! If you are still working on the user\'s request, do not end turn.',
+    'IF YOU ARE STILL WORKING ON THE USER\'S REQUEST, use "<await_tool_results></await_tool_results>" instead to verify your progress. If the user\'s request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response.'
   ).join('\n\n')
 
   const toolInstructions = buildArray(
@@ -401,10 +404,7 @@ export const mainPrompt = async (
 
   const messagesWithUserMessage = buildArray(
     ...messageHistory.filter(
-      (m) =>
-        costMode !== 'experimental' ||
-        typeof m.content !== 'string' ||
-        !isSystemInstruction(m.content)
+      (m) => !(typeof m.content === 'string' && isSystemInstruction(m.content))
     ),
 
     toolResults.length > 0 && {
@@ -424,7 +424,7 @@ export const mainPrompt = async (
           role: 'user' as const,
           content: asSystemInstruction(userInstructions),
         }
-      : costMode === 'experimental'
+      : isGeminiPro
         ? {
             role: 'user' as const,
             content: asSystemInstruction(
@@ -506,8 +506,8 @@ export const mainPrompt = async (
     } | null>[]
   > = {}
 
-  // Add deep thinking for experimental or max mode
-  if (costMode === 'normal' || costMode === 'max') {
+  // Add deep thinking for non-lite mode
+  if (costMode !== 'lite') {
     let response = await getThinkingStream(
       agentMessages,
       system,
@@ -651,7 +651,7 @@ export const mainPrompt = async (
   }
 
   if (!fullResponse) {
-    // (hacky) ends turn if LLM did not give a response.
+    // End turn if LLM did not give a response.
     fullResponse = '<end_turn></end_turn>'
   }
 
