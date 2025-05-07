@@ -121,7 +121,7 @@ export const mainPrompt = async (
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
-    'Proceed toward the user request and any subgoals. Please complete the entire request and all subgoals from the user before ending turn.',
+    'Proceed toward the user request and any subgoals. Please complete the entire request and all subgoals from the user before ending turn. However, you should use await_tool_results periodically to get feedback from tool results before continuing (recommended after each subgoal completed!) and use must use await_tool_results before using end_turn to confirm your changes.',
 
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
@@ -172,9 +172,11 @@ export const mainPrompt = async (
 
     'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
-    `Before you use the <end_turn></end_turn> tool, you must see tool results that all file changes went through properly, that all relevant tests are passing, and there are no type or lint errors (if applicable). You should check that you left the project in a good state using any tools you have available, like the browser_logs tool before ending turn. You must do these checks every time you make a change to the project.`,
+    `Before you use the end_turn tool, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
 
-    'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response if you need the user to answer a question or if you are completely done with the user request. However, if you are still working on the user\'s request, do not end turn!',
+    'Finally, you must use the await_tool_results tool to see tool results that all file changes went through properly before using end_turn.',
+
+    'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response if you need the user to answer a question or if you are completely done with the user request. However, if you are still working on the user\'s request, do not end turn, use await_tool_results instead!',
     "DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
   ).join('\n\n')
 
@@ -711,6 +713,7 @@ export const mainPrompt = async (
       name === 'code_search' ||
       name === 'run_terminal_command' ||
       name === 'browser_logs' ||
+      name === 'await_tool_results' ||
       name === 'end_turn'
     ) {
       if (name === 'run_terminal_command') {

@@ -420,6 +420,23 @@ ${getToolCallString('browser_logs', {
     `.trim(),
   },
   {
+    name: 'await_tool_results',
+    description: `
+### await_tool_results
+
+Pause your response and await tool results.
+
+Do not write anything else after using this tool. You will be called again when the tool results return so you can continue your response.
+
+Prefer this tool over end_turn if you have not completed the user's request yet. It's a good idea to use this tool in between each subgoal you complete.
+
+Params: None
+
+Example:
+${getToolCallString('await_tool_results', {})}
+    `.trim(),
+  },
+  {
     name: 'end_turn',
     description: `
 ### end_turn
@@ -513,6 +530,7 @@ const toolSchemas = {
   think_deeply: thinkDeeplySchema,
   create_plan: createPlanSchema,
   browser_logs: browserActionSchema,
+  await_tool_results: emptySchema,
   end_turn: emptySchema,
 } as const
 
@@ -552,8 +570,8 @@ export type ToolCall<T extends ToolName = ToolName> = {
 export const TOOLS_WHICH_END_THE_RESPONSE = [
   'read_files',
   'find_files',
-  'code_search',
   'run_terminal_command',
+  'await_tool_results',
 ]
 
 export const toolsInstructions = `

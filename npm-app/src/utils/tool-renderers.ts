@@ -67,6 +67,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   code_search: {
     // Don't render anything
   },
+  await_tool_results: {
+    // Don't render anything
+  },
   end_turn: {
     // Don't render anything
   },
