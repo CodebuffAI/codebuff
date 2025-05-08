@@ -121,7 +121,7 @@ export const mainPrompt = async (
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
-    'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool) or using the <await_tool_results> tool if the knowledge files do not specify a commond to check the project with, and finally use the tool <end_turn></end_turn>, once you have completed the user request. YOU MUST use the tool <run_terminal_command> or <await_tool_results> periodically after significant changes to get feedback from tool results before continuing (recommended after each subgoal completed!), however these tools can be skipped for trivial changes. If the changes are all made and verified, you must finally use end_turn at the end of your response.',
+    'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool) or using the <await_tool_results> tool if the knowledge files do not specify a command to check the project with, and finally use the tool <end_turn></end_turn>, once you have completed the user request. YOU MUST use the tool <run_terminal_command> or <await_tool_results> (but not both) periodically after significant changes to get feedback from tool results before continuing (recommended after each subgoal completed!), however these tools can be skipped for trivial changes. If the changes are all made and verified, you must finally use end_turn at the end of your response.',
 
     (isFlash || isGeminiPro) &&
       'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response!',
@@ -181,8 +181,8 @@ export const mainPrompt = async (
 
     `Before you use the end_turn tool, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). If there's not typechecker or linter you can use, you should use the tool <await_tool_results> to see if your file changes were applied properly. You must do these checks every time you make a change to the project.`,
 
-    'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response! If you are still working on the user\'s request, do not end turn.',
-    'IF YOU ARE STILL WORKING ON THE USER\'S REQUEST, use "<await_tool_results></await_tool_results>" instead to verify your progress. If the user\'s request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response.'
+    'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response!',
+    "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not use the end_turn tool. If the user's request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
   ).join('\n\n')
 
   const toolInstructions = buildArray(
