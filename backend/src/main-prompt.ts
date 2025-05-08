@@ -995,8 +995,6 @@ async function getFileReadingUpdates(
     .flatMap((content) => Object.keys(parseFileBlocks(content)))
     .filter((path) => path !== undefined)
 
-  const fileRequestId = crypto.randomUUID()
-
   const requestedFiles = skipRequestingFiles
     ? []
     : options.requestedFiles ??
@@ -1004,7 +1002,6 @@ async function getFileReadingUpdates(
         { messages, system },
         fileContext,
         prompt,
-        fileRequestId,
         agentStepId,
         clientSessionId,
         fingerprintId,
@@ -1019,7 +1016,6 @@ async function getFileReadingUpdates(
     { messages, system },
     fileContext,
     prompt,
-    fileRequestId,
     agentStepId,
     clientSessionId,
     fingerprintId,
@@ -1167,7 +1163,6 @@ async function uploadExpandedFileContextForTraining(
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
-  fileRequestId: string,
   agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
@@ -1179,7 +1174,6 @@ async function uploadExpandedFileContextForTraining(
     { messages, system },
     fileContext,
     assistantPrompt,
-    fileRequestId,
     agentStepId,
     clientSessionId,
     fingerprintId,
@@ -1205,7 +1199,7 @@ async function uploadExpandedFileContextForTraining(
   const trace: GetRelevantFilesForTrainingBlobTrace = {
     type: 'get-expanded-file-context-for-training-blobs',
     created_at: new Date(),
-    id: fileRequestId,
+    id: crypto.randomUUID(),
     agent_step_id: agentStepId,
     user_id: userId ?? '',
     payload: {

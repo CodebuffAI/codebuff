@@ -40,7 +40,6 @@ export async function requestRelevantFiles(
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
-  fileRequestId: string,
   agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
@@ -92,7 +91,6 @@ export async function requestRelevantFiles(
     },
     keyPrompt,
     'Key',
-    fileRequestId,
     agentStepId,
     clientSessionId,
     fingerprintId,
@@ -122,7 +120,6 @@ export async function requestRelevantFiles(
       },
       nonObviousPrompt,
       'Non-Obvious',
-      fileRequestId,
       agentStepId,
       clientSessionId,
       fingerprintId,
@@ -181,7 +178,6 @@ export async function requestRelevantFilesForTraining(
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
-  fileRequestId: string,
   agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
@@ -215,7 +211,6 @@ export async function requestRelevantFilesForTraining(
     },
     nonObviousPrompt,
     'Non-Obvious',
-    fileRequestId,
     agentStepId,
     clientSessionId,
     fingerprintId,
@@ -239,7 +234,6 @@ async function getRelevantFiles(
   },
   userPrompt: string,
   requestType: string,
-  fileRequestId: string,
   agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
@@ -274,7 +268,7 @@ async function getRelevantFiles(
   const files = validateFilePaths(response.split('\n'))
 
   const trace: GetRelevantFilesTrace = {
-    id: fileRequestId,
+    id: crypto.randomUUID(),
     agent_step_id: agentStepId,
     user_id: userId ?? '',
     created_at: new Date(),
@@ -309,7 +303,6 @@ async function getRelevantFilesForTraining(
   },
   userPrompt: string,
   requestType: string,
-  fileRequestId: string,
   agentStepId: string,
   clientSessionId: string,
   fingerprintId: string,
@@ -344,7 +337,7 @@ async function getRelevantFilesForTraining(
   const files = validateFilePaths(response.split('\n'))
 
   const trace: GetExpandedFileContextForTrainingTrace = {
-    id: fileRequestId,
+    id: crypto.randomUUID(),
     agent_step_id: agentStepId,
     user_id: userId ?? '',
     created_at: new Date(),
