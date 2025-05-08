@@ -261,9 +261,10 @@ export async function getTracesWithRelabels(
 }
 
 export async function getTracesAndRelabelsForUser(
-  userId: string,
+  userId?: string,
   limit: number = 50,
-  dataset: string = DATASET
+  dataset: string = DATASET,
+  joinType: 'INNER' | 'LEFT' = 'LEFT'
 ) {
   // Get recent traces for the user and any associated relabels
   const query = `
@@ -276,7 +277,8 @@ export async function getTracesAndRelabelsForUser(
       type,
       payload
     FROM \`${dataset}.${TRACES_TABLE}\`
-    WHERE user_id = '${userId}' AND type = 'get-relevant-files'
+    WHERE type = 'get-relevant-files'
+    ${userId ? `AND user_id = '${userId}'` : ''}
     ORDER BY created_at DESC
     LIMIT ${limit}
   )
@@ -289,7 +291,7 @@ export async function getTracesAndRelabelsForUser(
     ANY_VALUE(t.payload) as payload,
     ARRAY_AGG(r IGNORE NULLS) as relabels
   FROM traces t
-  LEFT JOIN \`${dataset}.${RELABELS_TABLE}\` r
+  ${joinType === 'INNER' ? 'INNER JOIN' : 'LEFT JOIN'} \`${dataset}.${RELABELS_TABLE}\` r
   ON t.agent_step_id = r.agent_step_id
      AND t.user_id = r.user_id
      AND JSON_EXTRACT_SCALAR(t.payload, '$.user_input_id') = JSON_EXTRACT_SCALAR(r.payload, '$.user_input_id')
