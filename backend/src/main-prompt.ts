@@ -139,7 +139,7 @@ export const mainPrompt = async (
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
     (isFlash || isGeminiPro) &&
-      'When mentioning a file path, make sure to include all the directories in the path to the file. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts.',
+      'Important: When mentioning a file path, for example for <write_file> or <read_files>, make sure to include all the directories in the path to the file from the project root. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts! Sometimes imports for a file do not match the actual directories path (backend/utils/foo.ts for example).',
 
     'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
