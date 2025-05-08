@@ -114,7 +114,7 @@ export const mainPrompt = async (
   const justRanTerminalCommand = toolResults.some(
     (t) => t.name === 'run_terminal_command'
   )
-  const geminiThinkingEnabled = costMode !== 'lite'
+  const geminiThinkingEnabled = costMode === 'max'
   const isGeminiPro = model === models.gemini2_5_pro_preview
   const isGPT4_1 = model === models.gpt4_1
   const isFlash =
