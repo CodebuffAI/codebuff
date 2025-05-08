@@ -1,5 +1,9 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { AgentResponseTrace, insertTrace } from '@codebuff/bigquery'
+import {
+  AgentResponseTrace,
+  GetExpandedFileContextForTrainingBlobTrace,
+  insertTrace,
+} from '@codebuff/bigquery'
 import { ClientAction } from 'common/actions'
 import {
   HIDDEN_FILE_READ_STATUS,
@@ -20,7 +24,10 @@ import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { checkTerminalCommand } from './check-terminal-command'
-import { requestRelevantFiles } from './find-files/request-files-prompt'
+import {
+  requestRelevantFiles,
+  requestRelevantFilesForTraining,
+} from './find-files/request-files-prompt'
 import { getDocumentationForQuery } from './get-documentation-for-query'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
@@ -1017,6 +1024,24 @@ async function getFileReadingUpdates(
       )) ??
       []
 
+  uploadExpandedFileContextForTraining(
+    ws,
+    { messages, system },
+    fileContext,
+    prompt,
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    costMode
+  ).catch((error) => {
+    logger.error(
+      { error },
+      'Error uploading expanded file context for training'
+    )
+  })
+
   const isFirstRead = previousFileList.length === 0
   const initialFiles = getInitialFiles(fileContext)
   const includedInitialFiles = isFirstRead
@@ -1138,4 +1163,66 @@ function getPrintedPaths(
         loadedFiles[path]!.startsWith(status)
       )
   )
+}
+
+async function uploadExpandedFileContextForTraining(
+  ws: WebSocket,
+  {
+    messages,
+    system,
+  }: {
+    messages: Message[]
+    system: string | Array<TextBlockParam>
+  },
+  fileContext: ProjectFileContext,
+  assistantPrompt: string | null,
+  agentStepId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined,
+  costMode: CostMode
+) {
+  const files = await requestRelevantFilesForTraining(
+    { messages, system },
+    fileContext,
+    assistantPrompt,
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    costMode
+  )
+
+  const loadedFiles = await requestFiles(ws, files)
+
+  // Upload a map of:
+  // {file_path: {content, token_count}}
+  // up to 50k tokens
+  const filesToUpload: Record<string, { content: string; tokens: number }> = {}
+  for (const file of files) {
+    const tokens = countTokens(loadedFiles[file]!)
+    if (tokens > 50000) {
+      break
+    }
+    filesToUpload[file] = { content: loadedFiles[file]!, tokens }
+  }
+
+  const trace: GetExpandedFileContextForTrainingBlobTrace = {
+    type: 'get-expanded-file-context-for-training-blobs',
+    created_at: new Date(),
+    id: crypto.randomUUID(),
+    agent_step_id: agentStepId,
+    user_id: userId ?? '',
+    payload: {
+      files: filesToUpload,
+      user_input_id: userInputId,
+      client_session_id: clientSessionId,
+      fingerprint_id: fingerprintId,
+    },
+  }
+
+  // Upload the files to bigquery
+  await insertTrace(trace)
 }
