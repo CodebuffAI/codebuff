@@ -1,7 +1,7 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import {
   AgentResponseTrace,
-  GetRelevantFilesForTrainingBlobTrace,
+  GetExpandedFileContextForTrainingBlobTrace,
   insertTrace,
 } from '@codebuff/bigquery'
 import { ClientAction } from 'common/actions'
@@ -1196,7 +1196,7 @@ async function uploadExpandedFileContextForTraining(
     filesToUpload[file] = { content: loadedFiles[file]!, tokens }
   }
 
-  const trace: GetRelevantFilesForTrainingBlobTrace = {
+  const trace: GetExpandedFileContextForTrainingBlobTrace = {
     type: 'get-expanded-file-context-for-training-blobs',
     created_at: new Date(),
     id: crypto.randomUUID(),
