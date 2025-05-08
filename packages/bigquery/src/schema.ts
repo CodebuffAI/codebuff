@@ -13,12 +13,7 @@ interface BasePayload {
 }
 
 // Define possible trace types
-export type TraceType =
-  | 'get-relevant-files' // Get-relevant-files call in production
-  | 'file-trees' // Uploads additional file trees of various sizes
-  | 'agent-response' // Response from the agent at the end
-  | 'get-expanded-file-context-for-training' // Additional capture of a stronger-model + higher-file limit call
-  | 'get-expanded-file-context-for-training-blobs' // Capture of full file context from get-relevant-files-for-training call
+export type TraceType = 'get-relevant-files' | 'file-trees' | 'agent-response'
 
 // Base trace interface
 export interface BaseTrace extends BaseEvent {
@@ -42,20 +37,6 @@ export interface GetRelevantFilesTrace extends BaseTrace {
   payload: GetRelevantFilesPayload
 }
 
-export interface GetExpandedFileContextForTrainingTrace extends BaseTrace {
-  type: 'get-expanded-file-context-for-training'
-  payload: GetRelevantFilesPayload
-}
-
-export interface FilesBlobPayload extends BasePayload {
-  files: Record<string, { content: string; tokens: number }>
-}
-
-export interface GetExpandedFileContextForTrainingBlobTrace extends BaseTrace {
-  type: 'get-expanded-file-context-for-training-blobs'
-  payload: FilesBlobPayload
-}
-
 interface FileTreePayload extends BasePayload {
   filetrees: Record<number, string>
 }
@@ -75,12 +56,7 @@ export interface AgentResponseTrace extends BaseTrace {
 }
 
 // Union type for all trace records
-export type Trace =
-  | GetRelevantFilesTrace
-  | FileTreeTrace
-  | AgentResponseTrace
-  | GetExpandedFileContextForTrainingBlobTrace
-  | GetExpandedFileContextForTrainingTrace
+export type Trace = GetRelevantFilesTrace | FileTreeTrace | AgentResponseTrace
 
 export const TRACES_SCHEMA: TableSchema = {
   fields: [
