@@ -12,7 +12,7 @@ import {
   type CostMode,
 } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { getToolCallString } from 'common/constants/tools'
+import { getToolCallString, toolSchema } from 'common/constants/tools'
 import { trackEvent } from 'common/src/analytics'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
@@ -58,7 +58,6 @@ import {
 import {
   isToolResult,
   parseReadFilesResult,
-  parseToolCallXml,
   parseToolResults,
   renderReadFilesResult,
   renderToolResults,
@@ -553,102 +552,108 @@ export const mainPrompt = async (
     system
   )
 
-  const streamWithTags = processStreamWithTags(stream, {
-    ...Object.fromEntries(
-      TOOL_LIST.map((tool) => [
-        tool,
-        {
-          attributeNames: [],
-          onTagStart: () => {},
-          onTagEnd: () => false,
+  const streamWithTags = processStreamWithTags(
+    stream,
+    {
+      ...Object.fromEntries(
+        TOOL_LIST.map((tool) => [
+          tool,
+          {
+            params: toolSchema[tool],
+            onTagStart: () => {},
+            onTagEnd: () => {},
+          },
+        ])
+      ),
+      write_file: {
+        params: ['path', 'content'],
+        onTagStart: () => {},
+        onTagEnd: (params) => {
+          const { path, content } = params
+          if (!content) return false
+
+          // Initialize state for this file path if needed
+          if (!fileProcessingPromisesByPath[path]) {
+            fileProcessingPromisesByPath[path] = []
+          }
+          const previousPromises = fileProcessingPromisesByPath[path]
+          const previousEdit = previousPromises[previousPromises.length - 1]
+
+          const latestContentPromise = previousEdit
+            ? previousEdit.then(
+                (maybeResult) =>
+                  maybeResult?.content ?? requestOptionalFile(ws, path)
+              )
+            : requestOptionalFile(ws, path)
+
+          const fileContentWithoutStartNewline = content.startsWith('\n')
+            ? content.slice(1)
+            : content
+
+          logger.debug({ path, content }, `write_file ${path}`)
+
+          const newPromise = processFileBlock(
+            path,
+            latestContentPromise,
+            fileContentWithoutStartNewline,
+            messagesWithUserMessage,
+            fullResponse,
+            prompt,
+            clientSessionId,
+            fingerprintId,
+            promptId,
+            userId,
+            costMode
+          ).catch((error) => {
+            logger.error(error, 'Error processing file block')
+            return null
+          })
+
+          fileProcessingPromisesByPath[path].push(newPromise)
+
+          return false
         },
-      ])
-    ),
-    write_file: {
-      attributeNames: [],
-      onTagStart: () => {},
-      onTagEnd: (body) => {
-        const { path, content } = parseToolCallXml(body)
-        if (!content) return false
+      },
+      str_replace: {
+        params: ['path', 'old', 'new'],
+        onTagStart: () => {},
+        onTagEnd: (params) => {
+          const { path, old, new: newStr } = params
+          if (!old || typeof old !== 'string') {
+            return
+          }
 
-        // Initialize state for this file path if needed
-        if (!fileProcessingPromisesByPath[path]) {
-          fileProcessingPromisesByPath[path] = []
-        }
-        const previousPromises = fileProcessingPromisesByPath[path]
-        const previousEdit = previousPromises[previousPromises.length - 1]
+          if (!fileProcessingPromisesByPath[path]) {
+            fileProcessingPromisesByPath[path] = []
+          }
+          const previousPromises = fileProcessingPromisesByPath[path]
+          const previousEdit = previousPromises[previousPromises.length - 1]
 
-        const latestContentPromise = previousEdit
-          ? previousEdit.then(
-              (maybeResult) =>
-                maybeResult?.content ?? requestOptionalFile(ws, path)
-            )
-          : requestOptionalFile(ws, path)
+          const latestContentPromise = previousEdit
+            ? previousEdit.then(
+                (maybeResult) =>
+                  maybeResult?.content ?? requestOptionalFile(ws, path)
+              )
+            : requestOptionalFile(ws, path)
 
-        const fileContentWithoutStartNewline = content.startsWith('\n')
-          ? content.slice(1)
-          : content
+          const newPromise = processStrReplace(
+            path,
+            old,
+            newStr || '',
+            latestContentPromise
+          ).catch((error: any) => {
+            logger.error(error, 'Error processing str_replace block')
+            return null
+          })
 
-        logger.debug({ path, content }, `write_file ${path}`)
+          fileProcessingPromisesByPath[path].push(newPromise)
 
-        const newPromise = processFileBlock(
-          path,
-          latestContentPromise,
-          fileContentWithoutStartNewline,
-          messagesWithUserMessage,
-          fullResponse,
-          prompt,
-          clientSessionId,
-          fingerprintId,
-          promptId,
-          userId,
-          costMode
-        ).catch((error) => {
-          logger.error(error, 'Error processing file block')
-          return null
-        })
-
-        fileProcessingPromisesByPath[path].push(newPromise)
-
-        return false
+          return
+        },
       },
     },
-    str_replace: {
-      attributeNames: [],
-      onTagStart: () => {},
-      onTagEnd: (body) => {
-        const { path, old, new: newStr } = parseToolCallXml(body)
-        if (!old || typeof old !== 'string') return false
-
-        if (!fileProcessingPromisesByPath[path]) {
-          fileProcessingPromisesByPath[path] = []
-        }
-        const previousPromises = fileProcessingPromisesByPath[path]
-        const previousEdit = previousPromises[previousPromises.length - 1]
-
-        const latestContentPromise = previousEdit
-          ? previousEdit.then(
-              (maybeResult) =>
-                maybeResult?.content ?? requestOptionalFile(ws, path)
-            )
-          : requestOptionalFile(ws, path)
-
-        const newPromise = processStrReplace(
-          path,
-          old,
-          newStr || '',
-          latestContentPromise
-        ).catch((error: any) => {
-          logger.error(error, 'Error processing str_replace block')
-          return null
-        })
-
-        fileProcessingPromisesByPath[path].push(newPromise)
-
-        return false
-      },
-    },
-  })
+    { onTagStart: () => {}, onTagEnd: () => {} }
+  )
 
   for await (const chunk of streamWithTags) {
     const trimmed = chunk.trim()

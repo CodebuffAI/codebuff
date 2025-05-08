@@ -1,110 +1,128 @@
+import { Saxy } from 'common/util/saxy'
+
 export async function* processStreamWithTags<T extends string>(
   stream: AsyncGenerator<T> | ReadableStream<T>,
-  tags: {
+  processors: {
     [tagName: string]: {
-      attributeNames: string[]
-      onTagStart: (attributes: Record<string, string>) => void
-      onTagEnd: (content: string, attributes: Record<string, string>) => boolean
+      params: Array<string>
+      onTagStart: (attributes: Record<string, string>, errors: string[]) => void
+      onTagEnd: (params: Record<string, string>) => void
     }
+  },
+  defaultProcessor: {
+    onTagStart: (
+      tagName: string,
+      attributes: Record<string, string>,
+      errors: string[]
+    ) => void
+    onTagEnd: (tagName: string) => void
   }
 ) {
-  let buffer = ''
-  let insideTag: string | null = null
-  let currentAttributes: Record<string, string> = {}
-  let streamCompleted = false
+  let currentTool: string | null = null
+  let currentParam: string | null = null
+  let params: Record<string, string> = {}
+  let paramContent = ''
 
-  const escapeRegExp = (string: string) =>
-    string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const tagNames = Object.keys(tags)
-  const openTagRegex = new RegExp(
-    `<(${tagNames.map(escapeRegExp).join('|')})\\s*([^>]*)>`
-  )
-  const closeTagRegex = new RegExp(
-    `</(${tagNames.map(escapeRegExp).join('|')})>`
-  )
+  const parser = new Saxy()
+  parser.on('tagopen', (tag) => {
+    const tagName = tag.name
+    const { attrs, errors } = Saxy.parseAttrs(tag.attrs)
+    if (currentTool === null) {
+      // Parse tool
+      if (tagName in processors) {
+        currentTool = tagName
+        currentParam = null
+        params = { ...attrs }
+        processors[currentTool].onTagStart(attrs, errors)
+      } else {
+        defaultProcessor.onTagStart(tagName, attrs, errors)
+      }
+      return
+    }
+
+    if (!processors[currentTool].params.includes(tagName)) {
+      // Invalid parameter
+      defaultProcessor.onTagStart(tagName, attrs, errors)
+      return
+    }
+
+    currentParam = tagName
+    paramContent = ''
+  })
+
+  parser.on('text', (data) => {
+    if (currentTool === null || currentParam === null) {
+      return
+    }
+
+    paramContent += data.contents
+  })
+
+  parser.on('tagclose', (tag) => {
+    const tagName = tag.name
+
+    if (currentTool === null) {
+      // Invalid state
+      defaultProcessor.onTagEnd(tagName)
+      return
+    }
+
+    if (currentParam !== null && currentParam !== tagName) {
+      // Invalid parameter closing
+      defaultProcessor.onTagEnd(tagName)
+      return
+    }
+
+    if (tagName === currentParam) {
+      // Parameter closing
+      params[currentParam] = paramContent
+      currentParam = null
+      paramContent = ''
+      return
+    }
+
+    if (tagName !== currentTool) {
+      // Invalid tool closing
+      defaultProcessor.onTagEnd(tagName)
+      return
+    }
+
+    processors[tagName].onTagEnd(params)
+    currentTool = null
+    params = {}
+  })
+
+  let streamCompleted = false
 
   function* parseBuffer(
     chunk: string | undefined
   ): Generator<string, void, unknown> {
-    const isEOF = chunk === undefined
+    streamCompleted = chunk === undefined
     if (chunk) {
       yield chunk
     }
-    let didParse = true
 
-    while (!streamCompleted && didParse) {
-      didParse = false
-
-      if (insideTag === null) {
-        // Outside a tag: try to find the next opening tag
-        const openMatch = buffer.match(openTagRegex)
-        if (openMatch && openMatch.index !== undefined) {
-          const [fullMatch, openTag, attributesString] = openMatch
-          const beforeTag = buffer.slice(0, openMatch.index)
-          const afterMatchIndex = openMatch.index + fullMatch.length
-
-          // Move buffer forward
-          buffer = buffer.slice(afterMatchIndex)
-
-          // We are now inside this tag
-          insideTag = openTag
-          currentAttributes = parseAttributes(
-            attributesString,
-            tags[openTag].attributeNames
-          )
-
-          // Call onTagStart
-          tags[openTag].onTagStart(currentAttributes)
-
-          didParse = true
-        } else {
-          // No opening tag found. If it's EOF, yield remaining text.
-          if (isEOF && buffer.length > 0) {
-            buffer = ''
-          }
-        }
-      } else {
-        // Inside a tag: try to find the closing tag
-        const closeMatch = buffer.match(closeTagRegex)
-        if (closeMatch && closeMatch.index !== undefined) {
-          const [fullMatch, closeTag] = closeMatch
-          const content = buffer.slice(0, closeMatch.index)
-
-          // Move buffer forward
-          buffer = buffer.slice(closeMatch.index + fullMatch.length)
-
-          // Close the tag
-          const complete = tags[insideTag].onTagEnd(content, currentAttributes)
-          insideTag = null
-          currentAttributes = {}
-
-          if (complete) {
-            // If onTagEnd signals completion, set streamCompleted and return
-            streamCompleted = true
-            return
-          }
-
-          didParse = true
-        } else if (isEOF) {
-          // We reached EOF without finding a closing tag
-          // Treat remaining buffer as content and close the tag
-          const complete = tags[insideTag].onTagEnd(buffer, currentAttributes)
-          yield '</' + insideTag + '>'
-          buffer = ''
-          insideTag = null
-          currentAttributes = {}
-          if (complete) {
-            streamCompleted = true
-            return
-          }
-        }
+    if (chunk !== undefined) {
+      parser.write(chunk)
+    } else {
+      if (currentParam !== null) {
+        const closeParam = `</${currentParam}>\n`
+        parser.write(closeParam)
+        yield closeParam
       }
+      if (currentTool !== null) {
+        const closeTool = `</${currentTool}>\n`
+        parser.write(closeTool)
+        yield closeTool
+      }
+      parser.end()
     }
   }
 
   for await (const chunk of stream) {
-    if (streamCompleted) break
-    buffer += chunk
+    if (streamCompleted) {
+      break
+    }
     yield* parseBuffer(chunk)
   }
 
@@ -112,21 +130,4 @@ export async function* processStreamWithTags<T extends string>(
     // After the stream ends, try parsing one last time in case there's leftover text
     yield* parseBuffer(undefined)
   }
-}
-
-// exported for tests
-export function parseAttributes(
-  attributesString: string,
-  attributeNames: string[]
-): Record<string, string> {
-  const attributes: Record<string, string> = {}
-  const regex = new RegExp(
-    `(${attributeNames.join('|')})\\s*=\\s*"([^"]*)"`,
-    'g'
-  )
-  let match
-  while ((match = regex.exec(attributesString)) !== null) {
-    attributes[match[1]] = match[2]
-  }
-  return attributes
 }
