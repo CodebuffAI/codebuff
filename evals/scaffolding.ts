@@ -60,7 +60,8 @@ export async function getProjectFileContext(
       knowledgeFiles[filePath] = content
     }
   }
-  const fileTokenScores = await getFileTokenScores(projectPath, allFilePaths)
+  const fileTokenScores = (await getFileTokenScores(projectPath, allFilePaths))
+    .tokenScores
   return {
     currentWorkingDirectory: projectPath,
     gitChanges: {
@@ -94,7 +95,7 @@ export async function runMainPrompt(
     promptId: generateCompactId(),
     prompt,
     fingerprintId: 'test-fingerprint-id',
-    costMode: 'normal' as const,
+    costMode: 'experimental' as const,
     agentState,
     toolResults,
   }
