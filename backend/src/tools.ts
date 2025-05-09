@@ -536,27 +536,31 @@ const toolSchemas = {
   end_turn: emptySchema,
 } as const
 
-export const parseRawToolCall = (rawToolCall: {
-  name: string
+export function parseRawToolCall<T extends ToolName>(rawToolCall: {
+  name: T
   parameters: Record<string, string>
-}): ToolCall => {
+}): ToolCall<T & ToolName> | ToolCallError {
   const { name, parameters } = rawToolCall
 
   // Look up the schema for this tool
-  const schema = toolSchemas[name as ToolName]
+  const schema = toolSchemas[name]
   if (!schema) {
-    throw new Error(`Tool ${name} not found`)
+    return { name: name as string, parameters, error: `Tool ${name} not found` }
   }
 
   // Parse and validate the parameters
   const result = schema.safeParse(parameters)
   if (!result.success) {
-    throw new Error(`Invalid parameters for ${name}: ${result.error.message}`)
+    return {
+      name,
+      parameters,
+      error: `Invalid parameters for ${name}: ${result.error.message}`,
+    }
   }
 
   // Return the validated and transformed parameters
   return {
-    name: name as ToolName,
+    name,
     parameters: result.data,
   }
 }
@@ -567,6 +571,12 @@ export type ToolName = (typeof TOOL_LIST)[number]
 export type ToolCall<T extends ToolName = ToolName> = {
   name: T
   parameters: z.infer<(typeof toolSchemas)[T]>
+}
+
+export type ToolCallError = {
+  name?: string
+  parameters: Record<string, string>
+  error: string
 }
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [

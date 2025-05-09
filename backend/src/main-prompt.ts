@@ -31,7 +31,6 @@ import {
 import { getDocumentationForQuery } from './get-documentation-for-query'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
-import { processStreamWithTags } from './process-stream'
 import { getAgentStream } from './prompt-agent-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { additionalSystemPrompts } from './system-prompt/prompts'
@@ -71,6 +70,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
+import { processStreamWithTags } from './xml-stream-parser'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
@@ -568,11 +568,23 @@ export const mainPrompt = async (
         ])
       ),
       write_file: {
-        params: ['path', 'content'],
+        params: toolSchema.write_file,
         onTagStart: () => {},
-        onTagEnd: (params) => {
-          const { path, content } = params
-          if (!content) return false
+        onTagEnd: (_, parameters) => {
+          const toolCall = parseRawToolCall<'write_file'>({
+            name: 'write_file',
+            parameters,
+          })
+          if ('error' in toolCall) {
+            serverToolResults.push({
+              name: 'write_file',
+              id: generateCompactId(),
+              result: toolCall.error,
+            })
+            return
+          }
+          const { path, content } = toolCall.parameters
+          if (!content) return
 
           // Initialize state for this file path if needed
           if (!fileProcessingPromisesByPath[path]) {
@@ -613,14 +625,26 @@ export const mainPrompt = async (
 
           fileProcessingPromisesByPath[path].push(newPromise)
 
-          return false
+          return
         },
       },
       str_replace: {
-        params: ['path', 'old', 'new'],
+        params: toolSchema.str_replace,
         onTagStart: () => {},
-        onTagEnd: (params) => {
-          const { path, old, new: newStr } = params
+        onTagEnd: (_, parameters) => {
+          const toolCall = parseRawToolCall<'str_replace'>({
+            name: 'str_replace',
+            parameters,
+          })
+          if ('error' in toolCall) {
+            serverToolResults.push({
+              name: 'str_replace',
+              id: generateCompactId(),
+              result: toolCall.error,
+            })
+            return
+          }
+          const { path, old, new: newStr } = toolCall.parameters
           if (!old || typeof old !== 'string') {
             return
           }
@@ -654,7 +678,9 @@ export const mainPrompt = async (
         },
       },
     },
-    { onTagStart: () => {}, onTagEnd: () => {} }
+    (name, error) => {
+      serverToolResults.push({ id: generateCompactId(), name, result: error })
+    }
   )
 
   for await (const chunk of streamWithTags) {

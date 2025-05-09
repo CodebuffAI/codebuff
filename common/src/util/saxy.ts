@@ -511,6 +511,10 @@ export class Saxy extends Transform {
     }
 
     this.emit(Node.tagOpen, node)
+
+    if (node.isSelfClosing) {
+      this.emit(Node.tagClose, { name: node.name })
+    }
   }
 
   /**
