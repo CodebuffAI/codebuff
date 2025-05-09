@@ -40,11 +40,11 @@ import { getThinkingStream } from './thinking-stream'
 import {
   ClientToolCall,
   parseRawToolCall,
-  parseToolCalls,
   TOOL_LIST,
+  ToolCall,
+  ToolName,
   TOOLS_WHICH_END_THE_RESPONSE,
   toolsInstructions,
-  transformRunTerminalCommand,
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
@@ -554,129 +554,196 @@ export const mainPrompt = async (
     system
   )
 
+  const allToolCalls: ToolCall[] = []
+  const clientToolCalls: ClientToolCall[] = []
+  const serverToolResults: ToolResult[] = []
+  const subgoalToolCalls: ToolCall<'add_subgoal' | 'update_subgoal'>[] = []
+
+  function toolCallback<T extends ToolName>(
+    tool: T,
+    after: (toolCall: ToolCall<T>) => void
+  ): {
+    params: string[]
+    onTagStart: () => void
+    onTagEnd: (
+      name: string,
+      parameters: Record<string, string>
+    ) => Promise<void>
+  } {
+    return {
+      params: toolSchema[tool],
+      onTagStart: () => {},
+      onTagEnd: async (_: string, parameters: Record<string, string>) => {
+        const toolCall = parseRawToolCall<typeof tool>({
+          name: tool,
+          parameters,
+        })
+        if ('error' in toolCall) {
+          serverToolResults.push({
+            name: tool,
+            id: generateCompactId(),
+            result: toolCall.error,
+          })
+          return
+        }
+        allToolCalls.push(toolCall)
+
+        after(toolCall)
+      },
+    }
+  }
   const streamWithTags = processStreamWithTags(
     stream,
     {
       ...Object.fromEntries(
-        TOOL_LIST.map((tool) => [
-          tool,
+        TOOL_LIST.map((tool) => [tool, toolCallback(tool, () => {})])
+      ),
+      think_deeply: toolCallback('think_deeply', (toolCall) => {
+        const { thought } = toolCall.parameters
+        logger.debug(
           {
-            params: toolSchema[tool],
-            onTagStart: () => {},
-            onTagEnd: () => {},
+            thought,
           },
+          'Thought deeply'
+        )
+      }),
+      ...Object.fromEntries(
+        (['add_subgoal', 'update_subgoal'] as const).map((tool) => [
+          tool,
+          toolCallback(tool, (toolCall) => {
+            subgoalToolCalls.push(toolCall)
+          }),
         ])
       ),
-      write_file: {
-        params: toolSchema.write_file,
-        onTagStart: () => {},
-        onTagEnd: (_, parameters) => {
-          const toolCall = parseRawToolCall<'write_file'>({
-            name: 'write_file',
-            parameters,
-          })
-          if ('error' in toolCall) {
-            serverToolResults.push({
-              name: 'write_file',
+      ...Object.fromEntries(
+        (
+          [
+            'code_search',
+            'browser_logs',
+            'await_tool_results',
+            'end_turn',
+          ] as const
+        ).map((tool) => [
+          tool,
+          toolCallback(tool, (toolCall) => {
+            clientToolCalls.push({
+              ...(toolCall as ClientToolCall),
               id: generateCompactId(),
-              result: toolCall.error,
             })
-            return
-          }
-          const { path, content } = toolCall.parameters
-          if (!content) return
-
-          // Initialize state for this file path if needed
-          if (!fileProcessingPromisesByPath[path]) {
-            fileProcessingPromisesByPath[path] = []
-          }
-          const previousPromises = fileProcessingPromisesByPath[path]
-          const previousEdit = previousPromises[previousPromises.length - 1]
-
-          const latestContentPromise = previousEdit
-            ? previousEdit.then(
-                (maybeResult) =>
-                  maybeResult?.content ?? requestOptionalFile(ws, path)
-              )
-            : requestOptionalFile(ws, path)
-
-          const fileContentWithoutStartNewline = content.startsWith('\n')
-            ? content.slice(1)
-            : content
-
-          logger.debug({ path, content }, `write_file ${path}`)
-
-          const newPromise = processFileBlock(
+          }),
+        ])
+      ),
+      run_terminal_command: toolCallback('run_terminal_command', (toolCall) => {
+        const clientToolCall = {
+          ...{
+            ...toolCall,
+            parameters: {
+              ...toolCall.parameters,
+              mode: 'assistant' as const,
+            },
+          },
+          id: generateCompactId(),
+        }
+        clientToolCalls.push(clientToolCall)
+      }),
+      create_plan: toolCallback('create_plan', (toolCall) => {
+        const { path, plan } = toolCall.parameters
+        logger.debug(
+          {
             path,
-            latestContentPromise,
-            fileContentWithoutStartNewline,
-            messagesWithUserMessage,
-            fullResponse,
-            prompt,
-            clientSessionId,
-            fingerprintId,
-            promptId,
-            userId,
-            costMode
-          ).catch((error) => {
-            logger.error(error, 'Error processing file block')
-            return null
-          })
+            plan,
+          },
+          'Create plan'
+        )
+        // Add the plan file to the processing queue
+        if (!fileProcessingPromisesByPath[path]) {
+          fileProcessingPromisesByPath[path] = []
+        }
+        const change = {
+          tool: 'create_plan' as const,
+          path,
+          content: plan,
+        }
+        fileProcessingPromisesByPath[path].push(Promise.resolve(change))
+      }),
+      write_file: toolCallback('write_file', (toolCall) => {
+        const { path, content } = toolCall.parameters
+        if (!content) return
 
-          fileProcessingPromisesByPath[path].push(newPromise)
+        // Initialize state for this file path if needed
+        if (!fileProcessingPromisesByPath[path]) {
+          fileProcessingPromisesByPath[path] = []
+        }
+        const previousPromises = fileProcessingPromisesByPath[path]
+        const previousEdit = previousPromises[previousPromises.length - 1]
 
+        const latestContentPromise = previousEdit
+          ? previousEdit.then(
+              (maybeResult) =>
+                maybeResult?.content ?? requestOptionalFile(ws, path)
+            )
+          : requestOptionalFile(ws, path)
+
+        const fileContentWithoutStartNewline = content.startsWith('\n')
+          ? content.slice(1)
+          : content
+
+        logger.debug({ path, content }, `write_file ${path}`)
+
+        const newPromise = processFileBlock(
+          path,
+          latestContentPromise,
+          fileContentWithoutStartNewline,
+          messagesWithUserMessage,
+          fullResponse,
+          prompt,
+          clientSessionId,
+          fingerprintId,
+          promptId,
+          userId,
+          costMode
+        ).catch((error) => {
+          logger.error(error, 'Error processing file block')
+          return null
+        })
+
+        fileProcessingPromisesByPath[path].push(newPromise)
+
+        return
+      }),
+      str_replace: toolCallback('str_replace', (toolCall) => {
+        const { path, old, new: newStr } = toolCall.parameters
+        if (!old || typeof old !== 'string') {
           return
-        },
-      },
-      str_replace: {
-        params: toolSchema.str_replace,
-        onTagStart: () => {},
-        onTagEnd: (_, parameters) => {
-          const toolCall = parseRawToolCall<'str_replace'>({
-            name: 'str_replace',
-            parameters,
-          })
-          if ('error' in toolCall) {
-            serverToolResults.push({
-              name: 'str_replace',
-              id: generateCompactId(),
-              result: toolCall.error,
-            })
-            return
-          }
-          const { path, old, new: newStr } = toolCall.parameters
-          if (!old || typeof old !== 'string') {
-            return
-          }
+        }
 
-          if (!fileProcessingPromisesByPath[path]) {
-            fileProcessingPromisesByPath[path] = []
-          }
-          const previousPromises = fileProcessingPromisesByPath[path]
-          const previousEdit = previousPromises[previousPromises.length - 1]
+        if (!fileProcessingPromisesByPath[path]) {
+          fileProcessingPromisesByPath[path] = []
+        }
+        const previousPromises = fileProcessingPromisesByPath[path]
+        const previousEdit = previousPromises[previousPromises.length - 1]
 
-          const latestContentPromise = previousEdit
-            ? previousEdit.then(
-                (maybeResult) =>
-                  maybeResult?.content ?? requestOptionalFile(ws, path)
-              )
-            : requestOptionalFile(ws, path)
+        const latestContentPromise = previousEdit
+          ? previousEdit.then(
+              (maybeResult) =>
+                maybeResult?.content ?? requestOptionalFile(ws, path)
+            )
+          : requestOptionalFile(ws, path)
 
-          const newPromise = processStrReplace(
-            path,
-            old,
-            newStr || '',
-            latestContentPromise
-          ).catch((error: any) => {
-            logger.error(error, 'Error processing str_replace block')
-            return null
-          })
+        const newPromise = processStrReplace(
+          path,
+          old,
+          newStr || '',
+          latestContentPromise
+        ).catch((error: any) => {
+          logger.error(error, 'Error processing str_replace block')
+          return null
+        })
 
-          fileProcessingPromisesByPath[path].push(newPromise)
+        fileProcessingPromisesByPath[path].push(newPromise)
 
-          return
-        },
-      },
+        return
+      }),
     },
     (name, error) => {
       serverToolResults.push({ id: generateCompactId(), name, result: error })
@@ -698,6 +765,10 @@ export const mainPrompt = async (
   if (!fullResponse) {
     // End turn if LLM did not give a response.
     fullResponse = '<end_turn></end_turn>'
+    onResponseChunk(fullResponse)
+    const tc: ToolCall<'end_turn'> = { name: 'end_turn', parameters: [] }
+    allToolCalls.push(tc)
+    clientToolCalls.push({ ...tc, id: generateCompactId() })
   }
 
   const agentResponseTrace: AgentResponseTrace = {
@@ -724,53 +795,35 @@ export const mainPrompt = async (
     },
   ]
 
-  const toolCalls = parseToolCalls(fullResponse)
-  const clientToolCalls: ClientToolCall[] = []
-  const serverToolResults: ToolResult[] = []
-
   const agentContextPromise =
-    toolCalls.length > 0
-      ? updateContextFromToolCalls(agentContext, toolCalls)
+    subgoalToolCalls.length > 0
+      ? updateContextFromToolCalls(agentContext, subgoalToolCalls)
       : Promise.resolve(agentContext)
 
-  for (const toolCall of toolCalls) {
-    try {
-      parseRawToolCall(toolCall)
-    } catch (error) {
-      serverToolResults.push({
-        id: generateCompactId(),
-        name: toolCall.name,
-        result: `Error parsing tool call:\n${error}`,
-      })
-      continue
-    }
-
+  for (const toolCall of allToolCalls) {
     const { name, parameters } = toolCall
     trackEvent(AnalyticsEvent.TOOL_USE, userId ?? '', {
       tool: name,
       parameters,
     })
-    if (name === 'write_file' || name === 'str_replace') {
-      // write_file and str_replace tool calls are handled as they are streamed in.
-    } else if (name === 'add_subgoal' || name === 'update_subgoal') {
-      // add_subgoal and update_subgoal tool calls are handled above
-    } else if (
-      name === 'code_search' ||
-      name === 'run_terminal_command' ||
-      name === 'browser_logs' ||
-      name === 'await_tool_results' ||
-      name === 'end_turn'
+    if (
+      [
+        'write_file',
+        'str_replace',
+        'add_subgoal',
+        'update_subgoal',
+        'code_search',
+        'run_terminal_command',
+        'browser_logs',
+        'await_tool_results',
+        'end_turn',
+        'think_deeply',
+        'create_plan',
+      ].includes(name)
     ) {
-      if (name === 'run_terminal_command') {
-        parameters.command = transformRunTerminalCommand(parameters.command)
-        parameters.mode = 'assistant'
-      }
-      clientToolCalls.push({
-        ...(toolCall as ClientToolCall),
-        id: generateCompactId(),
-      })
-    } else if (name === 'read_files') {
-      const paths = parameters.paths
+      // Handled above
+    } else if (toolCall.name === 'read_files') {
+      const paths = (toolCall as ToolCall<'read_files'>).parameters.paths
         .split(/\s+/)
         .map((path) => path.trim())
         .filter(Boolean)
@@ -805,7 +858,7 @@ export const mainPrompt = async (
       )
       logger.debug(
         {
-          content: parameters.paths,
+          content: paths,
           paths,
           addedFilesPaths: addedFiles.map((f) => f.path),
           updatedFilePaths,
@@ -820,7 +873,9 @@ export const mainPrompt = async (
           fileContext.tokenCallers ?? {}
         ),
       })
-    } else if (name === 'find_files') {
+    } else if (toolCall.name === 'find_files') {
+      const description = (toolCall as ToolCall<'find_files'>).parameters
+        .description
       const { addedFiles, updatedFilePaths, printedPaths } =
         await getFileReadingUpdates(
           ws,
@@ -838,7 +893,7 @@ export const mainPrompt = async (
             }
           ),
           fileContext,
-          parameters.description,
+          description,
           {
             skipRequestingFiles: false,
             agentStepId,
@@ -851,8 +906,8 @@ export const mainPrompt = async (
         )
       logger.debug(
         {
-          content: parameters.description,
-          description: parameters.description,
+          content: description,
+          description: description,
           addedFilesPaths: addedFiles.map((f) => f.path),
           updatedFilePaths,
           printedPaths,
@@ -865,7 +920,7 @@ export const mainPrompt = async (
         result:
           addedFiles.length > 0
             ? renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
-            : `No new files found for description: ${parameters.description}`,
+            : `No new files found for description: ${description}`,
       })
       if (printedPaths.length > 0) {
         onResponseChunk('\n\n')
@@ -875,33 +930,6 @@ export const mainPrompt = async (
           })
         )
       }
-    } else if (name === 'think_deeply') {
-      const { thought } = parameters
-      logger.debug(
-        {
-          thought,
-        },
-        'Thought deeply'
-      )
-    } else if (name === 'create_plan') {
-      const { path, plan } = parameters
-      logger.debug(
-        {
-          path,
-          plan,
-        },
-        'Create plan'
-      )
-      // Add the plan file to the processing queue
-      if (!fileProcessingPromisesByPath[path]) {
-        fileProcessingPromisesByPath[path] = []
-      }
-      const change = {
-        tool: 'create_plan' as const,
-        path,
-        content: plan,
-      }
-      fileProcessingPromisesByPath[path].push(Promise.resolve(change))
     } else {
       throw new Error(`Unknown tool: ${name}`)
     }
@@ -958,7 +986,7 @@ export const mainPrompt = async (
       iteration: iterationNum,
       prompt,
       fullResponse,
-      toolCalls,
+      toolCalls: allToolCalls,
       clientToolCalls,
       serverToolResults,
       agentContext: newAgentContext,

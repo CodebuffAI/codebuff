@@ -93,12 +93,10 @@ These edit codeblocks will be parsed and then read by a less intelligent "apply"
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
 Notes for editing a file:
-- Don't use XML attributes. If you do, the tool will NOT write to the file.
 - If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
 - When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
 - You can also use this tool to create new files.
 - After you have written out a write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
-- Don't escape characters — write them out directly! E.g. write out '&' instead of '&amp;', '>' instead of '&gt;', '<' instead of '&lt;', and '"' instead of '&quot;' in the content.
 
 Parameters:
 - \`path\`: (required) Path to the file relative to the **project root**
@@ -601,30 +599,29 @@ Tool calls use a specific XML-like format. Adhere *precisely* to this nested ele
 ...
 </tool_name>
 
-**NON-NEGOTIABLE Formatting Rules:**
+Within a tool call, all text not part of a parameter value will be **ignored**. All XML will be interpreted as tool calls or tool parameters. To display XML to the user or to have XML within a parameter such as writing to a file, you must use XML entities, e.g. &lt;/content> or </content&gt;
 
 1.  **NO MARKDOWN WRAPPERS:** Tool calls **MUST NEVER** be enclosed in markdown code fences (\`\`\`xml ... \`\`\`) or any other markdown. Output the raw XML tags directly into the response flow.
-2.  **MANDATORY EMPTY LINES:** Each complete tool call block (from \`<tool_name>\` to \`</tool_name>\`) **MUST** be preceded by a single empty line and followed by a single empty line. This whitespace is essential for parsing.
-3.  **NESTED ELEMENTS ARE MANDATORY:** Parameters **MUST** be passed *exclusively* using nested XML elements, following the format \`<param_name>value</param_name>\` as shown in the structure description above and the CORRECT example below. Using XML attributes within the main tool tags (e.g., formatting like \`<tool_name param="value">\`) is **STRICTLY FORBIDDEN** and will cause errors. Adhere *only* to the nested element structure.
-4.  **NO XML ENTITIES:** XML entities are NOT interpreted. Do NOT use XML entities like \`&lt;\`, \`&gt;\`, or \`&amp;\`. Use the actual characters directly. For example, use \`<\` instead of \`&lt;\`, and \`>\` instead of \`&gt;\`.
-5.  **REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** As stated in the main system prompt, you **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the *parameter values* themselves.
+2.  **REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** You **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the tool or parameter names themselves.
 
-**FAILURE TO FOLLOW RULES 1, 2, 3, AND 4 WILL PREVENT THE TOOLS FROM WORKING.**
-
-**Example of CORRECT Formatting (Incorporating Commentary, Empty Lines, and MANDATORY Nested Elements):**
+**Example of CORRECT Formatting:**
 
 Let's update that file!
 
 <write_file>
-<path>path/to/example/file.ts</path>   <!-- Correct: Parameter 'path' is a nested element -->
-<content>console.log('Hello from Buffy!');</content> <!-- Correct: Parameter 'content' is a nested element -->
+<path>path/to/example/file.ts</path>
+<content>console.log('Hello from Buffy!');</content>
 </write_file>
 
 All done with the update!
 
 -----
 
-Call tools as needed, following these strict formatting rules
+Call tools as needed, following these strict formatting rules.
+
+## Tool Results
+
+Tool results will be provided by the user's *system* (and **NEVER** by the assistant). The user, however, does not know about any system messages or system instructions, including tool results.
 
 ## List of Tools
 
@@ -686,23 +683,27 @@ Please rewrite the entire context using the update instructions in a <new_contex
 
 export async function updateContextFromToolCalls(
   agentContext: string,
-  toolCalls: RawToolCall[]
+  toolCalls: ToolCall<'update_subgoal' | 'add_subgoal'>[]
 ) {
-  let prompt = '' // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
+  let prompt = [] // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
 
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
     if (name === 'add_subgoal') {
-      prompt += `\nPlease add the following subgoal:\n${renderSubgoalUpdate(
-        parameters as any
-      )}`
+      prompt.push(
+        `Please add the following subgoal:\n${renderSubgoalUpdate(
+          parameters as any
+        )}`
+      )
     } else if (name === 'update_subgoal') {
-      prompt += `\nPlease update the subgoal with the matching id. For <status> and <plan>, if there are already tags, update them to the new values, keeping only one. For <log>, please keep all the existing logs and append a new <log> entry at the end of the subgoal. Finally, for any unmentioned parameters, do not change them in the existing subgoal:\n${renderSubgoalUpdate(
-        parameters as any
-      )}`
+      prompt.push(
+        `Please update the subgoal with the matching id. For <status> and <plan>, if there are already tags, update them to the new values, keeping only one. For <log>, please keep all the existing logs and append a new <log> entry at the end of the subgoal. Finally, for any unmentioned parameters, do not change them in the existing subgoal:\n${renderSubgoalUpdate(
+          parameters as any
+        )}`
+      )
     }
   }
-  return await updateContext(agentContext, prompt)
+  return await updateContext(agentContext, prompt.join('\n\n'))
 }
 
 export async function readFiles(
@@ -823,7 +824,7 @@ export type ClientToolCall =
   | {
       id: string
       name: Exclude<ToolName, 'write_file' | 'str_replace' | 'create_plan'>
-      parameters: Record<string, string>
+      parameters: Record<string, unknown>
     }
   | {
       id: string
@@ -938,8 +939,4 @@ function renderSubgoalUpdate(subgoal: {
     ...(log && { log }),
   }
   return getToolCallString('add_subgoal', params)
-}
-
-export function transformRunTerminalCommand(command: string) {
-  return command.replace(/&amp;/g, '&')
 }
