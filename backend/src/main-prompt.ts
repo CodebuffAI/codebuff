@@ -473,7 +473,9 @@ export const mainPrompt = async (
     ...readFileMessages
   )
 
-  const iterationNum = messagesWithUserMessage.length
+  const iterationNum = messagesWithUserMessage.filter(
+    (m) => m.role === 'assistant'
+  ).length
 
   const system = getAgentSystemPrompt(fileContext)
   const systemTokens = countTokensJson(system)
