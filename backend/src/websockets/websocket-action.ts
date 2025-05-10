@@ -161,7 +161,7 @@ const onPrompt = async (
           type: 'prompt-response',
           promptId,
           agentState,
-          toolCalls,
+          toolCalls: toolCalls as any[],
           toolResults,
         })
       } catch (e) {
