@@ -47,7 +47,7 @@ export async function requestRelevantFiles(
   userId: string | undefined,
   costMode: CostMode
 ) {
-  const countPerRequest = { lite: 12, normal: 14, max: 14, experimental: 14 }[
+  const countPerRequest = { lite: 8, normal: 12, max: 14, experimental: 14 }[
     costMode
   ]
 
@@ -105,7 +105,7 @@ export async function requestRelevantFiles(
   let nonObviousPromise:
     | Promise<{ files: string[]; duration: number }>
     | undefined
-  if (costMode === 'max' || costMode == 'normal') {
+  if (costMode === 'max') {
     const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
       userPrompt,
       assistantPrompt,

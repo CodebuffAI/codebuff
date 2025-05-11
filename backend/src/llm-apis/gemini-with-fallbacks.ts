@@ -125,10 +125,7 @@ export async function promptFlashWithFallbacks(
       }
       // Finally fall back to Claude
       return await promptClaude(messages, {
-        model:
-          costMode === 'max' || costMode === 'normal'
-            ? claudeModels.sonnet
-            : claudeModels.haiku,
+        model: costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku,
         system,
         clientSessionId: options.clientSessionId,
         fingerprintId: options.fingerprintId,

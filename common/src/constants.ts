@@ -103,7 +103,7 @@ export const getModelForMode = (
 ) => {
   if (operation === 'agent') {
     return {
-      lite: claudeModels.sonnet,
+      lite: models.gemini2_5_flash_thinking,
       normal: models.sonnet,
       max: models.sonnet,
       experimental: models.gemini2_5_pro_preview,
@@ -112,14 +112,14 @@ export const getModelForMode = (
   if (operation === 'file-requests') {
     return {
       lite: claudeModels.haiku,
-      normal: claudeModels.sonnet,
+      normal: claudeModels.haiku,
       max: claudeModels.sonnet,
       experimental: claudeModels.sonnet,
     }[costMode]
   }
   if (operation === 'check-new-files') {
     return {
-      lite: models.gpt4o,
+      lite: models.gpt4omini,
       normal: models.gpt4o,
       max: models.gpt4o,
       experimental: models.gpt4o,
