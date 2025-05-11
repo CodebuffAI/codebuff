@@ -10,13 +10,8 @@ import { logger } from '@/util/logger'
 import { stripeServer } from 'common/src/util/stripe'
 import { generateCompactId } from 'common/src/util/string'
 import { env } from '@/env.mjs'
-import {
-  convertCreditsToUsdCents,
-} from 'common/util/currency'
-import {
-  getUserCostPerCredit,
-  processAndGrantCredit,
-} from '@codebuff/billing'
+import { convertCreditsToUsdCents } from 'common/util/currency'
+import { getUserCostPerCredit, processAndGrantCredit } from '@codebuff/billing'
 
 const buyCreditsSchema = z.object({
   credits: z
@@ -86,7 +81,7 @@ export async function POST(req: NextRequest) {
     // Check for valid payment methods
     const paymentMethods = await stripeServer.paymentMethods.list({
       customer: user.stripe_customer_id,
-      type: 'card',
+      // type: 'card',
     })
 
     const validPaymentMethod = paymentMethods.data.find(
