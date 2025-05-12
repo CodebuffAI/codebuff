@@ -530,11 +530,7 @@ export class Saxy extends Transform {
         if (nextTag === -1) {
           let chunk = input.slice(chunkPos)
 
-<<<<<<< HEAD
           if (this._tagStack.length === 1 && !chunk.trim()) {
-=======
-          if (this._tagStack.length === 1 && chunk === '\n') {
->>>>>>> 3e3cffbd (revert xml parsing pr)
             chunk = ''
           }
 
@@ -565,11 +561,7 @@ export class Saxy extends Transform {
         // we have all the data needed for the TEXT node
         let chunk = input.slice(chunkPos, nextTag)
 
-<<<<<<< HEAD
         if (this._tagStack.length === 1 && !chunk.trim()) {
-=======
-        if (this._tagStack.length === 1 && chunk === '\n') {
->>>>>>> 3e3cffbd (revert xml parsing pr)
           chunk = ''
         }
 
