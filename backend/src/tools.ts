@@ -237,7 +237,7 @@ ${getToolCallString('code_search', { pattern: 'import.*foo' })}
     name: 'run_terminal_command',
     description: `
 ### run_terminal_command
-Execute a CLI command in the user's working directory. **Make sure to take note of the working directory before running a command. This may not be the same as the project directory.**
+Execute a CLI command from the project root.
 
 Stick to these use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
@@ -260,7 +260,6 @@ When using this tool, please adhere to the following rules:
 9. The user will not be able to interact with these processes, e.g. confirming the command. So if there's an opportunity to use "-y" or "--yes" flags, use them. Any command that prompts for confirmation will hang if you don't use the flags.
 
 Notes:
-- The current working directory is persistent. If you cd into something, you will still be in that directory until you cd out of it.
 - Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
 
 ${gitCommitGuidePrompt}

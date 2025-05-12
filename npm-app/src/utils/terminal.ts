@@ -477,15 +477,16 @@ export const runCommandPty = (
     return
   }
 
+  const projectRoot = getProjectRoot()
+  const isWindows = os.platform() === 'win32'
   if (mode === 'assistant') {
-    console.log(green(`> ${command}`))
+    console.log(green(`${path.dirname(projectRoot)} > ${command}`))
+    ptyProcess.write(`cd ${projectRoot}\r\n`)
   }
 
   let commandOutput = ''
   let buffer = promptIdentifier
-  const isWindows = os.platform() === 'win32'
   let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
-  const projectRoot = getProjectRoot()
 
   let timer: NodeJS.Timeout | null = null
   if (maybeTimeoutSeconds !== null) {
@@ -557,8 +558,26 @@ export const runCommandPty = (
             const match = buffer.match(/Command failed with exit code (\d+)\./)
             return match ? parseInt(match[1]) : null
           })()
+      const statusMessage = buffer.includes('Command completed')
+        ? 'Complete'
+        : `Failed with exit code: ${exitCode}`
 
       const newWorkingDirectory = commandDone[1]
+      if (mode === 'assistant') {
+        ptyProcess.write(`cd ${cwd}\r\n`)
+
+        resolve({
+          result: formatResult(
+            command,
+            commandOutput,
+            `Ran command from project root: ${projectRoot}\n\n${statusMessage}`
+          ),
+          stdout: commandOutput,
+          exitCode,
+        })
+        return
+      }
+
       let outsideProject = false
       if (newWorkingDirectory !== cwd) {
         trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
@@ -568,16 +587,14 @@ export const runCommandPty = (
         })
         if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
           outsideProject = true
-          if (mode === 'user') {
-            console.log(`
+          console.log(`
 Unable to cd outside of the project root (${projectRoot})
       
 If you want to change the project root:
 1. Exit Codebuff (type "exit")
 2. Navigate into the target directory (type "cd ${newWorkingDirectory}")
 3. Restart Codebuff`)
-          }
-          ptyProcess.write(`cd ${cwd}\r`)
+          ptyProcess.write(`cd ${cwd}\r\n`)
         } else {
           setWorkingDirectory(newWorkingDirectory)
           cwd = newWorkingDirectory
@@ -589,10 +606,10 @@ If you want to change the project root:
           command,
           commandOutput,
           buildArray([
-            'Complete\n',
+            `${statusMessage}\n`,
             outsideProject &&
               `Detected final cwd outside project root. Reset cwd to ${cwd}`,
-            `Final cwd: ${cwd}`,
+            `Final user cwd: ${cwd}`,
           ]).join('\n')
         ),
         stdout: commandOutput,
