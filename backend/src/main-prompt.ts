@@ -665,13 +665,6 @@ export const mainPrompt = async (
   if (!fullResponse) {
     // End turn if LLM did not give a response.
     fullResponse = '<end_turn></end_turn>'
-<<<<<<< HEAD
-    onResponseChunk(fullResponse)
-    const tc: ToolCall<'end_turn'> = { name: 'end_turn', parameters: {} }
-    allToolCalls.push(tc)
-    clientToolCalls.push({ ...tc, id: generateCompactId() })
-=======
->>>>>>> 3e3cffbd (revert xml parsing pr)
   }
 
   const agentResponseTrace: AgentResponseTrace = {
