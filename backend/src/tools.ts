@@ -499,7 +499,7 @@ const codeSearchSchema = z.object({
 const runTerminalCommandSchema = z.object({
   command: z.string().min(1, 'Command cannot be empty'),
   process_type: z.enum(['SYNC', 'BACKGROUND']).default('SYNC'),
-  timeout_seconds: z.coerce.number().default(30),
+  timeout_seconds: z.string().default('30'),
 })
 
 const thinkDeeplySchema = z.object({

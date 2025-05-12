@@ -77,7 +77,7 @@ export const handleRunTerminalCommand = async (
     command: string
     mode?: 'user' | 'assistant'
     process_type?: 'SYNC' | 'BACKGROUND'
-    timeout_seconds?: number
+    timeout_seconds?: string
   },
   id: string
 ): Promise<{ result: string; stdout: string }> => {
@@ -85,14 +85,23 @@ export const handleRunTerminalCommand = async (
     command,
     mode = 'assistant',
     process_type = 'SYNC',
-    timeout_seconds = 30,
+    timeout_seconds = '30',
   } = parameters
+  let timeout_seconds_num: number
+  try {
+    timeout_seconds_num = parseInt(timeout_seconds)
+  } catch (error) {
+    return {
+      result: `Could not parse timeout_seconds: ${error instanceof Error ? error.message : error}`,
+      stdout: '',
+    }
+  }
   return runTerminalCommand(
     id,
     command,
     mode,
     process_type.toUpperCase() as 'SYNC' | 'BACKGROUND',
-    timeout_seconds
+    timeout_seconds_num
   )
 }
 
