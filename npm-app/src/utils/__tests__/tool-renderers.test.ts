@@ -1,7 +1,9 @@
 import { Writable } from 'stream'
 
 // @ts-ignore
-import { describe, expect, spyOn, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock } from 'bun:test'
+// @ts-ignore
+import { spyOn, test } from 'bun:test'
 import { getToolCallString } from 'common/constants/tools'
 import * as projectFileTree from 'common/project-file-tree'
 import stripAnsi from 'strip-ansi'
@@ -10,8 +12,13 @@ import { toolRenderers } from '../tool-renderers'
 import { createXMLStreamParser } from '../xml-stream-parser'
 
 describe('Tool renderers with XML parser', () => {
-  // Mock isFileIgnored to always return false
-  spyOn(projectFileTree, 'isFileIgnored').mockImplementation(() => false)
+  beforeEach(() => {
+    spyOn(projectFileTree, 'isFileIgnored').mockImplementation(() => false)
+  })
+
+  afterEach(() => {
+    mock.restore()
+  })
 
   // Helper function to process XML through parser and get output
   async function processXML(xml: string): Promise<string> {
