@@ -1203,4 +1203,59 @@ describe('processStreamWithTags', () => {
     ])
     expect(result).toEqual(streamChunks)
   })
+
+  it('should handle parameters with special characters in values', async () => {
+    const streamChunks = [
+      '<str_replace>\n',
+      '<path>test.txt',
+      '</path>\n',
+      '<old>test</content>test',
+      '2</old>\n',
+      '<new>test</content',
+      '>test2</new',
+      '>\n</str_',
+      'replace>\n',
+    ]
+    const stream = createMockStream(streamChunks)
+    const events: any[] = []
+    const processors = {
+      str_replace: {
+        params: ['path', 'old', 'new'] as string[],
+        onTagStart: (tagName: string, attributes: Record<string, string>) => {
+          events.push({ tagName, type: 'start', attributes })
+        },
+        onTagEnd: (tagName: string, params: Record<string, string>) => {
+          events.push({ tagName, type: 'end', params })
+        },
+      },
+    }
+    function onError(name: string, error: string) {
+      events.push({ name, error })
+    }
+    const result = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+    expect(events).toEqual([
+      {
+        attributes: {},
+        tagName: 'str_replace',
+        type: 'start',
+      },
+      {
+        params: {
+          new: 'test</content>test2',
+          old: 'test</content>test2',
+          path: 'test.txt',
+        },
+        tagName: 'str_replace',
+        type: 'end',
+      },
+    ])
+    expect(result).toEqual(streamChunks)
+  })
 })

@@ -559,10 +559,6 @@ export class Saxy extends Transform {
         if (nextTag === -1) {
           let chunk = input.slice(chunkPos)
 
-          if (this._tagStack.length === 1 && chunk === '\n') {
-            chunk = ''
-          }
-
           // Check for incomplete entity at end
           const lastAmp = chunk.lastIndexOf('&')
           if (lastAmp !== -1 && chunk.indexOf(';', lastAmp) === -1) {
@@ -589,10 +585,6 @@ export class Saxy extends Transform {
         // A tag follows, so we can be confident that
         // we have all the data needed for the TEXT node
         let chunk = input.slice(chunkPos, nextTag)
-
-        if (this._tagStack.length === 1 && chunk === '\n') {
-          chunk = ''
-        }
 
         // Check for incomplete entity at end
         const lastAmp = chunk.lastIndexOf('&')
@@ -672,11 +664,17 @@ export class Saxy extends Transform {
           }
         }
 
-        this._tagStack.pop()
+        if (tagName === stackedTagName) {
+          this._tagStack.pop()
+        }
 
         // Only emit if the tag matches what we expect
         if (stackedTagName === tagName) {
           this.emit(Node.tagClose, { name: tagName })
+        } else {
+          // Emit as text if the tag doesn't match
+          const rawTag = input.slice(chunkPos - 1, tagClose + 1)
+          this.emit(Node.text, { contents: rawTag })
         }
 
         chunkPos = tagClose + 1

@@ -576,5 +576,40 @@ describe('Saxy XML Parser', () => {
         .join('')
       expect(textContent).toBe('Some text continued')
     })
+
+    it('should output closing tag as text if not matching', async () => {
+      const parser = new Saxy()
+      const events: any[] = []
+      parser.on('text', (data) => events.push({ type: 'text', data }))
+      parser.on('tagopen', (data) => events.push({ type: 'tagopen', data }))
+      parser.on('tagclose', (data) => events.push({ type: 'tagclose', data }))
+
+      // Write text split across chunks with no entities or tags
+      parser.write('<tag></invalid></tag>')
+      parser.end()
+
+      // The text content should be emitted in two chunks due to the new immediate emission behavior
+      expect(events).toEqual([
+        {
+          type: 'tagopen',
+          data: { name: 'tag', isSelfClosing: false, attrs: '' },
+        },
+        {
+          type: 'text',
+          data: { contents: '</invalid>' },
+        },
+        {
+          type: 'tagclose',
+          data: { name: 'tag' },
+        },
+      ])
+
+      // The text content should still be properly reconstructible
+      const textContent = events
+        .filter((e) => e.type === 'text')
+        .map((e) => e.data.contents)
+        .join('')
+      expect(textContent).toBe('</invalid>')
+    })
   })
 })

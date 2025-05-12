@@ -198,6 +198,9 @@ export async function* processStreamWithTags<T extends string>(
       if (state.reportedStrayText) {
         return
       }
+      if (data.contents.trim() === '') {
+        return
+      }
       onError(
         state.currentTool,
         `Ignoring text in ${state.currentTool} between parameters`

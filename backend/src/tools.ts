@@ -599,7 +599,9 @@ Tool calls use a specific XML-like format. Adhere *precisely* to this nested ele
 ...
 </tool_name>
 
-**All** XML will be interpreted as tool calls or tool parameters. To display XML without executing a tool call or to have XML within a parameter such as writing to a file, you must use XML entities, e.g. &lt;/content> or </content&gt;
+**ALL** XML (inside or outside tool calls) will be interpreted as tool calls or tool parameters. You **MUST** use XML entities, e.g. \`&lt;some_tag>\` or \`</some_tag&gt;\` to:
+- Display XML to the user without executing a tool call
+- Have XML within a tool parameter's value such as writing to a file
 
 1.  **NO MARKDOWN WRAPPERS:** Tool calls **MUST NEVER** be enclosed in markdown code fences (\`\`\`xml ... \`\`\`) or any other markdown. Output the raw XML tags directly into the response flow.
 2.  **REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** You **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the tool or parameter names themselves.
