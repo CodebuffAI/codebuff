@@ -103,23 +103,23 @@ export const getModelForMode = (
 ) => {
   if (operation === 'agent') {
     return {
-      lite: claudeModels.sonnet,
-      normal: claudeModels.sonnet,
-      max: claudeModels.sonnet,
-      experimental: models.gpt4_1,
+      lite: models.gemini2_5_flash_thinking,
+      normal: models.sonnet,
+      max: models.sonnet,
+      experimental: models.gemini2_5_pro_preview,
     }[costMode]
   }
   if (operation === 'file-requests') {
     return {
       lite: claudeModels.haiku,
-      normal: claudeModels.sonnet,
+      normal: claudeModels.haiku,
       max: claudeModels.sonnet,
-      experimental: claudeModels.haiku,
+      experimental: claudeModels.sonnet,
     }[costMode]
   }
   if (operation === 'check-new-files') {
     return {
-      lite: models.gpt4o,
+      lite: models.gpt4omini,
       normal: models.gpt4o,
       max: models.gpt4o,
       experimental: models.gpt4o,
@@ -152,7 +152,7 @@ export const geminiModels = {
   gemini2_5_flash_thinking: 'gemini-2.5-flash-preview-04-17:thinking',
   gemini2flash: 'gemini-2.0-flash-001',
   gemini2_5_pro_exp: 'gemini-2.5-pro-exp-03-25',
-  gemini2_5_pro_preview: 'gemini-2.5-pro-preview-03-25',
+  gemini2_5_pro_preview: 'gemini-2.5-pro-preview-05-06',
 } as const
 export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
 

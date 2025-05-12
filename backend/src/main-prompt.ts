@@ -1,5 +1,9 @@
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { AgentResponseTrace, insertTrace } from '@codebuff/bigquery'
+import {
+  AgentResponseTrace,
+  GetExpandedFileContextForTrainingBlobTrace,
+  insertTrace,
+} from '@codebuff/bigquery'
 import { ClientAction } from 'common/actions'
 import {
   HIDDEN_FILE_READ_STATUS,
@@ -8,7 +12,7 @@ import {
   type CostMode,
 } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { getToolCallString } from 'common/constants/tools'
+import { getToolCallString, toolSchema } from 'common/constants/tools'
 import { trackEvent } from 'common/src/analytics'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { Message } from 'common/types/message'
@@ -20,11 +24,13 @@ import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { checkTerminalCommand } from './check-terminal-command'
-import { requestRelevantFiles } from './find-files/request-files-prompt'
+import {
+  requestRelevantFiles,
+  requestRelevantFilesForTraining,
+} from './find-files/request-files-prompt'
 import { getDocumentationForQuery } from './get-documentation-for-query'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
-import { processStreamWithTags } from './process-stream'
 import { getAgentStream } from './prompt-agent-stream'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { additionalSystemPrompts } from './system-prompt/prompts'
@@ -34,10 +40,11 @@ import { getThinkingStream } from './thinking-stream'
 import {
   ClientToolCall,
   parseRawToolCall,
-  parseToolCalls,
   TOOL_LIST,
+  ToolCall,
+  ToolName,
   TOOLS_WHICH_END_THE_RESPONSE,
-  transformRunTerminalCommand,
+  toolsInstructions,
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
@@ -50,7 +57,6 @@ import {
 import {
   isToolResult,
   parseReadFilesResult,
-  parseToolCallXml,
   parseToolResults,
   renderReadFilesResult,
   renderToolResults,
@@ -64,6 +70,7 @@ import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
+import { processStreamWithTags } from './xml-stream-parser'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
 
@@ -110,25 +117,35 @@ export const mainPrompt = async (
     Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
   const isNotFirstUserMessage =
     messageHistory.filter((m) => m.role === 'user').length > 0
-  const recentlyDidThinking = toolResults.some((t) => t.name === 'think_deeply')
-  const justUsedATool = toolResults.length > 0
   const justRanTerminalCommand = toolResults.some(
     (t) => t.name === 'run_terminal_command'
   )
+  const geminiThinkingEnabled = costMode === 'max'
+  const isGeminiPro = model === models.gemini2_5_pro_preview
   const isGPT4_1 = model === models.gpt4_1
   const isFlash =
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
-    'Instructions:',
-    'Proceed toward the user request and any subgoals.',
+    'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool) or using the <await_tool_results> tool if the knowledge files do not specify a command to check the project with, and finally use the tool <end_turn></end_turn>, once you have completed the user request. YOU MUST use the tool <run_terminal_command> or <await_tool_results> (but not both) periodically after significant changes to get feedback from tool results before continuing (recommended after each subgoal completed!), however these tools can be skipped for trivial changes. If the changes are all made and verified, you must finally use end_turn at the end of your response.',
 
-    'If the user asks a question, simply answer the question rather than making changes to the code.',
+    (isFlash || isGeminiPro) &&
+      'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response!',
+
+    'If the user asks a question, simply answer the question rather than making changes to the code, then end_turn.',
 
     !isGPT4_1 &&
       "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. Then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
+    (isFlash || isGeminiPro) &&
+      'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
+
+    isGeminiPro && toolsInstructions,
+
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
+
+    (isFlash || isGeminiPro) &&
+      'Important: When mentioning a file path, for example for <write_file> or <read_files>, make sure to include all the directories in the path to the file from the project root. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts! Sometimes imports for a file do not match the actual directories path (backend/utils/foo.ts for example).',
 
     'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
@@ -146,15 +163,13 @@ export const mainPrompt = async (
       "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
     isFlash &&
       'If you have thought of a whole plan, please execute the ENTIRE plan before using the end_turn tool.',
-    isFlash &&
-      'When using write_file, do NOT rewrite the entire file. Only write the parts of the file that have changed and write "... existing code ..." comments around the changed area.',
 
-    // Experimental gemini thinking
-    costMode === 'experimental' || costMode === 'max' || costMode === 'normal'
+    (isFlash || isGeminiPro) &&
+      'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
+
+    geminiThinkingEnabled
       ? 'Start your response with the think_deeply tool call to decide how to proceed.'
-      : !justUsedATool &&
-          !recentlyDidThinking &&
-          'If the user request is very complex, consider invoking think_deeply.',
+      : 'If the user request is very complex, consider invoking think_deeply.',
 
     'If the user is starting a new feature or refactoring, consider invoking the create_plan tool.',
     "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
@@ -170,13 +185,10 @@ export const mainPrompt = async (
 
     'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
-    (costMode === 'normal' ||
-      costMode === 'max' ||
-      costMode === 'experimental') &&
-      `Before you use the end_turn tool, you must see tool results that all file changes went through properly, that all relevant tests are passing, and there are no type or lint errors (if applicable). You should check that you left the project in a good state using any tools you have available, like the browser_logs tool before ending turn. You must do these checks every time you make a change to the project.`,
+    `Before you use the end_turn tool, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). If there's not typechecker or linter you can use, you should use the tool <await_tool_results> to see if your file changes were applied properly. You must do these checks every time you make a change to the project.`,
 
-    'Important: You must write "<end_turn></end_turn>" at the end of your response, when you are done or want the user to respond -- but not if you are still working on the user\'s request!',
-    "DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
+    'IMPORTANT: You MUST write "<end_turn></end_turn>" at the end of your response!',
+    "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not use the end_turn tool. If the user's request requires multiple steps, please complete ALL the steps before ending turn. If you ask the user for more information, you must also use end_turn immediately after asking. If you have a simple response, you can end turn immediately after writing your response."
   ).join('\n\n')
 
   const toolInstructions = buildArray(
@@ -399,7 +411,12 @@ export const mainPrompt = async (
   const relevantDocumentation = await relevantDocumentationPromise
 
   const messagesWithUserMessage = buildArray(
-    ...messageHistory,
+    ...messageHistory.filter(
+      (m) =>
+        costMode !== 'experimental' ||
+        typeof m.content !== 'string' ||
+        !isSystemInstruction(m.content)
+    ),
 
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -414,16 +431,21 @@ export const mainPrompt = async (
       },
 
     prompt
-      ? // Add in new copy of user instructions.
-        {
+      ? {
           role: 'user' as const,
           content: asSystemInstruction(userInstructions),
         }
-      : // Add in new copy of tool instructions.
-        toolInstructions && {
-          role: 'user' as const,
-          content: asSystemInstruction(toolInstructions),
-        },
+      : isGeminiPro
+        ? {
+            role: 'user' as const,
+            content: asSystemInstruction(
+              buildArray([toolsInstructions, toolInstructions]).join('\n\n')
+            ),
+          }
+        : toolInstructions && {
+            role: 'user' as const,
+            content: asSystemInstruction(toolInstructions),
+          },
 
     relevantDocumentation && {
       role: 'user' as const,
@@ -451,7 +473,9 @@ export const mainPrompt = async (
     ...readFileMessages
   )
 
-  const iterationNum = messagesWithUserMessage.length
+  const iterationNum = messagesWithUserMessage.filter(
+    (m) => m.role === 'assistant'
+  ).length
 
   const system = getAgentSystemPrompt(fileContext)
   const systemTokens = countTokensJson(system)
@@ -495,12 +519,8 @@ export const mainPrompt = async (
     } | null>[]
   > = {}
 
-  // Add deep thinking for experimental or max mode
-  if (
-    costMode === 'experimental' ||
-    costMode === 'max' ||
-    costMode === 'normal'
-  ) {
+  // Think deeply at the start of every response
+  if (geminiThinkingEnabled) {
     let response = await getThinkingStream(
       agentMessages,
       system,
@@ -534,23 +554,121 @@ export const mainPrompt = async (
     system
   )
 
-  const streamWithTags = processStreamWithTags(stream, {
-    ...Object.fromEntries(
-      TOOL_LIST.map((tool) => [
-        tool,
-        {
-          attributeNames: [],
-          onTagStart: () => {},
-          onTagEnd: () => false,
-        },
-      ])
-    ),
-    write_file: {
-      attributeNames: [],
+  const allToolCalls: ToolCall[] = []
+  const clientToolCalls: ClientToolCall[] = []
+  const serverToolResults: ToolResult[] = []
+  const subgoalToolCalls: ToolCall<'add_subgoal' | 'update_subgoal'>[] = []
+
+  function toolCallback<T extends ToolName>(
+    tool: T,
+    after: (toolCall: ToolCall<T>) => void
+  ): {
+    params: string[]
+    onTagStart: () => void
+    onTagEnd: (
+      name: string,
+      parameters: Record<string, string>
+    ) => Promise<void>
+  } {
+    return {
+      params: toolSchema[tool],
       onTagStart: () => {},
-      onTagEnd: (body) => {
-        const { path, content } = parseToolCallXml(body)
-        if (!content) return false
+      onTagEnd: async (_: string, parameters: Record<string, string>) => {
+        const toolCall = parseRawToolCall<typeof tool>({
+          name: tool,
+          parameters,
+        })
+        if ('error' in toolCall) {
+          serverToolResults.push({
+            name: tool,
+            id: generateCompactId(),
+            result: toolCall.error,
+          })
+          return
+        }
+        allToolCalls.push(toolCall)
+
+        after(toolCall)
+      },
+    }
+  }
+  const streamWithTags = processStreamWithTags(
+    stream,
+    {
+      ...Object.fromEntries(
+        TOOL_LIST.map((tool) => [tool, toolCallback(tool, () => {})])
+      ),
+      think_deeply: toolCallback('think_deeply', (toolCall) => {
+        const { thought } = toolCall.parameters
+        logger.debug(
+          {
+            thought,
+          },
+          'Thought deeply'
+        )
+      }),
+      ...Object.fromEntries(
+        (['add_subgoal', 'update_subgoal'] as const).map((tool) => [
+          tool,
+          toolCallback(tool, (toolCall) => {
+            subgoalToolCalls.push(toolCall)
+          }),
+        ])
+      ),
+      ...Object.fromEntries(
+        (
+          [
+            'code_search',
+            'browser_logs',
+            'await_tool_results',
+            'end_turn',
+          ] as const
+        ).map((tool) => [
+          tool,
+          toolCallback(tool, (toolCall) => {
+            clientToolCalls.push({
+              ...(toolCall as ClientToolCall),
+              id: generateCompactId(),
+            })
+          }),
+        ])
+      ),
+      run_terminal_command: toolCallback('run_terminal_command', (toolCall) => {
+        const clientToolCall = {
+          ...{
+            ...toolCall,
+            parameters: {
+              ...toolCall.parameters,
+              mode: 'assistant' as const,
+            },
+          },
+          id: generateCompactId(),
+        }
+        clientToolCalls.push(clientToolCall)
+      }),
+      create_plan: toolCallback('create_plan', (toolCall) => {
+        const { path, plan } = toolCall.parameters
+        logger.debug(
+          {
+            path,
+            plan,
+          },
+          'Create plan'
+        )
+        // Add the plan file to the processing queue
+        if (!fileProcessingPromisesByPath[path]) {
+          fileProcessingPromisesByPath[path] = []
+        }
+        const change = {
+          tool: 'create_plan' as const,
+          path,
+          content: plan,
+        }
+        fileProcessingPromisesByPath[path].push(Promise.resolve(change))
+      }),
+      write_file: toolCallback('write_file', (toolCall) => {
+        const { path, content } = toolCall.parameters
+        if (!content) return
 
         // Initialize state for this file path if needed
         if (!fileProcessingPromisesByPath[path]) {
@@ -591,15 +709,13 @@ export const mainPrompt = async (
 
         fileProcessingPromisesByPath[path].push(newPromise)
 
-        return false
-      },
-    },
-    str_replace: {
-      attributeNames: [],
-      onTagStart: () => {},
-      onTagEnd: (body) => {
-        const { path, old, new: newStr } = parseToolCallXml(body)
-        if (!old || typeof old !== 'string') return false
+        return
+      }),
+      str_replace: toolCallback('str_replace', (toolCall) => {
+        const { path, old, new: newStr } = toolCall.parameters
+        if (!old || typeof old !== 'string') {
+          return
+        }
 
         if (!fileProcessingPromisesByPath[path]) {
           fileProcessingPromisesByPath[path] = []
@@ -626,10 +742,13 @@ export const mainPrompt = async (
 
         fileProcessingPromisesByPath[path].push(newPromise)
 
-        return false
-      },
+        return
+      }),
     },
-  })
+    (name, error) => {
+      serverToolResults.push({ id: generateCompactId(), name, result: error })
+    }
+  )
 
   for await (const chunk of streamWithTags) {
     const trimmed = chunk.trim()
@@ -644,8 +763,12 @@ export const mainPrompt = async (
   }
 
   if (!fullResponse) {
-    // (hacky) ends turn if LLM did not give a response.
+    // End turn if LLM did not give a response.
     fullResponse = '<end_turn></end_turn>'
+    onResponseChunk(fullResponse)
+    const tc: ToolCall<'end_turn'> = { name: 'end_turn', parameters: {} }
+    allToolCalls.push(tc)
+    clientToolCalls.push({ ...tc, id: generateCompactId() })
   }
 
   const agentResponseTrace: AgentResponseTrace = {
@@ -672,52 +795,35 @@ export const mainPrompt = async (
     },
   ]
 
-  const toolCalls = parseToolCalls(fullResponse)
-  const clientToolCalls: ClientToolCall[] = []
-  const serverToolResults: ToolResult[] = []
-
   const agentContextPromise =
-    toolCalls.length > 0
-      ? updateContextFromToolCalls(agentContext, toolCalls)
+    subgoalToolCalls.length > 0
+      ? updateContextFromToolCalls(agentContext, subgoalToolCalls)
       : Promise.resolve(agentContext)
 
-  for (const toolCall of toolCalls) {
-    try {
-      parseRawToolCall(toolCall)
-    } catch (error) {
-      serverToolResults.push({
-        id: generateCompactId(),
-        name: toolCall.name,
-        result: `Error parsing tool call:\n${error}`,
-      })
-      continue
-    }
-
+  for (const toolCall of allToolCalls) {
     const { name, parameters } = toolCall
     trackEvent(AnalyticsEvent.TOOL_USE, userId ?? '', {
       tool: name,
       parameters,
     })
-    if (name === 'write_file' || name === 'str_replace') {
-      // write_file and str_replace tool calls are handled as they are streamed in.
-    } else if (name === 'add_subgoal' || name === 'update_subgoal') {
-      // add_subgoal and update_subgoal tool calls are handled above
-    } else if (
-      name === 'code_search' ||
-      name === 'run_terminal_command' ||
-      name === 'browser_logs' ||
-      name === 'end_turn'
+    if (
+      [
+        'write_file',
+        'str_replace',
+        'add_subgoal',
+        'update_subgoal',
+        'code_search',
+        'run_terminal_command',
+        'browser_logs',
+        'await_tool_results',
+        'end_turn',
+        'think_deeply',
+        'create_plan',
+      ].includes(name)
     ) {
-      if (name === 'run_terminal_command') {
-        parameters.command = transformRunTerminalCommand(parameters.command)
-        parameters.mode = 'assistant'
-      }
-      clientToolCalls.push({
-        ...(toolCall as ClientToolCall),
-        id: generateCompactId(),
-      })
-    } else if (name === 'read_files') {
-      const paths = parameters.paths
+      // Handled above
+    } else if (toolCall.name === 'read_files') {
+      const paths = (toolCall as ToolCall<'read_files'>).parameters.paths
         .split(/\s+/)
         .map((path) => path.trim())
         .filter(Boolean)
@@ -752,7 +858,7 @@ export const mainPrompt = async (
       )
       logger.debug(
         {
-          content: parameters.paths,
+          content: paths,
           paths,
           addedFilesPaths: addedFiles.map((f) => f.path),
           updatedFilePaths,
@@ -767,7 +873,9 @@ export const mainPrompt = async (
           fileContext.tokenCallers ?? {}
         ),
       })
-    } else if (name === 'find_files') {
+    } else if (toolCall.name === 'find_files') {
+      const description = (toolCall as ToolCall<'find_files'>).parameters
+        .description
       const { addedFiles, updatedFilePaths, printedPaths } =
         await getFileReadingUpdates(
           ws,
@@ -785,7 +893,7 @@ export const mainPrompt = async (
             }
           ),
           fileContext,
-          parameters.description,
+          description,
           {
             skipRequestingFiles: false,
             agentStepId,
@@ -798,8 +906,8 @@ export const mainPrompt = async (
         )
       logger.debug(
         {
-          content: parameters.description,
-          description: parameters.description,
+          content: description,
+          description: description,
           addedFilesPaths: addedFiles.map((f) => f.path),
           updatedFilePaths,
           printedPaths,
@@ -812,7 +920,7 @@ export const mainPrompt = async (
         result:
           addedFiles.length > 0
             ? renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
-            : `No new files found for description: ${parameters.description}`,
+            : `No new files found for description: ${description}`,
       })
       if (printedPaths.length > 0) {
         onResponseChunk('\n\n')
@@ -822,33 +930,6 @@ export const mainPrompt = async (
           })
         )
       }
-    } else if (name === 'think_deeply') {
-      const { thought } = parameters
-      logger.debug(
-        {
-          thought,
-        },
-        'Thought deeply'
-      )
-    } else if (name === 'create_plan') {
-      const { path, plan } = parameters
-      logger.debug(
-        {
-          path,
-          plan,
-        },
-        'Create plan'
-      )
-      // Add the plan file to the processing queue
-      if (!fileProcessingPromisesByPath[path]) {
-        fileProcessingPromisesByPath[path] = []
-      }
-      const change = {
-        tool: 'create_plan' as const,
-        path,
-        content: plan,
-      }
-      fileProcessingPromisesByPath[path].push(Promise.resolve(change))
     } else {
       throw new Error(`Unknown tool: ${name}`)
     }
@@ -905,7 +986,7 @@ export const mainPrompt = async (
       iteration: iterationNum,
       prompt,
       fullResponse,
-      toolCalls,
+      toolCalls: allToolCalls,
       clientToolCalls,
       serverToolResults,
       agentContext: newAgentContext,
@@ -1003,6 +1084,24 @@ async function getFileReadingUpdates(
         costMode
       )) ??
       []
+
+  uploadExpandedFileContextForTraining(
+    ws,
+    { messages, system },
+    fileContext,
+    prompt,
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    costMode
+  ).catch((error) => {
+    logger.error(
+      { error },
+      'Error uploading expanded file context for training'
+    )
+  })
 
   const isFirstRead = previousFileList.length === 0
   const initialFiles = getInitialFiles(fileContext)
@@ -1125,4 +1224,66 @@ function getPrintedPaths(
         loadedFiles[path]!.startsWith(status)
       )
   )
+}
+
+async function uploadExpandedFileContextForTraining(
+  ws: WebSocket,
+  {
+    messages,
+    system,
+  }: {
+    messages: Message[]
+    system: string | Array<TextBlockParam>
+  },
+  fileContext: ProjectFileContext,
+  assistantPrompt: string | null,
+  agentStepId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined,
+  costMode: CostMode
+) {
+  const files = await requestRelevantFilesForTraining(
+    { messages, system },
+    fileContext,
+    assistantPrompt,
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    costMode
+  )
+
+  const loadedFiles = await requestFiles(ws, files)
+
+  // Upload a map of:
+  // {file_path: {content, token_count}}
+  // up to 50k tokens
+  const filesToUpload: Record<string, { content: string; tokens: number }> = {}
+  for (const file of files) {
+    const tokens = countTokens(loadedFiles[file]!)
+    if (tokens > 50000) {
+      break
+    }
+    filesToUpload[file] = { content: loadedFiles[file]!, tokens }
+  }
+
+  const trace: GetExpandedFileContextForTrainingBlobTrace = {
+    type: 'get-expanded-file-context-for-training-blobs',
+    created_at: new Date(),
+    id: crypto.randomUUID(),
+    agent_step_id: agentStepId,
+    user_id: userId ?? '',
+    payload: {
+      files: filesToUpload,
+      user_input_id: userInputId,
+      client_session_id: clientSessionId,
+      fingerprint_id: fingerprintId,
+    },
+  }
+
+  // Upload the files to bigquery
+  await insertTrace(trace)
 }

@@ -20,6 +20,7 @@ export const toolSchema = {
   browser_logs: ['type', 'url', 'waitUntil'],
 
   // Simple tools
+  await_tool_results: [], // No parameters
   end_turn: [], // No parameters
 }
 

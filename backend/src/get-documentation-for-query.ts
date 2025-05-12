@@ -12,13 +12,13 @@ import { promptAiSdkStructured } from './llm-apis/vercel-ai-sdk/ai-sdk'
 interface ProjectAnalysis {
   projectId: string
   topic: string
-  relevant: boolean
+  confidence: number
 }
 
 const zodSchema = z.object({
   projectId: z.string(),
   topic: z.string(),
-  relevant: z.boolean(),
+  confidence: z.number().describe('0-1 score of relevance'),
 }) satisfies z.ZodType<ProjectAnalysis>
 
 /**
@@ -61,15 +61,9 @@ export async function getDocumentationForQuery(
 Available projects:
 ${projectsList}
 
-User query:
-${query}
-
-Respond in this exact JSON format:
-{
-  "projectId": "the-project-id",
-  "topic": "relevant search keywords. only include keywords that are relevant to the documentation you are searching for.",
-  "relevant": false 
-}`
+User query (in quotes):
+${JSON.stringify(query)}
+`
 
   // Get project analysis from Gemini
   const geminiStartTime = Date.now()
@@ -83,16 +77,20 @@ Respond in this exact JSON format:
         model: geminiModels.gemini2flash,
         temperature: 0,
         schema: zodSchema,
+        timeout: 10_000,
       }
     )
   } catch (error) {
-    logger.error({ error }, 'Failed to get Gemini response')
+    logger.error(
+      { error },
+      'Failed to get Gemini response getDocumentationForQuery'
+    )
     return null
   }
   geminiDuration = Date.now() - geminiStartTime
 
   // Only proceed if we're confident in the match
-  if (!response.relevant) {
+  if (response.confidence <= 0.7) {
     logger.info(
       { response, query, geminiDuration },
       'Low confidence in documentation chunks match'

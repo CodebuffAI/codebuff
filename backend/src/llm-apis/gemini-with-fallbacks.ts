@@ -125,10 +125,7 @@ export async function promptFlashWithFallbacks(
       }
       // Finally fall back to Claude
       return await promptClaude(messages, {
-        model:
-          costMode === 'max' || costMode === 'normal'
-            ? claudeModels.sonnet
-            : claudeModels.haiku,
+        model: costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku,
         system,
         clientSessionId: options.clientSessionId,
         fingerprintId: options.fingerprintId,
@@ -175,6 +172,7 @@ export async function* streamGemini25ProWithFallbacks(
     maxTokens?: number
     temperature?: number
     stopSequences?: string[]
+    thinkingBudget?: number
   }
 ): AsyncGenerator<string, void, any> {
   const {
@@ -185,6 +183,7 @@ export async function* streamGemini25ProWithFallbacks(
     maxTokens,
     temperature,
     stopSequences,
+    thinkingBudget,
   } = options
 
   // Initialize the message list for the first attempt
@@ -202,6 +201,7 @@ export async function* streamGemini25ProWithFallbacks(
     maxTokens,
     temperature,
     stopSequences,
+    thinkingBudget,
   }
   try {
     for await (const chunk of promptGeminiStream(

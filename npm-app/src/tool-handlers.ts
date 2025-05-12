@@ -193,6 +193,9 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
     process_type: 'SYNC' | 'BACKGROUND'
   }>,
   code_search: handleCodeSearch,
+  await_tool_results: async () => {
+    return ''
+  },
   end_turn: async () => {
     return ''
   },

@@ -106,9 +106,9 @@ const Node = {
  * @param input A string of XML text
  * @return The input string, expanded
  */
-const parseEntities = (input: string) => {
-  let position = 0,
-    next = 0
+const parseEntities = (input: string): string => {
+  let position = 0
+  let next = 0
   const parts = []
 
   while ((next = input.indexOf('&', position)) !== -1) {
@@ -184,12 +184,23 @@ const parseEntities = (input: string) => {
  * @throws If the string is malformed
  * @return A map of attribute names to their values
  */
-export const parseAttrs = (input: string) => {
-  const attrs = {} as Record<string, unknown>
+export const parseAttrs = (
+  input: string
+): { attrs: Record<string, string>; errors: string[] } => {
+  const attrs = {} as Record<string, string>
   const end = input.length
   let position = 0
+  const errors: string[] = []
 
-  while (position < end) {
+  const seekNextWhitespace = (pos: number): number => {
+    pos += 1
+    while (pos < end && !isWhitespace(input[pos])) {
+      pos += 1
+    }
+    return pos
+  }
+
+  attrLoop: while (position < end) {
     // Skip all whitespace
     if (isWhitespace(input[position])) {
       position += 1
@@ -197,11 +208,14 @@ export const parseAttrs = (input: string) => {
     }
 
     // Check that the attribute name contains valid chars
-    const startName = position
+    let startName = position
 
     while (input[position] !== '=' && position < end) {
       if (isWhitespace(input[position])) {
-        throw new Error('Attribute names may not contain whitespace')
+        errors.push(
+          `Attribute names may not contain whitespace: ${input.slice(startName, position)}`
+        )
+        continue attrLoop
       }
 
       position += 1
@@ -209,7 +223,10 @@ export const parseAttrs = (input: string) => {
 
     // This is XML, so we need a value for the attribute
     if (position === end) {
-      throw new Error('Expected a value for the attribute')
+      errors.push(
+        `Expected a value for the attribute: ${input.slice(startName, position)}`
+      )
+      break
     }
 
     const attrName = input.slice(startName, position)
@@ -218,13 +235,21 @@ export const parseAttrs = (input: string) => {
     position += 1
 
     if (startQuote !== '"' && startQuote !== "'") {
-      throw new Error('Attribute values should be quoted')
+      position = seekNextWhitespace(position)
+      errors.push(
+        `Attribute values should be quoted: ${input.slice(startName, position)}`
+      )
+      continue
     }
 
     const endQuote = input.indexOf(startQuote, position)
 
     if (endQuote === -1) {
-      throw new Error('Unclosed attribute value')
+      position = seekNextWhitespace(position)
+      errors.push(
+        `Unclosed attribute value: ${input.slice(startName, position)}`
+      )
+      continue
     }
 
     const attrValue = input.slice(position, endQuote)
@@ -233,7 +258,7 @@ export const parseAttrs = (input: string) => {
     position = endQuote + 1
   }
 
-  return attrs
+  return { attrs, errors }
 }
 
 /**
@@ -277,7 +302,7 @@ export class Saxy extends Transform {
   private _tagStack: string[]
   private _waiting: { token: string; data: unknown } | null
   private _schema: TagSchema | null
-  private _pendingEntity: string | null
+  private _entityBuffer: string | null
   private _textBuffer: string // NEW: Text buffer as class member
 
   /**
@@ -321,7 +346,7 @@ export class Saxy extends Transform {
     this._schema = schema || null
 
     // Pending entity for incomplete entities
-    this._pendingEntity = null
+    this._entityBuffer = null
 
     // Initialize text buffer
     this._textBuffer = ''
@@ -369,8 +394,8 @@ export class Saxy extends Transform {
       }
 
       // Handle any remaining pending entity
-      if (this._pendingEntity) {
-        this.emit(Node.text, { contents: this._pendingEntity })
+      if (this._entityBuffer) {
+        this.emit(Node.text, { contents: this._entityBuffer })
       }
 
       // Handle unclosed nodes
@@ -486,6 +511,10 @@ export class Saxy extends Transform {
     }
 
     this.emit(Node.tagOpen, node)
+
+    if (node.isSelfClosing) {
+      this.emit(Node.tagClose, { name: node.name })
+    }
   }
 
   /**
@@ -498,9 +527,9 @@ export class Saxy extends Transform {
    */
   private _parseChunk(input: string, callback: NextFunction) {
     // Handle pending entity if exists
-    if (this._pendingEntity) {
-      input = this._pendingEntity + input
-      this._pendingEntity = null
+    if (this._entityBuffer) {
+      input = this._entityBuffer + input
+      this._entityBuffer = null
     }
 
     // Use pending data if applicable and get out of waiting mode
@@ -530,7 +559,7 @@ export class Saxy extends Transform {
         if (nextTag === -1) {
           let chunk = input.slice(chunkPos)
 
-          if (this._tagStack.length === 1 && chunk === '\n') {
+          if (this._tagStack.length === 1 && !chunk.trim()) {
             chunk = ''
           }
 
@@ -544,7 +573,7 @@ export class Saxy extends Transform {
               /[a-zA-Z]/.test(nextChar) // Named entity
             if (isPotentialEntity) {
               // Store incomplete entity for next chunk
-              this._pendingEntity = chunk.slice(lastAmp)
+              this._entityBuffer = chunk.slice(lastAmp)
               chunk = chunk.slice(0, lastAmp)
             }
           }
@@ -561,7 +590,7 @@ export class Saxy extends Transform {
         // we have all the data needed for the TEXT node
         let chunk = input.slice(chunkPos, nextTag)
 
-        if (this._tagStack.length === 1 && chunk === '\n') {
+        if (this._tagStack.length === 1 && !chunk.trim()) {
           chunk = ''
         }
 
@@ -575,7 +604,7 @@ export class Saxy extends Transform {
             /[a-zA-Z]/.test(nextChar) // Named entity
           if (isPotentialEntity) {
             // Store incomplete entity for next chunk
-            this._pendingEntity = chunk.slice(lastAmp)
+            this._entityBuffer = chunk.slice(lastAmp)
             chunk = chunk.slice(0, lastAmp)
           }
         }
@@ -643,11 +672,17 @@ export class Saxy extends Transform {
           }
         }
 
-        this._tagStack.pop()
+        if (tagName === stackedTagName) {
+          this._tagStack.pop()
+        }
 
         // Only emit if the tag matches what we expect
         if (stackedTagName === tagName) {
           this.emit(Node.tagClose, { name: tagName })
+        } else {
+          // Emit as text if the tag doesn't match
+          const rawTag = input.slice(chunkPos - 1, tagClose + 1)
+          this.emit(Node.text, { contents: rawTag })
         }
 
         chunkPos = tagClose + 1
@@ -693,7 +728,7 @@ export class Saxy extends Transform {
     }
 
     // Emit any buffered text at the end of the chunk if there's no pending entity
-    if (this._textBuffer.length > 0 && !this._pendingEntity) {
+    if (this._textBuffer.length > 0) {
       const parsedText = parseEntities(this._textBuffer)
       this.emit(Node.text, { contents: parsedText })
       this._textBuffer = ''

@@ -35,7 +35,7 @@ export async function checkTerminalCommand(
 
   const messages = [
     {
-      role: 'system' as const,
+      role: 'user' as const,
       content: `You are checking if the following input (in quotes) is a terminal command that can be run directly without any modification. Only respond with y or n without quotes. Do not explain your reasoning
 
 Examples of terminal commands (y):
@@ -49,9 +49,11 @@ Examples of non-terminal commands (n):
 - "hi"
 - "I need to install the dependencies"
 - "run cargo check" (this is a natural language instruction to run a terminal command, not a terminal command itself)
-- [... long request ...]`,
+- [... long request ...]
+
+User prompt (in quotes):
+${JSON.stringify(prompt)}`,
     },
-    { role: 'user' as const, content: JSON.stringify(prompt) },
   ]
 
   try {

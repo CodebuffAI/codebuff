@@ -12,9 +12,9 @@ import { Message } from 'common/types/message'
 
 import { promptClaudeStream, System } from './llm-apis/claude'
 import { streamGemini25ProWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { promptOpenRouterStream } from './llm-apis/open-router'
 import { promptOpenAIStream } from './llm-apis/openai-api'
 import { messagesWithSystem } from './util/messages'
-import { promptOpenRouterStream } from './llm-apis/open-router'
 
 export const getAgentStream = (params: {
   costMode: CostMode
@@ -91,6 +91,7 @@ export const getAgentStream = (params: {
                 userId,
                 temperature: 0,
                 stopSequences,
+                thinkingBudget: 0,
               })
           : (() => {
               throw new Error(

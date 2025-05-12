@@ -10,13 +10,8 @@ import { logger } from '@/util/logger'
 import { stripeServer } from 'common/src/util/stripe'
 import { generateCompactId } from 'common/src/util/string'
 import { env } from '@/env.mjs'
-import {
-  convertCreditsToUsdCents,
-} from 'common/util/currency'
-import {
-  getUserCostPerCredit,
-  processAndGrantCredit,
-} from '@codebuff/billing'
+import { convertCreditsToUsdCents } from 'common/util/currency'
+import { getUserCostPerCredit, processAndGrantCredit } from '@codebuff/billing'
 
 const buyCreditsSchema = z.object({
   credits: z
@@ -83,55 +78,62 @@ export async function POST(req: NextRequest) {
 
     const operationId = `buy-${userId}-${generateCompactId()}`
 
-    // Check for valid payment methods
-    const paymentMethods = await stripeServer.paymentMethods.list({
-      customer: user.stripe_customer_id,
-      type: 'card',
-    })
+    // Get customer's default payment method
+    const customer = await stripeServer.customers.retrieve(user.stripe_customer_id)
+    
+    // Check if customer is not deleted and has invoice settings
+    const defaultPaymentMethodId = !('deleted' in customer) 
+      ? customer.invoice_settings?.default_payment_method as string | null 
+      : null
 
-    const validPaymentMethod = paymentMethods.data.find(
-      (pm) =>
-        pm.card?.exp_year &&
-        pm.card.exp_month &&
-        new Date(pm.card.exp_year, pm.card.exp_month - 1) > new Date()
-    )
-
-    // If we have a valid payment method, charge directly
-    if (validPaymentMethod) {
+    // If we have a default payment method, try to use it first
+    if (defaultPaymentMethodId) {
       try {
-        const paymentIntent = await stripeServer.paymentIntents.create({
-          amount: amountInCents,
-          currency: 'usd',
-          customer: user.stripe_customer_id,
-          payment_method: validPaymentMethod.id,
-          off_session: true,
-          confirm: true,
-          description: `${credits.toLocaleString()} credits`,
-          metadata: {
-            userId,
-            credits: credits.toString(),
-            operationId,
-            grantType: 'purchase',
-          },
-        })
+        const paymentMethod = await stripeServer.paymentMethods.retrieve(defaultPaymentMethodId)
+        
+        // Check if payment method is valid (not expired for cards)
+        const isValid = paymentMethod.type === 'link' || (
+          paymentMethod.type === 'card' &&
+          paymentMethod.card?.exp_year &&
+          paymentMethod.card.exp_month &&
+          new Date(paymentMethod.card.exp_year, paymentMethod.card.exp_month - 1) > new Date()
+        )
 
-        if (paymentIntent.status === 'succeeded') {
-          // Grant credits immediately
-          await processAndGrantCredit(
-            userId,
-            credits,
-            'purchase',
-            `Direct purchase of ${credits.toLocaleString()} credits`,
-            null,
-            operationId
-          )
+        if (isValid) {
+          const paymentIntent = await stripeServer.paymentIntents.create({
+            amount: amountInCents,
+            currency: 'usd',
+            customer: user.stripe_customer_id,
+            payment_method: defaultPaymentMethodId,
+            off_session: true,
+            confirm: true,
+            description: `${credits.toLocaleString()} credits`,
+            metadata: {
+              userId,
+              credits: credits.toString(),
+              operationId,
+              grantType: 'purchase',
+            },
+          })
 
-          logger.info(
-            { userId, credits, operationId, paymentIntentId: paymentIntent.id },
-            'Successfully processed direct credit purchase'
-          )
+          if (paymentIntent.status === 'succeeded') {
+            // Grant credits immediately
+            await processAndGrantCredit(
+              userId,
+              credits,
+              'purchase',
+              `Direct purchase of ${credits.toLocaleString()} credits`,
+              null,
+              operationId
+            )
 
-          return NextResponse.json({ success: true, credits })
+            logger.info(
+              { userId, credits, operationId, paymentIntentId: paymentIntent.id },
+              'Successfully processed direct credit purchase'
+            )
+
+            return NextResponse.json({ success: true, credits })
+          }
         }
       } catch (error: any) {
         // If direct charge fails, fall back to checkout
@@ -144,7 +146,7 @@ export async function POST(req: NextRequest) {
 
     // Fall back to checkout session if direct charge failed or no valid payment method
     const checkoutSession = await stripeServer.checkout.sessions.create({
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'link'],
       customer: user.stripe_customer_id,
       line_items: [
         {
