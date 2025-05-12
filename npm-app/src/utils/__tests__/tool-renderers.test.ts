@@ -8,12 +8,14 @@ import { getToolCallString } from 'common/constants/tools'
 import * as projectFileTree from 'common/project-file-tree'
 import stripAnsi from 'strip-ansi'
 
+import * as projectFiles from '../../project-files'
 import { toolRenderers } from '../tool-renderers'
 import { createXMLStreamParser } from '../xml-stream-parser'
 
 describe('Tool renderers with XML parser', () => {
   beforeEach(() => {
     spyOn(projectFileTree, 'isFileIgnored').mockImplementation(() => false)
+    spyOn(projectFiles, 'getProjectRoot').mockImplementation(() => false)
   })
 
   afterEach(() => {
