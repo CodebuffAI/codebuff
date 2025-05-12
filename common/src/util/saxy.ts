@@ -184,12 +184,23 @@ const parseEntities = (input: string): string => {
  * @throws If the string is malformed
  * @return A map of attribute names to their values
  */
-export const parseAttrs = (input: string) => {
-  const attrs = {} as Record<string, unknown>
+export const parseAttrs = (
+  input: string
+): { attrs: Record<string, string>; errors: string[] } => {
+  const attrs = {} as Record<string, string>
   const end = input.length
   let position = 0
+  const errors: string[] = []
 
-  while (position < end) {
+  const seekNextWhitespace = (pos: number): number => {
+    pos += 1
+    while (pos < end && !isWhitespace(input[pos])) {
+      pos += 1
+    }
+    return pos
+  }
+
+  attrLoop: while (position < end) {
     // Skip all whitespace
     if (isWhitespace(input[position])) {
       position += 1
@@ -197,11 +208,14 @@ export const parseAttrs = (input: string) => {
     }
 
     // Check that the attribute name contains valid chars
-    const startName = position
+    let startName = position
 
     while (input[position] !== '=' && position < end) {
       if (isWhitespace(input[position])) {
-        throw new Error('Attribute names may not contain whitespace')
+        errors.push(
+          `Attribute names may not contain whitespace: ${input.slice(startName, position)}`
+        )
+        continue attrLoop
       }
 
       position += 1
@@ -209,7 +223,10 @@ export const parseAttrs = (input: string) => {
 
     // This is XML, so we need a value for the attribute
     if (position === end) {
-      throw new Error('Expected a value for the attribute')
+      errors.push(
+        `Expected a value for the attribute: ${input.slice(startName, position)}`
+      )
+      break
     }
 
     const attrName = input.slice(startName, position)
@@ -218,13 +235,21 @@ export const parseAttrs = (input: string) => {
     position += 1
 
     if (startQuote !== '"' && startQuote !== "'") {
-      throw new Error('Attribute values should be quoted')
+      position = seekNextWhitespace(position)
+      errors.push(
+        `Attribute values should be quoted: ${input.slice(startName, position)}`
+      )
+      continue
     }
 
     const endQuote = input.indexOf(startQuote, position)
 
     if (endQuote === -1) {
-      throw new Error('Unclosed attribute value')
+      position = seekNextWhitespace(position)
+      errors.push(
+        `Unclosed attribute value: ${input.slice(startName, position)}`
+      )
+      continue
     }
 
     const attrValue = input.slice(position, endQuote)
@@ -233,7 +258,7 @@ export const parseAttrs = (input: string) => {
     position = endQuote + 1
   }
 
-  return attrs
+  return { attrs, errors }
 }
 
 /**
@@ -486,6 +511,10 @@ export class Saxy extends Transform {
     }
 
     this.emit(Node.tagOpen, node)
+
+    if (node.isSelfClosing) {
+      this.emit(Node.tagClose, { name: node.name })
+    }
   }
 
   /**
@@ -643,11 +672,17 @@ export class Saxy extends Transform {
           }
         }
 
-        this._tagStack.pop()
+        if (tagName === stackedTagName) {
+          this._tagStack.pop()
+        }
 
         // Only emit if the tag matches what we expect
         if (stackedTagName === tagName) {
           this.emit(Node.tagClose, { name: tagName })
+        } else {
+          // Emit as text if the tag doesn't match
+          const rawTag = input.slice(chunkPos - 1, tagClose + 1)
+          this.emit(Node.text, { contents: rawTag })
         }
 
         chunkPos = tagClose + 1

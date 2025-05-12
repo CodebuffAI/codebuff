@@ -22,7 +22,7 @@ export function getSearchSystemPrompt(
     userInputId: string
     userId: string | undefined
   }
-) {
+): string {
   const startTime = Date.now()
 
   const maxTokens = 500_000 // costMode === 'lite' ? 64_000 :
@@ -79,16 +79,11 @@ export function getSearchSystemPrompt(
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
   const systemInfoTokens = countTokens(systemInfoPrompt)
 
-  const systemPrompt = buildArray(
-    {
-      type: 'text' as const,
-      text: [projectFileTreePrompt, systemInfoPrompt].join('\n\n'),
-    },
-    {
-      type: 'text' as const,
-      text: [gitChangesPrompt].join('\n\n'),
-    }
-  )
+  const systemPrompt = buildArray([
+    projectFileTreePrompt,
+    systemInfoPrompt,
+    gitChangesPrompt,
+  ]).join('\n\n')
 
   logger.debug(
     {
