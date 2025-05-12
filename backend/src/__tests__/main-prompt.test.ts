@@ -1,3 +1,4 @@
+import * as bigquery from '@codebuff/bigquery'
 import {
   afterEach,
   beforeEach,
@@ -7,7 +8,6 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import * as bigquery from '@codebuff/bigquery'
 import * as analytics from 'common/analytics'
 import { TEST_USER_ID } from 'common/constants'
 import { getInitialAgentState } from 'common/types/agent-state'
@@ -24,6 +24,7 @@ import * as openai from '../llm-apis/openai-api'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
+import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import { renderToolResults } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
@@ -150,6 +151,11 @@ describe('mainPrompt', () => {
     spyOn(
       checkTerminalCommandModule,
       'checkTerminalCommand'
+    ).mockImplementation(async () => null)
+
+    spyOn(
+      getDocumentationForQueryModule,
+      'getDocumentationForQuery'
     ).mockImplementation(async () => null)
   })
 

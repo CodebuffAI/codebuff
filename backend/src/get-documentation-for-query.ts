@@ -81,7 +81,10 @@ ${JSON.stringify(query)}
       }
     )
   } catch (error) {
-    logger.error({ error }, 'Failed to get Gemini response getDocumentationForQuery')
+    logger.error(
+      { error },
+      'Failed to get Gemini response getDocumentationForQuery'
+    )
     return null
   }
   geminiDuration = Date.now() - geminiStartTime
