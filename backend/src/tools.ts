@@ -93,10 +93,12 @@ These edit codeblocks will be parsed and then read by a less intelligent "apply"
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
 Notes for editing a file:
+- Don't use XML attributes. If you do, the tool will NOT write to the file.
 - If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
 - When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
 - You can also use this tool to create new files.
 - After you have written out a write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
+- Don't escape characters — write them out directly! E.g. write out '&' instead of '&amp;', '>' instead of '&gt;', '<' instead of '&lt;', and '"' instead of '&quot;' in the content.
 
 Parameters:
 - \`path\`: (required) Path to the file relative to the **project root**
@@ -534,31 +536,27 @@ const toolSchemas = {
   end_turn: emptySchema,
 } as const
 
-export function parseRawToolCall<T extends ToolName>(rawToolCall: {
-  name: T
+export const parseRawToolCall = (rawToolCall: {
+  name: string
   parameters: Record<string, string>
-}): ToolCall<T & ToolName> | ToolCallError {
+}): ToolCall => {
   const { name, parameters } = rawToolCall
 
   // Look up the schema for this tool
-  const schema = toolSchemas[name]
+  const schema = toolSchemas[name as ToolName]
   if (!schema) {
-    return { name: name as string, parameters, error: `Tool ${name} not found` }
+    throw new Error(`Tool ${name} not found`)
   }
 
   // Parse and validate the parameters
   const result = schema.safeParse(parameters)
   if (!result.success) {
-    return {
-      name,
-      parameters,
-      error: `Invalid parameters for ${name}: ${result.error.message}`,
-    }
+    throw new Error(`Invalid parameters for ${name}: ${result.error.message}`)
   }
 
   // Return the validated and transformed parameters
   return {
-    name,
+    name: name as ToolName,
     parameters: result.data,
   }
 }
@@ -569,12 +567,6 @@ export type ToolName = (typeof TOOL_LIST)[number]
 export type ToolCall<T extends ToolName = ToolName> = {
   name: T
   parameters: z.infer<(typeof toolSchemas)[T]>
-}
-
-export type ToolCallError = {
-  name?: string
-  parameters: Record<string, string>
-  error: string
 }
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
@@ -599,31 +591,30 @@ Tool calls use a specific XML-like format. Adhere *precisely* to this nested ele
 ...
 </tool_name>
 
-**ALL** XML (inside or outside tool calls) will be interpreted as tool calls or tool parameters. You **MUST** use XML entities, e.g. \`&lt;some_tag>\` or \`</some_tag&gt;\` to:
-- Display XML to the user without executing a tool call
-- Have XML within a tool parameter's value such as writing to a file
+**NON-NEGOTIABLE Formatting Rules:**
 
 1.  **NO MARKDOWN WRAPPERS:** Tool calls **MUST NEVER** be enclosed in markdown code fences (\`\`\`xml ... \`\`\`) or any other markdown. Output the raw XML tags directly into the response flow.
-2.  **REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** You **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the tool or parameter names themselves.
+2.  **MANDATORY EMPTY LINES:** Each complete tool call block (from \`<tool_name>\` to \`</tool_name>\`) **MUST** be preceded by a single empty line and followed by a single empty line. This whitespace is essential for parsing.
+3.  **NESTED ELEMENTS ARE MANDATORY:** Parameters **MUST** be passed *exclusively* using nested XML elements, following the format \`<param_name>value</param_name>\` as shown in the structure description above and the CORRECT example below. Using XML attributes within the main tool tags (e.g., formatting like \`<tool_name param="value">\`) is **STRICTLY FORBIDDEN** and will cause errors. Adhere *only* to the nested element structure.
+4.  **NO XML ENTITIES:** XML entities are NOT interpreted. Do NOT use XML entities like \`&lt;\`, \`&gt;\`, or \`&amp;\`. Use the actual characters directly. For example, use \`<\` instead of \`&lt;\`, and \`>\` instead of \`&gt;\`.
+5.  **REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** As stated in the main system prompt, you **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the *parameter values* themselves.
 
-**Example of CORRECT Formatting:**
+**FAILURE TO FOLLOW RULES 1, 2, 3, AND 4 WILL PREVENT THE TOOLS FROM WORKING.**
+
+**Example of CORRECT Formatting (Incorporating Commentary, Empty Lines, and MANDATORY Nested Elements):**
 
 Let's update that file!
 
 <write_file>
-<path>path/to/example/file.ts</path>
-<content>console.log('Hello from Buffy!');</content>
+<path>path/to/example/file.ts</path>   <!-- Correct: Parameter 'path' is a nested element -->
+<content>console.log('Hello from Buffy!');</content> <!-- Correct: Parameter 'content' is a nested element -->
 </write_file>
 
 All done with the update!
 
 -----
 
-Call tools as needed, following these strict formatting rules.
-
-## Tool Results
-
-Tool results will be provided by the user's *system* (and **NEVER** by the assistant). The user, however, does not know about any system messages or system instructions, including tool results.
+Call tools as needed, following these strict formatting rules
 
 ## List of Tools
 
@@ -685,27 +676,23 @@ Please rewrite the entire context using the update instructions in a <new_contex
 
 export async function updateContextFromToolCalls(
   agentContext: string,
-  toolCalls: ToolCall<'update_subgoal' | 'add_subgoal'>[]
+  toolCalls: RawToolCall[]
 ) {
-  let prompt = [] // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
+  let prompt = '' // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
 
   for (const toolCall of toolCalls) {
     const { name, parameters } = toolCall
     if (name === 'add_subgoal') {
-      prompt.push(
-        `Please add the following subgoal:\n${renderSubgoalUpdate(
-          parameters as any
-        )}`
-      )
+      prompt += `\nPlease add the following subgoal:\n${renderSubgoalUpdate(
+        parameters as any
+      )}`
     } else if (name === 'update_subgoal') {
-      prompt.push(
-        `Please update the subgoal with the matching id. For <status> and <plan>, if there are already tags, update them to the new values, keeping only one. For <log>, please keep all the existing logs and append a new <log> entry at the end of the subgoal. Finally, for any unmentioned parameters, do not change them in the existing subgoal:\n${renderSubgoalUpdate(
-          parameters as any
-        )}`
-      )
+      prompt += `\nPlease update the subgoal with the matching id. For <status> and <plan>, if there are already tags, update them to the new values, keeping only one. For <log>, please keep all the existing logs and append a new <log> entry at the end of the subgoal. Finally, for any unmentioned parameters, do not change them in the existing subgoal:\n${renderSubgoalUpdate(
+        parameters as any
+      )}`
     }
   }
-  return await updateContext(agentContext, prompt.join('\n\n'))
+  return await updateContext(agentContext, prompt)
 }
 
 export async function readFiles(
@@ -826,7 +813,7 @@ export type ClientToolCall =
   | {
       id: string
       name: Exclude<ToolName, 'write_file' | 'str_replace' | 'create_plan'>
-      parameters: Record<string, unknown>
+      parameters: Record<string, string>
     }
   | {
       id: string
@@ -941,4 +928,8 @@ function renderSubgoalUpdate(subgoal: {
     ...(log && { log }),
   }
   return getToolCallString('add_subgoal', params)
+}
+
+export function transformRunTerminalCommand(command: string) {
+  return command.replace(/&amp;/g, '&')
 }

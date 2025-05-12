@@ -184,23 +184,12 @@ const parseEntities = (input: string): string => {
  * @throws If the string is malformed
  * @return A map of attribute names to their values
  */
-export const parseAttrs = (
-  input: string
-): { attrs: Record<string, string>; errors: string[] } => {
-  const attrs = {} as Record<string, string>
+export const parseAttrs = (input: string) => {
+  const attrs = {} as Record<string, unknown>
   const end = input.length
   let position = 0
-  const errors: string[] = []
 
-  const seekNextWhitespace = (pos: number): number => {
-    pos += 1
-    while (pos < end && !isWhitespace(input[pos])) {
-      pos += 1
-    }
-    return pos
-  }
-
-  attrLoop: while (position < end) {
+  while (position < end) {
     // Skip all whitespace
     if (isWhitespace(input[position])) {
       position += 1
@@ -208,14 +197,11 @@ export const parseAttrs = (
     }
 
     // Check that the attribute name contains valid chars
-    let startName = position
+    const startName = position
 
     while (input[position] !== '=' && position < end) {
       if (isWhitespace(input[position])) {
-        errors.push(
-          `Attribute names may not contain whitespace: ${input.slice(startName, position)}`
-        )
-        continue attrLoop
+        throw new Error('Attribute names may not contain whitespace')
       }
 
       position += 1
@@ -223,10 +209,7 @@ export const parseAttrs = (
 
     // This is XML, so we need a value for the attribute
     if (position === end) {
-      errors.push(
-        `Expected a value for the attribute: ${input.slice(startName, position)}`
-      )
-      break
+      throw new Error('Expected a value for the attribute')
     }
 
     const attrName = input.slice(startName, position)
@@ -235,21 +218,13 @@ export const parseAttrs = (
     position += 1
 
     if (startQuote !== '"' && startQuote !== "'") {
-      position = seekNextWhitespace(position)
-      errors.push(
-        `Attribute values should be quoted: ${input.slice(startName, position)}`
-      )
-      continue
+      throw new Error('Attribute values should be quoted')
     }
 
     const endQuote = input.indexOf(startQuote, position)
 
     if (endQuote === -1) {
-      position = seekNextWhitespace(position)
-      errors.push(
-        `Unclosed attribute value: ${input.slice(startName, position)}`
-      )
-      continue
+      throw new Error('Unclosed attribute value')
     }
 
     const attrValue = input.slice(position, endQuote)
@@ -258,7 +233,7 @@ export const parseAttrs = (
     position = endQuote + 1
   }
 
-  return { attrs, errors }
+  return attrs
 }
 
 /**
@@ -511,10 +486,6 @@ export class Saxy extends Transform {
     }
 
     this.emit(Node.tagOpen, node)
-
-    if (node.isSelfClosing) {
-      this.emit(Node.tagClose, { name: node.name })
-    }
   }
 
   /**
@@ -559,7 +530,11 @@ export class Saxy extends Transform {
         if (nextTag === -1) {
           let chunk = input.slice(chunkPos)
 
+<<<<<<< HEAD
           if (this._tagStack.length === 1 && !chunk.trim()) {
+=======
+          if (this._tagStack.length === 1 && chunk === '\n') {
+>>>>>>> 3e3cffbd (revert xml parsing pr)
             chunk = ''
           }
 
@@ -590,7 +565,11 @@ export class Saxy extends Transform {
         // we have all the data needed for the TEXT node
         let chunk = input.slice(chunkPos, nextTag)
 
+<<<<<<< HEAD
         if (this._tagStack.length === 1 && !chunk.trim()) {
+=======
+        if (this._tagStack.length === 1 && chunk === '\n') {
+>>>>>>> 3e3cffbd (revert xml parsing pr)
           chunk = ''
         }
 
@@ -672,17 +651,11 @@ export class Saxy extends Transform {
           }
         }
 
-        if (tagName === stackedTagName) {
-          this._tagStack.pop()
-        }
+        this._tagStack.pop()
 
         // Only emit if the tag matches what we expect
         if (stackedTagName === tagName) {
           this.emit(Node.tagClose, { name: tagName })
-        } else {
-          // Emit as text if the tag doesn't match
-          const rawTag = input.slice(chunkPos - 1, tagClose + 1)
-          this.emit(Node.text, { contents: rawTag })
         }
 
         chunkPos = tagClose + 1

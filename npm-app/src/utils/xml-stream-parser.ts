@@ -52,7 +52,7 @@ export function createXMLStreamParser(
       if (toolRenderer.onToolStart) {
         const output = toolRenderer.onToolStart(
           name,
-          Saxy.parseAttrs(tag.attrs).attrs
+          Saxy.parseAttrs(tag.attrs) as Record<string, string>
         )
         if (output !== null) {
           parser.push(output)
