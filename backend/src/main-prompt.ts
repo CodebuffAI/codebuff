@@ -766,7 +766,7 @@ export const mainPrompt = async (
     // End turn if LLM did not give a response.
     fullResponse = '<end_turn></end_turn>'
     onResponseChunk(fullResponse)
-    const tc: ToolCall<'end_turn'> = { name: 'end_turn', parameters: [] }
+    const tc: ToolCall<'end_turn'> = { name: 'end_turn', parameters: {} }
     allToolCalls.push(tc)
     clientToolCalls.push({ ...tc, id: generateCompactId() })
   }

@@ -65,15 +65,10 @@ export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
 
 export const createWriteFileBlock = (filePath: string, content: string) => {
   const tagName = 'write_file'
-  return (
-    '<' +
-    `${tagName}>
+  return `<${tagName}>
 <path>${filePath}</path>
-<content>
-${content}
-</content>
+<content>${content}</content>
 </${tagName}>`
-  )
 }
 
 export const fileRegex =

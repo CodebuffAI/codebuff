@@ -311,13 +311,13 @@ describe('mainPrompt', () => {
     const fileUpdateMessage = toolResultMessages.find(
       (m) =>
         typeof m.content === 'string' &&
-        m.content.includes('<tool>file_updates</tool>')
+        m.content.includes('<tool>read_files</tool>')
     )
 
     expect(fileUpdateMessage).toBeDefined()
     expect(fileUpdateMessage?.content).toContain('test.txt')
     // Check that the content reflects the *new* mock content within the file_updates result
-    expect(fileUpdateMessage?.content).toContain('mock content for test.txt')
+    expect(fileUpdateMessage?.content).toContain('old content')
   })
 
   it('should handle direct terminal command', async () => {
