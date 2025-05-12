@@ -858,7 +858,18 @@ export class Client {
       'prompt-response',
       async (action) => {
         const parsedAction = PromptResponseSchema.safeParse(action)
-        if (!parsedAction.success) return
+        if (!parsedAction.success) {
+          const message = [
+            'Received invalid prompt response from server:',
+            JSON.stringify(parsedAction.error.errors),
+            'If this issues persists, please contact support@codebuff.com',
+          ].join('\n')
+          console.error(message)
+          logger.error(message, {
+            eventId: AnalyticsEvent.MALFORMED_PROMPT_RESPONSE,
+          })
+          return
+        }
         if (action.promptId !== userInputId) return
         const a = parsedAction.data
         let isComplete = false

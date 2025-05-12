@@ -12,6 +12,7 @@ export enum AnalyticsEvent {
   CHECKPOINT_COMMAND_USED = 'cli.checkpoint_command_used',
   LOGIN = 'cli.login',
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
+  MALFORMED_PROMPT_RESPONSE = 'cli.malformed_prompt_response',
 
   // Backend
   PROMPT_SENT = 'backend.prompt_sent',
