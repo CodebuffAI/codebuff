@@ -6,8 +6,8 @@
  * character between the first two and the last two newline characters.
  */
 
-let enabled = false
-let previous = ''
+let squashingEnabled = false
+let previous = ' '
 
 export function getPrevious(): string {
   return previous
@@ -18,11 +18,19 @@ export function setPrevious(str: string): void {
 }
 
 export function enableSquashNewlines(): void {
-  enabled = true
+  squashingEnabled = true
 }
 
 export function disableSquashNewlines(): void {
-  enabled = false
+  squashingEnabled = false
+}
+
+function addCarriageReturn(str: string): string {
+  const base = previous[previous.length - 1] + str
+  // Replace twice, because of no overlap '\n\n'
+  const once = base.replace(/([^\r])\n/g, '$1\r\n')
+  const twice = once.replace(/([^\r])\n/g, '$1\r\n')
+  return twice.slice(1)
 }
 
 const originalWrite = process.stdout.write.bind(process.stdout)
@@ -32,10 +40,12 @@ process.stdout.write = function (
   encodingOrCallback?: BufferEncoding | ((err?: Error | undefined) => void),
   callbackMaybe?: (err?: Error | undefined) => void
 ): boolean {
-  const chunkString = Buffer.isBuffer(chunk) ? chunk.toString() : chunk
-  if (!enabled) {
+  let chunkString = typeof chunk === 'string' ? chunk : chunk.toString()
+  chunkString = addCarriageReturn(chunkString)
+
+  if (!squashingEnabled) {
     previous += chunkString
-    previous = previous.slice(previous.length - 2)
+    previous = previous.slice(previous.length - 4)
 
     if (typeof encodingOrCallback === 'function') {
       // Called like write(chunk, callback)
@@ -46,9 +56,9 @@ process.stdout.write = function (
   }
 
   const combinedContent = previous + chunkString
-  const processedContent = combinedContent.replace(/\n{3,}/g, '\n\n')
+  const processedContent = combinedContent.replace(/(\r\n){3,}/g, '\r\n\r\n')
   const processedChunk = processedContent.slice(previous.length)
-  previous = processedContent.slice(processedContent.length - 2)
+  previous = processedContent.slice(processedContent.length - 4)
 
   if (typeof encodingOrCallback === 'function') {
     // Called like write(chunk, callback)
@@ -65,10 +75,12 @@ process.stderr.write = function (
   encodingOrCallback?: BufferEncoding | ((err?: Error | undefined) => void),
   callbackMaybe?: (err?: Error | undefined) => void
 ): boolean {
-  const chunkString = Buffer.isBuffer(chunk) ? chunk.toString() : chunk
-  if (!enabled) {
+  let chunkString = typeof chunk === 'string' ? chunk : chunk.toString()
+  chunkString = addCarriageReturn(chunkString)
+
+  if (!squashingEnabled) {
     previous += chunkString
-    previous = previous.slice(previous.length - 2)
+    previous = previous.slice(previous.length - 4)
 
     if (typeof encodingOrCallback === 'function') {
       // Called like write(chunk, callback)
@@ -79,9 +91,9 @@ process.stderr.write = function (
   }
 
   const combinedContent = previous + chunkString
-  const processedContent = combinedContent.replace(/\n{3,}/g, '\n\n')
+  const processedContent = combinedContent.replace(/\r\n{3,}/g, '\r\n\r\n')
   const processedChunk = processedContent.slice(previous.length)
-  previous = processedContent.slice(processedContent.length - 2)
+  previous = processedContent.slice(processedContent.length - 4)
 
   if (typeof encodingOrCallback === 'function') {
     // Called like write(chunk, callback)
