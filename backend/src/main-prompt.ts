@@ -1085,23 +1085,26 @@ async function getFileReadingUpdates(
       )) ??
       []
 
-  uploadExpandedFileContextForTraining(
-    ws,
-    { messages, system },
-    fileContext,
-    prompt,
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    costMode
-  ).catch((error) => {
-    logger.error(
-      { error },
-      'Error uploading expanded file context for training'
-    )
-  })
+  // Only record training data if we requested files
+  if (requestedFiles.length > 0) {
+    uploadExpandedFileContextForTraining(
+      ws,
+      { messages, system },
+      fileContext,
+      prompt,
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      costMode
+    ).catch((error) => {
+      logger.error(
+        { error },
+        'Error uploading expanded file context for training'
+      )
+    })
+  }
 
   const isFirstRead = previousFileList.length === 0
   const initialFiles = getInitialFiles(fileContext)
