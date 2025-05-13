@@ -166,11 +166,32 @@ export async function requestRelevantFilesForTraining(
         : JSON.stringify(lastMessage.content)
       : ''
 
+  const keyFilesPrompt = generateKeyRequestFilesPrompt(
+    userPrompt,
+    assistantPrompt,
+    fileContext,
+    COUNT
+  )
   const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
     userPrompt,
     assistantPrompt,
     fileContext,
     COUNT
+  )
+
+  const keyFiles = await getRelevantFilesForTraining(
+    {
+      messages: messagesExcludingLastIfByUser,
+      system,
+    },
+    keyFilesPrompt,
+    'Key',
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    costMode
   )
 
   const nonObviousFiles = await getRelevantFilesForTraining(
@@ -188,9 +209,10 @@ export async function requestRelevantFilesForTraining(
     costMode
   )
 
-  const candidateFiles = nonObviousFiles
-
-  return validateFilePaths(uniq(candidateFiles.files))
+  const candidateFiles = [...keyFiles.files, ...nonObviousFiles.files]
+  const validatedFiles = validateFilePaths(uniq(candidateFiles))
+  logger.debug({ keyFiles, nonObviousFiles, validatedFiles }, 'requestRelevantFilesForTraining: results')
+  return validatedFiles.slice(0, MAX_FILES_PER_REQUEST)
 }
 
 async function getRelevantFiles(
