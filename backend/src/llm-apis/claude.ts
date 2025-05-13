@@ -1,15 +1,15 @@
 import { Anthropic, APIConnectionError } from '@anthropic-ai/sdk'
-import { removeUndefinedProps } from 'common/util/object'
+import type { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
+import { AnthropicModel, claudeModels, STOP_MARKER } from 'common/constants'
 import { Message } from 'common/types/message'
-import { claudeModels, STOP_MARKER, AnthropicModel } from 'common/constants'
-import { match } from 'ts-pattern'
-import { logger } from '../util/logger'
 import { limitScreenshots } from 'common/util/messages'
+import { removeUndefinedProps } from 'common/util/object'
+import { sleep } from 'common/util/promise'
+import { match } from 'ts-pattern'
 import { env } from '../env.mjs'
 import { saveMessage } from '../llm-apis/message-cost-tracker'
-import { sleep } from 'common/util/promise'
-import type { Tool, TextBlockParam } from '@anthropic-ai/sdk/resources'
 import { TOOLS_WHICH_END_THE_RESPONSE } from '../tools'
+import { logger } from '../util/logger'
 
 const MAX_SCREENSHOTS = 2
 
@@ -65,6 +65,7 @@ async function* promptClaudeStreamWithoutRetry(
     userInputId: string
     userId?: string
     ignoreDatabaseAndHelicone?: boolean
+    chargeUser?: boolean
   }
 ): AsyncGenerator<string, void, unknown> {
   const {
@@ -79,6 +80,7 @@ async function* promptClaudeStreamWithoutRetry(
     userId,
     maxTokens,
     ignoreDatabaseAndHelicone = false,
+    chargeUser = true,
   } = options
   const apiKey = env.ANTHROPIC_API_KEY2
   if (!apiKey) {
@@ -208,6 +210,7 @@ async function* promptClaudeStreamWithoutRetry(
         cacheReadInputTokens,
         finishedAt: new Date(),
         latencyMs,
+        chargeUser,
       }).catch((error) => {
         logger.error({ error }, 'Failed to save message')
       })
@@ -229,6 +232,7 @@ export async function* promptClaudeStream(
     userInputId: string
     userId?: string
     ignoreDatabaseAndHelicone?: boolean
+    chargeUser?: boolean
   }
 ): AsyncGenerator<string, void, unknown> {
   let retryCount = 0
@@ -270,6 +274,7 @@ export async function promptClaude(
     userId?: string
     ignoreDatabaseAndHelicone?: boolean
     stopSequences?: string[]
+    chargeUser?: boolean
   }
 ): Promise<string> {
   let result = ''

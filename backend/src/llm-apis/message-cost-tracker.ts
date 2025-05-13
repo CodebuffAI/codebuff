@@ -455,6 +455,7 @@ export const saveMessage = async (value: {
   finishedAt: Date
   latencyMs: number
   usesUserApiKey?: boolean
+  chargeUser?: boolean
 }) =>
   withLoggerContext(
     {
@@ -477,14 +478,17 @@ export const saveMessage = async (value: {
         centsPerCredit = await getUserCostPerCredit(value.userId)
       }
 
-      const costInCents = Math.max(
-        0,
-        Math.round(
-          cost *
-            100 *
-            (value.usesUserApiKey ? PROFIT_MARGIN : 1 + PROFIT_MARGIN)
-        )
-      )
+      const costInCents =
+        value.chargeUser ?? true // default to true
+          ? Math.max(
+              0,
+              Math.round(
+                cost *
+                  100 *
+                  (value.usesUserApiKey ? PROFIT_MARGIN : 1 + PROFIT_MARGIN)
+              )
+            )
+          : 0
 
       const creditsUsed = Math.max(0, costInCents)
 

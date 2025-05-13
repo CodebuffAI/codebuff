@@ -298,6 +298,7 @@ async function getRelevantFilesForTraining(
     userInputId,
     model: models.sonnet,
     userId,
+    chargeUser: false,
   })
 
   const end = performance.now()
