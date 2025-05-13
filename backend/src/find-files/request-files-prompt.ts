@@ -99,35 +99,8 @@ export async function requestRelevantFiles(
     costMode
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
-    return { files: [], duration: 0 }
+    return { files: [] as string[], duration: 0 }
   })
-
-  let nonObviousPromise:
-    | Promise<{ files: string[]; duration: number }>
-    | undefined
-  if (costMode === 'max') {
-    const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
-      userPrompt,
-      assistantPrompt,
-      fileContext,
-      countPerRequest
-    )
-
-    nonObviousPromise = getRelevantFiles(
-      {
-        messages: messagesExcludingLastIfByUser,
-        system,
-      },
-      nonObviousPrompt,
-      'Non-Obvious',
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      costMode
-    )
-  }
 
   const newFilesNecessaryResult = await newFilesNecessaryPromise
   const {
@@ -147,17 +120,13 @@ export async function requestRelevantFiles(
     return null
   }
 
-  const results = filterDefined(
-    await Promise.all([keyPromise, nonObviousPromise])
-  )
-  const candidateFiles = results.flatMap((result) => result.files)
+  const candidateFiles = (await keyPromise).files
 
-  const firstPassFiles = validateFilePaths(uniq(candidateFiles))
+  const files = validateFilePaths(uniq(candidateFiles))
 
   logger.info(
     {
-      files: firstPassFiles,
-      firstPassResults: results,
+      files,
       newFilesNecessary,
       newFilesNecessaryResponse,
       newFilesNecessaryDuration,
@@ -165,7 +134,7 @@ export async function requestRelevantFiles(
     'requestRelevantFiles: results'
   )
 
-  return firstPassFiles.slice(0, MAX_FILES_PER_REQUEST)
+  return candidateFiles.slice(0, MAX_FILES_PER_REQUEST)
 }
 
 export async function requestRelevantFilesForTraining(
