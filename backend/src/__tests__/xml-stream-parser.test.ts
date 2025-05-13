@@ -1247,6 +1247,15 @@ describe('processStreamWithTags', () => {
         type: 'start',
       },
       {
+        error: 'Ignoring stray closing tag',
+        name: 'content',
+      },
+      {
+        error: 'Ignoring stray closing tag',
+        name: 'content',
+      },
+
+      {
         params: {
           new: 'test</content>test2',
           old: 'test</content>test2',
