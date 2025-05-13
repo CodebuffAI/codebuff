@@ -162,6 +162,8 @@ const calcCost = (
   )
 }
 
+const VERBOSE = false
+
 async function syncMessageToStripe(messageData: {
   messageId: string
   userId: string
@@ -171,10 +173,12 @@ async function syncMessageToStripe(messageData: {
   const { messageId, userId, costInCents, finishedAt } = messageData
 
   if (!userId || userId === TEST_USER_ID) {
-    logger.debug(
-      { messageId, userId },
-      'Skipping Stripe sync (no user or test user).'
-    )
+    if (VERBOSE) {
+      logger.debug(
+        { messageId, userId },
+        'Skipping Stripe sync (no user or test user).'
+      )
+    }
     return
   }
 
@@ -412,20 +416,24 @@ async function updateUserCycleUsage(
   creditsUsed: number
 ): Promise<CreditConsumptionResult> {
   if (creditsUsed <= 0) {
-    logger.debug(
-      { userId, creditsUsed },
-      'Skipping user usage update (zero credits).'
-    )
+    if (VERBOSE) {
+      logger.debug(
+        { userId, creditsUsed },
+        'Skipping user usage update (zero credits).'
+      )
+    }
     return { consumed: 0, fromPurchased: 0 }
   }
   try {
     // Consume from grants in priority order and track purchased credit usage
     const result = await consumeCredits(userId, creditsUsed)
 
-    logger.debug(
-      { userId, creditsUsed, ...result },
-      `Consumed credits (${creditsUsed})`
-    )
+    if (VERBOSE) {
+      logger.debug(
+        { userId, creditsUsed, ...result },
+        `Consumed credits (${creditsUsed})`
+      )
+    }
 
     trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
       creditsUsed,
@@ -492,16 +500,18 @@ export const saveMessage = async (value: {
 
       const creditsUsed = Math.max(0, costInCents)
 
-      logger.debug(
-        {
-          messageId: value.messageId,
-          costUSD: cost,
-          costInCents,
-          creditsUsed,
-          centsPerCredit,
-        },
-        `Calculated credits (${creditsUsed})`
-      )
+      if (VERBOSE) {
+        logger.debug(
+          {
+            messageId: value.messageId,
+            costUSD: cost,
+            costInCents,
+            creditsUsed,
+            centsPerCredit,
+          },
+          `Calculated credits (${creditsUsed})`
+        )
+      }
 
       const savedMessageResult = await insertMessageRecord({
         ...value,
@@ -544,7 +554,7 @@ export const saveMessage = async (value: {
             'Background Stripe sync failed.'
           )
         })
-      } else {
+      } else if (VERBOSE) {
         logger.debug(
           { messageId: value.messageId },
           'Skipping Stripe sync (no purchased credits used)'
