@@ -77,7 +77,11 @@ describe('processStrReplace', () => {
       Promise.resolve(null)
     )
 
-    expect(result).toBeNull()
+    expect(result).not.toBeNull()
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('file does not exist')
+    }
   })
 
   it('should return null if oldStr is empty and file exists', async () => {
@@ -88,7 +92,11 @@ describe('processStrReplace', () => {
       Promise.resolve('content')
     )
 
-    expect(result).toBeNull()
+    expect(result).not.toBeNull()
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('old string was empty')
+    }
   })
 
   it('should create a new file if oldStr is empty and file does not exist', async () => {
@@ -120,7 +128,11 @@ describe('processStrReplace', () => {
       Promise.resolve(initialContent)
     )
 
-    expect(result).toBeNull()
+    expect(result).not.toBeNull()
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('old string was not found')
+    }
   })
 
   it('should handle multiple occurrences of the same string', async () => {

@@ -35,8 +35,16 @@ export async function processStrReplace(
   }
 
   // Regular case: require oldStr for replacements
-  if (!oldStr) return null
-  if (initialContent === null) return null
+  if (!oldStr) return {
+    tool: 'str_replace' as const,
+    path,
+    error: 'The old string was empty, which does not match any content, skipping.'
+  }
+  if (initialContent === null) return {
+    tool: 'str_replace' as const,
+    path,
+    error: 'The file does not exist, skipping. Use the write_file tool to create the file.'
+  }
 
   const lineEnding = initialContent.includes('\r\n') ? '\r\n' : '\n'
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
@@ -48,7 +56,11 @@ export async function processStrReplace(
     normalizedOldStr,
     newStr
   )
-  if (!updatedOldStr) return null
+  if (!updatedOldStr) return {
+    tool: 'str_replace' as const,
+    path,
+    error: 'The old string was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.'
+  }
 
   const updatedContent = normalizedInitialContent.replaceAll(
     updatedOldStr,
@@ -70,7 +82,11 @@ export async function processStrReplace(
       },
       `processStrReplace: No change to ${path}`
     )
-    return null
+    return {
+      tool: 'str_replace' as const,
+      path,
+      error: 'No change to the file.'
+    }
   }
   logger.debug(
     {

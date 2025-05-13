@@ -79,9 +79,12 @@ describe('processFileBlock', () => {
     )
 
     expect(result).not.toBeNull()
-    expect(result?.path).toBe('test.ts')
-    expect(result?.patch).toBeUndefined()
-    expect(result?.content).toBe(expectedContent)
+    if ('error' in result) {
+      throw new Error(`Expected success but got error: ${result.error}`)
+    }
+    expect(result.path).toBe('test.ts')
+    expect(result.patch).toBeUndefined()
+    expect(result.content).toBe(expectedContent)
   })
 
   it('should handle Windows line endings with multi-line changes', async () => {
@@ -112,7 +115,9 @@ describe('processFileBlock', () => {
     )
 
     expect(result).not.toBeNull()
-    if (!result) throw new Error('Result is null')
+    if ('error' in result) {
+      throw new Error(`Expected success but got error: ${result.error}`)
+    }
 
     expect(result.path).toBe('test.ts')
     expect(result.content).toBe(newContent)
@@ -141,7 +146,11 @@ describe('processFileBlock', () => {
       'normal'
     )
 
-    expect(result).toBeNull()
+    expect(result).not.toBeNull()
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('same as the old content')
+    }
   })
 
   it('should handle multiple diff blocks in a single file', async () => {
@@ -207,9 +216,12 @@ function divide(a: number, b: number) {
     )
 
     expect(result).not.toBeNull()
-    expect(result?.path).toBe('test.ts')
-    expect(result?.patch).toBeDefined()
-    if (result?.patch) {
+    if ('error' in result) {
+      throw new Error(`Expected success but got error: ${result.error}`)
+    }
+    expect(result.path).toBe('test.ts')
+    expect(result.patch).toBeDefined()
+    if (result.patch) {
       const updatedContent = applyPatch(oldContent, result.patch)
       expect(updatedContent).toContain(
         "if (typeof a !== 'number' || typeof b !== 'number')"
@@ -241,7 +253,9 @@ function divide(a: number, b: number) {
     )
 
     expect(result).not.toBeNull()
-    if (!result) throw new Error('Result is null')
+    if ('error' in result) {
+      throw new Error(`Expected success but got error: ${result.error}`)
+    }
 
     // Verify content has Windows line endings
     expect(result.content).toBe(newContent)
@@ -259,6 +273,31 @@ function divide(a: number, b: number) {
       const patchLines = result.patch.split('\r\n')
       expect(patchLines.some((line) => line.startsWith('-const y'))).toBe(true)
       expect(patchLines.some((line) => line.startsWith('+const z'))).toBe(true)
+    }
+  })
+
+  it('should return error when creating new file with lazy edit', async () => {
+    const newContent = '// ... existing code ...\nconst x = 1;\n// ... existing code ...'
+
+    const result = await processFileBlock(
+      'test.ts',
+      Promise.resolve(null),
+      newContent,
+      [],
+      '',
+      undefined,
+      'clientSessionId',
+      'fingerprintId',
+      'userInputId',
+      TEST_USER_ID,
+      'normal'
+    )
+
+    expect(result).not.toBeNull()
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('placeholder comment')
+      expect(result.error).toContain('meant to modify an existing file')
     }
   })
 })

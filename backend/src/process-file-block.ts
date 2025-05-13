@@ -26,12 +26,19 @@ export async function processFileBlock(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode
-): Promise<{
-  tool: 'write_file'
-  path: string
-  content: string
-  patch?: string
-} | null> {
+): Promise<
+  | {
+      tool: 'write_file'
+      path: string
+      content: string // Updated copy of the file
+      patch: string | undefined // Patch diff string. Undefined for a new file
+    }
+  | {
+      tool: 'write_file'
+      path: string
+      error: string // Error message if the file could not be updated
+    }
+> {
   const initialContent = await initialContentPromise
 
   if (initialContent === null) {
@@ -42,7 +49,12 @@ export async function processFileBlock(
         { path, newContent },
         `processFileBlock: New file contained a lazy edit for ${path}. Aborting.`
       )
-      return null
+      return {
+        tool: 'write_file' as const,
+        path,
+        error:
+          'You created a new file with a placeholder comment like `// ... existing code ...` (or equivalent for other languages). Are you sure you have the file path right? You probably meant to modify an existing file instead of providing a path to a new file.',
+      }
     }
 
     logger.debug(
@@ -53,6 +65,7 @@ export async function processFileBlock(
       tool: 'write_file' as const,
       path,
       content: cleanContent,
+      patch: undefined,
     }
   }
 
@@ -61,7 +74,11 @@ export async function processFileBlock(
       { newContent },
       `processFileBlock: New was same as old, skipping ${path}`
     )
-    return null
+    return {
+      tool: 'write_file' as const,
+      path,
+      error: 'The new content was the same as the old content, skipping.'
+    }
   }
 
   const lineEnding = initialContent.includes('\r\n') ? '\r\n' : '\n'
@@ -102,7 +119,11 @@ export async function processFileBlock(
     )
 
     if (!largeFileContent) {
-      return null
+      return {
+        tool: 'write_file' as const,
+        path,
+        error: 'Failed to apply the write file change to this large file. You should try using the str_replace tool instead for large files.',
+      }
     }
 
     updatedContent = largeFileContent
@@ -160,7 +181,11 @@ export async function processFileBlock(
       },
       `processFileBlock: No change to ${path}`
     )
-    return null
+    return {
+      tool: 'write_file' as const,
+      path,
+      error: 'The new content was the same as the old content, skipping.'
+    }
   }
   logger.debug(
     {

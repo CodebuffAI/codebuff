@@ -511,12 +511,20 @@ export const mainPrompt = async (
   let fullResponse = ''
   const fileProcessingPromisesByPath: Record<
     string,
-    Promise<{
-      tool: 'write_file' | 'str_replace' | 'create_plan'
-      path: string
-      content: string
-      patch?: string
-    } | null>[]
+    Promise<
+      {
+        tool: 'write_file' | 'str_replace' | 'create_plan'
+        path: string
+      } & (
+        | {
+            content: string
+            patch?: string
+          }
+        | {
+            error: string
+          }
+      )
+    >[]
   > = {}
 
   // Think deeply at the start of every response
@@ -678,9 +686,10 @@ export const mainPrompt = async (
         const previousEdit = previousPromises[previousPromises.length - 1]
 
         const latestContentPromise = previousEdit
-          ? previousEdit.then(
-              (maybeResult) =>
-                maybeResult?.content ?? requestOptionalFile(ws, path)
+          ? previousEdit.then((maybeResult) =>
+              maybeResult && 'content' in maybeResult
+                ? maybeResult.content
+                : requestOptionalFile(ws, path)
             )
           : requestOptionalFile(ws, path)
 
@@ -704,7 +713,11 @@ export const mainPrompt = async (
           costMode
         ).catch((error) => {
           logger.error(error, 'Error processing file block')
-          return null
+          return {
+            tool: 'write_file' as const,
+            path,
+            error: 'Unknown error: Failed to process the file block.',
+          }
         })
 
         fileProcessingPromisesByPath[path].push(newPromise)
@@ -724,9 +737,10 @@ export const mainPrompt = async (
         const previousEdit = previousPromises[previousPromises.length - 1]
 
         const latestContentPromise = previousEdit
-          ? previousEdit.then(
-              (maybeResult) =>
-                maybeResult?.content ?? requestOptionalFile(ws, path)
+          ? previousEdit.then((maybeResult) =>
+              maybeResult && 'content' in maybeResult
+                ? maybeResult.content
+                : requestOptionalFile(ws, path)
             )
           : requestOptionalFile(ws, path)
 
@@ -737,7 +751,11 @@ export const mainPrompt = async (
           latestContentPromise
         ).catch((error: any) => {
           logger.error(error, 'Error processing str_replace block')
-          return null
+          return {
+            tool: 'str_replace' as const,
+            path,
+            error: 'Unknown error: Failed to process the str_replace block.',
+          }
         })
 
         fileProcessingPromisesByPath[path].push(newPromise)
@@ -936,7 +954,7 @@ export const mainPrompt = async (
   }
 
   if (Object.keys(fileProcessingPromisesByPath).length > 0) {
-    onResponseChunk('\n\nApplying file changes, please wait.\n')
+    onResponseChunk('\n\nApplying file changes, please wait...\n')
   }
 
   // Flatten all promises while maintaining order within each file path
@@ -944,16 +962,30 @@ export const mainPrompt = async (
     fileProcessingPromisesByPath
   ).flat()
 
-  const changes = (await Promise.all(fileProcessingPromises)).filter(
-    (change) => change !== null
+  const results = await Promise.all(fileProcessingPromises)
+  const [fileChangeErrors, fileChanges] = partition(
+    results,
+    (result) => 'error' in result
   )
-  if (changes.length === 0 && fileProcessingPromises.length > 0) {
+
+  for (const result of fileChangeErrors) {
+    // Forward error message to agent as tool result.
+    serverToolResults.push({
+      id: generateCompactId(),
+      name: result.tool,
+      result: result.error,
+    })
+  }
+
+  if (fileChanges.length === 0 && fileProcessingPromises.length > 0) {
     onResponseChunk('No changes to existing files.\n')
-  } else if (fileProcessingPromises.length > 0) {
+  }
+  if (fileChanges.length > 0) {
     onResponseChunk(`\n`)
   }
 
-  const changeToolCalls = changes.map(({ path, content, patch, tool }) => ({
+  // Add successful changes to clientToolCalls
+  const changeToolCalls = fileChanges.map(({ path, content, patch, tool }) => ({
     name: tool,
     parameters: patch
       ? {

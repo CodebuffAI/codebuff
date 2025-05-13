@@ -71,9 +71,10 @@ describe('mainPrompt', () => {
     spyOn(processFileBlockModule, 'processFileBlock').mockImplementation(
       async (path, contentPromise, newContent) => {
         return {
+          tool: 'write_file' as const,
           path,
           content: newContent,
-          tool: 'write_file' as const,
+          patch: undefined,
         }
       }
     )
