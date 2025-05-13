@@ -487,7 +487,6 @@ export const runCommandPty = (
     )
     console.log(green(`${displayDirectory} > ${command}`))
   }
-  ptyProcess.write(`cd ${path.resolve(projectRoot, cwd)}\r\n`)
 
   let commandOutput = ''
   let buffer = promptIdentifier
@@ -569,7 +568,7 @@ export const runCommandPty = (
 
       const newWorkingDirectory = commandDone[1]
       if (mode === 'assistant') {
-        ptyProcess.write(`cd ${getWorkingDirectory()}\r\n`)
+        ptyProcess.write(`cd ${getWorkingDirectory()}\r`)
 
         resolve({
           result: formatResult(
@@ -630,10 +629,11 @@ If you want to change the project root:
   })
 
   // Write the command
+  const cdCommand = `cd ${path.resolve(projectRoot, cwd)}`
   const commandWithCheck = isWindows
-    ? `${command} & echo ${promptIdentifier}%cd%${promptIdentifier}`
-    : `${command}; ec=$?; printf "${promptIdentifier}$(pwd)${promptIdentifier}"; if [ $ec -eq 0 ]; then printf "Command completed."; else printf "Command failed with exit code $ec."; fi`
-  ptyProcess.write(commandWithCheck + '\r')
+    ? `${cdCommand} & ${command} & echo ${promptIdentifier}%cd%${promptIdentifier}`
+    : `${cdCommand}; ${command}; ec=$?; printf "${promptIdentifier}$(pwd)${promptIdentifier}"; if [ $ec -eq 0 ]; then printf "Command completed."; else printf "Command failed with exit code $ec."; fi`
+  ptyProcess.write(`${commandWithCheck}\r`)
 }
 
 const runCommandChildProcess = (
