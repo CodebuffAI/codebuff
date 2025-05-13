@@ -237,7 +237,7 @@ ${getToolCallString('code_search', { pattern: 'import.*foo' })}
     name: 'run_terminal_command',
     description: `
 ### run_terminal_command
-Execute a CLI command from the project root.
+Execute a CLI command from the **project root** (different from the user's cwd).
 
 Stick to these use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
@@ -260,6 +260,7 @@ When using this tool, please adhere to the following rules:
 9. The user will not be able to interact with these processes, e.g. confirming the command. So if there's an opportunity to use "-y" or "--yes" flags, use them. Any command that prompts for confirmation will hang if you don't use the flags.
 
 Notes:
+- If the user references a specific file, it could be either from their cwd or from the project root. You **must** determine which they are referring to (either infer or ask). Then, you must specify the path relative to the project root (or use the cwd parameter)
 - Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
 
 ${gitCommitGuidePrompt}
@@ -267,6 +268,7 @@ ${gitCommitGuidePrompt}
 Params:  
 - \`command\`: (required) CLI command valid for user's OS.
 - \`process_type\`: (optional) Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC
+- \`cwd\`: (optional) The working directory to run the command in. Default is the project root.
 - \`timeout_seconds\`: (optional) Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30
 
 Example:
@@ -496,6 +498,7 @@ const codeSearchSchema = z.object({
 const runTerminalCommandSchema = z.object({
   command: z.string().min(1, 'Command cannot be empty'),
   process_type: z.enum(['SYNC', 'BACKGROUND']).default('SYNC'),
+  cwd: z.string().optional(),
   timeout_seconds: z.string().default('30'),
 })
 

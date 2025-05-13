@@ -77,6 +77,7 @@ export const handleRunTerminalCommand = async (
     command: string
     mode?: 'user' | 'assistant'
     process_type?: 'SYNC' | 'BACKGROUND'
+    cwd?: string
     timeout_seconds?: string
   },
   id: string
@@ -85,6 +86,7 @@ export const handleRunTerminalCommand = async (
     command,
     mode = 'assistant',
     process_type = 'SYNC',
+    cwd,
     timeout_seconds = '30',
   } = parameters
   let timeout_seconds_num: number
@@ -96,12 +98,14 @@ export const handleRunTerminalCommand = async (
       stdout: '',
     }
   }
+
   return runTerminalCommand(
     id,
     command,
     mode,
     process_type.toUpperCase() as 'SYNC' | 'BACKGROUND',
-    timeout_seconds_num
+    timeout_seconds_num,
+    cwd
   )
 }
 

@@ -374,11 +374,12 @@ export const runTerminalCommand = async (
   mode: 'user' | 'assistant',
   processType: 'SYNC' | 'BACKGROUND',
   timeoutSeconds: number,
+  cwd?: string,
   stdoutFile?: string,
   stderrFile?: string
 ): Promise<{ result: string; stdout: string }> => {
   const maybeTimeoutSeconds = timeoutSeconds < 0 ? null : timeoutSeconds
-  const cwd = getWorkingDirectory()
+  cwd = cwd || (mode === 'assistant' ? getProjectRoot() : getWorkingDirectory())
   return new Promise((resolve) => {
     if (!persistentProcess) {
       throw new Error('Shell not initialized')
@@ -480,9 +481,13 @@ export const runCommandPty = (
   const projectRoot = getProjectRoot()
   const isWindows = os.platform() === 'win32'
   if (mode === 'assistant') {
-    console.log(green(`${path.dirname(projectRoot)} > ${command}`))
-    ptyProcess.write(`cd ${projectRoot}\r\n`)
+    const displayDirectory = path.join(
+      path.parse(projectRoot).base,
+      path.relative(projectRoot, path.resolve(projectRoot, cwd))
+    )
+    console.log(green(`${displayDirectory} > ${command}`))
   }
+  ptyProcess.write(`cd ${path.resolve(projectRoot, cwd)}\r\n`)
 
   let commandOutput = ''
   let buffer = promptIdentifier
@@ -564,13 +569,13 @@ export const runCommandPty = (
 
       const newWorkingDirectory = commandDone[1]
       if (mode === 'assistant') {
-        ptyProcess.write(`cd ${cwd}\r\n`)
+        ptyProcess.write(`cd ${getWorkingDirectory()}\r\n`)
 
         resolve({
           result: formatResult(
             command,
             commandOutput,
-            `Ran command from project root: ${projectRoot}\n\n${statusMessage}`
+            `cwd: ${path.resolve(projectRoot, cwd)}\n\n${statusMessage}`
           ),
           stdout: commandOutput,
           exitCode,
@@ -579,11 +584,15 @@ export const runCommandPty = (
       }
 
       let outsideProject = false
-      if (newWorkingDirectory !== cwd) {
+      const currentWorkingDirectory = getWorkingDirectory()
+      let finalCwd = currentWorkingDirectory
+      if (newWorkingDirectory !== currentWorkingDirectory) {
         trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
-          from: cwd,
+          from: currentWorkingDirectory,
           to: newWorkingDirectory,
-          isSubdir: !path.relative(cwd, newWorkingDirectory).startsWith('..'),
+          isSubdir: !path
+            .relative(currentWorkingDirectory, newWorkingDirectory)
+            .startsWith('..'),
         })
         if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
           outsideProject = true
@@ -594,10 +603,10 @@ If you want to change the project root:
 1. Exit Codebuff (type "exit")
 2. Navigate into the target directory (type "cd ${newWorkingDirectory}")
 3. Restart Codebuff`)
-          ptyProcess.write(`cd ${cwd}\r\n`)
+          ptyProcess.write(`cd ${currentWorkingDirectory}\r\n`)
         } else {
           setWorkingDirectory(newWorkingDirectory)
-          cwd = newWorkingDirectory
+          finalCwd = newWorkingDirectory
         }
       }
 
@@ -606,10 +615,11 @@ If you want to change the project root:
           command,
           commandOutput,
           buildArray([
+            `cwd: ${currentWorkingDirectory}`,
             `${statusMessage}\n`,
             outsideProject &&
-              `Detected final cwd outside project root. Reset cwd to ${cwd}`,
-            `Final user cwd: ${cwd}`,
+              `Detected final cwd outside project root. Reset cwd to ${currentWorkingDirectory}`,
+            `Final **user** cwd: ${finalCwd}`,
           ]).join('\n')
         ),
         stdout: commandOutput,
