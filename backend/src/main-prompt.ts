@@ -72,7 +72,7 @@ import {
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
 
-const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 20
+const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
 
 export const mainPrompt = async (
   ws: WebSocket,
