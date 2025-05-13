@@ -49,7 +49,6 @@ export async function* processStreamWithTags<T extends string>(
     toolName: string,
     attributes: Record<string, string>
   ): PendingState | ParsingToolState {
-    console.log({ state, toolName, attributes }, 'starttool asdf')
     if (state.currentTool !== null) {
       onError(
         toolName,
@@ -90,7 +89,6 @@ export async function* processStreamWithTags<T extends string>(
     attributes: Record<string, string>,
     rawTag: string
   ): State {
-    console.log({ state, paramName, attributes, rawTag }, 'startParam asdf')
     if (state.currentParam !== null) {
       if (processors[state.currentTool].params.includes(paramName)) {
         onError(
@@ -137,7 +135,6 @@ export async function* processStreamWithTags<T extends string>(
   function endParam(
     state: ParsingToolState | ParsingParamState
   ): ParsingToolState {
-    console.log({ state }, 'endparam asdf')
     if (state.currentParam === null) {
       return state
     }
@@ -153,7 +150,6 @@ export async function* processStreamWithTags<T extends string>(
   }
 
   function endTool(state: State): PendingState {
-    console.log({ state }, 'endtool asdf')
     if (state.currentTool === null) {
       return state
     }
@@ -177,7 +173,6 @@ export async function* processStreamWithTags<T extends string>(
   }
 
   function onTagopen(node: TagOpenNode) {
-    console.log({ node }, 'ontagopen asdf')
     const tagName = node.name
     const { attrs, errors } = Saxy.parseAttrs(node.attrs)
     for (const error of errors) {
@@ -197,7 +192,6 @@ export async function* processStreamWithTags<T extends string>(
   }
 
   function onText(node: TextNode) {
-    console.log({ node }, 'ontext asdf')
     if (state.currentTool === null) {
       return
     }
@@ -221,7 +215,6 @@ export async function* processStreamWithTags<T extends string>(
   }
 
   function onTagclose(node: TagCloseNode) {
-    console.log({ node }, 'ontagclose asdf')
     const tagName = node.name
 
     if (tagName === state.currentParam) {
