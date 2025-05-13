@@ -131,6 +131,8 @@ export const mainPrompt = async (
 
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
+    isGPT4_1 &&
+      `**Do NOT end your response or 'end turn' if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`,
     !isGPT4_1 &&
       "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
@@ -184,7 +186,9 @@ export const mainPrompt = async (
 
     `Before finishing your response, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
 
-    "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn."
+    "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
+    isGPT4_1 &&
+      `**Do NOT end your response or 'end turn' if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`
   ).join('\n\n')
 
   const toolInstructions = buildArray(
