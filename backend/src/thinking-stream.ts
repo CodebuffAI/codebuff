@@ -25,7 +25,6 @@ export async function getThinkingStream(
       '</think_deeply>',
       '<think_deeply>',
       '<read_files>',
-      '<end_turn>',
     ],
     clientSessionId: options.clientSessionId,
     fingerprintId: options.fingerprintId,
@@ -39,7 +38,7 @@ The user cannot see anything you write, this is thinking that will be used to ge
 
 When the next action is clear, you can stop your thinking immediately. For example:
 - If you realize you need to read files, say what files you should read next, and then end your thinking.
-- If you realize you completed the user request, say it is time to use the <end_turn> tool and end your thinking.
+- If you realize you completed the user request, say it is time to end your response and end your thinking.
 - If you already did thinking previously that outlines a plan you are continuing to implement, you can stop your thinking immediately and continue following the plan.
 
 Guidelines:
@@ -49,8 +48,7 @@ Guidelines:
 - Be concise and to the point. The shorter the response the better.
 - It's highly recommended to have a very short thinking session, like 1 sentence long, if the next action is clear.
 - Do not write anything outside of the <think_deeply> tool call.
-- DO NOT use any other tools! You are only thinking, not taking any actions.
-- Do not include <end_turn> tags (or any other tool call tags). You should refer to tool calls without angle brackets when talking about them: "I should use the end_turn tool" and NOT "I should use <end_turn>"
+- DO NOT use any other tools! You are only thinking, not taking any actions. You should refer to tool calls without angle brackets when talking about them: "I should use the read_files tool" and NOT "I should use <read_files>"
 - Make sure to end your response with "</thought>\n</think_deeply>"
 
 Misc Guidelines:

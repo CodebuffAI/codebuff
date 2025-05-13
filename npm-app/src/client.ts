@@ -881,11 +881,6 @@ export class Client {
 
         for (const toolCall of a.toolCalls) {
           try {
-            if (toolCall.name === 'end_turn') {
-              this.responseComplete = true
-              isComplete = true
-              continue
-            }
             if (toolCall.name === 'write_file') {
               // Save lastChanges for `diff` command
               this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
@@ -895,7 +890,7 @@ export class Client {
               toolCall.name === 'run_terminal_command' &&
               toolCall.parameters.mode === 'user'
             ) {
-              // Special case: when terminal command is run it as a user command, then no need to reprompt assistant.
+              // Special case: when terminal command is run as a user command, then no need to reprompt assistant.
               this.responseComplete = true
               isComplete = true
             }
@@ -915,6 +910,10 @@ export class Client {
                 '\n'
             )
           }
+        }
+        if (a.toolCalls.length === 0 && a.toolResults.length === 0) {
+          this.responseComplete = true
+          isComplete = true
         }
         console.log('\n')
 

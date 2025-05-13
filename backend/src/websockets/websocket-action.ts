@@ -168,7 +168,6 @@ const onPrompt = async (
         logger.error(e, 'Error in mainPrompt')
         let response =
           e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
-        response += '\n\n<end_turn></end_turn>'
 
         const newMessages = buildArray(
           ...action.agentState.messageHistory,
@@ -186,12 +185,6 @@ const onPrompt = async (
           }
         )
 
-        const endTurnToolCall = {
-          name: 'end_turn' as const,
-          parameters: {},
-          id: generateCompactId(),
-        }
-
         sendAction(ws, {
           type: 'response-chunk',
           userInputId: promptId,
@@ -206,7 +199,7 @@ const onPrompt = async (
               ...action.agentState,
               messageHistory: newMessages,
             },
-            toolCalls: [endTurnToolCall],
+            toolCalls: [],
             toolResults: [],
           })
         }, 100)

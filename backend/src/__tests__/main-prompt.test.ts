@@ -388,7 +388,7 @@ describe('mainPrompt', () => {
     expect(params.content).toBe('Hello World')
   })
 
-  it('should force end_turn after MAX_CONSECUTIVE_ASSISTANT_MESSAGES', async () => {
+  it('should force end of response after MAX_CONSECUTIVE_ASSISTANT_MESSAGES', async () => {
     const agentState = getInitialAgentState(mockFileContext)
 
     // Set up message history with many consecutive assistant messages
@@ -415,9 +415,7 @@ describe('mainPrompt', () => {
       undefined // Mock model
     )
 
-    expect(toolCalls).toHaveLength(1)
-    expect(toolCalls[0].name).toBe('end_turn')
-    expect(toolCalls[0].parameters).toEqual({})
+    expect(toolCalls).toHaveLength(0) // No tool calls expected
   })
 
   it('should update consecutiveAssistantMessages when new prompt is received', async () => {
@@ -471,7 +469,7 @@ describe('mainPrompt', () => {
     expect(newAgentState.consecutiveAssistantMessages).toBe(initialCount + 1)
   })
 
-  it('should return end_turn tool call when LLM response is empty', async () => {
+  it('should return no tool calls when LLM response is empty', async () => {
     // Mock the LLM stream to return nothing
     mockAgentStream('')
 
@@ -493,9 +491,7 @@ describe('mainPrompt', () => {
       undefined // Mock model
     )
 
-    expect(toolCalls).toHaveLength(1)
-    expect(toolCalls[0].name).toBe('end_turn')
-    expect(toolCalls[0].parameters).toEqual({})
+    expect(toolCalls).toHaveLength(0) // No tool calls expected for empty response
   })
 
   it('should unescape ampersands in run_terminal_command tool calls', async () => {

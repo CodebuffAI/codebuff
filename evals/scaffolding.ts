@@ -171,11 +171,7 @@ export async function loopMainPrompt({
       ...(await runToolCalls(toolCalls, projectPath)),
     ]
 
-    const containsHaltToolCall = toolCalls.some(
-      (call) => call.name === 'end_turn'
-    )
-
-    if (containsHaltToolCall || stop) {
+    if (toolResults.length === 0) {
       break
     }
   }

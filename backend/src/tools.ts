@@ -418,40 +418,6 @@ ${getToolCallString('browser_logs', {
 })}
     `.trim(),
   },
-  {
-    name: 'await_tool_results',
-    description: `
-### await_tool_results
-
-Pause your response and await tool results.
-
-Do not write anything else after using this tool. You will be called again when the tool results return so you can continue your response.
-
-Prefer to use run_terminal_command to run the typechecker or linter as is appropriate for the project to verify changes. Do not use this tool in combination with run_terminal_command.
-
-Otherwise, use this tool to see if changes made from other tools are applied properly! It's a good idea to use this tool in between each subgoal you complete.
-
-Params: None
-
-Example:
-${getToolCallString('await_tool_results', {})}
-    `.trim(),
-  },
-  {
-    name: 'end_turn',
-    description: `
-### end_turn
-
-End your turn. This will allow the user to type another prompt. You must use this tool when you've fully responded to the user. Either you've completed the user's request, need more information from the user, or feel like you are not making progress and want help from the user.
-
-Do not ask the user any questions without ending your turn. Otherwise, the user will not be able to answer your question.
-
-Params: None
-
-Example:
-${getToolCallString('end_turn', {})}
-    `.trim(),
-  },
 ] as const
 
 // Define Zod schemas for parameter validation
@@ -532,8 +498,6 @@ const toolSchemas = {
   think_deeply: thinkDeeplySchema,
   create_plan: createPlanSchema,
   browser_logs: browserActionSchema,
-  await_tool_results: emptySchema,
-  end_turn: emptySchema,
 } as const
 
 export function parseRawToolCall<T extends ToolName>(rawToolCall: {
@@ -583,7 +547,6 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'read_files',
   'find_files',
   'run_terminal_command',
-  'await_tool_results',
 ]
 
 export const toolsInstructions = `
