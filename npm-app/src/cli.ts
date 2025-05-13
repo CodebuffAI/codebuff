@@ -167,8 +167,8 @@ export class CLI {
       if (fs.existsSync(PROMPT_HISTORY_PATH)) {
         const content = fs.readFileSync(PROMPT_HISTORY_PATH, 'utf8')
         const history = JSON.parse(content) as string[]
-        // Filter out empty lines and duplicates
-        return uniq(history.filter((line) => line.trim())).reverse()
+        // Filter out empty lines and reverse for readline
+        return history.filter((line) => line.trim()).reverse()
       }
     } catch (error) {
       console.error('Error loading prompt history:', error)
@@ -185,9 +185,12 @@ export class CLI {
         const content = fs.readFileSync(PROMPT_HISTORY_PATH, 'utf8')
         history = JSON.parse(content)
       }
-      // Only add non-empty, non-duplicate lines
-      if (line.trim() && !history.includes(line)) {
-        history.push(line)
+      const trimmedLine = line.trim()
+      if (trimmedLine) {
+        // Remove all previous occurrences of the line
+        history = history.filter(h => h !== trimmedLine)
+        // Add the new line to the end
+        history.push(trimmedLine)
         fs.writeFileSync(PROMPT_HISTORY_PATH, JSON.stringify(history, null, 2))
       }
     } catch (error) {
