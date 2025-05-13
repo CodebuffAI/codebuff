@@ -1,4 +1,4 @@
-import { Saxy } from 'common/util/saxy'
+import { Saxy, TagCloseNode, TagOpenNode, TextNode } from 'common/util/saxy'
 
 interface PendingState {
   currentTool: null
@@ -38,16 +38,18 @@ export async function* processStreamWithTags<T extends string>(
   >,
   onError: (tagName: string, errorMessage: string) => void
 ) {
+  /**
+   * @param state current state
+   * @param toolName must be a key in processors
+   * @param attributes Record of attributes
+   * @returns new state
+   */
   function startTool(
     state: PendingState,
     toolName: string,
     attributes: Record<string, string>
   ): PendingState | ParsingToolState {
-    if (!(toolName in processors)) {
-      onError(toolName, 'Ignoring non-tool XML tag')
-      return state
-    }
-
+    console.log({ state, toolName, attributes }, 'starttool asdf')
     if (state.currentTool !== null) {
       onError(
         toolName,
@@ -85,8 +87,10 @@ export async function* processStreamWithTags<T extends string>(
   function startParam(
     state: ParsingToolState | ParsingParamState,
     paramName: string,
-    attributes: Record<string, string>
+    attributes: Record<string, string>,
+    rawTag: string
   ): State {
+    console.log({ state, paramName, attributes, rawTag }, 'startParam asdf')
     if (state.currentParam !== null) {
       if (processors[state.currentTool].params.includes(paramName)) {
         onError(
@@ -106,6 +110,7 @@ export async function* processStreamWithTags<T extends string>(
         return startTool(endTool(state), paramName, attributes)
       }
       onError(paramName, `Ignoring stray XML tag`)
+      onText({ contents: rawTag })
       return state
     }
 
@@ -119,6 +124,7 @@ export async function* processStreamWithTags<T extends string>(
 
     if (!processors[state.currentTool].params.includes(paramName)) {
       onError(paramName, `Ignoring stray XML tag`)
+      onText({ contents: rawTag })
       return state
     }
     return {
@@ -131,6 +137,7 @@ export async function* processStreamWithTags<T extends string>(
   function endParam(
     state: ParsingToolState | ParsingParamState
   ): ParsingToolState {
+    console.log({ state }, 'endparam asdf')
     if (state.currentParam === null) {
       return state
     }
@@ -146,6 +153,7 @@ export async function* processStreamWithTags<T extends string>(
   }
 
   function endTool(state: State): PendingState {
+    console.log({ state }, 'endtool asdf')
     if (state.currentTool === null) {
       return state
     }
@@ -168,28 +176,28 @@ export async function* processStreamWithTags<T extends string>(
     }
   }
 
-  let state: State = {
-    currentTool: null,
-    currentParam: null,
-    reportedStrayText: null,
-    params: null,
-    paramContent: null,
-  }
-  const parser = new Saxy()
-  parser.on('tagopen', (tag) => {
-    const tagName = tag.name
-    const { attrs, errors } = Saxy.parseAttrs(tag.attrs)
+  function onTagopen(node: TagOpenNode) {
+    console.log({ node }, 'ontagopen asdf')
+    const tagName = node.name
+    const { attrs, errors } = Saxy.parseAttrs(node.attrs)
     for (const error of errors) {
       onError(tagName, error)
     }
     if (state.currentTool === null) {
-      state = startTool(state, tagName, attrs)
+      if (tagName in processors) {
+        state = startTool(state, tagName, attrs)
+        return
+      }
+
+      onError(tagName, 'Ignoring non-tool XML tag')
+      onText({ contents: node.rawTag })
       return
     }
-    state = startParam(state, tagName, attrs)
-  })
+    state = startParam(state, tagName, attrs, node.rawTag)
+  }
 
-  parser.on('text', (data) => {
+  function onText(node: TextNode) {
+    console.log({ node }, 'ontext asdf')
     if (state.currentTool === null) {
       return
     }
@@ -198,7 +206,7 @@ export async function* processStreamWithTags<T extends string>(
       if (state.reportedStrayText) {
         return
       }
-      if (data.contents.trim() === '') {
+      if (node.contents.trim() === '') {
         return
       }
       onError(
@@ -209,11 +217,12 @@ export async function* processStreamWithTags<T extends string>(
       return
     }
 
-    state.paramContent += data.contents
-  })
+    state.paramContent += node.contents
+  }
 
-  parser.on('tagclose', (tag) => {
-    const tagName = tag.name
+  function onTagclose(node: TagCloseNode) {
+    console.log({ node }, 'ontagclose asdf')
+    const tagName = node.name
 
     if (tagName === state.currentParam) {
       state = endParam(state)
@@ -226,7 +235,20 @@ export async function* processStreamWithTags<T extends string>(
     }
 
     onError(tagName, 'Ignoring stray closing tag')
-  })
+    onText({ contents: node.rawTag })
+  }
+
+  let state: State = {
+    currentTool: null,
+    currentParam: null,
+    reportedStrayText: null,
+    params: null,
+    paramContent: null,
+  }
+  const parser = new Saxy()
+  parser.on('tagopen', onTagopen)
+  parser.on('text', onText)
+  parser.on('tagclose', onTagclose)
 
   let streamCompleted = false
 

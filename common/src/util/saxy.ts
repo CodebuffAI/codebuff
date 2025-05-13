@@ -37,16 +37,26 @@ export type TagOpenNode = {
    */
   attrs: string
   /**
-   * Whether the tag self-closes (tags of the form `<tag />`).
+   * Whether the tag self-closes (tags of the form ``).
    * Such tags will not be followed by a closing tag.
    */
   isSelfClosing: boolean
+
+  /**
+   * The original text of the tag, including angle brackets and attributes.
+   */
+  rawTag: string
 }
 
 /** Information about a closed tag */
 export type TagCloseNode = {
   /** Name of the tag that was closed. */
   name: string
+
+  /**
+   * The original text of the tag, including angle brackets.
+   */
+  rawTag: string
 }
 
 export type NextFunction = (err?: Error) => void
@@ -477,9 +487,8 @@ export class Saxy extends Transform {
    * corresponding event on the event emitter.
    *
    * @param node Information about the opened tag.
-   * @param rawTag The raw tag text including angle brackets
    */
-  private _handleTagOpening(node: TagOpenNode, rawTag: string) {
+  private _handleTagOpening(node: TagOpenNode) {
     const { name } = node
 
     // If we have a schema, validate against it
@@ -488,7 +497,7 @@ export class Saxy extends Transform {
       if (this._tagStack.length === 0) {
         // Convert to text if not in schema
         if (!this._schema[name]) {
-          this.emit(Node.text, { contents: rawTag })
+          this.emit(Node.text, { contents: node.rawTag })
           return
         }
       }
@@ -500,7 +509,7 @@ export class Saxy extends Transform {
           !this._schema[parentTag] ||
           !this._schema[parentTag].includes(name)
         ) {
-          this.emit(Node.text, { contents: rawTag })
+          this.emit(Node.text, { contents: node.rawTag })
           return
         }
       }
@@ -513,7 +522,10 @@ export class Saxy extends Transform {
     this.emit(Node.tagOpen, node)
 
     if (node.isSelfClosing) {
-      this.emit(Node.tagClose, { name: node.name })
+      this.emit(Node.tagClose, {
+        name: node.name,
+        rawTag: '',
+      })
     }
   }
 
@@ -676,9 +688,12 @@ export class Saxy extends Transform {
           this._tagStack.pop()
         }
 
-        // Only emit if the tag matches what we expect
-        if (stackedTagName === tagName) {
-          this.emit(Node.tagClose, { name: tagName })
+        // Only emit if the tag matches what we expect (or if there is no schema)
+        if (!this._schema || stackedTagName === tagName) {
+          this.emit(Node.tagClose, {
+            name: tagName,
+            rawTag: input.slice(chunkPos - 1, tagClose + 1),
+          })
         } else {
           // Emit as text if the tag doesn't match
           const rawTag = input.slice(chunkPos - 1, tagClose + 1)
@@ -701,27 +716,23 @@ export class Saxy extends Transform {
 
       if (whitespace === -1 || whitespace >= tagClose - chunkPos) {
         // Tag without any attribute
-        this._handleTagOpening(
-          {
-            name: input.slice(chunkPos, realTagClose),
-            attrs: '',
-            isSelfClosing,
-          },
-          rawTag
-        )
+        this._handleTagOpening({
+          name: input.slice(chunkPos, realTagClose),
+          attrs: '',
+          isSelfClosing,
+          rawTag,
+        })
       } else if (whitespace === 0) {
         // Invalid tag starting with whitespace - emit as text
         this.emit(Node.text, { contents: rawTag })
       } else {
         // Tag with attributes
-        this._handleTagOpening(
-          {
-            name: input.slice(chunkPos, chunkPos + whitespace),
-            attrs: input.slice(chunkPos + whitespace, realTagClose),
-            isSelfClosing,
-          },
-          rawTag
-        )
+        this._handleTagOpening({
+          name: input.slice(chunkPos, chunkPos + whitespace),
+          attrs: input.slice(chunkPos + whitespace, realTagClose),
+          isSelfClosing,
+          rawTag,
+        })
       }
 
       chunkPos = tagClose + 1
