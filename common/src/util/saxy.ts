@@ -344,7 +344,9 @@ export class Saxy extends Transform {
 
     // String decoder instance
     const state = this._writableState
-    this._decoder = new StringDecoder(state.defaultEncoding)
+    // We don't understand why, but sometimes state or state.defaultEncoding are undefined. Guard against that.
+    const encoding = (state && state.defaultEncoding) ? state.defaultEncoding : 'utf8';
+    this._decoder = new StringDecoder(encoding)
 
     // Stack of tags that were opened up until the current cursor position
     this._tagStack = []
