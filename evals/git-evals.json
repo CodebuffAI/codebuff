@@ -1,0 +1,71 @@
+{
+  "repoPath": "test-repos/codebuff",
+  "generationDate": "2025-05-14T10:02:53.632Z",
+  "evalCommits": [
+    {
+      "sha": "2d8a8e0569513aebdf54bcbcb1acc2559d4883c3",
+      "author": "James Grugett",
+      "date": "2025-05-14 00:21:14 +0900",
+      "message": "Remove end_turn + await_tool_results tools. Simply reprompt if there are any tool results pending",
+      "stats": {
+        "filesChanged": 12,
+        "insertions": 26,
+        "deletions": 194
+      },
+      "selectionReason": "Removes end_turn and await_tool_results tools in favor of a simpler reprompting mechanism. This is a focused architectural change that improves the system's design while being self-contained and understandable.",
+      "spec": "Update the agent's turn management and toolset by removing the `end_turn` and `await_tool_results` tools. This includes deleting their definitions, schemas, associated handling logic, and all references in instructional materials (system prompts, persona guides, thinking prompts, examples) and tests. Tests previously expecting these tools should be modified to reflect their absence (e.g., expecting an empty tool call list or no specific end-of-turn tool). Logic for handling maximum consecutive assistant messages or empty LLM responses should no longer force these tool calls. Instructions for verifying changes should focus on reviewing actual tool results or running verification commands, not using `await_tool_results`. Implement an implicit turn completion mechanism: the agent's turn (and the current interaction loop with the backend) is considered complete if the backend's response to the client contains zero tool calls to be executed by the client AND zero server-side tool results. If the backend's response includes tool calls for the client or server-side tool results, the system must automatically continue the interaction loop by having the client process any received tool calls, collect their results, and then send a new prompt request to the backend with the updated agent state and all relevant tool results. Agent instructions should be revised to guide the agent to conclude its textual response when its current actions are finished or user input is needed, without using any specific tool to signal turn completion or to await results."
+    },
+    {
+      "sha": "3588c0d9208f9583dda1a8b37a5cf7bc8b4ce241",
+      "author": "Charles Lien",
+      "date": "2025-05-12 17:56:25 -0700",
+      "message": "add cwd param to run_terminal_command",
+      "stats": {
+        "filesChanged": 4,
+        "insertions": 32,
+        "deletions": 15
+      },
+      "selectionReason": "Adds current working directory parameter to terminal commands. This is a clean feature addition that extends functionality in a clear, focused way.",
+      "spec": "Add an optional `cwd` parameter to the `run_terminal_command` tool. This parameter allows specifying a working directory, relative to the project root, where the command will be executed. If the `cwd` parameter is not provided, the command must default to executing from the project root. Update the tool's definition, including its description, parameter list, and schema, to incorporate this new `cwd` parameter and clarify its usage, particularly in resolving file paths that might be ambiguous (relative to a user's current working directory versus the project root)."
+    },
+    {
+      "sha": "fe926db82a103770870541416ebe0a6dcb81e6ea",
+      "author": "Charles Lien",
+      "date": "2025-05-12 16:55:38 -0700",
+      "message": "Only allow assistant terminal commands from project root",
+      "stats": {
+        "filesChanged": 2,
+        "insertions": 27,
+        "deletions": 11
+      },
+      "selectionReason": "Adds a security constraint to only allow terminal commands from project root. This is a focused security enhancement that solves a specific problem and could be implemented in different ways.",
+      "spec": "Update the `run_terminal_command` tool. Modify its description to state that commands are executed from the project root, and remove the note about persistent working directory changes via `cd`. When the AI assistant invokes this tool, ensure that: 1. The command is logged as being run from the project root. 2. The command is executed within the project root directory. 3. After command completion, the terminal's working directory is restored to the user's working directory that was active before the assistant's command. 4. The tool's output message to the assistant explicitly states that the command was run from the project root and includes its actual success/failure status. For commands run directly by the user: 1. The output status message must accurately reflect completion or failure (e.g., 'Complete' or 'Failed with exit code X'). 2. The displayed final working directory should be labeled 'Final user cwd'. 3. Attempts by the user to `cd` outside the project root must still be prevented, with the terminal resetting to the previous valid directory and an explanatory message displayed."
+    },
+    {
+      "sha": "283252d17e3accd6a080a31d8d21ebd8c18f45db",
+      "author": "Charles Lien",
+      "date": "2025-05-05 12:33:33 -0700",
+      "message": "feat: Align 'normal' cost mode behavior with 'max' mode",
+      "stats": {
+        "filesChanged": 4,
+        "insertions": 37,
+        "deletions": 17
+      },
+      "selectionReason": "Aligns behavior between 'normal' and 'max' cost modes. This is a focused feature change that standardizes system behavior in a meaningful way.",
+      "spec": "Modify the system's behavior across different cost modes. For the 'normal' cost mode, enhance its capabilities to align more closely with the 'max' mode: in file requesting, set the number of files per request to 14 and enable the 'non-obvious' file request mechanism. For LLM fallbacks, ensure 'normal' mode uses the 'Sonnet' Claude model instead of 'Haiku'. In the main agent prompting logic, instruct the agent under 'normal' mode to start responses with the `think_deeply` tool, perform comprehensive checks before ending its turn, and activate the `getThinkingStream` for deeper reasoning. For the 'lite' cost mode, adjust file requesting to retrieve 12 files per request. Finally, update the global model configuration (`getModelForMode` function): for the 'agent' operation, both 'lite' and 'normal' modes should use the 'Sonnet' Claude model; for 'file-requests', 'normal' mode should use the 'Sonnet' Claude model; and for 'check-new-files', 'lite' mode should use the 'gpt4o' model."
+    },
+    {
+      "sha": "71253afc8b78d47162c2f1e06451ee086c7b4e31",
+      "author": "Charles Lien",
+      "date": "2025-05-04 12:16:47 -0700",
+      "message": "refactor(cli): implement singleton pattern for CLI class",
+      "stats": {
+        "filesChanged": 2,
+        "insertions": 22,
+        "deletions": 2
+      },
+      "selectionReason": "Implements singleton pattern for CLI class - a focused refactoring that applies a common design pattern to improve code architecture.",
+      "spec": "Refactor the `CLI` class in `npm-app/src/cli.ts` to implement the singleton pattern. This involves making its constructor private, adding a static private field to hold the single instance, and providing a static `initialize` method to create the instance and a static `getInstance` method to retrieve it. Update the instantiation of the `CLI` class in `npm-app/src/index.ts` to use these new static methods (`initialize` and `getInstance`) instead of the constructor."
+    }
+  ]
+}
