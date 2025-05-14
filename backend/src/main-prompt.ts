@@ -707,11 +707,11 @@ export const mainPrompt = async (
           userId,
           costMode
         ).catch((error) => {
-          logger.error(error, 'Error processing file block')
+          logger.error(error, 'Error processing write_file block')
           return {
             tool: 'write_file' as const,
             path,
-            error: 'Unknown error: Failed to process the file block.',
+            error: 'Unknown error: Failed to process the write_file block.',
           }
         })
 
@@ -957,7 +957,7 @@ export const mainPrompt = async (
     serverToolResults.push({
       id: generateCompactId(),
       name: result.tool,
-      result: result.error,
+      result: `${result.path}: ${result.error}`,
     })
   }
 
