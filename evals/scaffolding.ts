@@ -163,7 +163,10 @@ export async function loopMainPrompt({
     const stop = stopCondition && stopCondition(currentAgentState, toolCalls)
     if (stop) break
 
-    toolResults = [...newToolResults, ...(await runToolCalls(newToolCalls))]
+    toolResults = [
+      ...newToolResults,
+      ...(await runToolCalls(newToolCalls)),
+    ].filter((tool) => tool.name !== 'end_turn')
 
     if (toolResults.length === 0) {
       break

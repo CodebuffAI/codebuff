@@ -3,6 +3,19 @@
   "generationDate": "2025-05-14T10:02:53.632Z",
   "evalCommits": [
     {
+      "sha": "283252d17e3accd6a080a31d8d21ebd8c18f45db",
+      "author": "Charles Lien",
+      "date": "2025-05-05 12:33:33 -0700",
+      "message": "feat: Align 'normal' cost mode behavior with 'max' mode",
+      "stats": {
+        "filesChanged": 4,
+        "insertions": 37,
+        "deletions": 17
+      },
+      "selectionReason": "Aligns behavior between 'normal' and 'max' cost modes. This is a focused feature change that standardizes system behavior in a meaningful way.",
+      "spec": "Modify the system's behavior across different cost modes. For the 'normal' cost mode, enhance its capabilities to align more closely with the 'max' mode: in file requesting, set the number of files per request to 14 and enable the 'non-obvious' file request mechanism. For LLM fallbacks, ensure 'normal' mode uses the 'Sonnet' Claude model instead of 'Haiku'. In the main agent prompting logic, instruct the agent under 'normal' mode to start responses with the `think_deeply` tool, perform comprehensive checks before ending its turn, and activate the `getThinkingStream` for deeper reasoning. For the 'lite' cost mode, adjust file requesting to retrieve 12 files per request. Finally, update the global model configuration (`getModelForMode` function): for the 'agent' operation, both 'lite' and 'normal' modes should use the 'Sonnet' Claude model; for 'file-requests', 'normal' mode should use the 'Sonnet' Claude model; and for 'check-new-files', 'lite' mode should use the 'gpt4o' model."
+    },
+    {
       "sha": "3588c0d9208f9583dda1a8b37a5cf7bc8b4ce241",
       "author": "Charles Lien",
       "date": "2025-05-12 17:56:25 -0700",
@@ -40,19 +53,6 @@
       },
       "selectionReason": "Adds a security constraint to only allow terminal commands from project root. This is a focused security enhancement that solves a specific problem and could be implemented in different ways.",
       "spec": "Update the `run_terminal_command` tool. Modify its description to state that commands are executed from the project root, and remove the note about persistent working directory changes via `cd`. When the AI assistant invokes this tool, ensure that: 1. The command is logged as being run from the project root. 2. The command is executed within the project root directory. 3. After command completion, the terminal's working directory is restored to the user's working directory that was active before the assistant's command. 4. The tool's output message to the assistant explicitly states that the command was run from the project root and includes its actual success/failure status. For commands run directly by the user: 1. The output status message must accurately reflect completion or failure (e.g., 'Complete' or 'Failed with exit code X'). 2. The displayed final working directory should be labeled 'Final user cwd'. 3. Attempts by the user to `cd` outside the project root must still be prevented, with the terminal resetting to the previous valid directory and an explanatory message displayed."
-    },
-    {
-      "sha": "283252d17e3accd6a080a31d8d21ebd8c18f45db",
-      "author": "Charles Lien",
-      "date": "2025-05-05 12:33:33 -0700",
-      "message": "feat: Align 'normal' cost mode behavior with 'max' mode",
-      "stats": {
-        "filesChanged": 4,
-        "insertions": 37,
-        "deletions": 17
-      },
-      "selectionReason": "Aligns behavior between 'normal' and 'max' cost modes. This is a focused feature change that standardizes system behavior in a meaningful way.",
-      "spec": "Modify the system's behavior across different cost modes. For the 'normal' cost mode, enhance its capabilities to align more closely with the 'max' mode: in file requesting, set the number of files per request to 14 and enable the 'non-obvious' file request mechanism. For LLM fallbacks, ensure 'normal' mode uses the 'Sonnet' Claude model instead of 'Haiku'. In the main agent prompting logic, instruct the agent under 'normal' mode to start responses with the `think_deeply` tool, perform comprehensive checks before ending its turn, and activate the `getThinkingStream` for deeper reasoning. For the 'lite' cost mode, adjust file requesting to retrieve 12 files per request. Finally, update the global model configuration (`getModelForMode` function): for the 'agent' operation, both 'lite' and 'normal' modes should use the 'Sonnet' Claude model; for 'file-requests', 'normal' mode should use the 'Sonnet' Claude model; and for 'check-new-files', 'lite' mode should use the 'gpt4o' model."
     },
     {
       "sha": "71253afc8b78d47162c2f1e06451ee086c7b4e31",
