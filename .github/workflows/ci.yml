@@ -30,6 +30,11 @@ jobs:
         with:
           bun-version: '1.1.26'
 
+      - name: Print System Info
+        run: |
+          bun -e "console.log('Architecture:', process.arch)"
+          bun -e "console.log('Platform:', process.platform)"
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
