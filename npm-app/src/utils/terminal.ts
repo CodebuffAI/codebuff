@@ -50,8 +50,11 @@ type PersistentProcess =
       timerId: NodeJS.Timeout | null
     }
 
-const createPersistantProcess = (dir: string): PersistentProcess => {
-  if (pty && process.env.NODE_ENV !== 'test') {
+const createPersistantProcess = (
+  dir: string,
+  forceChildProcess = false
+): PersistentProcess => {
+  if (pty && process.env.NODE_ENV !== 'test' && !forceChildProcess) {
     const isWindows = os.platform() === 'win32'
     const currShell = detectShell()
     const shell = isWindows
@@ -182,8 +185,8 @@ export const isCommandRunning = () => {
   return commandIsRunning
 }
 
-export const recreateShell = (cwd: string) => {
-  persistentProcess = createPersistantProcess(cwd)
+export const recreateShell = (cwd: string, forceChildProcess = false) => {
+  persistentProcess = createPersistantProcess(cwd, forceChildProcess)
 }
 
 export const resetShell = (cwd: string) => {

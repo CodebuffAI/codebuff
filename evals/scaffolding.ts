@@ -114,10 +114,7 @@ export async function runMainPrompt(
   )
 }
 
-export async function runToolCalls(
-  toolCalls: ClientToolCall[],
-  projectPath: string
-) {
+export async function runToolCalls(toolCalls: ClientToolCall[]) {
   const toolResults: ToolResult[] = []
   for (const toolCall of toolCalls) {
     const toolResult = await handleToolCall(toolCall)
@@ -166,10 +163,7 @@ export async function loopMainPrompt({
     const stop = stopCondition && stopCondition(currentAgentState, toolCalls)
     if (stop) break
 
-    toolResults = [
-      ...newToolResults,
-      ...(await runToolCalls(toolCalls, projectPath)),
-    ]
+    toolResults = [...newToolResults, ...(await runToolCalls(newToolCalls))]
 
     if (toolResults.length === 0) {
       break

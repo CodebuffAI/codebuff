@@ -9,8 +9,14 @@ import {
   loopMainPrompt,
   resetRepoToCommit,
 } from './scaffolding'
-import { createInitialAgentState } from './test-setup'
+import {
+  createInitialAgentState,
+  setupTestEnvironmentVariables,
+} from './test-setup'
 import { generateCompactId } from 'common/util/string'
+import { recreateShell } from 'npm-app/utils/terminal'
+import { setProjectRoot, setWorkingDirectory } from 'npm-app/project-files'
+import path from 'path'
 
 // Types for the Sonnet agent's decision making
 type AgentDecision = 'continue' | 'complete' | 'halt'
@@ -165,7 +171,8 @@ Explain your reasoning in detail.`,
       eval_commit: evalCommit,
       interactions: [],
       final_status: 'halt',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error:
+        error instanceof Error ? error.message + error.stack : 'Unknown error',
     }
   }
 }
@@ -174,6 +181,14 @@ export async function runGitEvals(evalDataPath: string, outputPath: string) {
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8')
   ) as GitRepoEvalData
+
+  const { repoPath } = evalData
+  const projectPath = path.join(__dirname, repoPath)
+  setupTestEnvironmentVariables()
+  createFileReadingMock(projectPath)
+  recreateShell(projectPath, true)
+  setProjectRoot(projectPath)
+  setWorkingDirectory(projectPath)
 
   const clientSessionId = generateCompactId()
   const fingerprintId = generateCompactId()
@@ -214,7 +229,10 @@ if (require.main === module) {
   const outputPath = args[1] || 'eval-trace.json'
 
   runGitEvals(evalDataPath, outputPath)
-    .then(() => console.log('Done!'))
+    .then(() => {
+      console.log('Done!')
+      process.exit(0)
+    })
     .catch((err) => {
       console.error('Error running evals:', err)
       process.exit(1)

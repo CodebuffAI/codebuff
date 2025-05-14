@@ -3,19 +3,6 @@
   "generationDate": "2025-05-14T10:02:53.632Z",
   "evalCommits": [
     {
-      "sha": "2d8a8e0569513aebdf54bcbcb1acc2559d4883c3",
-      "author": "James Grugett",
-      "date": "2025-05-14 00:21:14 +0900",
-      "message": "Remove end_turn + await_tool_results tools. Simply reprompt if there are any tool results pending",
-      "stats": {
-        "filesChanged": 12,
-        "insertions": 26,
-        "deletions": 194
-      },
-      "selectionReason": "Removes end_turn and await_tool_results tools in favor of a simpler reprompting mechanism. This is a focused architectural change that improves the system's design while being self-contained and understandable.",
-      "spec": "Update the agent's turn management and toolset by removing the `end_turn` and `await_tool_results` tools. This includes deleting their definitions, schemas, associated handling logic, and all references in instructional materials (system prompts, persona guides, thinking prompts, examples) and tests. Tests previously expecting these tools should be modified to reflect their absence (e.g., expecting an empty tool call list or no specific end-of-turn tool). Logic for handling maximum consecutive assistant messages or empty LLM responses should no longer force these tool calls. Instructions for verifying changes should focus on reviewing actual tool results or running verification commands, not using `await_tool_results`. Implement an implicit turn completion mechanism: the agent's turn (and the current interaction loop with the backend) is considered complete if the backend's response to the client contains zero tool calls to be executed by the client AND zero server-side tool results. If the backend's response includes tool calls for the client or server-side tool results, the system must automatically continue the interaction loop by having the client process any received tool calls, collect their results, and then send a new prompt request to the backend with the updated agent state and all relevant tool results. Agent instructions should be revised to guide the agent to conclude its textual response when its current actions are finished or user input is needed, without using any specific tool to signal turn completion or to await results."
-    },
-    {
       "sha": "3588c0d9208f9583dda1a8b37a5cf7bc8b4ce241",
       "author": "Charles Lien",
       "date": "2025-05-12 17:56:25 -0700",
@@ -27,6 +14,19 @@
       },
       "selectionReason": "Adds current working directory parameter to terminal commands. This is a clean feature addition that extends functionality in a clear, focused way.",
       "spec": "Add an optional `cwd` parameter to the `run_terminal_command` tool. This parameter allows specifying a working directory, relative to the project root, where the command will be executed. If the `cwd` parameter is not provided, the command must default to executing from the project root. Update the tool's definition, including its description, parameter list, and schema, to incorporate this new `cwd` parameter and clarify its usage, particularly in resolving file paths that might be ambiguous (relative to a user's current working directory versus the project root)."
+    },
+    {
+      "sha": "2d8a8e0569513aebdf54bcbcb1acc2559d4883c3",
+      "author": "James Grugett",
+      "date": "2025-05-14 00:21:14 +0900",
+      "message": "Remove end_turn + await_tool_results tools. Simply reprompt if there are any tool results pending",
+      "stats": {
+        "filesChanged": 12,
+        "insertions": 26,
+        "deletions": 194
+      },
+      "selectionReason": "Removes end_turn and await_tool_results tools in favor of a simpler reprompting mechanism. This is a focused architectural change that improves the system's design while being self-contained and understandable.",
+      "spec": "Update the agent's turn management and toolset by removing the `end_turn` and `await_tool_results` tools. This includes deleting their definitions, schemas, associated handling logic, and all references in instructional materials (system prompts, persona guides, thinking prompts, examples) and tests. Tests previously expecting these tools should be modified to reflect their absence (e.g., expecting an empty tool call list or no specific end-of-turn tool). Logic for handling maximum consecutive assistant messages or empty LLM responses should no longer force these tool calls. Instructions for verifying changes should focus on reviewing actual tool results or running verification commands, not using `await_tool_results`. Implement an implicit turn completion mechanism: the agent's turn (and the current interaction loop with the backend) is considered complete if the backend's response to the client contains zero tool calls to be executed by the client AND zero server-side tool results. If the backend's response includes tool calls for the client or server-side tool results, the system must automatically continue the interaction loop by having the client process any received tool calls, collect their results, and then send a new prompt request to the backend with the updated agent state and all relevant tool results. Agent instructions should be revised to guide the agent to conclude its textual response when its current actions are finished or user input is needed, without using any specific tool to signal turn completion or to await results."
     },
     {
       "sha": "fe926db82a103770870541416ebe0a6dcb81e6ea",
