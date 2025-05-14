@@ -129,17 +129,18 @@ const onPrompt = async (
   await withLoggerContext(
     { fingerprintId, clientRequestId: promptId },
     async () => {
-      if (prompt) logger.info(`USER INPUT: ${prompt}`)
-
       const userId = await getUserIdFromAuthToken(authToken)
       if (!userId) {
         throw new Error('User not found')
       }
 
-      trackEvent(AnalyticsEvent.PROMPT_SENT, userId, {
-        prompt,
-        promptId,
-      })
+      if (prompt) {
+        logger.info(`USER INPUT: ${prompt}`)
+        trackEvent(AnalyticsEvent.USER_INPUT, userId, {
+          prompt,
+          promptId,
+        })
+      }
 
       try {
         const { agentState, toolCalls, toolResults } = await mainPrompt(

@@ -15,7 +15,7 @@ export enum AnalyticsEvent {
   MALFORMED_PROMPT_RESPONSE = 'cli.malformed_prompt_response',
 
   // Backend
-  PROMPT_SENT = 'backend.prompt_sent',
+  USER_INPUT = 'backend.user_input',
   AGENT_STEP = 'backend.agent_step',
   CREDIT_GRANT = 'backend.credit_grant',
   CREDIT_CONSUMED = 'backend.credit_consumed',
