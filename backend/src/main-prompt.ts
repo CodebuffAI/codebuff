@@ -111,6 +111,13 @@ export const mainPrompt = async (
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
   // This is used to link logs within a single agent loop
   const agentStepId = crypto.randomUUID()
+  trackEvent(AnalyticsEvent.AGENT_STEP, userId ?? '', {
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId: promptId,
+    userId,
+  })
 
   const hasKnowledgeFiles =
     Object.keys(fileContext.knowledgeFiles).length > 0 ||
