@@ -1,3 +1,8 @@
+try {
+  require('../tool-renderers')
+} catch (error) {
+  console.log({ error }, 'asdf')
+}
 import { Writable } from 'stream'
 
 // @ts-ignore
