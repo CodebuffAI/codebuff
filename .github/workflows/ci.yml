@@ -62,11 +62,8 @@ jobs:
         package: [npm-app, backend, common]
         include:
           - package: npm-app
-            test_paths: $(find npm-app/src -name '*.test.ts')
           - package: backend
-            test_paths: $(find backend/src -name '*.test.ts')
           - package: common
-            test_paths: $(find common/src -name '*.test.ts')
     name: test-${{ matrix.package }}
     runs-on: ubuntu-latest
     steps:
@@ -102,7 +99,7 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 1
-          command: bun test ${{ matrix.test_path }}
+          command: bun test $(find ${{ matrix.package }}/src -name *.test.ts)
 
       - name: Open interactive debug shell
         if: ${{ failure() }}
