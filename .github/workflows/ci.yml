@@ -28,12 +28,14 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.1.26'
+          bun-version: '1.2.12'
 
       - name: Print System Info
         run: |
           bun -e "console.log('Architecture:', process.arch)"
           bun -e "console.log('Platform:', process.platform)"
+          ls node_modules/tree-sitter/prebuilds
+          ls node_modules/tree-sitter/prebuilds/linux-x64
 
       - name: Cache dependencies
         uses: actions/cache@v3
