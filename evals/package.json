@@ -7,7 +7,8 @@
     "test:manifold": "bun test manifold.test.ts",
     "test:pglite": "bun test pglite-demo.test.ts",
     "test:swe-bench": "bun test swe-bench.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate-git-evals": "bun run git-eval-generator/index.ts"
   },
   "dependencies": {
     "lodash": "^4.17.21"
