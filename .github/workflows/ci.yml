@@ -56,7 +56,7 @@ jobs:
           bun -e "console.log('Architecture:', process.arch)"
           bun -e "console.log('Platform:', process.platform)"
           ls node_modules/tree-sitter/prebuilds
-          ls node_modules/tree-sitter/prebuilds/linux-x64'
+          ls node_modules/tree-sitter/prebuilds/linux-x64
 
           bun run typecheck-only
 
