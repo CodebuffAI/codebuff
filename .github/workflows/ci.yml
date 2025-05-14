@@ -97,9 +97,13 @@ jobs:
           echo "${{ secrets.ENV_LOCAL }}" > .env.local
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
+      - name: Open live SSH session
+        if: ${{ inputs.debug == 'true' || failure() }}
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run ${{ matrix.package }} tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
-          max_attempts: 5
+          max_attempts: 1
           command: bun test ${{ matrix.test_path }}
