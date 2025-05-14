@@ -408,9 +408,17 @@ export const mainPrompt = async (
     ...messageHistory.filter(
       (m) =>
         costMode !== 'experimental' ||
+        !prompt ||
         typeof m.content !== 'string' ||
         !isSystemInstruction(m.content)
     ),
+
+    !prompt && {
+      role: 'user' as const,
+      content: asSystemInstruction(
+        'The following messages (in <system> or <system_instructions> tags) are **only** from the **system** to display tool results. Do not assume any user intent other than what the user has explicitly stated. e.g. if you asked a question about whether to proceed, do NOT interpret this message as responding affirmatively.'
+      ),
+    },
 
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -429,17 +437,10 @@ export const mainPrompt = async (
           role: 'user' as const,
           content: asSystemInstruction(userInstructions),
         }
-      : isGeminiPro
-        ? {
-            role: 'user' as const,
-            content: asSystemInstruction(
-              buildArray([toolsInstructions, toolInstructions]).join('\n\n')
-            ),
-          }
-        : toolInstructions && {
-            role: 'user' as const,
-            content: asSystemInstruction(toolInstructions),
-          },
+      : toolInstructions && {
+          role: 'user' as const,
+          content: asSystemInstruction(toolInstructions),
+        },
 
     relevantDocumentation && {
       role: 'user' as const,

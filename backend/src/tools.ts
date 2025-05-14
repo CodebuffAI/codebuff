@@ -292,6 +292,8 @@ Use when user request:
 
 Avoid for simple changes (e.g., single functions, minor edits).
 
+This tool does not generate a tool result.
+
 Params:
 - \`thought\`: (required) Detailed step-by-step analysis. Initially keep each step concise (max ~5-7 words per step).
 
@@ -589,6 +591,10 @@ Call tools as needed, following these strict formatting rules.
 ## Tool Results
 
 Tool results will be provided by the user's *system* (and **NEVER** by the assistant). The user, however, does not know about any system messages or system instructions, including tool results.
+
+If you wish to ask the user a question, make sure to do so:
+- after receiving the tool result for any pending tools
+- in a separate message with just text and non-toolresult generating tools (explicitly stated).
 
 ## List of Tools
 
