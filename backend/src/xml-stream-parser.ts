@@ -52,7 +52,7 @@ export async function* processStreamWithTags<T extends string>(
     if (state.currentTool !== null) {
       onError(
         toolName,
-        `New tool started while parsing tool ${state.currentTool}. Ending current tool`
+        `WARN: New tool started while parsing tool ${state.currentTool}. Ending current tool. Make sure to close all tool calls!`
       )
       state = endTool(state)
     }
@@ -71,7 +71,7 @@ export async function* processStreamWithTags<T extends string>(
     if (extraAttrs.length) {
       onError(
         toolName,
-        `Ignoring extra parameters found in ${toolName} attributes: ${JSON.stringify(extraAttrs)}`
+        `WARN: Ignoring extra parameters found in ${toolName} attributes: ${JSON.stringify(extraAttrs)}. Make sure to only use parameters defined in the tool!`
       )
     }
     return {
@@ -93,7 +93,7 @@ export async function* processStreamWithTags<T extends string>(
       if (processors[state.currentTool].params.includes(paramName)) {
         onError(
           state.currentTool,
-          `New parameter started while parsing param ${state.currentParam} of ${state.currentTool}. Ending current param`
+          `WARN: New parameter started while parsing param ${state.currentParam} of ${state.currentTool}. Ending current param. Make sure to close all params!`
         )
         return {
           ...endParam(state),
@@ -103,11 +103,14 @@ export async function* processStreamWithTags<T extends string>(
       } else if (paramName in processors) {
         onError(
           state.currentTool,
-          `New tool started while parsing param ${state.currentParam} of ${state.currentTool}. Ending current tool`
+          `WARN: New tool started while parsing param ${state.currentParam} of ${state.currentTool}. Ending current tool. Make sure to close all tool calls params!`
         )
         return startTool(endTool(state), paramName, attributes)
       }
-      onError(paramName, `Ignoring stray XML tag`)
+      onError(
+        paramName,
+        `WARN: Ignoring stray XML tag. Make sure to escape non-tool XML!`
+      )
       onText({ contents: rawTag })
       return state
     }
@@ -115,13 +118,16 @@ export async function* processStreamWithTags<T extends string>(
     if (paramName in processors) {
       onError(
         state.currentTool,
-        `New tool started while parsing tool ${state.currentTool}. Ending current tool`
+        `WARN: New tool started while parsing tool ${state.currentTool}. Ending current tool. Make sure to close all tool calls!`
       )
       return startTool(endTool(state), paramName, attributes)
     }
 
     if (!processors[state.currentTool].params.includes(paramName)) {
-      onError(paramName, `Ignoring stray XML tag`)
+      onError(
+        paramName,
+        `WARN: Ignoring stray XML tag. Make sure to escape non-tool XML!`
+      )
       onText({ contents: rawTag })
       return state
     }
@@ -142,7 +148,7 @@ export async function* processStreamWithTags<T extends string>(
     if (state.currentParam in state.params) {
       onError(
         state.currentTool,
-        `Found duplicate parameter value for ${state.currentParam} of ${state.currentTool}. Overwriting with newer value`
+        `WARN: Found duplicate parameter value for ${state.currentParam} of ${state.currentTool}. Overwriting with newer value. Make sure to only have one value for each parameter!`
       )
     }
     state.params[state.currentParam] = state.paramContent
@@ -157,7 +163,7 @@ export async function* processStreamWithTags<T extends string>(
     if (state.currentParam !== null) {
       onError(
         state.currentTool,
-        `Found end of tool while parsing parameter ${state.currentParam}. Auto-closing parameter`
+        `WARN: Found end of tool while parsing parameter ${state.currentParam}. Auto-closing parameter. Make sure to close all parameters!`
       )
       state = endParam(state)
     }
@@ -184,7 +190,10 @@ export async function* processStreamWithTags<T extends string>(
         return
       }
 
-      onError(tagName, 'Ignoring non-tool XML tag')
+      onError(
+        tagName,
+        'WARN: Ignoring non-tool XML tag. Make sure to escape non-tool XML!'
+      )
       onText({ contents: node.rawTag })
       return
     }
@@ -205,7 +214,7 @@ export async function* processStreamWithTags<T extends string>(
       }
       onError(
         state.currentTool,
-        `Ignoring text in ${state.currentTool} between parameters`
+        `WARN: Ignoring text in ${state.currentTool} between parameters. Make sure to only put text within parameters!`
       )
       state.reportedStrayText = true
       return
@@ -227,7 +236,10 @@ export async function* processStreamWithTags<T extends string>(
       return
     }
 
-    onError(tagName, 'Ignoring stray closing tag')
+    onError(
+      tagName,
+      'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!'
+    )
     onText({ contents: node.rawTag })
   }
 
@@ -260,11 +272,19 @@ export async function* processStreamWithTags<T extends string>(
 
     if (state.currentParam !== null) {
       const closeParam = `</${state.currentParam}>\n`
+      onError(
+        state.currentParam,
+        'WARN: Found end of stream while parsing parameter. Make sure to close all parameters!'
+      )
       parser.write(closeParam)
       yield closeParam
     }
     if (state.currentTool !== null) {
       const closeTool = `</${state.currentTool}>\n`
+      onError(
+        state.currentTool,
+        'WARN: Found end of stream while parsing tool. Make sure to close all tools!'
+      )
       parser.write(closeTool)
       yield closeTool
     }

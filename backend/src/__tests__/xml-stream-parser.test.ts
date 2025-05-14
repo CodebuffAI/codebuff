@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { toolSchema } from 'common/constants/tools'
 import { processStreamWithTags } from '../xml-stream-parser'
 
 describe('processStreamWithTags', () => {
@@ -329,7 +330,8 @@ describe('processStreamWithTags', () => {
         type: 'start',
       },
       {
-        error: 'New tool started while parsing tool test. Ending current tool',
+        error:
+          'WARN: New tool started while parsing tool test. Ending current tool. Make sure to close all tool calls!',
         name: 'test',
       },
       {
@@ -352,7 +354,8 @@ describe('processStreamWithTags', () => {
         type: 'end',
       },
       {
-        error: 'Ignoring stray closing tag',
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'test',
       },
     ])
@@ -393,6 +396,16 @@ describe('processStreamWithTags', () => {
 
     expect(events).toEqual([
       { tagName: 'test', type: 'start', attributes: {} },
+      {
+        error:
+          'WARN: Found end of stream while parsing parameter. Make sure to close all parameters!',
+        name: 'param',
+      },
+      {
+        error:
+          'WARN: Found end of stream while parsing tool. Make sure to close all tools!',
+        name: 'test',
+      },
       { tagName: 'test', type: 'end', params: { param: 'content' } },
     ])
     expect(result).toEqual([...streamChunks, '</param>\n', '</test>\n'])
@@ -452,7 +465,8 @@ describe('processStreamWithTags', () => {
         type: 'start',
       },
       {
-        error: 'Ignoring extra parameters found in test attributes: ["id"]',
+        error:
+          'WARN: Ignoring extra parameters found in test attributes: ["id"]. Make sure to only use parameters defined in the tool!',
         name: 'test',
       },
       {
@@ -604,7 +618,7 @@ describe('processStreamWithTags', () => {
       },
       {
         error:
-          'Ignoring extra parameters found in test attributes: ["name","id"]',
+          'WARN: Ignoring extra parameters found in test attributes: ["name","id"]. Make sure to only use parameters defined in the tool!',
         name: 'test',
       },
       {
@@ -691,11 +705,13 @@ describe('processStreamWithTags', () => {
 
     expect(events).toEqual([
       {
-        error: 'Ignoring non-tool XML tag',
+        error:
+          'WARN: Ignoring non-tool XML tag. Make sure to escape non-tool XML!',
         name: 'unknown',
       },
       {
-        error: 'Ignoring stray closing tag',
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'unknown',
       },
     ])
@@ -979,17 +995,21 @@ describe('processStreamWithTags', () => {
         type: 'start',
       },
       {
-        error: 'Ignoring stray XML tag',
+        error:
+          'WARN: Ignoring stray XML tag. Make sure to escape non-tool XML!',
         name: 'invalid',
       },
       {
-        error: 'Ignoring text in test between parameters',
+        error:
+          'WARN: Ignoring text in test between parameters. Make sure to only put text within parameters!',
         name: 'test',
       },
       {
-        error: 'Ignoring stray closing tag',
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'invalid',
       },
+
       {
         params: {
           param1: 'value1',
@@ -1247,11 +1267,13 @@ describe('processStreamWithTags', () => {
         type: 'start',
       },
       {
-        error: 'Ignoring stray closing tag',
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'content',
       },
       {
-        error: 'Ignoring stray closing tag',
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'content',
       },
 
@@ -1266,5 +1288,73 @@ describe('processStreamWithTags', () => {
       },
     ])
     expect(result).toEqual(streamChunks)
+  })
+
+  it('should handle real world example', async () => {
+    const streamChunks = [
+      'I notice there\'s still an issue with the test dependencies. Let me fix that by removing the unused openai-go import and run the tests again:\n\n<write_file>\n<path>acp/internal/server/server_test.go</path>\n<content>package server\n\nimport (\n\t"bytes"\n\t"context"\n\t"encoding/json"\n\t"net/http"\n\t"net/http/httptest"\n\t"testing"\n\t"time"\n\n\t"github.com/gin-gonic/gin"\n\t"github.com/stretchr/testify/assert"\n\t"github.com/stretchr/testify/require"\n\tacp "github.com/humanlayer/agentcontrolplane/acp/api/v1alpha1"\n\tmetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"\n\t"k8s.io/apimachinery/pkg/runtime"\n\t"sigs.k8s.io/controller-runtime/pkg/client"\n\t"sigs.k8s.io/controller-runtime/pkg/client/fake"\n)\n\nfunc TestCreateAgentWithServers(t *testing.T) {\n\t// Create a fake client with the scheme\n\tscheme := runtime.NewScheme()\n\tacp.AddToScheme(scheme)\n\tfakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()\n\n\t// Create API server\n\tserver := NewAPIServer(fakeClient, ":8082")\n\n\t// Create test request\n\treqBody := CreateAgentWithServersRequest{\n\t\tAgent: acp.AgentSpec{\n\t\t\tSystem: "You are a helpful assistant",\n\t\t\tLLMRef: acp.LocalObjectReference{Name: "test-llm"},\n\t\t},\n\t\tServers: []MCPServerSpec{\n\t\t\t{\n\t\t\t\tName:      "test-server",\n\t\t\t\tTransport: "stdio",\n\t\t\t\tCommand:   "test-command",\n\t\t\t\tArgs:     []string{"arg1", "arg2"},\n\t\t\t},\n\t\t},\n\t}\n\n\tbody, err := json.Marshal(reqBody)\n\trequire.NoError(t, err)\n\n\tw := httptest.NewRecorder()\n\tc, _ := gin.CreateTestContext(w)\n\tc.Request = httptest.NewRequest("POST", "/v1/agent-with-servers", bytes.NewReader(body))\n\tc.Request.Header.Set("Content-Type", "application/json")\n\n\t// Call the handler\n\tserver.createAgentWithServers(c)\n\n\t// Check response\n\tassert.Equal(t, http.StatusCreated, w.Code)\n\n\tvar response map[string]interface{}\n\terr = json.Unmarshal(w.Body.Bytes(), &response)\n\trequire.NoError(t, err)\n\n\t// Verify agent name is returned\n\tassert.Contains(t, response, "agentName")\n\tassert.Contains(t, response, "message")\n\tassert.Equal(t, "Agent and MCP servers created successfully", response["message"])\n\n\t// Verify resources were created\n\tvar mcpServer acp.MCPServer\n\terr = fakeClient.Get(context.Background(), client.ObjectKey{\n\t\tName:      "test-server",\n\t\tNamespace: "default",\n\t}, &mcpServer)\n\tassert.NoError(t, err)\n\tassert.Equal(t, "stdio", mcpServer.Spec.Transport)\n\tassert.Equal(t, "test-command", mcpServer.Spec.Command)\n\n\tvar agent acp.Agent\n\terr = fakeClient.Get(context.Background(), client.ObjectKey{\n\t\tName:      response["agentName"].(string),\n\t\tNamespace: "default",\n\t}, &agent)\n\tassert.NoError(t, err)\n\tassert.Equal(t, "You are a helpful assistant", agent.Spec.System)\n\tassert.Len(t, agent.Spec.MCPServers, 1)\n\tassert.Equal(t, "test-server", agent.Spec.MCPServers[0].Name)\n}\n\nfunc TestStreamAgentStatus(t *testing.T) {\n\t// Create a fake client with the scheme\n\tscheme := runtime.NewScheme()\n\tacp.AddToScheme(scheme)\n\t\n\t// Create test agent and server\n\tagent := &acp.Agent{\n\t\tObjectMeta: metav1.ObjectMeta{\n\t\t\tName:      "test-agent",\n\t\t\tNamespace: "default",\n\t\t},\n\t\tSpec: acp.AgentSpec{\n\t\t\tSystem: "Test system",\n\t\t\tMCPServers: []acp.LocalObjectReference{\n\t\t\t\t{Name: "test-server"},\n\t\t\t},\n\t\t},\n\t\tStatus: acp.AgentStatus{\n\t\t\tReady: true,\n\t\t\tStatus: acp.AgentStatusReady,\n\t\t},\n\t}\n\n\tmcpServer := &acp.MCPServer{\n\t\tObjectMeta: metav1.ObjectMeta{\n\t\t\tName:      "test-server",\n\t\t\tNamespace: "default",\n\t\t},\n\t\tStatus: acp.MCPServerStatus{\n\t\t\tConnected: true,\n\t\t\tStatus:    "Ready",\n\t\t\tTools: []acp.MCPTool{\n\t\t\t\t{Name: "test-tool"},\n\t\t\t},\n\t\t},\n\t}\n\n\tfakeClient := fake.NewClientBuilder().\n\t\tWithScheme(scheme).\n\t\tWithObjects(agent, mcpServer).\n\t\tBuild()\n\n\t// Create API server\n\tserver := NewAPIServer(fakeClient, ":8082")\n\n\t// Create test context\n\tw := httptest.NewRecorder()\n\tc, _ := gin.CreateTestContext(w)\n\tc.Request = httptest.NewRequest("GET", "/v1/agent-with-servers/test-agent/status", nil)\n\tc.Params = []gin.Param{{Key: "name", Value: "test-agent"}}\n\n\t// Create a context with timeout\n\tctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)\n\tdefer cancel()\n\tc.Request = c.Request.WithContext(ctx)\n\n\t// Call the handler\n\tserver.streamAgentStatus(c)\n\n\t// Check response headers\n\tassert.Equal(t, "text/event-stream", w.Header().Get("Content-Type"))\n\tassert.Equal(t, "no-cache", w.Header().Get("Cache-Control"))\n\tassert.Equal(t, "keep-alive", w.Header().Get("Connection"))\n\n\t// Check response body contains SSE format\n\tbody := w.Body.String()\n\tassert.Contains(t, body, "event: status\\n")\n\tassert.Contains(t, body, "data: {")\n\t\n\t// Parse the response data\n\tlines := bytes.Split(w.Body.Bytes(), []byte("\\n"))\n\tvar dataLine string\n\tfor _, line := range lines {\n\t\tif bytes.HasPrefix(line, []byte("data: ")) {\n\t\t\tdataLine = string(bytes.TrimPrefix(line, []byte("data: ")))\n\t\t\tbreak\n\t\t}\n\t}\n\n\tvar response AgentWithServersStatusResponse\n\terr := json.Unmarshal([]byte(dataLine), &response)\n\trequire.NoError(t, err)\n\n\t// Verify response content\n\tassert.Equal(t, "test-agent", response.AgentName)\n\tassert.True(t, response.AgentStatus.Ready)\n\tassert.Equal(t, acp.AgentStatusReady, response.AgentStatus.Status)\n\tassert.Len(t, response.ServerStatuses, 1)\n\tassert.Equal(t, "test-server", response.ServerStatuses[0].Name)\n\tassert.True(t, response.ServerStatuses[0].Connected)\n\tassert.Equal(t, "Ready", response.ServerStatuses[0].Status)\n\tassert.Len(t, response.ServerStatuses[0].Tools, 1)\n\tassert.Equal(t, "test-tool", response.ServerStatuses[0].Tools[0].Name)\n}\n\nfunc TestValidateMCPServerSpec(t *testing.T) {\n\tserver := ',
+      '&APIServer',
+      '{}\n\n\ttests := []struct {\n\t\tname    string\n\t\tspec    MCPServerSpec\n\t\twantErr bool\n\t\terrMsg  string\n\t}{\n\t\t{\n\t\t\tname: "valid stdio server",\n\t\t\tspec: MCPServerSpec{\n\t\t\t\tName:      "test-server",\n\t\t\t\tTransport: "stdio",\n\t\t\t\tCommand:   "test-command",\n\t\t\t},\n\t\t\twantErr: false,\n\t\t},\n\t\t{\n\t\t\tname: "valid http server",\n\t\t\tspec: MCPServerSpec{\n\t\t\t\tName:      "test-server",\n\t\t\t\tTransport: "http",\n\t\t\t\tURL:      "http://localhost:8080",\n\t\t\t},\n\t\t\twantErr: false,\n\t\t},\n\t\t{\n\t\t\tname: "missing name",\n\t\t\tspec: MCPServerSpec{\n\t\t\t\tTransport: "stdio",\n\t\t\t\tCommand:   "test-command",\n\t\t\t},\n\t\t\twantErr: true,\n\t\t\terrMsg:  "server name is required",\n\t\t},\n\t\t{\n\t\t\tname: "invalid transport",\n\t\t\tspec: MCPServerSpec{\n\t\t\t\tName:      "test-server",\n\t\t\t\tTransport: "invalid",\n\t\t\t},\n\t\t\twantErr: true,\n\t\t\terrMsg:  "invalid transport type",\n\t\t},\n\t\t{\n\t\t\tname: "stdio missing command",\n\t\t\tspec: MCPServerSpec{\n\t\t\t\tName:      "test-server",\n\t\t\t\tTransport: "stdio",\n\t\t\t},\n\t\t\twantErr: true,\n\t\t\terrMsg:  "command is required for stdio transport",\n\t\t},\n\t\t{\n\t\t\tname: "http missing url",\n\t\t\tspec: MCPServerSpec{\n\t\t\t\tName:      "test-server",\n\t\t\t\tTransport: "http",\n\t\t\t},\n\t\t\twantErr: true,\n\t\t\terrMsg:  "URL is required for http transport",\n\t\t},\n\t}\n\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\terr := server.validateMCPServerSpec(tt.spec)\n\t\t\tif tt.wantErr {\n\t\t\t\tassert.Error(t, err)\n\t\t\t\tassert.Contains(t, err.Error(), tt.errMsg)\n\t\t\t} else {\n\t\t\t\tassert.NoError(t, err)\n\t\t\t}\n\t\t})\n\t}\n}\n</content>\n</write_file>\n\n<run_terminal_command>\n<command>cd acp && go test -v ./internal/server</command>\n',
+    ]
+    const stream = createMockStream(streamChunks)
+    const events: any[] = []
+    const processors = Object.fromEntries(
+      Object.entries(toolSchema).map(([tool, params]) => [
+        tool,
+        {
+          params,
+          onTagStart: (tagName: string, attributes: Record<string, string>) =>
+            events.push({ tagName, type: 'start', attributes }),
+          onTagEnd: (tagName: string, params: Record<string, string>) =>
+            events.push({ tagName, type: 'end', params }),
+        },
+      ])
+    )
+    function onError(name: string, error: string) {
+      events.push({ name, error })
+    }
+    const result = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+    expect(events).toEqual([
+      {
+        attributes: {},
+        tagName: 'write_file',
+        type: 'start',
+      },
+      {
+        params: {
+          content:
+            'package server\n\nimport (\n\t"bytes"\n\t"context"\n\t"encoding/json"\n\t"net/http"\n\t"net/http/httptest"\n\t"testing"\n\t"time"\n\n\t"github.com/gin-gonic/gin"\n\t"github.com/stretchr/testify/assert"\n\t"github.com/stretchr/testify/require"\n\tacp "github.com/humanlayer/agentcontrolplane/acp/api/v1alpha1"\n\tmetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"\n\t"k8s.io/apimachinery/pkg/runtime"\n\t"sigs.k8s.io/controller-runtime/pkg/client"\n\t"sigs.k8s.io/controller-runtime/pkg/client/fake"\n)\n\nfunc TestCreateAgentWithServers(t *testing.T) {\n\t// Create a fake client with the scheme\n\tscheme := runtime.NewScheme()\n\tacp.AddToScheme(scheme)\n\tfakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()\n\n\t// Create API server\n\tserver := NewAPIServer(fakeClient, ":8082")\n\n\t// Create test request\n\treqBody := CreateAgentWithServersRequest{\n\t\tAgent: acp.AgentSpec{\n\t\t\tSystem: "You are a helpful assistant",\n\t\t\tLLMRef: acp.LocalObjectReference{Name: "test-llm"},\n\t\t},\n\t\tServers: []MCPServerSpec{\n\t\t\t{\n\t\t\t\tName:      "test-server",\n\t\t\t\tTransport: "stdio",\n\t\t\t\tCommand:   "test-command",\n\t\t\t\tArgs:     []string{"arg1", "arg2"},\n\t\t\t},\n\t\t},\n\t}\n\n\tbody, err := json.Marshal(reqBody)\n\trequire.NoError(t, err)\n\n\tw := httptest.NewRecorder()\n\tc, _ := gin.CreateTestContext(w)\n\tc.Request = httptest.NewRequest("POST", "/v1/agent-with-servers", bytes.NewReader(body))\n\tc.Request.Header.Set("Content-Type", "application/json")\n\n\t// Call the handler\n\tserver.createAgentWithServers(c)\n\n\t// Check response\n\tassert.Equal(t, http.StatusCreated, w.Code)\n\n\tvar response map[string]interface{}\n\terr = json.Unmarshal(w.Body.Bytes(), &response)\n\trequire.NoError(t, err)\n\n\t// Verify agent name is returned\n\tassert.Contains(t, response, "agentName")\n\tassert.Contains(t, response, "message")\n\tassert.Equal(t, "Agent and MCP servers created successfully", response["message"])\n\n\t// Verify resources were created\n\tvar mcpServer acp.MCPServer\n\terr = fakeClient.Get(context.Background(), client.ObjectKey{\n\t\tName:      "test-server",\n\t\tNamespace: "default",\n\t}, &mcpServer)\n\tassert.NoError(t, err)\n\tassert.Equal(t, "stdio", mcpServer.Spec.Transport)\n\tassert.Equal(t, "test-command", mcpServer.Spec.Command)\n\n\tvar agent acp.Agent\n\terr = fakeClient.Get(context.Background(), client.ObjectKey{\n\t\tName:      response["agentName"].(string),\n\t\tNamespace: "default",\n\t}, &agent)\n\tassert.NoError(t, err)\n\tassert.Equal(t, "You are a helpful assistant", agent.Spec.System)\n\tassert.Len(t, agent.Spec.MCPServers, 1)\n\tassert.Equal(t, "test-server", agent.Spec.MCPServers[0].Name)\n}\n\nfunc TestStreamAgentStatus(t *testing.T) {\n\t// Create a fake client with the scheme\n\tscheme := runtime.NewScheme()\n\tacp.AddToScheme(scheme)\n\t\n\t// Create test agent and server\n\tagent := &acp.Agent{\n\t\tObjectMeta: metav1.ObjectMeta{\n\t\t\tName:      "test-agent",\n\t\t\tNamespace: "default",\n\t\t},\n\t\tSpec: acp.AgentSpec{\n\t\t\tSystem: "Test system",\n\t\t\tMCPServers: []acp.LocalObjectReference{\n\t\t\t\t{Name: "test-server"},\n\t\t\t},\n\t\t},\n\t\tStatus: acp.AgentStatus{\n\t\t\tReady: true,\n\t\t\tStatus: acp.AgentStatusReady,\n\t\t},\n\t}\n\n\tmcpServer := &acp.MCPServer{\n\t\tObjectMeta: metav1.ObjectMeta{\n\t\t\tName:      "test-server",\n\t\t\tNamespace: "default",\n\t\t},\n\t\tStatus: acp.MCPServerStatus{\n\t\t\tConnected: true,\n\t\t\tStatus:    "Ready",\n\t\t\tTools: []acp.MCPTool{\n\t\t\t\t{Name: "test-tool"},\n\t\t\t},\n\t\t},\n\t}\n\n\tfakeClient := fake.NewClientBuilder().\n\t\tWithScheme(scheme).\n\t\tWithObjects(agent, mcpServer).\n\t\tBuild()\n\n\t// Create API server\n\tserver := NewAPIServer(fakeClient, ":8082")\n\n\t// Create test context\n\tw := httptest.NewRecorder()\n\tc, _ := gin.CreateTestContext(w)\n\tc.Request = httptest.NewRequest("GET", "/v1/agent-with-servers/test-agent/status", nil)\n\tc.Params = []gin.Param{{Key: "name", Value: "test-agent"}}\n\n\t// Create a context with timeout\n\tctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)\n\tdefer cancel()\n\tc.Request = c.Request.WithContext(ctx)\n\n\t// Call the handler\n\tserver.streamAgentStatus(c)\n\n\t// Check response headers\n\tassert.Equal(t, "text/event-stream", w.Header().Get("Content-Type"))\n\tassert.Equal(t, "no-cache", w.Header().Get("Cache-Control"))\n\tassert.Equal(t, "keep-alive", w.Header().Get("Connection"))\n\n\t// Check response body contains SSE format\n\tbody := w.Body.String()\n\tassert.Contains(t, body, "event: status\\n")\n\tassert.Contains(t, body, "data: {")\n\t\n\t// Parse the response data\n\tlines := bytes.Split(w.Body.Bytes(), []byte("\\n"))\n\tvar dataLine string\n\tfor _, line := range lines {\n\t\tif bytes.HasPrefix(line, []byte("data: ")) {\n\t\t\tdataLine = string(bytes.TrimPrefix(line, []byte("data: ")))\n\t\t\tbreak\n\t\t}\n\t}\n\n\tvar response AgentWithServersStatusResponse\n\terr := json.Unmarshal([]byte(dataLine), &response)\n\trequire.NoError(t, err)\n\n\t// Verify response content\n\tassert.Equal(t, "test-agent", response.AgentName)\n\tassert.True(t, response.AgentStatus.Ready)\n\tassert.Equal(t, acp.AgentStatusReady, response.AgentStatus.Status)\n\tassert.Len(t, response.ServerStatuses, 1)\n\tassert.Equal(t, "test-server", response.ServerStatuses[0].Name)\n\tassert.True(t, response.ServerStatuses[0].Connected)\n\tassert.Equal(t, "Ready", response.ServerStatuses[0].Status)\n\tassert.Len(t, response.ServerStatuses[0].Tools, 1)\n\tassert.Equal(t, "test-tool", response.ServerStatuses[0].Tools[0].Name)\n}\n\nfunc TestValidateMCPServerSpec(t *testing.T) {\n\tserver := ',
+          path: 'acp/internal/server/server_test.go',
+        },
+        tagName: 'write_file',
+        type: 'end',
+      },
+      {
+        attributes: {},
+        tagName: 'run_terminal_command',
+        type: 'start',
+      },
+      {
+        error:
+          'WARN: Found end of stream while parsing tool. Make sure to close all tools!',
+        name: 'run_terminal_command',
+      },
+
+      {
+        params: {
+          command: 'cd acp && go test -v ./internal/server',
+        },
+        tagName: 'run_terminal_command',
+        type: 'end',
+      },
+    ])
+    expect(result).toEqual([...streamChunks, '</run_terminal_command>\n'])
   })
 })
