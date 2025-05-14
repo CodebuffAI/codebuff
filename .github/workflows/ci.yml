@@ -97,28 +97,13 @@ jobs:
           echo "${{ secrets.ENV_LOCAL }}" > .env.local
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
-          echo '/home/runner/work/codebuff'
-          ls /home/runner/work/codebuff
-          echo '/home/runner/work/codebuff/codebuff'
-          ls /home/runner/work/codebuff/codebuff
-          echo '/home/runner/work/codebuff/codebuff/node_modules'
-          ls /home/runner/work/codebuff/codebuff/node_modules
-          echo '/home/runner/work/codebuff/codebuff/node_modules/tree-sitter'
-          ls /home/runner/work/codebuff/codebuff/node_modules/tree-sitter
-          echo '/home/runner/work/codebuff/codebuff/node_modules/tree-sitter/prebuilds'
-          ls /home/runner/work/codebuff/codebuff/node_modules/tree-sitter/prebuilds
-          echo '/home/runner/work/codebuff/codebuff/node_modules/tree-sitter/prebuilds/linux-x64'
-          ls /home/runner/work/codebuff/codebuff/node_modules/tree-sitter/prebuilds/linux-x64
-
-      - name: Open interactive debug shell
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 30 # optional guard
-        with:
-          limit-access-to-actor: true
-
       - name: Run ${{ matrix.package }} tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 1
           command: bun test ${{ matrix.test_path }}
+
+      - name: Open interactive debug shell
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15 # optional guard
