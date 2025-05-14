@@ -128,13 +128,16 @@ export const mainPrompt = async (
     (t) => t.name === 'run_terminal_command'
   )
   const geminiThinkingEnabled = costMode === 'max'
+  const isLiteMode = costMode === 'lite'
   const isGeminiPro = model === models.gemini2_5_pro_preview
   const isGPT4_1 = model === models.gpt4_1
   const isFlash =
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
-    'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool).',
+    isLiteMode
+      ? 'Please proceed toward the user request and any subgoals. Please complete the entire user request.'
+      : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool).',
 
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
@@ -167,8 +170,6 @@ export const mainPrompt = async (
 
     isFlash &&
       "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
-    isFlash &&
-      'If you have thought of a whole plan, please execute the ENTIRE plan before ending your response.',
 
     (isFlash || isGeminiPro) &&
       'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
@@ -191,9 +192,10 @@ export const mainPrompt = async (
 
     'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
-    `Before finishing your response, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
-
-    "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
+    !isLiteMode &&
+      `Before finishing your response, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
+    !isLiteMode &&
+      "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
     isGPT4_1 &&
       `**Do NOT end your response or 'end turn' if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`
   ).join('\n\n')
