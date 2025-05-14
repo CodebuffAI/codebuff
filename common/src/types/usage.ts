@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { GrantType } from '../db/schema'
+import { GrantTypeValues } from './grant'
 
 export const usageDataSchema = z.object({
   usageThisCycle: z.number(),
@@ -7,7 +7,7 @@ export const usageDataSchema = z.object({
     totalRemaining: z.number(),
     totalDebt: z.number(),
     netBalance: z.number(),
-    breakdown: z.record(z.string(), z.number()).optional(),
+    breakdown: z.record(z.enum(GrantTypeValues), z.number()),
   }),
   nextQuotaReset: z.coerce.date().nullable(),
 })
