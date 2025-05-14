@@ -214,7 +214,9 @@ export const mainPrompt = async (
     prompt && [
       cwd && {
         role: 'user' as const,
-        content: asSystemMessage(`cwd: ${cwd}`),
+        content: asSystemMessage(
+          `**user** cwd: ${cwd} (assistant cwd is project root)`
+        ),
       },
       {
         role: 'user' as const,
