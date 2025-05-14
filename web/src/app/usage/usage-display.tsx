@@ -222,8 +222,8 @@ export const UsageDisplay = ({
 
   Object.entries(GRANT_PRIORITIES).forEach(([type]) => {
     const typeKey = type as GrantType
-    const currentBalance = breakdown[typeKey] || 0
-    const principal = principals?.[typeKey] || currentBalance
+    const currentBalance = breakdown[typeKey]
+    const principal = principals[typeKey] || currentBalance
     usedCredits[typeKey] = Math.max(0, principal - currentBalance)
   })
 
