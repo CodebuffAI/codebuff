@@ -7,7 +7,7 @@ export const usageDataSchema = z.object({
     totalRemaining: z.number(),
     totalDebt: z.number(),
     netBalance: z.number(),
-    breakdown: z.record(z.nativeEnum(GrantTypeValues), z.number()),
+    breakdown: z.record(z.enum(GrantTypeValues), z.number()),
   }),
   nextQuotaReset: z.coerce.date().nullable(),
 })
