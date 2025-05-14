@@ -188,8 +188,14 @@ export async function calculateUsageAndBalance(
   const grants = await getOrderedActiveGrants(userId, now, conn)
 
   // Initialize breakdown and principals with all grant types set to 0
-  const initialBreakdown: Record<GrantType, number> = {} as Record<GrantType, number>
-  const initialPrincipals: Record<GrantType, number> = {} as Record<GrantType, number>
+  const initialBreakdown: Record<GrantType, number> = {} as Record<
+    GrantType,
+    number
+  >
+  const initialPrincipals: Record<GrantType, number> = {} as Record<
+    GrantType,
+    number
+  >
 
   for (const type of GrantTypeValues) {
     initialBreakdown[type] = 0
@@ -225,10 +231,10 @@ export async function calculateUsageAndBalance(
 
     // Add to balance if grant is currently active
     if (!grant.expires_at || grant.expires_at > now) {
+      balance.principals[grantType] += grant.principal
       if (grant.balance > 0) {
         totalPositiveBalance += grant.balance
         balance.breakdown[grantType] += grant.balance
-        balance.principals[grantType] += grant.principal
       } else if (grant.balance < 0) {
         totalDebt += Math.abs(grant.balance)
       }
