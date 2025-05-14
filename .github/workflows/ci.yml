@@ -62,11 +62,11 @@ jobs:
         package: [npm-app, backend, common]
         include:
           - package: npm-app
-            test_path: ./npm-app/src/utils/__tests__/**.test.ts
+            test_paths: $(find npm-app/src -name '*.test.ts')
           - package: backend
-            test_path: ./backend/src/**/*.test.ts
+            test_paths: $(find backend/src -name '*.test.ts')
           - package: common
-            test_path: ./common/src/**/*.test.ts
+            test_paths: $(find common/src -name '*.test.ts')
     name: test-${{ matrix.package }}
     runs-on: ubuntu-latest
     steps:
