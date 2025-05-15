@@ -83,7 +83,8 @@ export async function getProjectFileContext(
 export async function runMainPrompt(
   agentState: AgentState,
   prompt: string | undefined,
-  toolResults: ToolResult[]
+  toolResults: ToolResult[],
+  sessionId: string
 ) {
   const mockWs = new EventEmitter() as WebSocket
   mockWs.send = mock()
@@ -95,7 +96,7 @@ export async function runMainPrompt(
     promptId: generateCompactId(),
     prompt,
     fingerprintId: 'test-fingerprint-id',
-    costMode: 'experimental' as const,
+    costMode: 'normal' as const,
     agentState,
     toolResults,
   }
@@ -104,7 +105,7 @@ export async function runMainPrompt(
     mockWs,
     promptAction,
     TEST_USER_ID,
-    'test-session-id',
+    sessionId,
     (chunk: string) => {
       if (DEBUG_MODE) {
         process.stdout.write(chunk)
@@ -145,6 +146,7 @@ export async function loopMainPrompt({
   console.log(blue(prompt))
 
   const startTime = Date.now()
+  const sessionId = 'test-session-id-' + generateCompactId()
   let currentAgentState = agentState
   let toolResults: ToolResult[] = []
   let toolCalls: ClientToolCall[] = []
@@ -158,7 +160,8 @@ export async function loopMainPrompt({
     } = await runMainPrompt(
       currentAgentState,
       iterations === 1 ? prompt : undefined,
-      toolResults
+      toolResults,
+      sessionId
     )
     currentAgentState = newAgentState
     toolCalls = newToolCalls
@@ -171,9 +174,7 @@ export async function loopMainPrompt({
       ...(await runToolCalls(toolCalls, projectPath)),
     ]
 
-    const containsEndTurn = toolCalls.some(
-      (call) => call.name === 'end_turn'
-    )
+    const containsEndTurn = toolCalls.some((call) => call.name === 'end_turn')
 
     if (containsEndTurn || toolResults.length === 0) {
       break
