@@ -136,8 +136,8 @@ export const mainPrompt = async (
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
     isLiteMode
-      ? 'Please proceed toward the user request and any subgoals. Please complete the entire user request.'
-      : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool).',
+      ? 'Please proceed toward the user request and any subgoals. Please complete the entire user request. You must finally use the end_turn tool at the end of your response.'
+      : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool). You must finally use the end_turn tool at the end of your response.',
 
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
@@ -196,7 +196,9 @@ export const mainPrompt = async (
     !isLiteMode &&
       "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
     isGPT4_1 &&
-      `**Do NOT end your response if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`
+      `**Do NOT end your response if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`,
+
+    'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.'
   ).join('\n\n')
 
   const toolInstructions = buildArray(
