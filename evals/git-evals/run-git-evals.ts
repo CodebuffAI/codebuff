@@ -168,13 +168,16 @@ Explain your reasoning in detail.`,
   }
 }
 
-export async function runGitEvals(evalDataPath: string, outputPath: string): Promise<FullEvalLog> {
+export async function runGitEvals(
+  evalDataPath: string,
+  outputPath: string
+): Promise<FullEvalLog> {
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8')
   ) as GitRepoEvalData
 
-  const { repoPath } = evalData
-  const projectPath = path.join(__dirname, repoPath)
+  const { testRepoName } = evalData
+  const projectPath = path.join(__dirname, '../test-repos', testRepoName)
   setupTestEnvironmentVariables()
   createFileReadingMock(projectPath)
   recreateShell(projectPath, true)
@@ -189,7 +192,7 @@ export async function runGitEvals(evalDataPath: string, outputPath: string): Pro
     console.log(`Running eval for commit ${evalCommit.sha}...`)
     const evalRun = await runSingleEval(
       evalCommit,
-      evalData.repoPath,
+      projectPath,
       clientSessionId,
       fingerprintId
     )
@@ -200,14 +203,12 @@ export async function runGitEvals(evalDataPath: string, outputPath: string): Pro
   const overallMetrics = {
     average_completion:
       evalRuns.reduce(
-        (sum, run) =>
-          sum + (run.judging_results?.metrics.completionScore || 0),
+        (sum, run) => sum + (run.judging_results?.metrics.completionScore || 0),
         0
       ) / evalRuns.length,
     average_efficiency:
       evalRuns.reduce(
-        (sum, run) =>
-          sum + (run.judging_results?.metrics.efficiencyScore || 0),
+        (sum, run) => sum + (run.judging_results?.metrics.efficiencyScore || 0),
         0
       ) / evalRuns.length,
     average_code_quality:
@@ -218,8 +219,7 @@ export async function runGitEvals(evalDataPath: string, outputPath: string): Pro
       ) / evalRuns.length,
     average_overall:
       evalRuns.reduce(
-        (sum, run) =>
-          sum + (run.judging_results?.metrics.overallScore || 0),
+        (sum, run) => sum + (run.judging_results?.metrics.overallScore || 0),
         0
       ) / evalRuns.length,
     total_runs: evalRuns.length,
@@ -228,7 +228,7 @@ export async function runGitEvals(evalDataPath: string, outputPath: string): Pro
   }
 
   const result: FullEvalLog = {
-    repo_path: repoPath,
+    test_repo_name: testRepoName,
     generation_date: new Date().toISOString(),
     eval_runs: evalRuns,
     overall_metrics: overallMetrics,

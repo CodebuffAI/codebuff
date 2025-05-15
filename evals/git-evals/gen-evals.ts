@@ -7,7 +7,12 @@ import { z } from 'zod'
 import { claudeModels, geminiModels } from 'common/src/constants'
 import { promptAiSdkStructured } from 'backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 import { COMMIT_SELECTION_PROMPT, SPEC_GENERATION_PROMPT } from './prompts'
-import { CommitInfo, CommitSelectionSchema, EvalCommit, GitRepoEvalData } from './types'
+import {
+  CommitInfo,
+  CommitSelectionSchema,
+  EvalCommit,
+  GitRepoEvalData,
+} from './types'
 
 const fingerprintId = 'evals'
 const userInputId = 'evals'
@@ -169,16 +174,17 @@ ${diff}`
 }
 
 export async function generateEvalFile({
-  repoPath,
+  testRepoName,
   outputPath,
   clientSessionId,
   numberOfCommits,
 }: {
-  repoPath: string
+  testRepoName: string
   outputPath: string
   clientSessionId: string
   numberOfCommits: number
 }): Promise<void> {
+  const repoPath = path.join(__dirname, '../test-repos', testRepoName)
   // Validate repo path
   if (!fs.existsSync(path.join(repoPath, '.git'))) {
     throw new Error(`${repoPath} is not a git repository`)
@@ -214,7 +220,7 @@ export async function generateEvalFile({
 
   // Create output data
   const evalData: GitRepoEvalData = {
-    repoPath,
+    testRepoName,
     generationDate: new Date().toISOString(),
     evalCommits: evalCommits,
   }
@@ -231,7 +237,7 @@ if (require.main === module) {
     process.exit(1)
   }
 
-  const repoPath = args[0]
+  const testRepoName = args[0]
   const outputPath = args[1] || './git-evals.json'
   const numberOfCommits = Number(args[2] || 100)
 
@@ -239,7 +245,7 @@ if (require.main === module) {
   const sessionId = Math.random().toString(36).substring(2)
 
   generateEvalFile({
-    repoPath,
+    testRepoName,
     outputPath,
     clientSessionId: sessionId,
     numberOfCommits,

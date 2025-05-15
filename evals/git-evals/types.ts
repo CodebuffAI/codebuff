@@ -19,7 +19,7 @@ export interface EvalCommit extends CommitInfo {
 }
 
 export interface GitRepoEvalData {
-  repoPath: string
+  testRepoName: string
   generationDate: string
   evalCommits: EvalCommit[]
 }
@@ -45,7 +45,7 @@ export interface EvalRunLog {
 }
 
 export interface FullEvalLog {
-  repo_path: string
+  test_repo_name: string
   generation_date: string
   eval_runs: EvalRunLog[]
   overall_metrics: {

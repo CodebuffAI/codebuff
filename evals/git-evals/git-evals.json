@@ -1,5 +1,5 @@
 {
-  "repoPath": "test-repos/codebuff",
+  "testRepoName": "codebuff",
   "generationDate": "2025-05-14T10:02:53.632Z",
   "evalCommits": [
     {
