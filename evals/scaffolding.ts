@@ -89,7 +89,10 @@ export async function getProjectFileContext(
 export async function runMainPrompt(
   agentState: AgentState,
   prompt: string | undefined,
-  toolResults: ToolResult[]
+  toolResults: ToolResult[],
+  options: {
+    costMode: 'lite' | 'normal' | 'max' | 'experimental'
+  }
 ) {
   const mockWs = new EventEmitter() as WebSocket
   mockWs.send = mock()
@@ -101,7 +104,7 @@ export async function runMainPrompt(
     promptId: generateCompactId(),
     prompt,
     fingerprintId: 'test-fingerprint-id',
-    costMode: 'experimental' as const,
+    costMode: options.costMode,
     agentState,
     toolResults,
   }
@@ -143,6 +146,9 @@ export async function loopMainPrompt({
   projectPath,
   maxIterations,
   stopCondition,
+  options = {
+    costMode: 'normal',
+  },
 }: {
   agentState: AgentState
   prompt: string
@@ -152,6 +158,9 @@ export async function loopMainPrompt({
     agentState: AgentState,
     toolCalls: ClientToolCall[]
   ) => boolean
+  options: {
+    costMode: 'lite' | 'normal' | 'max' | 'experimental'
+  }
 }) {
   console.log(blue(prompt))
 
@@ -172,7 +181,8 @@ export async function loopMainPrompt({
     } = await runMainPrompt(
       currentAgentState,
       iterations === 1 ? prompt : undefined,
-      toolResults
+      toolResults,
+      options
     )
     currentAgentState = newAgentState
     toolCalls = newToolCalls

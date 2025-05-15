@@ -101,6 +101,9 @@ Explain your reasoning in detail.`,
           prompt,
           projectPath,
           maxIterations: 20,
+          options: {
+            costMode: 'normal',
+          },
         })
 
         agentState = codeBuffResult.agentState
