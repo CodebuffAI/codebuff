@@ -1,53 +1,30 @@
 import fs from 'fs'
-import { z } from 'zod'
+import path from 'path'
 
 import { promptAiSdkStructured } from 'backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 import { claudeModels } from 'common/src/constants'
-import { EvalCommit, GitRepoEvalData } from './git-eval-generator/types'
+import { generateCompactId } from 'common/util/string'
+import { setProjectRoot, setWorkingDirectory } from 'npm-app/project-files'
+import { recreateShell } from 'npm-app/utils/terminal'
+import { judgeEvalRun } from './judge-git-eval'
+import {
+  AgentDecision,
+  AgentDecisionSchema,
+  AgentInteraction,
+  EvalCommit,
+  EvalRunLog,
+  FullEvalLog,
+  GitRepoEvalData,
+} from './types'
 import {
   createFileReadingMock,
   loopMainPrompt,
   resetRepoToCommit,
-} from './scaffolding'
+} from '../scaffolding'
 import {
   createInitialAgentState,
   setupTestEnvironmentVariables,
-} from './test-setup'
-import { generateCompactId } from 'common/util/string'
-import { recreateShell } from 'npm-app/utils/terminal'
-import { setProjectRoot, setWorkingDirectory } from 'npm-app/project-files'
-import path from 'path'
-
-// Types for the Sonnet agent's decision making
-type AgentDecision = 'continue' | 'complete' | 'halt'
-
-interface AgentInteraction {
-  prompt: string
-  codebuff_input: string
-  codebuff_output: string
-  agent_decision: AgentDecision
-  agent_reasoning: string
-}
-
-interface EvalRunLog {
-  eval_commit: EvalCommit
-  interactions: AgentInteraction[]
-  final_status: AgentDecision
-  error?: string
-}
-
-interface FullEvalLog {
-  repo_path: string
-  generation_date: string
-  eval_runs: EvalRunLog[]
-}
-
-// Schema for Sonnet agent's structured output
-const AgentDecisionSchema = z.object({
-  decision: z.enum(['continue', 'complete', 'halt']),
-  reasoning: z.string(),
-  next_prompt: z.string().optional(),
-})
+} from '../test-setup'
 
 async function runSingleEval(
   evalCommit: EvalCommit,
@@ -73,7 +50,7 @@ async function runSingleEval(
       const agentResponse = await promptAiSdkStructured(
         [
           {
-            role: 'user', // Changed from 'system' to 'user' to ensure Anthropic API compatibility
+            role: 'user',
             content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to generate prompts for CodeBuff that will help it implement the spec correctly.
 
 Current spec to implement:
@@ -161,18 +138,32 @@ Explain your reasoning in detail.`,
       attempts++
     }
 
-    return {
+    const evalRun = {
       eval_commit: evalCommit,
       interactions,
       final_status: currentDecision,
     }
-  } catch (error) {
+
+    // Add judging results
+    const judgingResults = await judgeEvalRun(evalRun)
     return {
+      ...evalRun,
+      judging_results: judgingResults,
+    }
+  } catch (error) {
+    const evalRun = {
       eval_commit: evalCommit,
       interactions: [],
-      final_status: 'halt',
+      final_status: 'halt' as const,
       error:
         error instanceof Error ? error.message + error.stack : 'Unknown error',
+    }
+
+    // Add judging results even for failed runs
+    const judgingResults = await judgeEvalRun(evalRun)
+    return {
+      ...evalRun,
+      judging_results: judgingResults,
     }
   }
 }
@@ -204,11 +195,54 @@ export async function runGitEvals(evalDataPath: string, outputPath: string) {
     )
     evalRuns.push(evalRun)
 
+    // Calculate overall metrics
+    const overallMetrics = {
+      average_completion: 0,
+      average_efficiency: 0,
+      average_reasoning: 0,
+      average_overall: 0,
+      total_runs: evalRuns.length,
+      successful_runs: evalRuns.filter((run) => run.final_status === 'complete')
+        .length,
+      failed_runs: evalRuns.filter((run) => run.final_status === 'halt').length,
+    }
+
+    const runsWithMetrics = evalRuns.filter((run) => run.judging_results)
+    if (runsWithMetrics.length > 0) {
+      overallMetrics.average_completion =
+        runsWithMetrics.reduce(
+          (sum, run) =>
+            sum + (run.judging_results?.metrics.completionScore || 0),
+          0
+        ) / runsWithMetrics.length
+
+      overallMetrics.average_efficiency =
+        runsWithMetrics.reduce(
+          (sum, run) =>
+            sum + (run.judging_results?.metrics.efficiencyScore || 0),
+          0
+        ) / runsWithMetrics.length
+
+      overallMetrics.average_reasoning =
+        runsWithMetrics.reduce(
+          (sum, run) =>
+            sum + (run.judging_results?.metrics.reasoningScore || 0),
+          0
+        ) / runsWithMetrics.length
+
+      overallMetrics.average_overall =
+        runsWithMetrics.reduce(
+          (sum, run) => sum + (run.judging_results?.metrics.overallScore || 0),
+          0
+        ) / runsWithMetrics.length
+    }
+
     // Write intermediate results
     const fullLog: FullEvalLog = {
       repo_path: evalData.repoPath,
       generation_date: new Date().toISOString(),
       eval_runs: evalRuns,
+      overall_metrics: overallMetrics,
     }
     fs.writeFileSync(outputPath, JSON.stringify(fullLog, null, 2))
   }

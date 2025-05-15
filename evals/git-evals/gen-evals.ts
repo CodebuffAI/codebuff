@@ -1,22 +1,13 @@
 import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+import { chunk } from 'lodash'
 import { z } from 'zod'
 
 import { claudeModels, geminiModels } from 'common/src/constants'
 import { promptAiSdkStructured } from 'backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 import { COMMIT_SELECTION_PROMPT, SPEC_GENERATION_PROMPT } from './prompts'
-import { CommitInfo, EvalCommit, GitRepoEvalData } from './types'
-import { chunk } from 'lodash'
-
-const CommitSelectionSchema = z.object({
-  commits: z.array(
-    z.object({
-      sha: z.string(),
-      reason: z.string(),
-    })
-  ),
-})
+import { CommitInfo, CommitSelectionSchema, EvalCommit, GitRepoEvalData } from './types'
 
 const fingerprintId = 'evals'
 const userInputId = 'evals'
