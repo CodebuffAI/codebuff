@@ -9,15 +9,22 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
   const created: string[] = []
   const modified: string[] = []
   const ignored: string[] = []
+  const invalid: string[] = []
 
   for (const change of changes) {
     const { path: filePath, content, type } = change
-    if (isFileIgnored(filePath, projectRoot)) {
-      ignored.push(filePath)
+    try {
+      if (isFileIgnored(filePath, projectRoot)) {
+        ignored.push(filePath)
+        continue
+      }
+    } catch {
+      // File path caused an error.
+      invalid.push(filePath)
       continue
     }
-    const fullPath = path.join(projectRoot, filePath)
     try {
+      const fullPath = path.join(projectRoot, filePath)
       const fileExists = fs.existsSync(fullPath)
       if (!fileExists) {
         // Create directories in the path if they don't exist
@@ -39,10 +46,11 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
       }
     } catch (error) {
       console.error(`Failed to apply patch to ${filePath}:`, error, content)
+      invalid.push(filePath)
     }
   }
 
-  return { created, modified, ignored }
+  return { created, modified, ignored, invalid }
 }
 
 export async function applyAndRevertChanges(
