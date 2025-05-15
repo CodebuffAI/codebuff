@@ -97,7 +97,7 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: bun test $(find ${{ matrix.package }}/src -name *.test.ts)
+          command: cd ${{ matrix.package }} && bun test
 
       - name: Open interactive debug shell
         if: ${{ failure() }}
