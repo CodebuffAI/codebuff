@@ -362,8 +362,10 @@ export const mainPrompt = async (
     }
 
     messageHistory = messageHistory.filter((message) => {
-      typeof message.content !== 'string' ||
+      return (
+        typeof message.content !== 'string' ||
         !isSystemInstruction(message.content)
+      )
     })
   }
 
