@@ -1,12 +1,7 @@
-try {
-  require('../tool-renderers')
-} catch (error) {
-  console.log({ error }, 'asdf')
-}
 import { Writable } from 'stream'
 
 // @ts-ignore
-import { spyOn, test, afterEach, beforeEach, describe, expect, mock } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import { getToolCallString } from 'common/constants/tools'
 import * as projectFileTree from 'common/project-file-tree'
 import stripAnsi from 'strip-ansi'
