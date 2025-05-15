@@ -10,6 +10,7 @@ import { judgeEvalRun } from './judge-git-eval'
 import {
   AgentDecision,
   AgentDecisionSchema,
+  CodebuffTrace,
   EvalCommit,
   EvalRunLog,
   FullEvalLog,
@@ -31,8 +32,8 @@ async function runSingleEval(
   clientSessionId: string,
   fingerprintId: string
 ): Promise<EvalRunLog> {
-  const trace: any[] = []
-  let error: any
+  const trace: CodebuffTrace[] = []
+  let error: string | undefined
   try {
     // Reset to the commit before the target commit
     resetRepoToCommit(projectPath, `${evalCommit.sha}^`)
@@ -46,23 +47,27 @@ async function runSingleEval(
     const MAX_ATTEMPTS = 5
 
     while (currentDecision === 'continue' && attempts < MAX_ATTEMPTS) {
+      const renderedTrace = trace
+        .map(
+          ({ prompt, steps }) =>
+            `You: ${prompt}\n\nCodebuff:${steps.map(({ response, toolCalls, toolResults }) => `${response}\n\nTool calls: ${JSON.stringify(toolCalls)}\n\nTool results: ${JSON.stringify(toolResults)}`).join('\n\n')}`
+        )
+        .join('\n\n')
       // Get next prompt from Sonnet agent
       const agentResponse = await promptAiSdkStructured(
         [
           {
             role: 'user',
-            content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to generate prompts for CodeBuff that will help it implement the spec correctly.
+            content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to prompt CodeBuff to implement the spec correctly. You are in a conversation with this coding agent.
 
 Current spec to implement:
-${evalCommit.spec}
+<spec>${evalCommit.spec}</spec>
 
-Your conversation with Codebuff so far (You are the 'user', Codebuff is the 'assistant'):
-${agentState.messageHistory
-  .map(({ role, content }) => `${role}: ${JSON.stringify(content)}`)
-  .join('\n\n')}
+Your conversation with Codebuff so far:
+<conversation>${renderedTrace}</conversation>
 
 You must decide whether to:
-1. 'continue' - Generate another prompt for Codebuff
+1. 'continue' - Generate a follow-up prompt for Codebuff
 2. 'complete' - The implementation is done and satisfies the spec
 3. 'halt' - The implementation is off track and unlikely to be completed within ${MAX_ATTEMPTS - attempts} more attempts
 
@@ -79,6 +84,9 @@ Explain your reasoning in detail.`,
           userId: undefined,
         }
       )
+
+      console.log('Agent decision:', agentResponse.decision)
+      console.log('Agent reasoning:', agentResponse.reasoning)
 
       if (agentResponse.decision === 'continue' && !agentResponse.next_prompt) {
         throw new Error('Agent decided to continue but provided no next_prompt')
@@ -103,14 +111,13 @@ Explain your reasoning in detail.`,
       attempts++
     }
   } catch (e) {
-    error = e
+    error = e instanceof Error ? e.message + e.stack : 'Unknown error'
   }
 
   const evalRun = {
     eval_commit: evalCommit,
     trace,
-    error:
-      error instanceof Error ? error.message + error.stack : 'Unknown error',
+    error,
   }
 
   // Add judging results even for failed runs
