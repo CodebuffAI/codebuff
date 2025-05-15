@@ -45,7 +45,7 @@ export interface EvalRunLog {
     metrics: {
       completionScore: number
       efficiencyScore: number
-      reasoningScore: number
+      codeQualityScore: number
       overallScore: number
     }
     analysis: string
@@ -61,7 +61,7 @@ export interface FullEvalLog {
   overall_metrics?: {
     average_completion: number
     average_efficiency: number
-    average_reasoning: number
+    average_code_quality: number
     average_overall: number
     total_runs: number
     successful_runs: number
@@ -89,7 +89,7 @@ export const JudgingAnalysisSchema = z.object({
   metrics: z.object({
     completionScore: z.number().min(0).max(10),
     efficiencyScore: z.number().min(0).max(10),
-    reasoningScore: z.number().min(0).max(10),
+    codeQualityScore: z.number().min(0).max(10),
     overallScore: z.number().min(0).max(10),
   }),
   analysis: z.string(),

@@ -168,7 +168,7 @@ Explain your reasoning in detail.`,
   }
 }
 
-export async function runGitEvals(evalDataPath: string, outputPath: string) {
+export async function runGitEvals(evalDataPath: string, outputPath: string): Promise<FullEvalLog> {
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8')
   ) as GitRepoEvalData
@@ -194,61 +194,53 @@ export async function runGitEvals(evalDataPath: string, outputPath: string) {
       fingerprintId
     )
     evalRuns.push(evalRun)
-
-    // Calculate overall metrics
-    const overallMetrics = {
-      average_completion: 0,
-      average_efficiency: 0,
-      average_reasoning: 0,
-      average_overall: 0,
-      total_runs: evalRuns.length,
-      successful_runs: evalRuns.filter((run) => run.final_status === 'complete')
-        .length,
-      failed_runs: evalRuns.filter((run) => run.final_status === 'halt').length,
-    }
-
-    const runsWithMetrics = evalRuns.filter((run) => run.judging_results)
-    if (runsWithMetrics.length > 0) {
-      overallMetrics.average_completion =
-        runsWithMetrics.reduce(
-          (sum, run) =>
-            sum + (run.judging_results?.metrics.completionScore || 0),
-          0
-        ) / runsWithMetrics.length
-
-      overallMetrics.average_efficiency =
-        runsWithMetrics.reduce(
-          (sum, run) =>
-            sum + (run.judging_results?.metrics.efficiencyScore || 0),
-          0
-        ) / runsWithMetrics.length
-
-      overallMetrics.average_reasoning =
-        runsWithMetrics.reduce(
-          (sum, run) =>
-            sum + (run.judging_results?.metrics.reasoningScore || 0),
-          0
-        ) / runsWithMetrics.length
-
-      overallMetrics.average_overall =
-        runsWithMetrics.reduce(
-          (sum, run) => sum + (run.judging_results?.metrics.overallScore || 0),
-          0
-        ) / runsWithMetrics.length
-    }
-
-    // Write intermediate results
-    const fullLog: FullEvalLog = {
-      repo_path: evalData.repoPath,
-      generation_date: new Date().toISOString(),
-      eval_runs: evalRuns,
-      overall_metrics: overallMetrics,
-    }
-    fs.writeFileSync(outputPath, JSON.stringify(fullLog, null, 2))
   }
+
+  // Calculate overall metrics
+  const overallMetrics = {
+    average_completion:
+      evalRuns.reduce(
+        (sum, run) =>
+          sum + (run.judging_results?.metrics.completionScore || 0),
+        0
+      ) / evalRuns.length,
+    average_efficiency:
+      evalRuns.reduce(
+        (sum, run) =>
+          sum + (run.judging_results?.metrics.efficiencyScore || 0),
+        0
+      ) / evalRuns.length,
+    average_code_quality:
+      evalRuns.reduce(
+        (sum, run) =>
+          sum + (run.judging_results?.metrics.codeQualityScore || 0),
+        0
+      ) / evalRuns.length,
+    average_overall:
+      evalRuns.reduce(
+        (sum, run) =>
+          sum + (run.judging_results?.metrics.overallScore || 0),
+        0
+      ) / evalRuns.length,
+    total_runs: evalRuns.length,
+    successful_runs: evalRuns.filter((run) => !run.error).length,
+    failed_runs: evalRuns.filter((run) => run.error).length,
+  }
+
+  const result: FullEvalLog = {
+    repo_path: repoPath,
+    generation_date: new Date().toISOString(),
+    eval_runs: evalRuns,
+    overall_metrics: overallMetrics,
+  }
+
+  // Write results to file
+  fs.writeFileSync(outputPath, JSON.stringify(result, null, 2))
 
   console.log('All evals complete!')
   console.log(`Results written to ${outputPath}`)
+
+  return result
 }
 
 // CLI handling

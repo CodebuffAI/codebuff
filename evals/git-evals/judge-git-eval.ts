@@ -10,7 +10,7 @@ export function judgeEvalRun(evalRun: EvalRunLog) {
       metrics: {
         completionScore: 0,
         efficiencyScore: 0,
-        reasoningScore: 0,
+        codeQualityScore: 0,
         overallScore: 0,
       },
       analysis: `Run failed with error: ${evalRun.error}`,
@@ -20,7 +20,7 @@ export function judgeEvalRun(evalRun: EvalRunLog) {
   }
 
   // Format the evaluation data for analysis
-  const analysisPrompt = `You are an expert software engineer tasked with analyzing and scoring an AI coding application's performance (Codebuff) on how it responded to the Agent. Please analyze the following interaction trace and provide detailed scoring and analysis, focusing on how Codebuff responded to the Agent's prompts.
+  const analysisPrompt = `You are an expert software engineer tasked with analyzing and scoring the code quality of changes made by an AI coding assistant (Codebuff). Please analyze the following interaction trace and provide detailed scoring and analysis, focusing on how Codebuff responded to the Agent's prompts.
 
 SPECIFICATION:
 ${evalRun.eval_commit.spec}
@@ -28,36 +28,35 @@ ${evalRun.eval_commit.spec}
 INTERACTION TRACE:
 ${evalRun.interactions
   .map(
-    (int, i) => `
-Interaction ${i + 1}:
-Agent Prompt: ${int.prompt}
-Codebuff Input: ${int.codebuff_input}
-Codebuff Output: ${int.codebuff_output}
-Agent Decision: ${int.agent_decision}
-Agent Reasoning: ${int.agent_reasoning}
+    (i, idx) => `
+Interaction ${idx + 1}:
+Agent Prompt: ${i.prompt}
+Codebuff Input: ${i.codebuff_input}
+Codebuff Output: ${i.codebuff_output}
+Agent Decision: ${i.agent_decision}
+Agent Reasoning: ${i.agent_reasoning}
 `
   )
   .join('\n')}
 
 Final Status: ${evalRun.final_status}
 
-Please analyze the implementation attempt and provide:
+Please analyze the implementation attemp and provide:
 1. Numerical scores (0-10):
    - Completion: How completely and correctly was the spec implemented?
    - Efficiency: How efficiently was it done (fewer interactions is better)?
-   - Reasoning: How well did the agent reason about the implementation?
+   - Code Quality: How well-structured, maintainable and idiomatic is the code?
    - Overall: Combined assessment of the implementation quality
 
 2. A detailed analysis of the implementation attempt
 
-3. Key strengths and weaknesses of the implementation approach
+3. Key strengths and weaknesses of the implementation
 
 Focus on:
 - Correctness and completeness of implementation
 - Quality of the code produced
-- Efficiency of the implementation process
-- Quality of reasoning and decision making
-- Appropriate use of available tools and context
+- Minimal changes: it's better to change as little code as possible to accomplish what the agent prompted
+- Speed and efficiency: did Codebuff make unnecessary changes or take unnecessary steps?
 
 Provide your response in a structured format with metrics, analysis, and lists of strengths and weaknesses.`
 
