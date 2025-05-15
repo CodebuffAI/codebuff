@@ -11,7 +11,8 @@
     "web",
     "test",
     "packages/*",
-    "scripts"
+    "scripts",
+    "client"
   ],
   "scripts": {
     "start-db": "bun --cwd common db:start",
@@ -31,9 +32,9 @@
     "bump": "bun run scripts/bump-version.ts",
     "deploy:npm-app": "bun run bump && cd npm-app && npm publish",
     "test:patch": "bun test test/__src__/patch.test.ts",
-    "build": "nx reset && nx run-many --target=build --projects=common,packages/*,backend,npm-app,web",
-    "clean": "nx run-many --target=clean --projects=common,packages/*,backend,npm-app,web",
-    "typecheck-only": "nx run-many --target=typecheck-only --projects=common,packages/*,backend,npm-app,web",
+    "build": "nx reset && nx run-many --target=build --projects=common,packages/*,backend,npm-app,web,client",
+    "clean": "nx run-many --target=clean --projects=common,packages/*,backend,npm-app,web,client",
+    "typecheck-only": "nx run-many --target=typecheck-only --projects=common,packages/*,backend,npm-app,web,client",
     "typecheck": "bun run build && bun run typecheck-only"
   },
   "devDependencies": {
