@@ -16,7 +16,7 @@ export interface CommitInfo {
 
 export interface CommitFileState {
   path: string
-  preContent: string  // Content before the commit
+  preContent: string // Content before the commit
   postContent: string // Content after the commit
 }
 
@@ -46,6 +46,8 @@ export interface EvalRunLog {
   trace: CodebuffTrace[]
   error?: string
   judging_results?: z.infer<typeof JudgingAnalysisSchema>
+  beforeFileStates: { path: string; content: string }[] // Files Codebuff changed - state before changes
+  afterFileStates: { path: string; content: string }[] // Files Codebuff changed - state after changes
 }
 
 export interface FullEvalLog {
@@ -85,7 +87,7 @@ export const JudgingAnalysisSchema = z.object({
   weaknesses: z.array(z.string()),
   metrics: z.object({
     completionScore: z.number().min(0).max(10),
-    efficiencyScore: z.number().min(0).max(10), 
+    efficiencyScore: z.number().min(0).max(10),
     codeQualityScore: z.number().min(0).max(10),
     overallScore: z.number().min(0).max(10),
   }),

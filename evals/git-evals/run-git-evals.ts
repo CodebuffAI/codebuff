@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { execSync } from 'child_process'
 
 import { promptAiSdkStructured } from 'backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 import { claudeModels } from 'common/src/constants'
@@ -25,7 +26,6 @@ import {
   createInitialAgentState,
   setupTestEnvironmentVariables,
 } from '../test-setup'
-
 async function runSingleEval(
   evalCommit: EvalCommit,
   projectPath: string,
@@ -116,11 +116,18 @@ Explain your reasoning in detail.`,
   } catch (e) {
     error = e instanceof Error ? e.message + e.stack : 'Unknown error'
   }
+  const { beforeFileStates, afterFileStates } = getCodebuffFileStates(
+    trace,
+    evalCommit.sha,
+    projectPath
+  )
 
   const evalRun = {
     eval_commit: evalCommit,
     trace,
     error,
+    beforeFileStates,
+    afterFileStates,
   }
 
   // Add judging results even for failed runs
@@ -130,6 +137,68 @@ Explain your reasoning in detail.`,
     ...evalRun,
     judging_results: judgingResults,
   }
+}
+
+function getCodebuffFileStates(
+  trace: CodebuffTrace[],
+  evalCommitSha: string,
+  projectPath: string
+): {
+  beforeFileStates: { path: string; content: string }[]
+  afterFileStates: { path: string; content: string }[]
+} {
+  const codebuffWrittenFilePaths = new Set<string>()
+  if (trace) {
+    // trace might be undefined or empty if error occurred very early
+    for (const traceEntry of trace) {
+      for (const step of traceEntry.steps) {
+        if (step.toolCalls) {
+          for (const toolCall of step.toolCalls) {
+            if (toolCall.name === 'write_file' && toolCall.parameters.path) {
+              codebuffWrittenFilePaths.add(toolCall.parameters.path as string)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const afterFileStates: { path: string; content: string }[] = []
+  const beforeFileStates: { path: string; content: string }[] = []
+
+  if (codebuffWrittenFilePaths.size > 0) {
+    for (const filePath of codebuffWrittenFilePaths) {
+      // Capture "after" state
+      const fullPath = path.join(projectPath, filePath)
+      try {
+        const content = fs.existsSync(fullPath)
+          ? fs.readFileSync(fullPath, 'utf-8')
+          : '[FILE_NOT_FOUND_POST_RUN]'
+        afterFileStates.push({ path: filePath, content })
+      } catch (e) {
+        console.error(`Error reading file ${fullPath} for after state:`, e)
+        afterFileStates.push({
+          path: filePath,
+          content: '[ERROR_READING_AFTER_STATE]',
+        })
+      }
+
+      // Capture "before" state
+      try {
+        const content = execSync(`git show ${evalCommitSha}^:"${filePath}"`, {
+          cwd: projectPath,
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).toString()
+        beforeFileStates.push({ path: filePath, content })
+      } catch (e) {
+        beforeFileStates.push({
+          path: filePath,
+          content: '[FILE_DID_NOT_EXIST_PRIOR_TO_CODEBUFF_CHANGES]',
+        })
+      }
+    }
+  }
+  return { beforeFileStates, afterFileStates }
 }
 
 export async function runGitEvals(
