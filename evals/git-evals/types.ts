@@ -41,24 +41,14 @@ export interface EvalRunLog {
   interactions: AgentInteraction[]
   final_status: AgentDecision
   error?: string
-  judging_results?: {
-    metrics: {
-      completionScore: number
-      efficiencyScore: number
-      codeQualityScore: number
-      overallScore: number
-    }
-    analysis: string
-    strengths: string[]
-    weaknesses: string[]
-  }
+  judging_results?: z.infer<typeof JudgingAnalysisSchema>
 }
 
 export interface FullEvalLog {
   repo_path: string
   generation_date: string
   eval_runs: EvalRunLog[]
-  overall_metrics?: {
+  overall_metrics: {
     average_completion: number
     average_efficiency: number
     average_code_quality: number
@@ -86,13 +76,13 @@ export const CommitSelectionSchema = z.object({
 })
 
 export const JudgingAnalysisSchema = z.object({
+  analysis: z.string(),
+  strengths: z.array(z.string()),
+  weaknesses: z.array(z.string()),
   metrics: z.object({
     completionScore: z.number().min(0).max(10),
     efficiencyScore: z.number().min(0).max(10),
     codeQualityScore: z.number().min(0).max(10),
     overallScore: z.number().min(0).max(10),
   }),
-  analysis: z.string(),
-  strengths: z.array(z.string()),
-  weaknesses: z.array(z.string()),
 })

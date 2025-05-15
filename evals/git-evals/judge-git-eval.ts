@@ -41,16 +41,14 @@ Agent Reasoning: ${i.agent_reasoning}
 
 Final Status: ${evalRun.final_status}
 
-Please analyze the implementation attemp and provide:
-1. Numerical scores (0-10):
+Please analyze the implementation attempt and provide:
+1. A detailed analysis of the implementation attempt
+2. Key strengths and weaknesses of the implementation
+3. Numerical scores (0-10):
    - Completion: How completely and correctly was the spec implemented?
-   - Efficiency: How efficiently was it done (fewer interactions is better)?
+   - Efficiency: How efficiently did Codebuff respond to the Agent's prompts? Speed is important!
    - Code Quality: How well-structured, maintainable and idiomatic is the code?
    - Overall: Combined assessment of the implementation quality
-
-2. A detailed analysis of the implementation attempt
-
-3. Key strengths and weaknesses of the implementation
 
 Focus on:
 - Correctness and completeness of implementation
@@ -58,7 +56,7 @@ Focus on:
 - Minimal changes: it's better to change as little code as possible to accomplish what the agent prompted
 - Speed and efficiency: did Codebuff make unnecessary changes or take unnecessary steps?
 
-Provide your response in a structured format with metrics, analysis, and lists of strengths and weaknesses.`
+Provide your response in a structured format with analysis, lists of strengths and weaknesses, and metrics.`
 
   // Get Gemini's analysis
   return promptAiSdkStructured(
