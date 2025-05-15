@@ -28,6 +28,9 @@ describe('pglite-demo', async () => {
         stopCondition: (_, toolCalls) => {
           return toolCalls.some((call) => call.name === 'write_file')
         },
+        options: {
+          costMode: 'normal'
+        }
       })
 
       // Extract write_file tool calls

@@ -125,6 +125,7 @@ Explain your reasoning in detail.`,
 
   // Add judging results even for failed runs
   const judgingResults = await judgeEvalRun(evalRun)
+  console.log('Judging results:', judgingResults)
   return {
     ...evalRun,
     judging_results: judgingResults,

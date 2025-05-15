@@ -14,9 +14,16 @@ export interface CommitInfo {
   }
 }
 
+export interface CommitFileState {
+  path: string
+  preContent: string  // Content before the commit
+  postContent: string // Content after the commit
+}
+
 export interface EvalCommit extends CommitInfo {
   spec: string
   selectionReason: string // Why Sonnet chose this commit
+  fileStates: CommitFileState[] // Ground truth file states
 }
 
 export interface GitRepoEvalData {
@@ -78,7 +85,7 @@ export const JudgingAnalysisSchema = z.object({
   weaknesses: z.array(z.string()),
   metrics: z.object({
     completionScore: z.number().min(0).max(10),
-    efficiencyScore: z.number().min(0).max(10),
+    efficiencyScore: z.number().min(0).max(10), 
     codeQualityScore: z.number().min(0).max(10),
     overallScore: z.number().min(0).max(10),
   }),

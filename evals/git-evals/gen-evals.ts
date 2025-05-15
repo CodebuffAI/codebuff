@@ -12,6 +12,7 @@ import {
   CommitSelectionSchema,
   EvalCommit,
   GitRepoEvalData,
+  CommitFileState,
 } from './types'
 
 const fingerprintId = 'evals'
@@ -115,7 +116,7 @@ async function generateSpecForCommit(
   commit: CommitInfo & { selectionReason: string },
   repoPath: string,
   clientSessionId: string
-): Promise<string> {
+): Promise<{ spec: string; fileStates: CommitFileState[] }> {
   // Get list of files changed in this commit
   const filesCommand = `git show --name-only --pretty=format:"" ${commit.sha}`
   const changedFiles = execSync(filesCommand, { cwd: repoPath })
@@ -124,28 +125,45 @@ async function generateSpecForCommit(
     .split('\n')
     .filter(Boolean)
 
-  // Get the content of each file before the commit
-  const preCommitFiles: Record<string, string> = {}
+  // Get the content of each file before and after the commit
+  const fileStates: CommitFileState[] = []
   for (const file of changedFiles) {
     try {
       // Get content from parent commit (commit^)
-      const fileCommand = `git show ${commit.sha}^:${file}`
-      const content = execSync(fileCommand, { cwd: repoPath }).toString()
-      preCommitFiles[file] = content
+      const preCommand = `git show ${commit.sha}^:${file}`
+      const preContent = execSync(preCommand, { cwd: repoPath }).toString()
+      
+      // Get content after commit
+      const postCommand = `git show ${commit.sha}:${file}`
+      const postContent = execSync(postCommand, { cwd: repoPath }).toString()
+
+      fileStates.push({
+        path: file,
+        preContent,
+        postContent
+      })
     } catch (e) {
       // File might not exist in parent commit (new file)
-      preCommitFiles[file] = '[NEW FILE]'
+      // Or might be deleted in this commit
+      const isNewFile = !execSync(`git show ${commit.sha}^:${file} 2>/dev/null || true`, { cwd: repoPath }).toString()
+      const isDeletedFile = !execSync(`git show ${commit.sha}:${file} 2>/dev/null || true`, { cwd: repoPath }).toString()
+      
+      fileStates.push({
+        path: file,
+        preContent: isNewFile ? '[NEW FILE]' : execSync(`git show ${commit.sha}^:${file}`, { cwd: repoPath }).toString(),
+        postContent: isDeletedFile ? '[DELETED]' : execSync(`git show ${commit.sha}:${file}`, { cwd: repoPath }).toString()
+      })
     }
   }
 
-  // Get the full commit diff
+  // Get the full commit diff for context
   const diffCommand = `git show ${commit.sha}`
   const diff = execSync(diffCommand, { cwd: repoPath }).toString()
 
   // Build the prompt with pre-commit file contents
-  const preCommitContext = Object.entries(preCommitFiles)
+  const preCommitContext = fileStates
     .map(
-      ([file, content]) => `File: ${file}\nPre-commit content:\n${content}\n`
+      ({ path, preContent }) => `File: ${path}\nPre-commit content:\n${preContent}\n`
     )
     .join('\n---\n')
 
@@ -170,7 +188,7 @@ ${diff}`
       userId: undefined,
     }
   )
-  return spec
+  return { spec, fileStates }
 }
 
 export async function generateEvalFile({
@@ -207,14 +225,18 @@ export async function generateEvalFile({
   // Generate specs for selected commits
   const evalCommits: EvalCommit[] = []
   for (const commitChunk of chunkedCommits) {
-    const specs = await Promise.all(
+    const results = await Promise.all(
       commitChunk.map((commit) =>
         generateSpecForCommit(commit, repoPath, clientSessionId)
       )
     )
-    console.log('Generated specs:', specs)
+    console.log('Generated specs and captured file states')
     evalCommits.push(
-      ...commitChunk.map((commit, index) => ({ ...commit, spec: specs[index] }))
+      ...commitChunk.map((commit, index) => ({
+        ...commit,
+        spec: results[index].spec,
+        fileStates: results[index].fileStates
+      }))
     )
   }
 
