@@ -420,6 +420,21 @@ ${getToolCallString('browser_logs', {
 })}
     `.trim(),
   },
+  {
+    name: 'end_turn',
+    description: `
+### end_turn
+
+End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.
+
+Purpose: Use this tool if you have fully responded to the user and want to get their feedback. This ignores any tool results (from write_file, run_terminal_command, etc.), so be sure you are done before using it.
+
+Params: None
+
+Example:
+${getToolCallString('end_turn', {})}
+    `.trim(),
+  },
 ] as const
 
 // Define Zod schemas for parameter validation
@@ -500,6 +515,7 @@ const toolSchemas = {
   think_deeply: thinkDeeplySchema,
   create_plan: createPlanSchema,
   browser_logs: browserActionSchema,
+  end_turn: emptySchema,
 } as const
 
 export function parseRawToolCall<T extends ToolName>(rawToolCall: {

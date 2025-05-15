@@ -143,7 +143,7 @@ export const mainPrompt = async (
 
     'If you have already completed the user request, write nothing at all and end your response. Err on the side of ending your reponse early, do not keep making further refinements to code you just wrote. Write it once and stop.',
 
-    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
+    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
     (isFlash || isGeminiPro) &&
       'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
@@ -629,7 +629,7 @@ export const mainPrompt = async (
         ])
       ),
       ...Object.fromEntries(
-        (['code_search', 'browser_logs'] as const).map((tool) => [
+        (['code_search', 'browser_logs', 'end_turn'] as const).map((tool) => [
           tool,
           toolCallback(tool, (toolCall) => {
             clientToolCalls.push({
@@ -824,6 +824,7 @@ export const mainPrompt = async (
         'browser_logs',
         'think_deeply',
         'create_plan',
+        'end_turn',
       ].includes(name)
     ) {
       // Handled above

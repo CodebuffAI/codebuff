@@ -171,7 +171,11 @@ export async function loopMainPrompt({
       ...(await runToolCalls(toolCalls, projectPath)),
     ]
 
-    if (toolResults.length === 0) {
+    const containsEndTurn = toolCalls.some(
+      (call) => call.name === 'end_turn'
+    )
+
+    if (containsEndTurn || toolResults.length === 0) {
       break
     }
   }

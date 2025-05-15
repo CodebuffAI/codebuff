@@ -881,6 +881,11 @@ export class Client {
 
         for (const toolCall of a.toolCalls) {
           try {
+            if (toolCall.name === 'end_turn') {
+              this.responseComplete = true
+              isComplete = true
+              continue
+            }
             if (toolCall.name === 'write_file') {
               // Save lastChanges for `diff` command
               this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))

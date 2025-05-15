@@ -114,3 +114,5 @@ Let me check my changes
 </run_terminal_command>
 
 I see that my changes went through correctly. What would you like to do next?
+
+<end_turn></end_turn>
