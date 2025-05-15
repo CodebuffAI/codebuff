@@ -24,6 +24,12 @@ import { WebSocket } from 'ws'
 
 const DEBUG_MODE = true
 
+export type AgentStep = {
+  response: string
+  toolCalls: ClientToolCall[]
+  toolResults: ToolResult[]
+}
+
 function readMockFile(projectRoot: string, filePath: string): string | null {
   const fullPath = path.join(projectRoot, filePath)
   try {
@@ -100,7 +106,9 @@ export async function runMainPrompt(
     toolResults,
   }
 
-  return await mainPromptModule.mainPrompt(
+  let fullResponse = ''
+
+  const result = await mainPromptModule.mainPrompt(
     mockWs,
     promptAction,
     TEST_USER_ID,
@@ -109,9 +117,15 @@ export async function runMainPrompt(
       if (DEBUG_MODE) {
         process.stdout.write(chunk)
       }
+      fullResponse += chunk
     },
     undefined
   )
+
+  return {
+    ...result,
+    fullResponse,
+  }
 }
 
 export async function runToolCalls(toolCalls: ClientToolCall[]) {
@@ -146,12 +160,15 @@ export async function loopMainPrompt({
   let toolResults: ToolResult[] = []
   let toolCalls: ClientToolCall[] = []
   let iterations = 1
+  const steps: AgentStep[] = []
+
   for (; iterations < maxIterations; iterations++) {
     console.log('\nIteration', iterations)
     let {
       agentState: newAgentState,
       toolCalls: newToolCalls,
       toolResults: newToolResults,
+      fullResponse,
     } = await runMainPrompt(
       currentAgentState,
       iterations === 1 ? prompt : undefined,
@@ -167,6 +184,12 @@ export async function loopMainPrompt({
       ...newToolResults,
       ...(await runToolCalls(newToolCalls)),
     ].filter((tool) => tool.name !== 'end_turn')
+
+    steps.push({
+      response: fullResponse,
+      toolCalls: newToolCalls,
+      toolResults: newToolResults,
+    })
 
     if (toolResults.length === 0) {
       break
@@ -186,6 +209,7 @@ export async function loopMainPrompt({
     toolCalls,
     toolResults,
     iterations: iterations - 1,
+    steps,
     duration: Date.now() - startTime,
   }
 }

@@ -4,44 +4,30 @@ import { generateCompactId } from 'common/util/string'
 import { EvalRunLog, JudgingAnalysisSchema } from './types'
 
 export function judgeEvalRun(evalRun: EvalRunLog) {
-  // If there was an error, give minimum scores
-  if (evalRun.error) {
-    return {
-      metrics: {
-        completionScore: 0,
-        efficiencyScore: 0,
-        codeQualityScore: 0,
-        overallScore: 0,
-      },
-      analysis: `Run failed with error: ${evalRun.error}`,
-      strengths: [],
-      weaknesses: ['Run failed with error'],
-    }
-  }
-
   // Format the evaluation data for analysis
   const analysisPrompt = `You are an expert software engineer tasked with analyzing and scoring the code quality of changes made by an AI coding assistant (Codebuff). Please analyze the following interaction trace and provide detailed scoring and analysis, focusing on how Codebuff responded to the Agent's prompts.
 
-SPECIFICATION:
+<specification>
 ${evalRun.eval_commit.spec}
+</specification>
 
-INTERACTION TRACE:
-${evalRun.interactions
-  .map(
-    (i, idx) => `
-Interaction ${idx + 1}:
-Agent Prompt: ${i.prompt}
-Codebuff Input: ${i.codebuff_input}
-Codebuff Output: ${i.codebuff_output}
-Agent Decision: ${i.agent_decision}
-Agent Reasoning: ${i.agent_reasoning}
-`
+<trace>
+${evalRun.trace
+  .map(({ prompt, steps }) =>
+    `
+Prompt: ${prompt}
+
+Codebuff Steps: ${JSON.stringify(steps)}
+`.trim()
   )
-  .join('\n')}
+  .join('\n\n')}
+</trace>
 
-Final Status: ${evalRun.final_status}
+<option_error_encountered>
+${evalRun.error ? evalRun.error : 'None'}
+</option_error_encountered>
 
-Please analyze the implementation attempt and provide:
+Please analyze the trace of the implementation attempt and provide:
 1. A detailed analysis of the implementation attempt
 2. Key strengths and weaknesses of the implementation
 3. Numerical scores (0-10):
@@ -55,6 +41,7 @@ Focus on:
 - Quality of the code produced
 - Minimal changes: it's better to change as little code as possible to accomplish what the agent prompted
 - Speed and efficiency: did Codebuff make unnecessary changes or take unnecessary steps?
+- Error: If there was an error encountered, you should give a very low score.
 
 Provide your response in a structured format with analysis, lists of strengths and weaknesses, and metrics.`
 

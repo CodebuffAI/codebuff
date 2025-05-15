@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AgentStep } from '../scaffolding'
 
 // Base commit types
 export interface CommitInfo {
@@ -27,19 +28,15 @@ export interface GitRepoEvalData {
 // Agent interaction types
 export type AgentDecision = 'continue' | 'complete' | 'halt'
 
-export interface AgentInteraction {
+export interface CodebuffTrace {
   prompt: string
-  codebuff_input: string
-  codebuff_output: string
-  agent_decision: AgentDecision
-  agent_reasoning: string
+  steps: AgentStep[]
 }
 
 // Evaluation run types
 export interface EvalRunLog {
   eval_commit: EvalCommit
-  interactions: AgentInteraction[]
-  final_status: AgentDecision
+  trace: CodebuffTrace[]
   error?: string
   judging_results?: z.infer<typeof JudgingAnalysisSchema>
 }

@@ -10,7 +10,6 @@ import { judgeEvalRun } from './judge-git-eval'
 import {
   AgentDecision,
   AgentDecisionSchema,
-  AgentInteraction,
   EvalCommit,
   EvalRunLog,
   FullEvalLog,
@@ -32,6 +31,8 @@ async function runSingleEval(
   clientSessionId: string,
   fingerprintId: string
 ): Promise<EvalRunLog> {
+  const trace: any[] = []
+  let error: any
   try {
     // Reset to the commit before the target commit
     resetRepoToCommit(projectPath, `${evalCommit.sha}^`)
@@ -40,10 +41,9 @@ async function runSingleEval(
     createFileReadingMock(projectPath)
     let agentState = await createInitialAgentState(projectPath)
 
-    const interactions: AgentInteraction[] = []
     let currentDecision: AgentDecision = 'continue'
     let attempts = 0
-    const MAX_ATTEMPTS = 3
+    const MAX_ATTEMPTS = 5
 
     while (currentDecision === 'continue' && attempts < MAX_ATTEMPTS) {
       // Get next prompt from Sonnet agent
@@ -56,27 +56,17 @@ async function runSingleEval(
 Current spec to implement:
 ${evalCommit.spec}
 
-Previous interactions with CodeBuff:
-${interactions
-  .map(
-    (i, idx) => `
-Attempt ${idx + 1}:
-Your prompt: ${i.codebuff_input}
-CodeBuff output: ${i.codebuff_output}
-Your decision: ${i.agent_decision}
-Your reasoning: ${i.agent_reasoning}
-`
-  )
-  .join('\n')}
+Your conversation with Codebuff so far (You are the 'user', Codebuff is the 'assistant'):
+${agentState.messageHistory
+  .map(({ role, content }) => `${role}: ${JSON.stringify(content)}`)
+  .join('\n\n')}
 
 You must decide whether to:
-1. 'continue' - Generate another prompt for CodeBuff
+1. 'continue' - Generate another prompt for Codebuff
 2. 'complete' - The implementation is done and satisfies the spec
-3. 'halt' - The implementation is unlikely to be completed within ${
-              MAX_ATTEMPTS - attempts
-            } more attempts
+3. 'halt' - The implementation is off track and unlikely to be completed within ${MAX_ATTEMPTS - attempts} more attempts
 
-If deciding to continue, include a clear, focused prompt for CodeBuff in next_prompt.
+If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt.
 Explain your reasoning in detail.`,
           },
         ],
@@ -96,75 +86,38 @@ Explain your reasoning in detail.`,
 
       // If continuing, run CodeBuff with the agent's prompt
       if (agentResponse.decision === 'continue') {
+        const prompt = agentResponse.next_prompt!
         // Use loopMainPrompt instead of runMainPrompt + runToolCalls
         const codeBuffResult = await loopMainPrompt({
           agentState,
-          prompt: agentResponse.next_prompt!,
+          prompt,
           projectPath,
           maxIterations: 20,
         })
 
         agentState = codeBuffResult.agentState
-
-        // Get the last assistant message as the output of the entire CodeBuff interaction
-        const lastAssistantMessage = agentState.messageHistory
-          .filter((m) => m.role === 'assistant')
-          .pop()
-        const codebuffOutputContent = lastAssistantMessage
-          ? typeof lastAssistantMessage.content === 'string'
-            ? lastAssistantMessage.content
-            : JSON.stringify(lastAssistantMessage.content)
-          : 'No assistant message found'
-
-        interactions.push({
-          prompt: agentResponse.next_prompt!,
-          codebuff_input: agentResponse.next_prompt!,
-          codebuff_output: codebuffOutputContent,
-          agent_decision: agentResponse.decision,
-          agent_reasoning: agentResponse.reasoning,
-        })
-      } else {
-        // Record the final decision
-        interactions.push({
-          prompt: '',
-          codebuff_input: '',
-          codebuff_output: '',
-          agent_decision: agentResponse.decision,
-          agent_reasoning: agentResponse.reasoning,
-        })
+        trace.push({ prompt, steps: codeBuffResult.steps })
       }
 
       currentDecision = agentResponse.decision
       attempts++
     }
+  } catch (e) {
+    error = e
+  }
 
-    const evalRun = {
-      eval_commit: evalCommit,
-      interactions,
-      final_status: currentDecision,
-    }
+  const evalRun = {
+    eval_commit: evalCommit,
+    trace,
+    error:
+      error instanceof Error ? error.message + error.stack : 'Unknown error',
+  }
 
-    // Add judging results
-    const judgingResults = await judgeEvalRun(evalRun)
-    return {
-      ...evalRun,
-      judging_results: judgingResults,
-    }
-  } catch (error) {
-    const evalRun = {
-      eval_commit: evalCommit,
-      interactions: [],
-      final_status: 'halt' as const,
-      error:
-        error instanceof Error ? error.message + error.stack : 'Unknown error',
-    }
-
-    // Add judging results even for failed runs
-    const judgingResults = await judgeEvalRun(evalRun)
-    return {
-      ...evalRun,
-      judging_results: judgingResults,
-    }
+  // Add judging results even for failed runs
+  const judgingResults = await judgeEvalRun(evalRun)
+  return {
+    ...evalRun,
+    judging_results: judgingResults,
   }
 }
 
