@@ -234,7 +234,7 @@ describe('simplifyReadFileToolResult', () => {
       id: '1',
       name: 'read_files',
       result:
-        '<read_file>\n<path>test.txt</path>\n<content>content</content>\n<referenced_by>None</referenced_by>\n</read_file>',
+        '<read_file><path>test.txt</path><content>content</content><referenced_by>None</referenced_by></read_file>',
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
@@ -257,7 +257,7 @@ describe('simplifyReadFileToolResult', () => {
       id: '1',
       name: 'read_files',
       result:
-        '<read_file>no path attribute<referenced_by>None</referenced_by>\n</read_file>',
+        '<read_file>no path attribute<referenced_by>None</referenced_by></read_file>',
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
@@ -269,7 +269,7 @@ describe('simplifyReadFileToolResult', () => {
       id: '1',
       name: 'read_files',
       result:
-        '<read_file>\n<path></path>\n<content>content</content>\n<referenced_by>None</referenced_by>\n</read_file>',
+        '<read_file><path></path><content>content</content><referenced_by>None</referenced_by></read_file>',
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
