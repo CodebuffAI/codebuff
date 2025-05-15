@@ -2,11 +2,11 @@ import {
   FileTreeNode,
   printFileTree,
   printFileTreeWithTokens,
+  ProjectFileContext,
 } from 'common/util/file'
-import { ProjectFileContext } from 'common/util/file'
-import { countTokens, countTokensJson } from '../util/token-counter'
+import { sampleSizeWithSeed } from 'common/util/random'
 import { logger } from '../util/logger'
-import { sampleSize } from 'lodash'
+import { countTokens, countTokensJson } from '../util/token-counter'
 
 type TruncationLevel = 'none' | 'unimportant-files' | 'tokens' | 'depth-based'
 const DEBUG = false
@@ -112,7 +112,11 @@ export const truncateFileTreeBasedOnTokenBudget = (
 
   // Sample 30 random files and count their tokens together
   const sampleCount = Math.min(30, sortedFiles.length)
-  const sampleFiles = sampleSize(sortedFiles, sampleCount)
+  const sampleFiles = sampleSizeWithSeed(
+    sortedFiles,
+    sampleCount,
+    JSON.stringify(sortedFiles) + JSON.stringify(sampleCount)
+  )
   const sampleText = sampleFiles.map((f) => f.node.name).join(' ')
   const sampleTokens = countTokens(sampleText)
 
