@@ -141,10 +141,9 @@ export const mainPrompt = async (
 
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
-    isGPT4_1 &&
-      `**Do NOT end your response or 'end turn' if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`,
-    !isGPT4_1 &&
-      "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
+    'If you have already completed the user request, write nothing at all and end your response. Err on the side of ending your reponse early, do not keep making further refinements to code you just wrote. Write it once and stop.',
+
+    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
     (isFlash || isGeminiPro) &&
       'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
@@ -197,7 +196,7 @@ export const mainPrompt = async (
     !isLiteMode &&
       "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
     isGPT4_1 &&
-      `**Do NOT end your response or 'end turn' if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`
+      `**Do NOT end your response if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`
   ).join('\n\n')
 
   const toolInstructions = buildArray(
