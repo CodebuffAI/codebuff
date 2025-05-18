@@ -120,7 +120,20 @@ const WARNING_CONFIG = {
 
 type UsageData = Omit<MakeNullable<UsageResponse, 'remainingBalance'>, 'type'>
 
+interface ClientOptions {
+  websocketUrl: string
+  onWebSocketError: () => void
+  onWebSocketReconnect: () => void
+  freshPrompt: () => void
+  reconnectWhenNextIdle: () => void
+  costMode: CostMode
+  git: GitCommand
+  rl: Interface
+  model: string | undefined
+}
+
 export class Client {
+  private static instance: Client
   private webSocket: APIRealtimeClient
   private freshPrompt: () => void
   private reconnectWhenNextIdle: () => void
@@ -155,7 +168,7 @@ export class Client {
   public lastToolResults: ToolResult[] = []
   public model: string | undefined
 
-  constructor({
+  private constructor({
     websocketUrl,
     onWebSocketError,
     onWebSocketReconnect,
@@ -165,17 +178,7 @@ export class Client {
     git,
     rl,
     model,
-  }: {
-    websocketUrl: string
-    onWebSocketError: () => void
-    onWebSocketReconnect: () => void
-    freshPrompt: () => void
-    reconnectWhenNextIdle: () => void
-    costMode: CostMode
-    git: GitCommand
-    rl: Interface
-    model: string | undefined
-  }) {
+  }: ClientOptions) {
     this.costMode = costMode
     this.model = model
     this.git = git
@@ -198,6 +201,25 @@ export class Client {
       },
       'App launched'
     )
+  }
+
+  public static createInstance(options: ClientOptions): Client {
+    if (Client.instance) {
+      throw new Error(
+        'Client instance already created. Use getInstance() to retrieve it.'
+      )
+    }
+    Client.instance = new Client(options)
+    return Client.instance
+  }
+
+  public static getInstance(): Client {
+    if (!Client.instance) {
+      throw new Error(
+        'Client instance has not been created yet. Call createInstance() first.'
+      )
+    }
+    return Client.instance
   }
 
   async exit() {
