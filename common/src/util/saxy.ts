@@ -339,7 +339,7 @@ export class Saxy extends Transform {
    * @param schema Optional schema defining allowed top-level tags and their children
    */
   constructor(schema?: TagSchema) {
-    super({ decodeStrings: false })
+    super({ decodeStrings: false, defaultEncoding: 'utf8' })
 
     this._decoder = new StringDecoder('utf8')
 
