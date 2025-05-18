@@ -51,6 +51,7 @@ import { logger } from './util/logger'
 import {
   asSystemInstruction,
   asSystemMessage,
+  castAssistantMessage,
   getMessagesSubset,
   isSystemInstruction,
 } from './util/messages'
@@ -420,13 +421,15 @@ export const mainPrompt = async (
 
   const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
   const messagesWithUserMessage = buildArray(
-    ...messageHistory.filter((m) => {
-      return (
-        !prompt ||
-        typeof m.content !== 'string' ||
-        !isSystemInstruction(m.content)
-      )
-    }),
+    ...messageHistory
+      .filter((m) => {
+        return (
+          !prompt ||
+          typeof m.content !== 'string' ||
+          !isSystemInstruction(m.content)
+        )
+      })
+      .map((m) => castAssistantMessage(m)),
     !prompt && {
       role: 'user' as const,
       content: asSystemInstruction(
@@ -439,13 +442,12 @@ export const mainPrompt = async (
       content: asSystemMessage(renderToolResults(toolResults)),
     },
 
-    false &&
-      hasAssistantMessage && {
-        role: 'user' as const,
-        content: asSystemInstruction(
-          "All <previous_assistant_message>messages</previous_assistant_message> were from some previous assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes, identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Continue the conversation as if you are the same assistant."
-        ),
-      },
+    hasAssistantMessage && {
+      role: 'user' as const,
+      content: asSystemInstruction(
+        "All <previous_assistant_message>messages</previous_assistant_message> were from some previous assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes, identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Continue the conversation as if you are the same assistant."
+      ),
+    },
 
     // Add in new copy of agent context.
     prompt &&
