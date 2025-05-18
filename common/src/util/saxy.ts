@@ -341,12 +341,7 @@ export class Saxy extends Transform {
   constructor(schema?: TagSchema) {
     super({ decodeStrings: false })
 
-    // String decoder instance
-    const state = this._writableState
-    // We don't understand why, but sometimes state or state.defaultEncoding are undefined. Guard against that.
-    const encoding =
-      state && state.defaultEncoding ? state.defaultEncoding : 'utf8'
-    this._decoder = new StringDecoder(encoding)
+    this._decoder = new StringDecoder('utf8')
 
     // Stack of tags that were opened up until the current cursor position
     this._tagStack = []
