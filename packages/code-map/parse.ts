@@ -1,7 +1,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
+
 import { uniq } from 'lodash'
 import Parser from 'tree-sitter'
+
 import { LanguageConfig, getLanguageConfig } from './languages'
 
 export const DEBUG_PARSING = false

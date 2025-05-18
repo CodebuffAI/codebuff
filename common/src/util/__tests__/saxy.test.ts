@@ -76,32 +76,42 @@ describe('Saxy XML Parser', () => {
 
       expect(events).toEqual([
         {
-          type: 'tagopen',
           data: {
             attrs: '',
             isSelfClosing: false,
             name: 'root',
+            rawTag: '<root>',
           },
+          type: 'tagopen',
         },
         {
-          type: 'tagopen',
           data: {
             attrs: '',
             isSelfClosing: false,
             name: 'child',
+            rawTag: '<child>',
           },
+          type: 'tagopen',
         },
         {
+          data: {
+            contents: 'content',
+          },
           type: 'text',
-          data: { contents: 'content' },
         },
         {
+          data: {
+            name: 'child',
+            rawTag: '</child>',
+          },
           type: 'tagclose',
-          data: { name: 'child' },
         },
         {
+          data: {
+            name: 'root',
+            rawTag: '</root>',
+          },
           type: 'tagclose',
-          data: { name: 'root' },
         },
       ])
     })
@@ -206,23 +216,27 @@ describe('Saxy XML Parser', () => {
 
     expect(events).toEqual([
       {
-        type: 'text',
         data: {
           contents: 'This is < not a tag> and < another not a tag> but ',
         },
-      },
-      {
-        type: 'tagopen',
-        data: { name: 'valid', isSelfClosing: false, attrs: '' },
-      },
-      {
         type: 'text',
-        data: { contents: 'this is' },
       },
       {
-        type: 'tagclose',
-        data: { name: 'valid' },
+        data: {
+          attrs: '',
+          isSelfClosing: false,
+          name: 'valid',
+          rawTag: '<valid>',
+        },
+        type: 'tagopen',
       },
+      {
+        data: {
+          contents: 'this is',
+        },
+        type: 'text',
+      },
+      { data: { name: 'valid', rawTag: '</valid>' }, type: 'tagclose' },
     ])
   })
 
@@ -256,24 +270,38 @@ describe('Saxy XML Parser', () => {
 
     expect(events).toEqual([
       {
+        data: {
+          contents: 'Text with < brackets> and ',
+        },
         type: 'text',
-        data: { contents: 'Text with < brackets> and ' },
       },
       {
+        data: {
+          attrs: '',
+          isSelfClosing: false,
+          name: 'valid-tag',
+          rawTag: '<valid-tag>',
+        },
         type: 'tagopen',
-        data: { name: 'valid-tag', isSelfClosing: false, attrs: '' },
       },
       {
+        data: {
+          contents: 'real XML',
+        },
         type: 'text',
-        data: { contents: 'real XML' },
       },
       {
+        data: {
+          name: 'valid-tag',
+          rawTag: '</valid-tag>',
+        },
         type: 'tagclose',
-        data: { name: 'valid-tag' },
       },
       {
+        data: {
+          contents: ' mixed together',
+        },
         type: 'text',
-        data: { contents: ' mixed together' },
       },
     ])
   })
@@ -327,7 +355,7 @@ describe('Saxy XML Parser', () => {
       ])
     })
 
-    it('should handle split HTML entities in text content', () => {
+    it('should handle split XML entities in text content', () => {
       // Re-initialize parser and events array inside the test
       const parser = new Saxy()
       const events: any[] = []
@@ -340,11 +368,36 @@ describe('Saxy XML Parser', () => {
       parser.end()
 
       expect(events).toEqual([
-        { type: 'text', data: { contents: 'Text with ' } },
-        { type: 'text', data: { contents: '& and' } },
-        { type: 'text', data: { contents: ' ' } },
-        { type: 'text', data: { contents: '< entities ' } },
-        { type: 'text', data: { contents: '&g' } },
+        {
+          data: {
+            contents: 'Text with ',
+          },
+          type: 'text',
+        },
+        {
+          data: {
+            contents: '& and',
+          },
+          type: 'text',
+        },
+        {
+          data: {
+            contents: ' ',
+          },
+          type: 'text',
+        },
+        {
+          data: {
+            contents: '< entities ',
+          },
+          type: 'text',
+        },
+        {
+          data: {
+            contents: '&g',
+          },
+          type: 'text',
+        },
       ])
       expect(events.map((chunk) => chunk.data.contents).join('')).toEqual(
         'Text with & and < entities &g'
@@ -358,37 +411,59 @@ describe('Saxy XML Parser', () => {
       parser.on('tagopen', (data) => events.push({ type: 'tagopen', data }))
       parser.on('tagclose', (data) => events.push({ type: 'tagclose', data }))
 
-      parser.write('<root>  <child>  text  </child>  </root>')
+      parser.write('<root> text <child>  text  </child> text </root>')
       parser.end()
 
       expect(events).toEqual([
         {
+          data: {
+            attrs: '',
+            isSelfClosing: false,
+            name: 'root',
+            rawTag: '<root>',
+          },
           type: 'tagopen',
-          data: { name: 'root', isSelfClosing: false, attrs: '' },
         },
         {
+          data: {
+            contents: ' text ',
+          },
           type: 'text',
-          data: { contents: '  ' },
         },
         {
+          data: {
+            attrs: '',
+            isSelfClosing: false,
+            name: 'child',
+            rawTag: '<child>',
+          },
           type: 'tagopen',
-          data: { name: 'child', isSelfClosing: false, attrs: '' },
         },
         {
+          data: {
+            contents: '  text  ',
+          },
           type: 'text',
-          data: { contents: '  text  ' },
         },
         {
+          data: {
+            name: 'child',
+            rawTag: '</child>',
+          },
           type: 'tagclose',
-          data: { name: 'child' },
         },
         {
+          data: {
+            contents: ' text ',
+          },
           type: 'text',
-          data: { contents: '  ' },
         },
         {
+          data: {
+            name: 'root',
+            rawTag: '</root>',
+          },
           type: 'tagclose',
-          data: { name: 'root' },
         },
       ])
     })
@@ -441,12 +516,33 @@ describe('Saxy XML Parser', () => {
       // reconstruct the original text correctly
       expect(events).toEqual([
         {
+          data: {
+            attrs: '',
+            isSelfClosing: false,
+            name: 'tag',
+            rawTag: '<tag>',
+          },
           type: 'tagopen',
-          data: { name: 'tag', isSelfClosing: false, attrs: '' },
         },
-        { type: 'text', data: { contents: 'before ' } },
-        { type: 'text', data: { contents: '& after' } },
-        { type: 'tagclose', data: { name: 'tag' } },
+        {
+          data: {
+            contents: 'before ',
+          },
+          type: 'text',
+        },
+        {
+          data: {
+            contents: '& after',
+          },
+          type: 'text',
+        },
+        {
+          data: {
+            name: 'tag',
+            rawTag: '</tag>',
+          },
+          type: 'tagclose',
+        },
       ])
 
       // The text content should be properly reconstructed
@@ -491,17 +587,32 @@ describe('Saxy XML Parser', () => {
       // The & should be treated as literal text and stay with its surrounding content
       expect(events).toEqual([
         {
+          data: {
+            attrs: '',
+            isSelfClosing: false,
+            name: 'tag',
+            rawTag: '<tag>',
+          },
           type: 'tagopen',
-          data: { name: 'tag', isSelfClosing: false, attrs: '' },
         },
         {
+          data: {
+            contents: 'before ',
+          },
           type: 'text',
-          data: { contents: 'before ' },
         },
-        { type: 'text', data: { contents: '& after' } },
         {
+          data: {
+            contents: '& after',
+          },
+          type: 'text',
+        },
+        {
+          data: {
+            name: 'tag',
+            rawTag: '</tag>',
+          },
           type: 'tagclose',
-          data: { name: 'tag' },
         },
       ])
 
@@ -552,20 +663,32 @@ describe('Saxy XML Parser', () => {
       // The text content should be emitted in two chunks due to the new immediate emission behavior
       expect(events).toEqual([
         {
+          data: {
+            attrs: '',
+            isSelfClosing: false,
+            name: 'tag',
+            rawTag: '<tag>',
+          },
           type: 'tagopen',
-          data: { name: 'tag', isSelfClosing: false, attrs: '' },
         },
         {
+          data: {
+            contents: 'Some text',
+          },
           type: 'text',
-          data: { contents: 'Some text' },
         },
         {
+          data: {
+            contents: ' continued',
+          },
           type: 'text',
-          data: { contents: ' continued' },
         },
         {
+          data: {
+            name: 'tag',
+            rawTag: '</tag>',
+          },
           type: 'tagclose',
-          data: { name: 'tag' },
         },
       ])
 
@@ -591,16 +714,27 @@ describe('Saxy XML Parser', () => {
       // The text content should be emitted in two chunks due to the new immediate emission behavior
       expect(events).toEqual([
         {
+          data: {
+            attrs: '',
+            isSelfClosing: false,
+            name: 'tag',
+            rawTag: '<tag>',
+          },
           type: 'tagopen',
-          data: { name: 'tag', isSelfClosing: false, attrs: '' },
         },
         {
-          type: 'text',
-          data: { contents: '</invalid>' },
-        },
-        {
+          data: {
+            name: 'invalid',
+            rawTag: '</invalid>',
+          },
           type: 'tagclose',
-          data: { name: 'tag' },
+        },
+        {
+          data: {
+            name: 'tag',
+            rawTag: '</tag>',
+          },
+          type: 'tagclose',
         },
       ])
 
@@ -609,7 +743,7 @@ describe('Saxy XML Parser', () => {
         .filter((e) => e.type === 'text')
         .map((e) => e.data.contents)
         .join('')
-      expect(textContent).toBe('</invalid>')
+      expect(textContent).toBe('')
     })
   })
 })

@@ -86,6 +86,8 @@ describe('Usage Calculation System', () => {
       expect(balance.breakdown).toEqual({
         free: 300,
         purchase: 800,
+        referral: 0,
+        admin: 0,
       })
     })
 
@@ -171,6 +173,12 @@ describe('Usage Calculation System', () => {
       expect(balance.totalRemaining).toBe(0) // Expired grant doesn't count
       expect(balance.totalDebt).toBe(0)
       expect(balance.netBalance).toBe(0)
+      expect(balance.breakdown).toEqual({
+        free: 0,
+        purchase: 0,
+        referral: 0,
+        admin: 0,
+      })
       expect(usageThisCycle).toBe(200) // 500 - 300 = 200 used
     })
 
@@ -210,7 +218,12 @@ describe('Usage Calculation System', () => {
       expect(balance.totalRemaining).toBe(0)
       expect(balance.totalDebt).toBe(100)
       expect(balance.netBalance).toBe(-100)
-      expect(balance.breakdown).toEqual({}) // No positive balances
+      expect(balance.breakdown).toEqual({
+        free: 0,
+        purchase: 0,
+        referral: 0,
+        admin: 0,
+      }) // No positive balances
     })
   })
 })

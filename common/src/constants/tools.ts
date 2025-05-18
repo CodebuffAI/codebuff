@@ -18,6 +18,8 @@ export const toolSchema = {
   create_plan: ['path', 'plan'],
 
   browser_logs: ['type', 'url', 'waitUntil'],
+
+  end_turn: [],
 }
 
 export type ToolName = keyof typeof toolSchema

@@ -90,6 +90,7 @@ export async function runMainPrompt(
   agentState: AgentState,
   prompt: string | undefined,
   toolResults: ToolResult[],
+  sessionId: string,
   options: {
     costMode: 'lite' | 'normal' | 'max' | 'experimental'
   }
@@ -115,7 +116,7 @@ export async function runMainPrompt(
     mockWs,
     promptAction,
     TEST_USER_ID,
-    'test-session-id',
+    sessionId,
     (chunk: string) => {
       if (DEBUG_MODE) {
         process.stdout.write(chunk)
@@ -165,6 +166,7 @@ export async function loopMainPrompt({
   console.log(blue(prompt))
 
   const startTime = Date.now()
+  const sessionId = 'test-session-id-' + generateCompactId()
   let currentAgentState = agentState
   let toolResults: ToolResult[] = []
   let toolCalls: ClientToolCall[] = []
@@ -182,6 +184,7 @@ export async function loopMainPrompt({
       currentAgentState,
       iterations === 1 ? prompt : undefined,
       toolResults,
+      sessionId,
       options
     )
     currentAgentState = newAgentState
@@ -201,7 +204,9 @@ export async function loopMainPrompt({
       toolResults: newToolResults,
     })
 
-    if (toolResults.length === 0) {
+    const containsEndTurn = toolCalls.some((call) => call.name === 'end_turn')
+
+    if (containsEndTurn || toolResults.length === 0) {
       break
     }
   }

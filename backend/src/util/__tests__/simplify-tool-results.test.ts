@@ -15,11 +15,13 @@ describe('simplifyToolResultsInMessages', () => {
 <result><read_file>
 <path>test1.txt</path>
 <content>content1</content>
+<referenced_by>None</referenced_by>
 </read_file>
 
 <read_file>
 <path>test2.txt</path>
 <content>content2</content>
+<referenced_by>None</referenced_by>
 </read_file></result>
 </tool_result>
 <tool_result>
@@ -42,6 +44,7 @@ describe('simplifyToolResultsInMessages', () => {
 <result><read_file>
 <path>test.txt</path>
 <content>content</content>
+<referenced_by>None</referenced_by>
 </read_file></result>
 </tool_result>`,
       },
@@ -81,6 +84,7 @@ describe('simplifyToolResultsInMessages', () => {
 <result><read_file>
 <path>test1.txt</path>
 <content>content1</content>
+<referenced_by>None</referenced_by>
 </read_file></result>
 </tool_result>
 <tool_result>
@@ -88,6 +92,7 @@ describe('simplifyToolResultsInMessages', () => {
 <result><read_file>
 <path>test2.txt</path>
 <content>content2</content>
+<referenced_by>None</referenced_by>
 </read_file></result>
 </tool_result>`
 
@@ -143,13 +148,14 @@ describe('simplifyTerminalCommandResultsInMessages', () => {
 <result><read_file>
 <path>test.txt</path>
 <content>content</content>
+<referenced_by>None</referenced_by>
 </read_file></result>
 </tool_result>`
 
     const result = simplifyTerminalCommandResults(messageContent)
     expect(result).toContain('[Output omitted]')
     expect(result).toContain(
-      '<read_file>\n<path>test.txt</path>\n<content>content</content>\n</read_file>'
+      '<read_file>\n<path>test.txt</path>\n<content>content</content>\n<referenced_by>None</referenced_by>\n</read_file>'
     )
   })
 
@@ -205,11 +211,13 @@ describe('simplifyReadFileToolResult', () => {
       result: `<read_file>
 <path>test1.txt</path>
 <content>content1</content>
+<referenced_by>None</referenced_by>
 </read_file>
 
 <read_file>
 <path>test2.txt</path>
 <content>content2</content>
+<referenced_by>None</referenced_by>
 </read_file>`,
     }
 
@@ -226,7 +234,7 @@ describe('simplifyReadFileToolResult', () => {
       id: '1',
       name: 'read_files',
       result:
-        '<read_file>\n<path>test.txt</path>\n<content>content</content>\n</read_file>',
+        '<read_file><path>test.txt</path><content>content</content><referenced_by>None</referenced_by></read_file>',
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
@@ -248,7 +256,8 @@ describe('simplifyReadFileToolResult', () => {
     const toolResult = {
       id: '1',
       name: 'read_files',
-      result: '<read_file>no path attribute</read_file>',
+      result:
+        '<read_file>no path attribute<referenced_by>None</referenced_by></read_file>',
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
@@ -260,7 +269,7 @@ describe('simplifyReadFileToolResult', () => {
       id: '1',
       name: 'read_files',
       result:
-        '<read_file>\n<path></path>\n<content>content</content>\n</read_file>',
+        '<read_file><path></path><content>content</content><referenced_by>None</referenced_by></read_file>',
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)

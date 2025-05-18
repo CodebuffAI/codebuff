@@ -621,7 +621,7 @@ If you want to change the project root:
             `${statusMessage}\n`,
             outsideProject &&
               `Detected final cwd outside project root. Reset cwd to ${currentWorkingDirectory}`,
-            `Final **user** cwd: ${finalCwd}`,
+            `Final **user** cwd: ${finalCwd} (Assistant's cwd is still project root)`,
           ]).join('\n')
         ),
         stdout: commandOutput,

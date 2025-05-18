@@ -136,15 +136,14 @@ export const mainPrompt = async (
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
     isLiteMode
-      ? 'Please proceed toward the user request and any subgoals. Please complete the entire user request.'
-      : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool).',
+      ? 'Please proceed toward the user request and any subgoals. Please complete the entire user request. You must finally use the end_turn tool at the end of your response.'
+      : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool). You must finally use the end_turn tool at the end of your response.',
 
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
-    isGPT4_1 &&
-      `**Do NOT end your response or 'end turn' if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`,
-    !isGPT4_1 &&
-      "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
+    'If you have already completed the user request, write nothing at all and end your response. Err on the side of ending your reponse early, do not keep making further refinements to code you just wrote. Write it once and stop.',
+
+    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
     (isFlash || isGeminiPro) &&
       'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
@@ -197,7 +196,9 @@ export const mainPrompt = async (
     !isLiteMode &&
       "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
     isGPT4_1 &&
-      `**Do NOT end your response or 'end turn' if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`
+      `**Do NOT end your response if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`,
+
+    'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.'
   ).join('\n\n')
 
   const toolInstructions = buildArray(
@@ -214,7 +215,9 @@ export const mainPrompt = async (
     prompt && [
       cwd && {
         role: 'user' as const,
-        content: asSystemMessage(`cwd: ${cwd}`),
+        content: asSystemMessage(
+          `**user** cwd: ${cwd} (assistant cwd is project root)`
+        ),
       },
       {
         role: 'user' as const,
@@ -361,8 +364,10 @@ export const mainPrompt = async (
     }
 
     messageHistory = messageHistory.filter((message) => {
-      typeof message.content !== 'string' ||
+      return (
+        typeof message.content !== 'string' ||
         !isSystemInstruction(message.content)
+      )
     })
   }
 
@@ -413,15 +418,15 @@ export const mainPrompt = async (
 
   const relevantDocumentation = await relevantDocumentationPromise
 
+  const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
   const messagesWithUserMessage = buildArray(
-    ...messageHistory.filter(
-      (m) =>
-        costMode !== 'experimental' ||
+    ...messageHistory.filter((m) => {
+      return (
         !prompt ||
         typeof m.content !== 'string' ||
         !isSystemInstruction(m.content)
-    ),
-
+      )
+    }),
     !prompt && {
       role: 'user' as const,
       content: asSystemInstruction(
@@ -433,6 +438,14 @@ export const mainPrompt = async (
       role: 'user' as const,
       content: asSystemMessage(renderToolResults(toolResults)),
     },
+
+    false &&
+      hasAssistantMessage && {
+        role: 'user' as const,
+        content: asSystemInstruction(
+          "All <previous_assistant_message>messages</previous_assistant_message> were from some previous assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes, identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Continue the conversation as if you are the same assistant."
+        ),
+      },
 
     // Add in new copy of agent context.
     prompt &&
@@ -459,7 +472,12 @@ export const mainPrompt = async (
     },
 
     prompt && [
-      cwd && { role: 'user' as const, content: asSystemMessage(`cwd: ${cwd}`) },
+      cwd && {
+        role: 'user' as const,
+        content: asSystemMessage(
+          `**user** cwd: ${cwd} (assistant cwd is project root)`
+        ),
+      },
       {
         role: 'user' as const,
         content: prompt,
@@ -477,9 +495,7 @@ export const mainPrompt = async (
     ...readFileMessages
   )
 
-  const iterationNum = messagesWithUserMessage.filter(
-    (m) => m.role === 'assistant'
-  ).length
+  const iterationNum = messagesWithUserMessage.length
 
   const system = getAgentSystemPrompt(fileContext)
   const systemTokens = countTokensJson(system)
@@ -628,7 +644,7 @@ export const mainPrompt = async (
         ])
       ),
       ...Object.fromEntries(
-        (['code_search', 'browser_logs'] as const).map((tool) => [
+        (['code_search', 'browser_logs', 'end_turn'] as const).map((tool) => [
           tool,
           toolCallback(tool, (toolCall) => {
             clientToolCalls.push({
@@ -823,6 +839,7 @@ export const mainPrompt = async (
         'browser_logs',
         'think_deeply',
         'create_plan',
+        'end_turn',
       ].includes(name)
     ) {
       // Handled above

@@ -5,13 +5,14 @@ import { GrantType } from 'common/db/schema'
 import { logger } from 'common/util/logger'
 import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
 import { withSerializableTransaction } from 'common/db/transaction'
+import { GrantTypeValues } from 'common/types/grant'
 
 export interface CreditBalance {
   totalRemaining: number
   totalDebt: number
   netBalance: number
-  breakdown: Partial<Record<GrantType, number>>
-  principals: Partial<Record<GrantType, number>>
+  breakdown: Record<GrantType, number>
+  principals: Record<GrantType, number>
 }
 
 export interface CreditUsageAndBalance {
@@ -186,13 +187,28 @@ export async function calculateUsageAndBalance(
   // Get all relevant grants in one query, using the provided connection
   const grants = await getOrderedActiveGrants(userId, now, conn)
 
+  // Initialize breakdown and principals with all grant types set to 0
+  const initialBreakdown: Record<GrantType, number> = {} as Record<
+    GrantType,
+    number
+  >
+  const initialPrincipals: Record<GrantType, number> = {} as Record<
+    GrantType,
+    number
+  >
+
+  for (const type of GrantTypeValues) {
+    initialBreakdown[type] = 0
+    initialPrincipals[type] = 0
+  }
+
   // Initialize balance structure
   const balance: CreditBalance = {
     totalRemaining: 0,
     totalDebt: 0,
     netBalance: 0,
-    breakdown: {},
-    principals: {},
+    breakdown: initialBreakdown,
+    principals: initialPrincipals,
   }
 
   // Calculate both metrics in one pass
@@ -215,12 +231,10 @@ export async function calculateUsageAndBalance(
 
     // Add to balance if grant is currently active
     if (!grant.expires_at || grant.expires_at > now) {
+      balance.principals[grantType] += grant.principal
       if (grant.balance > 0) {
         totalPositiveBalance += grant.balance
-        balance.breakdown[grantType] =
-          (balance.breakdown[grantType] || 0) + grant.balance
-        balance.principals[grantType] =
-          (balance.principals[grantType] || 0) + grant.principal
+        balance.breakdown[grantType] += grant.balance
       } else if (grant.balance < 0) {
         totalDebt += Math.abs(grant.balance)
       }

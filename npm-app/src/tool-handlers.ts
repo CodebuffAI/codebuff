@@ -211,6 +211,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
     process_type: 'SYNC' | 'BACKGROUND'
   }>,
   code_search: handleCodeSearch,
+  end_turn: async () => '',
   browser_logs: async (params, _id): Promise<string> => {
     Spinner.get().start()
     let response: BrowserResponse

@@ -7,9 +7,7 @@ import { stripeServer } from 'common/src/util/stripe'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { logger } from '@/util/logger'
-import {
-  convertStripeGrantAmountToCredits,
-} from 'common/util/currency'
+import { convertStripeGrantAmountToCredits } from 'common/util/currency'
 import {
   getUserCostPerCredit,
   processAndGrantCredit,
@@ -75,47 +73,6 @@ async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
     },
     'Subscription event received'
   )
-}
-
-async function handleInvoiceCreated(invoice: Stripe.Invoice) {
-  // Only handle non-auto-topup invoices that are in draft state
-  if (
-    invoice.status === 'draft' &&
-    invoice.metadata?.type !== 'auto-topup' &&
-    invoice.id
-  ) {
-    try {
-      // Create a credit note for the full amount since we handle usage internally
-      const creditNote = await stripeServer.creditNotes.create({
-        invoice: invoice.id,
-        lines: invoice.lines.data.map((line) => ({
-          type: 'invoice_line_item' as const,
-          invoice_line_item: line.id,
-          quantity: line.quantity ?? 1,
-        })),
-      })
-
-      logger.info(
-        {
-          invoiceId: invoice.id,
-          creditNoteId: creditNote.id,
-          amount: creditNote.amount,
-          customerId: invoice.customer,
-        },
-        'Created credit note for usage-based billing invoice'
-      )
-    } catch (error) {
-      logger.error(
-        {
-          error: (error as Error).message,
-          invoiceId: invoice.id,
-          customerId: invoice.customer,
-        },
-        'Failed to create credit note for invoice'
-      )
-      throw error // Let the webhook handler catch and process this
-    }
-  }
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
@@ -185,21 +142,23 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         if (paymentIntentId) {
           // Get the payment intent to access its metadata
           const paymentIntent = await stripeServer.paymentIntents.retrieve(
-            typeof paymentIntentId === 'string' ? paymentIntentId : paymentIntentId.toString()
+            typeof paymentIntentId === 'string'
+              ? paymentIntentId
+              : paymentIntentId.toString()
           )
-          
+
           if (paymentIntent.metadata?.operationId) {
             const operationId = paymentIntent.metadata.operationId
             logger.info(
               { chargeId: charge.id, paymentIntentId, operationId },
               'Processing refund, attempting to revoke credits'
             )
-            
+
             const revoked = await revokeGrantByOperationId(
               operationId,
               `Refund for charge ${charge.id}`
             )
-            
+
             if (!revoked) {
               logger.error(
                 { chargeId: charge.id, operationId },
@@ -219,10 +178,6 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         await handleCheckoutSessionCompleted(
           event.data.object as Stripe.Checkout.Session
         )
-        break
-      }
-      case 'invoice.created': {
-        await handleInvoiceCreated(event.data.object as Stripe.Invoice)
         break
       }
       case 'invoice.paid': {

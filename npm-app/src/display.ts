@@ -37,8 +37,10 @@ const originalWrite = process.stdout.write.bind(process.stdout)
 
 process.stdout.write = function (
   chunk: string | Uint8Array,
-  encodingOrCallback?: BufferEncoding | ((err?: Error | undefined) => void),
-  callbackMaybe?: (err?: Error | undefined) => void
+  encodingOrCallback?:
+    | BufferEncoding
+    | ((err?: Error | null | undefined) => void),
+  callbackMaybe?: (err?: Error | null | undefined) => void
 ): boolean {
   let chunkString = typeof chunk === 'string' ? chunk : chunk.toString()
   chunkString = addCarriageReturn(chunkString)
@@ -72,8 +74,10 @@ const originalError = process.stderr.write.bind(process.stderr)
 
 process.stderr.write = function (
   chunk: string | Uint8Array,
-  encodingOrCallback?: BufferEncoding | ((err?: Error | undefined) => void),
-  callbackMaybe?: (err?: Error | undefined) => void
+  encodingOrCallback?:
+    | BufferEncoding
+    | ((err?: Error | null | undefined) => void),
+  callbackMaybe?: (err?: Error | null | undefined) => void
 ): boolean {
   let chunkString = typeof chunk === 'string' ? chunk : chunk.toString()
   chunkString = addCarriageReturn(chunkString)

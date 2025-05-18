@@ -25,6 +25,7 @@ export async function getThinkingStream(
       '</think_deeply>',
       '<think_deeply>',
       '<read_files>',
+      '<end_turn>'
     ],
     clientSessionId: options.clientSessionId,
     fingerprintId: options.fingerprintId,

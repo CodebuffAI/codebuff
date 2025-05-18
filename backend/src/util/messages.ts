@@ -47,6 +47,30 @@ export function getMessageText(message: Message): string | undefined {
   return message.content.map((c) => ('text' in c ? c.text : '')).join('\n')
 }
 
+export function castAssistantMessage(message: Message): Message {
+  if (message.role !== 'assistant') {
+    return message
+  }
+  if (typeof message.content === 'string') {
+    return {
+      content: `<previous_assistant_message>${message.content}</previous_assistant_message>`,
+      role: 'user' as const,
+    }
+  }
+  return {
+    role: 'user' as const,
+    content: message.content.map((m) => {
+      if (m.type === 'text') {
+        return {
+          ...m,
+          text: `<previous_assistant_message>${m.text}</previous_assistant_message>`,
+        }
+      }
+      return m
+    }),
+  }
+}
+
 // Number of terminal command outputs to keep in full form before simplifying
 const numTerminalCommandsToKeep = 5
 
@@ -169,9 +193,22 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     otherTokens
   )
 
-  // Remove cache_control from all messages
-  for (const message of messagesSubset) {
-    if (typeof message.content === 'object' && message.content.length > 0) {
+  // Remove cache_control from all messages except the last one
+  let lastCachedMessageIndex = -1
+  for (const [index, message] of messagesSubset.entries()) {
+    if (
+      typeof message.content === 'object' &&
+      message.content[message.content.length - 1]?.cache_control
+    ) {
+      lastCachedMessageIndex = index
+    }
+  }
+  for (const [index, message] of messagesSubset.entries()) {
+    if (
+      typeof message.content === 'object' &&
+      message.content.length > 0 &&
+      index !== lastCachedMessageIndex
+    ) {
       delete message.content[message.content.length - 1].cache_control
     }
   }

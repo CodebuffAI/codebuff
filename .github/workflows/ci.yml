@@ -28,7 +28,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.1.26'
+          bun-version: '1.2.12'
 
       - name: Cache dependencies
         uses: actions/cache@v3
@@ -47,7 +47,6 @@ jobs:
       - name: Set Environment Variables
         run: |
           echo "${{ secrets.ENV_LOCAL }}" > .env.local
-          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
       - name: Build and typecheck
         run: |
@@ -62,11 +61,8 @@ jobs:
         package: [npm-app, backend, common]
         include:
           - package: npm-app
-            test_path: ./npm-app/src/utils/__tests__/**.test.ts
           - package: backend
-            test_path: ./backend/src/**/*.test.ts
           - package: common
-            test_path: ./common/src/**/*.test.ts
     name: test-${{ matrix.package }}
     runs-on: ubuntu-latest
     steps:
@@ -76,7 +72,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.1.26'
+          bun-version: '1.2.12'
 
       - name: Cache dependencies
         uses: actions/cache@v3
@@ -95,11 +91,15 @@ jobs:
       - name: Set Environment Variables
         run: |
           echo "${{ secrets.ENV_LOCAL }}" > .env.local
-          echo "CODEBUFF_GITHUB_ACTIONS=true" >> .env.local
 
       - name: Run ${{ matrix.package }} tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: bun test ${{ matrix.test_path }}
+          command: cd ${{ matrix.package }} && bun test $(find src -name *.test.ts)
+
+      # - name: Open interactive debug shell
+      #   if: ${{ failure() }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15 # optional guard

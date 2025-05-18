@@ -94,7 +94,7 @@ export function parseReadFilesResult(
 ): { path: string; content: string; referencedBy: string }[] {
   const files: { path: string; content: string; referencedBy: string }[] = []
   const filePattern =
-    /<read_file>\n<path>([^<>]+)<\/path>\n<content>([\s\S]*?)<\/content>\n<referenced_by>([\s\S]*?)<\/referenced_by>\n<\/read_file>/g
+    /<read_file>\s*<path>([^<>]+)<\/path>\s*<content>([\s\S]*?)<\/content>\s*<referenced_by>([\s\S]*?)<\/referenced_by>\s*<\/read_file>/g
   let match
 
   while ((match = filePattern.exec(xmlString)) !== null) {

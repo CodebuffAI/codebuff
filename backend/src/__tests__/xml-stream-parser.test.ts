@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { toolSchema } from 'common/constants/tools'
 import { processStreamWithTags } from '../xml-stream-parser'
 
 describe('processStreamWithTags', () => {
@@ -329,7 +330,8 @@ describe('processStreamWithTags', () => {
         type: 'start',
       },
       {
-        error: 'New tool started while parsing tool test. Ending current tool',
+        error:
+          'WARN: New tool started while parsing tool test. Ending current tool. Make sure to close all tool calls!',
         name: 'test',
       },
       {
@@ -352,7 +354,8 @@ describe('processStreamWithTags', () => {
         type: 'end',
       },
       {
-        error: 'Ignoring stray closing tag',
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'test',
       },
     ])
@@ -393,6 +396,16 @@ describe('processStreamWithTags', () => {
 
     expect(events).toEqual([
       { tagName: 'test', type: 'start', attributes: {} },
+      {
+        error:
+          'WARN: Found end of stream while parsing parameter. Make sure to close all parameters!',
+        name: 'param',
+      },
+      {
+        error:
+          'WARN: Found end of stream while parsing tool. Make sure to close all tools!',
+        name: 'test',
+      },
       { tagName: 'test', type: 'end', params: { param: 'content' } },
     ])
     expect(result).toEqual([...streamChunks, '</param>\n', '</test>\n'])
@@ -452,7 +465,8 @@ describe('processStreamWithTags', () => {
         type: 'start',
       },
       {
-        error: 'Ignoring extra parameters found in test attributes: ["id"]',
+        error:
+          'WARN: Ignoring extra parameters found in test attributes: ["id"]. Make sure to only use parameters defined in the tool!',
         name: 'test',
       },
       {
@@ -604,7 +618,7 @@ describe('processStreamWithTags', () => {
       },
       {
         error:
-          'Ignoring extra parameters found in test attributes: ["name","id"]',
+          'WARN: Ignoring extra parameters found in test attributes: ["name","id"]. Make sure to only use parameters defined in the tool!',
         name: 'test',
       },
       {
@@ -691,11 +705,13 @@ describe('processStreamWithTags', () => {
 
     expect(events).toEqual([
       {
-        error: 'Ignoring non-tool XML tag',
+        error:
+          'WARN: Ignoring non-tool XML tag. Make sure to escape non-tool XML!',
         name: 'unknown',
       },
       {
-        error: 'Ignoring stray closing tag',
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'unknown',
       },
     ])
@@ -979,17 +995,21 @@ describe('processStreamWithTags', () => {
         type: 'start',
       },
       {
-        error: 'Ignoring stray XML tag',
+        error:
+          'WARN: Ignoring stray XML tag. Make sure to escape non-tool XML!',
         name: 'invalid',
       },
       {
-        error: 'Ignoring text in test between parameters',
+        error:
+          'WARN: Ignoring text in test between parameters. Make sure to only put text within parameters!',
         name: 'test',
       },
       {
-        error: 'Ignoring stray closing tag',
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'invalid',
       },
+
       {
         params: {
           param1: 'value1',
@@ -1247,11 +1267,13 @@ describe('processStreamWithTags', () => {
         type: 'start',
       },
       {
-        error: 'Ignoring stray closing tag',
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'content',
       },
       {
-        error: 'Ignoring stray closing tag',
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'content',
       },
 
@@ -1266,5 +1288,42 @@ describe('processStreamWithTags', () => {
       },
     ])
     expect(result).toEqual(streamChunks)
+  })
+
+  it('should handle shortened real world example', async () => {
+    const streamChunks = [
+      "I notice there's still an issue with the test dependencies. Let me fix that by removing the unused openai-go import and run the tests again:\n\n<write_file>\n<path>acp/internal/server/server_test.go</path>\n<content> {\n\tserver := ",
+      '&APIServer\n</content',
+      '>\n</write_file>\n\n<run_terminal_command>\n<command>cd acp && go test -v ./internal/server</command>\n</run_terminal_command>\n',
+    ]
+    const stream = createMockStream(streamChunks)
+    const events: any[] = []
+    const processors = Object.fromEntries(
+      Object.entries(toolSchema).map(([tool, params]) => [
+        tool,
+        {
+          params,
+          onTagStart: (tagName: string, attributes: Record<string, string>) =>
+            events.push({ tagName, type: 'start', attributes }),
+          onTagEnd: (tagName: string, params: Record<string, string>) =>
+            events.push({ tagName, type: 'end', params }),
+        },
+      ])
+    )
+    function onError(name: string, error: string) {
+      events.push({ name, error })
+    }
+    const result = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+    for (const event of events) {
+      expect(event).not.toHaveProperty('error')
+      expect(result).toEqual(streamChunks)
+    }
   })
 })
