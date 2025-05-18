@@ -2,15 +2,8 @@ import * as fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { CostMode, CREDITS_REFERRAL_BONUS } from 'common/constants'
-import picocolors, {
-  blue,
-  blueBright,
-  bold,
-  green,
-  magenta,
-  yellow,
-} from 'picocolors'
+import { CostMode } from 'common/constants'
+import { blueBright, bold, green, magenta, underline, yellow } from 'picocolors'
 
 import { getProjectRoot } from './project-files'
 
@@ -64,6 +57,8 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
 
 export function displayMenu() {
   const selectedColors = getRandomColors()
+  const terminalWidth = process.stdout.columns || 80
+  const dividerLine = '─'.repeat(terminalWidth)
 
   const getRandomColor = () => {
     return selectedColors[Math.floor(Math.random() * selectedColors.length)]
@@ -74,7 +69,7 @@ export function displayMenu() {
       .split('')
       .map((char) => {
         const color = getRandomColor()
-        return (picocolors as any)[color](char)
+        return color[char as keyof typeof color]
       })
       .join('')
   }
@@ -83,81 +78,150 @@ export function displayMenu() {
   console.log()
 
   console.log(`
-${colorizeRandom('     { AI }')}
-${colorizeRandom('    [CODER]')}
 ${colorizeRandom('          ')}
 ${colorizeRandom('██████╗')}${colorizeRandom(' ██████╗  ')}${colorizeRandom('██████╗ ')}${colorizeRandom('███████╗')}${colorizeRandom('██████╗ ')}${colorizeRandom('██╗   ██╗')}${colorizeRandom('███████╗')}${colorizeRandom('███████╗')}
 ${colorizeRandom('██╔════╝')}${colorizeRandom('██╔═══██╗')}${colorizeRandom('██╔══██╗')}${colorizeRandom('██╔════╝')}${colorizeRandom('██╔══██╗')}${colorizeRandom('██║   ██║')}${colorizeRandom('██╔════╝')}${colorizeRandom('██╔════╝')}
 ${colorizeRandom('██║     ')}${colorizeRandom('██║   ██║')}${colorizeRandom('██║  ██║')}${colorizeRandom('█████╗  ')}${colorizeRandom('██████╔╝')}${colorizeRandom('██║   ██║')}${colorizeRandom('█████╗  ')}${colorizeRandom('█████╗  ')}
 ${colorizeRandom('██║     ')}${colorizeRandom('██║   ██║')}${colorizeRandom('██║  ██║')}${colorizeRandom('██╔══╝  ')}${colorizeRandom('██╔══██╗')}${colorizeRandom('██║   ██║')}${colorizeRandom('██╔══╝  ')}${colorizeRandom('██╔══╝  ')}
 ${colorizeRandom('╚██████╗')}${colorizeRandom('╚██████╔╝')}${colorizeRandom('██████╔╝')}${colorizeRandom('███████╗')}${colorizeRandom('██████╔╝')}${colorizeRandom('╚██████╔╝')}${colorizeRandom('██║     ')}${colorizeRandom('██║     ')}
-${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom('╚═════╝ ')}${colorizeRandom('╚══════╝')}${colorizeRandom('╚═════╝ ')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom('╚═╝     ')}${colorizeRandom('╚═╝     ')}
+${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom('╚══════╝')}${colorizeRandom('╚═════╝ ')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom('╚═╝     ')}${colorizeRandom('╚═╝     ')}
 `)
-  console.log(bold(green("Welcome! I'm your AI coding assistant.")))
   console.log(
-    `\nCodebuff will read and write files within your current directory (${getProjectRoot()}) and run commands in your terminal.`
+    `${bold(blueBright('📂'))} ${bold('Current directory:')} ${bold(blueBright(getProjectRoot()))}`
   )
+  console.log(`
+${bold(underline('DIAGNOSTICS CHECK'))}`)
 
-  console.log('\nASK CODEBUFF TO...')
-  console.log('- Build a feature. Brain dump what you want first.')
-  console.log('- Write unit tests')
-  console.log('- Refactor a component into multiple components')
-  console.log('- Fix errors from compiling your project or running tests')
-  console.log('- Write a script.')
   console.log(
-    '- Plan a feature before implementing it. Or, write your own plan in a file and ask Codebuff to implement it step-by-step'
-  )
-  console.log(
-    '- Build an integration after pasting in the URL to relevant documentation'
-  )
-  console.log(
-    '- "Create knowledge files for your codebase" to help Codebuff understand your project'
-  )
-
-  console.log('\nCommands:')
-  console.log('- Enter terminal commands directly: "cd backend", "npm test"')
-  console.log(
-    '- Use "!command" to explicitly run a terminal command (e.g. "!ls -la")'
-  )
-  console.log('- Press ESC to cancel generation')
-  console.log('- Type "usage" to see your credits remaining')
-  console.log(
-    '- Type "init" to have Codebuff automatically configure your project for a smoother experience'
-  )
-  console.log(
-    '- Type "undo" or "redo" (abbreviated "u" or "r") to undo or redo the last change'
-  )
-  console.log('- Type "login" to log into Codebuff')
-  console.log('- Type "exit" or press Ctrl+C twice to exit Codebuff')
-  console.log(
-    '- Type "diff" or "d" to show changes from the last assistant response'
-  )
-  console.log(
-    '- Start Codebuff with --lite for efficient responses, --max for higher quality responses, or --experimental for cutting-edge features'
-  )
-
-  console.log('\nCheckpoint Commands:')
-  console.log('- Type "checkpoint <id>" to restore a specific checkpoint')
-  console.log(
-    '- Type "checkpoint list" or "checkpoints" to list all available checkpoints'
-  )
-
-  console.log(`\n- Redeem a referral code by simply pasting it here.`)
-  console.log(
-    '-',
-    bold(
-      green(
-        `Refer new users and each of you will earn ${CREDITS_REFERRAL_BONUS} credits per month: ${process.env.NEXT_PUBLIC_APP_URL}/referrals`
+    (() => {
+      const hasGitRepo = fs.existsSync(path.join(getProjectRoot(), '.git'))
+      const hasGitIgnore = fs.existsSync(
+        path.join(getProjectRoot(), '.gitignore')
       )
-    )
+      const hasKnowledgeMd = fs.existsSync(
+        path.join(getProjectRoot(), 'knowledge.md')
+      )
+      const hasCodebuffJson = fs.existsSync(
+        path.join(getProjectRoot(), 'codebuff.json')
+      )
+
+      // Condition 1: Git repo found, all files present
+      if (hasGitRepo && hasGitIgnore && hasKnowledgeMd && hasCodebuffJson) {
+        return `${green('✅ Git repo: detected')}
+${green('✅ .gitignore: detected')}
+${green('✅ knowledge.md: detected')}
+${green('✅ codebuff.json: detected')}`
+      }
+
+      // Condition 2: Git repo not found
+      if (!hasGitRepo) {
+        return `${yellow('❌ Git repo: not found - navigate to a working directory!')}
+${hasGitIgnore ? green('✅ .gitignore: detected') : yellow('❌ .gitignore: missing')}
+${hasKnowledgeMd ? green('✅ knowledge.md: detected') : yellow('❌ knowledge.md: missing')}
+${hasCodebuffJson ? green('✅ codebuff.json: detected') : yellow('❌ codebuff.json: missing')}`
+      }
+
+      // Condition 3: Missing .gitignore
+      if (!hasGitIgnore) {
+        return `${green('✅ Git repo: detected')}
+${yellow('❌ .gitignore: missing - type "generate a reasonable .gitignore"')}
+${hasKnowledgeMd ? green('✅ knowledge.md: detected') : yellow('❌ knowledge.md: missing')}
+${hasCodebuffJson ? green('✅ codebuff.json: detected') : yellow('❌ codebuff.json: missing')}`
+      }
+      // Condition 4: Missing knowledge files
+      return `${green('✅ Git repo: detected')}
+${green('✅ .gitignore: detected')}
+${
+  !hasKnowledgeMd && !hasCodebuffJson
+    ? yellow('❌ knowledge.md & codebuff.json: missing - type "init"')
+    : !hasKnowledgeMd
+      ? yellow('❌ knowledge.md: missing - type "init"')
+      : !hasCodebuffJson
+        ? yellow('❌ codebuff.json: missing - type "init"')
+        : green('✅ knowledge.md & codebuff.json: detected')
+}
+${hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow('codebuff.json runs deployment scripts for you to test your code and runs configured checks for you by running your dev server.')}` : ''}
+${!hasKnowledgeMd && hasCodebuffJson ? `\n${yellow('knowledge.md helps Codebuff understand your project structure and codebase better for better results.')}` : ''}
+${!hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow('knowledge.md helps Codebuff understand your project structure and codebase better for better results.')}\n${yellow('codebuff.json runs deployment scripts for you to test your code and runs configured checks for you by running your dev server.')}` : ''}`
+    })()
   )
 
+  console.log(`
+${bold(underline('DIAGNOSTICS CHECK'))}`)
+
+  // COMMUNITY & FEEDBACK SECTION
+  console.log(`\n${bold(underline('COMMUNITY & FEEDBACK'))} `)
+
+  console.log(`
+DM @brandonkachen or @jahooma on Discord, or email ${blueBright('founders@codebuff.com')}
+
+OUR DISCORD: ${blueBright('https://codebuff.com/discord')} ${yellow('(Ctrl/Cmd+Click to open)')}
+`)
+
+  // COMMANDS SECTION
+  // Add bold and underlined header for commands section
+  const fixedCommandWidth = 30 // Fixed width for command column
   console.log(
-    "\nAny files in .gitignore are not read by Codebuff. You can ignore further files with .codebuffignore, or choose files Codebuff should not ignore by adding a '!' prefix to the ignore pattern."
+    `\n${bold(underline('COMMAND'))}${' '.repeat(fixedCommandWidth - 7)}${bold(underline('DESCRIPTION'))} `
   )
+
+  const useSimpleLayout = terminalWidth < 100
+
+  const formatMenuLine = (command: string, description: string) => {
+    // Ensure command fits in the fixed width column
+    const paddedCommand = command.padEnd(fixedCommandWidth)
+    return `${paddedCommand}${description}`
+  }
+
+  if (useSimpleLayout) {
+    // Clean, aligned format for commands in narrow terminals
+    console.log(`
+${formatMenuLine('"login"', 'Authenticate your session')}
+${dividerLine}
+${formatMenuLine('"diff" or "d"', 'Show last assistant change diff')}
+${dividerLine}
+${formatMenuLine('"undo" / "redo" or "u"', 'Revert or re-apply last change')}
+${dividerLine}
+${formatMenuLine('"checkpoint list"', 'List all checkpoints')}
+${dividerLine}
+${formatMenuLine('"checkpoint <id>"', 'Restore to a specific checkpoint')}
+${dividerLine}
+${formatMenuLine('"usage" / "credits"', 'View remaining / bonus AI credits')}
+${dividerLine}
+${formatMenuLine('"init"', 'Configure project for better results')}
+${dividerLine}
+${formatMenuLine('"exit" or Ctrl-C x2', 'Quit Codebuff')}
+${dividerLine}
+${formatMenuLine('"!<cmd>"', 'Run shell command directly')}
+${dividerLine}
+${formatMenuLine('"ESC key"', 'Cancel generation')}
+  `)
+  } else {
+    // Original table format for larger terminals
+    console.log(`
+${formatMenuLine('"login"', 'Authenticate your session')}
+${dividerLine}
+${formatMenuLine('"diff" or "d"', 'Show last assistant change diff')}
+${dividerLine}
+${formatMenuLine('"undo" / "redo" or "u"', 'Revert or re-apply last change')}
+${dividerLine}
+${formatMenuLine('"checkpoint list"', 'List all checkpoints')}
+${dividerLine}
+${formatMenuLine('"checkpoint <id>"', 'Restore to a specific checkpoint')}
+${dividerLine}
+${formatMenuLine('"usage" / "credits"', 'View remaining / bonus AI credits')}
+${dividerLine}
+${formatMenuLine('"init"', 'Configure project for better results')}
+${dividerLine}
+${formatMenuLine('"exit" or Ctrl-C x2', 'Quit Codebuff')}
+${dividerLine}
+${formatMenuLine('"!<cmd>"', 'Run shell command directly')}
+${dividerLine}
+${formatMenuLine('"ESC key"', 'Cancel generation')}
+`)
+  }
+
   console.log(
-    '\nEmail your feedback to',
-    bold(blue('founders@codebuff.com.')),
-    'Thanks for using Codebuff!'
+    `\nThanks for using Codebuff - ${green('↓ Start prompting now ↓')}`
   )
 }
