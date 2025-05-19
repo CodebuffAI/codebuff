@@ -23,4 +23,7 @@ export enum AnalyticsEvent {
 
   // Web
   SIGNUP = 'web.signup',
+
+  // Common
+  FLUSH_FAILED = 'common.flush_failed',
 }

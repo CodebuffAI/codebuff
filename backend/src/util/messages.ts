@@ -193,22 +193,9 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     otherTokens
   )
 
-  // Remove cache_control from all messages except the last one
-  let lastCachedMessageIndex = -1
-  for (const [index, message] of messagesSubset.entries()) {
-    if (
-      typeof message.content === 'object' &&
-      message.content[message.content.length - 1]?.cache_control
-    ) {
-      lastCachedMessageIndex = index
-    }
-  }
-  for (const [index, message] of messagesSubset.entries()) {
-    if (
-      typeof message.content === 'object' &&
-      message.content.length > 0 &&
-      index !== lastCachedMessageIndex
-    ) {
+  // Remove cache_control from all messages
+  for (const message of messagesSubset) {
+    if (typeof message.content === 'object' && message.content.length > 0) {
       delete message.content[message.content.length - 1].cache_control
     }
   }

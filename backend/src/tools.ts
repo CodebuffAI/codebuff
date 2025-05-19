@@ -79,16 +79,22 @@ ${getToolCallString('update_subgoal', {
 
 Create or edit a file with the given content.
 
-When editing a file, please use this tool to output a simplified version of the code block that highlights the changes necessary and adds comments to indicate where unchanged code has been skipped.
+PREFER TO USE THE str_replace TOOL FOR MOST EDITS. Use this tool if you are deleting a very large portion of the code, in which case, the str_replace tool would have a large input.
 
---- IMPORTANT OPTIMIZATION DETAIL ---
-Use "placeholder comments" i.e. "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->"  or however comments are written for other languages) in comments as often as you can, signifying unchanged regions of the file.
-The write_file tool is very expensive for each line of code you write, so try to write as little \`content\` as possible to accomplish the task. Often this will mean that the start/end of the file will be skipped, but that's okay! Rewrite the entire file only if specifically requested.
+#### Edit Snippet
 
-However, for new files, you should write out the entire file and not use placeholder comments.
---- IMPORTANT OPTIMIZATION DETAIL ---
+Format the \`content\` parameter as an edit snippet that describes how you would like to modify the provided existing code.
 
-These edit codeblocks will be parsed and then read by a less intelligent "apply" language model to update the file. To help specify the edit to the apply model, be very careful to include a few lines of context when generating the codeblock to not introduce ambiguity. Specify all unchanged regions (code and comments) of the file with "// ... existing code ..." markers (in comments). This will ensure the apply model will not delete existing unchanged code or comments when editing the file. This is just an abstraction for your understanding, you should not mention the apply model to the user.
+Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... rest of headers/sections/code ...". Be descriptive in the comment.
+
+Make sure that you are abbreviating exactly where you believe the existing code will remain the same.
+Indicate the location and nature of the modifications (additions and deletions) with comments and ellipses.
+
+Make sure that you preserve the indentation and code structure of exactly how you believe the final code will look like (do not output lines that will not be in the final code after they are merged).
+
+If you plan on deleting a section, please give the relevant context such that the code is understood to be removed, e.g., if the initial code is \`\`\`// code Block 1, Block 2, Block 3 // code\`\`\`, and you want to remove Block 2, you would output \`\`\`/// rest of code Block 1, Block 2 // rest of code\`\`\`
+
+#### Additional Info
 
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
@@ -603,6 +609,10 @@ All done with the update!
 -----
 
 Call tools as needed, following these strict formatting rules.
+
+## Optimizations
+
+All tools are quite slow, with runtime scaling with the amount of text in the parameters. Prefer to write AS LITTLE TEXT AS POSSIBLE to accomplish the task. Usually, this means using str_replace instead of write_file (unless, e.g. deleting large blocks of code).
 
 ## Tool Results
 

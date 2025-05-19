@@ -198,6 +198,7 @@ export const message = pgTable(
   (table) => [
     index('message_fingerprint_id_idx').on(table.fingerprint_id),
     index('message_user_id_idx').on(table.user_id),
+    index('message_finished_at_user_id_idx').on(table.finished_at, table.user_id),
   ]
 )
 

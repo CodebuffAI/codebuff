@@ -1,9 +1,8 @@
-import { readdirSync } from 'fs'
+import fs, { readdirSync } from 'fs'
 import * as os from 'os'
 import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
-import fs from 'fs'
 
 import { type ApiKeyType } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
@@ -49,7 +48,6 @@ import {
 } from './utils/terminal'
 
 import { CONFIG_DIR } from './credentials'
-import { uniq } from 'lodash'
 
 const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
 
@@ -59,8 +57,7 @@ type ApiKeyDetectionResult =
   | { status: 'not_found' }
 
 export class CLI {
-  private static instance: CLI | null = null;
-  private client: Client
+  private static instance: CLI | null = null
   private readyPromise: Promise<any>
   private git: GitCommand
   private costMode: CostMode
@@ -84,7 +81,7 @@ export class CLI {
     this.setupSignalHandlers()
     this.initReadlineInterface()
 
-    this.client = new Client({
+    Client.createInstance({
       websocketUrl,
       onWebSocketError: this.onWebSocketError.bind(this),
       onWebSocketReconnect: this.onWebSocketReconnect.bind(this),
@@ -99,10 +96,10 @@ export class CLI {
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
         const [fileContext, ,] = results
-        this.client.initAgentState(fileContext)
-        return this.client.warmContextCache()
+        Client.getInstance().initAgentState(fileContext)
+        return Client.getInstance().warmContextCache()
       }),
-      this.client.connect(),
+      Client.getInstance().connect(),
     ])
 
     this.setPrompt()
@@ -126,16 +123,16 @@ export class CLI {
     options: CliOptions
   ): void {
     if (CLI.instance) {
-      throw new Error('CLI is already initialized');
+      throw new Error('CLI is already initialized')
     }
-    CLI.instance = new CLI(readyPromise, options);
+    CLI.instance = new CLI(readyPromise, options)
   }
 
   public static getInstance(): CLI {
     if (!CLI.instance) {
-      throw new Error('CLI must be initialized before getting an instance');
+      throw new Error('CLI must be initialized before getting an instance')
     }
-    return CLI.instance;
+    return CLI.instance
   }
 
   private setupSignalHandlers() {
@@ -188,7 +185,7 @@ export class CLI {
       const trimmedLine = line.trim()
       if (trimmedLine) {
         // Remove all previous occurrences of the line
-        history = history.filter(h => h !== trimmedLine)
+        history = history.filter((h) => h !== trimmedLine)
         // Add the new line to the end
         history.push(trimmedLine)
         fs.writeFileSync(PROMPT_HISTORY_PATH, JSON.stringify(history, null, 2))
@@ -268,7 +265,7 @@ export class CLI {
     this.isReceivingResponse = false
 
     if (this.shouldReconnectWhenIdle) {
-      this.client.reconnect()
+      Client.getInstance().reconnect()
       this.shouldReconnectWhenIdle = false
     }
 
@@ -276,15 +273,15 @@ export class CLI {
     const rlAny = this.rl as any
 
     // Check for pending auto-topup message before showing prompt
-    if (this.client.pendingTopUpMessageAmount > 0) {
+    if (Client.getInstance().pendingTopUpMessageAmount > 0) {
       console.log(
         '\n\n' +
           green(
-            `Auto top-up successful! ${this.client.pendingTopUpMessageAmount.toLocaleString()} credits added.`
+            `Auto top-up successful! ${Client.getInstance().pendingTopUpMessageAmount.toLocaleString()} credits added.`
           ) +
           '\n'
       )
-      this.client.pendingTopUpMessageAmount = 0
+      Client.getInstance().pendingTopUpMessageAmount = 0
     }
 
     // clear line first
@@ -313,13 +310,14 @@ export class CLI {
     initialInput?: string
     runInitFlow?: boolean
   }) {
-    if (this.client.user) {
-      displayGreeting(this.costMode, this.client.user.name)
+    const client = Client.getInstance()
+    if (client.user) {
+      displayGreeting(this.costMode, client.user.name)
     } else {
       console.log(
         `Welcome to Codebuff! Give us a sec to get your account set up...`
       )
-      await this.client.login()
+      await Client.getInstance().login()
       return
     }
     this.freshPrompt()
@@ -334,7 +332,7 @@ export class CLI {
   }
 
   public async printDiff() {
-    handleDiff(this.client.lastChanges)
+    handleDiff(Client.getInstance().lastChanges)
     this.freshPrompt()
   }
 
@@ -371,17 +369,17 @@ export class CLI {
       return true
     }
     if (userInput === 'login' || userInput === 'signin') {
-      await this.client.login()
+      await Client.getInstance().login()
       checkpointManager.clearCheckpoints()
       return true
     }
     if (userInput === 'logout' || userInput === 'signout') {
-      await this.client.logout()
+      await Client.getInstance().logout()
       this.freshPrompt()
       return true
     }
     if (userInput.startsWith('ref-')) {
-      await this.client.handleReferralCode(userInput.trim())
+      await Client.getInstance().handleReferralCode(userInput.trim())
       return true
     }
 
@@ -390,7 +388,7 @@ export class CLI {
     if (detectionResult.status !== 'not_found') {
       // If something resembling an API key was detected (valid or just prefix), handle it
       await handleApiKeyInput(
-        this.client,
+        Client.getInstance(),
         detectionResult,
         this.readyPromise,
         this.freshPrompt.bind(this)
@@ -400,7 +398,7 @@ export class CLI {
 
     // Continue with other commands if no API key input was detected/handled
     if (userInput === 'usage' || userInput === 'credits') {
-      await this.client.getUsage()
+      await Client.getInstance().getUsage()
       return true
     }
     if (userInput === 'quit' || userInput === 'exit' || userInput === 'q') {
@@ -408,7 +406,7 @@ export class CLI {
       return true
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(userInput)) {
-      handleDiff(this.client.lastChanges)
+      handleDiff(Client.getInstance().lastChanges)
       this.freshPrompt()
       return true
     }
@@ -427,19 +425,19 @@ export class CLI {
         command: userInput,
       })
       if (isCheckpointCommand(userInput, 'undo')) {
-        await saveCheckpoint(userInput, this.client, this.readyPromise)
-        const toRestore = await handleUndo(this.client, this.rl)
+        await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
+        const toRestore = await handleUndo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
         return true
       }
       if (isCheckpointCommand(userInput, 'redo')) {
-        await saveCheckpoint(userInput, this.client, this.readyPromise)
-        const toRestore = await handleRedo(this.client, this.rl)
+        await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
+        const toRestore = await handleRedo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
         return true
       }
       if (isCheckpointCommand(userInput, 'list')) {
-        await saveCheckpoint(userInput, this.client, this.readyPromise)
+        await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         await listCheckpoints()
         this.freshPrompt()
         return true
@@ -447,10 +445,10 @@ export class CLI {
       const restoreMatch = isCheckpointCommand(userInput, 'restore')
       if (restoreMatch) {
         const id = parseInt((restoreMatch as RegExpMatchArray)[1], 10)
-        await saveCheckpoint(userInput, this.client, this.readyPromise)
+        await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleRestoreCheckpoint(
           id,
-          this.client,
+          Client.getInstance(),
           this.rl
         )
         this.freshPrompt(toRestore)
@@ -462,7 +460,12 @@ export class CLI {
         return true
       }
       if (isCheckpointCommand(userInput, 'save')) {
-        await saveCheckpoint(userInput, this.client, this.readyPromise, true)
+        await saveCheckpoint(
+          userInput,
+          Client.getInstance(),
+          this.readyPromise,
+          true
+        )
         displayCheckpointMenu()
         this.freshPrompt()
         return true
@@ -483,23 +486,24 @@ export class CLI {
   }
 
   private async forwardUserInput(userInput: string) {
-    await saveCheckpoint(userInput, this.client, this.readyPromise)
+    await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
     Spinner.get().start()
 
-    this.client.lastChanges = []
+    Client.getInstance().lastChanges = []
 
     const newMessage: Message = {
       role: 'user',
       content: userInput,
     }
 
-    if (this.client.agentState) {
-      setMessages([...this.client.agentState.messageHistory, newMessage])
+    const client = Client.getInstance()
+    if (client.agentState) {
+      setMessages([...client.agentState.messageHistory, newMessage])
     }
 
     this.isReceivingResponse = true
     const { responsePromise, stopResponse } =
-      await this.client.sendUserInput(userInput)
+      await Client.getInstance().sendUserInput(userInput)
 
     this.stopResponse = stopResponse
     await responsePromise
@@ -514,7 +518,7 @@ export class CLI {
 
   private reconnectWhenNextIdle() {
     if (!this.isReceivingResponse) {
-      this.client.reconnect()
+      Client.getInstance().reconnect()
     } else {
       this.shouldReconnectWhenIdle = true
     }
@@ -607,25 +611,23 @@ export class CLI {
 
     await killAllBackgroundProcesses()
 
+    const client = Client.getInstance()
     const logMessages = []
-    const totalCreditsUsedThisSession = Object.values(
-      this.client.creditsByPromptId
-    )
+    const totalCreditsUsedThisSession = Object.values(client.creditsByPromptId)
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
 
     logMessages.push(
       `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session${
-        this.client.usageData.remainingBalance !== null
-          ? `, ${this.client.usageData.remainingBalance.toLocaleString()} credits left.`
+        client.usageData.remainingBalance !== null
+          ? `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`
           : '.'
       }`
     )
 
-    if (this.client.usageData.next_quota_reset) {
+    if (client.usageData.next_quota_reset) {
       const daysUntilReset = Math.ceil(
-        (new Date(this.client.usageData.next_quota_reset).getTime() -
-          Date.now()) /
+        (new Date(client.usageData.next_quota_reset).getTime() - Date.now()) /
           (1000 * 60 * 60 * 24)
       )
       logMessages.push(

@@ -20,11 +20,16 @@ export function initAnalytics() {
     flushInterval: 0,
   })
 }
+
 export async function flushAnalytics() {
   if (!client) {
     return
   }
-  await client.flush()
+  try {
+    await client.flush()
+  } catch (error) {
+    trackEvent(AnalyticsEvent.FLUSH_FAILED, 'unknown-user', { error })
+  }
 }
 
 export function trackEvent(
