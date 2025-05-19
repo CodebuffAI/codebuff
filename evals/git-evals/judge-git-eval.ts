@@ -4,7 +4,7 @@ import { generateCompactId } from 'common/util/string'
 import { EvalRunLog, JudgingAnalysisSchema } from './types'
 import { createPatch } from 'diff'
 
-export function judgeEvalRun(evalRun: EvalRunLog) {
+export function judgeEvalRun(evalRun: EvalRunLog)  {
   // Format the evaluation data for analysis
   const analysisPrompt = `You are an expert software engineer tasked with analyzing and scoring the code quality of changes made by an AI coding assistant (Codebuff). Please analyze the following interaction trace and compare both the attempted changes and the ground truth changes.
 
@@ -33,32 +33,20 @@ ${state.postContent}
 [/GROUND_TRUTH_CHANGES]
 
 [CHANGES_BY_CODEBUFF]
-${evalRun.afterFileStates // Iterate over files Codebuff actually changed
-  .map((codebuffAfterState) => {
-    const codebuffBeforeState = evalRun.beforeFileStates.find(
-      (s) => s.path === codebuffAfterState.path
-    )
-    const preContentForDiff =
-      codebuffBeforeState?.content ??
-      '[PRE_STATE_NOT_FOUND_FOR_CODEBUFF_CHANGE]'
-    const postContentForDiff = codebuffAfterState.content
-
-    const diff = createPatch(
-      codebuffAfterState.path,
-      preContentForDiff,
-      postContentForDiff
-    )
+${evalRun.fileStates
+  .map((state) => {
+    const diff = createPatch(state.path, state.preContent, state.postContent)
     return `
-File: ${codebuffAfterState.path}
+File: ${state.path}
 
 Unified Diff (Codebuff's Changes):
 ${diff}
 
-Pre-commit content (at ${evalRun.eval_commit.sha}^ for this file):
-${preContentForDiff}
+Pre-commit content:
+${state.preContent}
 
 Post-commit content (Codebuff's Attempt):
-${postContentForDiff}
+${state.postContent}
 `
   })
   .join('\n\n---\n\n')}

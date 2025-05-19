@@ -98,12 +98,12 @@ async function selectSubstantialCommits(
   try {
     return commits
       .filter((commit) =>
-        response.commits.some((s) => commit.sha.startsWith(s.sha))
+        response.commits.some((selected: { sha: string }) => commit.sha.startsWith(selected.sha))
       )
       .map((commit) => ({
         ...commit,
-        selectionReason: response.commits.find((s) =>
-          commit.sha.startsWith(s.sha)
+        selectionReason: response.commits.find((selected: { sha: string; reason: string }) =>
+          commit.sha.startsWith(selected.sha)
         )!.reason,
       }))
   } catch (e) {
@@ -254,13 +254,10 @@ export async function generateEvalFile({
 // CLI handling
 if (require.main === module) {
   const args = process.argv.slice(2)
-  if (args.length < 1) {
-    console.error('Usage: bun run generate-git-evals <repo-path> [output-path]')
-    process.exit(1)
-  }
+  console.info('Usage: bun run generate-git-evals <repo-name> [output-path]')
 
-  const testRepoName = args[0]
-  const outputPath = args[1] || './git-evals.json'
+  const testRepoName = args[0] || 'codebuff'
+  const outputPath = args[1] || './git-evals/git-evals.json'
   const numberOfCommits = Number(args[2] || 100)
 
   // Generate random ID for this run

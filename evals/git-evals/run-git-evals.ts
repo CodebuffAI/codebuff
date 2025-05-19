@@ -12,7 +12,9 @@ import {
   AgentDecision,
   AgentDecisionSchema,
   CodebuffTrace,
+  CommitFileState,
   EvalCommit,
+  EvalRunJudged,
   EvalRunLog,
   FullEvalLog,
   GitRepoEvalData,
@@ -31,7 +33,7 @@ async function runSingleEval(
   projectPath: string,
   clientSessionId: string,
   fingerprintId: string
-): Promise<EvalRunLog> {
+): Promise<EvalRunJudged> {
   const trace: CodebuffTrace[] = []
   let error: string | undefined
   try {
@@ -116,18 +118,17 @@ Explain your reasoning in detail.`,
   } catch (e) {
     error = e instanceof Error ? e.message + e.stack : 'Unknown error'
   }
-  const { beforeFileStates, afterFileStates } = getCodebuffFileStates(
+  const fileStates = getCodebuffFileStates(
     trace,
     evalCommit.sha,
     projectPath
   )
 
-  const evalRun = {
+  const evalRun: EvalRunLog = {
     eval_commit: evalCommit,
     trace,
     error,
-    beforeFileStates,
-    afterFileStates,
+    fileStates
   }
 
   // Add judging results even for failed runs
@@ -143,10 +144,7 @@ function getCodebuffFileStates(
   trace: CodebuffTrace[],
   evalCommitSha: string,
   projectPath: string
-): {
-  beforeFileStates: { path: string; content: string }[]
-  afterFileStates: { path: string; content: string }[]
-} {
+): CommitFileState[] {
   const codebuffWrittenFilePaths = new Set<string>()
   if (trace) {
     // trace might be undefined or empty if error occurred very early
@@ -163,42 +161,37 @@ function getCodebuffFileStates(
     }
   }
 
-  const afterFileStates: { path: string; content: string }[] = []
-  const beforeFileStates: { path: string; content: string }[] = []
+  const fileStates: CommitFileState[] = []
 
   if (codebuffWrittenFilePaths.size > 0) {
     for (const filePath of codebuffWrittenFilePaths) {
       // Capture "after" state
       const fullPath = path.join(projectPath, filePath)
+      let postContent: string
       try {
-        const content = fs.existsSync(fullPath)
+        postContent = fs.existsSync(fullPath)
           ? fs.readFileSync(fullPath, 'utf-8')
           : '[FILE_NOT_FOUND_POST_RUN]'
-        afterFileStates.push({ path: filePath, content })
       } catch (e) {
         console.error(`Error reading file ${fullPath} for after state:`, e)
-        afterFileStates.push({
-          path: filePath,
-          content: '[ERROR_READING_AFTER_STATE]',
-        })
+        postContent = '[ERROR_READING_AFTER_STATE]'
       }
 
       // Capture "before" state
+      let preContent: string
       try {
-        const content = execSync(`git show ${evalCommitSha}^:"${filePath}"`, {
+        preContent = execSync(`git show ${evalCommitSha}^:"${filePath}"`, {
           cwd: projectPath,
           stdio: ['ignore', 'pipe', 'ignore'],
         }).toString()
-        beforeFileStates.push({ path: filePath, content })
       } catch (e) {
-        beforeFileStates.push({
-          path: filePath,
-          content: '[FILE_DID_NOT_EXIST_PRIOR_TO_CODEBUFF_CHANGES]',
-        })
+        preContent = '[FILE_DID_NOT_EXIST_PRIOR_TO_CODEBUFF_CHANGES]'
       }
+
+      fileStates.push({ path: filePath, preContent, postContent })
     }
   }
-  return { beforeFileStates, afterFileStates }
+  return fileStates
 }
 
 export async function runGitEvals(
@@ -220,9 +213,9 @@ export async function runGitEvals(
   const clientSessionId = generateCompactId()
   const fingerprintId = generateCompactId()
 
-  const evalRuns: EvalRunLog[] = []
-  for (const evalCommit of evalData.evalCommits) {
-    console.log(`Running eval for commit ${evalCommit.sha}...`)
+  const evalRuns: EvalRunJudged[] = []
+  for (const evalCommit of evalData.evalCommits.slice(0, 1)) {
+    console.log(`Running eval for commit ${evalCommit.message}...`)
     const evalRun = await runSingleEval(
       evalCommit,
       projectPath,
@@ -236,23 +229,23 @@ export async function runGitEvals(
   const overallMetrics = {
     average_completion:
       evalRuns.reduce(
-        (sum, run) => sum + (run.judging_results?.metrics.completionScore || 0),
+        (sum, run) => sum + (run.judging_results.metrics.completionScore || 0),
         0
       ) / evalRuns.length,
     average_efficiency:
       evalRuns.reduce(
-        (sum, run) => sum + (run.judging_results?.metrics.efficiencyScore || 0),
+        (sum, run) => sum + (run.judging_results.metrics.efficiencyScore || 0),
         0
       ) / evalRuns.length,
     average_code_quality:
       evalRuns.reduce(
         (sum, run) =>
-          sum + (run.judging_results?.metrics.codeQualityScore || 0),
+          sum + (run.judging_results.metrics.codeQualityScore || 0),
         0
       ) / evalRuns.length,
     average_overall:
       evalRuns.reduce(
-        (sum, run) => sum + (run.judging_results?.metrics.overallScore || 0),
+        (sum, run) => sum + (run.judging_results.metrics.overallScore || 0),
         0
       ) / evalRuns.length,
     total_runs: evalRuns.length,
@@ -279,13 +272,10 @@ export async function runGitEvals(
 // CLI handling
 if (require.main === module) {
   const args = process.argv.slice(2)
-  if (args.length < 1) {
-    console.error('Usage: bun run run-git-eval <eval-data-path> [output-path]')
-    process.exit(1)
-  }
+  console.info('Usage: bun run run-git-eval [eval-data-path] [output-path]')
 
-  const evalDataPath = args[0]
-  const outputPath = args[1] || 'eval-trace.json'
+  const evalDataPath = args[0] || 'git-evals/git-evals.json'
+  const outputPath = args[1] || 'git-evals/eval-trace.json'
 
   runGitEvals(evalDataPath, outputPath)
     .then(() => {

@@ -45,9 +45,11 @@ export interface EvalRunLog {
   eval_commit: EvalCommit
   trace: CodebuffTrace[]
   error?: string
-  judging_results?: z.infer<typeof JudgingAnalysisSchema>
-  beforeFileStates: { path: string; content: string }[] // Files Codebuff changed - state before changes
-  afterFileStates: { path: string; content: string }[] // Files Codebuff changed - state after changes
+  fileStates: CommitFileState[] // Files Codebuff changed
+}
+
+export interface EvalRunJudged extends EvalRunLog {
+  judging_results: z.infer<typeof JudgingAnalysisSchema>
 }
 
 export interface FullEvalLog {
