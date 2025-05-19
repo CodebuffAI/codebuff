@@ -74,3 +74,5 @@ Run type checks after changes:
 ```bash
 bun run --cwd backend typecheck
 ```
+
+Also, in order to run the backend integration tests, you must change the working directory to the backend directory and run the tests there. That's the only way to reuse the environment variables from the backend env.mjs file.
