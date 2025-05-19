@@ -26,11 +26,11 @@ export function disableSquashNewlines(): void {
 }
 
 function addCarriageReturn(str: string): string {
-  const base = previous[previous.length - 1] + str
+  // Do not copy over \n from previous
+  const base = (previous[previous.length - 1] === '\r' ? '\r' : ' ') + str
   // Replace twice, because of no overlap '\n\n'
-  const once = base.replace(/([^\r])\n/g, '$1\r\n')
-  const twice = once.replace(/([^\r])\n/g, '$1\r\n')
-  return twice.slice(1)
+  const withCarriageReturns = base.replace(/(?<!\r)\n/g, '\r\n')
+  return withCarriageReturns.slice(1)
 }
 
 const originalWrite = process.stdout.write.bind(process.stdout)
