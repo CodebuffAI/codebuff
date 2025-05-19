@@ -70,9 +70,7 @@ if (require.main === module) {
   // Add arguments from shared definitions
   cliArguments.forEach((arg) => {
     // For hidden arguments, just skip adding them to the help text
-    if (arg.hidden) {
-      program.argument(arg.flags, arg.description, { hidden: true })
-    } else {
+    if (!arg.hidden) {
       program.argument(arg.flags, arg.description)
     }
   })
