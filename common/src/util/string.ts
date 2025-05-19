@@ -28,7 +28,7 @@ export const truncateStringWithMessage = ({
   }
   if (remove === 'START') {
     const prefix = `[...${message}]\n`
-    return prefix + str.slice(maxLength - prefix.length)
+    return prefix + str.slice(str.length - maxLength + prefix.length)
   }
 
   const middle = `\n[...${message}...]\n`
