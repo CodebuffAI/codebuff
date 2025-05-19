@@ -217,7 +217,8 @@ export const mainPrompt = async (
       cwd && {
         role: 'user' as const,
         content: asSystemMessage(
-          `**user** cwd: ${cwd} (assistant cwd is project root)`
+          `**user** cwd: ${cwd}
+          assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}`
         ),
       },
       {
@@ -477,7 +478,7 @@ export const mainPrompt = async (
       cwd && {
         role: 'user' as const,
         content: asSystemMessage(
-          `**user** cwd: ${cwd} (assistant cwd is project root)`
+          `**user** cwd: ${cwd}\nassistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}`
         ),
       },
       {
