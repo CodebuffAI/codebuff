@@ -13,6 +13,7 @@ import {
   yellow,
 } from 'picocolors'
 
+import { cliArguments, cliOptions } from './cli-definitions'
 import { getProjectRoot } from './project-files'
 
 export function displayGreeting(costMode: CostMode, username: string | null) {
@@ -67,9 +68,6 @@ export function displayMenu() {
       .join('')
   }
 
-  process.stdout.clearLine(0)
-  console.log()
-
   console.log(`
 ${colorizeRandom('          ')}
 ${colorizeRandom('██████╗')}${colorizeRandom(' ██████╗  ')}${colorizeRandom('██████╗ ')}${colorizeRandom('███████╗')}${colorizeRandom('██████╗ ')}${colorizeRandom('██╗   ██╗')}${colorizeRandom('███████╗')}${colorizeRandom('███████╗')}
@@ -79,14 +77,49 @@ ${colorizeRandom('██║     ')}${colorizeRandom('██║   ██║')}${c
 ${colorizeRandom('╚██████╗')}${colorizeRandom('╚██████╔╝')}${colorizeRandom('██████╔╝')}${colorizeRandom('███████╗')}${colorizeRandom('██████╔╝')}${colorizeRandom('╚██████╔╝')}${colorizeRandom('██║     ')}${colorizeRandom('██║     ')}
 ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom('╚═════╝ ')}${colorizeRandom('╚══════╝')}${colorizeRandom('╚═════╝ ')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom('╚═╝     ')}${colorizeRandom('╚═╝     ')}
 `)
+
+  // COMMAND-LINE USAGE SECTION
+  console.log(`\n${bold(underline('COMMAND-LINE USAGE'))}`)
+  const cliOptionFormat = (cmd: string, desc: string) => {
+    return `  ${cyan(cmd.padEnd(30))} ${desc}`
+  }
+  const detailIndent = ' '.repeat(33) // 2 spaces + 30 padding + 1 space
+
   console.log(
-    `${bold(blueBright('📂'))} ${bold('Current directory:')} ${bold(blueBright(getProjectRoot()))}\n${yellow('Note: Codebuff never reads your .gitignore or .codebuffignore files.')}`
+    `${bold('codebuff [project-directory] [initial-prompt...] [options]')}\n`
   )
-  console.log(`
-${bold(underline('DIAGNOSTICS CHECK'))}`)
+
+  console.log(`${bold('Arguments:')}`)
+  cliArguments.forEach((arg) => {
+    console.log(
+      cliOptionFormat(arg.flags, arg.menuDescription || arg.description)
+    )
+  })
+
+  console.log(`\n${bold('Options:')}`)
+  cliOptions.forEach((opt) => {
+    console.log(
+      cliOptionFormat(opt.flags, opt.menuDescription || opt.description)
+    )
+    if (opt.menuDetails) {
+      opt.menuDetails.forEach((detailLine) => {
+        if (detailLine.startsWith('See all:')) {
+          const parts = detailLine.split(': ')
+          console.log(
+            `${detailIndent}${parts[0]}: ${blueBright(parts.slice(1).join(': '))}`
+          )
+        } else {
+          console.log(`${detailIndent}${cyan(detailLine)}`)
+        }
+      })
+    }
+  })
+
+  console.log(`\n${bold(underline('DIAGNOSTICS CHECK'))}`)
 
   console.log(
     (() => {
+      const currentDirectoryLine = `${green('✅ Current directory:')} ${bold(blueBright(getProjectRoot()))}`
       const hasGitRepo = fs.existsSync(path.join(getProjectRoot(), '.git'))
       const hasGitIgnore = fs.existsSync(
         path.join(getProjectRoot(), '.gitignore')
@@ -97,33 +130,35 @@ ${bold(underline('DIAGNOSTICS CHECK'))}`)
       const hasCodebuffJson = fs.existsSync(
         path.join(getProjectRoot(), 'codebuff.json')
       )
+      const gitignoreNote =
+        ' (Codebuff never reads files in your .gitignore/.codebuffignore)'
 
       // Condition 1: Git repo found, all files present
       if (hasGitRepo && hasGitIgnore && hasKnowledgeMd && hasCodebuffJson) {
-        return `${green('✅ Git repo: detected')}
-${green('✅ .gitignore: detected')}
+        return `${currentDirectoryLine}\n${green('✅ Git repo: detected')}
+${green('✅ .gitignore: detected')}${gitignoreNote}
 ${green('✅ knowledge.md: detected')}
 ${green('✅ codebuff.json: detected')}`
       }
 
       // Condition 2: Git repo not found
       if (!hasGitRepo) {
-        return `${yellow('❌ Git repo: not found - navigate to a working directory!')}
-${hasGitIgnore ? green('✅ .gitignore: detected') : yellow('❌ .gitignore: missing')}
+        return `${currentDirectoryLine}\n${yellow('❌ Git repo: not found - navigate to a working directory!')}
+${hasGitIgnore ? green('✅ .gitignore: detected') : yellow('❌ .gitignore: missing')}${gitignoreNote}
 ${hasKnowledgeMd ? green('✅ knowledge.md: detected') : yellow('❌ knowledge.md: missing')}
 ${hasCodebuffJson ? green('✅ codebuff.json: detected') : yellow('❌ codebuff.json: missing')}`
       }
 
       // Condition 3: Missing .gitignore
       if (!hasGitIgnore) {
-        return `${green('✅ Git repo: detected')}
-${yellow('❌ .gitignore: missing - type "generate a reasonable .gitignore"')}
+        return `${currentDirectoryLine}\n${green('✅ Git repo: detected')}
+${yellow('❌ .gitignore: missing - type "generate a reasonable .gitignore"')}${gitignoreNote}
 ${hasKnowledgeMd ? green('✅ knowledge.md: detected') : yellow('❌ knowledge.md: missing')}
 ${hasCodebuffJson ? green('✅ codebuff.json: detected') : yellow('❌ codebuff.json: missing')}`
       }
       // Condition 4: Missing knowledge files
-      return `${green('✅ Git repo: detected')}
-${green('✅ .gitignore: detected')}
+      return `${currentDirectoryLine}\n${green('✅ Git repo: detected')}
+${green('✅ .gitignore: detected')}${gitignoreNote}
 ${
   !hasKnowledgeMd && !hasCodebuffJson
     ? yellow('❌ knowledge.md & codebuff.json: missing - type "init"')
@@ -140,11 +175,13 @@ ${!hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow('knowledge.md helps Codebuff
   )
 
   // COMMUNITY & FEEDBACK SECTION
-  console.log(`\n${bold(underline('COMMUNITY & FEEDBACK'))}\n
-DM @brandonkachen or @jahooma on Discord, or email ${blueBright('founders@codebuff.com')}
-
-OUR DISCORD: ${blueBright('https://codebuff.com/discord')} ${yellow('(Ctrl/Cmd+Click to open)')}
-`)
+  console.log(`\n${bold(underline('COMMUNITY & FEEDBACK'))}`)
+  console.log(
+    `DM @brandonkachen or @jahooma on Discord, or email ${blueBright('founders@codebuff.com')}`
+  )
+  console.log(
+    `Join our Discord: ${blueBright('https://codebuff.com/discord')} ${yellow('(Ctrl/Cmd+Click to open)')}`
+  )
 
   console.log(`\n${bold(underline('EXAMPLE PROMPTS'))}
 ${'Code Quality:'}
@@ -167,12 +204,10 @@ ${cyan('  • "Add logging to these functions"')}
 ${cyan('  • "Set up CI/CD pipeline config"')}
 `)
 
-  // COMMANDS SECTION
-  // Add bold and underlined header for commands section
+  // INTERACTIVE COMMANDS SECTION
   const fixedCommandWidth = 30 // Fixed width for command column
 
   const formatMenuLine = (command: string, description: string) => {
-    // Ensure command fits in the fixed width column
     const paddedCommand = command.padEnd(fixedCommandWidth)
     return `${paddedCommand}${description}`
   }
@@ -181,10 +216,7 @@ ${cyan('  • "Set up CI/CD pipeline config"')}
     formatMenuLine('type "login"', 'Authenticate your session'),
     formatMenuLine('type "init"', 'Configure project for better results'),
     formatMenuLine('type "diff" or "d"', 'Show last assistant change diff'),
-    formatMenuLine(
-      'type "undo" / "redo" or "u"',
-      'Revert or re-apply last change'
-    ),
+    formatMenuLine('type "undo" / "redo"', 'Revert or re-apply last change'),
     formatMenuLine(
       'type "checkpoint <id>"',
       'Restore to a specific checkpoint'
@@ -194,24 +226,12 @@ ${cyan('  • "Set up CI/CD pipeline config"')}
       'type "usage" / "credits"',
       'View remaining / bonus AI credits'
     ),
-    formatMenuLine('hit ESC key or Ctrll-C', 'Cancel generation'),
+    formatMenuLine('hit ESC key or Ctrl-C', 'Cancel generation'),
     formatMenuLine('type "exit" or Ctrl-C x2', 'Quit Codebuff'),
   ]
 
-  // Add mode commands
-  menuLines.push(
-    formatMenuLine(
-      'codebuff --lite',
-      'Restart in lite mode (faster, less context)'
-    ),
-    formatMenuLine(
-      'codebuff --max',
-      'This mode allows Codebuff to slower, more thorough)'
-    )
-  )
-
   console.log(
-    `${bold(underline('COMMAND'))}${' '.repeat(fixedCommandWidth - 7)}${bold(underline('DESCRIPTION'))}\n${menuLines.join(`\n${dividerLine}`)}\n`
+    `\n${bold(underline('INTERACTIVE COMMANDS'))}${' '.repeat(fixedCommandWidth - 20)}${bold(underline('DESCRIPTION'))}\n${menuLines.join(`\n${dividerLine}`)}\n`
   )
 
   console.log(`\nThanks for using Codebuff!`)
