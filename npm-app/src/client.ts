@@ -72,7 +72,7 @@ import {
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
-import { identifyUser } from './utils/analytics'
+import { identifyUser, trackEvent } from './utils/analytics'
 import { gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
@@ -726,6 +726,7 @@ export class Client {
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
     loggerContext.clientRequestId = userInputId
+    const startTime = Date.now() // Capture start time
 
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
@@ -737,7 +738,8 @@ export class Client {
         Spinner.get().stop()
         process.stdout.write('\n' + green(underline('Codebuff') + ': '))
       },
-      prompt
+      prompt,
+      startTime
     )
 
     const urls = parseUrlsFromContent(prompt)
@@ -780,7 +782,8 @@ export class Client {
     onChunk: (chunk: string) => void,
     userInputId: string,
     onStreamStart: () => void,
-    prompt: string
+    prompt: string,
+    startTime: number
   ) {
     const rawChunkBuffer: string[] = []
     this.responseBuffer = ''
@@ -876,6 +879,8 @@ export class Client {
       }
     })
 
+    let stepsCount = 0
+    let toolCallsCount = 0
     unsubscribeComplete = this.webSocket.subscribe(
       'prompt-response',
       async (action) => {
@@ -938,6 +943,8 @@ export class Client {
             )
           }
         }
+        stepsCount++
+        toolCallsCount += a.toolCalls.length
         if (a.toolCalls.length === 0 && a.toolResults.length === 0) {
           this.responseComplete = true
           isComplete = true
@@ -967,6 +974,15 @@ export class Client {
           })
           return
         }
+
+        const endTime = Date.now()
+        const latencyMs = endTime - startTime
+        trackEvent(AnalyticsEvent.USER_INPUT_COMPLETE, {
+          userInputId,
+          latencyMs,
+          stepsCount,
+          toolCallsCount,
+        })
 
         this.lastToolResults = toolResults
         xmlStreamParser.end()
