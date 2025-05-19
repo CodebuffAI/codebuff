@@ -13,7 +13,6 @@ import {
   yellow,
 } from 'picocolors'
 
-import { cliArguments, cliOptions } from './cli-definitions'
 import { getProjectRoot } from './project-files'
 
 export function displayGreeting(costMode: CostMode, username: string | null) {
@@ -78,42 +77,7 @@ ${colorizeRandom('╚██████╗')}${colorizeRandom('╚████�
 ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom('╚═════╝ ')}${colorizeRandom('╚══════╝')}${colorizeRandom('╚═════╝ ')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom('╚═╝     ')}${colorizeRandom('╚═╝     ')}
 `)
 
-  // COMMAND-LINE USAGE SECTION
-  console.log(`\n${bold(underline('COMMAND-LINE USAGE'))}`)
-  const cliOptionFormat = (cmd: string, desc: string) => {
-    return `  ${cyan(cmd.padEnd(30))} ${desc}`
-  }
-  const detailIndent = ' '.repeat(33) // 2 spaces + 30 padding + 1 space
-
-  console.log(
-    `${bold('codebuff [project-directory] [initial-prompt...] [options]')}\n`
-  )
-
-  console.log(`${bold('Arguments:')}`)
-  cliArguments.forEach((arg) => {
-    console.log(
-      cliOptionFormat(arg.flags, arg.menuDescription || arg.description)
-    )
-  })
-
-  console.log(`\n${bold('Options:')}`)
-  cliOptions.forEach((opt) => {
-    console.log(
-      cliOptionFormat(opt.flags, opt.menuDescription || opt.description)
-    )
-    if (opt.menuDetails) {
-      opt.menuDetails.forEach((detailLine) => {
-        if (detailLine.startsWith('See all:')) {
-          const parts = detailLine.split(': ')
-          console.log(
-            `${detailIndent}${parts[0]}: ${blueBright(parts.slice(1).join(': '))}`
-          )
-        } else {
-          console.log(`${detailIndent}${cyan(detailLine)}`)
-        }
-      })
-    }
-  })
+  console.log(`\n${bold('Your AI pair programmer that understands, edits, and improves your codebase through natural conversation.')}`)
 
   console.log(`\n${bold(underline('DIAGNOSTICS CHECK'))}`)
 

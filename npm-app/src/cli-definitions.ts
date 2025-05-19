@@ -1,9 +1,9 @@
 export interface CliParam {
-  flags: string;
-  description: string;
-  menuDescription?: string;
-  menuDetails?: string[];
-  hidden?: boolean;
+  flags: string
+  description: string
+  menuDescription?: string
+  menuDetails?: string[]
+  hidden?: boolean
 }
 
 export const cliArguments: CliParam[] = [
@@ -17,20 +17,21 @@ export const cliArguments: CliParam[] = [
     menuDescription: 'Initial prompt to send to Codebuff',
     hidden: true,
   },
-];
+]
 
 export const cliOptions: CliParam[] = [
   {
     flags: '--lite',
     description: 'Use budget models & fetch fewer files',
     menuDescription: 'Use budget models & fetch fewer files (faster)',
-    hidden: true,
+    hidden: false,
   },
   {
     flags: '--max',
     description: 'Use higher quality models and fetch more files',
-    menuDescription: 'Use higher quality models and fetch more files (thorough)',
-    hidden: true,
+    menuDescription:
+      'Use higher quality models and fetch more files (thorough)',
+    hidden: false,
   },
   {
     flags: '--experimental',
@@ -48,13 +49,15 @@ export const cliOptions: CliParam[] = [
   },
   {
     flags: '--init',
-    description: 'Initialize codebuff on this project for a smoother experience',
+    description:
+      'Initialize codebuff on this project for a smoother experience',
     menuDescription: 'Initialize Codebuff for the project',
   },
   {
     flags: '--model <model>',
-    description: 'Experimental: Specify the main model to use for the agent ("sonnet-3.6", "sonnet-3.7", "gpt-4.1", "gemini-2.5-pro", "o4-mini", "o3"). Be aware codebuff might not work as well with non-default models.',
+    description:
+      'Experimental: Specify the main model to use for the agent ("sonnet-3.6", "sonnet-3.7", "gpt-4.1", "gemini-2.5-pro", "o4-mini", "o3"). Be aware codebuff might not work as well with non-default models.',
     menuDescription: 'Specify main LLM (e.g., "sonnet-3.7") (Experimental)',
     hidden: true,
   },
-];
+]
