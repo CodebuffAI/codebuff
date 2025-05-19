@@ -13,6 +13,7 @@ export enum AnalyticsEvent {
   LOGIN = 'cli.login',
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
   MALFORMED_PROMPT_RESPONSE = 'cli.malformed_prompt_response',
+  USER_INPUT_COMPLETE = 'cli.user_input_complete',
 
   // Backend
   USER_INPUT = 'backend.user_input',
