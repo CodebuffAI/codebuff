@@ -214,7 +214,7 @@ export async function runGitEvals(
   const fingerprintId = generateCompactId()
 
   const evalRuns: EvalRunJudged[] = []
-  for (const evalCommit of evalData.evalCommits.slice(0, 1)) {
+  for (const evalCommit of evalData.evalCommits) {
     console.log(`Running eval for commit ${evalCommit.message}...`)
     const evalRun = await runSingleEval(
       evalCommit,
