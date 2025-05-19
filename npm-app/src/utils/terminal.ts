@@ -533,10 +533,11 @@ export const runCommandPty = (
 
     const matches = toProcess.match(echoLinePattern)
     if (matches) {
-      echoLinesRemaining -= matches.length
-      echoLinesRemaining = Math.max(echoLinesRemaining, 0)
-      // Process normal output line
-      toProcess = toProcess.replaceAll(echoLinePattern, '')
+      for (let i = 0; i < matches.length && echoLinesRemaining > 0; i++) {
+        echoLinesRemaining = Math.max(echoLinesRemaining - 1, 0)
+        // Process normal output line
+        toProcess = toProcess.replace(echoLinePattern, '')
+      }
     }
 
     const indexOfPromptIdentifier = toProcess.indexOf(promptIdentifier)
@@ -568,7 +569,7 @@ export const runCommandPty = (
 
       const newWorkingDirectory = commandDone[1]
       if (mode === 'assistant') {
-        ptyProcess.write(`cd ${getWorkingDirectory()}\r`)
+        ptyProcess.write(`cd ${getWorkingDirectory()}\r\n`)
 
         resolve({
           result: formatResult(
