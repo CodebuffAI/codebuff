@@ -40,7 +40,7 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '"login"',
     baseCommand: 'login',
     description: 'Authenticate your session',
-    isSlashCommand: true,
+    isSlashCommand: false,
   },
   {
     commandText: '"init"',
@@ -117,38 +117,40 @@ export const interactiveCommandDetails: CommandInfo[] = [
 ]
 
 export function getSlashCommands(): CommandInfo[] {
-  return interactiveCommandDetails.filter(
-    (cmd) => cmd.isSlashCommand && cmd.baseCommand
-  )
+  return interactiveCommandDetails
+    .filter(cmd => cmd.isSlashCommand && cmd.baseCommand)
+    .sort((a, b) => a.baseCommand!.localeCompare(b.baseCommand!))
 }
 
-export function displaySlashCommandGrid() {
+export function displaySlashCommandHelperMenu() {
   const commands = getSlashCommands()
-  const commandStrings = commands.map((cmd) => {
-    let str = `/${cmd.baseCommand}`
-    if (cmd.params) {
-      str += ` ${cmd.params}`
-    }
-    return str
-  })
-
-  const termWidth = process.stdout.columns || 80
-  const PADDING = 2 // Space between columns
-  if (commandStrings.length === 0) {
+  if (commands.length === 0) {
     return
   }
 
-  const maxCmdLength = Math.max(...commandStrings.map((cmd) => cmd.length))
-  const colWidth = maxCmdLength + PADDING
-  const numCols = Math.max(1, Math.floor(termWidth / colWidth))
+  // Calculate the maximum length of command strings for alignment
+  const maxCommandLength = Math.max(
+    ...commands.map((cmd) => {
+      const commandString = `/${cmd.baseCommand}${cmd.params ? ` ${cmd.params}` : ''}`
+      return commandString.length
+    })
+  )
 
-  let output = ''
-  for (let i = 0; i < commandStrings.length; i += numCols) {
-    const rowCommands = commandStrings.slice(i, i + numCols)
-    output +=
-      rowCommands.map((cmd) => cyan(cmd.padEnd(colWidth))).join('') + '\n'
-  }
-  console.log(`\n${output}`)
+  // Format each command with its description
+  const commandLines = commands.map((cmd) => {
+    const commandString = `/${cmd.baseCommand}${cmd.params ? ` ${cmd.params}` : ''}`
+    // Pad with dots to align descriptions
+    const padding = '.'.repeat(maxCommandLength - commandString.length + 3)
+    return `${cyan(commandString)} ${padding} ${cmd.description}`
+  })
+
+  // Add the shell command tip at the end
+  const shellTip = gray(
+    '(Tip: Type "!" followed by a command to run it in your shell, e.g., !ls)'
+  )
+
+  // Print with consistent spacing
+  console.log(`\n\n${commandLines.join('\n')}\n${shellTip}\n`)
 }
 
 export function displayGreeting(costMode: CostMode, username: string | null) {

@@ -38,7 +38,7 @@ import { disableSquashNewlines, enableSquashNewlines } from './display'
 import {
   displayGreeting,
   displayMenu,
-  displaySlashCommandGrid,
+  displaySlashCommandHelperMenu,
   getSlashCommands,
 } from './menu'
 import { getProjectRoot, getWorkingDirectory, isDir } from './project-files'
@@ -388,17 +388,48 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
+  /**
+   * Cleans command input by removing leading slash while preserving special command syntax
+   * @param input The raw user input
+   * @returns The cleaned command string
+   */
+  private cleanCommandInput(input: string): string {
+    return input.startsWith('/') ? input.substring(1) : input
+  }
+
+  /**
+   * Checks if a command is a known slash command
+   * @param command The command to check (without leading slash)
+   */
+  private isKnownSlashCommand(command: string): boolean {
+    return getSlashCommands().some((cmd) => cmd.baseCommand === command)
+  }
+
+  /**
+   * Handles an unknown slash command by displaying an error message
+   * @param command The unknown command that was entered
+   */
+  private handleUnknownCommand(command: string) {
+    console.log(
+      yellow(`Unknown slash command: ${command}`) +
+        `\nType / to see available commands`
+    )
+    this.freshPrompt()
+  }
+
   private async processCommand(userInput: string): Promise<boolean> {
-    let cleanInput = userInput
-    if (userInput.startsWith('/')) {
-      // Allow commands like /help, /login etc.
-      // but ignore if it's just "/"
-      if (userInput.length > 1) {
-        cleanInput = userInput.substring(1)
-      } else {
-        // User just typed "/" and enter, treat as empty for command processing
-        // freshPrompt will be called by handleUserInput
-        return false
+    const cleanInput = this.cleanCommandInput(userInput)
+
+    // Handle empty slash command
+    if (userInput === '/') {
+      return false
+    }
+
+    // Handle unknown slash commands (but not shell commands)
+    if (userInput.startsWith('/') && !userInput.startsWith('/!')) {
+      if (!this.isKnownSlashCommand(cleanInput)) {
+        this.handleUnknownCommand(userInput)
+        return true
       }
     }
 
@@ -418,9 +449,9 @@ export class CLI {
       return true
     }
     if (cleanInput.startsWith('ref-')) {
-      // This command is specific and doesn't make sense with a '/' prefix
-      // So we check userInput directly
-      await Client.getInstance().handleReferralCode(userInput.trim())
+      // Referral codes can be entered with or without a leading slash.
+      // Pass the cleaned input (without slash) to the handler.
+      await Client.getInstance().handleReferralCode(cleanInput.trim())
       return true
     }
 
@@ -460,10 +491,6 @@ export class CLI {
     }
 
     // Checkpoint commands
-    // isCheckpointCommand needs to be aware of the potential '/' prefix or use cleanInput
-    // For simplicity, we'll assume isCheckpointCommand handles this or we pass cleanInput
-    // Let's assume isCheckpointCommand is called with cleanInput for now.
-    // However, the original saveCheckpoint should get the raw userInput.
     if (isCheckpointCommand(cleanInput)) {
       trackEvent(AnalyticsEvent.CHECKPOINT_COMMAND_USED, {
         command: cleanInput, // Log the cleaned command
@@ -527,23 +554,20 @@ export class CLI {
       return false // Let it fall through to forwardUserInput
     }
 
-    // If userInput started with '/' but cleanInput didn't match anything,
-    // it's an unknown slash command. We can choose to show an error or forward.
-    // For now, let it fall through to forwardUserInput.
-    // If it was just "/", cleanInput would be empty and handled by handleUserInput.
-
     return false
   }
 
   private async forwardUserInput(userInput: string) {
-    await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
+    const cleanedInput = this.cleanCommandInput(userInput)
+
+    await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
     Spinner.get().start()
 
     Client.getInstance().lastChanges = []
 
     const newMessage: Message = {
       role: 'user',
-      content: userInput,
+      content: cleanedInput,
     }
 
     const client = Client.getInstance()
@@ -553,7 +577,7 @@ export class CLI {
 
     this.isReceivingResponse = true
     const { responsePromise, stopResponse } =
-      await Client.getInstance().sendUserInput(userInput)
+      await Client.getInstance().sendUserInput(cleanedInput) // Fixed: Use cleaned input
 
     this.stopResponse = stopResponse
     await responsePromise
@@ -597,12 +621,10 @@ export class CLI {
     if (str === '/') {
       const currentLine = (this.rl as any).line
       // Show menu if '/' is the first character typed and it's the *only* character
-      if (currentLine === '/') {
-        displaySlashCommandGrid()
-        // Call freshPrompt and pre-fill the line with the slash
-        // so the user can continue typing their command.
-        this.freshPrompt('/')
-      }
+      displaySlashCommandHelperMenu()
+      // Call freshPrompt and pre-fill the line with the slash
+      // so the user can continue typing their command.
+      this.freshPrompt('/')
     }
 
     if (
