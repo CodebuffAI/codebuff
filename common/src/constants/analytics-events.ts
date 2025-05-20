@@ -14,6 +14,7 @@ export enum AnalyticsEvent {
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
   MALFORMED_PROMPT_RESPONSE = 'cli.malformed_prompt_response',
   USER_INPUT_COMPLETE = 'cli.user_input_complete',
+  UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',
 
   // Backend
   USER_INPUT = 'backend.user_input',

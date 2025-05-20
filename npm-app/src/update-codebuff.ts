@@ -2,10 +2,11 @@ import { execSync, spawn } from 'child_process'
 
 import { green, yellow } from 'picocolors'
 
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import packageJson from '../package.json'
 import { killAllBackgroundProcesses } from './background-process-manager'
 import { isProduction } from './config'
-import { flushAnalytics } from './utils/analytics'
+import { flushAnalytics, trackEvent } from './utils/analytics'
 import { scrapeWebPage } from './web-scraper'
 
 export async function updateCodebuff() {
@@ -36,6 +37,10 @@ export async function updateCodebuff() {
       )
       process.exit(0)
     } catch (error) {
+      trackEvent(AnalyticsEvent.UPDATE_CODEBUFF_FAILED, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+      flushAnalytics()
       console.error('Failed to update Codebuff.')
     }
   }
