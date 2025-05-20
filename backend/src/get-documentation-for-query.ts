@@ -1,14 +1,16 @@
-import { geminiModels } from 'common/constants'
-
-import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
-
 import { logger } from '@/util/logger'
 import { z } from 'zod'
-import { promptAiSdkStructured } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { uniq } from 'lodash'
 
+import { geminiModels } from 'common/constants'
+import { promptAiSdkStructured } from './llm-apis/vercel-ai-sdk/ai-sdk'
+import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
+
+
+const DELIMITER = `\n\n----------------------------------------\n\n`
+
 /**
- * Gets relevant documentation chunks for a query by using Gemini to analyze the best project and topic
+ * Gets relevant documentation chunks for a query by using Flash to analyze the best project and topic
  * @param query The user's query to find documentation for
  * @param options Optional parameters for the request
  * @param options.tokens Number of tokens to retrieve (default: 5000)
@@ -28,122 +30,112 @@ export async function getDocumentationForQuery(
   }
 ): Promise<string | null> {
   const startTime = Date.now()
-  const libraryResults = await searchLibraries(query, options)
 
-  if (!libraryResults) {
+  // 1. Search for relevant libraries
+  const libraryResults = await suggestLibraries(query, options)
+
+  if (!libraryResults || libraryResults.libraries.length === 0) {
+    logger.info(
+      {
+        query,
+        timings: {
+          total: Date.now() - startTime,
+        },
+      },
+      'Documentation chunks: No relevant libraries suggested.'
+    )
     return null
   }
+
   const { libraries, geminiDuration: geminiDuration1 } = libraryResults
 
-  // Get the chunks using the analyzed project and topic
-  const responseChunks = (
+  // 2. Fetch documentation for these libraries
+  const allRawChunks = (
     await Promise.all(
-      libraries.map((library) =>
-        fetchContext7LibraryDocumentation(library.libraryName, {
+      libraries.map(({ libraryName, topic }) =>
+        fetchContext7LibraryDocumentation(libraryName, {
           tokens: options.tokens,
-          topic: library.topic,
+          topic,
         })
       )
     )
   ).flat()
-  const delimeter = `\n\n----------------------------------------\n\n`
-  const chunks = uniq(
-    responseChunks
+
+  const allUniqueChunks = uniq(
+    allRawChunks
       .filter((chunk) => chunk !== null)
-      .join(delimeter)
-      .split(delimeter)
+      .join(DELIMITER)
+      .split(DELIMITER)
   )
 
-  let geminiDuration2: number | null = null
-
-  // Create a prompt for Gemini to analyze the query and projects
-  const prompt = `You are an expert at analyzing documentation queries. Given a user's query and a list of documentation chunks, determine which chunks are relevant to the query. Choose as few chunks as possible, likely none. Only include chunks if they are relevant to the user query.
-
-<user_query>
-${query}
-</user_query>
-
-<documentation_chunks>
-${chunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(delimeter)}
-</documentation_chunks>
-`
-
-  // Get project analysis from Gemini
-  const gemini2StartTime = Date.now()
-  let response: {
-    relevant_chunks: number[]
-  }
-  try {
-    if (chunks.length === 0) {
-      response = {
-        relevant_chunks: [],
-      }
-    } else {
-      response = await promptAiSdkStructured(
-        [{ role: 'user', content: prompt }],
-        {
-          ...options,
-          userId: options.userId,
-          model: geminiModels.gemini2_5_flash,
-          temperature: 0,
-          schema: z.object({
-            relevant_chunks: z.array(z.number()),
-          }),
-          timeout: 10_000,
-        }
-      )
-    }
-  } catch (error) {
-    logger.error(
-      { ...(error as Error) },
-      'Failed to get Gemini response getDocumentationForQuery'
+  if (allUniqueChunks.length === 0) {
+    logger.info(
+      {
+        query,
+        libraries,
+        timings: {
+          total: Date.now() - startTime,
+          gemini1: geminiDuration1,
+        },
+      },
+      'Documentation chunks: No chunks found after fetching from Context7.'
     )
     return null
   }
-  geminiDuration2 = Date.now() - gemini2StartTime
+
+  // 3. Filter relevant chunks using another LLM call
+  const filterResults = await filterRelevantChunks(
+    query,
+    allUniqueChunks,
+    options
+  )
 
   const totalDuration = Date.now() - startTime
 
-  // Only proceed if we're confident in the match
-  if (response.relevant_chunks.length === 0) {
+  if (!filterResults || filterResults.relevantChunks.length === 0) {
     logger.info(
       {
-        libraries,
-        response,
         query,
-        geminiDuration: geminiDuration2,
+        libraries,
+        chunks: allUniqueChunks,
+        chunksCount: allUniqueChunks.length,
+        geminiDuration1,
+        geminiDuration2: filterResults?.geminiDuration,
         timings: {
           total: totalDuration,
           gemini1: geminiDuration1,
-          gemini2: geminiDuration2,
+          gemini2: filterResults?.geminiDuration,
         },
       },
-      'Low confidence in documentation chunks match'
+      'Documentation chunks: No relevant chunks selected by the filter, or filter failed.'
     )
     return null
   }
 
-  const relevantChunks = response.relevant_chunks.map((i) => chunks[i])
+  const { relevantChunks, geminiDuration: geminiDuration2 } = filterResults
 
   logger.info(
     {
+      query,
       libraries,
-      response,
-      chunks,
+      chunks: allUniqueChunks,
+      chunksCount: allUniqueChunks.length,
       relevantChunks,
+      relevantChunksCount: relevantChunks.length,
       timings: {
         total: totalDuration,
         gemini1: geminiDuration1,
         gemini2: geminiDuration2,
       },
     },
-    'Documentation chunks results'
+    'Documentation chunks: results'
   )
 
-  return relevantChunks.join(delimeter)
+  return relevantChunks.join(DELIMITER)
 }
 
-const searchLibraries = async (
+
+const suggestLibraries = async (
   query: string,
   options: {
     clientSessionId: string
@@ -185,7 +177,7 @@ ${query}
             })
           ),
         }),
-        timeout: 10_000,
+        timeout: 5_000,
       }
     )
     return {
@@ -196,6 +188,67 @@ ${query}
     logger.error(
       { error },
       'Failed to get Gemini response getDocumentationForQuery'
+    )
+    return null
+  }
+}
+
+/**
+ * Filters a list of documentation chunks to find those relevant to a query, using an LLM.
+ * @param query The user's query.
+ * @param allChunks An array of all documentation chunks to filter.
+ * @param options Common request options including session and user identifiers.
+ * @returns A promise that resolves to an object containing the relevant chunks and Gemini call duration, or null if an error occurs.
+ */
+async function filterRelevantChunks(
+  query: string,
+  allChunks: string[],
+  options: {
+    clientSessionId: string
+    userInputId: string
+    fingerprintId: string
+    userId?: string
+  }
+): Promise<{ relevantChunks: string[]; geminiDuration: number } | null> {
+  const prompt = `You are an expert at analyzing documentation queries. Given a user's query and a list of documentation chunks, determine which chunks are relevant to the query. Choose as few chunks as possible, likely none. Only include chunks if they are relevant to the user query.
+
+<user_query>
+${query}
+</user_query>
+
+<documentation_chunks>
+${allChunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(DELIMITER)}
+</documentation_chunks>
+`
+
+  const geminiStartTime = Date.now()
+  try {
+    const response = await promptAiSdkStructured(
+      [{ role: 'user', content: prompt }],
+      {
+        clientSessionId: options.clientSessionId,
+        userInputId: options.userInputId,
+        fingerprintId: options.fingerprintId,
+        userId: options.userId,
+        model: geminiModels.gemini2_5_flash,
+        temperature: 0,
+        schema: z.object({
+          relevant_chunks: z.array(z.number()),
+        }),
+        timeout: 12_000,
+      }
+    )
+    const geminiDuration = Date.now() - geminiStartTime
+
+    const selectedChunks = response.relevant_chunks
+      .filter((index) => index >= 0 && index < allChunks.length) // Sanity check indices
+      .map((i) => allChunks[i])
+
+    return { relevantChunks: selectedChunks, geminiDuration }
+  } catch (error) {
+    logger.error(
+      { ...(error as Error), query, allChunksCount: allChunks.length },
+      'Failed to get Gemini response in filterRelevantChunks'
     )
     return null
   }
