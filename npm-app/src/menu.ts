@@ -218,7 +218,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
     `\n${bold('Your AI pair programmer that understands, edits, and improves your codebase through natural conversation.')}`
   )
 
-  console.log(`\n${bold(underline('DIAGNOSTICS CHECK'))}`)
+  console.log(`\n${bold(underline('PROJECT SETUP'))}`)
 
   console.log(
     (() => {
