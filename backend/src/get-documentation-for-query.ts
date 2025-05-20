@@ -143,6 +143,8 @@ For example, the library name could be "Node.js" and the topic could be "async/a
 
 You can include the same library name multiple times with different topics, or the same topic multiple times with different library names.
 
+If there are no obvious libraries that would be helpful, return an empty list. It is common that you would return an empty list.
+
 <user_query>
 ${query}
 </user_query>
