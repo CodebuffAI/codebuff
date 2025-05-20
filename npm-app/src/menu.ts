@@ -15,6 +15,138 @@ import {
 
 import { getProjectRoot } from './project-files'
 
+export interface CommandInfo {
+  commandText: string // e.g., 'type "login"', 'type "diff" or "d"', 'hit ESC key or Ctrl-C'
+  description: string
+  baseCommand?: string // The actual command keyword, e.g., "login", "diff", "undo"
+  params?: string // e.g. "<id>" for checkpoint, "<cmd>" for shell
+  isSlashCommand?: boolean // True if it can be invoked with /
+  aliases?: string[] // e.g. ["d"] for diff
+}
+
+export const interactiveCommandDetails: CommandInfo[] = [
+  {
+    baseCommand: 'help',
+    description: 'Display help information',
+    isSlashCommand: true,
+    commandText: '', // Empty commandText ensures it's not shown in the main interactive list
+    aliases: ['h'], // Optional: if you want /h to also work for tab completion
+  },
+  {
+    commandText: 'type "login"',
+    baseCommand: 'login',
+    description: 'Authenticate your session',
+    isSlashCommand: true,
+  },
+  {
+    commandText: 'type "init"',
+    baseCommand: 'init',
+    description: 'Configure project for better results',
+    isSlashCommand: true,
+  },
+  {
+    commandText: 'type "diff" or "d"',
+    baseCommand: 'diff',
+    aliases: ['d'],
+    description: 'Show last assistant change diff',
+    isSlashCommand: true,
+  },
+  {
+    commandText: 'type "undo" / "redo"',
+    description: 'Revert or re-apply last change',
+    // This entry will be expanded into two slash commands: /undo and /redo
+  },
+  {
+    commandText: 'type "checkpoint <id>"',
+    baseCommand: 'checkpoint',
+    params: '<id>',
+    description: 'Restore to a specific checkpoint',
+    isSlashCommand: true,
+  },
+  {
+    commandText: 'type "!<cmd>"',
+    baseCommand: '!', // Or handle this specially, e.g. baseCommand 'shell'
+    params: '<cmd>',
+    description: 'Run shell command directly',
+    isSlashCommand: false, // e.g. /! <cmd> or /shell <cmd>
+  },
+  {
+    commandText: 'type "usage" or "credits"',
+    description: 'View remaining / bonus AI credits',
+    // This entry will be expanded into two slash commands: /usage and /credits
+  },
+  {
+    commandText: 'hit ESC key or Ctrl-C',
+    description: 'Cancel generation',
+    isSlashCommand: false,
+  },
+  {
+    baseCommand: 'undo',
+    description: 'Undo last change',
+    isSlashCommand: true,
+    commandText: '',
+  }, // commandText empty as it's covered by "undo / redo" for main menu
+  {
+    baseCommand: 'redo',
+    description: 'Redo last undone change',
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
+    baseCommand: 'usage',
+    description: 'View AI credits usage',
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
+    baseCommand: 'credits',
+    description: 'View AI credits balance',
+    isSlashCommand: false,
+    commandText: '',
+  },
+  {
+    commandText: 'type "exit" or Ctrl-C x2',
+    baseCommand: 'exit',
+    description: 'Quit Codebuff',
+    isSlashCommand: true,
+  },
+]
+
+export function getSlashCommands(): CommandInfo[] {
+  return interactiveCommandDetails.filter(
+    (cmd) => cmd.isSlashCommand && cmd.baseCommand
+  )
+}
+
+export function displaySlashCommandGrid() {
+  const commands = getSlashCommands()
+  const commandStrings = commands.map((cmd) => {
+    let str = `/${cmd.baseCommand}`
+    if (cmd.params) {
+      str += ` ${cmd.params}`
+    }
+    return str
+  })
+
+  const termWidth = process.stdout.columns || 80
+  const PADDING = 2 // Space between columns
+  if (commandStrings.length === 0) {
+    return
+  }
+
+  const maxCmdLength = Math.max(...commandStrings.map((cmd) => cmd.length))
+  const colWidth = maxCmdLength + PADDING
+  const numCols = Math.max(1, Math.floor(termWidth / colWidth))
+
+  let output = ''
+  for (let i = 0; i < commandStrings.length; i += numCols) {
+    const rowCommands = commandStrings.slice(i, i + numCols)
+    output +=
+      rowCommands.map((cmd) => cyan(cmd.padEnd(colWidth))).join('') + '\n'
+  }
+  console.log(`\n${output}`)
+}
+
 export function displayGreeting(costMode: CostMode, username: string | null) {
   // Show extra info only for logged in users
   const costModeDescription = {
@@ -82,7 +214,9 @@ ${colorizeRandom('╚██████╗')}${colorizeRandom('╚████�
 ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom('╚═════╝ ')}${colorizeRandom('╚══════╝')}${colorizeRandom('╚═════╝ ')}${colorizeRandom(' ╚═════╝ ')}${colorizeRandom('╚═╝     ')}${colorizeRandom('╚═╝     ')}
 `)
 
-  console.log(`\n${bold('Your AI pair programmer that understands, edits, and improves your codebase through natural conversation.')}`)
+  console.log(
+    `\n${bold('Your AI pair programmer that understands, edits, and improves your codebase through natural conversation.')}`
+  )
 
   console.log(`\n${bold(underline('DIAGNOSTICS CHECK'))}`)
 
@@ -176,28 +310,14 @@ ${cyan('  • "Set up CI/CD pipeline config"')}
   // INTERACTIVE COMMANDS SECTION
   const fixedCommandWidth = 30 // Fixed width for command column
 
-  const formatMenuLine = (command: string, description: string) => {
-    const paddedCommand = command.padEnd(fixedCommandWidth)
+  const formatMenuLine = (commandText: string, description: string) => {
+    const paddedCommand = commandText.padEnd(fixedCommandWidth)
     return `${paddedCommand}${description}`
   }
 
-  const menuLines = [
-    formatMenuLine('type "login"', 'Authenticate your session'),
-    formatMenuLine('type "init"', 'Configure project for better results'),
-    formatMenuLine('type "diff" or "d"', 'Show last assistant change diff'),
-    formatMenuLine('type "undo" / "redo"', 'Revert or re-apply last change'),
-    formatMenuLine(
-      'type "checkpoint <id>"',
-      'Restore to a specific checkpoint'
-    ),
-    formatMenuLine('type "!<cmd>"', 'Run shell command directly'),
-    formatMenuLine(
-      'type "usage" / "credits"',
-      'View remaining / bonus AI credits'
-    ),
-    formatMenuLine('hit ESC key or Ctrl-C', 'Cancel generation'),
-    formatMenuLine('type "exit" or Ctrl-C x2', 'Quit Codebuff'),
-  ]
+  const menuLines = interactiveCommandDetails
+    .filter((cmd) => cmd.commandText) // Filter out slash-only commands like the discrete undo/redo
+    .map((cmd) => formatMenuLine(cmd.commandText, cmd.description))
 
   console.log(
     `\n${bold(underline('INTERACTIVE COMMANDS'))}${' '.repeat(fixedCommandWidth - 20)}${bold(underline('DESCRIPTION'))}\n${menuLines.join(`\n${dividerLine}`)}\n`

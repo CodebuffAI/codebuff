@@ -35,7 +35,7 @@ import { handleInitializationFlowLocally } from './cli-handlers/inititalization-
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { disableSquashNewlines, enableSquashNewlines } from './display'
-import { displayGreeting, displayMenu } from './menu'
+import { displayGreeting, displayMenu, displaySlashCommandGrid, getSlashCommands } from './menu'
 import { getProjectRoot, getWorkingDirectory, isDir } from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
@@ -204,7 +204,7 @@ export class CLI {
       output: process.stdout,
       historySize: 1000,
       terminal: true,
-      completer: this.filePathCompleter.bind(this),
+      completer: this.inputCompleter.bind(this),
     })
 
     // Load and populate history
@@ -218,8 +218,25 @@ export class CLI {
     process.stdin.on('keypress', (str, key) => this.handleKeyPress(str, key))
   }
 
-  private filePathCompleter(line: string): [string[], string] {
+  private inputCompleter(line: string): [string[], string] {
     const lastWord = line.split(' ').pop() || ''
+
+    if (line.startsWith('/')) {
+      const slashCommands = getSlashCommands()
+      const currentInput = line.substring(1) // Text after '/'
+
+      const matches = slashCommands
+        .map(cmd => cmd.baseCommand) // Get base command strings
+        .filter(cmdName => cmdName && cmdName.startsWith(currentInput))
+        .map(cmdName => `/${cmdName}`) // Add back the slash for display
+
+      if (matches.length > 0) {
+        return [matches, line] // Return all matches and the full line typed so far
+      }
+      return [[], line] // No slash command matches
+    }
+
+    // Original file path completion logic
     const input = lastWord.startsWith('~')
       ? homedir() + lastWord.slice(1)
       : lastWord
@@ -235,13 +252,13 @@ export class CLI {
 
     try {
       const files = readdirSync(baseDir)
-      const matches = files
+      const fsMatches = files
         .filter((file) => file.startsWith(partial))
         .map(
           (file) =>
             file + (isDir(path.join(baseDir, file)) ? directorySuffix : '')
         )
-      return [matches, partial]
+      return [fsMatches, partial]
     } catch {
       return [[], line]
     }
@@ -366,86 +383,104 @@ export class CLI {
   }
 
   private async processCommand(userInput: string): Promise<boolean> {
-    if (userInput === 'help' || userInput === 'h' || userInput === '/help') {
+    let cleanInput = userInput
+    if (userInput.startsWith('/')) {
+      // Allow commands like /help, /login etc.
+      // but ignore if it's just "/"
+      if (userInput.length > 1) {
+        cleanInput = userInput.substring(1)
+      } else {
+        // User just typed "/" and enter, treat as empty for command processing
+        // freshPrompt will be called by handleUserInput
+        return false
+      }
+    }
+
+    if (cleanInput === 'help' || cleanInput === 'h') {
       displayMenu()
       this.freshPrompt()
       return true
     }
-    if (userInput === 'login' || userInput === 'signin') {
+    if (cleanInput === 'login' || cleanInput === 'signin') {
       await Client.getInstance().login()
       checkpointManager.clearCheckpoints()
       return true
     }
-    if (userInput === 'logout' || userInput === 'signout') {
+    if (cleanInput === 'logout' || cleanInput === 'signout') {
       await Client.getInstance().logout()
       this.freshPrompt()
       return true
     }
-    if (userInput.startsWith('ref-')) {
+    if (cleanInput.startsWith('ref-')) {
+      // This command is specific and doesn't make sense with a '/' prefix
+      // So we check userInput directly
       await Client.getInstance().handleReferralCode(userInput.trim())
       return true
     }
 
     // Detect potential API key input first
+    // API keys are not slash commands, so use userInput
     const detectionResult = detectApiKey(userInput)
     if (detectionResult.status !== 'not_found') {
-      // If something resembling an API key was detected (valid or just prefix), handle it
       await handleApiKeyInput(
         Client.getInstance(),
         detectionResult,
         this.readyPromise,
         this.freshPrompt.bind(this)
       )
-      return true // Indicate command was handled
+      return true
     }
 
-    // Continue with other commands if no API key input was detected/handled
-    if (userInput === 'usage' || userInput === 'credits') {
+    if (cleanInput === 'usage' || cleanInput === 'credits') {
       await Client.getInstance().getUsage()
       return true
     }
-    if (userInput === 'quit' || userInput === 'exit' || userInput === 'q') {
+    if (cleanInput === 'quit' || cleanInput === 'exit' || cleanInput === 'q') {
       await this.handleExit()
       return true
     }
-    if (['diff', 'doff', 'dif', 'iff', 'd'].includes(userInput)) {
+    if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {
       handleDiff(Client.getInstance().lastChanges)
       this.freshPrompt()
       return true
     }
     if (
-      userInput === 'uuddlrlrba' ||
-      userInput === 'konami' ||
-      userInput === 'codebuffy'
+      cleanInput === 'uuddlrlrba' ||
+      cleanInput === 'konami' ||
+      cleanInput === 'codebuffy'
     ) {
       showEasterEgg(this.freshPrompt.bind(this))
       return true
     }
 
     // Checkpoint commands
-    if (isCheckpointCommand(userInput)) {
+    // isCheckpointCommand needs to be aware of the potential '/' prefix or use cleanInput
+    // For simplicity, we'll assume isCheckpointCommand handles this or we pass cleanInput
+    // Let's assume isCheckpointCommand is called with cleanInput for now.
+    // However, the original saveCheckpoint should get the raw userInput.
+    if (isCheckpointCommand(cleanInput)) {
       trackEvent(AnalyticsEvent.CHECKPOINT_COMMAND_USED, {
-        command: userInput,
+        command: cleanInput, // Log the cleaned command
       })
-      if (isCheckpointCommand(userInput, 'undo')) {
+      if (isCheckpointCommand(cleanInput, 'undo')) {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleUndo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
         return true
       }
-      if (isCheckpointCommand(userInput, 'redo')) {
+      if (isCheckpointCommand(cleanInput, 'redo')) {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleRedo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
         return true
       }
-      if (isCheckpointCommand(userInput, 'list')) {
+      if (isCheckpointCommand(cleanInput, 'list')) {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         await listCheckpoints()
         this.freshPrompt()
         return true
       }
-      const restoreMatch = isCheckpointCommand(userInput, 'restore')
+      const restoreMatch = isCheckpointCommand(cleanInput, 'restore')
       if (restoreMatch) {
         const id = parseInt((restoreMatch as RegExpMatchArray)[1], 10)
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
@@ -457,12 +492,12 @@ export class CLI {
         this.freshPrompt(toRestore)
         return true
       }
-      if (isCheckpointCommand(userInput, 'clear')) {
+      if (isCheckpointCommand(cleanInput, 'clear')) {
         handleClearCheckpoints()
         this.freshPrompt()
         return true
       }
-      if (isCheckpointCommand(userInput, 'save')) {
+      if (isCheckpointCommand(cleanInput, 'save')) {
         await saveCheckpoint(
           userInput,
           Client.getInstance(),
@@ -473,17 +508,23 @@ export class CLI {
         this.freshPrompt()
         return true
       }
+      // Default checkpoint action (if just "checkpoint" or "/checkpoint" is typed)
       displayCheckpointMenu()
       this.freshPrompt()
       return true
     }
 
-    if (userInput === 'init') {
-      // no need to save checkpoint, since we are passing request to backend
+    if (cleanInput === 'init') {
       handleInitializationFlowLocally()
-      // Also forward user input to the backend
-      return false
+      // Also forward user input (original with / if present, or cleanInput) to the backend
+      // The original forwardUserInput takes the raw userInput.
+      return false // Let it fall through to forwardUserInput
     }
+
+    // If userInput started with '/' but cleanInput didn't match anything,
+    // it's an unknown slash command. We can choose to show an error or forward.
+    // For now, let it fall through to forwardUserInput.
+    // If it was just "/", cleanInput would be empty and handled by handleUserInput.
 
     return false
   }
@@ -545,6 +586,17 @@ export class CLI {
   private handleKeyPress(str: string, key: any) {
     if (key.name === 'escape') {
       this.handleEscKey()
+    }
+
+    if (str === '/') {
+      const currentLine = (this.rl as any).line
+      // Show menu if '/' is the first character typed and it's the *only* character
+      if (currentLine === '/') {
+        displaySlashCommandGrid()
+        // Call freshPrompt and pre-fill the line with the slash
+        // so the user can continue typing their command.
+        this.freshPrompt('/')
+      }
     }
 
     if (
