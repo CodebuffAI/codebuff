@@ -1,7 +1,7 @@
 'use client'
 
 import { finetunedVertexModels } from 'common/constants'
-import { Eye, Info } from 'lucide-react'
+import { Info, Settings } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
@@ -60,8 +60,9 @@ export default function FilePicker() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [isInfoOpen, setIsInfoOpen] = useState(false)
-  const [isColumnSettingsOpen, setIsColumnSettingsOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set())
+  const [limit, setLimit] = useState(10)
 
   const fetchUserTraces = async (userId: string) => {
     if (status !== 'authenticated') {
@@ -134,7 +135,7 @@ export default function FilePicker() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ limit: 10 }),
+          body: JSON.stringify({ limit }),
         }
       )
 
@@ -296,31 +297,50 @@ export default function FilePicker() {
                         </DialogContent>
                       </Dialog>
 
-                      <Dialog open={isColumnSettingsOpen} onOpenChange={setIsColumnSettingsOpen}>
+                      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
                         <DialogTrigger asChild>
                           <Button variant="outline" size="icon">
-                            <Eye className="h-4 w-4" />
+                            <Settings className="h-4 w-4" />
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
-                            <DialogTitle>Column Visibility</DialogTitle>
+                            <DialogTitle>Settings</DialogTitle>
                           </DialogHeader>
-                          <div className="space-y-4">
-                            {sortedModelNames.map((model) => (
-                              <div key={model} className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id={model}
-                                  checked={!hiddenColumns.has(model)}
-                                  onChange={() => toggleColumn(model)}
-                                  className="h-4 w-4 rounded border-gray-300"
-                                />
-                                <label htmlFor={model} className="text-sm">
-                                  {nameOverrides[model as keyof typeof nameOverrides] || model}
-                                </label>
+                          <div className="space-y-6">
+                            <div>
+                              <h4 className="font-medium mb-4">Column Visibility</h4>
+                              <div className="space-y-4">
+                                {sortedModelNames.map((model) => (
+                                  <div key={model} className="flex items-center space-x-2">
+                                    <input
+                                      type="checkbox"
+                                      id={model}
+                                      checked={!hiddenColumns.has(model)}
+                                      onChange={() => toggleColumn(model)}
+                                      className="h-4 w-4 rounded border-gray-300"
+                                    />
+                                    <label htmlFor={model} className="text-sm">
+                                      {nameOverrides[model as keyof typeof nameOverrides] || model}
+                                    </label>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            </div>
+                            <div>
+                              <h4 className="font-medium mb-2">Relabelling Limit</h4>
+                              <div className="flex items-center space-x-2">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={100}
+                                  value={limit}
+                                  onChange={(e) => setLimit(Number(e.target.value))}
+                                  className="w-24"
+                                />
+                                <span className="text-sm text-muted-foreground">items</span>
+                              </div>
+                            </div>
                           </div>
                         </DialogContent>
                       </Dialog>

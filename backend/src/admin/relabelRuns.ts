@@ -261,6 +261,7 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
   const tracesBundles = await getTracesAndAllDataForUser(userId)
 
   let relabeled = 0
+  let didRelabel = false
   const relabelPromises = []
   for (const traceBundle of tracesBundles) {
     const trace = traceBundle.trace as GetRelevantFilesTrace
@@ -280,6 +281,7 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
 
     if (!traceBundle.relabels.some((r) => r.model === 'relace-ranker')) {
       relabelPromises.push(relabelWithRelace(trace, fileBlobs))
+      didRelabel = true
     }
     if (
       !traceBundle.relabels.some(
@@ -289,8 +291,13 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
       relabelPromises.push(
         relabelWithClaudeWithFullFileContext(trace, fileBlobs)
       )
+      didRelabel = true
     }
-    relabeled++
+
+    if (didRelabel) {
+      relabeled++
+      didRelabel = false
+    }
 
     if (relabeled >= limit) {
       break
