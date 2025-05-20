@@ -3,7 +3,7 @@
  */
 import { StringDecoder } from 'string_decoder'
 
-import { Transform } from 'readable-stream'
+import { Transform } from 'node:stream'
 
 import { isWhitespace } from './string'
 
