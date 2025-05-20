@@ -35,7 +35,12 @@ import { handleInitializationFlowLocally } from './cli-handlers/inititalization-
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { disableSquashNewlines, enableSquashNewlines } from './display'
-import { displayGreeting, displayMenu, displaySlashCommandGrid, getSlashCommands } from './menu'
+import {
+  displayGreeting,
+  displayMenu,
+  displaySlashCommandGrid,
+  getSlashCommands,
+} from './menu'
 import { getProjectRoot, getWorkingDirectory, isDir } from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
@@ -226,9 +231,9 @@ export class CLI {
       const currentInput = line.substring(1) // Text after '/'
 
       const matches = slashCommands
-        .map(cmd => cmd.baseCommand) // Get base command strings
-        .filter(cmdName => cmdName && cmdName.startsWith(currentInput))
-        .map(cmdName => `/${cmdName}`) // Add back the slash for display
+        .map((cmd) => cmd.baseCommand) // Get base command strings
+        .filter((cmdName) => cmdName && cmdName.startsWith(currentInput))
+        .map((cmdName) => `/${cmdName}`) // Add back the slash for display
 
       if (matches.length > 0) {
         return [matches, line] // Return all matches and the full line typed so far
@@ -306,6 +311,7 @@ export class CLI {
 
     // clear line first
     rlAny.line = ''
+    this.pastedContent = ''
     this.setPrompt()
 
     // then prompt
