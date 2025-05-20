@@ -25,6 +25,7 @@ import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
+import { asUserMessage } from '../util/messages'
 import { renderToolResults } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
@@ -252,7 +253,9 @@ describe('mainPrompt', () => {
     // Check the content structure (array with text block)
     expect(Array.isArray(userPromptMessage?.content)).toBe(true)
     expect((userPromptMessage?.content as any)?.[0]?.type).toBe('text')
-    expect((userPromptMessage?.content as any)?.[0]?.text).toBe(userPromptText) // Check text property
+    expect((userPromptMessage?.content as any)?.[0]?.text).toBe(
+      asUserMessage(userPromptText)
+    ) // Check text property
 
     // 4. The assistant response should be after the prompt message
     const assistantResponseMessageIndex = userPromptMessageIndex + 1
