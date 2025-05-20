@@ -11,11 +11,21 @@ import { truncateString } from 'common/util/string'
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
 export const configSchemaPrompt = `
-  # Codebuff Configuration (${codebuffConfigFile})
+# Codebuff Configuration (${codebuffConfigFile})
+
+## Schema
 
 The following describes the structure of the \`./${codebuffConfigFile}\` configuration file that users might have in their project root. You can use this to understand user settings if they mention them.
 
 ${stringifySchema(CodebuffConfigSchema)}
+
+## Background Processes
+
+The user does not have access to these outputs. Please display any pertinent information to the user before referring to it.
+
+To stop a background process, attempt to close the process using the appropriate command. If you deem that command to be \`kill\`, **make sure** to kill the **ENTIRE PROCESS GROUP** (Mac/Linux) or tree (Windows).
+
+When you want to restart a background process, make sure to run the terminal command in the background.
 `.trim()
 
 export const knowledgeFilesPrompt = `
