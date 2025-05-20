@@ -610,9 +610,17 @@ All done with the update!
 
 Call tools as needed, following these strict formatting rules.
 
+## Working Directory
+
+All tools will be run from the **project root**.
+
+However, most of the time, the user will refer to files from their own cwd. You must be cognizant of the user's cwd at all times, including but not limited to:
+- Writing to files (write out the entire relative path)
+- Running terminal commands (use the \`cwd\` parameter)
+
 ## Optimizations
 
-All tools are quite slow, with runtime scaling with the amount of text in the parameters. Prefer to write AS LITTLE TEXT AS POSSIBLE to accomplish the task. Usually, this means using str_replace instead of write_file (unless, e.g. deleting large blocks of code).
+All tools are very slow, with runtime scaling with the amount of text in the parameters. Prefer to write AS LITTLE TEXT AS POSSIBLE to accomplish the task. Usually, this means using str_replace instead of write_file (unless, e.g. deleting large blocks of code).
 
 ## Tool Results
 

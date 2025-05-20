@@ -149,7 +149,9 @@ export const mainPrompt = async (
     (isFlash || isGeminiPro) &&
       'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
 
-    isGeminiPro && toolsInstructions,
+    isGeminiPro
+      ? toolsInstructions
+      : `Any tool calls will be run from the project root (${agentState.fileContext.currentWorkingDirectory}) unless otherwise specified`,
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
@@ -217,8 +219,7 @@ export const mainPrompt = async (
       cwd && {
         role: 'user' as const,
         content: asSystemMessage(
-          `**user** cwd: ${cwd}
-          assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}`
+          `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
         ),
       },
       {
@@ -478,7 +479,7 @@ export const mainPrompt = async (
       cwd && {
         role: 'user' as const,
         content: asSystemMessage(
-          `**user** cwd: ${cwd}\nassistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}`
+          `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
         ),
       },
       {
