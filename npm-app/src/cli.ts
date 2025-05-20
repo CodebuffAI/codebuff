@@ -425,12 +425,21 @@ export class CLI {
       return false
     }
 
-    // Handle unknown slash commands (but not shell commands)
+    // Track slash command usage if it starts with '/'
     if (userInput.startsWith('/') && !userInput.startsWith('/!')) {
       if (!this.isKnownSlashCommand(cleanInput)) {
+        trackEvent(AnalyticsEvent.INVALID_COMMAND, {
+          userId: Client.getInstance().user?.id || 'unknown',
+          command: cleanInput,
+        })
         this.handleUnknownCommand(userInput)
         return true
       }
+      // Track successful slash command usage
+      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
+        userId: Client.getInstance().user?.id || 'unknown',
+        command: cleanInput,
+      })
     }
 
     if (cleanInput === 'help' || cleanInput === 'h') {
@@ -620,11 +629,16 @@ export class CLI {
 
     if (str === '/') {
       const currentLine = (this.rl as any).line
-      // Show menu if '/' is the first character typed and it's the *only* character
-      displaySlashCommandHelperMenu()
-      // Call freshPrompt and pre-fill the line with the slash
-      // so the user can continue typing their command.
-      this.freshPrompt('/')
+      // Only track and show menu if '/' is the first character typed
+      if (currentLine === '/') {
+        trackEvent(AnalyticsEvent.SLASH_MENU_ACTIVATED, {
+          userId: Client.getInstance().user?.id || 'unknown',
+        })
+        displaySlashCommandHelperMenu()
+        // Call freshPrompt and pre-fill the line with the slash
+        // so the user can continue typing their command.
+        this.freshPrompt('/')
+      }
     }
 
     if (

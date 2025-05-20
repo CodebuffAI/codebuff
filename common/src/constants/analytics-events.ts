@@ -15,6 +15,9 @@ export enum AnalyticsEvent {
   MALFORMED_PROMPT_RESPONSE = 'cli.malformed_prompt_response',
   USER_INPUT_COMPLETE = 'cli.user_input_complete',
   UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',
+  SLASH_MENU_ACTIVATED = 'cli.slash_menu_activated',
+  SLASH_COMMAND_USED = 'cli.slash_command_used',
+  INVALID_COMMAND = 'cli.invalid_command',
 
   // Backend
   USER_INPUT = 'backend.user_input',
