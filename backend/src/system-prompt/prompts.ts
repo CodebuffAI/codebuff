@@ -67,8 +67,7 @@ Once again: BE CONCISE!
 If the user sends you the url to a page that is helpful now or could be helpful in the future (e.g. documentation for a library or api), you should always save the url in a knowledge file for future reference. Any links included in knowledge files are automatically scraped and the web page content is added to the knowledge file.
 `.trim()
 
-export const additionalSystemPrompts = {
-  init: `
+const initPrompt = `
 User has typed "init". Trigger initialization flow:
 
 First, read knowldge.md and ${codebuffConfigFile} top level directory.
@@ -87,7 +86,10 @@ Config file (probably already exists):
     - startupProcesses.item.stderrFile
     - startupProcesses.item.enabled
   - Provide startupProcesses.item.cwd only if it is not '.'
-`.trim(),
+`.trim()
+export const additionalSystemPrompts = {
+  '/init': initPrompt,
+  init: initPrompt,
 } as const
 
 export const getProjectFileTreePrompt = (
