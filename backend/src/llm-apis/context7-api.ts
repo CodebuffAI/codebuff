@@ -1,7 +1,7 @@
 import { withTimeout } from 'common/util/promise'
 import { logger } from '../util/logger'
 
-const CONTEXT7_API_BASE_URL = 'https://context7.com/api'
+const CONTEXT7_API_BASE_URL = 'https://context7.com/api/v1'
 const DEFAULT_TYPE = 'txt'
 const FETCH_TIMEOUT_MS = 10_000
 
@@ -31,15 +31,32 @@ export interface SearchResponse {
   }>
 }
 
+type DocumentState = 'initial' | 'finalized' | 'error' | 'delete'
+export interface SearchResult {
+  id: string
+  title: string
+  description: string
+  branch: string
+  lastUpdateDate: string
+  state: DocumentState
+  totalTokens: number
+  totalSnippets: number
+  totalPages: number
+  stars?: number
+  trustScore?: number
+}
+
 /**
  * Lists all available documentation projects from Context7
  * @returns Array of projects with their metadata, or null if the request fails
  */
-export async function listLibraries(): Promise<
-  SearchResponse['projects'] | null
-> {
+export async function searchLibraries(
+  query: string
+): Promise<SearchResult[] | null> {
   try {
-    const url = new URL(`${CONTEXT7_API_BASE_URL}/projects`)
+    const url = new URL(`${CONTEXT7_API_BASE_URL}/search`)
+    url.searchParams.set('query', query)
+    console.log('url', url)
     const response = await withTimeout(fetch(url), FETCH_TIMEOUT_MS)
 
     if (!response.ok) {
@@ -48,15 +65,12 @@ export async function listLibraries(): Promise<
     }
 
     const projects = await response.json()
-    return projects
+    return projects.results
   } catch (error) {
     logger.error('Error searching libraries:', error)
     return null
   }
 }
-// Initialize the projects list once and export it as a promise
-export const context7LibrariesPromise: Promise<SearchResponse['projects']> =
-  listLibraries().then((res) => res || [])
 
 /**
  * Fetches documentation context for a specific library
@@ -65,19 +79,21 @@ export const context7LibrariesPromise: Promise<SearchResponse['projects']> =
  * @returns The documentation text or null if the request fails
  */
 export async function fetchContext7LibraryDocumentation(
-  libraryId: string,
+  query: string,
   options: {
     tokens?: number
     topic?: string
     folders?: string
   } = {}
 ): Promise<string | null> {
-  try {
-    if (libraryId.startsWith('/')) {
-      libraryId = libraryId.slice(1)
-    }
+  const libraries = await searchLibraries(query)
+  if (!libraries || libraries.length === 0) {
+    return null
+  }
 
-    const url = new URL(`${CONTEXT7_API_BASE_URL}/v1/${libraryId}`)
+  const libraryId = libraries[0].id
+  try {
+    const url = new URL(`${CONTEXT7_API_BASE_URL}/${libraryId}`)
     if (options.tokens)
       url.searchParams.set('tokens', options.tokens.toString())
     if (options.topic) url.searchParams.set('topic', options.topic)
