@@ -996,7 +996,7 @@ describe('processStreamWithTags', () => {
       },
       {
         error:
-          'WARN: Ignoring stray XML tag. Make sure to escape non-tool XML!',
+          'WARN: Tool not found. Make sure to escape non-tool XML! e.g. &lt;invalid&gt;',
         name: 'invalid',
       },
       {
