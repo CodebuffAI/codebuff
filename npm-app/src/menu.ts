@@ -160,7 +160,7 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     console.log(`${costModeDescription[costMode]}`)
   }
 
-  if (getProjectRoot() === os.homedir()) {
+  if (getProjectRoot() === os.homedir() || getProjectRoot() === '/') {
     console.info(
       `Welcome! Codebuff is a coding agent you can prompt with natural language.
 
