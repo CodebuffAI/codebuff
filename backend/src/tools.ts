@@ -174,7 +174,7 @@ ${getToolCallString('read_files', {
 })}
 
 
-Note that there's no need to call this tool if you're already reading the files you need in context.`.trim(),
+Note: DO NOT call this tool for files you've already read! There's no need to read them again — any changes to the files will be surfaced to you as a file update tool result.`.trim(),
   },
   {
     name: 'find_files',
