@@ -247,10 +247,10 @@ ${green('✅ codebuff.json: detected')}`
 
       // Condition 2: Git repo not found
       if (!hasGitRepo) {
-        return `${currentDirectoryLine}\n${yellow('❌ Git repo: not found - navigate to a working directory!')}
+        return `${currentDirectoryLine}\n${yellow('❌ Git repo: not found')}${' - navigate to a working directory!'}
 ${hasGitIgnore ? green('✅ .gitignore: detected') : yellow('❌ .gitignore: missing')}${gitignoreNote}
-${hasKnowledgeMd ? green('✅ knowledge.md: detected') : yellow('❌ knowledge.md: missing')}
-${hasCodebuffJson ? green('✅ codebuff.json: detected') : yellow('❌ codebuff.json: missing')}`
+${hasKnowledgeMd ? green('✅ knowledge.md: detected') : yellow('❌ knowledge.md: missing')}${' — run "init" to fix'}
+${hasCodebuffJson ? green('✅ codebuff.json: detected') : yellow('❌ codebuff.json: missing')}${' — run "init" to fix'}`
       }
 
       // Condition 3: Missing .gitignore
