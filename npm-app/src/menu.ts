@@ -320,7 +320,7 @@ ${cyan('  • "Set up CI/CD pipeline config"')}
     .map((cmd) => formatMenuLine(cmd.commandText, cmd.description))
 
   console.log(
-    `\n${bold(underline('COMMANDS (type these below)'))}${' '.repeat(fixedCommandWidth - 20)}${bold(underline('DESCRIPTION'))}\n\n${menuLines.join(`\n${dividerLine}`)}\n`
+    `\n${bold(underline('COMMANDS (type these below)'))}${' '.repeat(fixedCommandWidth - 27)}${bold(underline('DESCRIPTION'))}\n\n${menuLines.join(`\n${dividerLine}`)}\n`
   )
 
   console.log(`\n↓ Enter your prompt or command below ↓`)
