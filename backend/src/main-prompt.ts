@@ -51,6 +51,7 @@ import { logger } from './util/logger'
 import {
   asSystemInstruction,
   asSystemMessage,
+  asUserMessage,
   castAssistantMessage,
   getMessagesSubset,
   isSystemInstruction,
@@ -484,7 +485,7 @@ export const mainPrompt = async (
       },
       {
         role: 'user' as const,
-        content: prompt,
+        content: asUserMessage(prompt),
       },
       prompt in additionalSystemPrompts && {
         role: 'user' as const,
