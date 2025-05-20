@@ -46,7 +46,6 @@ export async function getDocumentationForQuery(
       )
     )
   ).flat()
-  logger.info({ responseChunks }, 'Response chunks')
   const delimeter = `\n\n----------------------------------------\n\n`
   const chunks = uniq(
     responseChunks
@@ -75,19 +74,25 @@ ${chunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(delimeter)}
     relevant_chunks: number[]
   }
   try {
-    response = await promptAiSdkStructured(
-      [{ role: 'user', content: prompt }],
-      {
-        ...options,
-        userId: options.userId,
-        model: geminiModels.gemini2_5_flash,
-        temperature: 0,
-        schema: z.object({
-          relevant_chunks: z.array(z.number()),
-        }),
-        timeout: 10_000,
+    if (chunks.length === 0) {
+      response = {
+        relevant_chunks: [],
       }
-    )
+    } else {
+      response = await promptAiSdkStructured(
+        [{ role: 'user', content: prompt }],
+        {
+          ...options,
+          userId: options.userId,
+          model: geminiModels.gemini2_5_flash,
+          temperature: 0,
+          schema: z.object({
+            relevant_chunks: z.array(z.number()),
+          }),
+          timeout: 10_000,
+        }
+      )
+    }
   } catch (error) {
     logger.error(
       { ...(error as Error) },
@@ -97,10 +102,22 @@ ${chunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(delimeter)}
   }
   geminiDuration2 = Date.now() - gemini2StartTime
 
+  const totalDuration = Date.now() - startTime
+
   // Only proceed if we're confident in the match
   if (response.relevant_chunks.length === 0) {
     logger.info(
-      { response, query, geminiDuration: geminiDuration2 },
+      {
+        libraries,
+        response,
+        query,
+        geminiDuration: geminiDuration2,
+        timings: {
+          total: totalDuration,
+          gemini1: geminiDuration1,
+          gemini2: geminiDuration2,
+        },
+      },
       'Low confidence in documentation chunks match'
     )
     return null
@@ -108,11 +125,10 @@ ${chunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(delimeter)}
 
   const relevantChunks = response.relevant_chunks.map((i) => chunks[i])
 
-  const totalDuration = Date.now() - startTime
   logger.info(
     {
       libraries,
-      geminiResponse: response,
+      response,
       chunks,
       relevantChunks,
       timings: {
@@ -144,6 +160,8 @@ For example, the library name could be "Node.js" and the topic could be "async/a
 You can include the same library name multiple times with different topics, or the same topic multiple times with different library names.
 
 If there are no obvious libraries that would be helpful, return an empty list. It is common that you would return an empty list.
+
+Please just return an empty list of libraries/topics unless you are really, really sure that they are relevant.
 
 <user_query>
 ${query}
