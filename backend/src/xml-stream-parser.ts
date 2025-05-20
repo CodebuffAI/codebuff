@@ -109,7 +109,7 @@ export async function* processStreamWithTags<T extends string>(
       }
       onError(
         paramName,
-        `WARN: Ignoring stray XML tag. Make sure to escape non-tool XML!`
+        `WARN: Tool not found. Make sure to escape non-tool XML! e.g. &lt;${paramName}&gt;`
       )
       onText({ contents: rawTag })
       return state
@@ -126,7 +126,7 @@ export async function* processStreamWithTags<T extends string>(
     if (!processors[state.currentTool].params.includes(paramName)) {
       onError(
         paramName,
-        `WARN: Ignoring stray XML tag. Make sure to escape non-tool XML!`
+        `WARN: Tool not found. Make sure to escape non-tool XML! e.g. &lt;${paramName}&gt;`
       )
       onText({ contents: rawTag })
       return state
