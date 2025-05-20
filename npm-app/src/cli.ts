@@ -143,7 +143,10 @@ export class CLI {
         persistentProcess.pty.kill()
       }
       sendKillSignalToAllBackgroundProcesses()
-      console.log(green('Codebuff out!'))
+      const isHomeDir = getProjectRoot() === os.homedir()
+      if (!isHomeDir) {
+        console.log(green('Codebuff out!'))
+      }
     })
     for (const signal of ['SIGTERM', 'SIGHUP']) {
       process.on(signal, async () => {

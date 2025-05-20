@@ -26,18 +26,23 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
   if (costModeDescription[costMode]) {
     console.log(`${costModeDescription[costMode]}`)
   }
+
+  if (getProjectRoot() === os.homedir()) {
+    console.info(
+      `Welcome! Codebuff is a coding agent you can prompt with natural language.
+
+To get started:
+1. cd into a project you want to edit
+2. run "codebuff"
+`.trim()
+    )
+    process.exit()
+  }
+
   console.log(
     `Codebuff will read and write files in "${getProjectRoot()}". Type "help" for a list of commands.`
   )
-
   const gitDir = path.join(getProjectRoot(), '.git')
-  if (getProjectRoot() === os.homedir()) {
-    console.info(
-      '\nTo get started:\n- cd into a project\n- ask for a code change'
-    )
-    return
-  }
-
   if (!fs.existsSync(gitDir)) {
     console.info(
       magenta(
