@@ -33,50 +33,50 @@ export const interactiveCommandDetails: CommandInfo[] = [
     aliases: ['h'], // Optional: if you want /h to also work for tab completion
   },
   {
-    commandText: 'type "login"',
+    commandText: '"login"',
     baseCommand: 'login',
     description: 'Authenticate your session',
     isSlashCommand: true,
   },
   {
-    commandText: 'type "init"',
+    commandText: '"init"',
     baseCommand: 'init',
     description: 'Configure project for better results',
     isSlashCommand: true,
   },
   {
-    commandText: 'type "diff" or "d"',
+    commandText: '"diff" or "d"',
     baseCommand: 'diff',
     aliases: ['d'],
     description: 'Show last assistant change diff',
     isSlashCommand: true,
   },
   {
-    commandText: 'type "undo" / "redo"',
+    commandText: '"undo" / "redo"',
     description: 'Revert or re-apply last change',
     // This entry will be expanded into two slash commands: /undo and /redo
   },
   {
-    commandText: 'type "checkpoint <id>"',
+    commandText: '"checkpoint <id>"',
     baseCommand: 'checkpoint',
     params: '<id>',
     description: 'Restore to a specific checkpoint',
     isSlashCommand: true,
   },
   {
-    commandText: 'type "!<cmd>"',
+    commandText: '"!<cmd>"',
     baseCommand: '!', // Or handle this specially, e.g. baseCommand 'shell'
     params: '<cmd>',
     description: 'Run shell command directly',
     isSlashCommand: false, // e.g. /! <cmd> or /shell <cmd>
   },
   {
-    commandText: 'type "usage" or "credits"',
+    commandText: '"usage" or "credits"',
     description: 'View remaining / bonus AI credits',
     // This entry will be expanded into two slash commands: /usage and /credits
   },
   {
-    commandText: 'hit ESC key or Ctrl-C',
+    commandText: 'ESC key or Ctrl-C',
     description: 'Cancel generation',
     isSlashCommand: false,
   },
@@ -105,7 +105,7 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
-    commandText: 'type "exit" or Ctrl-C x2',
+    commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
     description: 'Quit Codebuff',
     isSlashCommand: true,
@@ -320,9 +320,8 @@ ${cyan('  • "Set up CI/CD pipeline config"')}
     .map((cmd) => formatMenuLine(cmd.commandText, cmd.description))
 
   console.log(
-    `\n${bold(underline('INTERACTIVE COMMANDS'))}${' '.repeat(fixedCommandWidth - 20)}${bold(underline('DESCRIPTION'))}\n${menuLines.join(`\n${dividerLine}`)}\n`
+    `\n${bold(underline('COMMANDS (type these below)'))}${' '.repeat(fixedCommandWidth - 20)}${bold(underline('DESCRIPTION'))}\n\n${menuLines.join(`\n${dividerLine}`)}\n`
   )
 
-  console.log(`\nThanks for using Codebuff!`)
-  console.log(`${green('↓ Start prompting now ↓')}`)
+  console.log(`\nThanks for using Codebuff! Enter a prompt below ↓`)
 }
