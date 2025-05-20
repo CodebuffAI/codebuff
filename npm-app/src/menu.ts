@@ -7,6 +7,7 @@ import {
   blueBright,
   bold,
   cyan,
+  gray,
   green,
   magenta,
   underline,
@@ -283,7 +284,7 @@ ${!hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow('knowledge.md helps Codebuff
     `Thanks for using Codebuff! DM @brandonkachen or @jahooma on Discord, or email ${blueBright('founders@codebuff.com')}`
   )
   console.log(
-    `Join our Discord: ${blueBright('https://codebuff.com/discord')} ${yellow('(Ctrl/Cmd+Click to open)')}`
+    `Join our Discord: ${blueBright('https://codebuff.com/discord')} ${gray(`(${os.platform() === 'darwin' ? 'Command' : 'Ctrl'} + Click to open)`)}`
   )
 
   console.log(`\n${bold(underline('EXAMPLE PROMPTS'))}
