@@ -628,15 +628,11 @@ export class CLI {
       resetShell(getProjectRoot())
     }
 
-    if ('line' in this.rl) {
-      ;(this.rl as any).line = ''
-    }
-
     if (this.isReceivingResponse) {
       this.handleStopResponse()
     } else {
       const now = Date.now()
-      if (now - this.lastSigintTime < 5000) {
+      if (now - this.lastSigintTime < 5000 && !this.rl.line) {
         await this.handleExit()
       } else {
         this.lastSigintTime = now
