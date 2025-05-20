@@ -1,23 +1,16 @@
 import { geminiModels } from 'common/constants'
 
-import {
-  context7LibrariesPromise,
-  fetchContext7LibraryDocumentation,
-} from './llm-apis/context7-api'
+import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
 
 import { logger } from '@/util/logger'
 import { z } from 'zod'
 import { promptAiSdkStructured } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
 interface ProjectAnalysis {
-  projectId: string
-  topic: string
   confidence: number
 }
 
 const zodSchema = z.object({
-  projectId: z.string(),
-  topic: z.string(),
   confidence: z.number().describe('0-1 score of relevance'),
 }) satisfies z.ZodType<ProjectAnalysis>
 
@@ -44,26 +37,23 @@ export async function getDocumentationForQuery(
   const startTime = Date.now()
   let geminiDuration: number | null = null
 
-  // Get the list of available projects
-  const projects = await context7LibrariesPromise
-  if (projects.length === 0) {
-    logger.warn('No Context7 projects available')
-    return null
-  }
+  // Get the chunks using the analyzed project and topic
+  const chunks = await fetchContext7LibraryDocumentation(query, {
+    tokens: options.tokens,
+  })
 
   // Create a prompt for Gemini to analyze the query and projects
-  const projectsList = projects
-    .map((p) => `${p.settings.title} (ID: ${p.settings.project})`)
-    .join('\n')
+  const prompt = `You are an expert at analyzing documentation queries. Given a user's query and a list of documentation chunks, determine how confident you are that the chunks are relevant to the query.
 
-  const prompt = `You are an expert at analyzing documentation queries and matching them to the most relevant project and topic. Given a user's query and a list of available documentation projects, determine which project would be most relevant and what topic/keywords would help find the most relevant chunks of documentation.
+<user_query>
+${query}
+</user_query>
 
-Available projects:
-${projectsList}
-
-User query (in quotes):
-${JSON.stringify(query)}
+<documentation_chunks>
+${chunks}
+</documentation_chunks>
 `
+console.log(prompt)
 
   // Get project analysis from Gemini
   const geminiStartTime = Date.now()
@@ -97,12 +87,6 @@ ${JSON.stringify(query)}
     )
     return null
   }
-
-  // Get the chunks using the analyzed project and topic
-  const chunks = await fetchContext7LibraryDocumentation(response.projectId, {
-    tokens: options.tokens,
-    topic: response.topic,
-  })
 
   const totalDuration = Date.now() - startTime
   logger.info(
