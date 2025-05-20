@@ -61,12 +61,13 @@ export async function getDocumentationForQuery(
     )
   ).flat()
 
+  const maxChunks = 25
   const allUniqueChunks = uniq(
     allRawChunks
       .filter((chunk) => chunk !== null)
       .join(DELIMITER)
       .split(DELIMITER)
-  )
+  ).slice(0, maxChunks)
 
   if (allUniqueChunks.length === 0) {
     logger.info(
@@ -149,7 +150,7 @@ const suggestLibraries = async (
 
 For example, the library name could be "Node.js" and the topic could be "async/await".
 
-You can include the same library name multiple times with different topics, or the same topic multiple times with different library names.
+You can include the same library name multiple times with different topics, or the same topic multiple times with different library names (but keep to a maximum of 3 libraries/topics).
 
 If there are no obvious libraries that would be helpful, return an empty list. It is common that you would return an empty list.
 
@@ -235,7 +236,7 @@ ${allChunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(DELIMITE
         schema: z.object({
           relevant_chunks: z.array(z.number()),
         }),
-        timeout: 12_000,
+        timeout: 20_000,
       }
     )
     const geminiDuration = Date.now() - geminiStartTime
@@ -246,8 +247,9 @@ ${allChunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(DELIMITE
 
     return { relevantChunks: selectedChunks, geminiDuration }
   } catch (error) {
+    const e = error as Error
     logger.error(
-      { ...(error as Error), query, allChunksCount: allChunks.length },
+      { error: { message: e.message, stack: e.stack }, query, allChunksCount: allChunks.length },
       'Failed to get Gemini response in filterRelevantChunks'
     )
     return null
