@@ -1,11 +1,19 @@
 'use client'
 
 import { finetunedVertexModels } from 'common/constants'
+import { Eye, Info } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -25,7 +33,7 @@ const productionUsers = [
 ]
 
 const localUsers = [
-  { name: 'Venki', id: 'fad054ab-150b-4a1a-b6ec-1a797972638b' },
+  { name: 'Venki', id: '3e503b10-a3c8-4fac-ac7e-043e32a6f5d1' },
 ]
 
 const nameOverrides = {
@@ -51,6 +59,9 @@ export default function FilePicker() {
   const [results, setResults] = useState<Result[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
+  const [isColumnSettingsOpen, setIsColumnSettingsOpen] = useState(false)
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set())
 
   const fetchUserTraces = async (userId: string) => {
     if (status !== 'authenticated') {
@@ -151,6 +162,39 @@ export default function FilePicker() {
     new Set(results.flatMap((result) => Object.keys(result.outputs)))
   )
 
+  // Define the desired column order
+  const columnOrder = [
+    'base',
+    'files-uploaded',
+    'relace-ranker',
+    'claude-3-5-sonnet-with-full-file-context'
+  ]
+
+  // Sort model names according to the desired order
+  const sortedModelNames = [...modelNames].sort((a, b) => {
+    const aIndex = columnOrder.indexOf(a)
+    const bIndex = columnOrder.indexOf(b)
+    if (aIndex === -1 && bIndex === -1) return 0 // Keep other columns in their original order
+    if (aIndex === -1) return 1 // Put unspecified columns at the end
+    if (bIndex === -1) return -1
+    return aIndex - bIndex
+  })
+
+  // Filter out hidden columns
+  const visibleModelNames = sortedModelNames.filter(model => !hiddenColumns.has(model))
+
+  const toggleColumn = (model: string) => {
+    setHiddenColumns(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(model)) {
+        newSet.delete(model)
+      } else {
+        newSet.add(model)
+      }
+      return newSet
+    })
+  }
+
   return (
     <div className="container mx-auto py-8">
       <Card>
@@ -206,13 +250,89 @@ export default function FilePicker() {
                     <h3 className="text-lg font-medium">
                       Results ({results.length})
                     </h3>
-                    <Button
-                      onClick={handleRunRelabelling}
-                      variant="outline"
-                      disabled={isLoading}
-                    >
-                      Run relabelling
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Dialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="icon">
+                            <Info className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Column Information</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="font-medium mb-1">base</h4>
+                              <p className="text-sm text-muted-foreground">
+                                The model that's currently in production.
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="font-medium mb-1">claude-3.5-sonnet / gemini-2.5-pro</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Regular relabels using these models, ie: we take the exact same request in prod, but instead send it to this stronger model. Does not use the full-file contents.
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="font-medium mb-1">files-uploaded</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Files selected for full file-context upload by a claude-3.5-sonnet specifically asked to pick as many relevant files as possible.
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="font-medium mb-1">relace-ranker</h4>
+                              <p className="text-sm text-muted-foreground">
+                                A re-ordering of files-uploaded using the Relace API. Does use the file list as well as file contents from the full request from claude-3.5-sonnet. (TODO: We're currently only giving it the last user-query - giving it more search context might help its quality!)
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="font-medium mb-1">claude-3.5-sonnet-with-full-file-context</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Similar to the regular claude-3.5-sonnet relabel, but we append all full files we have to the system prompt.
+                              </p>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      <Dialog open={isColumnSettingsOpen} onOpenChange={setIsColumnSettingsOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="icon">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Column Visibility</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            {sortedModelNames.map((model) => (
+                              <div key={model} className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={model}
+                                  checked={!hiddenColumns.has(model)}
+                                  onChange={() => toggleColumn(model)}
+                                  className="h-4 w-4 rounded border-gray-300"
+                                />
+                                <label htmlFor={model} className="text-sm">
+                                  {nameOverrides[model as keyof typeof nameOverrides] || model}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      <Button
+                        onClick={handleRunRelabelling}
+                        variant="outline"
+                        disabled={isLoading}
+                      >
+                        Run relabelling
+                      </Button>
+                    </div>
                   </div>
 
                   <Table>
@@ -220,7 +340,7 @@ export default function FilePicker() {
                       <TableRow>
                         <TableHead className="w-[180px]">Timestamp</TableHead>
                         <TableHead>Query</TableHead>
-                        {modelNames.map((model) => (
+                        {visibleModelNames.map((model) => (
                           <TableHead key={model}>
                             {nameOverrides[model as keyof typeof nameOverrides] ||
                               model}
@@ -235,27 +355,29 @@ export default function FilePicker() {
                             {new Date(result.timestamp).toLocaleString()}
                           </TableCell>
                           <TableCell>{result.query}</TableCell>
-                          {modelNames.map((model) => (
+                          {visibleModelNames.map((model) => (
                             <TableCell
                               key={model}
                               className="max-w-[300px] break-words"
                             >
-                              {result.outputs[model]
-                                ? result.outputs[model]
-                                  .split('\n')
-                                  .map((file) => file.trim())
-                                  .filter((file) => file.length > 0)
-                                  .map((file, fileIndex) => (
-                                    <div
-                                      key={fileIndex}
-                                      className="block mb-2"
-                                    >
-                                      <span className="px-2 py-1 bg-secondary rounded-full text-xs">
-                                        {file}
-                                      </span>
-                                    </div>
-                                  ))
-                                : 'N/A'}
+                              <div className="max-h-[200px] overflow-y-auto">
+                                {result.outputs[model]
+                                  ? result.outputs[model]
+                                    .split('\n')
+                                    .map((file) => file.trim())
+                                    .filter((file) => file.length > 0)
+                                    .map((file, fileIndex) => (
+                                      <div
+                                        key={fileIndex}
+                                        className="block mb-2"
+                                      >
+                                        <span className="px-2 py-1 bg-secondary rounded-full text-xs">
+                                          {file}
+                                        </span>
+                                      </div>
+                                    ))
+                                  : 'N/A'}
+                              </div>
                             </TableCell>
                           ))}
                         </TableRow>
