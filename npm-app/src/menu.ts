@@ -280,7 +280,7 @@ ${!hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow('knowledge.md helps Codebuff
   // COMMUNITY & FEEDBACK SECTION
   console.log(`\n${bold(underline('COMMUNITY & FEEDBACK'))}`)
   console.log(
-    `DM @brandonkachen or @jahooma on Discord, or email ${blueBright('founders@codebuff.com')}`
+    `Thanks for using Codebuff! DM @brandonkachen or @jahooma on Discord, or email ${blueBright('founders@codebuff.com')}`
   )
   console.log(
     `Join our Discord: ${blueBright('https://codebuff.com/discord')} ${yellow('(Ctrl/Cmd+Click to open)')}`
@@ -323,5 +323,5 @@ ${cyan('  • "Set up CI/CD pipeline config"')}
     `\n${bold(underline('COMMANDS (type these below)'))}${' '.repeat(fixedCommandWidth - 20)}${bold(underline('DESCRIPTION'))}\n\n${menuLines.join(`\n${dividerLine}`)}\n`
   )
 
-  console.log(`\nThanks for using Codebuff! Enter a prompt below ↓`)
+  console.log(`\n↓ Enter your prompt or command below ↓`)
 }
