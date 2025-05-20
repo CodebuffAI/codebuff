@@ -4,17 +4,20 @@ import path from 'path'
 
 import { CostMode } from 'common/constants'
 import {
+  blue,
   blueBright,
   bold,
   cyan,
   gray,
   green,
   magenta,
+  red,
   underline,
   yellow,
 } from 'picocolors'
 
 import { getProjectRoot } from './project-files'
+import { Formatter } from 'picocolors/types'
 
 export interface CommandInfo {
   commandText: string // e.g., 'type "login"', 'type "diff" or "d"', 'hit ESC key or Ctrl-C'
@@ -189,17 +192,29 @@ To get started:
   )
 }
 
+const getRandomColors = () => {
+  const allColors = [red, green, yellow, blue, blueBright, magenta, cyan]
+  const colors: Formatter[] = []
+  while (colors.length < 3) {
+    const color = allColors[Math.floor(Math.random() * allColors.length)]
+    if (!colors.includes(color)) {
+      colors.push(color)
+    }
+  }
+  return colors
+}
+
 export function displayMenu() {
   const terminalWidth = process.stdout.columns || 80
   const dividerLine = '─'.repeat(terminalWidth)
 
+  const selectedColors = getRandomColors()
   const colorizeRandom = (text: string) => {
-    const colorFunctions = [blueBright, green, yellow, magenta, cyan]
     return text
       .split('')
       .map((char) => {
         const colorFn =
-          colorFunctions[Math.floor(Math.random() * colorFunctions.length)]
+          selectedColors[Math.floor(Math.random() * selectedColors.length)]
         return colorFn(char)
       })
       .join('')
