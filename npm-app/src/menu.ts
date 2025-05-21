@@ -167,11 +167,13 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
 
   if (!path.relative(getProjectRoot(), os.homedir()).startsWith('..')) {
     console.info(
-      `Welcome! Codebuff is a coding agent you can prompt with natural language.
+      `Welcome! Codebuff is your AI pair programmer that edits your codebase through natural conversation.
+
+You are currently in "${green(getProjectRoot())}".
 
 To get started:
-1. Nagivate to your project (cd your/project/root)
-2. Run "codebuff"
+1. Navigate to your project (cd your/project/root)
+2. Run "codebuff" there instead
 `.trim()
     )
     process.exit(0)
