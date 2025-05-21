@@ -628,7 +628,7 @@ export class CLI {
     }
 
     if (str === '/') {
-      const currentLine = (this.rl as any).line
+      const currentLine = this.pastedContent + (this.rl as any).line
       // Only track and show menu if '/' is the first character typed
       if (currentLine === '/') {
         trackEvent(AnalyticsEvent.SLASH_MENU_ACTIVATED, {
