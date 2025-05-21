@@ -1329,7 +1329,7 @@ describe('processStreamWithTags', () => {
 
   it('should ignore new parameters while parsing current parameter', async () => {
     const streamChunks = [
-      '<test><param1>value1<param2>ignored</param2>still param1</param1></test>'
+      '<test><param1>value1<param2 attr="123" >ignored</param2>still param1</param1></test>',
     ]
     const stream = createMockStream(streamChunks)
     const events: any[] = []
@@ -1358,18 +1358,22 @@ describe('processStreamWithTags', () => {
     expect(events).toEqual([
       { tagName: 'test', type: 'start', attributes: {} },
       {
-        error: 'WARN: Parameter found while parsing param param1 of test. Ignoring new parameter. Make sure to close all params and escape XML!',
-        name: 'test'
+        error:
+          'WARN: Parameter found while parsing param param1 of test. Ignoring new parameter. Make sure to close all params and escape XML!',
+        name: 'test',
       },
       {
-        error: 'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
-        name: 'param2'
+        error:
+          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
+        name: 'param2',
       },
       {
         tagName: 'test',
         type: 'end',
-        params: { param1: 'value1<param2>ignored</param2>still param1' }
-      }
+        params: {
+          param1: 'value1<param2 attr="123" >ignored</param2>still param1',
+        },
+      },
     ])
     expect(result).toEqual(streamChunks)
   })
