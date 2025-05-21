@@ -18,6 +18,7 @@
     "start-client": "bun --cwd npm-app start",
     "start-experimental": "bun --cwd npm-app start-experimental",
     "start-max": "bun --cwd npm-app start-max",
+    "start-lite": "bun --cwd npm-app start-lite",
     "start-web": "bun run start-db && bun --cwd web dev",
     "start-studio": "bun --cwd common db:studio",
     "start-server": "bun --cwd backend dev",
