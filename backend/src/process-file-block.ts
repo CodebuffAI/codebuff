@@ -245,7 +245,7 @@ Please output just the SEARCH/REPLACE blocks like this:
 >>>>>>> REPLACE`
 
   const response = await promptOpenAI([{ role: 'user', content: prompt }], {
-    model: models.o3mini,
+    model: models.o4mini,
     clientSessionId,
     fingerprintId,
     userInputId,
