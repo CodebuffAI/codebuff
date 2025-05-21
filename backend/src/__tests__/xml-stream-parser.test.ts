@@ -22,7 +22,7 @@ describe('processStreamWithTags', () => {
           events.push({ tagName, type: 'start', attributes })
         },
         onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: `end`, params })
+          events.push({ tagName, type: 'end', params })
         },
       },
     }
@@ -1325,5 +1325,52 @@ describe('processStreamWithTags', () => {
       expect(event).not.toHaveProperty('error')
       expect(result).toEqual(streamChunks)
     }
+  })
+
+  it('should ignore new parameters while parsing current parameter', async () => {
+    const streamChunks = [
+      '<test><param1>value1<param2>ignored</param2>still param1</param1></test>'
+    ]
+    const stream = createMockStream(streamChunks)
+    const events: any[] = []
+    const processors = {
+      test: {
+        params: ['param1', 'param2'] as string[],
+        onTagStart: (tagName: string, attributes: Record<string, string>) => {
+          events.push({ tagName, type: 'start', attributes })
+        },
+        onTagEnd: (tagName: string, params: Record<string, string>) => {
+          events.push({ tagName, type: 'end', params })
+        },
+      },
+    }
+    function onError(name: string, error: string) {
+      events.push({ name, error })
+    }
+    const result = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+    expect(events).toEqual([
+      { tagName: 'test', type: 'start', attributes: {} },
+      {
+        error: 'WARN: Parameter found while parsing param param1 of test. Ignoring new parameter. Make sure to close all params and escape XML!',
+        name: 'test'
+      },
+      {
+        error: 'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
+        name: 'param2'
+      },
+      {
+        tagName: 'test',
+        type: 'end',
+        params: { param1: 'value1<param2>ignored</param2>still param1' }
+      }
+    ])
+    expect(result).toEqual(streamChunks)
   })
 })

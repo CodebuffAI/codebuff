@@ -93,13 +93,10 @@ export async function* processStreamWithTags<T extends string>(
       if (processors[state.currentTool].params.includes(paramName)) {
         onError(
           state.currentTool,
-          `WARN: New parameter started while parsing param ${state.currentParam} of ${state.currentTool}. Ending current param. Make sure to close all params!`
+          `WARN: Parameter found while parsing param ${state.currentParam} of ${state.currentTool}. Ignoring new parameter. Make sure to close all params and escape XML!`
         )
-        return {
-          ...endParam(state),
-          currentParam: paramName,
-          paramContent: '',
-        }
+        onText({ contents: rawTag })
+        return state
       } else if (paramName in processors) {
         onError(
           state.currentTool,
