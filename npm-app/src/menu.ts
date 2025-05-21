@@ -16,8 +16,8 @@ import {
   yellow,
 } from 'picocolors'
 
-import { getProjectRoot } from './project-files'
 import { Formatter } from 'picocolors/types'
+import { getProjectRoot } from './project-files'
 
 export interface CommandInfo {
   commandText: string // e.g., 'type "login"', 'type "diff" or "d"', 'hit ESC key or Ctrl-C'
@@ -118,7 +118,7 @@ export const interactiveCommandDetails: CommandInfo[] = [
 
 export function getSlashCommands(): CommandInfo[] {
   return interactiveCommandDetails
-    .filter(cmd => cmd.isSlashCommand && cmd.baseCommand)
+    .filter((cmd) => cmd.isSlashCommand && cmd.baseCommand)
     .sort((a, b) => a.baseCommand!.localeCompare(b.baseCommand!))
 }
 
@@ -165,16 +165,16 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     console.log(`${costModeDescription[costMode]}`)
   }
 
-  if (getProjectRoot() === os.homedir() || getProjectRoot() === '/') {
+  if (!path.relative(getProjectRoot(), os.homedir()).startsWith('..')) {
     console.info(
       `Welcome! Codebuff is a coding agent you can prompt with natural language.
 
 To get started:
-1. cd into a project you want to edit
-2. run "codebuff"
+1. Nagivate to your project (cd your/project/root)
+2. Run "codebuff"
 `.trim()
     )
-    process.exit()
+    process.exit(0)
   }
 
   console.log(
