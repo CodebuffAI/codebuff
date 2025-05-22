@@ -81,7 +81,7 @@ Create or edit a file with the given content.
 
 #### write_file vs str_replace
 
-PREFER TO USE THE str_replace TOOL FOR MOST EDITS. Use this tool if you are deleting a very large portion of the code, in which case, the str_replace tool would have a large input.
+PREFER TO USE THE str_replace TOOL FOR MOST EDITS. Use this tool if you are deleting a very large portion of the code, in which case, the str_replace tool would have a large input. Or if you are creating a new file.
 
 #### Edit Snippet
 
@@ -145,7 +145,7 @@ function foo() {
     description: `
 ### str_replace
 
-Replace strings in a file with new strings. Prefer this tool to write_file unless you are changing most everything in the file.
+Replace strings in a file with new strings. Prefer this tool to write_file unless you are changing most everything in the file. However, do not use this tool to create new files.
 
 Params:
 - \`path\`: (required) The path to the file to edit.
