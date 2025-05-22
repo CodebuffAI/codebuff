@@ -1,4 +1,10 @@
-import { consumeCredits, consumeOrganizationCredits, normalizeRepositoryUrl } from '@codebuff/billing'
+import { 
+  consumeCredits, 
+  consumeOrganizationCredits, 
+  normalizeRepositoryUrl,
+  sendOrganizationAlert,
+  monitorOrganizationCredits
+} from '@codebuff/billing'
 import { logger } from './util/logger'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -38,23 +44,23 @@ export async function consumeCreditsWithDelegation(
     // Find if this repository is approved for any organization the user belongs to
     const approvedOrgs = await db
       .select({ 
-        organizationId: schema.organizationRepository.organization_id,
-        organizationName: schema.organization.name
+        organizationId: schema.orgRepo.org_id,
+        organizationName: schema.org.name
       })
-      .from(schema.organizationRepository)
+      .from(schema.orgRepo)
       .innerJoin(
-        schema.organizationMember, 
-        eq(schema.organizationRepository.organization_id, schema.organizationMember.organization_id)
+        schema.orgMember, 
+        eq(schema.orgRepo.org_id, schema.orgMember.org_id)
       )
       .innerJoin(
-        schema.organization,
-        eq(schema.organizationRepository.organization_id, schema.organization.id)
+        schema.org,
+        eq(schema.orgRepo.org_id, schema.org.id)
       )
       .where(
         and(
-          eq(schema.organizationMember.user_id, userId),
-          eq(schema.organizationRepository.repository_url, normalizedUrl),
-          eq(schema.organizationRepository.is_active, true)
+          eq(schema.orgMember.user_id, userId),
+          eq(schema.orgRepo.repo_url, normalizedUrl),
+          eq(schema.orgRepo.is_active, true)
         )
       )
       .limit(1) // Use first matching organization
@@ -85,6 +91,14 @@ export async function consumeCreditsWithDelegation(
         'Successfully consumed organization credits'
       )
 
+      // Monitor organization credits after consumption
+      try {
+        // Get current balance for monitoring (simplified - in production would get actual balance)
+        await monitorOrganizationCredits(organizationId, 0, creditsUsed, organizationName)
+      } catch (monitorError) {
+        logger.warn({ organizationId, monitorError }, 'Failed to monitor organization credits')
+      }
+
       return {
         success: true,
         consumed: result.consumed,
@@ -92,6 +106,19 @@ export async function consumeCreditsWithDelegation(
         organizationId,
       }
     } catch (orgError) {
+      // Send alert about failed consumption
+      try {
+        await sendOrganizationAlert({
+          organizationId,
+          organizationName,
+          alertType: 'failed_consumption',
+          error: orgError instanceof Error ? orgError.message : 'Unknown error',
+          metadata: { userId, creditsUsed, repositoryUrl: normalizedUrl }
+        })
+      } catch (alertError) {
+        logger.warn({ organizationId, alertError }, 'Failed to send organization alert')
+      }
+
       // If organization credits fail (e.g., insufficient balance), fall back to user credits
       logger.warn(
         { userId, organizationId, organizationName, creditsUsed, error: orgError },

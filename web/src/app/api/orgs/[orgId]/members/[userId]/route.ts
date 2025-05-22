@@ -25,12 +25,12 @@ export async function PATCH(
 
     // Check if current user is owner or admin
     const currentUserMembership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)
@@ -46,12 +46,12 @@ export async function PATCH(
 
     // Get target member's current role
     const targetMembership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, userId)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, userId)
         )
       )
       .limit(1)
@@ -71,12 +71,12 @@ export async function PATCH(
 
     // Update member role
     await db
-      .update(schema.organizationMember)
+      .update(schema.orgMember)
       .set({ role: body.role })
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, userId)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, userId)
         )
       )
 
@@ -104,12 +104,12 @@ export async function DELETE(
 
     // Check if current user is owner or admin, or removing themselves
     const currentUserMembership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)
@@ -127,12 +127,12 @@ export async function DELETE(
 
     // Get target member's role
     const targetMembership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, userId)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, userId)
         )
       )
       .limit(1)
@@ -150,11 +150,11 @@ export async function DELETE(
 
     // Remove member
     await db
-      .delete(schema.organizationMember)
+      .delete(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, userId)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, userId)
         )
       )
 

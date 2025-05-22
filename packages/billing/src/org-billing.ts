@@ -31,7 +31,7 @@ export async function getOrderedActiveOrganizationGrants(
     .from(schema.creditLedger)
     .where(
       and(
-        eq(schema.creditLedger.organization_id, organizationId),
+        eq(schema.creditLedger.org_id, organizationId),
         or(
           isNull(schema.creditLedger.expires_at),
           gt(schema.creditLedger.expires_at, now)
@@ -180,7 +180,7 @@ export async function grantOrganizationCredits(
     await db.insert(schema.creditLedger).values({
       operation_id: operationId,
       user_id: '', // Organizations don't have a user_id, but column is required
-      organization_id: organizationId,
+      org_id: organizationId,
       principal: amount,
       balance: amount,
       type: 'organization',

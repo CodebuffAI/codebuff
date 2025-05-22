@@ -470,10 +470,10 @@ async function updateUserCycleUsage(
     // Track organization usage if credits came from organization
     if (delegationResult.fromOrganization && delegationResult.organizationId && repositoryUrl) {
       try {
-        await db.insert(schema.organizationUsage).values({
-          organization_id: delegationResult.organizationId,
+        await db.insert(schema.orgUsage).values({
+          org_id: delegationResult.organizationId,
           user_id: userId,
-          repository_url: repositoryUrl,
+          repo_url: repositoryUrl,
           credits_used: delegationResult.consumed,
           // message_id will be set later when we have the saved message
         })

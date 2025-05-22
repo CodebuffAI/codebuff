@@ -23,12 +23,12 @@ export async function DELETE(
 
     // Check if user is owner or admin
     const membership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)
@@ -45,11 +45,11 @@ export async function DELETE(
     // Check if repository exists
     const repository = await db
       .select()
-      .from(schema.organizationRepository)
+      .from(schema.orgRepo)
       .where(
         and(
-          eq(schema.organizationRepository.id, repoId),
-          eq(schema.organizationRepository.organization_id, orgId)
+          eq(schema.orgRepo.id, repoId),
+          eq(schema.orgRepo.org_id, orgId)
         )
       )
       .limit(1)
@@ -60,9 +60,9 @@ export async function DELETE(
 
     // Deactivate repository (soft delete)
     await db
-      .update(schema.organizationRepository)
+      .update(schema.orgRepo)
       .set({ is_active: false })
-      .where(eq(schema.organizationRepository.id, repoId))
+      .where(eq(schema.orgRepo.id, repoId))
 
     return NextResponse.json({ success: true })
   } catch (error) {

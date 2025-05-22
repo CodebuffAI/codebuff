@@ -25,12 +25,12 @@ export async function GET(
 
     // Check if user is a member of this organization
     const membership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)
@@ -42,20 +42,20 @@ export async function GET(
     // Get repositories
     const repositories = await db
       .select({
-        id: schema.organizationRepository.id,
-        repository_url: schema.organizationRepository.repository_url,
-        repository_name: schema.organizationRepository.repository_name,
-        approved_by: schema.organizationRepository.approved_by,
-        approved_at: schema.organizationRepository.approved_at,
-        is_active: schema.organizationRepository.is_active,
+        id: schema.orgRepo.id,
+        repository_url: schema.orgRepo.repo_url,
+        repository_name: schema.orgRepo.repo_name,
+        approved_by: schema.orgRepo.approved_by,
+        approved_at: schema.orgRepo.approved_at,
+        is_active: schema.orgRepo.is_active,
         approver: {
           name: schema.user.name,
           email: schema.user.email,
         },
       })
-      .from(schema.organizationRepository)
-      .innerJoin(schema.user, eq(schema.organizationRepository.approved_by, schema.user.id))
-      .where(eq(schema.organizationRepository.organization_id, orgId))
+      .from(schema.orgRepo)
+      .innerJoin(schema.user, eq(schema.orgRepo.approved_by, schema.user.id))
+      .where(eq(schema.orgRepo.org_id, orgId))
 
     return NextResponse.json({ repositories })
   } catch (error) {
@@ -82,12 +82,12 @@ export async function POST(
 
     // Check if user is owner or admin
     const membership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)
@@ -115,11 +115,11 @@ export async function POST(
     // Check if repository already exists for this organization
     const existingRepo = await db
       .select()
-      .from(schema.organizationRepository)
+      .from(schema.orgRepo)
       .where(
         and(
-          eq(schema.organizationRepository.organization_id, orgId),
-          eq(schema.organizationRepository.repository_url, normalizedUrl)
+          eq(schema.orgRepo.org_id, orgId),
+          eq(schema.orgRepo.repo_url, normalizedUrl)
         )
       )
       .limit(1)
@@ -133,11 +133,11 @@ export async function POST(
 
     // Add repository
     const [newRepo] = await db
-      .insert(schema.organizationRepository)
+      .insert(schema.orgRepo)
       .values({
-        organization_id: orgId,
-        repository_url: normalizedUrl,
-        repository_name: body.repository_name,
+        org_id: orgId,
+        repo_url: normalizedUrl,
+        repo_name: body.repository_name,
         approved_by: session.user.id,
       })
       .returning()

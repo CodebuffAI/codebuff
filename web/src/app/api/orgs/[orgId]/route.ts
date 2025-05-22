@@ -26,18 +26,18 @@ export async function GET(
     // Check if user is a member of this organization
     const membership = await db
       .select({
-        organization: schema.organization,
-        role: schema.organizationMember.role,
+        org: schema.org,
+        role: schema.orgMember.role,
       })
-      .from(schema.organizationMember)
+      .from(schema.orgMember)
       .innerJoin(
-        schema.organization,
-        eq(schema.organizationMember.organization_id, schema.organization.id)
+        schema.org,
+        eq(schema.orgMember.org_id, schema.org.id)
       )
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)
@@ -46,22 +46,22 @@ export async function GET(
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
-    const { organization, role } = membership[0]
+    const { org: organization, role } = membership[0]
 
     // Get member and repository counts
     const [memberCount, repositoryCount] = await Promise.all([
       db
-        .select({ count: schema.organizationMember.user_id })
-        .from(schema.organizationMember)
-        .where(eq(schema.organizationMember.organization_id, orgId))
+        .select({ count: schema.orgMember.user_id })
+        .from(schema.orgMember)
+        .where(eq(schema.orgMember.org_id, orgId))
         .then(result => result.length),
       db
-        .select({ count: schema.organizationRepository.id })
-        .from(schema.organizationRepository)
+        .select({ count: schema.orgRepo.id })
+        .from(schema.orgRepo)
         .where(
           and(
-            eq(schema.organizationRepository.organization_id, orgId),
-            eq(schema.organizationRepository.is_active, true)
+            eq(schema.orgRepo.org_id, orgId),
+            eq(schema.orgRepo.is_active, true)
           )
         )
         .then(result => result.length),
@@ -121,12 +121,12 @@ export async function PATCH(
 
     // Check if user is owner or admin
     const membership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)
@@ -142,13 +142,13 @@ export async function PATCH(
 
     // Update organization
     const [updatedOrg] = await db
-      .update(schema.organization)
+      .update(schema.org)
       .set({
         name: body.name,
         description: body.description,
         updated_at: new Date(),
       })
-      .where(eq(schema.organization.id, orgId))
+      .where(eq(schema.org.id, orgId))
       .returning()
 
     return NextResponse.json(updatedOrg)

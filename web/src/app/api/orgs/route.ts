@@ -17,32 +17,32 @@ export async function GET(): Promise<NextResponse<ListOrganizationsResponse | { 
     // Get organizations where user is a member
     const memberships = await db
       .select({
-        organization: schema.organization,
-        role: schema.organizationMember.role,
+        organization: schema.org,
+        role: schema.orgMember.role,
       })
-      .from(schema.organizationMember)
+      .from(schema.orgMember)
       .innerJoin(
-        schema.organization,
-        eq(schema.organizationMember.organization_id, schema.organization.id)
+        schema.org,
+        eq(schema.orgMember.org_id, schema.org.id)
       )
-      .where(eq(schema.organizationMember.user_id, session.user.id))
+      .where(eq(schema.orgMember.user_id, session.user.id))
 
     // Get member and repository counts for each organization
     const organizations = await Promise.all(
       memberships.map(async ({ organization, role }) => {
         const [memberCount, repositoryCount] = await Promise.all([
           db
-            .select({ count: schema.organizationMember.user_id })
-            .from(schema.organizationMember)
-            .where(eq(schema.organizationMember.organization_id, organization.id))
+            .select({ count: schema.orgMember.user_id })
+            .from(schema.orgMember)
+            .where(eq(schema.orgMember.org_id, organization.id))
             .then(result => result.length),
           db
-            .select({ count: schema.organizationRepository.id })
-            .from(schema.organizationRepository)
+            .select({ count: schema.orgRepo.id })
+            .from(schema.orgRepo)
             .where(
               and(
-                eq(schema.organizationRepository.organization_id, organization.id),
-                eq(schema.organizationRepository.is_active, true)
+                eq(schema.orgRepo.org_id, organization.id),
+                eq(schema.orgRepo.is_active, true)
               )
             )
             .then(result => result.length),
@@ -90,8 +90,8 @@ export async function POST(request: NextRequest) {
     // Check if slug is already taken
     const existingOrg = await db
       .select()
-      .from(schema.organization)
-      .where(eq(schema.organization.slug, slug))
+      .from(schema.org)
+      .where(eq(schema.org.slug, slug))
       .limit(1)
 
     if (existingOrg.length > 0) {
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     // Create organization
     const [newOrg] = await db
-      .insert(schema.organization)
+      .insert(schema.org)
       .values({
         name,
         slug,
@@ -113,8 +113,8 @@ export async function POST(request: NextRequest) {
       .returning()
 
     // Add creator as owner member
-    await db.insert(schema.organizationMember).values({
-      organization_id: newOrg.id,
+    await db.insert(schema.orgMember).values({
+      org_id: newOrg.id,
       user_id: session.user.id,
       role: 'owner',
     })
