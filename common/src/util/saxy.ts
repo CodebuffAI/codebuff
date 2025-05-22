@@ -5,7 +5,7 @@ import { StringDecoder } from 'string_decoder'
 
 import { Transform } from 'node:stream'
 
-import { isWhitespace } from './string'
+import { includesMatch, isWhitespace } from './string'
 
 export type TextNode = {
   /** The text value */
@@ -93,7 +93,7 @@ export interface Saxy {
  * Schema for defining allowed tags and their children
  */
 export type TagSchema = {
-  [topLevelTag: string]: string[] // Allowed child tags
+  [topLevelTag: string]: (string | RegExp)[] // Allowed child tags
 }
 
 /**
@@ -494,7 +494,7 @@ export class Saxy extends Transform {
         // Convert to text if parent not in schema or this tag not allowed as child
         if (
           !this._schema[parentTag] ||
-          !this._schema[parentTag].includes(name)
+          !includesMatch(this._schema[parentTag], name)
         ) {
           this.emit(Node.text, { contents: node.rawTag })
           return
@@ -655,7 +655,7 @@ export class Saxy extends Transform {
             const parentTag = this._tagStack[this._tagStack.length - 2]
             if (
               !this._schema[parentTag] ||
-              !this._schema[parentTag].includes(tagName)
+              !includesMatch(this._schema[parentTag], tagName)
             ) {
               const rawTag = input.slice(chunkPos - 1, tagClose + 1)
               this.emit(Node.text, { contents: rawTag })

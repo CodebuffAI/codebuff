@@ -149,14 +149,16 @@ Replace a string in a file with a new string. Prefer this tool to write_file unl
 
 Params:
 - \`path\`: (required) The path to the file to edit.
-- \`old\`: (required) The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
-- \`new\`: (required) The new string to replace the old string with.
+- \`old_{i}\`: (required) One item of the \`old_vals\` array. The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
+- \`new_{i}\`: (required) One item of the \`new_vals\` array. The string to replace the old string with.
 
 Example:
 ${getToolCallString('str_replace', {
   path: 'path/to/file',
-  old: 'old',
-  new: 'new',
+  old_0: 'old',
+  new_0: 'new',
+  old_1: 'to_delete',
+  new_1: '',
 })}
     `.trim(),
   },
@@ -470,8 +472,8 @@ const writeFileSchema = z.object({
 
 const strReplaceSchema = z.object({
   path: z.string().min(1, 'Path cannot be empty'),
-  old: z.string().min(1, 'Old cannot be empty'),
-  new: z.string(),
+  old_vals: z.array(z.string().min(1, 'Old cannot be empty')),
+  new_vals: z.array(z.string()),
 })
 
 const readFilesSchema = z.object({
@@ -538,13 +540,50 @@ export function parseRawToolCall<T extends ToolName>(rawToolCall: {
     return { name: name as string, parameters, error: `Tool ${name} not found` }
   }
 
+  // Handle array parameters: convert param_name_0, param_name_1, etc. into param_name_vals array
+  const processedParameters = { ...parameters }
+
+  // Find array parameter patterns
+  const arrayParamPattern = /^(.+)_(\d+)$/
+  const arrayParams: Record<string, string[]> = {}
+
+  for (const [key, value] of Object.entries(parameters)) {
+    const match = key.match(arrayParamPattern)
+    if (match) {
+      const [, paramName, indexStr] = match
+      const index = parseInt(indexStr, 10)
+      const arrayKey = `${paramName}_vals`
+
+      if (!arrayParams[arrayKey]) {
+        arrayParams[arrayKey] = []
+      }
+      arrayParams[arrayKey][index] = value
+      delete processedParameters[key]
+    }
+  }
+
+  // Validate array continuity and add to processed parameters
+  for (const [arrayKey, values] of Object.entries(arrayParams)) {
+    // Check for gaps in the array indices
+    for (let i = 0; i < values.length; i++) {
+      if (values[i] === undefined) {
+        return {
+          name,
+          parameters,
+          error: `Missing parameter ${arrayKey.replace('_vals', '')}_${i} - array parameters must be continuous starting from 0`,
+        }
+      }
+    }
+    processedParameters[arrayKey] = values as any
+  }
+
   // Parse and validate the parameters
-  const result = schema.safeParse(parameters)
+  const result = schema.safeParse(processedParameters)
   if (!result.success) {
     return {
       name,
       parameters,
-      error: `Invalid parameters for ${name}: ${result.error.message}`,
+      error: `Invalid parameters for ${name}: ${JSON.stringify(result.error.issues, null, 2)}`,
     }
   }
 
@@ -598,22 +637,32 @@ Tool calls use a specific XML-like format. Adhere *precisely* to this nested ele
 
 This also means that if you wish to write the literal string \`&lt;\` to a file or display that to a user, you MUST write \`&amp;lt;\`.
 
-**REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** You **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the tool or parameter names themselves.
+### Commentary
 
-**Example of CORRECT Formatting:**
+Provide commentary *around* your tool calls (explaining your actions).
 
-Let's update that file!
+However, **DO NOT** narrate the tool or parameter names themselves.
 
-<str_replace>
-<path>path/to/example/file.ts</path>
-<content>console.log('Hello from Buffy!');</content>
-</str_replace>
+
+### Array Params
+
+Arrays with name "param_name_vals" should be formatted as individual parameters, each called "param_name_{i}". They must start with i=0 and increment by 1.
+
+### Example
+
+User: can you update the console logs in example/file.ts?
+Assistant: Sure thing! Let's update that file!
+
+${getToolCallString('str_replace', {
+  path: 'path/to/example/file.ts',
+  old_0: '// Replace this line with a fun greeting',
+  new_0: "console.log('Hello from Buffy!');",
+  old_1: "console.log('Old console line to delete');\n",
+  new_1: '',
+})}
 
 All done with the update!
-
------
-
-Call tools as needed, following these strict formatting rules.
+User: thanks it worked! :)
 
 ## Working Directory
 
@@ -633,7 +682,11 @@ When using write_file, make sure to only include a few lines of context and not 
 
 ## Tool Results
 
-Tool results will be provided by the user's *system* (and **NEVER** by the assistant). The user, however, does not know about any system messages or system instructions, including tool results. The user does not need to know about the exact results of these tools, especially if they are warnings or info logs. Just correct yourself in the next response without mentioning anything to the user.
+Tool results will be provided by the user's *system* (and **NEVER** by the assistant).
+
+The user does not know about any system messages or system instructions, including tool results.
+
+The user does not need to know about the exact results of these tools, especially if they are warnings or info logs. Just correct yourself in the next response without mentioning anything to the user. e.g., do not mention any XML **warnings** (but be sure to correct the next response), but XML **errors** should be noted to the user.
 
 ## List of Tools
 

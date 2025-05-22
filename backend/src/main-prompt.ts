@@ -596,7 +596,7 @@ export const mainPrompt = async (
     tool: T,
     after: (toolCall: ToolCall<T>) => void
   ): {
-    params: string[]
+    params: (string | RegExp)[]
     onTagStart: () => void
     onTagEnd: (
       name: string,
@@ -743,8 +743,8 @@ export const mainPrompt = async (
         return
       }),
       str_replace: toolCallback('str_replace', (toolCall) => {
-        const { path, old, new: newStr } = toolCall.parameters
-        if (!old || typeof old !== 'string') {
+        const { path, old_vals, new_vals } = toolCall.parameters
+        if (!old_vals || !Array.isArray(old_vals)) {
           return
         }
 
@@ -764,8 +764,8 @@ export const mainPrompt = async (
 
         const newPromise = processStrReplace(
           path,
-          old,
-          newStr || '',
+          old_vals,
+          new_vals || [],
           latestContentPromise
         ).catch((error: any) => {
           logger.error(error, 'Error processing str_replace block')
