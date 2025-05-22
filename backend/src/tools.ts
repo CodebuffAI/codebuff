@@ -81,7 +81,7 @@ Create or edit a file with the given content.
 
 #### write_file vs str_replace
 
-PREFER TO USE THE str_replace TOOL FOR MOST EDITS. Use this tool if you are deleting a very large portion of the code, in which case, the str_replace tool would have a large input. Or if you are creating a new file.
+Prefer to use the str_replace tool for most edits to existing files. If you are creating a new file, use the write_file tool. Use this tool if you are changing most of the code in a file.
 
 #### Edit Snippet
 
