@@ -35,6 +35,7 @@ export async function* promptOpenRouterStream(
     userInputId: string
     model: string
     userId: string | undefined
+    repositoryUrl?: string
     predictedContent?: string
     temperature?: number
   }
@@ -45,6 +46,7 @@ export async function* promptOpenRouterStream(
     userInputId,
     model,
     userId,
+    repositoryUrl,
     predictedContent,
   } = options
   const openai = getOpenAI(fingerprintId)
@@ -103,6 +105,7 @@ export async function* promptOpenRouterStream(
         cacheReadInputTokens: cacheReadInputTokens || 0,
         finishedAt: new Date(),
         latencyMs: Date.now() - startTime,
+        repositoryUrl,
       })
     }
   } catch (error) {
@@ -124,6 +127,7 @@ export async function promptOpenRouter(
     userInputId: string
     model: string
     userId: string | undefined
+    repositoryUrl?: string
     predictedContent?: string
     temperature?: number
   }

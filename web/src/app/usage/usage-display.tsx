@@ -71,6 +71,14 @@ const grantTypeInfo: Record<
     label: 'Special Grant',
     description: 'Special credits from Codebuff',
   },
+  organization: {
+    bg: 'bg-purple-500',
+    text: 'text-purple-600 dark:text-purple-400',
+    gradient: 'from-purple-500/70 to-purple-600/70',
+    icon: <Users className="h-4 w-4" />,
+    label: 'Organization',
+    description: 'Credits from your organization',
+  },
 }
 
 interface CreditLeafProps {
@@ -218,6 +226,7 @@ export const UsageDisplay = ({
     referral: 0,
     purchase: 0,
     admin: 0,
+    organization: 0,
   }
 
   Object.entries(GRANT_PRIORITIES).forEach(([type]) => {

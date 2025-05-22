@@ -577,6 +577,45 @@ function getExportedTokens(sourceFile: ts.SourceFile): string[] {
 }
 */
 
+/**
+ * Detects the current git repository URL from the project root.
+ */
+export async function getCurrentRepositoryUrl(): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync('git remote get-url origin', {
+      cwd: projectRoot,
+    })
+    const url = stdout.trim()
+    
+    // Normalize the URL to a standard format
+    if (url) {
+      let normalized = url.toLowerCase()
+      
+      // Remove .git suffix
+      if (normalized.endsWith('.git')) {
+        normalized = normalized.slice(0, -4)
+      }
+      
+      // Convert SSH to HTTPS
+      if (normalized.startsWith('git@github.com:')) {
+        normalized = normalized.replace('git@github.com:', 'https://github.com/')
+      }
+      
+      // Ensure https:// prefix for github URLs
+      if (!normalized.startsWith('http') && normalized.includes('github.com')) {
+        normalized = 'https://' + normalized
+      }
+      
+      return normalized
+    }
+    
+    return null
+  } catch (error) {
+    // Not a git repository or no origin remote
+    return null
+  }
+}
+
 export const deleteFile = (fullPath: string): boolean => {
   try {
     if (fs.existsSync(fullPath)) {

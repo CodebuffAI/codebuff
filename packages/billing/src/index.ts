@@ -28,5 +28,14 @@ export {
 // Credit conversion utilities
 export { getUserCostPerCredit } from './conversion'
 
+// Organization billing
+export {
+  calculateOrganizationUsageAndBalance,
+  consumeOrganizationCredits,
+  grantOrganizationCredits,
+  normalizeRepositoryUrl,
+  validateAndNormalizeRepositoryUrl,
+} from './organization-billing'
+
 // Utilities
 export { generateOperationIdTimestamp } from './utils'

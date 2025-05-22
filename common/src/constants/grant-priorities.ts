@@ -3,6 +3,7 @@ import { GrantType } from '../db/schema'
 export const GRANT_PRIORITIES: Record<GrantType, number> = {
   free: 20,
   referral: 40,
-  admin: 60,
-  purchase: 80,
+  purchase: 60,
+  admin: 80,
+  organization: 100,
 } as const

@@ -88,6 +88,7 @@ describe('Usage Calculation System', () => {
         purchase: 800,
         referral: 0,
         admin: 0,
+        organization: 0,
       })
     })
 
@@ -178,6 +179,7 @@ describe('Usage Calculation System', () => {
         purchase: 0,
         referral: 0,
         admin: 0,
+        organization: 0,
       })
       expect(usageThisCycle).toBe(200) // 500 - 300 = 200 used
     })
@@ -223,6 +225,7 @@ describe('Usage Calculation System', () => {
         purchase: 0,
         referral: 0,
         admin: 0,
+        organization: 0,
       }) // No positive balances
     })
   })

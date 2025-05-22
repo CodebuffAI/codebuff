@@ -64,6 +64,7 @@ async function* promptClaudeStreamWithoutRetry(
     fingerprintId: string
     userInputId: string
     userId?: string
+    repositoryUrl?: string
     ignoreDatabaseAndHelicone?: boolean
     chargeUser?: boolean
   }
@@ -78,6 +79,7 @@ async function* promptClaudeStreamWithoutRetry(
     fingerprintId,
     userInputId,
     userId,
+    repositoryUrl,
     maxTokens,
     ignoreDatabaseAndHelicone = false,
     chargeUser = true,
@@ -211,6 +213,7 @@ async function* promptClaudeStreamWithoutRetry(
         finishedAt: new Date(),
         latencyMs,
         chargeUser,
+        repositoryUrl,
       }).catch((error) => {
         logger.error({ error }, 'Failed to save message')
       })
@@ -231,6 +234,7 @@ export async function* promptClaudeStream(
     fingerprintId: string
     userInputId: string
     userId?: string
+    repositoryUrl?: string
     ignoreDatabaseAndHelicone?: boolean
     chargeUser?: boolean
   }
@@ -272,6 +276,7 @@ export async function promptClaude(
     fingerprintId: string
     userInputId: string
     userId?: string
+    repositoryUrl?: string
     ignoreDatabaseAndHelicone?: boolean
     stopSequences?: string[]
     chargeUser?: boolean
@@ -296,6 +301,7 @@ export async function promptClaudeWithContinuation(
     fingerprintId: string
     userInputId: string
     userId?: string
+    repositoryUrl?: string
     ignoreDatabaseAndHelicone?: boolean
     stopSequences?: string[]
   }

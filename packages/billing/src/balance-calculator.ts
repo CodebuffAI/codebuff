@@ -63,7 +63,7 @@ export async function getOrderedActiveGrants(
 /**
  * Updates a single grant's balance and logs the change.
  */
-async function updateGrantBalance(
+export async function updateGrantBalance(
   userId: string,
   grant: typeof schema.creditLedger.$inferSelect,
   consumed: number,
@@ -91,7 +91,7 @@ async function updateGrantBalance(
 /**
  * Consumes credits from a list of ordered grants.
  */
-async function consumeFromOrderedGrants(
+export async function consumeFromOrderedGrants(
   userId: string,
   creditsToConsume: number,
   grants: (typeof schema.creditLedger.$inferSelect)[],

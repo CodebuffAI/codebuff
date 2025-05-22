@@ -69,6 +69,7 @@ import {
   getProjectFileContext,
   getProjectRoot,
   getWorkingDirectory,
+  getCurrentRepositoryUrl,
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
@@ -754,6 +755,9 @@ export class Client {
       }
     )
 
+    // Get repository URL for organization billing context
+    const repositoryUrl = await getCurrentRepositoryUrl() || undefined
+
     Spinner.get().start()
     this.webSocket.sendAction({
       type: 'prompt',
@@ -766,6 +770,7 @@ export class Client {
       costMode: this.costMode,
       model: this.model,
       cwd: getWorkingDirectory(),
+      repositoryUrl: repositoryUrl || undefined,
     })
 
     return {

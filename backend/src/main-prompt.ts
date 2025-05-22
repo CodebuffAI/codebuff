@@ -96,6 +96,7 @@ export const mainPrompt = async (
     promptId,
     toolResults,
     cwd,
+    repositoryUrl,
   } = action
   const { fileContext, agentContext } = agentState
   let messageHistory = agentState.messageHistory
@@ -108,6 +109,7 @@ export const mainPrompt = async (
     fingerprintId,
     userInputId: promptId,
     userId,
+    repositoryUrl,
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
@@ -565,6 +567,7 @@ export const mainPrompt = async (
         fingerprintId,
         userInputId: promptId,
         userId,
+        repositoryUrl,
       }
     )
     if (model === models.gpt4_1) {
