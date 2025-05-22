@@ -54,12 +54,20 @@ export const Navbar = async () => {
         </Link>
 
         {session && (
-          <Link
-            href="/usage"
-            className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          >
-            Usage
-          </Link>
+          <>
+            <Link
+              href="/usage"
+              className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              Usage
+            </Link>
+            <Link
+              href="/organizations"
+              className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              Organizations
+            </Link>
+          </>
         )}
       </nav>
       <div className="flex items-center space-x-3">
@@ -85,12 +93,20 @@ export const Navbar = async () => {
             </DropdownMenuItem>
 
             {session && (
-              <DropdownMenuItem asChild>
-                <Link href="/usage" className="flex items-center">
-                  <BarChart2 className="mr-2 h-4 w-4" />
-                  Usage
-                </Link>
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/usage" className="flex items-center">
+                    <BarChart2 className="mr-2 h-4 w-4" />
+                    Usage
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/organizations" className="flex items-center">
+                    <Users className="mr-2 h-4 w-4" />
+                    Organizations
+                  </Link>
+                </DropdownMenuItem>
+              </>
             )}
             {!session && (
               <DropdownMenuItem asChild>

@@ -24,6 +24,7 @@ export const getAgentStream = (params: {
   fingerprintId: string
   userInputId: string
   userId: string | undefined
+  repositoryUrl?: string
 }) => {
   const {
     costMode,
@@ -33,6 +34,7 @@ export const getAgentStream = (params: {
     fingerprintId,
     userInputId,
     userId,
+    repositoryUrl,
   } = params
 
   if (selectedModel && !(selectedModel in shortModelNames)) {
@@ -61,6 +63,7 @@ export const getAgentStream = (params: {
           fingerprintId,
           userInputId,
           userId,
+          repositoryUrl,
         })
       : provider === 'openai'
         ? promptOpenAIStream(messagesWithSystem(messages, system), {
@@ -70,6 +73,7 @@ export const getAgentStream = (params: {
             fingerprintId,
             userInputId,
             userId,
+            repositoryUrl,
           })
         : provider === 'gemini'
           ? model === models.gemini2_5_flash_thinking ||
@@ -79,6 +83,7 @@ export const getAgentStream = (params: {
                 fingerprintId,
                 userInputId,
                 userId,
+                repositoryUrl,
                 model:
                   model === models.gemini2_5_flash
                     ? openrouterModels.openrouter_gemini2_5_flash
@@ -89,6 +94,7 @@ export const getAgentStream = (params: {
                 fingerprintId,
                 userInputId,
                 userId,
+                repositoryUrl,
                 temperature: 0,
                 stopSequences,
                 thinkingBudget: 0,

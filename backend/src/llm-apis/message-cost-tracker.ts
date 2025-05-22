@@ -1,4 +1,5 @@
 import { consumeCredits, getUserCostPerCredit } from '@codebuff/billing'
+import { consumeCreditsWithDelegation } from '../credit-delegation'
 import { CoreMessage } from 'ai'
 import { trackEvent } from 'common/analytics'
 import { models, TEST_USER_ID } from 'common/constants'
@@ -413,7 +414,8 @@ type CreditConsumptionResult = {
 
 async function updateUserCycleUsage(
   userId: string,
-  creditsUsed: number
+  creditsUsed: number,
+  repositoryUrl?: string
 ): Promise<CreditConsumptionResult> {
   if (creditsUsed <= 0) {
     if (VERBOSE) {
@@ -425,22 +427,91 @@ async function updateUserCycleUsage(
     return { consumed: 0, fromPurchased: 0 }
   }
   try {
-    // Consume from grants in priority order and track purchased credit usage
-    const result = await consumeCredits(userId, creditsUsed)
+    // Use credit delegation logic to determine whether to use org or user credits
+    const delegationResult = await consumeCreditsWithDelegation(
+      userId,
+      creditsUsed,
+      repositoryUrl
+    )
 
+    if (!delegationResult.success) {
+      // If delegation failed (e.g., org lacks credits and no override), 
+      // fall back to user credits for now
+      logger.warn(
+        { userId, creditsUsed, error: delegationResult.error },
+        'Credit delegation failed, falling back to user credits'
+      )
+      const result = await consumeCredits(userId, creditsUsed)
+      
+      if (VERBOSE) {
+        logger.debug(
+          { userId, creditsUsed, ...result },
+          `Consumed user credits (${creditsUsed}) after delegation failure`
+        )
+      }
+
+      trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
+        creditsUsed,
+        fromPurchased: result.fromPurchased,
+        fromOrganization: false,
+      })
+
+      return result
+    }
+
+    // Delegation succeeded - credits were consumed
     if (VERBOSE) {
       logger.debug(
-        { userId, creditsUsed, ...result },
-        `Consumed credits (${creditsUsed})`
+        { userId, creditsUsed, fromOrganization: delegationResult.fromOrganization },
+        `Consumed credits (${creditsUsed}) via delegation`
       )
+    }
+
+    // Track organization usage if credits came from organization
+    if (delegationResult.fromOrganization && delegationResult.organizationId && repositoryUrl) {
+      try {
+        await db.insert(schema.organizationUsage).values({
+          organization_id: delegationResult.organizationId,
+          user_id: userId,
+          repository_url: repositoryUrl,
+          credits_used: delegationResult.consumed,
+          // message_id will be set later when we have the saved message
+        })
+        
+        logger.debug(
+          { 
+            organizationId: delegationResult.organizationId, 
+            userId, 
+            repositoryUrl, 
+            creditsUsed: delegationResult.consumed 
+          },
+          'Recorded organization usage'
+        )
+      } catch (error) {
+        logger.error(
+          { 
+            organizationId: delegationResult.organizationId, 
+            userId, 
+            repositoryUrl, 
+            error 
+          },
+          'Failed to record organization usage'
+        )
+      }
     }
 
     trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
       creditsUsed,
-      fromPurchased: result.fromPurchased,
+      fromPurchased: delegationResult.fromOrganization ? 0 : creditsUsed, // Org credits don't count as purchased
+      fromOrganization: delegationResult.fromOrganization,
+      organizationId: delegationResult.organizationId,
     })
 
-    return result
+    // Return format compatible with existing code
+    return {
+      consumed: delegationResult.consumed,
+      fromPurchased: delegationResult.fromOrganization ? 0 : creditsUsed,
+    }
   } catch (error) {
     logger.error({ userId, creditsUsed, error }, 'Error consuming credits.')
     throw error
@@ -464,6 +535,7 @@ export const saveMessage = async (value: {
   latencyMs: number
   usesUserApiKey?: boolean
   chargeUser?: boolean
+  repositoryUrl?: string
 }) =>
   withLoggerContext(
     {
@@ -529,7 +601,8 @@ export const saveMessage = async (value: {
 
       const consumptionResult = await updateUserCycleUsage(
         value.userId,
-        creditsUsed
+        creditsUsed,
+        value.repositoryUrl
       )
 
       sendCostResponseToClient(

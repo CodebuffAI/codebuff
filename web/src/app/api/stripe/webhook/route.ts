@@ -12,6 +12,7 @@ import {
   getUserCostPerCredit,
   processAndGrantCredit,
   revokeGrantByOperationId,
+  grantOrganizationCredits,
 } from '@codebuff/billing'
 import { getStripeCustomerId } from '@/lib/stripe-utils'
 
@@ -25,6 +26,7 @@ async function handleCheckoutSessionCompleted(
   const sessionId = session.id
   const metadata = session.metadata
 
+  // Handle user credit purchases
   if (
     metadata?.grantType === 'purchase' &&
     metadata?.userId &&
@@ -39,7 +41,7 @@ async function handleCheckoutSessionCompleted(
     if (paymentStatus === 'paid') {
       logger.info(
         { sessionId, userId, credits, operationId },
-        'Checkout session completed and paid for credit purchase.'
+        'Checkout session completed and paid for user credit purchase.'
       )
 
       await processAndGrantCredit(
@@ -54,6 +56,37 @@ async function handleCheckoutSessionCompleted(
       logger.warn(
         { sessionId, userId, credits, operationId, paymentStatus },
         "Checkout session completed but payment status is not 'paid'. No credits granted."
+      )
+    }
+  }
+  // Handle organization credit purchases
+  else if (
+    metadata?.grantType === 'organization_purchase' &&
+    metadata?.organizationId &&
+    metadata?.credits &&
+    metadata?.operationId
+  ) {
+    const organizationId = metadata.organizationId
+    const credits = parseInt(metadata.credits, 10)
+    const operationId = metadata.operationId
+    const paymentStatus = session.payment_status
+
+    if (paymentStatus === 'paid') {
+      logger.info(
+        { sessionId, organizationId, credits, operationId },
+        'Checkout session completed and paid for organization credit purchase.'
+      )
+
+      await grantOrganizationCredits(
+        organizationId,
+        credits,
+        operationId,
+        `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`
+      )
+    } else {
+      logger.warn(
+        { sessionId, organizationId, credits, operationId, paymentStatus },
+        "Checkout session completed but payment status is not 'paid'. No organization credits granted."
       )
     }
   } else {

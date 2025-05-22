@@ -100,6 +100,7 @@ export async function* promptOpenAIStream(
     userInputId: string
     model: OpenAIModel
     userId: string | undefined
+    repositoryUrl?: string
     predictedContent?: string
     temperature?: number
     stopSequences?: string[]
@@ -112,6 +113,7 @@ export async function* promptOpenAIStream(
     userInputId,
     model,
     userId,
+    repositoryUrl,
     predictedContent,
   } = options
   const openai = getOpenAI(fingerprintId)
@@ -188,6 +190,7 @@ export async function* promptOpenAIStream(
         outputTokens: outputTokens || 0,
         finishedAt: new Date(),
         latencyMs: Date.now() - startTime,
+        repositoryUrl,
       })
     }
   } catch (error) {
@@ -215,6 +218,7 @@ export interface OpenAIOptions {
   userInputId: string
   model: OpenAIModel
   userId: string | undefined
+  repositoryUrl?: string
   predictedContent?: string
   temperature?: number
   reasoningEffort?: ChatCompletionReasoningEffort
@@ -302,6 +306,7 @@ export async function promptOpenAI(
             outputTokens,
             finishedAt: new Date(),
             latencyMs: Date.now() - startTime,
+            repositoryUrl: options.repositoryUrl,
           })
         }
 
@@ -359,6 +364,7 @@ export async function promptOpenAIWithContinuation(
     fingerprintId: string
     userInputId: string
     userId?: string
+    repositoryUrl?: string
   }
 ) {
   const {
@@ -368,6 +374,7 @@ export async function promptOpenAIWithContinuation(
     fingerprintId,
     userInputId,
     userId,
+    repositoryUrl,
   } = options
   let fullResponse = ''
   let continuedMessage: OpenAIMessage | null = null
@@ -436,6 +443,7 @@ export async function promptOpenAIWithContinuation(
             outputTokens: chunk.usage.completion_tokens,
             finishedAt: new Date(),
             latencyMs: Date.now() - startTime,
+            repositoryUrl,
           })
         }
       }

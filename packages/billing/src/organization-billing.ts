@@ -1,0 +1,259 @@
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
+import { GrantType } from 'common/db/schema'
+import { logger } from 'common/util/logger'
+import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
+import { withSerializableTransaction } from 'common/db/transaction'
+import { GrantTypeValues } from 'common/types/grant'
+import { 
+  CreditBalance, 
+  CreditUsageAndBalance, 
+  CreditConsumptionResult,
+  getOrderedActiveGrants,
+  updateGrantBalance,
+  consumeFromOrderedGrants
+} from './balance-calculator'
+
+// Add a minimal structural type that both `db` and `tx` satisfy
+type DbConn = Pick<typeof db, 'select' | 'update'>
+
+/**
+ * Gets active grants for an organization, ordered by expiration, priority, and creation date.
+ */
+export async function getOrderedActiveOrganizationGrants(
+  organizationId: string,
+  now: Date,
+  conn: DbConn = db
+) {
+  return conn
+    .select()
+    .from(schema.creditLedger)
+    .where(
+      and(
+        eq(schema.creditLedger.organization_id, organizationId),
+        or(
+          isNull(schema.creditLedger.expires_at),
+          gt(schema.creditLedger.expires_at, now)
+        )
+      )
+    )
+    .orderBy(
+      asc(schema.creditLedger.priority),
+      asc(schema.creditLedger.expires_at),
+      asc(schema.creditLedger.created_at)
+    )
+}
+
+/**
+ * Calculates both the current balance and usage in this cycle for an organization.
+ */
+export async function calculateOrganizationUsageAndBalance(
+  organizationId: string,
+  quotaResetDate: Date,
+  now: Date = new Date(),
+  conn: DbConn = db
+): Promise<CreditUsageAndBalance> {
+  // Get all relevant grants for the organization
+  const grants = await getOrderedActiveOrganizationGrants(organizationId, now, conn)
+
+  // Initialize breakdown and principals with all grant types set to 0
+  const initialBreakdown: Record<GrantType, number> = {} as Record<GrantType, number>
+  const initialPrincipals: Record<GrantType, number> = {} as Record<GrantType, number>
+
+  for (const type of GrantTypeValues) {
+    initialBreakdown[type] = 0
+    initialPrincipals[type] = 0
+  }
+
+  // Initialize balance structure
+  const balance: CreditBalance = {
+    totalRemaining: 0,
+    totalDebt: 0,
+    netBalance: 0,
+    breakdown: initialBreakdown,
+    principals: initialPrincipals,
+  }
+
+  // Calculate both metrics in one pass
+  let usageThisCycle = 0
+  let totalPositiveBalance = 0
+  let totalDebt = 0
+
+  // First pass: calculate initial totals and usage
+  for (const grant of grants) {
+    const grantType = grant.type as GrantType
+
+    // Calculate usage if grant was active in this cycle
+    if (
+      grant.created_at > quotaResetDate ||
+      !grant.expires_at ||
+      grant.expires_at > quotaResetDate
+    ) {
+      usageThisCycle += grant.principal - grant.balance
+    }
+
+    // Add to balance if grant is currently active
+    if (!grant.expires_at || grant.expires_at > now) {
+      balance.principals[grantType] += grant.principal
+      if (grant.balance > 0) {
+        totalPositiveBalance += grant.balance
+        balance.breakdown[grantType] += grant.balance
+      } else if (grant.balance < 0) {
+        totalDebt += Math.abs(grant.balance)
+      }
+    }
+  }
+
+  // Perform in-memory settlement if there's both debt and positive balance
+  if (totalDebt > 0 && totalPositiveBalance > 0) {
+    const settlementAmount = Math.min(totalDebt, totalPositiveBalance)
+    logger.debug(
+      { organizationId, totalDebt, totalPositiveBalance, settlementAmount },
+      'Performing in-memory settlement for organization'
+    )
+
+    // After settlement:
+    totalPositiveBalance -= settlementAmount
+    totalDebt -= settlementAmount
+  }
+
+  // Set final balance values after settlement
+  balance.totalRemaining = totalPositiveBalance
+  balance.totalDebt = totalDebt
+  balance.netBalance = totalPositiveBalance - totalDebt
+
+  logger.debug(
+    { organizationId, balance, usageThisCycle, grantsCount: grants.length },
+    'Calculated organization usage and settled balance'
+  )
+
+  return { usageThisCycle, balance }
+}
+
+/**
+ * Consumes credits from organization grants in priority order.
+ */
+export async function consumeOrganizationCredits(
+  organizationId: string,
+  creditsToConsume: number
+): Promise<CreditConsumptionResult> {
+  return await withSerializableTransaction(
+    async (tx) => {
+      const now = new Date()
+      const activeGrants = await getOrderedActiveOrganizationGrants(organizationId, now, tx)
+
+      if (activeGrants.length === 0) {
+        logger.error(
+          { organizationId, creditsToConsume },
+          'No active organization grants found to consume credits from'
+        )
+        throw new Error('No active organization grants found')
+      }
+
+      const result = await consumeFromOrderedGrants(
+        organizationId,
+        creditsToConsume,
+        activeGrants,
+        tx
+      )
+
+      return result
+    },
+    { organizationId, creditsToConsume }
+  )
+}
+
+/**
+ * Grants credits to an organization.
+ */
+export async function grantOrganizationCredits(
+  organizationId: string,
+  amount: number,
+  operationId: string,
+  description: string = 'Organization credit purchase',
+  expiresAt: Date | null = null
+): Promise<void> {
+  const now = new Date()
+
+  try {
+    await db.insert(schema.creditLedger).values({
+      operation_id: operationId,
+      user_id: '', // Organizations don't have a user_id, but column is required
+      organization_id: organizationId,
+      principal: amount,
+      balance: amount,
+      type: 'organization',
+      description,
+      priority: GRANT_PRIORITIES.organization,
+      expires_at: expiresAt,
+      created_at: now,
+    })
+
+    logger.info(
+      { organizationId, operationId, amount, expiresAt },
+      'Created new organization credit grant'
+    )
+  } catch (error: any) {
+    // Check if this is a unique constraint violation on operation_id
+    if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
+      logger.info(
+        { organizationId, operationId, amount },
+        'Skipping duplicate organization credit grant due to idempotency check'
+      )
+      return // Exit successfully, another concurrent request already created this grant
+    }
+    throw error // Re-throw any other error
+  }
+}
+
+/**
+ * Normalizes a repository URL to a standard format.
+ */
+export function normalizeRepositoryUrl(url: string): string {
+  let normalized = url.toLowerCase().trim()
+  
+  // Remove .git suffix
+  if (normalized.endsWith('.git')) {
+    normalized = normalized.slice(0, -4)
+  }
+  
+  // Convert SSH to HTTPS
+  if (normalized.startsWith('git@github.com:')) {
+    normalized = normalized.replace('git@github.com:', 'https://github.com/')
+  }
+  
+  // Ensure https:// prefix for github URLs
+  if (!normalized.startsWith('http') && normalized.includes('github.com')) {
+    normalized = 'https://' + normalized
+  }
+  
+  return normalized
+}
+
+/**
+ * Validates and normalizes a repository URL.
+ */
+export function validateAndNormalizeRepositoryUrl(url: string): { 
+  isValid: boolean, 
+  normalizedUrl?: string, 
+  error?: string 
+} {
+  try {
+    // Basic URL validation
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
+    
+    // Whitelist allowed domains
+    const allowedDomains = ['github.com', 'gitlab.com', 'bitbucket.org']
+    if (!allowedDomains.includes(urlObj.hostname)) {
+      return { isValid: false, error: 'Repository domain not allowed' }
+    }
+
+    // Normalize URL format
+    const normalized = normalizeRepositoryUrl(url)
+
+    return { isValid: true, normalizedUrl: normalized }
+  } catch (error) {
+    return { isValid: false, error: 'Invalid URL format' }
+  }
+}

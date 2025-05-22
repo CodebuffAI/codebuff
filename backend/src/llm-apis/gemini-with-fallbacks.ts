@@ -50,6 +50,7 @@ export async function promptFlashWithFallbacks(
     userInputId: string
     model: GeminiModel
     userId: string | undefined
+    repositoryUrl?: string
     maxTokens?: number
     temperature?: number
     costMode?: CostMode
@@ -120,6 +121,7 @@ export async function promptFlashWithFallbacks(
           fingerprintId: options.fingerprintId,
           userInputId: options.userInputId,
           userId: options.userId,
+          repositoryUrl: options.repositoryUrl,
           temperature: options.temperature,
         })
       }
@@ -131,6 +133,7 @@ export async function promptFlashWithFallbacks(
         fingerprintId: options.fingerprintId,
         userInputId: options.userInputId,
         userId: options.userId,
+        repositoryUrl: options.repositoryUrl,
       })
     }
   }
@@ -169,6 +172,7 @@ export async function* streamGemini25ProWithFallbacks(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
+    repositoryUrl?: string
     maxTokens?: number
     temperature?: number
     stopSequences?: string[]
@@ -180,6 +184,7 @@ export async function* streamGemini25ProWithFallbacks(
     fingerprintId,
     userInputId,
     userId,
+    repositoryUrl,
     maxTokens,
     temperature,
     stopSequences,
@@ -228,6 +233,7 @@ export async function* streamGemini25ProWithFallbacks(
       fingerprintId,
       userInputId,
       userId,
+      repositoryUrl,
       maxTokens,
       stopSequences,
       // Temperature might differ, using Claude's default or a standard value

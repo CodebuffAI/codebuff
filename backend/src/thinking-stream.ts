@@ -16,6 +16,7 @@ export async function getThinkingStream(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
+    repositoryUrl?: string
   }
 ) {
   const { getStream } = getAgentStream({
