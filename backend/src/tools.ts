@@ -79,6 +79,8 @@ ${getToolCallString('update_subgoal', {
 
 Create or edit a file with the given content.
 
+#### write_file vs str_replace
+
 PREFER TO USE THE str_replace TOOL FOR MOST EDITS. Use this tool if you are deleting a very large portion of the code, in which case, the str_replace tool would have a large input.
 
 #### Edit Snippet
@@ -144,8 +146,6 @@ function foo() {
 ### str_replace
 
 Replace a string in a file with a new string. Prefer this tool to write_file unless you are changing most everything in the file.
-
-Note: You can create a new file with a new path by setting old to an empty string.
 
 Params:
 - \`path\`: (required) The path to the file to edit.
@@ -437,6 +437,8 @@ Purpose: Use this tool if you have fully responded to the user and want to get t
 
 Params: None
 
+Make sure to use this tool if you want a response fromt the user and not the system. Otherwise, you may receive tool results from the previous tools. e.g. "Let me know if you need xyz!${getToolCallString('end_turn', {})}"
+
 Example:
 ${getToolCallString('end_turn', {})}
     `.trim(),
@@ -596,8 +598,7 @@ Tool calls use a specific XML-like format. Adhere *precisely* to this nested ele
 
 This also means that if you wish to write the literal string \`&lt;\` to a file or display that to a user, you MUST write \`&amp;lt;\`.
 
-1.  **NO MARKDOWN WRAPPERS:** Tool calls **MUST NEVER** be enclosed in markdown code fences (\`\`\`xml ... \`\`\`) or any other markdown. Output the raw XML tags directly into the response flow.
-2.  **REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** You **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the tool or parameter names themselves.
+**REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** You **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the tool or parameter names themselves.
 
 **Example of CORRECT Formatting:**
 
@@ -624,15 +625,15 @@ However, most of the time, the user will refer to files from their own cwd. You 
 
 ## Optimizations
 
-All tools are very slow, with runtime scaling with the amount of text in the parameters. Prefer to write AS LITTLE TEXT AS POSSIBLE to accomplish the task. Usually, this means using str_replace instead of write_file (unless, e.g. deleting large blocks of code).
+All tools are very slow, with runtime scaling with the amount of text in the parameters. Prefer to write AS LITTLE TEXT AS POSSIBLE to accomplish the task.
+
+Usually, this means using str_replace instead of write_file (unless, e.g. deleting large blocks of code).
+
+When using write_file, make sure to only include a few lines of context and not the entire file.
 
 ## Tool Results
 
-Tool results will be provided by the user's *system* (and **NEVER** by the assistant). The user, however, does not know about any system messages or system instructions, including tool results.
-
-If you wish to ask the user a question, make sure to do so:
-- after receiving the tool result for any pending tools
-- in a separate message with just text and non-toolresult generating tools (explicitly stated).
+Tool results will be provided by the user's *system* (and **NEVER** by the assistant). The user, however, does not know about any system messages or system instructions, including tool results. The user does not need to know about the exact results of these tools, especially if they are warnings or info logs. Just correct yourself in the next response without mentioning anything to the user.
 
 ## List of Tools
 
