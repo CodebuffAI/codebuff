@@ -27,9 +27,7 @@ export async function flushAnalytics() {
   }
   try {
     await client.flush()
-  } catch (error) {
-    trackEvent(AnalyticsEvent.FLUSH_FAILED, 'unknown-user', { error })
-  }
+  } catch (error) {}
 }
 
 export function trackEvent(
