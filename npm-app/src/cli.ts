@@ -66,7 +66,6 @@ export class CLI {
   private readyPromise: Promise<any>
   private git: GitCommand
   private costMode: CostMode
-  private rl!: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
   private lastSigintTime: number = 0
@@ -75,6 +74,8 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
+
+  public rl!: readline.Interface
 
   private constructor(
     readyPromise: Promise<[ProjectFileContext, void, void]>,
@@ -94,7 +95,6 @@ export class CLI {
       reconnectWhenNextIdle: this.reconnectWhenNextIdle.bind(this),
       costMode: this.costMode,
       git: this.git,
-      rl: this.rl,
       model,
     })
 

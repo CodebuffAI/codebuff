@@ -8,7 +8,6 @@ import {
 } from 'fs'
 import os from 'os'
 import path from 'path'
-import { Interface } from 'readline'
 
 import {
   FileChanges,
@@ -60,6 +59,7 @@ import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
+import { CLI } from './cli'
 import { backendUrl, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { calculateFingerprint } from './fingerprint'
@@ -128,7 +128,6 @@ interface ClientOptions {
   reconnectWhenNextIdle: () => void
   costMode: CostMode
   git: GitCommand
-  rl: Interface
   model: string | undefined
 }
 
@@ -141,7 +140,6 @@ export class Client {
   private costMode: CostMode
   private hadFileChanges: boolean = false
   private git: GitCommand
-  private rl: Interface
   private responseComplete: boolean = false
   private responseBuffer: string = ''
   private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
@@ -176,7 +174,6 @@ export class Client {
     reconnectWhenNextIdle,
     costMode,
     git,
-    rl,
     model,
   }: ClientOptions) {
     this.costMode = costMode
@@ -191,7 +188,6 @@ export class Client {
     this.initFingerprintId()
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
-    this.rl = rl
     logger.info(
       {
         eventId: AnalyticsEvent.APP_LAUNCHED,
@@ -478,7 +474,7 @@ export class Client {
       console.log(responseToUser.join('\n'))
 
       let shouldRequestLogin = true
-      this.rl.once('line', () => {
+      CLI.getInstance().rl.once('line', () => {
         if (shouldRequestLogin) {
           spawn(`open ${loginUrl}`, { shell: true })
           console.log(
