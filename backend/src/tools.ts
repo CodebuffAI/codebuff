@@ -143,7 +143,7 @@ function foo() {
     description: `
 ### str_replace
 
-Replace a string in a file with a new string. This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
+Replace a string in a file with a new string. Prefer this tool to write_file unless you are changing most everything in the file.
 
 Note: You can create a new file with a new path by setting old to an empty string.
 
@@ -433,7 +433,7 @@ ${getToolCallString('browser_logs', {
 
 End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.
 
-Purpose: Use this tool if you have fully responded to the user and want to get their feedback. This ignores any tool results (from write_file, run_terminal_command, etc.), so be sure you are done before using it.
+Purpose: Use this tool if you have fully responded to the user and want to get their feedback. This ignores any tool results (from str_replace, run_terminal_command, etc.), so be sure you are done before using it.
 
 Params: None
 
@@ -603,10 +603,10 @@ This also means that if you wish to write the literal string \`&lt;\` to a file 
 
 Let's update that file!
 
-<write_file>
+<str_replace>
 <path>path/to/example/file.ts</path>
 <content>console.log('Hello from Buffy!');</content>
-</write_file>
+</str_replace>
 
 All done with the update!
 
