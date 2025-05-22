@@ -11,36 +11,27 @@ interface RouteParams {
   params: { token: string }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { token } = params
 
     // Get invitation details
     const invitation = await db
       .select({
-        id: schema.orgInvitation.id,
-        org_id: schema.orgInvitation.org_id,
-        email: schema.orgInvitation.email,
-        role: schema.orgInvitation.role,
-        expires_at: schema.orgInvitation.expires_at,
-        accepted_at: schema.orgInvitation.accepted_at,
+        id: schema.orgInvite.id,
+        org_id: schema.orgInvite.org_id,
+        email: schema.orgInvite.email,
+        role: schema.orgInvite.role,
+        expires_at: schema.orgInvite.expires_at,
+        accepted_at: schema.orgInvite.accepted_at,
         organization_name: schema.org.name,
         organization_slug: schema.org.slug,
         inviter_name: schema.user.name,
       })
-      .from(schema.orgInvitation)
-      .innerJoin(
-        schema.org,
-        eq(schema.orgInvitation.org_id, schema.org.id)
-      )
-      .innerJoin(
-        schema.user,
-        eq(schema.orgInvitation.invited_by, schema.user.id)
-      )
-      .where(eq(schema.orgInvitation.token, token))
+      .from(schema.orgInvite)
+      .innerJoin(schema.org, eq(schema.orgInvite.org_id, schema.org.id))
+      .innerJoin(schema.user, eq(schema.orgInvite.invited_by, schema.user.id))
+      .where(eq(schema.orgInvite.token, token))
       .limit(1)
 
     if (invitation.length === 0) {
@@ -87,10 +78,7 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id || !session?.user?.email) {
@@ -102,16 +90,13 @@ export async function POST(
     // Get invitation details
     const invitation = await db
       .select()
-      .from(schema.orgInvitation)
-      .innerJoin(
-        schema.org,
-        eq(schema.orgInvitation.org_id, schema.org.id)
-      )
+      .from(schema.orgInvite)
+      .innerJoin(schema.org, eq(schema.orgInvite.org_id, schema.org.id))
       .where(
         and(
-          eq(schema.orgInvitation.token, token),
-          gt(schema.orgInvitation.expires_at, new Date()),
-          isNull(schema.orgInvitation.accepted_at)
+          eq(schema.orgInvite.token, token),
+          gt(schema.orgInvite.expires_at, new Date()),
+          isNull(schema.orgInvite.accepted_at)
         )
       )
       .limit(1)
@@ -164,12 +149,12 @@ export async function POST(
 
       // Mark invitation as accepted
       await tx
-        .update(schema.orgInvitation)
+        .update(schema.orgInvite)
         .set({
           accepted_at: new Date(),
           accepted_by: session.user!.id,
         })
-        .where(eq(schema.orgInvitation.id, inv.id))
+        .where(eq(schema.orgInvite.id, inv.id))
     })
 
     // Send welcome email

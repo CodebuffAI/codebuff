@@ -18,10 +18,7 @@ interface InviteRequest {
   role: 'admin' | 'member'
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -47,7 +44,10 @@ export async function POST(
     }
 
     // Check permissions - only owners and admins can invite
-    const permissionResult = await checkOrganizationPermission(orgId, ['owner', 'admin'])
+    const permissionResult = await checkOrganizationPermission(orgId, [
+      'owner',
+      'admin',
+    ])
     if (!permissionResult.success) {
       return NextResponse.json(
         { error: permissionResult.error },
@@ -80,12 +80,12 @@ export async function POST(
     // Check if there's already a pending invitation
     const existingInvitation = await db
       .select()
-      .from(schema.orgInvitation)
+      .from(schema.orgInvite)
       .where(
         and(
-          eq(schema.orgInvitation.org_id, orgId),
-          eq(schema.orgInvitation.email, body.email),
-          isNull(schema.orgInvitation.accepted_at)
+          eq(schema.orgInvite.org_id, orgId),
+          eq(schema.orgInvite.email, body.email),
+          isNull(schema.orgInvite.accepted_at)
         )
       )
       .limit(1)
@@ -103,7 +103,7 @@ export async function POST(
 
     // Create invitation record
     const [invitation] = await db
-      .insert(schema.orgInvitation)
+      .insert(schema.orgInvite)
       .values({
         org_id: orgId,
         email: body.email,
@@ -134,8 +134,8 @@ export async function POST(
     if (!emailResult.success) {
       // Delete the invitation if email failed
       await db
-        .delete(schema.orgInvitation)
-        .where(eq(schema.orgInvitation.id, invitation.id))
+        .delete(schema.orgInvite)
+        .where(eq(schema.orgInvite.id, invitation.id))
 
       return NextResponse.json(
         { error: 'Failed to send invitation email' },
@@ -174,10 +174,7 @@ export async function POST(
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -198,22 +195,22 @@ export async function GET(
     // Get pending invitations
     const invitations = await db
       .select({
-        id: schema.orgInvitation.id,
-        email: schema.orgInvitation.email,
-        role: schema.orgInvitation.role,
+        id: schema.orgInvite.id,
+        email: schema.orgInvite.email,
+        role: schema.orgInvite.role,
         invited_by_name: schema.user.name,
-        created_at: schema.orgInvitation.created_at,
-        expires_at: schema.orgInvitation.expires_at,
+        created_at: schema.orgInvite.created_at,
+        expires_at: schema.orgInvite.expires_at,
       })
-      .from(schema.orgInvitation)
-      .innerJoin(schema.user, eq(schema.orgInvitation.invited_by, schema.user.id))
+      .from(schema.orgInvite)
+      .innerJoin(schema.user, eq(schema.orgInvite.invited_by, schema.user.id))
       .where(
         and(
-          eq(schema.orgInvitation.org_id, orgId),
-          isNull(schema.orgInvitation.accepted_at)
+          eq(schema.orgInvite.org_id, orgId),
+          isNull(schema.orgInvite.accepted_at)
         )
       )
-      .orderBy(schema.orgInvitation.created_at)
+      .orderBy(schema.orgInvite.created_at)
 
     return NextResponse.json({ invitations })
   } catch (error) {

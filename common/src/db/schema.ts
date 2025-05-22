@@ -200,7 +200,10 @@ export const message = pgTable(
   (table) => [
     index('message_fingerprint_id_idx').on(table.fingerprint_id),
     index('message_user_id_idx').on(table.user_id),
-    index('message_finished_at_user_id_idx').on(table.finished_at, table.user_id),
+    index('message_finished_at_user_id_idx').on(
+      table.finished_at,
+      table.user_id
+    ),
   ]
 )
 
@@ -241,65 +244,131 @@ export const encryptedApiKeys = pgTable(
 export const orgRoleEnum = pgEnum('org_role', ['owner', 'admin', 'member'])
 
 export const org = pgTable('org', {
-  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   name: text('name').notNull(),
   slug: text('slug').unique().notNull(),
   description: text('description'),
-  owner_id: text('owner_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  owner_id: text('owner_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   stripe_customer_id: text('stripe_customer_id').unique(),
-  created_at: timestamp('created_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
+  created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
+    .notNull()
+    .defaultNow(),
 })
 
-export const orgMember = pgTable('org_member', {
-  org_id: text('org_id').notNull().references(() => org.id, { onDelete: 'cascade' }),
-  user_id: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-  role: orgRoleEnum('role').notNull(),
-  joined_at: timestamp('joined_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
-}, (table) => [
-  primaryKey({ columns: [table.org_id, table.user_id] })
-])
+export const orgMember = pgTable(
+  'org_member',
+  {
+    org_id: text('org_id')
+      .notNull()
+      .references(() => org.id, { onDelete: 'cascade' }),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: orgRoleEnum('role').notNull(),
+    joined_at: timestamp('joined_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.org_id, table.user_id] })]
+)
 
-export const orgRepo = pgTable('org_repo', {
-  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  org_id: text('org_id').notNull().references(() => org.id, { onDelete: 'cascade' }),
-  repo_url: text('repo_url').notNull(),
-  repo_name: text('repo_name').notNull(),
-  approved_by: text('approved_by').notNull().references(() => user.id),
-  approved_at: timestamp('approved_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
-  is_active: boolean('is_active').notNull().default(true),
-}, (table) => [
-  index('idx_org_repo_active').on(table.org_id, table.is_active),
-  // Unique constraint on org + repo URL
-  index('idx_org_repo_unique').on(table.org_id, table.repo_url)
-])
+export const orgRepo = pgTable(
+  'org_repo',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    org_id: text('org_id')
+      .notNull()
+      .references(() => org.id, { onDelete: 'cascade' }),
+    repo_url: text('repo_url').notNull(),
+    repo_name: text('repo_name').notNull(),
+    approved_by: text('approved_by')
+      .notNull()
+      .references(() => user.id),
+    approved_at: timestamp('approved_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    is_active: boolean('is_active').notNull().default(true),
+  },
+  (table) => [
+    index('idx_org_repo_active').on(table.org_id, table.is_active),
+    // Unique constraint on org + repo URL
+    index('idx_org_repo_unique').on(table.org_id, table.repo_url),
+  ]
+)
 
-export const orgUsage = pgTable('org_usage', {
-  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  org_id: text('org_id').notNull().references(() => org.id, { onDelete: 'cascade' }),
-  user_id: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-  repo_url: text('repo_url').notNull(),
-  credits_used: integer('credits_used').notNull(),
-  message_id: text('message_id').references(() => message.id),
-  created_at: timestamp('created_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
-}, (table) => ({
-  idx_org_usage_org_date: index('idx_org_usage_org_date').on(table.org_id, table.created_at),
-  idx_org_usage_user_date: index('idx_org_usage_user_date').on(table.user_id, table.created_at),
-}))
+export const orgUsage = pgTable(
+  'org_usage',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    org_id: text('org_id')
+      .notNull()
+      .references(() => org.id, { onDelete: 'cascade' }),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    repo_url: text('repo_url').notNull(),
+    credits_used: integer('credits_used').notNull(),
+    message_id: text('message_id').references(() => message.id),
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    idx_org_usage_org_date: index('idx_org_usage_org_date').on(
+      table.org_id,
+      table.created_at
+    ),
+    idx_org_usage_user_date: index('idx_org_usage_user_date').on(
+      table.user_id,
+      table.created_at
+    ),
+  })
+)
 
-export const orgInvitation = pgTable('org_invitation', {
-  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  org_id: text('org_id').notNull().references(() => org.id, { onDelete: 'cascade' }),
-  email: text('email').notNull(),
-  role: orgRoleEnum('role').notNull(),
-  token: text('token').notNull().unique(),
-  invited_by: text('invited_by').notNull().references(() => user.id),
-  expires_at: timestamp('expires_at', { mode: 'date', withTimezone: true }).notNull(),
-  created_at: timestamp('created_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
-  accepted_at: timestamp('accepted_at', { mode: 'date', withTimezone: true }),
-  accepted_by: text('accepted_by').references(() => user.id),
-}, (table) => ({
-  idx_org_invitation_token: index('idx_org_invitation_token').on(table.token),
-  idx_org_invitation_email: index('idx_org_invitation_email').on(table.org_id, table.email),
-  idx_org_invitation_expires: index('idx_org_invitation_expires').on(table.expires_at),
-}))
+export const orgInvite = pgTable(
+  'org_invite',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    org_id: text('org_id')
+      .notNull()
+      .references(() => org.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    role: orgRoleEnum('role').notNull(),
+    token: text('token').notNull().unique(),
+    invited_by: text('invited_by')
+      .notNull()
+      .references(() => user.id),
+    expires_at: timestamp('expires_at', {
+      mode: 'date',
+      withTimezone: true,
+    }).notNull(),
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    accepted_at: timestamp('accepted_at', { mode: 'date', withTimezone: true }),
+    accepted_by: text('accepted_by').references(() => user.id),
+  },
+  (table) => ({
+    idx_org_invite_token: index('idx_org_invite_token').on(table.token),
+    idx_org_invite_email: index('idx_org_invite_email').on(
+      table.org_id,
+      table.email
+    ),
+    idx_org_invite_expires: index('idx_org_invite_expires').on(
+      table.expires_at
+    ),
+  })
+)

@@ -11,10 +11,7 @@ interface RouteParams {
   params: { orgId: string; email: string }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -24,7 +21,10 @@ export async function DELETE(
     const { orgId, email } = params
 
     // Check permissions - only owners and admins can cancel invitations
-    const permissionResult = await checkOrganizationPermission(orgId, ['owner', 'admin'])
+    const permissionResult = await checkOrganizationPermission(orgId, [
+      'owner',
+      'admin',
+    ])
     if (!permissionResult.success) {
       return NextResponse.json(
         { error: permissionResult.error },
@@ -34,12 +34,12 @@ export async function DELETE(
 
     // Find and delete the pending invitation
     const deletedInvitations = await db
-      .delete(schema.orgInvitation)
+      .delete(schema.orgInvite)
       .where(
         and(
-          eq(schema.orgInvitation.org_id, orgId),
-          eq(schema.orgInvitation.email, email),
-          isNull(schema.orgInvitation.accepted_at)
+          eq(schema.orgInvite.org_id, orgId),
+          eq(schema.orgInvite.email, email),
+          isNull(schema.orgInvite.accepted_at)
         )
       )
       .returning()
