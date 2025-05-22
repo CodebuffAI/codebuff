@@ -98,7 +98,7 @@ export const creditLedger = pgTable(
     created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
       .notNull()
       .defaultNow(),
-    organization_id: text('organization_id').references(() => organization.id, { onDelete: 'cascade' }),
+    org_id: text('org_id').references(() => org.id, { onDelete: 'cascade' }),
   },
   (table) => ({
     idx_credit_ledger_active_balance: index('idx_credit_ledger_active_balance')
@@ -110,7 +110,7 @@ export const creditLedger = pgTable(
         table.created_at
       )
       .where(sql`${table.balance} != 0 AND ${table.expires_at} IS NULL`),
-    idx_credit_ledger_organization: index('idx_credit_ledger_organization').on(table.organization_id),
+    idx_credit_ledger_org: index('idx_credit_ledger_org').on(table.org_id),
   })
 )
 
@@ -238,9 +238,9 @@ export const encryptedApiKeys = pgTable(
 )
 
 // Organization tables
-export const organizationRoleEnum = pgEnum('organization_role', ['owner', 'admin', 'member'])
+export const orgRoleEnum = pgEnum('org_role', ['owner', 'admin', 'member'])
 
-export const organization = pgTable('organization', {
+export const org = pgTable('org', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text('name').notNull(),
   slug: text('slug').unique().notNull(),
@@ -251,38 +251,55 @@ export const organization = pgTable('organization', {
   updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
 })
 
-export const organizationMember = pgTable('organization_member', {
-  organization_id: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+export const orgMember = pgTable('org_member', {
+  org_id: text('org_id').notNull().references(() => org.id, { onDelete: 'cascade' }),
   user_id: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-  role: organizationRoleEnum('role').notNull(),
+  role: orgRoleEnum('role').notNull(),
   joined_at: timestamp('joined_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  primaryKey({ columns: [table.organization_id, table.user_id] })
+  primaryKey({ columns: [table.org_id, table.user_id] })
 ])
 
-export const organizationRepository = pgTable('organization_repository', {
+export const orgRepo = pgTable('org_repo', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  organization_id: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
-  repository_url: text('repository_url').notNull(),
-  repository_name: text('repository_name').notNull(),
+  org_id: text('org_id').notNull().references(() => org.id, { onDelete: 'cascade' }),
+  repo_url: text('repo_url').notNull(),
+  repo_name: text('repo_name').notNull(),
   approved_by: text('approved_by').notNull().references(() => user.id),
   approved_at: timestamp('approved_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
   is_active: boolean('is_active').notNull().default(true),
 }, (table) => [
-  index('idx_org_repo_active').on(table.organization_id, table.is_active),
+  index('idx_org_repo_active').on(table.org_id, table.is_active),
   // Unique constraint on org + repo URL
-  index('idx_org_repo_unique').on(table.organization_id, table.repository_url)
+  index('idx_org_repo_unique').on(table.org_id, table.repo_url)
 ])
 
-export const organizationUsage = pgTable('organization_usage', {
+export const orgUsage = pgTable('org_usage', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  organization_id: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  org_id: text('org_id').notNull().references(() => org.id, { onDelete: 'cascade' }),
   user_id: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-  repository_url: text('repository_url').notNull(),
+  repo_url: text('repo_url').notNull(),
   credits_used: integer('credits_used').notNull(),
   message_id: text('message_id').references(() => message.id),
   created_at: timestamp('created_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
-  idx_org_usage_org_date: index('idx_org_usage_org_date').on(table.organization_id, table.created_at),
+  idx_org_usage_org_date: index('idx_org_usage_org_date').on(table.org_id, table.created_at),
   idx_org_usage_user_date: index('idx_org_usage_user_date').on(table.user_id, table.created_at),
+}))
+
+export const orgInvitation = pgTable('org_invitation', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  org_id: text('org_id').notNull().references(() => org.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  role: orgRoleEnum('role').notNull(),
+  token: text('token').notNull().unique(),
+  invited_by: text('invited_by').notNull().references(() => user.id),
+  expires_at: timestamp('expires_at', { mode: 'date', withTimezone: true }).notNull(),
+  created_at: timestamp('created_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
+  accepted_at: timestamp('accepted_at', { mode: 'date', withTimezone: true }),
+  accepted_by: text('accepted_by').references(() => user.id),
+}, (table) => ({
+  idx_org_invitation_token: index('idx_org_invitation_token').on(table.token),
+  idx_org_invitation_email: index('idx_org_invitation_email').on(table.org_id, table.email),
+  idx_org_invitation_expires: index('idx_org_invitation_expires').on(table.expires_at),
 }))

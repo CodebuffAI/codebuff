@@ -24,12 +24,12 @@ export async function GET(
 
     // Check if user is a member of this organization
     const userMembership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)
@@ -46,12 +46,12 @@ export async function GET(
           name: schema.user.name,
           email: schema.user.email,
         },
-        role: schema.organizationMember.role,
-        joined_at: schema.organizationMember.joined_at,
+        role: schema.orgMember.role,
+        joined_at: schema.orgMember.joined_at,
       })
-      .from(schema.organizationMember)
-      .innerJoin(schema.user, eq(schema.organizationMember.user_id, schema.user.id))
-      .where(eq(schema.organizationMember.organization_id, orgId))
+      .from(schema.orgMember)
+      .innerJoin(schema.user, eq(schema.orgMember.user_id, schema.user.id))
+      .where(eq(schema.orgMember.org_id, orgId))
 
     return NextResponse.json({ members })
   } catch (error) {
@@ -78,12 +78,12 @@ export async function POST(
 
     // Check if user is owner or admin
     const membership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)
@@ -113,11 +113,11 @@ export async function POST(
     // Check if user is already a member
     const existingMembership = await db
       .select()
-      .from(schema.organizationMember)
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, userId)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, userId)
         )
       )
       .limit(1)
@@ -130,8 +130,8 @@ export async function POST(
     }
 
     // Add member
-    await db.insert(schema.organizationMember).values({
-      organization_id: orgId,
+    await db.insert(schema.orgMember).values({
+      org_id: orgId,
       user_id: userId,
       role: body.role,
     })

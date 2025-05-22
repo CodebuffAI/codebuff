@@ -35,7 +35,17 @@ export {
   grantOrganizationCredits,
   normalizeRepositoryUrl,
   validateAndNormalizeRepositoryUrl,
-} from './organization-billing'
+} from './org-billing'
+
+// Organization monitoring
+export {
+  sendOrganizationAlert,
+  monitorOrganizationCredits,
+  trackOrganizationUsageMetrics,
+  validateOrganizationBillingHealth,
+  type OrganizationCreditAlert,
+  type OrganizationUsageMetrics,
+} from './org-monitoring'
 
 // Utilities
 export { generateOperationIdTimestamp } from './utils'

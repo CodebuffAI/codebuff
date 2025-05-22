@@ -36,18 +36,18 @@ export async function POST(
     // Check if user is owner of this organization
     const membership = await db
       .select({ 
-        role: schema.organizationMember.role,
-        organization: schema.organization
+        role: schema.orgMember.role,
+        organization: schema.org
       })
-      .from(schema.organizationMember)
+      .from(schema.orgMember)
       .innerJoin(
-        schema.organization,
-        eq(schema.organizationMember.organization_id, schema.organization.id)
+        schema.org,
+        eq(schema.orgMember.org_id, schema.org.id)
       )
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)

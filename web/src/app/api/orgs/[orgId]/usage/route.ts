@@ -25,12 +25,12 @@ export async function GET(
 
     // Check if user is a member of this organization
     const membership = await db
-      .select({ role: schema.organizationMember.role })
-      .from(schema.organizationMember)
+      .select({ role: schema.orgMember.role })
+      .from(schema.orgMember)
       .where(
         and(
-          eq(schema.organizationMember.organization_id, orgId),
-          eq(schema.organizationMember.user_id, session.user.id)
+          eq(schema.orgMember.org_id, orgId),
+          eq(schema.orgMember.user_id, session.user.id)
         )
       )
       .limit(1)
@@ -62,39 +62,39 @@ export async function GET(
     // Get top users by credit usage this cycle
     const topUsers = await db
       .select({
-        user_id: schema.organizationUsage.user_id,
+        user_id: schema.orgUsage.user_id,
         user_name: schema.user.name,
-        credits_used: schema.organizationUsage.credits_used,
+        credits_used: schema.orgUsage.credits_used,
       })
-      .from(schema.organizationUsage)
-      .innerJoin(schema.user, eq(schema.organizationUsage.user_id, schema.user.id))
+      .from(schema.orgUsage)
+      .innerJoin(schema.user, eq(schema.orgUsage.user_id, schema.user.id))
       .where(
         and(
-          eq(schema.organizationUsage.organization_id, orgId),
-          gte(schema.organizationUsage.created_at, quotaResetDate)
+          eq(schema.orgUsage.org_id, orgId),
+          gte(schema.orgUsage.created_at, quotaResetDate)
         )
       )
-      .groupBy(schema.organizationUsage.user_id, schema.user.name)
-      .orderBy(desc(schema.organizationUsage.credits_used))
+      .groupBy(schema.orgUsage.user_id, schema.user.name)
+      .orderBy(desc(schema.orgUsage.credits_used))
       .limit(10)
 
     // Get recent usage activity
     const recentUsage = await db
       .select({
-        date: schema.organizationUsage.created_at,
-        credits_used: schema.organizationUsage.credits_used,
-        repository_url: schema.organizationUsage.repository_url,
+        date: schema.orgUsage.created_at,
+        credits_used: schema.orgUsage.credits_used,
+        repository_url: schema.orgUsage.repo_url,
         user_name: schema.user.name,
       })
-      .from(schema.organizationUsage)
-      .innerJoin(schema.user, eq(schema.organizationUsage.user_id, schema.user.id))
+      .from(schema.orgUsage)
+      .innerJoin(schema.user, eq(schema.orgUsage.user_id, schema.user.id))
       .where(
         and(
-          eq(schema.organizationUsage.organization_id, orgId),
-          gte(schema.organizationUsage.created_at, quotaResetDate)
+          eq(schema.orgUsage.org_id, orgId),
+          gte(schema.orgUsage.created_at, quotaResetDate)
         )
       )
-      .orderBy(desc(schema.organizationUsage.created_at))
+      .orderBy(desc(schema.orgUsage.created_at))
       .limit(50)
 
     const response: OrganizationUsageResponse = {
