@@ -154,7 +154,7 @@ export const mainPrompt = async (
       ? toolsInstructions
       : `Any tool calls will be run from the project root (${agentState.fileContext.currentWorkingDirectory}) unless otherwise specified`,
 
-    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use str_replace to edit an existing file, make sure to read it.',
+    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
 
     (isFlash || isGeminiPro) &&
       'Important: When mentioning a file path, for example for <write_file> or <read_files>, make sure to include all the directories in the path to the file from the project root. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts! Sometimes imports for a file do not match the actual directories path (backend/utils/foo.ts for example).',
@@ -164,8 +164,7 @@ export const mainPrompt = async (
 
     'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
 
-    // 'When editing an existing file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
-    'If you are making multiple edits row to a single file, use only one str_replace tool call with old_0, new_0, old_1, new_1, old_2, new_2, etc. instead of calling str_replace multiple times on the same file.',
+    'When editing an existing file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
 
     'If you are trying to kill background processes, make sure to kill the entire process GROUP (or tree in Windows), and always prefer SIGTERM signals. If you restart the process, make sure to do so with process_type=BACKGROUND',
 
@@ -735,7 +734,7 @@ export const mainPrompt = async (
           return {
             tool: 'write_file' as const,
             path,
-            error: 'Unknown error: Failed to process the write_file block.',
+            error: `Error: Failed to process the write_file block. ${typeof error === 'string' ? error : error.msg}`,
           }
         })
 

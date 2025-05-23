@@ -79,10 +79,6 @@ ${getToolCallString('update_subgoal', {
 
 Create or edit a file with the given content.
 
-#### write_file vs str_replace
-
-Prefer to use the str_replace tool for most edits to existing files. If you are creating a new file, use the write_file tool. Use this tool if you are changing most of the code in a file.
-
 #### Edit Snippet
 
 Format the \`content\` parameter as an edit snippet that describes how you would like to modify the provided existing code.
@@ -145,7 +141,9 @@ function foo() {
     description: `
 ### str_replace
 
-Replace strings in a file with new strings. Prefer this tool to write_file unless you are changing most everything in the file. However, do not use this tool to create new files.
+Replace strings in a file with new strings.
+
+This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
 
 Params:
 - \`path\`: (required) The path to the file to edit.
