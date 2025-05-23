@@ -254,6 +254,13 @@ export const org = pgTable('org', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   stripe_customer_id: text('stripe_customer_id').unique(),
+  auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(false),
+  auto_topup_threshold: integer('auto_topup_threshold').default(500),
+  auto_topup_amount: integer('auto_topup_amount').default(2000),
+  credit_limit: integer('credit_limit'),
+  billing_alerts: boolean('billing_alerts').notNull().default(true),
+  usage_alerts: boolean('usage_alerts').notNull().default(true),
+  weekly_reports: boolean('weekly_reports').notNull().default(false),
   created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
     .notNull()
     .defaultNow(),

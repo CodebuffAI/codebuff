@@ -34,12 +34,15 @@ const CreateOrganizationPage = () => {
 
     setIsLoading(true)
     try {
-      const response = await fetch('/api/organizations', {
+      const response = await fetch('/api/orgs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+        }),
       })
 
       if (!response.ok) {
@@ -52,7 +55,7 @@ const CreateOrganizationPage = () => {
         title: 'Success',
         description: 'Organization created successfully',
       })
-      router.push(`/organizations/${organization.id}`)
+      router.push(`/orgs/${organization.id}`)
     } catch (error) {
       toast({
         title: 'Error',
@@ -101,7 +104,7 @@ const CreateOrganizationPage = () => {
     <div className="container mx-auto py-6 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center mb-8">
-          <Link href="/organizations">
+          <Link href="/orgs">
             <Button variant="ghost" size="sm" className="mr-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Organizations
@@ -152,7 +155,7 @@ const CreateOrganizationPage = () => {
 
               <div className="border-t pt-6">
                 <div className="flex justify-end space-x-4">
-                  <Link href="/organizations">
+                  <Link href="/orgs">
                     <Button type="button" variant="outline" disabled={isLoading}>
                       Cancel
                     </Button>
