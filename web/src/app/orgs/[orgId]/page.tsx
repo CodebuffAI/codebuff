@@ -22,6 +22,17 @@ import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
 import { CreditMonitor } from '@/components/organization/credit-monitor'
 import { BillingAlerts } from '@/components/organization/billing-alerts'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 interface OrganizationDetails {
   id: string
@@ -53,6 +64,9 @@ export default function OrganizationPage() {
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [creditPurchaseOpen, setCreditPurchaseOpen] = useState(false)
+  const [creditAmount, setCreditAmount] = useState('1000')
+  const [purchasing, setPurchasing] = useState(false)
 
   useEffect(() => {
     if (status === 'authenticated' && orgId) {
@@ -118,11 +132,21 @@ export default function OrganizationPage() {
   }
 
   const handlePurchaseCredits = async () => {
-    // For now, redirect to a simple credit purchase flow
-    // In a full implementation, this would open a modal or dedicated page
-    const amount = 1000 // $10.00 in cents
-    
+    const credits = parseInt(creditAmount)
+    if (!credits || credits < 100) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a valid credit amount (minimum 100 credits)',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setPurchasing(true)
     try {
+      // Convert credits to cents (assuming 1 credit = 1 cent for now)
+      const amount = credits
+
       const response = await fetch(`/api/orgs/${orgId}/credits`, {
         method: 'POST',
         headers: {
@@ -144,6 +168,8 @@ export default function OrganizationPage() {
         description: error instanceof Error ? error.message : 'Failed to purchase credits',
         variant: 'destructive',
       })
+    } finally {
+      setPurchasing(false)
     }
   }
 
@@ -354,10 +380,61 @@ export default function OrganizationPage() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Add credits to your organization's balance for team usage.
                 </p>
-                <Button onClick={handlePurchaseCredits} className="w-full">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Buy Credits
-                </Button>
+                <Dialog open={creditPurchaseOpen} onOpenChange={setCreditPurchaseOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Buy Credits
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Purchase Credits</DialogTitle>
+                      <DialogDescription>
+                        Choose how many credits to add to your organization's balance.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="credit-amount">Credit Amount</Label>
+                        <Input
+                          id="credit-amount"
+                          type="number"
+                          min="100"
+                          step="100"
+                          value={creditAmount}
+                          onChange={(e) => setCreditAmount(e.target.value)}
+                          placeholder="1000"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Minimum: 100 credits • 1 credit ≈ $0.01
+                        </p>
+                      </div>
+                      <div className="bg-muted p-3 rounded-lg">
+                        <div className="flex justify-between text-sm">
+                          <span>Credits:</span>
+                          <span>{parseInt(creditAmount) || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-sm font-medium">
+                          <span>Total Cost:</span>
+                          <span>${((parseInt(creditAmount) || 0) / 100).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setCreditPurchaseOpen(false)}
+                        disabled={purchasing}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={handlePurchaseCredits} disabled={purchasing}>
+                        {purchasing ? 'Processing...' : 'Purchase Credits'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </CardContent>
             </Card>
           )}

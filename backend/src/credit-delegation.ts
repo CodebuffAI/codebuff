@@ -76,6 +76,8 @@ export async function findOrganizationForRepository(
   }
 }
 
+
+
 /**
  * Consumes credits from either user or organization based on explicit parameters.
  *
@@ -227,24 +229,24 @@ export async function consumeCreditsWithDelegation(
         )
       }
 
-      // If organization credits fail (e.g., insufficient balance), fall back to user credits
+      // No fallback - organization credit consumption failed
       logger.warn(
         {
           userId,
           organizationId,
           organizationName,
           creditsUsed,
-          error: orgError,
+          orgError: orgError instanceof Error ? orgError.message : 'Unknown error',
         },
-        'Organization credit consumption failed, falling back to user credits'
+        'Organization credit consumption failed - no fallback to personal credits'
       )
 
-      const result = await consumeCredits(userId, creditsUsed)
       return {
-        success: true,
-        consumed: result.consumed,
+        success: false,
+        consumed: 0,
         fromOrganization: false,
-        organizationId, // Still include org ID to show which org was attempted
+        organizationId,
+        error: `Insufficient organization credits: ${orgError instanceof Error ? orgError.message : 'Unknown error'}`,
       }
     }
   } catch (error) {
