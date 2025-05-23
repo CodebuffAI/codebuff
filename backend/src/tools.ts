@@ -653,12 +653,13 @@ Arrays with name "param_name_vals" should be formatted as individual parameters,
 User: can you update the console logs in example/file.ts?
 Assistant: Sure thing! Let's update that file!
 
-${getToolCallString('str_replace', {
+${getToolCallString('write_file', {
   path: 'path/to/example/file.ts',
-  old_0: '// Replace this line with a fun greeting',
-  new_0: "console.log('Hello from Buffy!');",
-  old_1: "console.log('Old console line to delete');\n",
-  new_1: '',
+  contents: "console.log('Hello from Buffy!');",
+  // old_0: '// Replace this line with a fun greeting',
+  // new_0: "console.log('Hello from Buffy!');",
+  // old_1: "console.log('Old console line to delete');\n",
+  // new_1: '',
 })}
 
 All done with the update!
