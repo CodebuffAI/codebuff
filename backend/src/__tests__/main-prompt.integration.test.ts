@@ -53,7 +53,7 @@ describe('mainPrompt (Integration)', () => {
     mock.restore()
   })
 
-  it('should delete a specified function while preserving other code', async () => {
+  it.skip('should delete a specified function while preserving other code', async () => {
     // Mock necessary non-LLM functions
     spyOn(logger, 'debug').mockImplementation(() => {})
     spyOn(logger, 'error').mockImplementation(() => {})

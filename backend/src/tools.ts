@@ -79,18 +79,39 @@ ${getToolCallString('update_subgoal', {
 
 Create or edit a file with the given content.
 
-#### Edit Snippet
+#### **IMPORTANT** Edit Snippet
 
 Format the \`content\` parameter as an edit snippet that describes how you would like to modify the provided existing code.
 
-Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... rest of headers/sections/code ...". Be descriptive in the comment.
+Edit snippets will be parsed by a less intelligent "fast-apply" model, so you must follow this format, otherwise the smaller model will not understand what to change.
+
+Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... rest of headers/sections/code ...". Be descriptive in the comment. You MUST to use these in order to **MINIMIZE** the number of characters in the \`content\` parameter.
 
 Make sure that you are abbreviating exactly where you believe the existing code will remain the same.
 Indicate the location and nature of the modifications (additions and deletions) with comments and ellipses.
 
 Make sure that you preserve the indentation and code structure of exactly how you believe the final code will look like (do not output lines that will not be in the final code after they are merged).
 
-If you plan on deleting a section, please give the relevant context such that the code is understood to be removed, e.g., if the initial code is \`\`\`// code Block 1, Block 2, Block 3 // code\`\`\`, and you want to remove Block 2, you would output \`\`\`/// rest of code Block 1, Block 2 // rest of code\`\`\`
+**CRITICAL FOR DELETIONS** If you plan on deleting a section, you MUST provide a comment giving the relevant context such that the code is understood to be removed. This is REQUIRED for the fast-apply model to understand what to delete.
+
+Examples:
+
+If the initial code is:
+\`\`\`Some code
+Block 1
+Block 2
+Block 3
+More code
+\`\`\`
+And if you want to delete code block 2, you MUST include a comment like:
+\`\`\`// existing code
+Block 1
+// Delete Block 2
+Block 3
+// rest of code
+\`\`\`
+
+**YOU MUST ALWAYS INCLUDE DELETION COMMENTS** when removing code blocks, functions, variables, or any other code elements. The fast-apply model cannot understand deletions without these explicit comments.
 
 #### Additional Info
 
@@ -106,7 +127,7 @@ Notes for editing a file:
 
 Parameters:
 - \`path\`: (required) Path to the file relative to the **project root**
-- \`content\`: (required) Content to write to the file. You should abridge the content of the file using placeholder comments like: \`// ... existing code ...\` or \`# ... existing code ...\` (or whichever is appropriate for the language).
+- \`content\`: (required) Edit snippet to apply to the file.
 
 Examples:
 ${getToolCallString('write_file', {
@@ -123,7 +144,7 @@ ${getToolCallString('write_file', {
 Example 2 - Editing with placeholder comments:
 ${getToolCallString('write_file', {
   path: 'foo.ts',
-  content: `// ... existing code ...
+  content: `// no change to imports
 
 function foo() {
   console.log('foo');
@@ -133,7 +154,7 @@ function foo() {
   doSomething();
 }
 
-// ... existing code ...`,
+// rest of code`,
 })}
 
     `.trim(),
@@ -461,7 +482,7 @@ const addSubgoalSchema = z.object({
 const updateSubgoalSchema = z.object({
   id: z.string().min(1, 'Id cannot be empty'),
   status: z
-    .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED'])
+    .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'FAILED'])
     .optional(),
   plan: z.string().optional(),
   log: z.string().optional(),
