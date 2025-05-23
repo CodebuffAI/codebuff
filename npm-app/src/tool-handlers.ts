@@ -120,7 +120,7 @@ export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
 
     const basename = path.basename(projectPath)
     const pattern = JSON.stringify(parameters.pattern)
-    const command = `${path.resolve(rgPath)} ${pattern}.`
+    const command = `${path.resolve(rgPath)} ${pattern} .`
     console.log()
     console.log(green(`Searching ${basename} for ${pattern}:`))
     const childProcess = spawn(command, {
