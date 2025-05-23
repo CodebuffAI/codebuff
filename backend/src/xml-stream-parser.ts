@@ -1,4 +1,5 @@
 import { Saxy, TagCloseNode, TagOpenNode, TextNode } from 'common/util/saxy'
+import { includesMatch } from 'common/util/string'
 
 interface PendingState {
   currentTool: null
@@ -31,7 +32,7 @@ export async function* processStreamWithTags<T extends string>(
   processors: Record<
     string,
     {
-      params: Array<string>
+      params: Array<string | RegExp>
       onTagStart: (tagName: string, attributes: Record<string, string>) => void
       onTagEnd: (tagName: string, params: Record<string, string>) => void
     }
@@ -61,12 +62,12 @@ export async function* processStreamWithTags<T extends string>(
     const params: Record<string, string> = {}
     const extraAttrs: string[] = []
     for (const [key, value] of Object.entries(attributes)) {
-      if (!processors[toolName].params.includes(key)) {
-        extraAttrs.push(key)
+      if (includesMatch(processors[toolName].params, key)) {
+        params[key] = value
         continue
       }
 
-      params[key] = value
+      extraAttrs.push(key)
     }
     if (extraAttrs.length) {
       onError(
@@ -90,7 +91,7 @@ export async function* processStreamWithTags<T extends string>(
     rawTag: string
   ): State {
     if (state.currentParam !== null) {
-      if (processors[state.currentTool].params.includes(paramName)) {
+      if (includesMatch(processors[state.currentTool].params, paramName)) {
         onError(
           state.currentTool,
           `WARN: Parameter found while parsing param ${state.currentParam} of ${state.currentTool}. Ignoring new parameter. Make sure to close all params and escape XML!`
@@ -120,7 +121,7 @@ export async function* processStreamWithTags<T extends string>(
       return startTool(endTool(state), paramName, attributes)
     }
 
-    if (!processors[state.currentTool].params.includes(paramName)) {
+    if (!includesMatch(processors[state.currentTool].params, paramName)) {
       onError(
         paramName,
         `WARN: Tool not found. Make sure to escape non-tool XML! e.g. &lt;${paramName}&gt;`

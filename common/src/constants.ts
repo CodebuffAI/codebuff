@@ -129,7 +129,7 @@ export const getModelForMode = (
 }
 
 export const claudeModels = {
-  sonnet: 'claude-3-5-sonnet-20241022',
+  sonnet: 'claude-sonnet-4-20250514',
   sonnet3_7: 'claude-3-7-sonnet-20250219',
   haiku: 'claude-3-5-haiku-20241022',
 } as const

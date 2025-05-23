@@ -127,7 +127,7 @@ async function* promptClaudeStreamWithoutRetry(
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
       model,
-      max_tokens: maxTokens ?? (model === claudeModels.sonnet ? 8192 : 8096),
+      max_tokens: maxTokens ?? (model === claudeModels.sonnet ? 32_000 : 8096),
       temperature: thinking?.type === 'enabled' ? 1 : 0,
       messages: transformedMsgs,
       system,

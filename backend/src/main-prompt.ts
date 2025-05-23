@@ -139,7 +139,7 @@ export const mainPrompt = async (
   const userInstructions = buildArray(
     isLiteMode
       ? 'Please proceed toward the user request and any subgoals. Please complete the entire user request. You must finally use the end_turn tool at the end of your response.'
-      : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool). You must finally use the end_turn tool at the end of your response.',
+      : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool).',
 
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
@@ -147,8 +147,7 @@ export const mainPrompt = async (
 
     "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
-    (isFlash || isGeminiPro) &&
-      'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
+    'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
 
     isGeminiPro
       ? toolsInstructions
@@ -159,17 +158,15 @@ export const mainPrompt = async (
     (isFlash || isGeminiPro) &&
       'Important: When mentioning a file path, for example for <write_file> or <read_files>, make sure to include all the directories in the path to the file from the project root. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts! Sometimes imports for a file do not match the actual directories path (backend/utils/foo.ts for example).',
 
-    'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
+    !isLiteMode &&
+      'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
-    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Makes sure when using write_file to pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
-
-    'When editing an existing file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
+    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
 
     'If you are trying to kill background processes, make sure to kill the entire process GROUP (or tree in Windows), and always prefer SIGTERM signals. If you restart the process, make sure to do so with process_type=BACKGROUND',
 
-    `Only use the tools listed, (i.e. ${TOOL_LIST.join(', ')}). If you use tools not listed, nothing will happen, but the user will get some unintended display issues.`,
-
-    `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
+    !isLiteMode &&
+      `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
 
     isFlash &&
       "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
@@ -195,10 +192,12 @@ export const mainPrompt = async (
 
     'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
+    'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
+
     !isLiteMode &&
       `Before finishing your response, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
     !isLiteMode &&
-      "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
+      "If you are still working on the user's request, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
     isGPT4_1 &&
       `**Do NOT end your response if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`,
 
@@ -596,7 +595,7 @@ export const mainPrompt = async (
     tool: T,
     after: (toolCall: ToolCall<T>) => void
   ): {
-    params: string[]
+    params: (string | RegExp)[]
     onTagStart: () => void
     onTagEnd: (
       name: string,
@@ -734,7 +733,7 @@ export const mainPrompt = async (
           return {
             tool: 'write_file' as const,
             path,
-            error: 'Unknown error: Failed to process the write_file block.',
+            error: `Error: Failed to process the write_file block. ${typeof error === 'string' ? error : error.msg}`,
           }
         })
 
@@ -743,8 +742,8 @@ export const mainPrompt = async (
         return
       }),
       str_replace: toolCallback('str_replace', (toolCall) => {
-        const { path, old, new: newStr } = toolCall.parameters
-        if (!old || typeof old !== 'string') {
+        const { path, old_vals, new_vals } = toolCall.parameters
+        if (!old_vals || !Array.isArray(old_vals)) {
           return
         }
 
@@ -764,8 +763,8 @@ export const mainPrompt = async (
 
         const newPromise = processStrReplace(
           path,
-          old,
-          newStr || '',
+          old_vals,
+          new_vals || [],
           latestContentPromise
         ).catch((error: any) => {
           logger.error(error, 'Error processing str_replace block')

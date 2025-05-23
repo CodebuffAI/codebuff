@@ -161,6 +161,10 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
   },
   str_replace: {
+    onToolStart: (toolName) => {
+      toolStart = true
+      return '\n\n' + gray(`[${bold('Edit File')}]`) + '\n'
+    },
     onParamStart: (paramName) => {
       if (paramName === 'path') {
         return gray('Editing file at ')
