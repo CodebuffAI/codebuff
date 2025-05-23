@@ -94,6 +94,8 @@ If you plan on deleting a section, please give the relevant context such that th
 
 #### Additional Info
 
+Prefer using this tool to str_replace.
+
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
 Notes for editing a file:
@@ -676,8 +678,6 @@ However, most of the time, the user will refer to files from their own cwd. You 
 ## Optimizations
 
 All tools are very slow, with runtime scaling with the amount of text in the parameters. Prefer to write AS LITTLE TEXT AS POSSIBLE to accomplish the task.
-
-Usually, this means using str_replace instead of write_file (unless, e.g. deleting large blocks of code).
 
 When using write_file, make sure to only include a few lines of context and not the entire file.
 
