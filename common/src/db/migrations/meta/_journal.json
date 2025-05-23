@@ -127,6 +127,13 @@
       "when": 1747958028335,
       "tag": "0017_nappy_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1747964044513,
+      "tag": "0018_silky_proudstar",
+      "breakpoints": true
     }
   ]
 }
