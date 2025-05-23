@@ -111,11 +111,14 @@ export async function processStrReplace(
 
   const finalPatch = allPatches.join('\n')
 
+  // Determine the lineEnding from the original initialContent
+  const outputLineEnding = initialContent?.includes('\r\n') ? '\r\n' : '\n'
+
   logger.debug(
     {
       path,
       newContent: currentContent,
-      patch: finalPatch,
+      patch: finalPatch.replaceAll('\n', outputLineEnding),
     },
     `processStrReplace: Updated file ${path}`
   )
@@ -124,7 +127,7 @@ export async function processStrReplace(
     tool: 'str_replace' as const,
     path,
     content: currentContent!,
-    patch: finalPatch,
+    patch: finalPatch.replaceAll('\n', outputLineEnding),
   }
 }
 
