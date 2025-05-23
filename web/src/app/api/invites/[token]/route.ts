@@ -108,7 +108,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const inv = invitation[0].org_invitation
+    const inv = invitation[0].org_invite
     const org = invitation[0].org
 
     // Check if the invitation email matches the logged-in user's email

@@ -1,5 +1,5 @@
 import { consumeCredits, getUserCostPerCredit } from '@codebuff/billing'
-import { consumeCreditsWithDelegation } from '../credit-delegation'
+import { consumeCreditsWithDelegation, findOrganizationForRepository } from '../credit-delegation'
 import { CoreMessage } from 'ai'
 import { trackEvent } from 'common/analytics'
 import { models, TEST_USER_ID } from 'common/constants'
@@ -427,10 +427,29 @@ async function updateUserCycleUsage(
     return { consumed: 0, fromPurchased: 0 }
   }
   try {
-    // Use credit delegation logic to determine whether to use org or user credits
+    // First, explicitly determine which organization (if any) to use
+    let organizationId: string | undefined
+    if (repositoryUrl) {
+      const orgLookup = await findOrganizationForRepository(userId, repositoryUrl)
+      if (orgLookup.found) {
+        organizationId = orgLookup.organizationId
+        logger.debug(
+          { userId, repositoryUrl, organizationId, organizationName: orgLookup.organizationName },
+          'Found organization for repository'
+        )
+      } else {
+        logger.debug(
+          { userId, repositoryUrl },
+          'No organization found for repository, will use user credits'
+        )
+      }
+    }
+
+    // Now explicitly consume credits with the determined organization ID
     const delegationResult = await consumeCreditsWithDelegation(
       userId,
       creditsUsed,
+      organizationId,
       repositoryUrl
     )
 
