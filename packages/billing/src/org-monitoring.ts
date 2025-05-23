@@ -1,6 +1,11 @@
 import { logger } from 'common/util/logger'
 import { trackEvent } from 'common/analytics'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
+import { calculateOrganizationUsageAndBalance } from './org-billing'
+import { getQuotaResetDate } from './utils'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { eq } from 'drizzle-orm'
 
 export interface OrganizationCreditAlert {
   organizationId: string
@@ -21,6 +26,92 @@ export interface OrganizationUsageMetrics {
   averageCreditsPerUser: number
   topRepository: string
   timeframe: 'daily' | 'weekly' | 'monthly'
+}
+
+export interface OrganizationAlert {
+  id: string
+  type: 'low_balance' | 'high_usage' | 'auto_topup_failed' | 'credit_limit_reached'
+  severity: 'info' | 'warning' | 'critical'
+  title: string
+  message: string
+  timestamp: Date
+  metadata?: Record<string, any>
+}
+
+/**
+ * Gets organization alerts for UI display
+ */
+export async function getOrganizationAlerts(
+  organizationId: string
+): Promise<OrganizationAlert[]> {
+  const alerts: OrganizationAlert[] = []
+
+  try {
+    // Get organization settings
+    const organization = await db.query.org.findFirst({
+      where: eq(schema.org.id, organizationId),
+    })
+
+    if (!organization) {
+      return alerts
+    }
+
+    // Check current balance
+    const now = new Date()
+    const quotaResetDate = getQuotaResetDate(now)
+    const { balance, usageThisCycle } = await calculateOrganizationUsageAndBalance(
+      organizationId,
+      quotaResetDate,
+      now
+    )
+
+    // Low balance alert
+    if (organization.billing_alerts && balance.netBalance < 500) {
+      alerts.push({
+        id: `low-balance-${organizationId}`,
+        type: 'low_balance',
+        severity: balance.netBalance < 100 ? 'critical' : 'warning',
+        title: 'Low Credit Balance',
+        message: `Organization has ${balance.netBalance} credits remaining`,
+        timestamp: new Date()
+      })
+    }
+
+    // High usage alert
+    if (organization.usage_alerts && usageThisCycle > 5000) {
+      alerts.push({
+        id: `high-usage-${organizationId}`,
+        type: 'high_usage',
+        severity: 'info',
+        title: 'High Usage This Cycle',
+        message: `Organization has used ${usageThisCycle} credits this billing cycle`,
+        timestamp: new Date()
+      })
+    }
+
+    // Credit limit alert
+    if (organization.credit_limit && usageThisCycle >= organization.credit_limit * 0.9) {
+      alerts.push({
+        id: `credit-limit-${organizationId}`,
+        type: 'credit_limit_reached',
+        severity: usageThisCycle >= organization.credit_limit ? 'critical' : 'warning',
+        title: 'Credit Limit Approaching',
+        message: `Organization has used ${usageThisCycle} of ${organization.credit_limit} credits this month (${Math.round((usageThisCycle / organization.credit_limit) * 100)}%)`,
+        timestamp: new Date()
+      })
+    }
+
+    // Note: Auto-topup failures are already tracked in the sync_failures table
+    // No need for additional database schema updates for this functionality
+
+    return alerts
+  } catch (error) {
+    logger.error(
+      { organizationId, error },
+      'Error generating organization alerts'
+    )
+    return alerts
+  }
 }
 
 /**

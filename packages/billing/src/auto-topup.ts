@@ -10,6 +10,9 @@ import { processAndGrantCredit } from './grant-credits'
 import { calculateUsageAndBalance } from './balance-calculator'
 import { generateOperationIdTimestamp } from './utils'
 import { env } from 'common/src/env.mjs'
+import { CREDIT_PRICING } from 'common/src/constants'
+import { grantOrganizationCredits, calculateOrganizationUsageAndBalance } from './org-billing'
+import { getQuotaResetDate } from './utils'
 
 const MINIMUM_PURCHASE_CREDITS = 500
 
@@ -265,6 +268,158 @@ export async function checkAndTriggerAutoTopup(
     logger.error(
       { ...logContext, error },
       `Error during auto-top-up check for user ${userId}`
+    )
+    throw error
+  }
+}
+
+async function getOrganizationSettings(organizationId: string) {
+  const organization = await db.query.org.findFirst({
+    where: eq(schema.org.id, organizationId),
+    columns: {
+      auto_topup_enabled: true,
+      auto_topup_threshold: true,
+      auto_topup_amount: true,
+      stripe_customer_id: true,
+    },
+  })
+
+  if (!organization) {
+    throw new Error(`Organization ${organizationId} not found`)
+  }
+
+  return organization
+}
+
+async function processOrgAutoTopupPayment(
+  organizationId: string,
+  amountToTopUp: number,
+  stripeCustomerId: string
+): Promise<void> {
+  const logContext = { organizationId, amountToTopUp }
+
+  // Generate a deterministic operation ID based on organizationId and current time to minute precision
+  const timestamp = generateOperationIdTimestamp(new Date())
+  const idempotencyKey = `org-auto-topup-${organizationId}-${timestamp}`
+  const operationId = idempotencyKey // Use same ID for both Stripe and our DB
+
+  // Organizations use fixed pricing
+  const amountInCents = amountToTopUp * CREDIT_PRICING.CENTS_PER_CREDIT
+
+  if (amountInCents <= 0) {
+    throw new AutoTopupPaymentError('Invalid payment amount calculated')
+  }
+
+  const paymentIntent = await stripeServer.paymentIntents.create(
+    {
+      amount: amountInCents,
+      currency: 'usd',
+      customer: stripeCustomerId,
+      off_session: true,
+      confirm: true,
+      description: `Organization auto top-up: ${amountToTopUp.toLocaleString()} credits`,
+      metadata: {
+        organization_id: organizationId,
+        credits: amountToTopUp.toString(),
+        operationId,
+        type: 'org-auto-topup',
+      },
+    },
+    {
+      idempotencyKey, // Add Stripe idempotency key
+    }
+  )
+
+  if (paymentIntent.status !== 'succeeded') {
+    throw new AutoTopupPaymentError('Payment failed or requires action')
+  }
+
+  await grantOrganizationCredits(
+    organizationId,
+    amountToTopUp,
+    operationId,
+    `Organization auto top-up of ${amountToTopUp.toLocaleString()} credits`,
+    null
+  )
+
+  logger.info(
+    {
+      ...logContext,
+      operationId,
+      paymentIntentId: paymentIntent.id,
+    },
+    'Organization auto top-up payment succeeded and credits granted'
+  )
+}
+
+export async function checkAndTriggerOrgAutoTopup(
+  organizationId: string
+): Promise<void> {
+  const logContext = { organizationId }
+
+  try {
+    const org = await getOrganizationSettings(organizationId)
+
+    if (!org.auto_topup_enabled || !org.stripe_customer_id) {
+      return
+    }
+
+    const { balance } = await calculateOrganizationUsageAndBalance(
+      organizationId,
+      getQuotaResetDate()
+    )
+
+    if (balance.netBalance > (org.auto_topup_threshold || 0)) {
+      logger.info(
+        {
+          ...logContext,
+          currentBalance: balance.netBalance,
+          threshold: org.auto_topup_threshold,
+        },
+        `Organization auto top-up not needed. Balance ${balance.netBalance} is above threshold ${org.auto_topup_threshold}.`
+      )
+      return
+    }
+
+    const amountToTopUp = org.auto_topup_amount || 0
+
+    if (amountToTopUp < MINIMUM_PURCHASE_CREDITS) {
+      logger.warn(
+        logContext,
+        `Organization auto-top-up triggered but amount ${amountToTopUp} is less than minimum ${MINIMUM_PURCHASE_CREDITS}. Skipping top-up. Check organization settings.`
+      )
+      return
+    }
+
+    logger.info(
+      {
+        ...logContext,
+        currentBalance: balance.netBalance,
+        threshold: org.auto_topup_threshold,
+        amountToTopUp,
+      },
+      `Organization auto-top-up needed. Will attempt to purchase ${amountToTopUp} credits.`
+    )
+
+    try {
+      await processOrgAutoTopupPayment(
+        organizationId,
+        amountToTopUp,
+        org.stripe_customer_id
+      )
+    } catch (error) {
+      // Auto-topup failures are automatically logged to sync_failures table
+      // by the existing error handling in processOrgAutoTopupPayment
+      logger.error(
+        { ...logContext, error },
+        'Organization auto top-up payment failed'
+      )
+      throw error
+    }
+  } catch (error) {
+    logger.error(
+      { ...logContext, error },
+      `Error during organization auto-top-up check for ${organizationId}`
     )
     throw error
   }

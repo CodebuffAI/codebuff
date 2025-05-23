@@ -41,7 +41,8 @@ import {
   displaySlashCommandHelperMenu,
   getSlashCommands,
 } from './menu'
-import { getProjectRoot, getWorkingDirectory, isDir } from './project-files'
+import { OrganizationContextManager } from './organization-context'
+import { getProjectRoot, getWorkingDirectory, isDir, getCurrentRepositoryUrl } from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
 import { Spinner } from './utils/spinner'
@@ -74,6 +75,7 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
+  private orgContext = new OrganizationContextManager()
 
   public rl!: readline.Interface
 
@@ -382,6 +384,10 @@ export class CLI {
       return
     }
     userInput = userInput.trim()
+    
+    // Update organization context when starting work
+    await this.updateAndDisplayOrganizationContext()
+    
     if (await this.processCommand(userInput)) {
       return
     }
@@ -749,5 +755,22 @@ export class CLI {
       }
     }
     this.lastInputTime = currentTime
+  }
+
+  private async updateAndDisplayOrganizationContext() {
+    try {
+      const currentRepo = await getCurrentRepositoryUrl()
+      if (currentRepo) {
+        await this.orgContext.updateContextForRepository(currentRepo)
+        this.displayOrganizationContext()
+      }
+    } catch (error) {
+      // Silently fail - organization context is not critical
+    }
+  }
+
+  private displayOrganizationContext() {
+    const message = this.orgContext.getDisplayMessage()
+    console.log(`💳 ${message}`)
   }
 }
