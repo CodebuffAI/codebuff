@@ -147,8 +147,7 @@ export const mainPrompt = async (
 
     "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
-    (isFlash || isGeminiPro) &&
-      'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
+    'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
 
     isGeminiPro
       ? toolsInstructions
@@ -163,8 +162,6 @@ export const mainPrompt = async (
       'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
     'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
-
-    'When editing an existing file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file.',
 
     'If you are trying to kill background processes, make sure to kill the entire process GROUP (or tree in Windows), and always prefer SIGTERM signals. If you restart the process, make sure to do so with process_type=BACKGROUND',
 
@@ -195,10 +192,12 @@ export const mainPrompt = async (
 
     'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
+    'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
+
     !isLiteMode &&
       `Before finishing your response, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
     !isLiteMode &&
-      "IF YOU ARE STILL WORKING ON THE USER'S REQUEST, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
+      "If you are still working on the user's request, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
     isGPT4_1 &&
       `**Do NOT end your response if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`,
 
