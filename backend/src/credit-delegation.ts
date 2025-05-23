@@ -1,9 +1,9 @@
-import { 
-  consumeCredits, 
-  consumeOrganizationCredits, 
+import {
+  consumeCredits,
+  consumeOrganizationCredits,
   normalizeRepositoryUrl,
   sendOrganizationAlert,
-  monitorOrganizationCredits
+  monitorOrganizationCredits,
 } from '@codebuff/billing'
 import { logger } from './util/logger'
 import db from 'common/db'
@@ -18,44 +18,36 @@ export interface CreditDelegationResult {
   error?: string
 }
 
-/**
- * Determines whether to use organization or user credits based on repository URL
- * and consumes the appropriate credits.
- */
-export async function consumeCreditsWithDelegation(
-  userId: string,
-  creditsUsed: number,
-  repositoryUrl?: string
-): Promise<CreditDelegationResult> {
-  try {
-    // If no repository URL, use user credits
-    if (!repositoryUrl) {
-      const result = await consumeCredits(userId, creditsUsed)
-      return {
-        success: true,
-        consumed: result.consumed,
-        fromOrganization: false,
-      }
-    }
+export interface OrganizationLookupResult {
+  organizationId?: string
+  organizationName?: string
+  found: boolean
+}
 
-    // Normalize repository URL
+/**
+ * Looks up which organization (if any) has approved a repository for a given user.
+ * This is now a separate, explicit step that callers can use to determine
+ * which organization to pass to consumeCreditsWithDelegation.
+ */
+export async function findOrganizationForRepository(
+  userId: string,
+  repositoryUrl: string
+): Promise<OrganizationLookupResult> {
+  try {
     const normalizedUrl = normalizeRepositoryUrl(repositoryUrl)
 
     // Find if this repository is approved for any organization the user belongs to
     const approvedOrgs = await db
-      .select({ 
+      .select({
         organizationId: schema.orgRepo.org_id,
-        organizationName: schema.org.name
+        organizationName: schema.org.name,
       })
       .from(schema.orgRepo)
       .innerJoin(
-        schema.orgMember, 
+        schema.orgMember,
         eq(schema.orgRepo.org_id, schema.orgMember.org_id)
       )
-      .innerJoin(
-        schema.org,
-        eq(schema.orgRepo.org_id, schema.org.id)
-      )
+      .innerJoin(schema.org, eq(schema.orgRepo.org_id, schema.org.id))
       .where(
         and(
           eq(schema.orgMember.user_id, userId),
@@ -65,13 +57,47 @@ export async function consumeCreditsWithDelegation(
       )
       .limit(1) // Use first matching organization
 
-    // If no organization approves this repo, use user credits
     if (approvedOrgs.length === 0) {
+      return { found: false }
+    }
+
+    const { organizationId, organizationName } = approvedOrgs[0]
+    return {
+      organizationId,
+      organizationName,
+      found: true,
+    }
+  } catch (error) {
+    logger.error(
+      { userId, repositoryUrl, error },
+      'Error looking up organization for repository'
+    )
+    return { found: false }
+  }
+}
+
+/**
+ * Consumes credits from either user or organization based on explicit parameters.
+ *
+ * @param userId - The user consuming credits
+ * @param creditsUsed - Number of credits to consume
+ * @param organizationId - Optional organization ID to consume from. If provided, will use organization credits.
+ * @param repositoryUrl - Optional repository URL for validation and logging
+ */
+export async function consumeCreditsWithDelegation(
+  userId: string,
+  creditsUsed: number,
+  organizationId?: string,
+  repositoryUrl?: string
+): Promise<CreditDelegationResult> {
+  try {
+    // If no organization ID specified, use user credits
+    if (!organizationId) {
       logger.debug(
-        { userId, repositoryUrl: normalizedUrl },
-        'No organization found for repository, using user credits'
+        { userId, repositoryUrl },
+        'No organization specified, using user credits'
       )
-      
+
       const result = await consumeCredits(userId, creditsUsed)
       return {
         success: true,
@@ -80,23 +106,102 @@ export async function consumeCreditsWithDelegation(
       }
     }
 
-    const { organizationId, organizationName } = approvedOrgs[0]
+    // Validate that user is a member of the specified organization
+    const membership = await db
+      .select({
+        role: schema.orgMember.role,
+        organizationName: schema.org.name,
+      })
+      .from(schema.orgMember)
+      .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
+      .where(
+        and(
+          eq(schema.orgMember.user_id, userId),
+          eq(schema.orgMember.org_id, organizationId)
+        )
+      )
+      .limit(1)
+
+    if (membership.length === 0) {
+      logger.warn(
+        { userId, organizationId },
+        'User is not a member of specified organization, using user credits'
+      )
+
+      const result = await consumeCredits(userId, creditsUsed)
+      return {
+        success: true,
+        consumed: result.consumed,
+        fromOrganization: false,
+      }
+    }
+
+    const { organizationName } = membership[0]
+
+    // If repository URL is provided, validate that the organization has approved it
+    if (repositoryUrl) {
+      const normalizedUrl = normalizeRepositoryUrl(repositoryUrl)
+
+      const approvedRepo = await db
+        .select()
+        .from(schema.orgRepo)
+        .where(
+          and(
+            eq(schema.orgRepo.org_id, organizationId),
+            eq(schema.orgRepo.repo_url, normalizedUrl),
+            eq(schema.orgRepo.is_active, true)
+          )
+        )
+        .limit(1)
+
+      if (approvedRepo.length === 0) {
+        logger.warn(
+          { userId, organizationId, repositoryUrl: normalizedUrl },
+          'Repository not approved for organization, using user credits'
+        )
+
+        const result = await consumeCredits(userId, creditsUsed)
+        return {
+          success: true,
+          consumed: result.consumed,
+          fromOrganization: false,
+          organizationId, // Include org ID to show which org was attempted
+        }
+      }
+    }
 
     // Try to consume organization credits
     try {
-      const result = await consumeOrganizationCredits(organizationId, creditsUsed)
-      
+      const result = await consumeOrganizationCredits(
+        organizationId,
+        creditsUsed
+      )
+
       logger.info(
-        { userId, organizationId, organizationName, creditsUsed, repositoryUrl: normalizedUrl },
+        {
+          userId,
+          organizationId,
+          organizationName,
+          creditsUsed,
+          repositoryUrl,
+        },
         'Successfully consumed organization credits'
       )
 
       // Monitor organization credits after consumption
       try {
         // Get current balance for monitoring (simplified - in production would get actual balance)
-        await monitorOrganizationCredits(organizationId, 0, creditsUsed, organizationName)
+        await monitorOrganizationCredits(
+          organizationId,
+          0,
+          creditsUsed,
+          organizationName
+        )
       } catch (monitorError) {
-        logger.warn({ organizationId, monitorError }, 'Failed to monitor organization credits')
+        logger.warn(
+          { organizationId, monitorError },
+          'Failed to monitor organization credits'
+        )
       }
 
       return {
@@ -113,15 +218,24 @@ export async function consumeCreditsWithDelegation(
           organizationName,
           alertType: 'failed_consumption',
           error: orgError instanceof Error ? orgError.message : 'Unknown error',
-          metadata: { userId, creditsUsed, repositoryUrl: normalizedUrl }
+          metadata: { userId, creditsUsed, repositoryUrl },
         })
       } catch (alertError) {
-        logger.warn({ organizationId, alertError }, 'Failed to send organization alert')
+        logger.warn(
+          { organizationId, alertError },
+          'Failed to send organization alert'
+        )
       }
 
       // If organization credits fail (e.g., insufficient balance), fall back to user credits
       logger.warn(
-        { userId, organizationId, organizationName, creditsUsed, error: orgError },
+        {
+          userId,
+          organizationId,
+          organizationName,
+          creditsUsed,
+          error: orgError,
+        },
         'Organization credit consumption failed, falling back to user credits'
       )
 
@@ -138,7 +252,7 @@ export async function consumeCreditsWithDelegation(
       { userId, repositoryUrl, creditsUsed, error },
       'Error in credit delegation'
     )
-    
+
     return {
       success: false,
       consumed: 0,

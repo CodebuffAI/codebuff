@@ -36,7 +36,7 @@ export default function InvitationPage({ params }: PageProps) {
 
   const fetchInvitation = async () => {
     try {
-      const response = await fetch(`/api/invitations/${params.token}`)
+      const response = await fetch(`/api/invites/${params.token}`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -62,7 +62,7 @@ export default function InvitationPage({ params }: PageProps) {
     setError(null)
 
     try {
-      const response = await fetch(`/api/invitations/${params.token}`, {
+      const response = await fetch(`/api/invites/${params.token}`, {
         method: 'POST',
       })
       const data = await response.json()

@@ -122,7 +122,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .limit(1)
 
     // Send invitation email
-    const invitationUrl = `${request.nextUrl.origin}/invitations/${token}`
+    const invitationUrl = `${request.nextUrl.origin}/invites/${token}`
     const emailResult = await sendOrganizationInvitationEmail({
       email: body.email,
       organizationName: organization!.name,
