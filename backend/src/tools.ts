@@ -150,7 +150,7 @@ Params:
 - \`old_{i}\`: (required) One item of the \`old_vals\` array. The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
 - \`new_{i}\`: (required) One item of the \`new_vals\` array. The string to replace the corresponding old string with.
 
-If you are making multiple edits row to a single file, use only one str_replace call with old_0, new_0, old_1, new_1, old_2, new_2, etc. instead of calling str_replace multiple times on the same file.
+If you are making multiple edits row to a single file with this tool, use only one <str_replace> call (without closing the tool) with old_0, new_0, old_1, new_1, old_2, new_2, etc. instead of calling str_replace multiple times on the same file.
 
 Example:
 ${getToolCallString('str_replace', {
