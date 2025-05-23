@@ -435,7 +435,7 @@ ${getToolCallString('browser_logs', {
 
 End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.
 
-Purpose: Use this tool if you have fully responded to the user and want to get their feedback. This ignores any tool results (from str_replace, run_terminal_command, etc.), so be sure you are done before using it.
+Purpose: Use this tool if you have fully responded to the user and want to get their feedback. This ignores any tool results (from write_file, run_terminal_command, etc.), so be sure you are done before using it.
 
 Params: None
 
