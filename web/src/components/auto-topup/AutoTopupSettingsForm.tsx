@@ -12,18 +12,18 @@ import { AutoTopupSettingsFormProps } from './types'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { dollarsToCredits, creditsToDollars } from '@/lib/currency'
+import { CREDIT_PRICING } from 'common/src/constants'
 
 const {
   MIN_THRESHOLD_CREDITS,
   MAX_THRESHOLD_CREDITS,
   MIN_TOPUP_DOLLARS,
   MAX_TOPUP_DOLLARS,
-  CENTS_PER_CREDIT,
 } = AUTO_TOPUP_CONSTANTS
 
-// Define min/max credits based on dollar limits
-const MIN_TOPUP_CREDITS = dollarsToCredits(MIN_TOPUP_DOLLARS, CENTS_PER_CREDIT)
-const MAX_TOPUP_CREDITS = dollarsToCredits(MAX_TOPUP_DOLLARS, CENTS_PER_CREDIT)
+// Define min/max credits based on dollar limits using standard pricing
+const MIN_TOPUP_CREDITS = dollarsToCredits(MIN_TOPUP_DOLLARS)
+const MAX_TOPUP_CREDITS = dollarsToCredits(MAX_TOPUP_DOLLARS)
 
 export function AutoTopupSettingsForm({
   isEnabled,
@@ -36,8 +36,8 @@ export function AutoTopupSettingsForm({
   const [thresholdError, setThresholdError] = useState<string>('')
   const [topUpCreditsError, setTopUpCreditsError] = useState<string>('')
 
-  // Convert dollar amount to credits for display
-  const topUpAmountCredits = dollarsToCredits(topUpAmountDollars, CENTS_PER_CREDIT)
+  // Convert dollar amount to credits for display using standard pricing
+  const topUpAmountCredits = dollarsToCredits(topUpAmountDollars)
 
   // Check threshold limits
   useEffect(() => {
@@ -69,9 +69,9 @@ export function AutoTopupSettingsForm({
     }
   }, [topUpAmountCredits])
 
-  // Handle credits input change by converting to dollars
+  // Handle credits input change by converting to dollars using standard pricing
   const handleTopUpCreditsChange = (credits: number) => {
-    const dollars = Number(((credits * CENTS_PER_CREDIT) / 100).toFixed(2))
+    const dollars = Number(((credits * CREDIT_PRICING.CENTS_PER_CREDIT) / 100).toFixed(2))
     onTopUpAmountChange(dollars)
   }
 
@@ -147,7 +147,7 @@ export function AutoTopupSettingsForm({
               </p>
             ) : (
               <p className="text-xs text-muted-foreground mt-1 pl-1">
-                ${creditsToDollars(topUpAmountCredits, CENTS_PER_CREDIT)}
+                ${creditsToDollars(topUpAmountCredits)}
               </p>
             )}
           </div>

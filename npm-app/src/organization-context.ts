@@ -3,12 +3,76 @@ import { getProjectRoot, getCurrentRepositoryUrl } from './project-files'
 import { Client } from './client'
 
 export interface OrganizationContext {
-  organizationId?: string
-  organizationName?: string
+  currentOrganization?: {
+    id: string
+    name: string
+    creditBalance: number
+  }
+  repositoryOrganization?: {
+    id: string
+    name: string
+  }
+  fallbackToPersonal: boolean
   repositoryUrl?: string
   usingOrganizationCredits: boolean
   organizationBalance?: number
   userBalance?: number
+}
+
+export class OrganizationContextManager {
+  private context: OrganizationContext = { 
+    fallbackToPersonal: true,
+    usingOrganizationCredits: false
+  }
+
+  async updateContextForRepository(repositoryUrl: string): Promise<void> {
+    try {
+      this.context.repositoryUrl = repositoryUrl
+
+      // Call backend to determine organization for this repo
+      const response = await fetch('/api/user/repository-organization', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ repositoryUrl })
+      })
+
+      if (response.ok) {
+        const { organization } = await response.json()
+        if (organization) {
+          this.context.repositoryOrganization = organization
+          this.context.usingOrganizationCredits = true
+          this.context.fallbackToPersonal = false
+        } else {
+          this.context.repositoryOrganization = undefined
+          this.context.usingOrganizationCredits = false
+          this.context.fallbackToPersonal = true
+        }
+      } else {
+        // API call failed, fall back to personal
+        this.context.repositoryOrganization = undefined
+        this.context.usingOrganizationCredits = false
+        this.context.fallbackToPersonal = true
+      }
+    } catch (error) {
+      logger.error({ error }, 'Error updating organization context')
+      this.context.repositoryOrganization = undefined
+      this.context.usingOrganizationCredits = false
+      this.context.fallbackToPersonal = true
+    }
+  }
+
+  getDisplayMessage(): string {
+    if (this.context.repositoryOrganization) {
+      return `Credits will be charged to ${this.context.repositoryOrganization.name}`
+    }
+    return 'Credits will be charged to your personal account'
+  }
+
+  getContext(): OrganizationContext {
+    return { ...this.context }
+  }
 }
 
 /**
@@ -21,6 +85,7 @@ export async function getOrganizationContext(client: Client): Promise<Organizati
     if (!repositoryUrl) {
       return {
         usingOrganizationCredits: false,
+        fallbackToPersonal: true,
       }
     }
 
@@ -31,6 +96,7 @@ export async function getOrganizationContext(client: Client): Promise<Organizati
     const context: OrganizationContext = {
       repositoryUrl,
       usingOrganizationCredits: false,
+      fallbackToPersonal: true,
     }
 
     // TODO: Implement API call to check organization association
@@ -47,6 +113,7 @@ export async function getOrganizationContext(client: Client): Promise<Organizati
     logger.error({ error }, 'Error getting organization context')
     return {
       usingOrganizationCredits: false,
+      fallbackToPersonal: true,
     }
   }
 }
@@ -61,8 +128,8 @@ export function displayOrganizationContext(context: OrganizationContext): string
 
   const parts = []
   
-  if (context.organizationName) {
-    parts.push(`Organization: ${context.organizationName}`)
+  if (context.repositoryOrganization?.name) {
+    parts.push(`Organization: ${context.repositoryOrganization.name}`)
   }
   
   if (context.organizationBalance !== undefined) {
@@ -85,8 +152,8 @@ export function formatCreditUsage(
 ): string {
   const baseMessage = `Used ${creditsUsed.toLocaleString()} credits`
   
-  if (context.usingOrganizationCredits && context.organizationName) {
-    return `${baseMessage} (from ${context.organizationName})`
+  if (context.usingOrganizationCredits && context.repositoryOrganization?.name) {
+    return `${baseMessage} (from ${context.repositoryOrganization.name})`
   }
   
   return `${baseMessage} (personal)`

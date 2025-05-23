@@ -5,8 +5,8 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { stripeServer } from 'common/util/stripe'
-import { generateOperationIdTimestamp } from '@codebuff/billing'
-import { dollarsToCredits } from '@/lib/currency'
+import { env } from 'common/src/env.mjs'
+import { CREDIT_PRICING } from 'common/src/constants'
 
 interface RouteParams {
   params: { orgId: string }
@@ -16,102 +16,94 @@ export async function POST(
   request: NextRequest,
   { params }: RouteParams
 ) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { orgId } = params
+
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { orgId } = params
     const body = await request.json()
-    const { amount } = body // Amount in USD cents
+    const { amount: credits } = body // Frontend sends 'amount' which is actually credits
 
-    if (!amount || amount < 100) {
-      return NextResponse.json(
-        { error: 'Minimum purchase amount is $1.00' },
-        { status: 400 }
-      )
-    }
-
-    // Check if user is owner of this organization
-    const membership = await db
-      .select({ 
-        role: schema.orgMember.role,
-        organization: schema.org
-      })
-      .from(schema.orgMember)
-      .innerJoin(
-        schema.org,
-        eq(schema.orgMember.org_id, schema.org.id)
-      )
-      .where(
-        and(
-          eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id)
-        )
-      )
-      .limit(1)
-
-    if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
-
-    const { role, organization } = membership[0]
-    if (role !== 'owner') {
-      return NextResponse.json({ 
-        error: 'Only organization owners can purchase credits' 
-      }, { status: 403 })
-    }
-
-    // Check if organization has Stripe customer
-    if (!organization.stripe_customer_id) {
+    if (!credits || credits < CREDIT_PRICING.MIN_PURCHASE_CREDITS) {
       return NextResponse.json({
-        error: 'Organization billing not set up. Please contact support.',
+        error: `Minimum purchase is ${CREDIT_PRICING.MIN_PURCHASE_CREDITS} credits`
       }, { status: 400 })
     }
 
-    // Calculate credits from amount
-    const credits = dollarsToCredits(amount / 100, 1) // Convert cents to dollars, 1 cent per credit
-    const operationId = generateOperationIdTimestamp(new Date())
+    // Verify user has permission to purchase credits for this organization
+    const membership = await db.query.orgMember.findFirst({
+      where: and(
+        eq(schema.orgMember.org_id, orgId),
+        eq(schema.orgMember.user_id, session.user.id),
+        // Only owners can purchase credits for now
+        eq(schema.orgMember.role, 'owner')
+      ),
+    })
 
-    // Create Stripe checkout session
+    if (!membership) {
+      return NextResponse.json({ error: 'Forbidden or Organization not found' }, { status: 403 })
+    }
+
+    const organization = await db.query.org.findFirst({
+      where: eq(schema.org.id, orgId),
+    })
+
+    if (!organization) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+    }
+
+    if (!organization.stripe_customer_id) {
+      return NextResponse.json({ 
+        error: 'Organization billing not set up. Please set up billing first.' 
+      }, { status: 400 })
+    }
+
+    const amountInCents = credits * CREDIT_PRICING.CENTS_PER_CREDIT;
+
+    // Create Stripe Checkout session for credit purchase
+    const successUrl = `${env.NEXT_PUBLIC_APP_URL}/orgs/${orgId}?purchase_success=true`
+    const cancelUrl = `${env.NEXT_PUBLIC_APP_URL}/orgs/${orgId}?purchase_canceled=true`
+
     const checkoutSession = await stripeServer.checkout.sessions.create({
-      customer: organization.stripe_customer_id,
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `${credits.toLocaleString()} Codebuff Credits`,
-              description: `Credits for ${organization.name}`,
-            },
-            unit_amount: amount,
-          },
-          quantity: 1,
-        },
-      ],
       mode: 'payment',
-      success_url: `${request.nextUrl.origin}/organizations/${orgId}?purchase=success`,
-      cancel_url: `${request.nextUrl.origin}/organizations/${orgId}?purchase=cancelled`,
+      customer: organization.stripe_customer_id,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `${credits.toLocaleString()} Codebuff Credits`,
+            description: `Credits for ${organization.name} (${CREDIT_PRICING.DISPLAY_RATE})`
+          },
+          unit_amount: amountInCents
+        },
+        quantity: 1
+      }],
       metadata: {
-        grantType: 'organization_purchase',
-        organizationId: orgId,
+        organization_id: orgId,
         credits: credits.toString(),
-        operationId,
-      },
+        type: 'credit_purchase'
+      }
     })
 
-    return NextResponse.json({ 
+    return NextResponse.json({
+      success: true,
       checkout_url: checkoutSession.url,
-      credits,
-      amount: amount / 100 // Return amount in dollars
+      credits: credits,
+      amount_cents: amountInCents
     })
+
   } catch (error) {
-    console.error('Error creating organization credit purchase:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('Error creating credit purchase session:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
+    return NextResponse.json({ 
+      error: 'Failed to create credit purchase session', 
+      details: errorMessage 
+    }, { status: 500 })
   }
 }

@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { CREDIT_PRICING } from 'common/src/constants'
 
 interface OrganizationDetails {
   id: string
@@ -104,39 +105,17 @@ export default function OrganizationPage() {
     }
   }
 
-  const handleSetupBilling = async () => {
-    try {
-      const response = await fetch(`/api/orgs/${orgId}/billing/setup`, {
-        method: 'POST',
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to set up billing')
-      }
-
-      toast({
-        title: 'Success',
-        description: 'Billing has been set up successfully',
-      })
-
-      // Refresh billing status
-      fetchOrganizationData()
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to set up billing',
-        variant: 'destructive',
-      })
-    }
+  const handleSetupBilling = () => {
+    // Navigate to the dedicated billing setup page
+    router.push(`/orgs/${orgId}/billing/setup`)
   }
 
   const handlePurchaseCredits = async () => {
     const credits = parseInt(creditAmount)
-    if (!credits || credits < 100) {
+    if (!credits || credits < CREDIT_PRICING.MIN_PURCHASE_CREDITS) {
       toast({
         title: 'Error',
-        description: 'Please enter a valid credit amount (minimum 100 credits)',
+        description: `Please enter a valid credit amount (minimum ${CREDIT_PRICING.MIN_PURCHASE_CREDITS} credits)`,
         variant: 'destructive',
       })
       return
@@ -144,15 +123,12 @@ export default function OrganizationPage() {
 
     setPurchasing(true)
     try {
-      // Convert credits to cents (assuming 1 credit = 1 cent for now)
-      const amount = credits
-
       const response = await fetch(`/api/orgs/${orgId}/credits`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount: credits }),
       })
 
       if (!response.ok) {
@@ -400,14 +376,14 @@ export default function OrganizationPage() {
                         <Input
                           id="credit-amount"
                           type="number"
-                          min="100"
+                          min={CREDIT_PRICING.MIN_PURCHASE_CREDITS.toString()}
                           step="100"
                           value={creditAmount}
                           onChange={(e) => setCreditAmount(e.target.value)}
                           placeholder="1000"
                         />
                         <p className="text-xs text-muted-foreground">
-                          Minimum: 100 credits • 1 credit ≈ $0.01
+                          Minimum: {CREDIT_PRICING.MIN_PURCHASE_CREDITS} credits • {CREDIT_PRICING.DISPLAY_RATE}
                         </p>
                       </div>
                       <div className="bg-muted p-3 rounded-lg">
@@ -417,7 +393,7 @@ export default function OrganizationPage() {
                         </div>
                         <div className="flex justify-between text-sm font-medium">
                           <span>Total Cost:</span>
-                          <span>${((parseInt(creditAmount) || 0) / 100).toFixed(2)}</span>
+                          <span>${((parseInt(creditAmount) || 0) * CREDIT_PRICING.CENTS_PER_CREDIT / 100).toFixed(2)}</span>
                         </div>
                       </div>
                     </div>

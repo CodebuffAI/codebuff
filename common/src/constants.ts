@@ -68,6 +68,13 @@ export const AFFILIATE_USER_REFFERAL_LIMIT = 500
 // Default number of free credits granted per cycle
 export const DEFAULT_FREE_CREDITS_GRANT = 500
 
+// Credit pricing configuration
+export const CREDIT_PRICING = {
+  CENTS_PER_CREDIT: 1, // 1 credit = 1 cent = $0.01
+  MIN_PURCHASE_CREDITS: 100, // $1.00 minimum
+  DISPLAY_RATE: '$0.01 per credit'
+} as const
+
 export const AuthState = {
   LOGGED_OUT: 'LOGGED_OUT',
   LOGGED_IN: 'LOGGED_IN',
