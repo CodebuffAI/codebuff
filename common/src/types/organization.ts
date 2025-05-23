@@ -40,7 +40,7 @@ export interface OrganizationUsage {
 
 export interface CreateOrganizationRequest {
   name: string
-  slug: string
+  slug?: string
   description?: string
 }
 

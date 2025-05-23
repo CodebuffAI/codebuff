@@ -1,13 +1,46 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Plus, Users, CreditCard, Settings } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Plus, Users, CreditCard, Settings, Building2 } from 'lucide-react'
 import Link from 'next/link'
+
+interface Organization {
+  id: string
+  name: string
+  slug: string
+  role: 'owner' | 'admin' | 'member'
+  memberCount: number
+  repositoryCount: number
+}
 
 const OrganizationsPage = () => {
   const { data: session, status } = useSession()
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchOrganizations()
+    }
+  }, [status])
+
+  const fetchOrganizations = async () => {
+    try {
+      const response = await fetch('/api/orgs')
+      if (response.ok) {
+        const data = await response.json()
+        setOrganizations(data.organizations || [])
+      }
+    } catch (error) {
+      console.error('Error fetching organizations:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (status === 'loading') {
     return (
@@ -56,7 +89,7 @@ const OrganizationsPage = () => {
               Manage your organizations and team billing
             </p>
           </div>
-          <Link href="/organizations/new">
+          <Link href="/orgs/new">
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Create Organization
@@ -66,22 +99,69 @@ const OrganizationsPage = () => {
 
         {/* Organizations Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {/* Placeholder for when no organizations exist */}
-          <Card className="border-dashed border-2 border-gray-300 hover:border-gray-400 transition-colors">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Users className="h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Organizations Yet</h3>
-              <p className="text-sm text-muted-foreground text-center mb-4">
-                Create your first organization to start managing team billing and repositories.
-              </p>
-              <Link href="/organizations/new">
-                <Button variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Organization
-                </Button>
+          {loading ? (
+            // Loading skeleton
+            Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader>
+                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : organizations.length > 0 ? (
+            // Display organizations
+            organizations.map((org) => (
+              <Link key={org.id} href={`/orgs/${org.id}`}>
+                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center">
+                        <Building2 className="mr-2 h-5 w-5 text-blue-600" />
+                        {org.name}
+                      </CardTitle>
+                      <Badge variant="secondary">{org.role}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span className="flex items-center">
+                        <Users className="mr-1 h-4 w-4" />
+                        {org.memberCount} members
+                      </span>
+                      <span className="flex items-center">
+                        <CreditCard className="mr-1 h-4 w-4" />
+                        {org.repositoryCount} repos
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
               </Link>
-            </CardContent>
-          </Card>
+            ))
+          ) : (
+            // Empty state
+            <Card className="border-dashed border-2 border-gray-300 hover:border-gray-400 transition-colors">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Users className="h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Organizations Yet</h3>
+                <p className="text-sm text-muted-foreground text-center mb-4">
+                  Create your first organization to start managing team billing and repositories.
+                </p>
+                <Link href="/orgs/new">
+                  <Button variant="outline">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Organization
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Info Section */}

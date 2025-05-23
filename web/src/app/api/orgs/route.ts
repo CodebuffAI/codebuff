@@ -77,28 +77,41 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CreateOrganizationRequest = await request.json()
-    const { name, slug, description } = body
+    const { name, description } = body
 
     // Validate input
-    if (!name || !slug) {
+    if (!name) {
       return NextResponse.json(
-        { error: 'Name and slug are required' },
+        { error: 'Name is required' },
         { status: 400 }
       )
     }
 
-    // Check if slug is already taken
-    const existingOrg = await db
-      .select()
-      .from(schema.org)
-      .where(eq(schema.org.slug, slug))
-      .limit(1)
+    // Generate slug from name
+    const baseSlug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single
+      .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
 
-    if (existingOrg.length > 0) {
-      return NextResponse.json(
-        { error: 'Organization slug already exists' },
-        { status: 409 }
-      )
+    // Ensure slug is unique by appending number if needed
+    let slug = baseSlug
+    let counter = 1
+    
+    while (true) {
+      const existingOrg = await db
+        .select()
+        .from(schema.org)
+        .where(eq(schema.org.slug, slug))
+        .limit(1)
+
+      if (existingOrg.length === 0) {
+        break // Slug is unique
+      }
+      
+      slug = `${baseSlug}-${counter}`
+      counter++
     }
 
     // Create organization
