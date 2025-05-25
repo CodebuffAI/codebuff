@@ -188,7 +188,7 @@ export const mainPrompt = async (
     isNotFirstUserMessage &&
       "If you have learned something useful for the future that is not derivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
 
-    "Don't run git commands or scripts or start a dev server without being specifically asked to do so. This can prevent costly accidents.",
+    'Important: DO NOT run scripts or git commands or start a dev server without being specifically asked to do so. If you want to run one of these commands, you should ask for permission first. This can prevent costly accidents!',
 
     'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
