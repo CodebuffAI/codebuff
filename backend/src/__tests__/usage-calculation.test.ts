@@ -1,22 +1,10 @@
 import type { CreditBalance } from '@codebuff/billing'
-import {
-  calculateUsageAndBalance,
-  checkAndTriggerAutoTopup,
-} from '@codebuff/billing'
-import { beforeEach, describe, expect, it, mock } from 'bun:test'
+import { checkAndTriggerAutoTopup } from '@codebuff/billing'
+import * as billing from '@codebuff/billing'
+import { beforeEach, describe, expect, it, mock, afterEach, spyOn } from 'bun:test'
 import { GrantType } from 'common/db/schema'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
 
-// Mock logger - this is needed because @codebuff/billing likely uses the logger
-mock.module('../util/logger', () => ({
-  logger: {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  },
-  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-}))
 
 describe('Usage Calculation System', () => {
   describe('checkAndTriggerAutoTopup', () => {
@@ -28,7 +16,19 @@ describe('Usage Calculation System', () => {
     let grantCreditsMock: ReturnType<typeof mock>
 
     beforeEach(() => {
-      // Reset mocks before each test
+      // Clear previous mocks and set up logger again
+      mock.restore()
+
+      mock.module('../util/logger', () => ({
+        logger: {
+          debug: () => {},
+          error: () => {},
+          info: () => {},
+          warn: () => {},
+        },
+        withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+      }))
+
       dbMock = mock(() => ({
         id: 'test-user',
         stripe_customer_id: 'cus_123',
@@ -89,10 +89,8 @@ describe('Usage Calculation System', () => {
         },
       }))
 
-      mock.module('@codebuff/billing', () => ({
-        calculateUsageAndBalance: balanceMock,
-        processAndGrantCredit: grantCreditsMock,
-      }))
+      spyOn(billing, 'calculateUsageAndBalance').mockImplementation(balanceMock)
+      spyOn(billing, 'processAndGrantCredit').mockImplementation(grantCreditsMock)
 
       mock.module('common/src/util/stripe', () => ({
         stripeServer: {
@@ -136,11 +134,9 @@ describe('Usage Calculation System', () => {
         })
       )
 
-      // Update the module mock
-      mock.module('@codebuff/billing', () => ({
-        calculateUsageAndBalance: balanceMock,
-        processAndGrantCredit: grantCreditsMock,
-      }))
+      // Update the spies with the new mock implementations
+      spyOn(billing, 'calculateUsageAndBalance').mockImplementation(balanceMock)
+      spyOn(billing, 'processAndGrantCredit').mockImplementation(grantCreditsMock)
 
       await checkAndTriggerAutoTopup('test-user')
 
@@ -167,11 +163,9 @@ describe('Usage Calculation System', () => {
         })
       )
 
-      // Update the module mock
-      mock.module('@codebuff/billing', () => ({
-        calculateUsageAndBalance: balanceMock,
-        processAndGrantCredit: grantCreditsMock,
-      }))
+      // Update the spies with the new mock implementations
+      spyOn(billing, 'calculateUsageAndBalance').mockImplementation(balanceMock)
+      spyOn(billing, 'processAndGrantCredit').mockImplementation(grantCreditsMock)
 
       await checkAndTriggerAutoTopup('test-user')
 
@@ -202,6 +196,10 @@ describe('Usage Calculation System', () => {
       }))
 
       await expect(checkAndTriggerAutoTopup('test-user')).rejects.toThrow()
+    })
+
+    afterEach(() => {
+      mock.restore()
     })
   })
 })
@@ -259,6 +257,9 @@ describe('calculateUsageAndBalance', () => {
       },
     }))
 
+
+    const { calculateUsageAndBalance } = await import('@codebuff/billing')
+
     const { balance } = await calculateUsageAndBalance(
       'test-user',
       new Date('2024-01-01'),
@@ -313,6 +314,8 @@ describe('calculateUsageAndBalance', () => {
       },
     }))
 
+    const { calculateUsageAndBalance } = await import('@codebuff/billing')
+
     const { usageThisCycle } = await calculateUsageAndBalance(
       'test-user',
       new Date('2024-01-01'),
@@ -348,6 +351,8 @@ describe('calculateUsageAndBalance', () => {
         }),
       },
     }))
+
+    const { calculateUsageAndBalance } = await import('@codebuff/billing')
 
     const { balance, usageThisCycle } = await calculateUsageAndBalance(
       'test-user',
@@ -394,6 +399,8 @@ describe('calculateUsageAndBalance', () => {
       },
     }))
 
+    const { calculateUsageAndBalance } = await import("@codebuff/billing")
+
     const { balance } = await calculateUsageAndBalance(
       'test-user',
       new Date('2024-01-01'),
@@ -409,5 +416,9 @@ describe('calculateUsageAndBalance', () => {
       referral: 0,
       admin: 0,
     }) // No positive balances
+  })
+
+  afterEach(() => {
+    mock.restore()
   })
 })
