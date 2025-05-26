@@ -10,7 +10,7 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { green, yellow } from 'picocolors'
+import { green, yellow, blueBright } from 'picocolors'
 
 import {
   killAllBackgroundProcesses,
@@ -269,6 +269,11 @@ export class CLI {
     }
   }
 
+  private getModeIndicator(): string {
+    return this.costMode !== 'normal'
+      ? ` (${this.costMode})` : ''
+  }
+
   private setPrompt() {
     const projectRoot = getProjectRoot()
     const cwd = getWorkingDirectory()
@@ -279,7 +284,10 @@ export class CLI {
         ? ''
         : (os.platform() === 'win32' ? '\\' : '/') +
           path.relative(projectRoot, cwd))
-    this.rl.setPrompt(green(`${ps1Dir} > `))
+
+    const modeIndicator = this.getModeIndicator()
+
+    this.rl.setPrompt(green(`${ps1Dir}${modeIndicator} > `))
   }
 
   /**
@@ -382,10 +390,16 @@ export class CLI {
       return
     }
     userInput = userInput.trim()
-    if (await this.processCommand(userInput)) {
+
+    const processedResult = await this.processCommand(userInput)
+
+    if (processedResult === null) {
+      // Command was fully handled by processCommand
       return
     }
-    await this.forwardUserInput(userInput)
+
+    // processedResult is the string to be forwarded as a prompt
+    await this.forwardUserInput(processedResult)
   }
 
   /**
@@ -417,51 +431,86 @@ export class CLI {
     this.freshPrompt()
   }
 
-  private async processCommand(userInput: string): Promise<boolean> {
+  private async processCommand(userInput: string): Promise<string | null> {
+    // Handle cost mode commands with optional message: /lite, /lite message, /normal, /normal message, etc.
+    const costModeMatch = userInput.match(/^\/(lite|normal|max)(?:\s+(.*))?$/i)
+    if (costModeMatch) {
+      const mode = costModeMatch[1].toLowerCase() as CostMode
+      const message = costModeMatch[2]?.trim() || ''
+
+      // Track the cost mode command usage
+      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
+        userId: Client.getInstance().user?.id || 'unknown',
+        command: mode,
+      })
+
+      this.costMode = mode
+      Client.getInstance().setCostMode(mode)
+
+      if (mode === 'lite') {
+        console.log(yellow('✨ Switched to lite mode (faster, cheaper)'))
+      } else if (mode === 'normal') {
+        console.log(green('⚖️ Switched to normal mode (balanced)'))
+      } else if (mode === 'max') {
+        console.log(
+          blueBright('⚡ Switched to max mode (slower, more thorough)')
+        )
+      }
+
+      if (!message) {
+        this.freshPrompt()
+        return null // Fully handled, no message to forward
+      }
+
+      // Return the message part to be processed as user input
+      return message
+    }
+
     const cleanInput = this.cleanCommandInput(userInput)
 
     // Handle empty slash command
     if (userInput === '/') {
-      return false
+      return userInput // Let it be processed as a prompt
     }
 
     // Track slash command usage if it starts with '/'
     if (userInput.startsWith('/') && !userInput.startsWith('/!')) {
-      if (!this.isKnownSlashCommand(cleanInput)) {
+      const commandBase = cleanInput.split(' ')[0]
+      if (!this.isKnownSlashCommand(commandBase)) {
         trackEvent(AnalyticsEvent.INVALID_COMMAND, {
           userId: Client.getInstance().user?.id || 'unknown',
           command: cleanInput,
         })
         this.handleUnknownCommand(userInput)
-        return true
+        return null
       }
       // Track successful slash command usage
       trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
         userId: Client.getInstance().user?.id || 'unknown',
-        command: cleanInput,
+        command: commandBase,
       })
     }
 
     if (cleanInput === 'help' || cleanInput === 'h') {
       displayMenu()
       this.freshPrompt()
-      return true
+      return null
     }
     if (cleanInput === 'login' || cleanInput === 'signin') {
       await Client.getInstance().login()
       checkpointManager.clearCheckpoints()
-      return true
+      return null
     }
     if (cleanInput === 'logout' || cleanInput === 'signout') {
       await Client.getInstance().logout()
       this.freshPrompt()
-      return true
+      return null
     }
     if (cleanInput.startsWith('ref-')) {
       // Referral codes can be entered with or without a leading slash.
       // Pass the cleaned input (without slash) to the handler.
       await Client.getInstance().handleReferralCode(cleanInput.trim())
-      return true
+      return null
     }
 
     // Detect potential API key input first
@@ -474,21 +523,21 @@ export class CLI {
         this.readyPromise,
         this.freshPrompt.bind(this)
       )
-      return true
+      return null
     }
 
     if (cleanInput === 'usage' || cleanInput === 'credits') {
       await Client.getInstance().getUsage()
-      return true
+      return null
     }
     if (cleanInput === 'quit' || cleanInput === 'exit' || cleanInput === 'q') {
       await this.handleExit()
-      return true
+      return null
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {
       handleDiff(Client.getInstance().lastChanges)
       this.freshPrompt()
-      return true
+      return null
     }
     if (
       cleanInput === 'uuddlrlrba' ||
@@ -496,7 +545,7 @@ export class CLI {
       cleanInput === 'codebuffy'
     ) {
       showEasterEgg(this.freshPrompt.bind(this))
-      return true
+      return null
     }
 
     // Checkpoint commands
@@ -508,19 +557,19 @@ export class CLI {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleUndo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
-        return true
+        return null
       }
       if (isCheckpointCommand(cleanInput, 'redo')) {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleRedo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
-        return true
+        return null
       }
       if (isCheckpointCommand(cleanInput, 'list')) {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         await listCheckpoints()
         this.freshPrompt()
-        return true
+        return null
       }
       const restoreMatch = isCheckpointCommand(cleanInput, 'restore')
       if (restoreMatch) {
@@ -532,12 +581,12 @@ export class CLI {
           this.rl
         )
         this.freshPrompt(toRestore)
-        return true
+        return null
       }
       if (isCheckpointCommand(cleanInput, 'clear')) {
         handleClearCheckpoints()
         this.freshPrompt()
-        return true
+        return null
       }
       if (isCheckpointCommand(cleanInput, 'save')) {
         await saveCheckpoint(
@@ -548,26 +597,27 @@ export class CLI {
         )
         displayCheckpointMenu()
         this.freshPrompt()
-        return true
+        return null
       }
       // Default checkpoint action (if just "checkpoint" or "/checkpoint" is typed)
       displayCheckpointMenu()
       this.freshPrompt()
-      return true
+      return null
     }
 
     if (cleanInput === 'init') {
       handleInitializationFlowLocally()
       // Also forward user input (original with / if present, or cleanInput) to the backend
       // The original forwardUserInput takes the raw userInput.
-      return false // Let it fall through to forwardUserInput
+      return userInput // Let it fall through to forwardUserInput
     }
 
-    return false
+    // If no command was matched, return the original userInput to be processed as a prompt
+    return userInput
   }
 
-  private async forwardUserInput(userInput: string) {
-    const cleanedInput = this.cleanCommandInput(userInput)
+  private async forwardUserInput(promptContent: string) {
+    const cleanedInput = this.cleanCommandInput(promptContent)
 
     await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
     Spinner.get().start()
@@ -586,7 +636,7 @@ export class CLI {
 
     this.isReceivingResponse = true
     const { responsePromise, stopResponse } =
-      await Client.getInstance().sendUserInput(cleanedInput) // Fixed: Use cleaned input
+      await Client.getInstance().sendUserInput(cleanedInput)
 
     this.stopResponse = stopResponse
     await responsePromise

@@ -606,6 +606,11 @@ export class Client {
     this.webSocket.forceReconnect()
   }
 
+  public setCostMode(costMode: CostMode) {
+    this.costMode = costMode
+    loggerContext.costMode = this.costMode
+  }
+
   private setupSubscriptions() {
     this.webSocket.subscribe('action-error', (action) => {
       if (action.error === 'Insufficient credits') {
