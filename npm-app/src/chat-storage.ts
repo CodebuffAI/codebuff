@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import { Message } from 'common/types/message'
-import { getCurrentChatDir, currentChatId } from './project-files'
+import { getCurrentChatDir, getCurrentChatId } from './project-files'
 import { transformJsonInString } from 'common/util/string'
 import { type Log } from 'common/browser-actions'
 import { match, P } from 'ts-pattern'
@@ -76,7 +76,7 @@ export function setMessages(messages: Message[]) {
     const messagesPath = path.join(chatDir, 'messages.json')
 
     const messagesData = {
-      id: currentChatId,
+      id: getCurrentChatId(),
       messages: cleanedMessages,
       updatedAt: new Date().toISOString(),
     }

@@ -41,18 +41,26 @@ import {
   displaySlashCommandHelperMenu,
   getSlashCommands,
 } from './menu'
-import { getProjectRoot, getWorkingDirectory, isDir } from './project-files'
+import {
+  getProjectRoot,
+  getWorkingDirectory,
+  initProjectFileContextWithWorker,
+  isDir,
+} from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
 import { Spinner } from './utils/spinner'
 import {
+  clearScreen,
   isCommandRunning,
   killAndResetPersistentProcess,
   persistentProcess,
   resetShell,
 } from './utils/terminal'
 
+import { loadCodebuffConfig } from 'common/json-config/parser'
 import { CONFIG_DIR } from './credentials'
+import { logAndHandleStartup } from './startup-process-handler'
 
 const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
 
@@ -483,6 +491,28 @@ export class CLI {
     }
     if (cleanInput === 'quit' || cleanInput === 'exit' || cleanInput === 'q') {
       await this.handleExit()
+      return true
+    }
+    if (cleanInput === 'reset') {
+      await this.readyPromise
+      await Client.getInstance().resetContext()
+      const projectRoot = getProjectRoot()
+      clearScreen()
+
+      // from index.ts
+      const config = loadCodebuffConfig(projectRoot)
+      await killAllBackgroundProcesses()
+      const processStartPromise = logAndHandleStartup(projectRoot, config)
+      const initFileContextPromise =
+        initProjectFileContextWithWorker(projectRoot)
+
+      this.readyPromise = Promise.all([
+        initFileContextPromise,
+        processStartPromise,
+      ])
+
+      displayGreeting(this.costMode, Client.getInstance().user?.name ?? null)
+      this.freshPrompt()
       return true
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {
