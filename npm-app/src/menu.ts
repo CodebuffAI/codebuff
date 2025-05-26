@@ -80,9 +80,10 @@ export const interactiveCommandDetails: CommandInfo[] = [
     // This entry will be expanded into two slash commands: /usage and /credits
   },
   {
-    commandText: '"clear"',
-    baseCommand: 'clear',
-    description: 'Clear the conversation context',
+    commandText: '"reset"',
+    baseCommand: 'reset',
+    description:
+      'Reset the conversation context, as if you just started a new Codebuff session',
     isSlashCommand: true,
   },
   {

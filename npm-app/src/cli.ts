@@ -486,8 +486,8 @@ export class CLI {
       await this.handleExit()
       return true
     }
-    if (cleanInput === 'clear') {
-      await Client.getInstance().clearContext()
+    if (cleanInput === 'reset') {
+      await Client.getInstance().resetContext()
       clearScreen()
       displayGreeting(this.costMode, Client.getInstance().user?.name ?? null)
       this.freshPrompt()

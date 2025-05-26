@@ -231,7 +231,7 @@ export class Client {
     this.fileContext = projectFileContext
   }
 
-  public async clearContext() {
+  public async resetContext() {
     if (!this.fileContext) return
     this.initAgentState(this.fileContext)
     this.lastToolResults = []
