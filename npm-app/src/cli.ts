@@ -485,6 +485,11 @@ export class CLI {
       await this.handleExit()
       return true
     }
+    if (cleanInput === 'clear') {
+      await Client.getInstance().clearContext()
+      this.freshPrompt()
+      return true
+    }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {
       handleDiff(Client.getInstance().lastChanges)
       this.freshPrompt()
