@@ -2,19 +2,16 @@ import {
   AnthropicModel,
   CostMode,
   getModelForMode,
-  models,
-  OpenAIModel,
-  openrouterModels,
   providerModelNames,
   shortModelNames,
 } from 'common/constants'
 import { Message } from 'common/types/message'
 
-import { promptClaudeStream, System } from './llm-apis/claude'
-import { streamGemini25ProWithFallbacks } from './llm-apis/gemini-with-fallbacks'
-import { promptOpenRouterStream } from './llm-apis/open-router'
-import { promptOpenAIStream } from './llm-apis/openai-api'
-import { messagesWithSystem } from './util/messages'
+import { System } from './llm-apis/claude'
+import {
+  promptAiSdkStream,
+  transformMessages,
+} from './llm-apis/vercel-ai-sdk/ai-sdk'
 
 export const getAgentStream = (params: {
   costMode: CostMode
@@ -51,10 +48,12 @@ export const getAgentStream = (params: {
 
   const provider = providerModelNames[model as keyof typeof providerModelNames]
 
-  const getStream = (messages: Message[], system: System) =>
-    provider === 'anthropic'
-      ? promptClaudeStream(messages, {
-          system,
+  const getStream = (messages: Message[], system: System) => {
+    const coreMessages = transformMessages(messages, system)
+    return provider === 'anthropic' ||
+      provider === 'openai' ||
+      provider === 'gemini'
+      ? promptAiSdkStream(coreMessages, {
           model: model as AnthropicModel,
           stopSequences,
           clientSessionId,
@@ -62,42 +61,12 @@ export const getAgentStream = (params: {
           userInputId,
           userId,
         })
-      : provider === 'openai'
-        ? promptOpenAIStream(messagesWithSystem(messages, system), {
-            model: model as OpenAIModel,
-            stopSequences,
-            clientSessionId,
-            fingerprintId,
-            userInputId,
-            userId,
-          })
-        : provider === 'gemini'
-          ? model === models.gemini2_5_flash_thinking ||
-            model === models.gemini2_5_flash
-            ? promptOpenRouterStream(messagesWithSystem(messages, system), {
-                clientSessionId,
-                fingerprintId,
-                userInputId,
-                userId,
-                model:
-                  model === models.gemini2_5_flash
-                    ? openrouterModels.openrouter_gemini2_5_flash
-                    : openrouterModels.openrouter_gemini2_5_flash_thinking,
-              })
-            : streamGemini25ProWithFallbacks(messages, system, {
-                clientSessionId,
-                fingerprintId,
-                userInputId,
-                userId,
-                temperature: 0,
-                stopSequences,
-                thinkingBudget: 0,
-              })
-          : (() => {
-              throw new Error(
-                `Unknown model/provider: ${selectedModel}/${model}/${provider}`
-              )
-            })()
+      : (() => {
+          throw new Error(
+            `Unknown model/provider: ${selectedModel}/${model}/${provider}`
+          )
+        })()
+  }
 
   return {
     model: model,
