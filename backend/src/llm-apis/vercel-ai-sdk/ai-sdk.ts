@@ -25,12 +25,13 @@ import {
 
 import { generateCompactId } from 'common/util/string'
 
+import { Message } from 'common/types/message'
+import { withTimeout } from 'common/util/promise'
 import { z } from 'zod'
 import { System } from '../claude'
 import { GeminiMessage } from '../gemini-vertex-api'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
-import { withTimeout } from 'common/util/promise'
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
@@ -203,8 +204,8 @@ export const promptAiSdkStructured = async function <T>(
 
 // TODO: temporary - ideally we move to using CoreMessage[] directly
 // and don't need this transform!!
-function transformMessages(
-  messages: GeminiMessage[],
+export function transformMessages(
+  messages: (GeminiMessage | Message)[],
   system: System | undefined
 ): CoreMessage[] {
   const coreMessages: CoreMessage[] = []
@@ -254,10 +255,19 @@ function transformMessages(
       } else {
         const parts: CoreUserMessage['content'] = []
         for (const part of message.content) {
+          // Handle OpenAI image_url format
           if (part.type === 'image_url') {
             parts.push({
               type: 'image' as const,
               image: part.image_url.url,
+            })
+            continue
+          }
+          // Handle Message type image format
+          if (part.type === 'image' && 'source' in part) {
+            parts.push({
+              type: 'image' as const,
+              image: `data:${part.source.media_type};base64,${part.source.data}`,
             })
             continue
           }
@@ -267,7 +277,17 @@ function transformMessages(
           if (part.type === 'file') {
             throw new Error('File messages not supported')
           }
-          parts.push(part)
+          if (part.type === 'text') {
+            parts.push({
+              type: 'text' as const,
+              text: part.text,
+            })
+            continue
+          }
+          if (part.type === 'tool_use' || part.type === 'tool_result') {
+            // Skip tool parts in user messages - they should be in assistant/tool messages
+            continue
+          }
         }
         coreMessages.push({ role: 'user', content: parts })
         continue
@@ -293,6 +313,14 @@ function transformMessages(
           }
           if (part.type === 'refusal') {
             messageContent.push({ type: 'text', text: part.refusal })
+          }
+          if (part.type === 'tool_use') {
+            messageContent.push({
+              type: 'tool-call',
+              toolCallId: part.id,
+              toolName: part.name,
+              args: part.input,
+            })
           }
         }
         coreMessages.push({
