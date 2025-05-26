@@ -10,7 +10,7 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { green, yellow } from 'picocolors'
+import { green, yellow, blueBright, bold } from 'picocolors'
 
 import {
   killAllBackgroundProcesses,
@@ -319,13 +319,16 @@ export class CLI {
 
     disableSquashNewlines()
 
-    if (!userInput) {
+    const prefill =
+      userInput || (this.costMode !== 'normal' ? `/${this.costMode} ` : '')
+
+    if (!prefill) {
       return
     }
 
     // then rewrite new prompt
-    this.rl.write(' '.repeat(userInput.length)) // hacky way to move cursor
-    rlAny.line = userInput
+    this.rl.write(' '.repeat(prefill.length)) // hacky way to move cursor
+    rlAny.line = prefill
     rlAny._refreshLine()
   }
 
@@ -394,6 +397,10 @@ export class CLI {
    * @returns The cleaned command string
    */
   private cleanCommandInput(input: string): string {
+    const costPrefix = `/${this.costMode} `
+    if (this.costMode !== 'normal' && input.startsWith(costPrefix)) {
+      input = input.slice(costPrefix.length)
+    }
     return input.startsWith('/') ? input.substring(1) : input
   }
 
@@ -479,6 +486,17 @@ export class CLI {
 
     if (cleanInput === 'usage' || cleanInput === 'credits') {
       await Client.getInstance().getUsage()
+      return true
+    }
+    if (cleanInput === 'lite' || cleanInput === 'max' || cleanInput === 'normal') {
+      this.costMode = cleanInput as CostMode
+      Client.getInstance().setCostMode(this.costMode)
+      console.log(bold(this.costMode === 'lite'
+        ? yellow('Lite mode \u2728 enabled')
+        : this.costMode === 'max'
+          ? blueBright('Max mode \u26A1 enabled')
+          : green('Normal mode enabled')))
+      this.freshPrompt(`/${this.costMode} `)
       return true
     }
     if (cleanInput === 'quit' || cleanInput === 'exit' || cleanInput === 'q') {
@@ -629,15 +647,13 @@ export class CLI {
 
     if (str === '/') {
       const currentLine = this.pastedContent + (this.rl as any).line
-      // Only track and show menu if '/' is the first character typed
-      if (currentLine === '/') {
+      const allowedPrefixes = ['/', '/lite /', '/max /', '/normal /']
+      if (allowedPrefixes.includes(currentLine)) {
         trackEvent(AnalyticsEvent.SLASH_MENU_ACTIVATED, {
           userId: Client.getInstance().user?.id || 'unknown',
         })
         displaySlashCommandHelperMenu()
-        // Call freshPrompt and pre-fill the line with the slash
-        // so the user can continue typing their command.
-        this.freshPrompt('/')
+        this.freshPrompt(currentLine)
       }
     }
 

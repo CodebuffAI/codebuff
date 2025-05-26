@@ -232,6 +232,15 @@ export class Client {
     this.fileContext = projectFileContext
   }
 
+  public setCostMode(mode: CostMode) {
+    this.costMode = mode
+    loggerContext.costMode = mode
+  }
+
+  public getCostMode(): CostMode {
+    return this.costMode
+  }
+
   private initFingerprintId(): string | Promise<string> {
     if (!this.fingerprintId) {
       this.fingerprintId = this.user?.fingerprintId ?? calculateFingerprint()

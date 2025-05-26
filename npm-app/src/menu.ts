@@ -109,6 +109,24 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
+    baseCommand: 'lite',
+    description: 'Use cheaper Lite mode for next prompts',
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
+    baseCommand: 'max',
+    description: 'Use more thorough Max mode',
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
+    baseCommand: 'normal',
+    description: 'Return to normal mode',
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
     description: 'Quit Codebuff',
