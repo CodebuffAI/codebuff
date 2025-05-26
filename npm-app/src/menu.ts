@@ -80,6 +80,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
     // This entry will be expanded into two slash commands: /usage and /credits
   },
   {
+    commandText: '"clear"',
+    baseCommand: 'clear',
+    description: 'Clear the conversation context',
+    isSlashCommand: true,
+  },
+  {
     commandText: 'ESC key or Ctrl-C',
     description: 'Cancel generation',
     isSlashCommand: false,

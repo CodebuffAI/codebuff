@@ -50,6 +50,7 @@ import {
   killAndResetPersistentProcess,
   persistentProcess,
   resetShell,
+  clearScreen,
 } from './utils/terminal'
 
 import { CONFIG_DIR } from './credentials'
@@ -483,6 +484,13 @@ export class CLI {
     }
     if (cleanInput === 'quit' || cleanInput === 'exit' || cleanInput === 'q') {
       await this.handleExit()
+      return true
+    }
+    if (cleanInput === 'clear') {
+      await Client.getInstance().clearContext()
+      clearScreen()
+      displayGreeting(this.costMode, Client.getInstance().user?.name ?? null)
+      this.freshPrompt()
       return true
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {

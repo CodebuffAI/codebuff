@@ -69,6 +69,7 @@ import {
   getProjectFileContext,
   getProjectRoot,
   getWorkingDirectory,
+  startNewChat,
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
@@ -228,6 +229,18 @@ export class Client {
   public initAgentState(projectFileContext: ProjectFileContext) {
     this.agentState = getInitialAgentState(projectFileContext)
     this.fileContext = projectFileContext
+  }
+
+  public async clearContext() {
+    if (!this.fileContext) return
+    this.initAgentState(this.fileContext)
+    this.lastToolResults = []
+    this.lastChanges = []
+    this.creditsByPromptId = {}
+    checkpointManager.clearCheckpoints(true)
+    setMessages([])
+    startNewChat()
+    await this.warmContextCache()
   }
 
   private initFingerprintId(): string | Promise<string> {

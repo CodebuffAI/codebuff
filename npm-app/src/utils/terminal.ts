@@ -736,3 +736,7 @@ export function killAndResetPersistentProcess() {
     persistentProcess = null
   }
 }
+
+export function clearScreen() {
+  process.stdout.write('\u001b[2J\u001b[0;0H')
+}
