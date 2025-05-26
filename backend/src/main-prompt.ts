@@ -423,15 +423,7 @@ export const mainPrompt = async (
 
   const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
   const messagesWithUserMessage = buildArray(
-    ...messageHistory
-      .filter((m) => {
-        return (
-          !prompt ||
-          typeof m.content !== 'string' ||
-          !isSystemInstruction(m.content)
-        )
-      })
-      .map((m) => castAssistantMessage(m)),
+    ...messageHistory.map((m) => castAssistantMessage(m)),
     !prompt && {
       role: 'user' as const,
       content: asSystemInstruction(
