@@ -1,12 +1,11 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test'
+import type { CreditBalance } from '@codebuff/billing'
 import {
   calculateUsageAndBalance,
-  consumeCredits,
-  CreditBalance,
+  checkAndTriggerAutoTopup,
 } from '@codebuff/billing'
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import { GrantType } from 'common/db/schema'
 import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
-import { and, asc, gt, isNull, or, eq } from 'drizzle-orm'
 
 // Mock logger - this is needed because @codebuff/billing likely uses the logger
 mock.module('../util/logger', () => ({
@@ -20,210 +19,395 @@ mock.module('../util/logger', () => ({
 }))
 
 describe('Usage Calculation System', () => {
-  describe('calculateUsageAndBalance', () => {
+  describe('checkAndTriggerAutoTopup', () => {
+    // Create fresh mocks for each test
+    let dbMock: ReturnType<typeof mock>
+    let balanceMock: ReturnType<typeof mock>
+    let paymentMethodsMock: ReturnType<typeof mock>
+    let paymentIntentMock: ReturnType<typeof mock>
+    let grantCreditsMock: ReturnType<typeof mock>
+
     beforeEach(() => {
-      // Reset the mock between tests
-      mock.restore()
-
-      // Re-mock logger after restore
-      mock.module('../util/logger', () => ({
-        logger: {
-          debug: () => {},
-          error: () => {},
-          info: () => {},
-          warn: () => {},
-        },
-        withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-      }))
-    })
-
-    it('should calculate total remaining credits correctly', async () => {
-      const mockGrants = [
-        {
-          operation_id: 'test-1',
-          user_id: 'test-user',
-          type: 'free' as GrantType,
-          principal: 500,
-          balance: 300,
-          created_at: new Date('2024-01-01'),
-          expires_at: new Date('2024-02-01'),
-          priority: GRANT_PRIORITIES.free,
-        },
-        {
-          operation_id: 'test-2',
-          user_id: 'test-user',
-          type: 'purchase' as GrantType,
-          principal: 1000,
-          balance: 800,
-          created_at: new Date('2024-01-15'),
-          expires_at: null,
-          priority: GRANT_PRIORITIES.purchase,
-        },
-      ]
-
-      // Mock the database module
-      mock.module('common/db', () => ({
-        default: {
-          select: () => ({
-            from: () => ({
-              where: () => ({
-                orderBy: () => mockGrants,
-              }),
-            }),
-          }),
-        },
+      // Reset mocks before each test
+      dbMock = mock(() => ({
+        id: 'test-user',
+        stripe_customer_id: 'cus_123',
+        auto_topup_enabled: true,
+        auto_topup_threshold: 100,
+        auto_topup_amount: 500,
+        next_quota_reset: new Date(),
       }))
 
-      const { balance } = await calculateUsageAndBalance(
-        'test-user',
-        new Date('2024-01-01'),
-        new Date('2024-01-15') // Pass current time when grants are active
+      balanceMock = mock(() =>
+        Promise.resolve({
+          usageThisCycle: 0,
+          balance: {
+            totalRemaining: 50, // Below threshold by default
+            totalDebt: 0,
+            netBalance: 50,
+            breakdown: {},
+          } as CreditBalance,
+        })
       )
 
-      expect(balance.totalRemaining).toBe(1100) // 300 + 800
-      expect(balance.totalDebt).toBe(0)
-      expect(balance.netBalance).toBe(1100)
-      expect(balance.breakdown).toEqual({
-        free: 300,
-        purchase: 800,
-        referral: 0,
-        admin: 0,
-      })
-    })
+      paymentMethodsMock = mock(() =>
+        Promise.resolve({
+          data: [
+            {
+              id: 'pm_123',
+              card: {
+                exp_year: 2025,
+                exp_month: 12,
+              },
+            },
+          ],
+        })
+      )
 
-    it('should calculate usage this cycle correctly', async () => {
-      const mockGrants = [
-        {
-          operation_id: 'test-1',
-          user_id: 'test-user',
-          type: 'free' as GrantType,
-          principal: 500, // Used 200 (500 - 300)
-          balance: 300,
-          created_at: new Date('2024-01-01'),
-          expires_at: new Date('2024-02-01'),
-          priority: GRANT_PRIORITIES.free,
-        },
-        {
-          operation_id: 'test-2',
-          user_id: 'test-user',
-          type: 'purchase' as GrantType,
-          principal: 1000, // Used 200 (1000 - 800)
-          balance: 800,
-          created_at: new Date('2024-01-15'),
-          expires_at: null,
-          priority: GRANT_PRIORITIES.purchase,
-        },
-      ]
+      paymentIntentMock = mock(() =>
+        Promise.resolve({
+          status: 'succeeded',
+          id: 'pi_123',
+        })
+      )
 
-      // Mock the database module
+      grantCreditsMock = mock(() => Promise.resolve())
+
+      // Set up module mocks with fresh mocks
       mock.module('common/db', () => ({
         default: {
-          select: () => ({
-            from: () => ({
-              where: () => ({
-                orderBy: () => mockGrants,
-              }),
+          query: {
+            user: {
+              findFirst: dbMock,
+            },
+          },
+          update: mock(() => ({
+            set: () => ({
+              where: () => Promise.resolve(),
             }),
-          }),
+          })),
         },
       }))
 
-      const { usageThisCycle } = await calculateUsageAndBalance(
-        'test-user',
-        new Date('2024-01-01'),
-        new Date('2024-01-15') // Pass current time when grants are active
-      )
+      mock.module('@codebuff/billing', () => ({
+        calculateUsageAndBalance: balanceMock,
+        processAndGrantCredit: grantCreditsMock,
+      }))
 
-      expect(usageThisCycle).toBe(400) // 200 + 200 = 400 total usage
+      mock.module('common/src/util/stripe', () => ({
+        stripeServer: {
+          paymentMethods: {
+            list: paymentMethodsMock,
+          },
+          paymentIntents: {
+            create: paymentIntentMock,
+          },
+        },
+      }))
     })
 
-    it('should handle expired grants', async () => {
-      const mockGrants = [
-        {
-          operation_id: 'test-1',
-          user_id: 'test-user',
-          type: 'free' as GrantType,
-          principal: 500,
-          balance: 300,
-          created_at: new Date('2024-01-01'),
-          expires_at: new Date('2024-01-15'), // Already expired
-          priority: GRANT_PRIORITIES.free,
-        },
-      ]
+    it('should trigger top-up when balance below threshold', async () => {
+      await checkAndTriggerAutoTopup('test-user')
 
-      // Mock the database module
-      mock.module('common/db', () => ({
-        default: {
-          select: () => ({
-            from: () => ({
-              where: () => ({
-                orderBy: () => mockGrants,
-              }),
-            }),
-          }),
+      // Should check user settings
+      expect(dbMock).toHaveBeenCalled()
+
+      // Should check balance
+      expect(balanceMock).toHaveBeenCalled()
+
+      // Should create payment intent
+      expect(paymentIntentMock).toHaveBeenCalled()
+
+      // Should grant credits
+      expect(grantCreditsMock).toHaveBeenCalled()
+    })
+
+    it('should not trigger top-up when balance above threshold', async () => {
+      // Set up balance mock before the test
+      balanceMock = mock(() =>
+        Promise.resolve({
+          usageThisCycle: 0,
+          balance: {
+            totalRemaining: 200, // Above threshold
+            totalDebt: 0,
+            netBalance: 200,
+            breakdown: {},
+          },
+        })
+      )
+
+      // Update the module mock
+      mock.module('@codebuff/billing', () => ({
+        calculateUsageAndBalance: balanceMock,
+        processAndGrantCredit: grantCreditsMock,
+      }))
+
+      await checkAndTriggerAutoTopup('test-user')
+
+      // Should still check settings and balance
+      expect(dbMock).toHaveBeenCalled()
+      expect(balanceMock).toHaveBeenCalled()
+
+      // But should not create payment or grant credits
+      expect(paymentIntentMock.mock.calls.length).toBe(0)
+      expect(grantCreditsMock.mock.calls.length).toBe(0)
+    })
+
+    it('should handle debt by topping up max(debt, configured amount)', async () => {
+      // Set up balance mock before the test
+      balanceMock = mock(() =>
+        Promise.resolve({
+          usageThisCycle: 0,
+          balance: {
+            totalRemaining: 0,
+            totalDebt: 600, // More than configured amount
+            netBalance: -600,
+            breakdown: {},
+          },
+        })
+      )
+
+      // Update the module mock
+      mock.module('@codebuff/billing', () => ({
+        calculateUsageAndBalance: balanceMock,
+        processAndGrantCredit: grantCreditsMock,
+      }))
+
+      await checkAndTriggerAutoTopup('test-user')
+
+      // Should grant credits
+      expect(grantCreditsMock).toHaveBeenCalled()
+      // Check the amount is correct (600 to cover debt)
+      expect(grantCreditsMock.mock.calls[0]?.[1]).toBe(600)
+    })
+
+    it('should disable auto-topup when payment fails', async () => {
+      // Set up payment failure mock
+      paymentIntentMock = mock(() =>
+        Promise.resolve({
+          status: 'requires_payment_method',
+        })
+      )
+
+      // Update the module mock
+      mock.module('common/src/util/stripe', () => ({
+        stripeServer: {
+          paymentMethods: {
+            list: paymentMethodsMock,
+          },
+          paymentIntents: {
+            create: paymentIntentMock,
+          },
         },
       }))
 
-      const { balance, usageThisCycle } = await calculateUsageAndBalance(
-        'test-user',
-        new Date('2024-01-01'),
-        new Date('2024-01-16') // Current time after expiry
-      )
-
-      expect(balance.totalRemaining).toBe(0) // Expired grant doesn't count
-      expect(balance.totalDebt).toBe(0)
-      expect(balance.netBalance).toBe(0)
-      expect(balance.breakdown).toEqual({
-        free: 0,
-        purchase: 0,
-        referral: 0,
-        admin: 0,
-      })
-      expect(usageThisCycle).toBe(200) // 500 - 300 = 200 used
+      await expect(checkAndTriggerAutoTopup('test-user')).rejects.toThrow()
     })
+  })
+})
+describe('calculateUsageAndBalance', () => {
+  beforeEach(() => {
+    // Reset the mock between tests
+    mock.restore()
 
-    it('should handle grants with debt', async () => {
-      const mockGrants = [
-        {
-          operation_id: 'test-1',
-          user_id: 'test-user',
-          type: 'free' as GrantType,
-          principal: 500,
-          balance: -100, // In debt
-          created_at: new Date('2024-01-01'),
-          expires_at: new Date('2024-02-01'),
-          priority: GRANT_PRIORITIES.free,
-        },
-      ]
+    // Re-mock logger after restore
+    mock.module('../util/logger', () => ({
+      logger: {
+        debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
+      },
+      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+    }))
+  })
 
-      // Mock the database module
-      mock.module('common/db', () => ({
-        default: {
-          select: () => ({
-            from: () => ({
-              where: () => ({
-                orderBy: () => mockGrants,
-              }),
+  it('should calculate total remaining credits correctly', async () => {
+    const mockGrants = [
+      {
+        operation_id: 'test-1',
+        user_id: 'test-user',
+        type: 'free' as GrantType,
+        principal: 500,
+        balance: 300,
+        created_at: new Date('2024-01-01'),
+        expires_at: new Date('2024-02-01'),
+        priority: GRANT_PRIORITIES.free,
+      },
+      {
+        operation_id: 'test-2',
+        user_id: 'test-user',
+        type: 'purchase' as GrantType,
+        principal: 1000,
+        balance: 800,
+        created_at: new Date('2024-01-15'),
+        expires_at: null,
+        priority: GRANT_PRIORITIES.purchase,
+      },
+    ]
+
+    // Mock the database module
+    mock.module('common/db', () => ({
+      default: {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => mockGrants,
             }),
           }),
-        },
-      }))
+        }),
+      },
+    }))
 
-      const { balance } = await calculateUsageAndBalance(
-        'test-user',
-        new Date('2024-01-01'),
-        new Date('2024-01-15') // Pass current time when grants are active
-      )
+    const { balance } = await calculateUsageAndBalance(
+      'test-user',
+      new Date('2024-01-01'),
+      new Date('2024-01-15') // Pass current time when grants are active
+    )
 
-      expect(balance.totalRemaining).toBe(0)
-      expect(balance.totalDebt).toBe(100)
-      expect(balance.netBalance).toBe(-100)
-      expect(balance.breakdown).toEqual({
-        free: 0,
-        purchase: 0,
-        referral: 0,
-        admin: 0,
-      }) // No positive balances
+    expect(balance.totalRemaining).toBe(1100) // 300 + 800
+    expect(balance.totalDebt).toBe(0)
+    expect(balance.netBalance).toBe(1100)
+    expect(balance.breakdown).toEqual({
+      free: 300,
+      purchase: 800,
+      referral: 0,
+      admin: 0,
     })
+  })
+
+  it('should calculate usage this cycle correctly', async () => {
+    const mockGrants = [
+      {
+        operation_id: 'test-1',
+        user_id: 'test-user',
+        type: 'free' as GrantType,
+        principal: 500, // Used 200 (500 - 300)
+        balance: 300,
+        created_at: new Date('2024-01-01'),
+        expires_at: new Date('2024-02-01'),
+        priority: GRANT_PRIORITIES.free,
+      },
+      {
+        operation_id: 'test-2',
+        user_id: 'test-user',
+        type: 'purchase' as GrantType,
+        principal: 1000, // Used 200 (1000 - 800)
+        balance: 800,
+        created_at: new Date('2024-01-15'),
+        expires_at: null,
+        priority: GRANT_PRIORITIES.purchase,
+      },
+    ]
+
+    // Mock the database module
+    mock.module('common/db', () => ({
+      default: {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => mockGrants,
+            }),
+          }),
+        }),
+      },
+    }))
+
+    const { usageThisCycle } = await calculateUsageAndBalance(
+      'test-user',
+      new Date('2024-01-01'),
+      new Date('2024-01-15') // Pass current time when grants are active
+    )
+
+    expect(usageThisCycle).toBe(400) // 200 + 200 = 400 total usage
+  })
+
+  it('should handle expired grants', async () => {
+    const mockGrants = [
+      {
+        operation_id: 'test-1',
+        user_id: 'test-user',
+        type: 'free' as GrantType,
+        principal: 500,
+        balance: 300,
+        created_at: new Date('2024-01-01'),
+        expires_at: new Date('2024-01-15'), // Already expired
+        priority: GRANT_PRIORITIES.free,
+      },
+    ]
+
+    // Mock the database module
+    mock.module('common/db', () => ({
+      default: {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => mockGrants,
+            }),
+          }),
+        }),
+      },
+    }))
+
+    const { balance, usageThisCycle } = await calculateUsageAndBalance(
+      'test-user',
+      new Date('2024-01-01'),
+      new Date('2024-01-16') // Current time after expiry
+    )
+
+    expect(balance.totalRemaining).toBe(0) // Expired grant doesn't count
+    expect(balance.totalDebt).toBe(0)
+    expect(balance.netBalance).toBe(0)
+    expect(balance.breakdown).toEqual({
+      free: 0,
+      purchase: 0,
+      referral: 0,
+      admin: 0,
+    })
+    expect(usageThisCycle).toBe(200) // 500 - 300 = 200 used
+  })
+
+  it('should handle grants with debt', async () => {
+    const mockGrants = [
+      {
+        operation_id: 'test-1',
+        user_id: 'test-user',
+        type: 'free' as GrantType,
+        principal: 500,
+        balance: -100, // In debt
+        created_at: new Date('2024-01-01'),
+        expires_at: new Date('2024-02-01'),
+        priority: GRANT_PRIORITIES.free,
+      },
+    ]
+
+    // Mock the database module
+    mock.module('common/db', () => ({
+      default: {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => mockGrants,
+            }),
+          }),
+        }),
+      },
+    }))
+
+    const { balance } = await calculateUsageAndBalance(
+      'test-user',
+      new Date('2024-01-01'),
+      new Date('2024-01-15') // Pass current time when grants are active
+    )
+
+    expect(balance.totalRemaining).toBe(0)
+    expect(balance.totalDebt).toBe(100)
+    expect(balance.netBalance).toBe(-100)
+    expect(balance.breakdown).toEqual({
+      free: 0,
+      purchase: 0,
+      referral: 0,
+      admin: 0,
+    }) // No positive balances
   })
 })
