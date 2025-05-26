@@ -9,7 +9,6 @@ import {
 import { models, type CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import { Message } from 'common/types/message'
-import { filterDefined } from 'common/util/array'
 import {
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
@@ -45,7 +44,8 @@ export async function requestRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode
+  costMode: CostMode,
+  repoName: string | undefined
 ) {
   const countPerRequest = { lite: 8, normal: 12, max: 14, experimental: 14 }[
     costMode
@@ -96,7 +96,8 @@ export async function requestRelevantFiles(
     fingerprintId,
     userInputId,
     userId,
-    costMode
+    costMode,
+    repoName
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
@@ -152,7 +153,8 @@ export async function requestRelevantFilesForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode
+  costMode: CostMode,
+  repoName: string | undefined
 ) {
   const COUNT = 50
 
@@ -191,7 +193,8 @@ export async function requestRelevantFilesForTraining(
     fingerprintId,
     userInputId,
     userId,
-    costMode
+    costMode,
+    repoName
   )
 
   const nonObviousFiles = await getRelevantFilesForTraining(
@@ -206,12 +209,16 @@ export async function requestRelevantFilesForTraining(
     fingerprintId,
     userInputId,
     userId,
-    costMode
+    costMode,
+    repoName
   )
 
   const candidateFiles = [...keyFiles.files, ...nonObviousFiles.files]
   const validatedFiles = validateFilePaths(uniq(candidateFiles))
-  logger.debug({ keyFiles, nonObviousFiles, validatedFiles }, 'requestRelevantFilesForTraining: results')
+  logger.debug(
+    { keyFiles, nonObviousFiles, validatedFiles },
+    'requestRelevantFilesForTraining: results'
+  )
   return validatedFiles.slice(0, MAX_FILES_PER_REQUEST)
 }
 
@@ -230,7 +237,8 @@ async function getRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode
+  costMode: CostMode,
+  repoName: string | undefined
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getMessagesSubset(
@@ -274,6 +282,7 @@ async function getRelevantFiles(
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
       model: models.ft_filepicker_005,
+      repo_name: repoName,
     },
   }
 
@@ -299,7 +308,8 @@ async function getRelevantFilesForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode
+  costMode: CostMode,
+  repoName: string | undefined
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getMessagesSubset(
@@ -344,6 +354,7 @@ async function getRelevantFilesForTraining(
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
       model: models.ft_filepicker_005,
+      repo_name: repoName,
     },
   }
 

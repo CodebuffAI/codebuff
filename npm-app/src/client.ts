@@ -74,7 +74,7 @@ import {
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
-import { gitCommandIsAvailable } from './utils/git'
+import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
@@ -185,21 +185,24 @@ export class Client {
       onWebSocketError,
       onWebSocketReconnect
     )
-    this.user = this.getUser()
-    this.initFingerprintId()
-    this.freshPrompt = freshPrompt
-    this.reconnectWhenNextIdle = reconnectWhenNextIdle
-    logger.info(
-      {
-        eventId: AnalyticsEvent.APP_LAUNCHED,
-        platform: os.platform(),
-        costMode: this.costMode,
-        model: this.model,
-      },
-      'App launched'
-    )
     loggerContext.costMode = this.costMode
     loggerContext.model = this.model
+    this.user = this.getUser()
+    this.initFingerprintId()
+    const repoInfoPromise = this.setRepoContext()
+    this.freshPrompt = freshPrompt
+    this.reconnectWhenNextIdle = reconnectWhenNextIdle
+    repoInfoPromise.then(() =>
+      logger.info(
+        {
+          eventId: AnalyticsEvent.APP_LAUNCHED,
+          platform: os.platform(),
+          costMode: this.costMode,
+          model: this.model,
+        },
+        'App launched'
+      )
+    )
   }
 
   public static createInstance(options: ClientOptions): Client {
@@ -252,6 +255,28 @@ export class Client {
     return this.fingerprintId
   }
 
+  private async setRepoContext() {
+    const repoMetrics = await getRepoMetrics()
+
+    loggerContext.repoName = repoMetrics.repoName
+    loggerContext.repoAgeDays = repoMetrics.ageDays
+    loggerContext.repoTrackedFiles = repoMetrics.trackedFiles
+    loggerContext.repoCommits = repoMetrics.commits
+    loggerContext.repoCommitsLast30Days = repoMetrics.commitsLast30Days
+    loggerContext.repoAuthorsLast30Days = repoMetrics.authorsLast30Days
+
+    if (this.user) {
+      identifyUser(this.user?.id, {
+        repoName: loggerContext.repoName,
+        repoAgeDays: loggerContext.repoAgeDays,
+        repoTrackedFiles: loggerContext.repoTrackedFiles,
+        repoCommits: loggerContext.repoCommits,
+        repoCommitsLast30Days: loggerContext.repoCommitsLast30Days,
+        repoAuthorsLast30Days: loggerContext.repoAuthorsLast30Days,
+      })
+    }
+  }
+
   private getUser(): User | undefined {
     if (!existsSync(CREDENTIALS_PATH)) {
       return
@@ -266,6 +291,8 @@ export class Client {
         platform: os.platform(),
         version: packageJson.version,
         hasGit: gitCommandIsAvailable(),
+        costMode: this.costMode,
+        model: this.model,
       })
       loggerContext.userId = user.id
       loggerContext.userEmail = user.email
@@ -805,6 +832,7 @@ export class Client {
       costMode: this.costMode,
       model: this.model,
       cwd: getWorkingDirectory(),
+      repoName: loggerContext.repoName,
     })
 
     return {
@@ -1006,6 +1034,7 @@ export class Client {
             authToken: this.user?.authToken,
             costMode: this.costMode,
             model: this.model,
+            repoName: loggerContext.repoName,
           })
           return
         }
