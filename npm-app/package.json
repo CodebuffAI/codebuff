@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.292",
+  "version": "1.0.295",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -28,7 +28,7 @@
     "start-prod": "bun run with-env -- ts-node -r tsconfig-paths/register src/index.ts",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
     "typecheck-only": "tsc --noEmit && tsc-alias",
-    "build": "nx build npm-app"
+    "build": "nx clean npm-app && nx reset && nx build npm-app"
   },
   "files": [
     "dist",

@@ -18,6 +18,7 @@ import {
 import {
   getProjectRoot,
   getWorkingDirectory,
+  isSubdir,
   setWorkingDirectory,
 } from '../project-files'
 import { trackEvent } from './analytics'
@@ -590,9 +591,7 @@ export const runCommandPty = (
         trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
           from: currentWorkingDirectory,
           to: newWorkingDirectory,
-          isSubdir: !path
-            .relative(currentWorkingDirectory, newWorkingDirectory)
-            .startsWith('..'),
+          isSubdir: isSubdir(currentWorkingDirectory, newWorkingDirectory),
         })
         if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
           outsideProject = true

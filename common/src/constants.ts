@@ -138,6 +138,7 @@ export const getModelForMode = (
 export const claudeModels = {
   sonnet: 'claude-sonnet-4-20250514',
   sonnet3_7: 'claude-3-7-sonnet-20250219',
+  opus4: 'claude-opus-4-20250514',
   haiku: 'claude-3-5-haiku-20241022',
 } as const
 export type AnthropicModel = (typeof claudeModels)[keyof typeof claudeModels]

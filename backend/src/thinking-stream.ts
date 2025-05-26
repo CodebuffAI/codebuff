@@ -45,8 +45,6 @@ When the next action is clear, you can stop your thinking immediately. For examp
 
 Guidelines:
 - Think step by step and respond with your analysis using a think_deeply tool call.
-- For code changes, please show excerpts of the major code changes that should be made, using comments like "// ... existing code ..." to introduce sections being changed. (Don't write code in git diff format.) But, do not use any tool calls to change code yet.
-- For planning, if you intend to create a planning document, please write out the full planning document while you are thinking, but do not use any tool calls to create the planning document yet.
 - Be concise and to the point. The shorter the response the better.
 - It's highly recommended to have a very short thinking session, like 1 sentence long, if the next action is clear.
 - Do not write anything outside of the <think_deeply> tool call.

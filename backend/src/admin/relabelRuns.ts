@@ -8,6 +8,7 @@ import {
   insertRelabel,
 } from '@codebuff/bigquery'
 import {
+  AnthropicModel,
   claudeModels,
   finetunedVertexModels,
   geminiModels,
@@ -111,6 +112,7 @@ export async function getTracesForUserHandler(req: Request, res: Response) {
 const models = [
   geminiModels.gemini2_5_pro_preview,
   claudeModels.sonnet,
+  claudeModels.opus4,
   finetunedVertexModels.ft_filepicker_005,
 ] as const
 
@@ -219,7 +221,15 @@ export async function relabelForUserHandler(req: Request, res: Response) {
               model: model,
             }
           } catch (error) {
-            logger.error(`Error processing trace ${trace.id}:`, error)
+            logger.error(
+              {
+                error: error,
+                stack: error instanceof Error ? error.stack : undefined,
+                message:
+                  error instanceof Error ? error.message : 'Unknown error',
+              },
+              `Error processing trace ${trace.id}:`
+            )
             return {
               traceId: trace.id,
               status: 'error',
@@ -283,15 +293,17 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
       relabelPromises.push(relabelWithRelace(trace, fileBlobs))
       didRelabel = true
     }
-    if (
-      !traceBundle.relabels.some(
-        (r) => r.model === 'claude-3-5-sonnet-with-full-file-context'
-      )
-    ) {
-      relabelPromises.push(
-        relabelWithClaudeWithFullFileContext(trace, fileBlobs)
-      )
-      didRelabel = true
+    for (const model of [claudeModels.sonnet, claudeModels.opus4]) {
+      if (
+        !traceBundle.relabels.some(
+          (r) => r.model === `${model}-with-full-file-context`
+        )
+      ) {
+        relabelPromises.push(
+          relabelWithClaudeWithFullFileContext(trace, fileBlobs, model)
+        )
+        didRelabel = true
+      }
     }
 
     if (didRelabel) {
@@ -360,7 +372,8 @@ async function relabelWithRelace(
 
 async function relabelWithClaudeWithFullFileContext(
   trace: GetRelevantFilesTrace,
-  fileBlobs: GetExpandedFileContextForTrainingBlobTrace
+  fileBlobs: GetExpandedFileContextForTrainingBlobTrace,
+  model: AnthropicModel
 ) {
   logger.info(`Relabeling ${trace.id} with Claude with full file context`)
   const filesWithPath = Object.entries(fileBlobs.payload.files).map(
@@ -407,7 +420,7 @@ async function relabelWithClaudeWithFullFileContext(
     agent_step_id: trace.agent_step_id,
     user_id: trace.user_id,
     created_at: new Date(),
-    model: 'claude-3-5-sonnet-with-full-file-context',
+    model: `${model}-with-full-file-context`,
     payload: {
       user_input_id: trace.payload.user_input_id,
       client_session_id: trace.payload.client_session_id,

@@ -141,6 +141,21 @@ export function toAbsolutePath(filepath: string, projectRoot: string): string {
   return path.normalize(path.resolve(projectRoot, filepath))
 }
 
+export function isSubdir(fromPath: string, toPath: string) {
+  const resolvedFrom = path.resolve(fromPath)
+  const resolvedTo = path.resolve(toPath)
+
+  if (process.platform === 'win32') {
+    const fromDrive = path.parse(resolvedFrom).root.toLowerCase()
+    const toDrive = path.parse(resolvedTo).root.toLowerCase()
+    if (fromDrive !== toDrive) {
+      return false
+    }
+  }
+
+  return !path.relative(resolvedFrom, resolvedTo).startsWith('..')
+}
+
 let cachedProjectFileContext: ProjectFileContext | undefined
 
 export function initProjectFileContextWithWorker(dir: string) {
@@ -218,7 +233,10 @@ export const getProjectFileContext = async (
       await addScrapedContentToFiles(userKnowledgeFiles)
 
     const shellConfigFiles = loadShellConfigFiles()
-    const { tokenScores, tokenCallers } = await getFileTokenScores(projectRoot, allFilePaths)
+    const { tokenScores, tokenCallers } = await getFileTokenScores(
+      projectRoot,
+      allFilePaths
+    )
 
     cachedProjectFileContext = {
       currentWorkingDirectory: projectRoot,

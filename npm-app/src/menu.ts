@@ -17,7 +17,7 @@ import {
 } from 'picocolors'
 
 import { Formatter } from 'picocolors/types'
-import { getProjectRoot } from './project-files'
+import { getProjectRoot, isSubdir } from './project-files'
 
 export interface CommandInfo {
   commandText: string // e.g., 'type "login"', 'type "diff" or "d"', 'hit ESC key or Ctrl-C'
@@ -165,7 +165,7 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     console.log(`${costModeDescription[costMode]}`)
   }
 
-  if (!path.relative(getProjectRoot(), os.homedir()).startsWith('..')) {
+  if (isSubdir(getProjectRoot(), os.homedir())) {
     console.info(
       `Welcome! Codebuff is your AI pair programmer that edits your codebase through natural conversation.
 

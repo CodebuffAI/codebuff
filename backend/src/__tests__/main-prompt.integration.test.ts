@@ -70,7 +70,6 @@ describe('mainPrompt (Integration)', () => {
     // Initialize mocked analytics
     const analytics = await import('common/analytics')
     analytics.initAnalytics()
-
     // Mock necessary non-LLM functions
     spyOn(logger, 'debug').mockImplementation(() => {})
     spyOn(logger, 'error').mockImplementation(() => {})
