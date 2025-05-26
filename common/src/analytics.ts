@@ -50,3 +50,15 @@ export function trackEvent(
     properties,
   })
 }
+
+export function logError(
+  error: Error,
+  userId?: string,
+  properties?: Record<string, any>
+) {
+  if (!client) {
+    throw new Error('Analytics client not initialized')
+  }
+
+  client.captureException(error, userId ?? 'unknown', properties)
+}

@@ -197,6 +197,8 @@ export class Client {
       },
       'App launched'
     )
+    loggerContext.costMode = this.costMode
+    loggerContext.model = this.model
   }
 
   public static createInstance(options: ClientOptions): Client {
@@ -511,9 +513,16 @@ export class Client {
           if (!statusResponse.ok) {
             if (statusResponse.status !== 401) {
               // Ignore 401s during polling
-              console.error(
-                'Error checking login status:',
-                await statusResponse.text()
+              const text = await statusResponse.text()
+              console.error('Error checking login status:', text)
+              logger.error(
+                {
+                  errorMessage: text,
+                  errorStatus: statusResponse.status,
+                  errorStatusText: statusResponse.statusText,
+                  msg: 'Error checking login status',
+                },
+                'Error checking login status'
               )
             }
             return
@@ -564,10 +573,27 @@ export class Client {
           }
         } catch (error) {
           console.error('Error checking login status:', error)
+          logger.error(
+            {
+              errorMessage:
+                error instanceof Error ? error.message : String(error),
+              errorStack: error instanceof Error ? error.stack : undefined,
+              msg: 'Error checking login status',
+            },
+            'Error checking login status'
+          )
         }
       }, 5000)
     } catch (error) {
       console.error('Error during login:', error)
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          msg: 'Error during login',
+        },
+        'Error during login'
+      )
       this.freshPrompt()
     }
   }

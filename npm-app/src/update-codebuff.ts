@@ -6,7 +6,8 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import packageJson from '../package.json'
 import { killAllBackgroundProcesses } from './background-process-manager'
 import { isProduction } from './config'
-import { flushAnalytics, trackEvent } from './utils/analytics'
+import { flushAnalytics } from './utils/analytics'
+import { logger } from './utils/logger'
 import { scrapeWebPage } from './web-scraper'
 
 export async function updateCodebuff() {
@@ -37,9 +38,14 @@ export async function updateCodebuff() {
       )
       process.exit(0)
     } catch (error) {
-      trackEvent(AnalyticsEvent.UPDATE_CODEBUFF_FAILED, {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          eventId: AnalyticsEvent.UPDATE_CODEBUFF_FAILED,
+        },
+        'Failed to update Codebuff'
+      )
       flushAnalytics()
       console.error('Failed to update Codebuff.')
     }
