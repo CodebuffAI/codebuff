@@ -54,7 +54,10 @@ function transformMessages(
                   type: 'image',
                   source: {
                     type: 'base64',
-                    media_type: 'image/jpeg',
+                    media_type: P.union(
+                      P.literal('image/jpeg'),
+                      P.literal('image/png')
+                    ),
                     data: P.string,
                   },
                 },
@@ -64,7 +67,7 @@ function transformMessages(
                 content: {
                   type: 'image_url',
                   image_url: {
-                    url: `data:image/jpeg;base64,${m.content.source.data}`,
+                    url: `data:${m.content.source.media_type};base64,${m.content.source.data}`,
                   },
                 } as any,
               })

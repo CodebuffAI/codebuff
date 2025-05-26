@@ -7,10 +7,11 @@ import * as readline from 'readline'
 import { type ApiKeyType } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { Message } from 'common/types/message'
+import { Message, MessageContentObject } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 import { green, yellow } from 'picocolors'
+import { extractImagesFromInput } from './utils/image'
 
 import {
   killAllBackgroundProcesses,
@@ -574,9 +575,21 @@ export class CLI {
 
     Client.getInstance().lastChanges = []
 
-    const newMessage: Message = {
-      role: 'user',
-      content: cleanedInput,
+    const { text, images } = await extractImagesFromInput(cleanedInput)
+
+    let newMessage: Message
+    if (images.length === 0) {
+      newMessage = { role: 'user', content: text }
+    } else {
+      const parts = [] as MessageContentObject[]
+      if (text) parts.push({ type: 'text', text })
+      for (const img of images) {
+        parts.push({
+          type: 'image',
+          source: { type: 'base64', media_type: 'image/png', data: img },
+        })
+      }
+      newMessage = { role: 'user', content: parts }
     }
 
     const client = Client.getInstance()
@@ -586,7 +599,7 @@ export class CLI {
 
     this.isReceivingResponse = true
     const { responsePromise, stopResponse } =
-      await Client.getInstance().sendUserInput(cleanedInput) // Fixed: Use cleaned input
+      await Client.getInstance().sendUserInput(text)
 
     this.stopResponse = stopResponse
     await responsePromise

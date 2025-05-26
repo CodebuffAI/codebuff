@@ -35,7 +35,7 @@ const MessageContentObjectSchema = z.union([
     type: z.literal('image'),
     source: z.object({
       type: z.literal('base64'),
-      media_type: z.literal('image/jpeg'),
+      media_type: z.enum(['image/jpeg', 'image/png']),
       data: z.string(),
     }),
     cache_control: z
