@@ -69,11 +69,12 @@ import {
   getProjectFileContext,
   getProjectRoot,
   getWorkingDirectory,
+  startNewChat,
 } from './project-files'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
-import { gitCommandIsAvailable } from './utils/git'
+import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
@@ -184,18 +185,23 @@ export class Client {
       onWebSocketError,
       onWebSocketReconnect
     )
+    loggerContext.costMode = this.costMode
+    loggerContext.model = this.model
     this.user = this.getUser()
     this.initFingerprintId()
+    const repoInfoPromise = this.setRepoContext()
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
-    logger.info(
-      {
-        eventId: AnalyticsEvent.APP_LAUNCHED,
-        platform: os.platform(),
-        costMode: this.costMode,
-        model: this.model,
-      },
-      'App launched'
+    repoInfoPromise.then(() =>
+      logger.info(
+        {
+          eventId: AnalyticsEvent.APP_LAUNCHED,
+          platform: os.platform(),
+          costMode: this.costMode,
+          model: this.model,
+        },
+        'App launched'
+      )
     )
   }
 
@@ -230,11 +236,45 @@ export class Client {
     this.fileContext = projectFileContext
   }
 
+  public async resetContext() {
+    if (!this.fileContext) return
+    this.initAgentState(this.fileContext)
+    this.lastToolResults = []
+    this.lastChanges = []
+    this.creditsByPromptId = {}
+    checkpointManager.clearCheckpoints(true)
+    setMessages([])
+    startNewChat()
+    await this.warmContextCache()
+  }
+
   private initFingerprintId(): string | Promise<string> {
     if (!this.fingerprintId) {
       this.fingerprintId = this.user?.fingerprintId ?? calculateFingerprint()
     }
     return this.fingerprintId
+  }
+
+  private async setRepoContext() {
+    const repoMetrics = await getRepoMetrics()
+
+    loggerContext.repoName = repoMetrics.repoName
+    loggerContext.repoAgeDays = repoMetrics.ageDays
+    loggerContext.repoTrackedFiles = repoMetrics.trackedFiles
+    loggerContext.repoCommits = repoMetrics.commits
+    loggerContext.repoCommitsLast30Days = repoMetrics.commitsLast30Days
+    loggerContext.repoAuthorsLast30Days = repoMetrics.authorsLast30Days
+
+    if (this.user) {
+      identifyUser(this.user?.id, {
+        repoName: loggerContext.repoName,
+        repoAgeDays: loggerContext.repoAgeDays,
+        repoTrackedFiles: loggerContext.repoTrackedFiles,
+        repoCommits: loggerContext.repoCommits,
+        repoCommitsLast30Days: loggerContext.repoCommitsLast30Days,
+        repoAuthorsLast30Days: loggerContext.repoAuthorsLast30Days,
+      })
+    }
   }
 
   private getUser(): User | undefined {
@@ -251,6 +291,8 @@ export class Client {
         platform: os.platform(),
         version: packageJson.version,
         hasGit: gitCommandIsAvailable(),
+        costMode: this.costMode,
+        model: this.model,
       })
       loggerContext.userId = user.id
       loggerContext.userEmail = user.email
@@ -511,9 +553,16 @@ export class Client {
           if (!statusResponse.ok) {
             if (statusResponse.status !== 401) {
               // Ignore 401s during polling
-              console.error(
-                'Error checking login status:',
-                await statusResponse.text()
+              const text = await statusResponse.text()
+              console.error('Error checking login status:', text)
+              logger.error(
+                {
+                  errorMessage: text,
+                  errorStatus: statusResponse.status,
+                  errorStatusText: statusResponse.statusText,
+                  msg: 'Error checking login status',
+                },
+                'Error checking login status'
               )
             }
             return
@@ -564,10 +613,27 @@ export class Client {
           }
         } catch (error) {
           console.error('Error checking login status:', error)
+          logger.error(
+            {
+              errorMessage:
+                error instanceof Error ? error.message : String(error),
+              errorStack: error instanceof Error ? error.stack : undefined,
+              msg: 'Error checking login status',
+            },
+            'Error checking login status'
+          )
         }
       }, 5000)
     } catch (error) {
       console.error('Error during login:', error)
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          msg: 'Error during login',
+        },
+        'Error during login'
+      )
       this.freshPrompt()
     }
   }
@@ -766,6 +832,7 @@ export class Client {
       costMode: this.costMode,
       model: this.model,
       cwd: getWorkingDirectory(),
+      repoName: loggerContext.repoName,
     })
 
     return {
@@ -967,6 +1034,7 @@ export class Client {
             authToken: this.user?.authToken,
             costMode: this.costMode,
             model: this.model,
+            repoName: loggerContext.repoName,
           })
           return
         }

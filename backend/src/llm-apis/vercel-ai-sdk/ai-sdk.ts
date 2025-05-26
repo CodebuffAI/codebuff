@@ -67,6 +67,7 @@ export const promptAiSdkStream = async function* (
     userId: string | undefined
     maxTokens?: number
     temperature?: number
+    stopSequences?: string[]
   }
 ) {
   const startTime = Date.now()
@@ -116,6 +117,7 @@ export const promptAiSdk = async function (
     userId: string | undefined
     maxTokens?: number
     temperature?: number
+    stopSequences?: string[]
   }
 ): Promise<string> {
   const startTime = Date.now()
