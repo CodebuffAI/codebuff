@@ -123,11 +123,11 @@ const onPrompt = async (
   clientSessionId: string,
   ws: WebSocket
 ) => {
-  const { fingerprintId, authToken, promptId, prompt, toolResults, model } =
+  const { fingerprintId, authToken, promptId, prompt, toolResults, model, costMode } =
     action
 
   await withLoggerContext(
-    { fingerprintId, clientRequestId: promptId },
+    { fingerprintId, clientRequestId: promptId, costMode },
     async () => {
       const userId = await getUserIdFromAuthToken(authToken)
       if (!userId) {

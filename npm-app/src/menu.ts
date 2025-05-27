@@ -116,6 +116,24 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
+    baseCommand: 'lite',
+    description: 'Switch to lite mode (faster, cheaper)',
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
+    baseCommand: 'normal',
+    description: 'Switch to normal mode (balanced)',
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
+    baseCommand: 'max',
+    description: 'Switch to max mode (slower, more thorough)',
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
     description: 'Quit Codebuff',
@@ -163,9 +181,11 @@ export function displaySlashCommandHelperMenu() {
 export function displayGreeting(costMode: CostMode, username: string | null) {
   // Show extra info only for logged in users
   const costModeDescription = {
-    lite: bold(yellow('Lite mode ✨ enabled')),
+    lite: bold(yellow('Lite mode ✨ enabled (switch modes by typing in "/")')),
     normal: '',
-    max: bold(blueBright('Max mode️ ⚡ enabled')),
+    max: bold(
+      blueBright('Max mode️ ⚡ enabled (switch modes by typing in "/")')
+    ),
     experimental: bold(magenta('Experimental mode 🧪 enabled')),
   }
   if (costModeDescription[costMode]) {

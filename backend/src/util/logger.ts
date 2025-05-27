@@ -20,6 +20,7 @@ export interface LoggerContext {
   clientRequestId?: string
   messageId?: string
   discordId?: string
+  costMode?: string
   [key: string]: any // Allow for future extensions
 }
 
