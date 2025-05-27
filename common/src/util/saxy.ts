@@ -560,10 +560,10 @@ export class Saxy extends Transform {
           const lastAmp = chunk.lastIndexOf('&')
           if (lastAmp !== -1 && chunk.indexOf(';', lastAmp) === -1) {
             // Only consider it a pending entity if it looks like the start of one
-            const nextChar = chunk[lastAmp + 1]
+            const postAmp = chunk.slice(lastAmp + 1)
             const isPotentialEntity =
-              nextChar === '#' || // Numeric entity
-              /[a-zA-Z]/.test(nextChar) // Named entity
+              /^(#\d*)?$/.test(postAmp) || // Numeric entity
+              /^[a-zA-Z]{0,6}$/.test(postAmp) // Named entity
             if (isPotentialEntity) {
               // Store incomplete entity for next chunk
               this._wait(Node.text, chunk.slice(lastAmp))
@@ -585,21 +585,6 @@ export class Saxy extends Transform {
 
         if (this._tagStack.length === 1 && !chunk.trim()) {
           chunk = ''
-        }
-
-        // Check for incomplete entity at end
-        const lastAmp = chunk.lastIndexOf('&')
-        if (lastAmp !== -1 && chunk.indexOf(';', lastAmp) === -1) {
-          // Only consider it a pending entity if it looks like the start of one
-          const nextChar = chunk[lastAmp + 1]
-          const isPotentialEntity =
-            nextChar === '#' || // Numeric entity
-            /[a-zA-Z]/.test(nextChar) // Named entity
-          if (isPotentialEntity) {
-            // Store incomplete entity for next chunk
-            this._wait(Node.text, chunk.slice(lastAmp))
-            chunk = chunk.slice(0, lastAmp)
-          }
         }
 
         // Only emit non-whitespace text or text within a single tag (not between tags)
