@@ -78,6 +78,7 @@ export const promptAiSdkStream = async function* (
     messages,
     maxTokens: options.maxTokens,
     temperature: options.temperature,
+    stopSequences: options.stopSequences,
   })
 
   let content = ''
@@ -128,6 +129,7 @@ export const promptAiSdk = async function (
     messages,
     maxTokens: options.maxTokens,
     temperature: options.temperature,
+    stopSequences: options.stopSequences,
   })
 
   const content = response.text
