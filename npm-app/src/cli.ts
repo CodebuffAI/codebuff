@@ -249,7 +249,64 @@ export class CLI {
       return [[], line] // No slash command matches
     }
 
-    // Original file path completion logic
+    // Handle @ prefix for token and file completion
+    if (lastWord.startsWith('@')) {
+      const client = Client.getInstance()
+      if (!client.fileContext?.fileTree) return [[], line]
+
+      const searchTerm = lastWord.substring(1) // Remove @ prefix
+      const searchTermLower = searchTerm.toLowerCase()
+
+      // Get token names from fileTokenScores
+      const tokenNames = Object.values(
+        client.fileContext.fileTokenScores
+      ).flatMap((o) => Object.keys(o))
+
+      // Get all file paths
+      const paths = this.getAllFilePaths(client.fileContext.fileTree)
+
+      // Combine tokens and paths for matching
+      const allCandidates = [...tokenNames, ...paths]
+      
+      const matchingItems = allCandidates.filter(
+        (item) =>
+          item.toLowerCase().startsWith(searchTermLower) ||
+          item.toLowerCase().includes('/' + searchTermLower)
+      )
+
+      if (matchingItems.length > 1) {
+        // Find common prefix among matches
+        const suffixes = matchingItems.map((item) => {
+          const index = item.toLowerCase().indexOf(searchTermLower)
+          return item.slice(index + searchTerm.length)
+        })
+        
+        let commonPrefix = ''
+        const firstSuffix = suffixes[0]
+        for (let i = 0; i < firstSuffix.length; i++) {
+          const char = firstSuffix[i]
+          if (suffixes.every((suffix) => suffix[i] === char)) {
+            commonPrefix += char
+          } else {
+            break
+          }
+        }
+        
+        if (commonPrefix) {
+          // Return the completion with @ prefix preserved
+          return [['@' + searchTerm + commonPrefix], lastWord]
+        }
+        
+        // Multiple matches but no common prefix - show matches with @ prefix and keep @ in input
+        const matchesWithPrefix = matchingItems.map(item => '@' + item)
+        return [matchesWithPrefix, lastWord]
+      }
+      
+      // Single match or no matches - remove @ prefix from completion
+      return [matchingItems, lastWord]
+    }
+
+    // Original file path completion logic (unchanged)
     const input = lastWord.startsWith('~')
       ? homedir() + lastWord.slice(1)
       : lastWord
@@ -275,6 +332,15 @@ export class CLI {
     } catch {
       return [[], line]
     }
+  }
+
+  private getAllFilePaths(nodes: any[], basePath: string = ''): string[] {
+    return nodes.flatMap((node) => {
+      if (node.type === 'file') {
+        return [path.join(basePath, node.name)]
+      }
+      return this.getAllFilePaths(node.children || [], path.join(basePath, node.name))
+    })
   }
 
   private getModeIndicator(): string {
