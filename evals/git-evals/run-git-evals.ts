@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { execSync } from 'child_process'
+import { mapLimit } from 'async'
 
 import { promptAiSdkStructured } from 'backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 import { claudeModels } from 'common/src/constants'
@@ -313,34 +314,60 @@ export async function runGitEvals(
     `${outputBasename}-${traceId}-partial${outputExt}`
   )
 
+  const CONCURRENT_EVALS = 3
+  let completedCount = 0
   const evalRuns: EvalRunJudged[] = []
-  for (let i = 0; i < evalData.evalCommits.length; i++) {
-    const evalCommit = evalData.evalCommits[i]
-    console.log(
-      `Running eval ${i + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message}...`
-    )
 
-    const evalRun = await runSingleEval(
-      evalCommit,
-      projectPath,
-      clientSessionId,
-      fingerprintId
-    )
-    evalRuns.push(evalRun)
+  console.log(
+    `Running ${evalData.evalCommits.length} evaluations with max ${CONCURRENT_EVALS} concurrent...`
+  )
 
-    // Save partial results after each iteration (overwrites the same file)
-    const partialResult: FullEvalLog = {
-      test_repo_name: testRepoName,
-      generation_date: new Date().toISOString(),
-      eval_runs: evalRuns,
-      overall_metrics: calculateOverallMetrics(evalRuns),
+  // Use mapLimit for efficient concurrent processing
+  await mapLimit(
+    evalData.evalCommits,
+    CONCURRENT_EVALS,
+    async (
+      evalCommit: EvalCommit,
+      callback: (err: Error | null, result?: EvalRunJudged) => void
+    ) => {
+      const index = evalData.evalCommits.indexOf(evalCommit)
+      console.log(
+        `Starting eval ${index + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message}...`
+      )
+
+      const evalRun = await runSingleEval(
+        evalCommit,
+        projectPath,
+        clientSessionId,
+        fingerprintId
+      )
+
+      completedCount++
+      console.log(
+        `Completed eval ${index + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message} (${completedCount}/${evalData.evalCommits.length} total)`
+      )
+
+      evalRuns.push(evalRun)
+
+      // Save partial results after each completion
+      const partialResult: FullEvalLog = {
+        test_repo_name: testRepoName,
+        generation_date: new Date().toISOString(),
+        eval_runs: [...evalRuns],
+        overall_metrics: calculateOverallMetrics(evalRuns),
+      }
+
+      fs.writeFileSync(
+        partialOutputPath,
+        JSON.stringify(partialResult, null, 2)
+      )
+      console.log(
+        `Partial results saved to ${partialOutputPath} (${completedCount}/${evalData.evalCommits.length} complete)`
+      )
+
+      callback(null, evalRun)
     }
-
-    fs.writeFileSync(partialOutputPath, JSON.stringify(partialResult, null, 2))
-    console.log(
-      `Partial results saved to ${partialOutputPath} (${i + 1}/${evalData.evalCommits.length} complete)`
-    )
-  }
+  )
 
   // Calculate final overall metrics
   const overallMetrics = calculateOverallMetrics(evalRuns)
