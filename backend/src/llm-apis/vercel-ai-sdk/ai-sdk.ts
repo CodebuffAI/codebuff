@@ -227,13 +227,13 @@ export function transformMessages(
   const coreMessages: CoreMessage[] = []
 
   if (system) {
-    if (typeof system === 'string') {
-      coreMessages.push({ role: 'system', content: system })
-    } else {
-      for (const block of system) {
-        coreMessages.push({ role: 'system', content: block.text })
-      }
-    }
+    coreMessages.push({
+      role: 'system',
+      content:
+        typeof system === 'string'
+          ? system
+          : system.map((block) => block.text).join('\n\n'),
+    })
   }
 
   for (const message of messages) {
