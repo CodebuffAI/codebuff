@@ -500,6 +500,12 @@ export const saveMessage = async (value: {
 
       const creditsUsed = Math.max(0, costInCents)
 
+      sendCostResponseToClient(
+        value.clientSessionId,
+        value.userInputId,
+        creditsUsed
+      )
+
       if (VERBOSE) {
         logger.debug(
           {
@@ -529,12 +535,6 @@ export const saveMessage = async (value: {
 
       const consumptionResult = await updateUserCycleUsage(
         value.userId,
-        creditsUsed
-      )
-
-      sendCostResponseToClient(
-        value.clientSessionId,
-        value.userInputId,
         creditsUsed
       )
 
