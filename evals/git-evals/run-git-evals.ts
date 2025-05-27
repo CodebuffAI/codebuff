@@ -28,6 +28,7 @@ import {
   createInitialAgentState,
   setupTestEnvironmentVariables,
 } from '../test-setup'
+
 async function runSingleEval(
   evalCommit: EvalCommit,
   projectPath: string,
@@ -217,10 +218,22 @@ export async function runGitEvals(
 
   const clientSessionId = generateCompactId()
   const fingerprintId = generateCompactId()
+  
+  // Generate unique trace ID for this run
+  const traceId = generateCompactId()
+  console.log(`Starting eval run with trace ID: ${traceId}`)
+
+  // Create partial filename with trace ID (single file that gets overwritten)
+  const outputDir = path.dirname(outputPath)
+  const outputBasename = path.basename(outputPath, path.extname(outputPath))
+  const outputExt = path.extname(outputPath)
+  const partialOutputPath = path.join(outputDir, `${outputBasename}-${traceId}-partial${outputExt}`)
 
   const evalRuns: EvalRunJudged[] = []
-  for (const evalCommit of evalData.evalCommits) {
-    console.log(`Running eval for commit ${evalCommit.message}...`)
+  for (let i = 0; i < evalData.evalCommits.length; i++) {
+    const evalCommit = evalData.evalCommits[i]
+    console.log(`Running eval ${i + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message}...`)
+    
     const evalRun = await runSingleEval(
       evalCommit,
       projectPath,
@@ -228,10 +241,43 @@ export async function runGitEvals(
       fingerprintId
     )
     evalRuns.push(evalRun)
+
+    // Save partial results after each iteration (overwrites the same file)
+    const partialResult: FullEvalLog = {
+      test_repo_name: testRepoName,
+      generation_date: new Date().toISOString(),
+      eval_runs: evalRuns,
+      overall_metrics: calculateOverallMetrics(evalRuns),
+    }
+
+    fs.writeFileSync(partialOutputPath, JSON.stringify(partialResult, null, 2))
+    console.log(`Partial results saved to ${partialOutputPath} (${i + 1}/${evalData.evalCommits.length} complete)`)
   }
 
-  // Calculate overall metrics
-  const overallMetrics = {
+  // Calculate final overall metrics
+  const overallMetrics = calculateOverallMetrics(evalRuns)
+
+  const result: FullEvalLog = {
+    test_repo_name: testRepoName,
+    generation_date: new Date().toISOString(),
+    eval_runs: evalRuns,
+    overall_metrics: overallMetrics,
+  }
+
+  // Create final filename with trace ID
+  const finalOutputPath = path.join(outputDir, `${outputBasename}-${traceId}${outputExt}`)
+
+  // Write final results to file
+  fs.writeFileSync(finalOutputPath, JSON.stringify(result, null, 2))
+
+  console.log('All evals complete!')
+  console.log(`Final results written to ${finalOutputPath}`)
+
+  return result
+}
+
+function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
+  return {
     average_completion:
       evalRuns.reduce(
         (sum, run) => sum + (run.judging_results.metrics.completionScore || 0),
@@ -262,21 +308,6 @@ export async function runGitEvals(
     successful_runs: evalRuns.filter((run) => !run.error).length,
     failed_runs: evalRuns.filter((run) => run.error).length,
   }
-
-  const result: FullEvalLog = {
-    test_repo_name: testRepoName,
-    generation_date: new Date().toISOString(),
-    eval_runs: evalRuns,
-    overall_metrics: overallMetrics,
-  }
-
-  // Write results to file
-  fs.writeFileSync(outputPath, JSON.stringify(result, null, 2))
-
-  console.log('All evals complete!')
-  console.log(`Results written to ${outputPath}`)
-
-  return result
 }
 
 // CLI handling
