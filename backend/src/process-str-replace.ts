@@ -87,6 +87,7 @@ export async function processStrReplace(
     const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
     if (hunkStartIndex !== -1) {
       patch = lines.slice(hunkStartIndex).join('\n')
+      patch = patch.replaceAll('\n', lineEnding)
       allPatches.push(patch)
     }
 

@@ -24,7 +24,7 @@ export const SWE_BENCH_PYTHON_PATH = path.join(
 )
 
 // Mock required environment variables for tests
-function setupTestEnvironmentVariables() {
+export function setupTestEnvironmentVariables() {
   // Set up mock environment variables needed for tests
   process.env.GOOGLE_CLOUD_PROJECT_ID = 'mock-project-id'
   // Add other required environment variables as needed

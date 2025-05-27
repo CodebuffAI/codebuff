@@ -58,6 +58,9 @@ describe('SWE-Bench', async () => {
               prompt,
               projectPath: repoPath,
               maxIterations: 100,
+              options: {
+                costMode: 'normal'
+              }
             })
             expect(await passesSweBenchTests(instanceId, repoPath)).toBeTruthy()
           },

@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.292",
+  "version": "1.0.297",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -28,7 +28,7 @@
     "start-prod": "bun run with-env -- ts-node -r tsconfig-paths/register src/index.ts",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
     "typecheck-only": "tsc --noEmit && tsc-alias",
-    "build": "nx build npm-app"
+    "build": "nx clean npm-app && nx reset && nx build npm-app"
   },
   "files": [
     "dist",
@@ -38,21 +38,22 @@
     "node": ">=18"
   },
   "dependencies": {
-    "code-map": "1.0.0",
     "@types/diff": "5.2.1",
     "@vscode/ripgrep": "1.15.9",
     "axios": "1.7.4",
+    "code-map": "1.0.0",
     "commander": "^13.1.0",
     "diff": "5.2.0",
     "env-cmd": "^10.1.0",
+    "git-url-parse": "^16.1.0",
     "ignore": "7.0.3",
     "isomorphic-git": "^1.29.0",
-    "pino": "9.4.0",
     "jsonc-parser": "^3.3.1",
     "lodash": "*",
     "nanoid": "5.0.7",
     "onetime": "5.1.2",
     "picocolors": "1.1.0",
+    "pino": "9.4.0",
     "posthog-node": "^4.14.0",
     "puppeteer-core": "^24.2.0",
     "systeminformation": "5.23.4",

@@ -110,6 +110,7 @@ export const mainPrompt = async (
     userInputId: promptId,
     userId,
     repositoryUrl,
+    repoName,
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)

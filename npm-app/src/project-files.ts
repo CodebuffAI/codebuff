@@ -28,7 +28,16 @@ import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 // Global variables for chat management
 // Initialize chat ID on first import
-export const currentChatId = new Date().toISOString().replace(/:/g, '-')
+let currentChatId = new Date().toISOString().replace(/:/g, '-')
+
+export function getCurrentChatId() {
+  return currentChatId
+}
+
+export function startNewChat() {
+  currentChatId = new Date().toISOString().replace(/:/g, '-')
+  return currentChatId
+}
 
 export function isDir(p: string): boolean {
   try {
@@ -54,7 +63,7 @@ export function getProjectDataDir(): string {
 }
 
 export function getCurrentChatDir(): string {
-  const dir = path.join(getProjectDataDir(), 'chats', currentChatId)
+  const dir = path.join(getProjectDataDir(), 'chats', getCurrentChatId())
   ensureDirectoryExists(dir)
   return dir
 }
@@ -141,6 +150,21 @@ export function toAbsolutePath(filepath: string, projectRoot: string): string {
   return path.normalize(path.resolve(projectRoot, filepath))
 }
 
+export function isSubdir(fromPath: string, toPath: string) {
+  const resolvedFrom = path.resolve(fromPath)
+  const resolvedTo = path.resolve(toPath)
+
+  if (process.platform === 'win32') {
+    const fromDrive = path.parse(resolvedFrom).root.toLowerCase()
+    const toDrive = path.parse(resolvedTo).root.toLowerCase()
+    if (fromDrive !== toDrive) {
+      return false
+    }
+  }
+
+  return !path.relative(resolvedFrom, resolvedTo).startsWith('..')
+}
+
 let cachedProjectFileContext: ProjectFileContext | undefined
 
 export function initProjectFileContextWithWorker(dir: string) {
@@ -218,7 +242,10 @@ export const getProjectFileContext = async (
       await addScrapedContentToFiles(userKnowledgeFiles)
 
     const shellConfigFiles = loadShellConfigFiles()
-    const { tokenScores, tokenCallers } = await getFileTokenScores(projectRoot, allFilePaths)
+    const { tokenScores, tokenCallers } = await getFileTokenScores(
+      projectRoot,
+      allFilePaths
+    )
 
     cachedProjectFileContext = {
       currentWorkingDirectory: projectRoot,

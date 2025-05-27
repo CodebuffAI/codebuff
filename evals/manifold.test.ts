@@ -28,6 +28,9 @@ describe('manifold', async () => {
         stopCondition: (_, toolCalls) => {
           return toolCalls.some((call) => call.name === 'write_file')
         },
+        options: {
+          costMode: 'normal'
+        }
       })
 
       // Extract write_file tool calls
@@ -64,6 +67,9 @@ describe('manifold', async () => {
         prompt,
         projectPath: repoPath,
         maxIterations: 20,
+        options: {
+          costMode: 'normal'
+        }
       })
 
       // Read the actual files from disk

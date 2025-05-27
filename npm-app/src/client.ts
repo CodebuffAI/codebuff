@@ -771,6 +771,7 @@ export class Client {
       model: this.model,
       cwd: getWorkingDirectory(),
       repositoryUrl: repositoryUrl || undefined,
+      repoName: loggerContext.repoName,
     })
 
     return {

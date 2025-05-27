@@ -122,7 +122,7 @@ A Python package for Codebuff has been created as a skeleton in python-app. Key 
 
 # Verifying changes
 
-Use judgment when verifying changes. For complex changes that could affect types or dependencies, run the type checker with `bun run typecheck-only` and then fix any type errors that resulted from your change. For simple changes like adding console.logs or text updates, type checking is unnecessary.
+Use judgment when verifying changes. For complex changes that could affect types or dependencies, run the type checker with `bun run typecheck-only` and then fix any type errors that resulted from your change. For simple changes like adding console.logs or text updates, type checking is unnecessary. However, if editing the evals package, only run bun run typecheck from the evals directory and skip the other type checks.
 
 Only run type checking when:
 

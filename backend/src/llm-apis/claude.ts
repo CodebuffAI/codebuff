@@ -29,6 +29,7 @@ function transformMessages(
     .with(claudeModels.sonnet3_7, () =>
       limitScreenshots(messages, MAX_SCREENSHOTS)
     )
+    .with(claudeModels.opus4, () => limitScreenshots(messages, MAX_SCREENSHOTS))
     .with(claudeModels.haiku, () =>
       messages.map((msg) => ({
         ...msg,

@@ -591,6 +591,12 @@ export const saveMessage = async (value: {
 
       const creditsUsed = Math.max(0, costInCents)
 
+      sendCostResponseToClient(
+        value.clientSessionId,
+        value.userInputId,
+        creditsUsed
+      )
+
       if (VERBOSE) {
         logger.debug(
           {
@@ -622,12 +628,6 @@ export const saveMessage = async (value: {
         value.userId,
         creditsUsed,
         value.repositoryUrl
-      )
-
-      sendCostResponseToClient(
-        value.clientSessionId,
-        value.userInputId,
-        creditsUsed
       )
 
       // Only sync the portion from purchased credits to Stripe

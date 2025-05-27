@@ -182,6 +182,8 @@ describe('processStrReplace', () => {
     )
 
     expect(result).not.toBeNull()
-    expect(result?.content).toBe('const x = "hello & world";\nconst y = "<span>";\n')
+    expect(result?.content).toBe(
+      'const x = "hello & world";\nconst y = "<span>";\n'
+    )
   })
 })

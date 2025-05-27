@@ -21,6 +21,7 @@ import * as claude from '../llm-apis/claude'
 import * as gemini from '../llm-apis/gemini-api'
 import * as geminiWithFallbacks from '../llm-apis/gemini-with-fallbacks'
 import * as openai from '../llm-apis/openai-api'
+import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
@@ -48,6 +49,9 @@ const mockAgentStream = (streamOutput: string) => {
     yield streamOutput
   } as any)
   spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
+    yield streamOutput
+  })
+  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
     yield streamOutput
   })
   spyOn(
@@ -85,6 +89,13 @@ describe('mainPrompt', () => {
       Promise.resolve('Test response')
     )
     spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
+      yield 'Test response'
+      return
+    })
+    spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
+      Promise.resolve('Test response')
+    )
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield 'Test response'
       return
     })

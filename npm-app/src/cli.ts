@@ -42,7 +42,13 @@ import {
   getSlashCommands,
 } from './menu'
 import { OrganizationContextManager } from './organization-context'
-import { getProjectRoot, getWorkingDirectory, isDir, getCurrentRepositoryUrl } from './project-files'
+import {
+  getProjectRoot,
+  getWorkingDirectory,
+  initProjectFileContextWithWorker,
+  isDir,
+  getCurrentRepositoryUrl
+} from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
 import { Spinner } from './utils/spinner'
@@ -388,10 +394,15 @@ export class CLI {
     // Update organization context when starting work
     await this.updateAndDisplayOrganizationContext()
     
-    if (await this.processCommand(userInput)) {
+    const processedResult = await this.processCommand(userInput)
+
+    if (processedResult === null) {
+      // Command was fully handled by processCommand
       return
     }
-    await this.forwardUserInput(userInput)
+    
+    // processedResult is the string to be forwarded as a prompt
+    await this.forwardUserInput(processedResult)
   }
 
   /**

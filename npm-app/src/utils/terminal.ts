@@ -18,6 +18,7 @@ import {
 import {
   getProjectRoot,
   getWorkingDirectory,
+  isSubdir,
   setWorkingDirectory,
 } from '../project-files'
 import { trackEvent } from './analytics'
@@ -50,8 +51,11 @@ type PersistentProcess =
       timerId: NodeJS.Timeout | null
     }
 
-const createPersistantProcess = (dir: string): PersistentProcess => {
-  if (pty && process.env.NODE_ENV !== 'test') {
+const createPersistantProcess = (
+  dir: string,
+  forceChildProcess = false
+): PersistentProcess => {
+  if (pty && process.env.NODE_ENV !== 'test' && !forceChildProcess) {
     const isWindows = os.platform() === 'win32'
     const currShell = detectShell()
     const shell = isWindows
@@ -182,8 +186,8 @@ export const isCommandRunning = () => {
   return commandIsRunning
 }
 
-export const recreateShell = (cwd: string) => {
-  persistentProcess = createPersistantProcess(cwd)
+export const recreateShell = (cwd: string, forceChildProcess = false) => {
+  persistentProcess = createPersistantProcess(cwd, forceChildProcess)
 }
 
 export const resetShell = (cwd: string) => {
@@ -590,9 +594,7 @@ export const runCommandPty = (
         trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
           from: currentWorkingDirectory,
           to: newWorkingDirectory,
-          isSubdir: !path
-            .relative(currentWorkingDirectory, newWorkingDirectory)
-            .startsWith('..'),
+          isSubdir: isSubdir(currentWorkingDirectory, newWorkingDirectory),
         })
         if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
           outsideProject = true
@@ -736,4 +738,8 @@ export function killAndResetPersistentProcess() {
     persistentProcess.pty.kill()
     persistentProcess = null
   }
+}
+
+export function clearScreen() {
+  process.stdout.write('\u001b[2J\u001b[0;0H')
 }

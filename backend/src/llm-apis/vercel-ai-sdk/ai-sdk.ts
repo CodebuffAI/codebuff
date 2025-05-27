@@ -25,12 +25,13 @@ import {
 
 import { generateCompactId } from 'common/util/string'
 
+import { Message } from 'common/types/message'
+import { withTimeout } from 'common/util/promise'
 import { z } from 'zod'
 import { System } from '../claude'
 import { GeminiMessage } from '../gemini-vertex-api'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
-import { withTimeout } from 'common/util/promise'
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
@@ -66,6 +67,7 @@ export const promptAiSdkStream = async function* (
     userId: string | undefined
     maxTokens?: number
     temperature?: number
+    stopSequences?: string[]
   }
 ) {
   const startTime = Date.now()
@@ -76,6 +78,7 @@ export const promptAiSdkStream = async function* (
     messages,
     maxTokens: options.maxTokens,
     temperature: options.temperature,
+    stopSequences: options.stopSequences,
   })
 
   let content = ''
@@ -85,8 +88,18 @@ export const promptAiSdkStream = async function* (
     yield chunk
   }
 
-  const inputTokens = (await response.usage).promptTokens
-  const outputTokens = (await response.usage).completionTokens
+  const usage = await response.usage
+  const inputTokens = usage.promptTokens
+  const outputTokens = usage.completionTokens
+  const anthropicMetadata = (await response.providerMetadata)?.anthropic
+  const cacheReadInputTokens =
+    typeof anthropicMetadata?.cacheReadInputTokens === 'number'
+      ? anthropicMetadata.cacheReadInputTokens
+      : 0
+  const cacheCreationInputTokens =
+    typeof anthropicMetadata?.cacheCreationInputTokens === 'number'
+      ? anthropicMetadata.cacheCreationInputTokens
+      : 0
 
   saveMessage({
     messageId: generateCompactId(),
@@ -99,6 +112,8 @@ export const promptAiSdkStream = async function* (
     response: content,
     inputTokens,
     outputTokens,
+    cacheCreationInputTokens,
+    cacheReadInputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
   })
@@ -115,6 +130,7 @@ export const promptAiSdk = async function (
     userId: string | undefined
     maxTokens?: number
     temperature?: number
+    stopSequences?: string[]
   }
 ): Promise<string> {
   const startTime = Date.now()
@@ -125,6 +141,7 @@ export const promptAiSdk = async function (
     messages,
     maxTokens: options.maxTokens,
     temperature: options.temperature,
+    stopSequences: options.stopSequences,
   })
 
   const content = response.text
@@ -203,20 +220,20 @@ export const promptAiSdkStructured = async function <T>(
 
 // TODO: temporary - ideally we move to using CoreMessage[] directly
 // and don't need this transform!!
-function transformMessages(
-  messages: GeminiMessage[],
+export function transformMessages(
+  messages: (GeminiMessage | Message)[],
   system: System | undefined
 ): CoreMessage[] {
   const coreMessages: CoreMessage[] = []
 
   if (system) {
-    if (typeof system === 'string') {
-      coreMessages.push({ role: 'system', content: system })
-    } else {
-      for (const block of system) {
-        coreMessages.push({ role: 'system', content: block.text })
-      }
-    }
+    coreMessages.push({
+      role: 'system',
+      content:
+        typeof system === 'string'
+          ? system
+          : system.map((block) => block.text).join('\n\n'),
+    })
   }
 
   for (const message of messages) {
@@ -253,11 +270,27 @@ function transformMessages(
         continue
       } else {
         const parts: CoreUserMessage['content'] = []
+        const coreMessage: CoreUserMessage = { role: 'user', content: parts }
         for (const part of message.content) {
+          // Add ephemeral if present
+          if ('cache_control' in part) {
+            coreMessage.providerOptions = {
+              anthropic: { cacheControl: { type: 'ephemeral' } },
+            }
+          }
+          // Handle OpenAI image_url format
           if (part.type === 'image_url') {
             parts.push({
               type: 'image' as const,
               image: part.image_url.url,
+            })
+            continue
+          }
+          // Handle Message type image format
+          if (part.type === 'image' && 'source' in part) {
+            parts.push({
+              type: 'image' as const,
+              image: `data:${part.source.media_type};base64,${part.source.data}`,
             })
             continue
           }
@@ -267,9 +300,19 @@ function transformMessages(
           if (part.type === 'file') {
             throw new Error('File messages not supported')
           }
-          parts.push(part)
+          if (part.type === 'text') {
+            parts.push({
+              type: 'text' as const,
+              text: part.text,
+            })
+            continue
+          }
+          if (part.type === 'tool_use' || part.type === 'tool_result') {
+            // Skip tool parts in user messages - they should be in assistant/tool messages
+            continue
+          }
         }
-        coreMessages.push({ role: 'user', content: parts })
+        coreMessages.push(coreMessage)
         continue
       }
     }
@@ -287,19 +330,34 @@ function transformMessages(
         continue
       } else {
         let messageContent: CoreAssistantMessage['content'] = []
+        const coreMessage: CoreAssistantMessage = {
+          ...message,
+          role: 'assistant',
+          content: messageContent,
+        }
         for (const part of message.content) {
+          // Add ephemeral if present
+          if ('cache_control' in part) {
+            coreMessage.providerOptions = {
+              anthropic: { cacheControl: { type: 'ephemeral' } },
+            }
+          }
           if (part.type === 'text') {
             messageContent.push({ type: 'text', text: part.text })
           }
           if (part.type === 'refusal') {
             messageContent.push({ type: 'text', text: part.refusal })
           }
+          if (part.type === 'tool_use') {
+            messageContent.push({
+              type: 'tool-call',
+              toolCallId: part.id,
+              toolName: part.name,
+              args: part.input,
+            })
+          }
         }
-        coreMessages.push({
-          ...message,
-          role: 'assistant',
-          content: messageContent,
-        })
+        coreMessages.push(coreMessage)
         continue
       }
     }
@@ -321,7 +379,18 @@ function transformMessages(
         })
       } else {
         const parts: CoreToolMessage['content'] = []
+        const coreMessage: CoreToolMessage = {
+          ...message,
+          role: 'tool',
+          content: parts,
+        }
         for (const part of message.content) {
+          // Add ephemeral if present
+          if ('cache_control' in part) {
+            coreMessage.providerOptions = {
+              anthropic: { cacheControl: { type: 'ephemeral' } },
+            }
+          }
           if (part.type === 'text') {
             parts.push({
               type: 'tool-result',
@@ -332,7 +401,7 @@ function transformMessages(
             })
           }
         }
-        coreMessages.push({ ...message, role: 'tool', content: parts })
+        coreMessages.push(coreMessage)
       }
       continue
     }

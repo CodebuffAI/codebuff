@@ -38,6 +38,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     model: z.string().optional(),
     cwd: z.string().optional(),
     repositoryUrl: z.string().optional(),
+    repoName: z.string().optional(),
   }),
   z.object({
     type: z.literal('read-files-response'),

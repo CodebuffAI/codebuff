@@ -17,7 +17,7 @@ import {
 } from 'picocolors'
 
 import { Formatter } from 'picocolors/types'
-import { getProjectRoot } from './project-files'
+import { getProjectRoot, isSubdir } from './project-files'
 
 export interface CommandInfo {
   commandText: string // e.g., 'type "login"', 'type "diff" or "d"', 'hit ESC key or Ctrl-C'
@@ -80,6 +80,13 @@ export const interactiveCommandDetails: CommandInfo[] = [
     // This entry will be expanded into two slash commands: /usage and /credits
   },
   {
+    commandText: '"reset"',
+    baseCommand: 'reset',
+    description:
+      'Reset the conversation context, as if you just started a new Codebuff session',
+    isSlashCommand: true,
+  },
+  {
     commandText: 'ESC key or Ctrl-C',
     description: 'Cancel generation',
     isSlashCommand: false,
@@ -106,6 +113,24 @@ export const interactiveCommandDetails: CommandInfo[] = [
     baseCommand: 'credits',
     description: 'View AI credits balance',
     isSlashCommand: false,
+    commandText: '',
+  },
+  {
+    baseCommand: 'lite',
+    description: 'Switch to lite mode (faster, cheaper)',
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
+    baseCommand: 'normal',
+    description: 'Switch to normal mode (balanced)',
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
+    baseCommand: 'max',
+    description: 'Switch to max mode (slower, more thorough)',
+    isSlashCommand: true,
     commandText: '',
   },
   {
@@ -156,16 +181,18 @@ export function displaySlashCommandHelperMenu() {
 export function displayGreeting(costMode: CostMode, username: string | null) {
   // Show extra info only for logged in users
   const costModeDescription = {
-    lite: bold(yellow('Lite mode ✨ enabled')),
+    lite: bold(yellow('Lite mode ✨ enabled (switch modes by typing in "/")')),
     normal: '',
-    max: bold(blueBright('Max mode️ ⚡ enabled')),
+    max: bold(
+      blueBright('Max mode️ ⚡ enabled (switch modes by typing in "/")')
+    ),
     experimental: bold(magenta('Experimental mode 🧪 enabled')),
   }
   if (costModeDescription[costMode]) {
     console.log(`${costModeDescription[costMode]}`)
   }
 
-  if (!path.relative(getProjectRoot(), os.homedir()).startsWith('..')) {
+  if (isSubdir(getProjectRoot(), os.homedir())) {
     console.info(
       `Welcome! Codebuff is your AI pair programmer that edits your codebase through natural conversation.
 
