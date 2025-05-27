@@ -88,8 +88,18 @@ export const promptAiSdkStream = async function* (
     yield chunk
   }
 
-  const inputTokens = (await response.usage).promptTokens
-  const outputTokens = (await response.usage).completionTokens
+  const usage = await response.usage
+  const inputTokens = usage.promptTokens
+  const outputTokens = usage.completionTokens
+  const anthropicMetadata = (await response.providerMetadata)?.anthropic
+  const cacheReadInputTokens =
+    typeof anthropicMetadata?.cacheReadInputTokens === 'number'
+      ? anthropicMetadata.cacheReadInputTokens
+      : 0
+  const cacheCreationInputTokens =
+    typeof anthropicMetadata?.cacheCreationInputTokens === 'number'
+      ? anthropicMetadata.cacheCreationInputTokens
+      : 0
 
   saveMessage({
     messageId: generateCompactId(),
@@ -102,6 +112,8 @@ export const promptAiSdkStream = async function* (
     response: content,
     inputTokens,
     outputTokens,
+    cacheCreationInputTokens,
+    cacheReadInputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
   })
@@ -258,7 +270,14 @@ export function transformMessages(
         continue
       } else {
         const parts: CoreUserMessage['content'] = []
+        const coreMessage: CoreUserMessage = { role: 'user', content: parts }
         for (const part of message.content) {
+          // Add ephemeral if present
+          if ('cache_control' in part) {
+            coreMessage.providerOptions = {
+              anthropic: { cacheControl: { type: 'ephemeral' } },
+            }
+          }
           // Handle OpenAI image_url format
           if (part.type === 'image_url') {
             parts.push({
@@ -293,13 +312,6 @@ export function transformMessages(
             continue
           }
         }
-        const coreMessage: CoreUserMessage = { role: 'user', content: parts }
-        // Add ephemeral if present
-        if ('cache_control' in message.content) {
-          coreMessage.providerOptions = {
-            cacheControl: { type: 'ephemeral' },
-          }
-        }
         coreMessages.push(coreMessage)
         continue
       }
@@ -318,7 +330,18 @@ export function transformMessages(
         continue
       } else {
         let messageContent: CoreAssistantMessage['content'] = []
+        const coreMessage: CoreAssistantMessage = {
+          ...message,
+          role: 'assistant',
+          content: messageContent,
+        }
         for (const part of message.content) {
+          // Add ephemeral if present
+          if ('cache_control' in part) {
+            coreMessage.providerOptions = {
+              anthropic: { cacheControl: { type: 'ephemeral' } },
+            }
+          }
           if (part.type === 'text') {
             messageContent.push({ type: 'text', text: part.text })
           }
@@ -333,15 +356,6 @@ export function transformMessages(
               args: part.input,
             })
           }
-        }
-        const coreMessage: CoreAssistantMessage = {
-          ...message,
-          role: 'assistant',
-          content: messageContent,
-        }
-        // Add ephemeral if present
-        if ('cache_control' in message.content) {
-          coreMessage.providerOptions = { cacheControl: { type: 'ephemeral' } }
         }
         coreMessages.push(coreMessage)
         continue
@@ -365,7 +379,18 @@ export function transformMessages(
         })
       } else {
         const parts: CoreToolMessage['content'] = []
+        const coreMessage: CoreToolMessage = {
+          ...message,
+          role: 'tool',
+          content: parts,
+        }
         for (const part of message.content) {
+          // Add ephemeral if present
+          if ('cache_control' in part) {
+            coreMessage.providerOptions = {
+              anthropic: { cacheControl: { type: 'ephemeral' } },
+            }
+          }
           if (part.type === 'text') {
             parts.push({
               type: 'tool-result',
@@ -375,15 +400,6 @@ export function transformMessages(
               toolName: 'unknown',
             })
           }
-        }
-        const coreMessage: CoreToolMessage = {
-          ...message,
-          role: 'tool',
-          content: parts,
-        }
-        // Add ephemeral if present
-        if ('cache_control' in message.content) {
-          coreMessage.providerOptions = { cacheControl: { type: 'ephemeral' } }
         }
         coreMessages.push(coreMessage)
       }
