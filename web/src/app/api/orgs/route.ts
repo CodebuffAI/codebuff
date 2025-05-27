@@ -7,6 +7,30 @@ import { eq, and } from 'drizzle-orm'
 import { CreateOrganizationRequest, ListOrganizationsResponse } from 'common/types/organization'
 import { generateOperationIdTimestamp } from '@codebuff/billing'
 
+function validateOrganizationName(name: string): string | null {
+  if (!name || !name.trim()) {
+    return 'Organization name is required'
+  }
+  
+  const trimmedName = name.trim()
+  
+  if (trimmedName.length < 3) {
+    return 'Organization name must be at least 3 characters long'
+  }
+  
+  if (trimmedName.length > 50) {
+    return 'Organization name must be no more than 50 characters long'
+  }
+  
+  // Allow alphanumeric characters, spaces, hyphens, underscores, and periods
+  const validNameRegex = /^[a-zA-Z0-9\s\-_.]+$/
+  if (!validNameRegex.test(trimmedName)) {
+    return 'Organization name can only contain letters, numbers, spaces, hyphens, underscores, and periods'
+  }
+  
+  return null
+}
+
 export async function GET(): Promise<NextResponse<ListOrganizationsResponse | { error: string }>> {
   try {
     const session = await getServerSession(authOptions)
@@ -79,16 +103,19 @@ export async function POST(request: NextRequest) {
     const body: CreateOrganizationRequest = await request.json()
     const { name, description } = body
 
-    // Validate input
-    if (!name) {
+    // Validate organization name
+    const nameValidationError = validateOrganizationName(name)
+    if (nameValidationError) {
       return NextResponse.json(
-        { error: 'Name is required' },
+        { error: nameValidationError },
         { status: 400 }
       )
     }
 
+    const trimmedName = name.trim()
+
     // Generate slug from name
-    const baseSlug = name
+    const baseSlug = trimmedName
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
       .replace(/\s+/g, '-') // Replace spaces with hyphens
@@ -119,9 +146,9 @@ export async function POST(request: NextRequest) {
     const [newOrg] = await db
       .insert(schema.org)
       .values({
-        name,
+        name: trimmedName,
         slug,
-        description,
+        description: description?.trim() || null,
         owner_id: session.user.id,
       })
       .returning()

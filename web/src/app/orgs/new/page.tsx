@@ -20,13 +20,45 @@ const CreateOrganizationPage = () => {
     name: '',
     description: '',
   })
+  const [nameError, setNameError] = useState('')
+
+  const validateName = (name: string) => {
+    if (!name.trim()) {
+      return 'Organization name is required'
+    }
+    
+    if (name.length < 3) {
+      return 'Organization name must be at least 3 characters long'
+    }
+    
+    if (name.length > 50) {
+      return 'Organization name must be no more than 50 characters long'
+    }
+    
+    // Allow alphanumeric characters, spaces, hyphens, underscores, and periods
+    const validNameRegex = /^[a-zA-Z0-9\s\-_.]+$/
+    if (!validNameRegex.test(name)) {
+      return 'Organization name can only contain letters, numbers, spaces, hyphens, underscores, and periods'
+    }
+    
+    return ''
+  }
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newName = e.target.value
+    setFormData({ ...formData, name: newName })
+    setNameError(validateName(newName))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name.trim()) {
+    
+    const nameValidationError = validateName(formData.name)
+    if (nameValidationError) {
+      setNameError(nameValidationError)
       toast({
         title: 'Error',
-        description: 'Organization name is required',
+        description: nameValidationError,
         variant: 'destructive',
       })
       return
@@ -127,13 +159,17 @@ const CreateOrganizationPage = () => {
                   id="name"
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={handleNameChange}
                   placeholder="Enter organization name"
                   required
                   disabled={isLoading}
+                  className={nameError ? 'border-red-500' : ''}
                 />
+                {nameError && (
+                  <p className="text-sm text-red-600">{nameError}</p>
+                )}
                 <p className="text-sm text-muted-foreground">
-                  Choose a name that represents your team or company
+                  3-50 characters. Letters, numbers, spaces, hyphens, underscores, and periods allowed.
                 </p>
               </div>
 
@@ -160,7 +196,7 @@ const CreateOrganizationPage = () => {
                       Cancel
                     </Button>
                   </Link>
-                  <Button type="submit" disabled={isLoading}>
+                  <Button type="submit" disabled={isLoading || !!nameError}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Organization
                   </Button>
