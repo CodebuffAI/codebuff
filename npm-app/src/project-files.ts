@@ -28,7 +28,16 @@ import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 // Global variables for chat management
 // Initialize chat ID on first import
-export const currentChatId = new Date().toISOString().replace(/:/g, '-')
+let currentChatId = new Date().toISOString().replace(/:/g, '-')
+
+export function getCurrentChatId() {
+  return currentChatId
+}
+
+export function startNewChat() {
+  currentChatId = new Date().toISOString().replace(/:/g, '-')
+  return currentChatId
+}
 
 export function isDir(p: string): boolean {
   try {
@@ -54,7 +63,7 @@ export function getProjectDataDir(): string {
 }
 
 export function getCurrentChatDir(): string {
-  const dir = path.join(getProjectDataDir(), 'chats', currentChatId)
+  const dir = path.join(getProjectDataDir(), 'chats', getCurrentChatId())
   ensureDirectoryExists(dir)
   return dir
 }

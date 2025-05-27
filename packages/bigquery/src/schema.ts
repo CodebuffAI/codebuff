@@ -36,6 +36,7 @@ export interface GetRelevantFilesPayload extends BasePayload {
   request_type: string
   cost_mode: string
   model?: string
+  repo_name?: string
 }
 
 export interface GetRelevantFilesTrace extends BaseTrace {

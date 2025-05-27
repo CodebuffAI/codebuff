@@ -96,6 +96,7 @@ export const mainPrompt = async (
     promptId,
     toolResults,
     cwd,
+    repoName,
   } = action
   const { fileContext, agentContext } = agentState
   let messageHistory = agentState.messageHistory
@@ -119,6 +120,7 @@ export const mainPrompt = async (
     fingerprintId,
     userInputId: promptId,
     userId,
+    repoName,
   })
 
   const hasKnowledgeFiles =
@@ -346,6 +348,7 @@ export const mainPrompt = async (
       userInputId: promptId,
       userId,
       costMode,
+      repoName,
     }
   )
   const [updatedFiles, newFiles] = partition(addedFiles, (f) =>
@@ -871,6 +874,7 @@ export const mainPrompt = async (
           userInputId: promptId,
           userId,
           costMode,
+          repoName,
         }
       )
       logger.debug(
@@ -919,6 +923,7 @@ export const mainPrompt = async (
             userInputId: promptId,
             userId,
             costMode,
+            repoName,
           }
         )
       logger.debug(
@@ -1068,6 +1073,7 @@ async function getFileReadingUpdates(
     userInputId: string
     userId: string | undefined
     costMode: CostMode
+    repoName: string | undefined
   }
 ) {
   const FILE_TOKEN_BUDGET = 100_000
@@ -1079,6 +1085,7 @@ async function getFileReadingUpdates(
     userInputId,
     userId,
     costMode,
+    repoName,
   } = options
 
   const toolResults = messages
@@ -1112,7 +1119,8 @@ async function getFileReadingUpdates(
         fingerprintId,
         userInputId,
         userId,
-        costMode
+        costMode,
+        repoName
       )) ??
       []
 
@@ -1128,7 +1136,8 @@ async function getFileReadingUpdates(
       fingerprintId,
       userInputId,
       userId,
-      costMode
+      costMode,
+      repoName
     ).catch((error) => {
       logger.error(
         { error },
@@ -1276,7 +1285,8 @@ async function uploadExpandedFileContextForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode
+  costMode: CostMode,
+  repoName: string | undefined
 ) {
   const files = await requestRelevantFilesForTraining(
     { messages, system },
@@ -1287,7 +1297,8 @@ async function uploadExpandedFileContextForTraining(
     fingerprintId,
     userInputId,
     userId,
-    costMode
+    costMode,
+    repoName
   )
 
   const loadedFiles = await requestFiles(ws, files)
