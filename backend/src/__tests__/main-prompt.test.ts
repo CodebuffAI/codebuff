@@ -51,6 +51,9 @@ const mockAgentStream = (streamOutput: string) => {
   spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
     yield streamOutput
   })
+  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+    yield streamOutput
+  })
   spyOn(
     geminiWithFallbacks,
     'streamGemini25ProWithFallbacks'
@@ -89,9 +92,9 @@ describe('mainPrompt', () => {
       yield 'Test response'
       return
     })
-    spyOn(aisdk, 'promptAiSdk').mockImplementation(async function* () {
-      return 'Test response'
-    })
+    spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
+      Promise.resolve('Test response')
+    )
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield 'Test response'
       return
