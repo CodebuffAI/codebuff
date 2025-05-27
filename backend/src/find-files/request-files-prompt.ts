@@ -154,7 +154,7 @@ export async function requestRelevantFilesForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName: string | undefined
+  repoName?: string
 ) {
   const COUNT = 50
 

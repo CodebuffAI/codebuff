@@ -402,7 +402,7 @@ export class CLI {
     }
     
     // processedResult is the string to be forwarded as a prompt
-    await this.forwardUserInput(processedResult)
+    await this.forwardUserInput(typeof processedResult === 'string' ? processedResult : userInput)
   }
 
   /**

@@ -21,6 +21,8 @@ export const getAgentStream = (params: {
   fingerprintId: string
   userInputId: string
   userId: string | undefined
+  repositoryUrl?: string
+  repoName?: string
 }) => {
   const {
     costMode,
@@ -30,6 +32,8 @@ export const getAgentStream = (params: {
     fingerprintId,
     userInputId,
     userId,
+    repositoryUrl,
+    repoName,
   } = params
 
   if (selectedModel && !(selectedModel in shortModelNames)) {

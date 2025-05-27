@@ -97,6 +97,7 @@ export const mainPrompt = async (
     toolResults,
     cwd,
     repositoryUrl,
+    repoName = undefined,
   } = action
   const { fileContext, agentContext } = agentState
   let messageHistory = agentState.messageHistory
@@ -1080,6 +1081,7 @@ async function getFileReadingUpdates(
     userInputId: string
     userId: string | undefined
     costMode: CostMode
+    repoName?: string
   }
 ) {
   const FILE_TOKEN_BUDGET = 100_000
@@ -1124,7 +1126,8 @@ async function getFileReadingUpdates(
         fingerprintId,
         userInputId,
         userId,
-        costMode
+        costMode,
+        options.repoName
       )) ??
       []
 
@@ -1140,7 +1143,8 @@ async function getFileReadingUpdates(
       fingerprintId,
       userInputId,
       userId,
-      costMode
+      costMode,
+      options.repoName
     ).catch((error) => {
       logger.error(
         { error },
@@ -1288,7 +1292,8 @@ async function uploadExpandedFileContextForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode
+  costMode: CostMode,
+  repoName?: string
 ) {
   const files = await requestRelevantFilesForTraining(
     { messages, system },
@@ -1299,7 +1304,8 @@ async function uploadExpandedFileContextForTraining(
     fingerprintId,
     userInputId,
     userId,
-    costMode
+    costMode,
+    repoName
   )
 
   const loadedFiles = await requestFiles(ws, files)
