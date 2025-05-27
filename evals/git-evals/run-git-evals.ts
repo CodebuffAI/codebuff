@@ -34,6 +34,7 @@ async function runSingleEval(
   clientSessionId: string,
   fingerprintId: string
 ): Promise<EvalRunJudged> {
+  const startTime = new Date()
   const trace: CodebuffTrace[] = []
   let error: string | undefined
   try {
@@ -118,6 +119,9 @@ Explain your reasoning in detail.`,
   } catch (e) {
     error = e instanceof Error ? e.message + e.stack : 'Unknown error'
   }
+  const endTime = new Date()
+  const durationMs = endTime.getTime() - startTime.getTime()
+  
   const fileStates = getCodebuffFileStates(
     trace,
     evalCommit.sha,
@@ -128,7 +132,8 @@ Explain your reasoning in detail.`,
     eval_commit: evalCommit,
     trace,
     error,
-    fileStates
+    fileStates,
+    durationMs
   }
 
   // Add judging results even for failed runs
@@ -246,6 +251,11 @@ export async function runGitEvals(
     average_overall:
       evalRuns.reduce(
         (sum, run) => sum + (run.judging_results.metrics.overallScore || 0),
+        0
+      ) / evalRuns.length,
+    average_duration_ms:
+      evalRuns.reduce(
+        (sum, run) => sum + run.durationMs,
         0
       ) / evalRuns.length,
     total_runs: evalRuns.length,

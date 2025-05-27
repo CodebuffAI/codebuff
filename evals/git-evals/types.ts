@@ -46,6 +46,7 @@ export interface EvalRunLog {
   trace: CodebuffTrace[]
   error?: string
   fileStates: CommitFileState[] // Files Codebuff changed
+  durationMs: number
 }
 
 export interface EvalRunJudged extends EvalRunLog {
@@ -61,6 +62,7 @@ export interface FullEvalLog {
     average_efficiency: number
     average_code_quality: number
     average_overall: number
+    average_duration_ms: number
     total_runs: number
     successful_runs: number
     failed_runs: number
