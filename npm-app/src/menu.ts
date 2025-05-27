@@ -181,9 +181,11 @@ export function displaySlashCommandHelperMenu() {
 export function displayGreeting(costMode: CostMode, username: string | null) {
   // Show extra info only for logged in users
   const costModeDescription = {
-    lite: bold(yellow('Lite mode ✨ enabled')),
+    lite: bold(yellow('Lite mode ✨ enabled (switch modes by typing in "/")')),
     normal: '',
-    max: bold(blueBright('Max mode️ ⚡ enabled')),
+    max: bold(
+      blueBright('Max mode️ ⚡ enabled (switch modes by typing in "/")')
+    ),
     experimental: bold(magenta('Experimental mode 🧪 enabled')),
   }
   if (costModeDescription[costMode]) {
