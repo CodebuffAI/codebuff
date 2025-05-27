@@ -24,6 +24,12 @@ import { WebSocket } from 'ws'
 
 const DEBUG_MODE = true
 
+export type AgentStep = {
+  response: string
+  toolCalls: ClientToolCall[]
+  toolResults: ToolResult[]
+}
+
 function readMockFile(projectRoot: string, filePath: string): string | null {
   const fullPath = path.join(projectRoot, filePath)
   try {
@@ -84,7 +90,10 @@ export async function runMainPrompt(
   agentState: AgentState,
   prompt: string | undefined,
   toolResults: ToolResult[],
-  sessionId: string
+  sessionId: string,
+  options: {
+    costMode: 'lite' | 'normal' | 'max' | 'experimental'
+  }
 ) {
   const mockWs = new EventEmitter() as WebSocket
   mockWs.send = mock()
@@ -96,12 +105,14 @@ export async function runMainPrompt(
     promptId: generateCompactId(),
     prompt,
     fingerprintId: 'test-fingerprint-id',
-    costMode: 'normal' as const,
+    costMode: options.costMode,
     agentState,
     toolResults,
   }
 
-  return await mainPromptModule.mainPrompt(
+  let fullResponse = ''
+
+  const result = await mainPromptModule.mainPrompt(
     mockWs,
     promptAction,
     TEST_USER_ID,
@@ -110,15 +121,18 @@ export async function runMainPrompt(
       if (DEBUG_MODE) {
         process.stdout.write(chunk)
       }
+      fullResponse += chunk
     },
     undefined
   )
+
+  return {
+    ...result,
+    fullResponse,
+  }
 }
 
-export async function runToolCalls(
-  toolCalls: ClientToolCall[],
-  projectPath: string
-) {
+export async function runToolCalls(toolCalls: ClientToolCall[]) {
   const toolResults: ToolResult[] = []
   for (const toolCall of toolCalls) {
     const toolResult = await handleToolCall(toolCall)
@@ -133,6 +147,9 @@ export async function loopMainPrompt({
   projectPath,
   maxIterations,
   stopCondition,
+  options = {
+    costMode: 'normal',
+  },
 }: {
   agentState: AgentState
   prompt: string
@@ -142,6 +159,9 @@ export async function loopMainPrompt({
     agentState: AgentState,
     toolCalls: ClientToolCall[]
   ) => boolean
+  options: {
+    costMode: 'lite' | 'normal' | 'max' | 'experimental'
+  }
 }) {
   console.log(blue(prompt))
 
@@ -151,17 +171,21 @@ export async function loopMainPrompt({
   let toolResults: ToolResult[] = []
   let toolCalls: ClientToolCall[] = []
   let iterations = 1
+  const steps: AgentStep[] = []
+
   for (; iterations < maxIterations; iterations++) {
     console.log('\nIteration', iterations)
     let {
       agentState: newAgentState,
       toolCalls: newToolCalls,
       toolResults: newToolResults,
+      fullResponse,
     } = await runMainPrompt(
       currentAgentState,
       iterations === 1 ? prompt : undefined,
       toolResults,
-      sessionId
+      sessionId,
+      options
     )
     currentAgentState = newAgentState
     toolCalls = newToolCalls
@@ -171,8 +195,14 @@ export async function loopMainPrompt({
 
     toolResults = [
       ...newToolResults,
-      ...(await runToolCalls(toolCalls, projectPath)),
-    ]
+      ...(await runToolCalls(newToolCalls)),
+    ].filter((tool) => tool.name !== 'end_turn')
+
+    steps.push({
+      response: fullResponse,
+      toolCalls: newToolCalls,
+      toolResults: newToolResults,
+    })
 
     const containsEndTurn = toolCalls.some((call) => call.name === 'end_turn')
 
@@ -194,6 +224,7 @@ export async function loopMainPrompt({
     toolCalls,
     toolResults,
     iterations: iterations - 1,
+    steps,
     duration: Date.now() - startTime,
   }
 }

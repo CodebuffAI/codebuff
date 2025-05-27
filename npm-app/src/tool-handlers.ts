@@ -29,7 +29,7 @@ export const handleUpdateFile: ToolHandler<{
   const projectPath = getProjectRoot()
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
-  const { created, modified, ignored } = applyChanges(projectPath, [fileChange])
+  const { created, modified, ignored, invalid } = applyChanges(projectPath, [fileChange])
   let result: string[] = []
 
   for (const file of created) {
@@ -56,6 +56,11 @@ export const handleUpdateFile: ToolHandler<{
   for (const file of ignored) {
     result.push(
       `Failed to write to ${file}; file is ignored by .gitignore or .codebuffignore`
+    )
+  }
+  for (const file of invalid) {
+    result.push(
+      `Failed to write to ${file}; file path caused an error or file could not be written`
     )
   }
   return result.join('\n')
