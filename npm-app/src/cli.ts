@@ -278,8 +278,7 @@ export class CLI {
   }
 
   private getModeIndicator(): string {
-    return this.costMode !== 'normal'
-      ? ` (${this.costMode})` : ''
+    return this.costMode !== 'normal' ? ` (${this.costMode})` : ''
   }
 
   private setPrompt() {
@@ -562,7 +561,7 @@ export class CLI {
 
       displayGreeting(this.costMode, Client.getInstance().user?.name ?? null)
       this.freshPrompt()
-      return true
+      return null
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {
       handleDiff(Client.getInstance().lastChanges)
