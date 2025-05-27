@@ -291,7 +291,14 @@ export function transformMessages(
             continue
           }
         }
-        coreMessages.push({ role: 'user', content: parts })
+        const coreMessage: CoreUserMessage = { role: 'user', content: parts }
+        // Add ephemeral if present
+        if ('cache_control' in message.content) {
+          coreMessage.providerOptions = {
+            cacheControl: { type: 'ephemeral' },
+          }
+        }
+        coreMessages.push(coreMessage)
         continue
       }
     }
@@ -325,11 +332,16 @@ export function transformMessages(
             })
           }
         }
-        coreMessages.push({
+        const coreMessage: CoreAssistantMessage = {
           ...message,
           role: 'assistant',
           content: messageContent,
-        })
+        }
+        // Add ephemeral if present
+        if ('cache_control' in message.content) {
+          coreMessage.providerOptions = { cacheControl: { type: 'ephemeral' } }
+        }
+        coreMessages.push(coreMessage)
         continue
       }
     }
@@ -362,7 +374,16 @@ export function transformMessages(
             })
           }
         }
-        coreMessages.push({ ...message, role: 'tool', content: parts })
+        const coreMessage: CoreToolMessage = {
+          ...message,
+          role: 'tool',
+          content: parts,
+        }
+        // Add ephemeral if present
+        if ('cache_control' in message.content) {
+          coreMessage.providerOptions = { cacheControl: { type: 'ephemeral' } }
+        }
+        coreMessages.push(coreMessage)
       }
       continue
     }
