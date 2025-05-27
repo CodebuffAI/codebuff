@@ -267,20 +267,24 @@ export class CLI {
 
       // Combine tokens and paths for matching
       const allCandidates = [...tokenNames, ...paths]
-      
+
       const matchingItems = allCandidates.filter(
         (item) =>
           item.toLowerCase().startsWith(searchTermLower) ||
           item.toLowerCase().includes('/' + searchTermLower)
       )
 
-      if (matchingItems.length > 1) {
+      // Limit the number of results to keep completion manageable
+      const MAX_COMPLETION_RESULTS = 20
+      const limitedMatches = matchingItems.slice(0, MAX_COMPLETION_RESULTS)
+
+      if (limitedMatches.length > 1) {
         // Find common prefix among matches
-        const suffixes = matchingItems.map((item) => {
+        const suffixes = limitedMatches.map((item) => {
           const index = item.toLowerCase().indexOf(searchTermLower)
           return item.slice(index + searchTerm.length)
         })
-        
+
         let commonPrefix = ''
         const firstSuffix = suffixes[0]
         for (let i = 0; i < firstSuffix.length; i++) {
@@ -291,19 +295,18 @@ export class CLI {
             break
           }
         }
-        
+
         if (commonPrefix) {
           // Return the completion with @ prefix preserved
           return [['@' + searchTerm + commonPrefix], lastWord]
         }
-        
-        // Multiple matches but no common prefix - show matches with @ prefix and keep @ in input
-        const matchesWithPrefix = matchingItems.map(item => '@' + item)
-        return [matchesWithPrefix, lastWord]
+
+        // Multiple matches but no common prefix - show matches WITHOUT @ prefix but keep @ in input
+        return [limitedMatches, lastWord]
       }
-      
+
       // Single match or no matches - remove @ prefix from completion
-      return [matchingItems, lastWord]
+      return [limitedMatches, lastWord]
     }
 
     // Original file path completion logic (unchanged)
@@ -339,7 +342,10 @@ export class CLI {
       if (node.type === 'file') {
         return [path.join(basePath, node.name)]
       }
-      return this.getAllFilePaths(node.children || [], path.join(basePath, node.name))
+      return this.getAllFilePaths(
+        node.children || [],
+        path.join(basePath, node.name)
+      )
     })
   }
 
