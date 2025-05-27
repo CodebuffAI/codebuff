@@ -1,3 +1,4 @@
+import { CoreMessage } from 'ai'
 import { z } from 'zod'
 
 const MessageContentObjectSchema = z.union([
@@ -52,3 +53,7 @@ export const MessageSchema = z.object({
 })
 export type Message = z.infer<typeof MessageSchema>
 export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
+
+export type CoreMessageWithTtl = CoreMessage & {
+  timeToLive: 'agentStep' | 'userPrompt' | undefined
+}
