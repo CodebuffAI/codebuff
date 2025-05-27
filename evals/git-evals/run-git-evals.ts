@@ -28,6 +28,7 @@ import {
   createInitialAgentState,
   setupTestEnvironmentVariables,
 } from '../test-setup'
+import { withTimeout } from 'common/util/promise'
 
 async function runSingleEval(
   evalCommit: EvalCommit,
@@ -38,6 +39,26 @@ async function runSingleEval(
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
   let error: string | undefined
+
+  // Add process-level error handlers for this eval
+  const originalUncaughtHandler = process.listeners('uncaughtException')
+  const originalUnhandledHandler = process.listeners('unhandledRejection')
+
+  let processError: string | undefined
+
+  const uncaughtHandler = (err: Error) => {
+    console.error('Uncaught exception during eval:', err)
+    processError = `Uncaught exception: ${err.message}\n${err.stack}`
+  }
+
+  const unhandledHandler = (reason: any, promise: Promise<any>) => {
+    console.error('Unhandled rejection during eval:', reason)
+    processError = `Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`
+  }
+
+  process.on('uncaughtException', uncaughtHandler)
+  process.on('unhandledRejection', unhandledHandler)
+
   try {
     // Reset to the commit before the target commit
     resetRepoToCommit(projectPath, `${evalCommit.sha}^`)
@@ -51,18 +72,26 @@ async function runSingleEval(
     const MAX_ATTEMPTS = 5
 
     while (currentDecision === 'continue' && attempts < MAX_ATTEMPTS) {
+      // Check for process-level errors
+      if (processError) {
+        throw new Error(processError)
+      }
+
       const renderedTrace = trace
         .map(
           ({ prompt, steps }) =>
             `You: ${prompt}\n\nCodebuff:${steps.map(({ response, toolCalls, toolResults }) => `${response}\n\nTool calls: ${JSON.stringify(toolCalls)}\n\nTool results: ${JSON.stringify(toolResults)}`).join('\n\n')}`
         )
         .join('\n\n')
-      // Get next prompt from Sonnet agent
-      const agentResponse = await promptAiSdkStructured(
-        [
-          {
-            role: 'user',
-            content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to prompt CodeBuff to implement the spec correctly. You are in a conversation with this coding agent.
+
+      // Get next prompt from Sonnet agent with timeout
+      let agentResponse: any
+      try {
+        agentResponse = await promptAiSdkStructured(
+          [
+            {
+              role: 'user',
+              content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to prompt CodeBuff to implement the spec correctly. You are in a conversation with this coding agent.
 
 Current spec to implement:
 <spec>${evalCommit.spec}</spec>
@@ -77,17 +106,23 @@ You must decide whether to:
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt.
 Explain your reasoning in detail.`,
-          },
-        ],
-        {
-          schema: AgentDecisionSchema,
-          model: claudeModels.sonnet,
-          clientSessionId,
-          fingerprintId,
-          userInputId: generateCompactId(),
-          userId: undefined,
-        }
-      )
+            },
+          ],
+          {
+            schema: AgentDecisionSchema,
+            model: claudeModels.sonnet,
+            clientSessionId,
+            fingerprintId,
+            userInputId: generateCompactId(),
+            userId: undefined,
+            timeout: 5 * 60_000, // 5 minute timeout
+          }
+        )
+      } catch (agentError) {
+        throw new Error(
+          `Agent decision failed: ${agentError instanceof Error ? agentError.message : String(agentError)}`
+        )
+      }
 
       console.log('Agent decision:', agentResponse.decision)
       console.log('Agent reasoning:', agentResponse.reasoning)
@@ -99,16 +134,21 @@ Explain your reasoning in detail.`,
       // If continuing, run CodeBuff with the agent's prompt
       if (agentResponse.decision === 'continue') {
         const prompt = agentResponse.next_prompt!
-        // Use loopMainPrompt instead of runMainPrompt + runToolCalls
-        const codeBuffResult = await loopMainPrompt({
-          agentState,
-          prompt,
-          projectPath,
-          maxIterations: 20,
-          options: {
-            costMode: 'normal',
-          },
-        })
+
+        // Use loopMainPrompt with timeout wrapper
+        const codeBuffResult = await withTimeout(
+          loopMainPrompt({
+            agentState,
+            prompt,
+            projectPath,
+            maxIterations: 20,
+            options: {
+              costMode: 'normal',
+            },
+          }),
+          // Timeout after 30 minutes
+          60_000 * 30
+        )
 
         agentState = codeBuffResult.agentState
         trace.push({ prompt, steps: codeBuffResult.steps })
@@ -118,31 +158,72 @@ Explain your reasoning in detail.`,
       attempts++
     }
   } catch (e) {
-    error = e instanceof Error ? e.message + e.stack : 'Unknown error'
+    console.error('Error in runSingleEval:', e)
+    error =
+      e instanceof Error
+        ? `${e.message}\n${e.stack}`
+        : `Unknown error: ${String(e)}`
+  } finally {
+    // Clean up process-level error handlers
+    process.removeListener('uncaughtException', uncaughtHandler)
+    process.removeListener('unhandledRejection', unhandledHandler)
+
+    // Restore original handlers
+    originalUncaughtHandler.forEach((handler) => {
+      if (typeof handler === 'function') {
+        process.on('uncaughtException', handler)
+      }
+    })
+    originalUnhandledHandler.forEach((handler) => {
+      if (typeof handler === 'function') {
+        process.on('unhandledRejection', handler)
+      }
+    })
   }
+
+  // If we caught a process-level error, use that
+  if (processError && !error) {
+    error = processError
+  }
+
   const endTime = new Date()
   const durationMs = endTime.getTime() - startTime.getTime()
-  
-  const fileStates = getCodebuffFileStates(
-    trace,
-    evalCommit.sha,
-    projectPath
-  )
+
+  const fileStates = getCodebuffFileStates(trace, evalCommit.sha, projectPath)
 
   const evalRun: EvalRunLog = {
     eval_commit: evalCommit,
     trace,
     error,
     fileStates,
-    durationMs
+    durationMs,
   }
 
   // Add judging results even for failed runs
-  const judgingResults = await judgeEvalRun(evalRun)
-  console.log('Judging results:', judgingResults)
-  return {
-    ...evalRun,
-    judging_results: judgingResults,
+  try {
+    const judgingResults = await judgeEvalRun(evalRun)
+    console.log('Judging results:', judgingResults)
+    return {
+      ...evalRun,
+      judging_results: judgingResults,
+    }
+  } catch (judgingError) {
+    console.error('Error in judging:', judgingError)
+    // Return without judging results if judging fails
+    return {
+      ...evalRun,
+      judging_results: {
+        analysis: 'Judging failed due to error',
+        strengths: [],
+        weaknesses: ['Judging process encountered an error'],
+        metrics: {
+          completionScore: 0,
+          efficiencyScore: 0,
+          codeQualityScore: 0,
+          overallScore: 0,
+        },
+      },
+    }
   }
 }
 
@@ -218,7 +299,7 @@ export async function runGitEvals(
 
   const clientSessionId = generateCompactId()
   const fingerprintId = generateCompactId()
-  
+
   // Generate unique trace ID for this run
   const traceId = generateCompactId()
   console.log(`Starting eval run with trace ID: ${traceId}`)
@@ -227,13 +308,18 @@ export async function runGitEvals(
   const outputDir = path.dirname(outputPath)
   const outputBasename = path.basename(outputPath, path.extname(outputPath))
   const outputExt = path.extname(outputPath)
-  const partialOutputPath = path.join(outputDir, `${outputBasename}-${traceId}-partial${outputExt}`)
+  const partialOutputPath = path.join(
+    outputDir,
+    `${outputBasename}-${traceId}-partial${outputExt}`
+  )
 
   const evalRuns: EvalRunJudged[] = []
   for (let i = 0; i < evalData.evalCommits.length; i++) {
     const evalCommit = evalData.evalCommits[i]
-    console.log(`Running eval ${i + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message}...`)
-    
+    console.log(
+      `Running eval ${i + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message}...`
+    )
+
     const evalRun = await runSingleEval(
       evalCommit,
       projectPath,
@@ -251,7 +337,9 @@ export async function runGitEvals(
     }
 
     fs.writeFileSync(partialOutputPath, JSON.stringify(partialResult, null, 2))
-    console.log(`Partial results saved to ${partialOutputPath} (${i + 1}/${evalData.evalCommits.length} complete)`)
+    console.log(
+      `Partial results saved to ${partialOutputPath} (${i + 1}/${evalData.evalCommits.length} complete)`
+    )
   }
 
   // Calculate final overall metrics
@@ -265,7 +353,10 @@ export async function runGitEvals(
   }
 
   // Create final filename with trace ID
-  const finalOutputPath = path.join(outputDir, `${outputBasename}-${traceId}${outputExt}`)
+  const finalOutputPath = path.join(
+    outputDir,
+    `${outputBasename}-${traceId}${outputExt}`
+  )
 
   // Write final results to file
   fs.writeFileSync(finalOutputPath, JSON.stringify(result, null, 2))
@@ -290,8 +381,7 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
       ) / evalRuns.length,
     average_code_quality:
       evalRuns.reduce(
-        (sum, run) =>
-          sum + (run.judging_results.metrics.codeQualityScore || 0),
+        (sum, run) => sum + (run.judging_results.metrics.codeQualityScore || 0),
         0
       ) / evalRuns.length,
     average_overall:
@@ -300,10 +390,7 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
         0
       ) / evalRuns.length,
     average_duration_ms:
-      evalRuns.reduce(
-        (sum, run) => sum + run.durationMs,
-        0
-      ) / evalRuns.length,
+      evalRuns.reduce((sum, run) => sum + run.durationMs, 0) / evalRuns.length,
     total_runs: evalRuns.length,
     successful_runs: evalRuns.filter((run) => !run.error).length,
     failed_runs: evalRuns.filter((run) => run.error).length,
