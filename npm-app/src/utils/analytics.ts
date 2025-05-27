@@ -24,6 +24,7 @@ export function initAnalytics() {
 
   client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY, {
     host: `${process.env.NEXT_PUBLIC_APP_URL}/ingest`,
+    enableExceptionAutocapture: true,
   })
 }
 
@@ -92,4 +93,20 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
     distinctId: userId,
     properties,
   })
+}
+
+export function logError(
+  error: any,
+  userId?: string,
+  properties?: Record<string, any>
+) {
+  if (!client) {
+    throw new Error('Analytics client not initialized')
+  }
+
+  client.captureException(
+    error,
+    userId ?? currentUserId ?? 'unknown',
+    properties
+  )
 }

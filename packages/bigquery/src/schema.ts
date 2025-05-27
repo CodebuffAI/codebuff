@@ -19,6 +19,7 @@ export type TraceType =
   | 'agent-response' // Response from the agent at the end
   | 'get-expanded-file-context-for-training' // Additional capture of a stronger-model + higher-file limit call
   | 'get-expanded-file-context-for-training-blobs' // Capture of full file context from get-relevant-files-for-training call
+  | 'grade-run' // Run grades (by a judge model)
 
 // Base trace interface
 export interface BaseTrace extends BaseEvent {
@@ -35,6 +36,7 @@ export interface GetRelevantFilesPayload extends BasePayload {
   request_type: string
   cost_mode: string
   model?: string
+  repo_name?: string
 }
 
 export interface GetRelevantFilesTrace extends BaseTrace {
@@ -74,6 +76,16 @@ export interface AgentResponseTrace extends BaseTrace {
   payload: AgentResponsePayload
 }
 
+interface GradeRunPayload extends BasePayload {
+  type: 'grade-run'
+  scores: string // Of format: [{model_name: "foo", score: 4}, {model_name: "bar", score: 3}, {model_name: "baz", score: 3}]
+}
+
+export interface GradeRunTrace extends BaseTrace {
+  type: 'grade-run'
+  payload: GradeRunPayload
+}
+
 // Union type for all trace records
 export type Trace =
   | GetRelevantFilesTrace
@@ -81,6 +93,7 @@ export type Trace =
   | AgentResponseTrace
   | GetExpandedFileContextForTrainingBlobTrace
   | GetExpandedFileContextForTrainingTrace
+  | GradeRunTrace
 
 export const TRACES_SCHEMA: TableSchema = {
   fields: [

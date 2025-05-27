@@ -6,7 +6,7 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { pino } from 'pino'
 
 import { getCurrentChatDir } from '../project-files'
-import { trackEvent } from './analytics'
+import { flushAnalytics, logError, trackEvent } from './analytics'
 
 export interface LoggerContext {
   userId?: string
@@ -66,18 +66,20 @@ function sendAnalyticsAndLog(
     )
   }
 
+  const toTrack = {
+    data,
+    level,
+    loggerContext,
+    msg: stringFormat(msg, ...args),
+  }
+
+  logAsErrorIfNeeded(toTrack)
+
   logOrStore: if (
     process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'local' &&
     Object.values(AnalyticsEvent).includes(data.eventId)
   ) {
     const analyticsEventId = data.eventId as AnalyticsEvent
-    const toTrack = {
-      data,
-      level,
-      loggerContext,
-      msg: stringFormat(msg, ...args),
-    }
-
     // Not accurate for anonymous users
     if (!loggerContext.userId) {
       analyticsBuffer.push({ analyticsEventId, toTrack })
@@ -93,6 +95,22 @@ function sendAnalyticsAndLog(
 
   if (pinoLogger !== undefined) {
     pinoLogger[level]({ ...loggerContext, data }, msg, ...args)
+  }
+}
+
+function logAsErrorIfNeeded(toTrack: {
+  data: any
+  level: LogLevel
+  loggerContext: LoggerContext
+  msg: string
+}) {
+  if (toTrack.level === 'error' || toTrack.level === 'fatal') {
+    logError(
+      new Error(toTrack.msg),
+      toTrack.loggerContext.userId ?? 'unknown',
+      { ...toTrack.data, context: toTrack.loggerContext }
+    )
+    flushAnalytics()
   }
 }
 

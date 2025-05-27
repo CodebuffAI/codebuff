@@ -91,22 +91,6 @@ export async function processFileBlock(
     countTokens(normalizedInitialContent) + countTokens(normalizedEditSnippet)
 
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
-    // Delete this later vvv
-    if (tokenCount < 64_000) {
-      // Temporary: send to relace
-      const messageId = generateCompactId('cb-')
-      // no need to await, just send the request and continue
-      sendToRelaceLongContext(normalizedInitialContent, normalizedEditSnippet, {
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-        messageId,
-        userMessage: lastUserPrompt,
-      })
-    }
-    // Delete this later ^^^
-
     const largeFileContent = await handleLargeFile(
       normalizedInitialContent,
       normalizedEditSnippet,
@@ -211,7 +195,7 @@ export async function processFileBlock(
   }
 }
 
-const LARGE_FILE_TOKEN_LIMIT = 16_000
+const LARGE_FILE_TOKEN_LIMIT = 64_000
 
 export async function handleLargeFile(
   oldContent: string,
@@ -261,7 +245,7 @@ Please output just the SEARCH/REPLACE blocks like this:
 >>>>>>> REPLACE`
 
   const response = await promptOpenAI([{ role: 'user', content: prompt }], {
-    model: models.o3mini,
+    model: models.o4mini,
     clientSessionId,
     fingerprintId,
     userInputId,

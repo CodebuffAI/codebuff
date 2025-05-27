@@ -28,7 +28,7 @@ export const truncateStringWithMessage = ({
   }
   if (remove === 'START') {
     const prefix = `[...${message}]\n`
-    return prefix + str.slice(maxLength - prefix.length)
+    return prefix + str.slice(str.length - maxLength + prefix.length)
   }
 
   const middle = `\n[...${message}...]\n`
@@ -271,4 +271,16 @@ export const stripNullChars = (str: string): string => {
 const ansiRegex = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g
 export function stripColors(str: string): string {
   return str.replace(ansiRegex, '')
+}
+
+export function includesMatch(
+  array: (string | RegExp)[],
+  value: string
+): boolean {
+  return array.some((p) => {
+    if (typeof p === 'string') {
+      return p === value
+    }
+    return p.test(value)
+  })
 }

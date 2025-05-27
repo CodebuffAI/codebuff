@@ -3,9 +3,9 @@
  */
 import { StringDecoder } from 'string_decoder'
 
-import { Transform } from 'readable-stream'
+import { Transform } from 'node:stream'
 
-import { isWhitespace } from './string'
+import { includesMatch, isWhitespace } from './string'
 
 export type TextNode = {
   /** The text value */
@@ -93,7 +93,7 @@ export interface Saxy {
  * Schema for defining allowed tags and their children
  */
 export type TagSchema = {
-  [topLevelTag: string]: string[] // Allowed child tags
+  [topLevelTag: string]: (string | RegExp)[] // Allowed child tags
 }
 
 /**
@@ -122,69 +122,67 @@ const parseEntities = (input: string): string => {
   const parts = []
 
   while ((next = input.indexOf('&', position)) !== -1) {
-    // remember anything there was before the entity
     if (next > position) {
-      parts.push(input.slice(position, next))
+      const beforeEntity = input.slice(position, next)
+      parts.push(beforeEntity)
     }
 
-    const end = input.indexOf(';', next)
+    const semiColonPos = input.indexOf(';', next)
 
-    // ignore unterminated entities
-    if (end === -1) {
-      parts.push(input.slice(next))
-      position = input.length // NEW: Set position to end to avoid double-adding
+    if (semiColonPos === -1) {
+      const remaining = input.slice(next)
+      parts.push(remaining)
+      position = input.length
       break
     }
 
-    const entity = input.slice(next + 1, end)
+    const entityName = input.slice(next + 1, semiColonPos)
 
-    if (entity === 'quot') {
-      parts.push('"')
-    } else if (entity === 'amp') {
+    // If entityName contains invalid characters (space, &, <, >) or is empty,
+    // treat the initial & as a literal character
+    if (/[ &<>]/.test(entityName) || entityName.length === 0) {
       parts.push('&')
-    } else if (entity === 'apos') {
-      parts.push("'")
-    } else if (entity === 'lt') {
-      parts.push('<')
-    } else if (entity === 'gt') {
-      parts.push('>')
-    } else {
-      // ignore unrecognized character entities
-      if (entity[0] !== '#') {
-        parts.push('&' + entity + ';')
-      } else {
-        // hexadecimal numeric entities
-        if (entity[1] === 'x') {
-          const value = parseInt(entity.slice(2), 16)
-
-          // ignore non-numeric numeric entities
-          if (isNaN(value)) {
-            parts.push('&' + entity + ';')
-          } else {
-            parts.push(String.fromCharCode(value))
-          }
-        } else {
-          // decimal numeric entities
-          const value = parseInt(entity.slice(1), 10)
-
-          // ignore non-numeric numeric entities
-          if (isNaN(value)) {
-            parts.push('&' + entity + ';')
-          } else {
-            parts.push(String.fromCharCode(value))
-          }
-        }
-      }
+      position = next + 1
+      continue
     }
 
-    position = end + 1
+    if (entityName === 'quot') {
+      parts.push('"')
+    } else if (entityName === 'amp') {
+      parts.push('&')
+    } else if (entityName === 'apos') {
+      parts.push("'")
+    } else if (entityName === 'lt') {
+      parts.push('<')
+    } else if (entityName === 'gt') {
+      parts.push('>')
+    } else if (entityName.startsWith('#')) {
+      let value
+      if (entityName[1] === 'x' || entityName[1] === 'X') {
+        value = parseInt(entityName.slice(2), 16)
+      } else {
+        value = parseInt(entityName.slice(1), 10)
+      }
+
+      if (isNaN(value)) {
+        parts.push('&' + entityName + ';')
+      } else {
+        parts.push(String.fromCharCode(value))
+      }
+    } else {
+      // Unrecognized named entity, pass through
+      parts.push('&' + entityName + ';')
+    }
+    position = semiColonPos + 1
   }
 
   if (position < input.length) {
-    parts.push(input.slice(position))
+    const remaining = input.slice(position)
+    parts.push(remaining)
   }
 
-  return parts.join('')
+  const result = parts.join('')
+  return result
 }
 
 /**
@@ -496,7 +494,7 @@ export class Saxy extends Transform {
         // Convert to text if parent not in schema or this tag not allowed as child
         if (
           !this._schema[parentTag] ||
-          !this._schema[parentTag].includes(name)
+          !includesMatch(this._schema[parentTag], name)
         ) {
           this.emit(Node.text, { contents: node.rawTag })
           return
@@ -657,7 +655,7 @@ export class Saxy extends Transform {
             const parentTag = this._tagStack[this._tagStack.length - 2]
             if (
               !this._schema[parentTag] ||
-              !this._schema[parentTag].includes(tagName)
+              !includesMatch(this._schema[parentTag], tagName)
             ) {
               const rawTag = input.slice(chunkPos - 1, tagClose + 1)
               this.emit(Node.text, { contents: rawTag })

@@ -9,8 +9,8 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      oldStr,
-      newStr,
+      [oldStr],
+      [newStr],
       Promise.resolve(initialContent)
     )
 
@@ -27,8 +27,8 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      oldStr,
-      newStr,
+      [oldStr],
+      [newStr],
       Promise.resolve(initialContent)
     )
 
@@ -44,8 +44,8 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      oldStr,
-      newStr,
+      [oldStr],
+      [newStr],
       Promise.resolve(initialContent)
     )
 
@@ -60,8 +60,8 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      oldStr,
-      newStr,
+      [oldStr],
+      [newStr],
       Promise.resolve(initialContent)
     )
 
@@ -72,8 +72,8 @@ describe('processStrReplace', () => {
   it('should return null if file content is null and oldStr is not empty', async () => {
     const result = await processStrReplace(
       'test.ts',
-      'old',
-      'new',
+      ['old'],
+      ['new'],
       Promise.resolve(null)
     )
 
@@ -87,8 +87,8 @@ describe('processStrReplace', () => {
   it('should return null if oldStr is empty and file exists', async () => {
     const result = await processStrReplace(
       'test.ts',
-      '',
-      'new',
+      [''],
+      ['new'],
       Promise.resolve('content')
     )
 
@@ -103,8 +103,8 @@ describe('processStrReplace', () => {
     const newContent = 'const x = 1;\nconst y = 2;\n'
     const result = await processStrReplace(
       'test.ts',
-      '',
-      newContent,
+      [''],
+      [newContent],
       Promise.resolve(null)
     )
 
@@ -123,8 +123,8 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      oldStr,
-      newStr,
+      [oldStr],
+      [newStr],
       Promise.resolve(initialContent)
     )
 
@@ -142,8 +142,8 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      oldStr,
-      newStr,
+      [oldStr],
+      [newStr],
       Promise.resolve(initialContent)
     )
 
@@ -158,8 +158,8 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      oldStr,
-      newStr,
+      [oldStr],
+      [newStr],
       Promise.resolve(initialContent)
     )
 
@@ -176,12 +176,14 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      oldStr,
-      newStr,
+      [oldStr],
+      [newStr],
       Promise.resolve(initialContent)
     )
 
     expect(result).not.toBeNull()
-    expect(result?.content).toBe('const x = "hello & world";\nconst y = "<span>";\n')
+    expect(result?.content).toBe(
+      'const x = "hello & world";\nconst y = "<span>";\n'
+    )
   })
 })

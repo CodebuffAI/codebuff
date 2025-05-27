@@ -79,22 +79,43 @@ ${getToolCallString('update_subgoal', {
 
 Create or edit a file with the given content.
 
-PREFER TO USE THE str_replace TOOL FOR MOST EDITS. Use this tool if you are deleting a very large portion of the code, in which case, the str_replace tool would have a large input.
-
-#### Edit Snippet
+#### **IMPORTANT** Edit Snippet
 
 Format the \`content\` parameter as an edit snippet that describes how you would like to modify the provided existing code.
 
-Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... rest of headers/sections/code ...". Be descriptive in the comment.
+Edit snippets will be parsed by a less intelligent "fast-apply" model, so you must follow this format, otherwise the smaller model will not understand what to change.
+
+Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... rest of headers/sections/code ...". Be descriptive in the comment. You MUST to use these in order to **MINIMIZE** the number of characters in the \`content\` parameter.
 
 Make sure that you are abbreviating exactly where you believe the existing code will remain the same.
 Indicate the location and nature of the modifications (additions and deletions) with comments and ellipses.
 
 Make sure that you preserve the indentation and code structure of exactly how you believe the final code will look like (do not output lines that will not be in the final code after they are merged).
 
-If you plan on deleting a section, please give the relevant context such that the code is understood to be removed, e.g., if the initial code is \`\`\`// code Block 1, Block 2, Block 3 // code\`\`\`, and you want to remove Block 2, you would output \`\`\`/// rest of code Block 1, Block 2 // rest of code\`\`\`
+**CRITICAL FOR DELETIONS** If you plan on deleting a section, you MUST provide a comment giving the relevant context such that the code is understood to be removed. This is REQUIRED for the fast-apply model to understand what to delete.
+
+Examples:
+
+If the initial code is:
+\`\`\`Some code
+Block 1
+Block 2
+Block 3
+More code
+\`\`\`
+And if you want to delete code block 2, you MUST include a comment like:
+\`\`\`// existing code
+Block 1
+// Delete Block 2
+Block 3
+// rest of code
+\`\`\`
+
+**YOU MUST ALWAYS INCLUDE DELETION COMMENTS** when removing code blocks, functions, variables, or any other code elements. The fast-apply model cannot understand deletions without these explicit comments.
 
 #### Additional Info
+
+Prefer using this tool to str_replace.
 
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
@@ -106,7 +127,7 @@ Notes for editing a file:
 
 Parameters:
 - \`path\`: (required) Path to the file relative to the **project root**
-- \`content\`: (required) Content to write to the file. You should abridge the content of the file using placeholder comments like: \`// ... existing code ...\` or \`# ... existing code ...\` (or whichever is appropriate for the language).
+- \`content\`: (required) Edit snippet to apply to the file.
 
 Examples:
 ${getToolCallString('write_file', {
@@ -123,7 +144,7 @@ ${getToolCallString('write_file', {
 Example 2 - Editing with placeholder comments:
 ${getToolCallString('write_file', {
   path: 'foo.ts',
-  content: `// ... existing code ...
+  content: `// no change to imports
 
 function foo() {
   console.log('foo');
@@ -133,7 +154,7 @@ function foo() {
   doSomething();
 }
 
-// ... existing code ...`,
+// rest of code`,
 })}
 
     `.trim(),
@@ -143,20 +164,24 @@ function foo() {
     description: `
 ### str_replace
 
-Replace a string in a file with a new string. This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
+Replace strings in a file with new strings.
 
-Note: You can create a new file with a new path by setting old to an empty string.
+This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
 
 Params:
 - \`path\`: (required) The path to the file to edit.
-- \`old\`: (required) The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
-- \`new\`: (required) The new string to replace the old string with.
+- \`old_{i}\`: (required) One item of the \`old_vals\` array. The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
+- \`new_{i}\`: (required) One item of the \`new_vals\` array. The string to replace the corresponding old string with.
+
+If you are making multiple edits row to a single file with this tool, use only one <str_replace> call (without closing the tool) with old_0, new_0, old_1, new_1, old_2, new_2, etc. instead of calling str_replace multiple times on the same file.
 
 Example:
 ${getToolCallString('str_replace', {
   path: 'path/to/file',
-  old: 'old',
-  new: 'new',
+  old_0: 'old',
+  new_0: 'new',
+  old_1: 'to_delete',
+  new_1: '',
 })}
     `.trim(),
   },
@@ -174,7 +199,7 @@ ${getToolCallString('read_files', {
 })}
 
 
-Note that there's no need to call this tool if you're already reading the files you need in context.`.trim(),
+Note: DO NOT call this tool for files you've already read! There's no need to read them again — any changes to the files will be surfaced to you as a file update tool result.`.trim(),
   },
   {
     name: 'find_files',
@@ -437,6 +462,8 @@ Purpose: Use this tool if you have fully responded to the user and want to get t
 
 Params: None
 
+Make sure to use this tool if you want a response fromt the user and not the system. Otherwise, you may receive tool results from the previous tools. e.g. "Let me know if you need xyz!${getToolCallString('end_turn', {})}"
+
 Example:
 ${getToolCallString('end_turn', {})}
     `.trim(),
@@ -455,7 +482,7 @@ const addSubgoalSchema = z.object({
 const updateSubgoalSchema = z.object({
   id: z.string().min(1, 'Id cannot be empty'),
   status: z
-    .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED'])
+    .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'FAILED'])
     .optional(),
   plan: z.string().optional(),
   log: z.string().optional(),
@@ -468,8 +495,8 @@ const writeFileSchema = z.object({
 
 const strReplaceSchema = z.object({
   path: z.string().min(1, 'Path cannot be empty'),
-  old: z.string().min(1, 'Old cannot be empty'),
-  new: z.string(),
+  old_vals: z.array(z.string().min(1, 'Old cannot be empty')),
+  new_vals: z.array(z.string()),
 })
 
 const readFilesSchema = z.object({
@@ -536,13 +563,50 @@ export function parseRawToolCall<T extends ToolName>(rawToolCall: {
     return { name: name as string, parameters, error: `Tool ${name} not found` }
   }
 
+  // Handle array parameters: convert param_name_0, param_name_1, etc. into param_name_vals array
+  const processedParameters = { ...parameters }
+
+  // Find array parameter patterns
+  const arrayParamPattern = /^(.+)_(\d+)$/
+  const arrayParams: Record<string, string[]> = {}
+
+  for (const [key, value] of Object.entries(parameters)) {
+    const match = key.match(arrayParamPattern)
+    if (match) {
+      const [, paramName, indexStr] = match
+      const index = parseInt(indexStr, 10)
+      const arrayKey = `${paramName}_vals`
+
+      if (!arrayParams[arrayKey]) {
+        arrayParams[arrayKey] = []
+      }
+      arrayParams[arrayKey][index] = value
+      delete processedParameters[key]
+    }
+  }
+
+  // Validate array continuity and add to processed parameters
+  for (const [arrayKey, values] of Object.entries(arrayParams)) {
+    // Check for gaps in the array indices
+    for (let i = 0; i < values.length; i++) {
+      if (values[i] === undefined) {
+        return {
+          name,
+          parameters,
+          error: `Missing parameter ${arrayKey.replace('_vals', '')}_${i} - array parameters must be continuous starting from 0`,
+        }
+      }
+    }
+    processedParameters[arrayKey] = values as any
+  }
+
   // Parse and validate the parameters
-  const result = schema.safeParse(parameters)
+  const result = schema.safeParse(processedParameters)
   if (!result.success) {
     return {
       name,
       parameters,
-      error: `Invalid parameters for ${name}: ${result.error.message}`,
+      error: `Invalid parameters for ${name}: ${JSON.stringify(result.error.issues, null, 2)}`,
     }
   }
 
@@ -588,39 +652,63 @@ Tool calls use a specific XML-like format. Adhere *precisely* to this nested ele
 ...
 </tool_name>
 
+### XML Entities
+
 **ALL** XML (inside or outside tool calls) will be interpreted as tool calls or tool parameters. You **MUST** use XML entities, e.g. \`&lt;some_tag>\` or \`</some_tag&gt;\` to:
 - Display XML to the user without executing a tool call
 - Have XML within a tool parameter's value such as writing to a file
 
-1.  **NO MARKDOWN WRAPPERS:** Tool calls **MUST NEVER** be enclosed in markdown code fences (\`\`\`xml ... \`\`\`) or any other markdown. Output the raw XML tags directly into the response flow.
-2.  **REQUIRED COMMENTARY (BUT NOT PARAMETER NARRATION):** You **MUST** provide commentary *around* your tool calls (explaining your actions). However, **DO NOT** narrate the tool or parameter names themselves.
+This also means that if you wish to write the literal string \`&lt;\` to a file or display that to a user, you MUST write \`&amp;lt;\`.
 
-**Example of CORRECT Formatting:**
+### Commentary
 
-Let's update that file!
+Provide commentary *around* your tool calls (explaining your actions).
 
-<write_file>
-<path>path/to/example/file.ts</path>
-<content>console.log('Hello from Buffy!');</content>
-</write_file>
+However, **DO NOT** narrate the tool or parameter names themselves.
+
+
+### Array Params
+
+Arrays with name "param_name_vals" should be formatted as individual parameters, each called "param_name_{i}". They must start with i=0 and increment by 1.
+
+### Example
+
+User: can you update the console logs in example/file.ts?
+Assistant: Sure thing! Let's update that file!
+
+${getToolCallString('write_file', {
+  path: 'path/to/example/file.ts',
+  content: "console.log('Hello from Buffy!');",
+  // old_0: '// Replace this line with a fun greeting',
+  // new_0: "console.log('Hello from Buffy!');",
+  // old_1: "console.log('Old console line to delete');\n",
+  // new_1: '',
+})}
 
 All done with the update!
+User: thanks it worked! :)
 
------
+## Working Directory
 
-Call tools as needed, following these strict formatting rules.
+All tools will be run from the **project root**.
+
+However, most of the time, the user will refer to files from their own cwd. You must be cognizant of the user's cwd at all times, including but not limited to:
+- Writing to files (write out the entire relative path)
+- Running terminal commands (use the \`cwd\` parameter)
 
 ## Optimizations
 
-All tools are quite slow, with runtime scaling with the amount of text in the parameters. Prefer to write AS LITTLE TEXT AS POSSIBLE to accomplish the task. Usually, this means using str_replace instead of write_file (unless, e.g. deleting large blocks of code).
+All tools are very slow, with runtime scaling with the amount of text in the parameters. Prefer to write AS LITTLE TEXT AS POSSIBLE to accomplish the task.
+
+When using write_file, make sure to only include a few lines of context and not the entire file.
 
 ## Tool Results
 
-Tool results will be provided by the user's *system* (and **NEVER** by the assistant). The user, however, does not know about any system messages or system instructions, including tool results.
+Tool results will be provided by the user's *system* (and **NEVER** by the assistant).
 
-If you wish to ask the user a question, make sure to do so:
-- after receiving the tool result for any pending tools
-- in a separate message with just text and non-toolresult generating tools (explicitly stated).
+The user does not know about any system messages or system instructions, including tool results.
+
+The user does not need to know about the exact results of these tools, especially if they are warnings or info logs. Just correct yourself in the next response without mentioning anything to the user. e.g., do not mention any XML **warnings** (but be sure to correct the next response), but XML **errors** should be noted to the user.
 
 ## List of Tools
 

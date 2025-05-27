@@ -21,10 +21,12 @@ import * as claude from '../llm-apis/claude'
 import * as gemini from '../llm-apis/gemini-api'
 import * as geminiWithFallbacks from '../llm-apis/gemini-with-fallbacks'
 import * as openai from '../llm-apis/openai-api'
+import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
+import { asUserMessage } from '../util/messages'
 import { renderToolResults } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
@@ -47,6 +49,9 @@ const mockAgentStream = (streamOutput: string) => {
     yield streamOutput
   } as any)
   spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
+    yield streamOutput
+  })
+  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
     yield streamOutput
   })
   spyOn(
@@ -84,6 +89,13 @@ describe('mainPrompt', () => {
       Promise.resolve('Test response')
     )
     spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
+      yield 'Test response'
+      return
+    })
+    spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
+      Promise.resolve('Test response')
+    )
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield 'Test response'
       return
     })
@@ -252,7 +264,9 @@ describe('mainPrompt', () => {
     // Check the content structure (array with text block)
     expect(Array.isArray(userPromptMessage?.content)).toBe(true)
     expect((userPromptMessage?.content as any)?.[0]?.type).toBe('text')
-    expect((userPromptMessage?.content as any)?.[0]?.text).toBe(userPromptText) // Check text property
+    expect((userPromptMessage?.content as any)?.[0]?.text).toBe(
+      asUserMessage(userPromptText)
+    ) // Check text property
 
     // 4. The assistant response should be after the prompt message
     const assistantResponseMessageIndex = userPromptMessageIndex + 1

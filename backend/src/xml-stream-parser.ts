@@ -1,4 +1,5 @@
 import { Saxy, TagCloseNode, TagOpenNode, TextNode } from 'common/util/saxy'
+import { includesMatch } from 'common/util/string'
 
 interface PendingState {
   currentTool: null
@@ -31,7 +32,7 @@ export async function* processStreamWithTags<T extends string>(
   processors: Record<
     string,
     {
-      params: Array<string>
+      params: Array<string | RegExp>
       onTagStart: (tagName: string, attributes: Record<string, string>) => void
       onTagEnd: (tagName: string, params: Record<string, string>) => void
     }
@@ -61,12 +62,12 @@ export async function* processStreamWithTags<T extends string>(
     const params: Record<string, string> = {}
     const extraAttrs: string[] = []
     for (const [key, value] of Object.entries(attributes)) {
-      if (!processors[toolName].params.includes(key)) {
-        extraAttrs.push(key)
+      if (includesMatch(processors[toolName].params, key)) {
+        params[key] = value
         continue
       }
 
-      params[key] = value
+      extraAttrs.push(key)
     }
     if (extraAttrs.length) {
       onError(
@@ -90,16 +91,13 @@ export async function* processStreamWithTags<T extends string>(
     rawTag: string
   ): State {
     if (state.currentParam !== null) {
-      if (processors[state.currentTool].params.includes(paramName)) {
+      if (includesMatch(processors[state.currentTool].params, paramName)) {
         onError(
           state.currentTool,
-          `WARN: New parameter started while parsing param ${state.currentParam} of ${state.currentTool}. Ending current param. Make sure to close all params!`
+          `WARN: Parameter found while parsing param ${state.currentParam} of ${state.currentTool}. Ignoring new parameter. Make sure to close all params and escape XML!`
         )
-        return {
-          ...endParam(state),
-          currentParam: paramName,
-          paramContent: '',
-        }
+        onText({ contents: rawTag })
+        return state
       } else if (paramName in processors) {
         onError(
           state.currentTool,
@@ -109,7 +107,7 @@ export async function* processStreamWithTags<T extends string>(
       }
       onError(
         paramName,
-        `WARN: Ignoring stray XML tag. Make sure to escape non-tool XML!`
+        `WARN: Tool not found. Make sure to escape non-tool XML! e.g. &lt;${paramName}&gt;`
       )
       onText({ contents: rawTag })
       return state
@@ -123,10 +121,10 @@ export async function* processStreamWithTags<T extends string>(
       return startTool(endTool(state), paramName, attributes)
     }
 
-    if (!processors[state.currentTool].params.includes(paramName)) {
+    if (!includesMatch(processors[state.currentTool].params, paramName)) {
       onError(
         paramName,
-        `WARN: Ignoring stray XML tag. Make sure to escape non-tool XML!`
+        `WARN: Tool not found. Make sure to escape non-tool XML! e.g. &lt;${paramName}&gt;`
       )
       onText({ contents: rawTag })
       return state
@@ -274,7 +272,7 @@ export async function* processStreamWithTags<T extends string>(
       const closeParam = `</${state.currentParam}>\n`
       onError(
         state.currentParam,
-        'WARN: Found end of stream while parsing parameter. Make sure to close all parameters!'
+        'WARN: Found end of stream while parsing parameter. End of parameter appended to response. Make sure to close all parameters!'
       )
       parser.write(closeParam)
       yield closeParam
@@ -283,7 +281,7 @@ export async function* processStreamWithTags<T extends string>(
       const closeTool = `</${state.currentTool}>\n`
       onError(
         state.currentTool,
-        'WARN: Found end of stream while parsing tool. Make sure to close all tools!'
+        'INFO: Found end of stream while parsing tool. End of tool appended to response. The stop sequence may have been omitted. Make sure to end tools in the future!'
       )
       parser.write(closeTool)
       yield closeTool

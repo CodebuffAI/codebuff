@@ -35,19 +35,32 @@ import { handleInitializationFlowLocally } from './cli-handlers/inititalization-
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { disableSquashNewlines, enableSquashNewlines } from './display'
-import { displayGreeting, displayMenu } from './menu'
-import { getProjectRoot, getWorkingDirectory, isDir } from './project-files'
+import {
+  displayGreeting,
+  displayMenu,
+  displaySlashCommandHelperMenu,
+  getSlashCommands,
+} from './menu'
+import {
+  getProjectRoot,
+  getWorkingDirectory,
+  initProjectFileContextWithWorker,
+  isDir,
+} from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
 import { Spinner } from './utils/spinner'
 import {
+  clearScreen,
   isCommandRunning,
   killAndResetPersistentProcess,
   persistentProcess,
   resetShell,
 } from './utils/terminal'
 
+import { loadCodebuffConfig } from 'common/json-config/parser'
 import { CONFIG_DIR } from './credentials'
+import { logAndHandleStartup } from './startup-process-handler'
 
 const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
 
@@ -61,7 +74,6 @@ export class CLI {
   private readyPromise: Promise<any>
   private git: GitCommand
   private costMode: CostMode
-  private rl!: readline.Interface
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
   private lastSigintTime: number = 0
@@ -70,6 +82,8 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
+
+  public rl!: readline.Interface
 
   private constructor(
     readyPromise: Promise<[ProjectFileContext, void, void]>,
@@ -89,7 +103,6 @@ export class CLI {
       reconnectWhenNextIdle: this.reconnectWhenNextIdle.bind(this),
       costMode: this.costMode,
       git: this.git,
-      rl: this.rl,
       model,
     })
 
@@ -143,7 +156,10 @@ export class CLI {
         persistentProcess.pty.kill()
       }
       sendKillSignalToAllBackgroundProcesses()
-      console.log(green('Codebuff out!'))
+      const isHomeDir = getProjectRoot() === os.homedir()
+      if (!isHomeDir) {
+        console.log(green('Codebuff out!'))
+      }
     })
     for (const signal of ['SIGTERM', 'SIGHUP']) {
       process.on(signal, async () => {
@@ -201,7 +217,7 @@ export class CLI {
       output: process.stdout,
       historySize: 1000,
       terminal: true,
-      completer: this.filePathCompleter.bind(this),
+      completer: this.inputCompleter.bind(this),
     })
 
     // Load and populate history
@@ -215,8 +231,25 @@ export class CLI {
     process.stdin.on('keypress', (str, key) => this.handleKeyPress(str, key))
   }
 
-  private filePathCompleter(line: string): [string[], string] {
+  private inputCompleter(line: string): [string[], string] {
     const lastWord = line.split(' ').pop() || ''
+
+    if (line.startsWith('/')) {
+      const slashCommands = getSlashCommands()
+      const currentInput = line.substring(1) // Text after '/'
+
+      const matches = slashCommands
+        .map((cmd) => cmd.baseCommand) // Get base command strings
+        .filter((cmdName) => cmdName && cmdName.startsWith(currentInput))
+        .map((cmdName) => `/${cmdName}`) // Add back the slash for display
+
+      if (matches.length > 0) {
+        return [matches, line] // Return all matches and the full line typed so far
+      }
+      return [[], line] // No slash command matches
+    }
+
+    // Original file path completion logic
     const input = lastWord.startsWith('~')
       ? homedir() + lastWord.slice(1)
       : lastWord
@@ -232,13 +265,13 @@ export class CLI {
 
     try {
       const files = readdirSync(baseDir)
-      const matches = files
+      const fsMatches = files
         .filter((file) => file.startsWith(partial))
         .map(
           (file) =>
             file + (isDir(path.join(baseDir, file)) ? directorySuffix : '')
         )
-      return [matches, partial]
+      return [fsMatches, partial]
     } catch {
       return [[], line]
     }
@@ -286,6 +319,7 @@ export class CLI {
 
     // clear line first
     rlAny.line = ''
+    this.pastedContent = ''
     this.setPrompt()
 
     // then prompt
@@ -362,87 +396,163 @@ export class CLI {
     await this.forwardUserInput(userInput)
   }
 
+  /**
+   * Cleans command input by removing leading slash while preserving special command syntax
+   * @param input The raw user input
+   * @returns The cleaned command string
+   */
+  private cleanCommandInput(input: string): string {
+    return input.startsWith('/') ? input.substring(1) : input
+  }
+
+  /**
+   * Checks if a command is a known slash command
+   * @param command The command to check (without leading slash)
+   */
+  private isKnownSlashCommand(command: string): boolean {
+    return getSlashCommands().some((cmd) => cmd.baseCommand === command)
+  }
+
+  /**
+   * Handles an unknown slash command by displaying an error message
+   * @param command The unknown command that was entered
+   */
+  private handleUnknownCommand(command: string) {
+    console.log(
+      yellow(`Unknown slash command: ${command}`) +
+        `\nType / to see available commands`
+    )
+    this.freshPrompt()
+  }
+
   private async processCommand(userInput: string): Promise<boolean> {
-    if (userInput === 'help' || userInput === 'h' || userInput === '/help') {
+    const cleanInput = this.cleanCommandInput(userInput)
+
+    // Handle empty slash command
+    if (userInput === '/') {
+      return false
+    }
+
+    // Track slash command usage if it starts with '/'
+    if (userInput.startsWith('/') && !userInput.startsWith('/!')) {
+      if (!this.isKnownSlashCommand(cleanInput)) {
+        trackEvent(AnalyticsEvent.INVALID_COMMAND, {
+          userId: Client.getInstance().user?.id || 'unknown',
+          command: cleanInput,
+        })
+        this.handleUnknownCommand(userInput)
+        return true
+      }
+      // Track successful slash command usage
+      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
+        userId: Client.getInstance().user?.id || 'unknown',
+        command: cleanInput,
+      })
+    }
+
+    if (cleanInput === 'help' || cleanInput === 'h') {
       displayMenu()
       this.freshPrompt()
       return true
     }
-    if (userInput === 'login' || userInput === 'signin') {
+    if (cleanInput === 'login' || cleanInput === 'signin') {
       await Client.getInstance().login()
       checkpointManager.clearCheckpoints()
       return true
     }
-    if (userInput === 'logout' || userInput === 'signout') {
+    if (cleanInput === 'logout' || cleanInput === 'signout') {
       await Client.getInstance().logout()
       this.freshPrompt()
       return true
     }
-    if (userInput.startsWith('ref-')) {
-      await Client.getInstance().handleReferralCode(userInput.trim())
+    if (cleanInput.startsWith('ref-')) {
+      // Referral codes can be entered with or without a leading slash.
+      // Pass the cleaned input (without slash) to the handler.
+      await Client.getInstance().handleReferralCode(cleanInput.trim())
       return true
     }
 
     // Detect potential API key input first
+    // API keys are not slash commands, so use userInput
     const detectionResult = detectApiKey(userInput)
     if (detectionResult.status !== 'not_found') {
-      // If something resembling an API key was detected (valid or just prefix), handle it
       await handleApiKeyInput(
         Client.getInstance(),
         detectionResult,
         this.readyPromise,
         this.freshPrompt.bind(this)
       )
-      return true // Indicate command was handled
+      return true
     }
 
-    // Continue with other commands if no API key input was detected/handled
-    if (userInput === 'usage' || userInput === 'credits') {
+    if (cleanInput === 'usage' || cleanInput === 'credits') {
       await Client.getInstance().getUsage()
       return true
     }
-    if (userInput === 'quit' || userInput === 'exit' || userInput === 'q') {
+    if (cleanInput === 'quit' || cleanInput === 'exit' || cleanInput === 'q') {
       await this.handleExit()
       return true
     }
-    if (['diff', 'doff', 'dif', 'iff', 'd'].includes(userInput)) {
+    if (cleanInput === 'reset') {
+      await this.readyPromise
+      await Client.getInstance().resetContext()
+      const projectRoot = getProjectRoot()
+      clearScreen()
+
+      // from index.ts
+      const config = loadCodebuffConfig(projectRoot)
+      await killAllBackgroundProcesses()
+      const processStartPromise = logAndHandleStartup(projectRoot, config)
+      const initFileContextPromise =
+        initProjectFileContextWithWorker(projectRoot)
+
+      this.readyPromise = Promise.all([
+        initFileContextPromise,
+        processStartPromise,
+      ])
+
+      displayGreeting(this.costMode, Client.getInstance().user?.name ?? null)
+      this.freshPrompt()
+      return true
+    }
+    if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {
       handleDiff(Client.getInstance().lastChanges)
       this.freshPrompt()
       return true
     }
     if (
-      userInput === 'uuddlrlrba' ||
-      userInput === 'konami' ||
-      userInput === 'codebuffy'
+      cleanInput === 'uuddlrlrba' ||
+      cleanInput === 'konami' ||
+      cleanInput === 'codebuffy'
     ) {
       showEasterEgg(this.freshPrompt.bind(this))
       return true
     }
 
     // Checkpoint commands
-    if (isCheckpointCommand(userInput)) {
+    if (isCheckpointCommand(cleanInput)) {
       trackEvent(AnalyticsEvent.CHECKPOINT_COMMAND_USED, {
-        command: userInput,
+        command: cleanInput, // Log the cleaned command
       })
-      if (isCheckpointCommand(userInput, 'undo')) {
+      if (isCheckpointCommand(cleanInput, 'undo')) {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleUndo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
         return true
       }
-      if (isCheckpointCommand(userInput, 'redo')) {
+      if (isCheckpointCommand(cleanInput, 'redo')) {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleRedo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
         return true
       }
-      if (isCheckpointCommand(userInput, 'list')) {
+      if (isCheckpointCommand(cleanInput, 'list')) {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         await listCheckpoints()
         this.freshPrompt()
         return true
       }
-      const restoreMatch = isCheckpointCommand(userInput, 'restore')
+      const restoreMatch = isCheckpointCommand(cleanInput, 'restore')
       if (restoreMatch) {
         const id = parseInt((restoreMatch as RegExpMatchArray)[1], 10)
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
@@ -454,12 +564,12 @@ export class CLI {
         this.freshPrompt(toRestore)
         return true
       }
-      if (isCheckpointCommand(userInput, 'clear')) {
+      if (isCheckpointCommand(cleanInput, 'clear')) {
         handleClearCheckpoints()
         this.freshPrompt()
         return true
       }
-      if (isCheckpointCommand(userInput, 'save')) {
+      if (isCheckpointCommand(cleanInput, 'save')) {
         await saveCheckpoint(
           userInput,
           Client.getInstance(),
@@ -470,30 +580,33 @@ export class CLI {
         this.freshPrompt()
         return true
       }
+      // Default checkpoint action (if just "checkpoint" or "/checkpoint" is typed)
       displayCheckpointMenu()
       this.freshPrompt()
       return true
     }
 
-    if (userInput === 'init') {
-      // no need to save checkpoint, since we are passing request to backend
+    if (cleanInput === 'init') {
       handleInitializationFlowLocally()
-      // Also forward user input to the backend
-      return false
+      // Also forward user input (original with / if present, or cleanInput) to the backend
+      // The original forwardUserInput takes the raw userInput.
+      return false // Let it fall through to forwardUserInput
     }
 
     return false
   }
 
   private async forwardUserInput(userInput: string) {
-    await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
+    const cleanedInput = this.cleanCommandInput(userInput)
+
+    await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
     Spinner.get().start()
 
     Client.getInstance().lastChanges = []
 
     const newMessage: Message = {
       role: 'user',
-      content: userInput,
+      content: cleanedInput,
     }
 
     const client = Client.getInstance()
@@ -503,7 +616,7 @@ export class CLI {
 
     this.isReceivingResponse = true
     const { responsePromise, stopResponse } =
-      await Client.getInstance().sendUserInput(userInput)
+      await Client.getInstance().sendUserInput(cleanedInput) // Fixed: Use cleaned input
 
     this.stopResponse = stopResponse
     await responsePromise
@@ -544,6 +657,20 @@ export class CLI {
       this.handleEscKey()
     }
 
+    if (str === '/') {
+      const currentLine = this.pastedContent + (this.rl as any).line
+      // Only track and show menu if '/' is the first character typed
+      if (currentLine === '/') {
+        trackEvent(AnalyticsEvent.SLASH_MENU_ACTIVATED, {
+          userId: Client.getInstance().user?.id || 'unknown',
+        })
+        displaySlashCommandHelperMenu()
+        // Call freshPrompt and pre-fill the line with the slash
+        // so the user can continue typing their command.
+        this.freshPrompt('/')
+      }
+    }
+
     if (
       !this.isPasting &&
       str === ' ' &&
@@ -567,15 +694,11 @@ export class CLI {
       resetShell(getProjectRoot())
     }
 
-    if ('line' in this.rl) {
-      ;(this.rl as any).line = ''
-    }
-
     if (this.isReceivingResponse) {
       this.handleStopResponse()
     } else {
       const now = Date.now()
-      if (now - this.lastSigintTime < 5000) {
+      if (now - this.lastSigintTime < 5000 && !this.rl.line) {
         await this.handleExit()
       } else {
         this.lastSigintTime = now

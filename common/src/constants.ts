@@ -129,8 +129,9 @@ export const getModelForMode = (
 }
 
 export const claudeModels = {
-  sonnet: 'claude-3-5-sonnet-20241022',
+  sonnet: 'claude-sonnet-4-20250514',
   sonnet3_7: 'claude-3-7-sonnet-20250219',
+  opus4: 'claude-opus-4-20250514',
   haiku: 'claude-3-5-haiku-20241022',
 } as const
 export type AnthropicModel = (typeof claudeModels)[keyof typeof claudeModels]
@@ -148,8 +149,8 @@ export const openaiModels = {
 export type OpenAIModel = (typeof openaiModels)[keyof typeof openaiModels]
 
 export const geminiModels = {
-  gemini2_5_flash: 'gemini-2.5-flash-preview-04-17',
-  gemini2_5_flash_thinking: 'gemini-2.5-flash-preview-04-17:thinking',
+  gemini2_5_flash: 'gemini-2.5-flash-preview-05-20',
+  gemini2_5_flash_thinking: 'gemini-2.5-flash-preview-05-20:thinking',
   gemini2flash: 'gemini-2.0-flash-001',
   gemini2_5_pro_exp: 'gemini-2.5-pro-exp-03-25',
   gemini2_5_pro_preview: 'gemini-2.5-pro-preview-05-06',

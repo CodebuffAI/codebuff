@@ -29,6 +29,7 @@ function transformMessages(
     .with(claudeModels.sonnet3_7, () =>
       limitScreenshots(messages, MAX_SCREENSHOTS)
     )
+    .with(claudeModels.opus4, () => limitScreenshots(messages, MAX_SCREENSHOTS))
     .with(claudeModels.haiku, () =>
       messages.map((msg) => ({
         ...msg,
@@ -127,7 +128,7 @@ async function* promptClaudeStreamWithoutRetry(
   const stream = anthropic.messages.stream(
     removeUndefinedProps({
       model,
-      max_tokens: maxTokens ?? (model === claudeModels.sonnet ? 8192 : 8096),
+      max_tokens: maxTokens ?? (model === claudeModels.sonnet ? 32_000 : 8096),
       temperature: thinking?.type === 'enabled' ? 1 : 0,
       messages: transformedMsgs,
       system,

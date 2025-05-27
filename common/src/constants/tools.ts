@@ -5,7 +5,7 @@ export const toolSchema = {
 
   // File operations
   write_file: ['path', 'content'],
-  str_replace: ['path', 'old', 'new'],
+  str_replace: ['path', /old_\d+/, /new_\d+/],
   read_files: ['paths'],
   find_files: ['description'],
 

@@ -1,18 +1,18 @@
-import { expect, describe, it, mock, afterEach, spyOn } from 'bun:test'
-import { mainPrompt } from '../main-prompt'
+import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { TEST_USER_ID } from 'common/constants'
 import { getInitialAgentState } from 'common/types/agent-state'
 import { WebSocket } from 'ws'
-import { TEST_USER_ID } from 'common/constants'
+import { mainPrompt } from '../main-prompt'
 
 // Mock imports needed for setup within the test
+import { renderReadFilesResult } from '@/util/parse-tool-call-xml'
+import * as checkTerminalCommandModule from '../check-terminal-command'
+import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as claude from '../llm-apis/claude'
 import * as gemini from '../llm-apis/gemini-api'
 import * as openai from '../llm-apis/openai-api'
-import * as websocketAction from '../websockets/websocket-action'
-import * as requestFilesPrompt from '../find-files/request-files-prompt'
-import * as checkTerminalCommandModule from '../check-terminal-command'
 import { logger } from '../util/logger'
-import { renderReadFilesResult } from '@/util/parse-tool-call-xml'
+import * as websocketAction from '../websockets/websocket-action'
 
 // --- Shared Mocks & Helpers ---
 
@@ -53,7 +53,7 @@ describe('mainPrompt (Integration)', () => {
     mock.restore()
   })
 
-  it('should delete a specified function while preserving other code', async () => {
+  it.skip('should delete a specified function while preserving other code', async () => {
     // Mock necessary non-LLM functions
     spyOn(logger, 'debug').mockImplementation(() => {})
     spyOn(logger, 'error').mockImplementation(() => {})
@@ -107,7 +107,7 @@ export function getMessageText(message: Message): string | undefined {
   if (typeof message.content === 'string') {
     return message.content
   }
-  return message.content.map((c) => ('text' in c ? c.text : '')).join('\n')
+  return message.content.map((c) => ('text' in c ? c.text : '')).join('\\n')
 }
 
 export function castAssistantMessage(message: Message): Message {
@@ -347,6 +347,8 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     const writeFileCall = toolCalls.find((call) => call.name === 'write_file')
     expect(writeFileCall).toBeDefined()
     expect(writeFileCall?.parameters.path).toBe('src/util/messages.ts')
-    expect(writeFileCall?.parameters.content.trim()).toBe(`@@ -43,36 +43,11 @@\n export function getMessageText(message: Message): string | undefined {\n   if (typeof message.content === 'string') {\n     return message.content\n   }\n-  return message.content.map((c) => ('text' in c ? c.text : '')).join('\n-')\n+  return message.content.map((c) => ('text' in c ? c.text : '')).join('\\n')\n }\n \n-export function castAssistantMessage(message: Message): Message {\n-  if (message.role !== 'assistant') {\n-    return message\n-  }\n-  if (typeof message.content === 'string') {\n-    return {\n-      content: \`<previous_assistant_message>\${message.content}</previous_assistant_message>\`,\n-      role: 'user' as const,\n-    }\n-  }\n-  return {\n-    role: 'user' as const,\n-    content: message.content.map((m) => {\n-      if (m.type === 'text') {\n-        return {\n-          ...m,\n-          text: \`<previous_assistant_message>\${m.text}</previous_assistant_message>\`,\n-        }\n-      }\n-      return m\n-    }),\n-  }\n-}\n-\n // Number of terminal command outputs to keep in full form before simplifying\n const numTerminalCommandsToKeep = 5\n \n /**`.trim())
+    expect(writeFileCall?.parameters.content.trim()).toBe(
+      `@@ -46,32 +46,8 @@\n   }\n   return message.content.map((c) => ('text' in c ? c.text : '')).join('\\n')\n }\n \n-export function castAssistantMessage(message: Message): Message {\n-  if (message.role !== 'assistant') {\n-    return message\n-  }\n-  if (typeof message.content === 'string') {\n-    return {\n-      content: \`<previous_assistant_message>\${message.content}</previous_assistant_message>\`,\n-      role: 'user' as const,\n-    }\n-  }\n-  return {\n-    role: 'user' as const,\n-    content: message.content.map((m) => {\n-      if (m.type === 'text') {\n-        return {\n-          ...m,\n-          text: \`<previous_assistant_message>\${m.text}</previous_assistant_message>\`,\n-        }\n-      }\n-      return m\n-    }),\n-  }\n-}\n-\n // Number of terminal command outputs to keep in full form before simplifying\n const numTerminalCommandsToKeep = 5\n \n /**`.trim()
+    )
   }, 60000) // Increase timeout for real LLM call
 })

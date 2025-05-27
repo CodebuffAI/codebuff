@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander'
+import { Argument, Command, Option } from 'commander'
 import { type CostMode } from 'common/constants'
 import { loadCodebuffConfig } from 'common/json-config/parser'
 import { red } from 'picocolors'
 
 import packageJson from '../package.json'
 import { CLI } from './cli'
+import { cliArguments, cliOptions } from './cli-definitions'
 import { createTemplateProject } from './create-template-project'
 import { enableSquashNewlines } from './display'
 import {
@@ -64,54 +65,36 @@ async function codebuff(
 if (require.main === module) {
   const program = new Command()
 
-  program
-    .name('codebuff')
-    .description('AI code buffer')
-    .version(packageJson.version)
-    .argument(
-      '[project-directory]',
-      'Project directory (default: current directory)'
-    )
-    .argument('[initial-prompt...]', 'Initial prompt to send')
-    .option('--lite', 'Use budget models & fetch fewer files')
-    .option('--max', 'Use higher quality models and fetch more files')
-    .option(
-      '--experimental',
-      'Use cutting-edge experimental features and models'
-    )
-    .option('--create <template> [name]', 'Create new project from template')
-    .option(
-      '--init',
-      'Initialize codebuff on this project for a smoother experience'
-    )
-    .option(
-      '--model <model>',
-      'Experimental: Specify the main model to use for the agent ("sonnet-3.6", "sonnet-3.7", "gpt-4.1", "gemini-2.5-pro", "o4-mini", "o3"). Be aware codebuff might not work as well with non-default models.'
-    )
-    .addHelpText(
-      'after',
-      `
-Available templates for --create:
-  nextjs    - Next.js starter template
-  convex    - Convex starter template
-  vite      - Vite starter template
-  remix     - Remix starter template
-  node-cli  - Node.js CLI starter template
-  python-cli - Python CLI starter template
-  chrome-extension - Chrome extension starter template
+  program.name('codebuff').version(packageJson.version)
 
-  See all templates at:
-    https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates
+  // Add arguments from shared definitions
+  cliArguments.forEach((arg) => {
+    // For hidden arguments, just skip adding them to the help text
+    if (!arg.hidden) {
+      program.argument(arg.flags, arg.description)
+    }
+  })
 
+  // Add options from shared definitions
+  cliOptions.forEach((opt) => {
+    const optionInstance = new Option(opt.flags, opt.description)
+    if (opt.hidden) {
+      optionInstance.hideHelp(true)
+    }
+    program.addOption(optionInstance)
+  })
+
+  program.addHelpText(
+    'after',
+    `
 Examples:
   $ codebuff                            # Start in current directory
   $ codebuff my-project                 # Start in specific directory
-  $ codebuff --create nextjs my-app     # Create new Next.js project
-  $ codebuff . "fix the bug in foo()"   # Start with initial prompt
-  
-The recommended way to get started is by running 'codebuff' in your project directory.
+  $ codebuff --create nextjs my-app     # Create and scaffold a new Next.js project
+
+For all commands and options, run 'codebuff' and then type 'help'.
 `
-    )
+  )
 
   program.parse()
 

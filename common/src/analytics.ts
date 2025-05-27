@@ -27,9 +27,7 @@ export async function flushAnalytics() {
   }
   try {
     await client.flush()
-  } catch (error) {
-    trackEvent(AnalyticsEvent.FLUSH_FAILED, 'unknown-user', { error })
-  }
+  } catch (error) {}
 }
 
 export function trackEvent(
@@ -51,4 +49,16 @@ export function trackEvent(
     event,
     properties,
   })
+}
+
+export function logError(
+  error: Error,
+  userId?: string,
+  properties?: Record<string, any>
+) {
+  if (!client) {
+    throw new Error('Analytics client not initialized')
+  }
+
+  client.captureException(error, userId ?? 'unknown', properties)
 }
