@@ -1308,11 +1308,15 @@ async function uploadExpandedFileContextForTraining(
   // up to 50k tokens
   const filesToUpload: Record<string, { content: string; tokens: number }> = {}
   for (const file of files) {
-    const tokens = countTokens(loadedFiles[file]!)
+    const content = loadedFiles[file]
+    if (content === null || content === undefined) {
+      continue
+    }
+    const tokens = countTokens(content)
     if (tokens > 50000) {
       break
     }
-    filesToUpload[file] = { content: loadedFiles[file]!, tokens }
+    filesToUpload[file] = { content, tokens }
   }
 
   const trace: GetExpandedFileContextForTrainingBlobTrace = {
