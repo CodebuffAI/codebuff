@@ -7,24 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { 
-  ArrowLeft, 
-  TrendingUp, 
-  Users, 
-  GitBranch, 
-  CreditCard, 
+import {
+  ArrowLeft,
+  TrendingUp,
+  Users,
+  GitBranch,
+  CreditCard,
   Calendar,
   Download,
   AlertTriangle
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
-
-interface OrganizationDetails {
-  id: string
-  name: string
-  userRole: 'owner' | 'admin' | 'member'
-}
+import { useOrganizationData } from '@/hooks/use-organization-data'
 
 interface UsageData {
   currentBalance: number
@@ -46,60 +41,49 @@ export default function UsagePage() {
   const { data: session, status } = useSession()
   const params = useParams()
   const router = useRouter()
-  const orgId = params.orgId as string
+  const orgSlug = params.slug as string
 
-  const [organization, setOrganization] = useState<OrganizationDetails | null>(null)
   const [usageData, setUsageData] = useState<UsageData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [usageLoading, setUsageLoading] = useState(true)
+  const [usageError, setUsageError] = useState<string | null>(null)
+
+  // Use the custom hook for organization data
+  const { organization, isLoading, error } = useOrganizationData(orgSlug)
 
   useEffect(() => {
-    if (status === 'authenticated' && orgId) {
-      fetchData()
+    if (organization) {
+      fetchUsageData()
     }
-  }, [status, orgId])
+  }, [organization])
 
-  const fetchData = async () => {
+  const fetchUsageData = async () => {
+    if (!organization) return
+
     try {
-      setLoading(true)
-      
-      // Fetch organization details and usage data in parallel
-      const [orgResponse, usageResponse] = await Promise.all([
-        fetch(`/api/orgs/${orgId}`),
-        fetch(`/api/orgs/${orgId}/usage`)
-      ])
+      setUsageLoading(true)
+      const response = await fetch(`/api/orgs/${organization.id}/usage`)
 
-      if (!orgResponse.ok) {
-        const error = await orgResponse.json()
-        throw new Error(error.error || 'Failed to fetch organization')
-      }
-
-      const orgData = await orgResponse.json()
-      setOrganization({
-        id: orgData.id,
-        name: orgData.name,
-        userRole: orgData.userRole,
-      })
-
-      if (usageResponse.ok) {
-        const usage = await usageResponse.json()
+      if (response.ok) {
+        const usage = await response.json()
         setUsageData(usage)
       } else {
-        const error = await usageResponse.json()
+        const error = await response.json()
         throw new Error(error.error || 'Failed to fetch usage data')
       }
     } catch (error) {
-      console.error('Error fetching data:', error)
-      setError(error instanceof Error ? error.message : 'Failed to load data')
+      console.error('Error fetching usage data:', error)
+      setUsageError(error instanceof Error ? error.message : 'Failed to load usage data')
     } finally {
-      setLoading(false)
+      setUsageLoading(false)
     }
   }
 
   const handleExportUsage = async () => {
+    if (!organization) return
+
     try {
-      const response = await fetch(`/api/orgs/${orgId}/usage/export`)
-      
+      const response = await fetch(`/api/orgs/${organization.id}/usage/export`)
+
       if (!response.ok) {
         throw new Error('Failed to export usage data')
       }
@@ -109,7 +93,7 @@ export default function UsagePage() {
       const a = document.createElement('a')
       a.style.display = 'none'
       a.href = url
-      a.download = `${organization?.name}-usage-${new Date().toISOString().split('T')[0]}.csv`
+      a.download = `${organization.name}-usage-${new Date().toISOString().split('T')[0]}.csv`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -128,7 +112,7 @@ export default function UsagePage() {
     }
   }
 
-  if (status === 'loading' || loading) {
+  if (status === 'loading' || isLoading || usageLoading) {
     return (
       <div className="container mx-auto py-6 px-4">
         <div className="max-w-6xl mx-auto">
@@ -168,7 +152,7 @@ export default function UsagePage() {
     )
   }
 
-  if (error || !organization) {
+  if (error || usageError || !organization) {
     return (
       <div className="container mx-auto py-6 px-4">
         <div className="max-w-md mx-auto">
@@ -180,12 +164,12 @@ export default function UsagePage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">{error || 'Organization not found'}</p>
+              <p className="mb-4">{error || usageError || 'Organization not found'}</p>
               <div className="flex gap-2">
                 <Button onClick={() => router.back()} variant="outline">
                   Go Back
                 </Button>
-                <Button onClick={fetchData}>
+                <Button onClick={fetchUsageData}>
                   Try Again
                 </Button>
               </div>
@@ -208,7 +192,7 @@ export default function UsagePage() {
             </CardHeader>
             <CardContent>
               <p className="mb-4">You don't have permission to view usage analytics for this organization.</p>
-              <Link href={`/orgs/${orgId}`}>
+              <Link href={`/orgs/${orgSlug}`}>
                 <Button>Back to Organization</Button>
               </Link>
             </CardContent>
@@ -218,7 +202,7 @@ export default function UsagePage() {
     )
   }
 
-  const utilizationRate = usageData?.currentBalance 
+  const utilizationRate = usageData?.currentBalance
     ? Math.min(100, (usageData.usageThisCycle / (usageData.currentBalance + usageData.usageThisCycle)) * 100)
     : 0
 
@@ -228,7 +212,7 @@ export default function UsagePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center">
-            <Link href={`/orgs/${orgId}`}>
+            <Link href={`/orgs/${orgSlug}`}>
               <Button variant="ghost" size="sm" className="mr-4">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to {organization.name}
@@ -403,7 +387,7 @@ export default function UsagePage() {
               <p className="text-orange-700 mb-4">
                 Your organization has a low credit balance. Consider purchasing more credits to avoid service interruption.
               </p>
-              <Link href={`/orgs/${orgId}`}>
+              <Link href={`/orgs/${orgSlug}`}>
                 <Button className="bg-orange-600 hover:bg-orange-700">
                   Purchase Credits
                 </Button>

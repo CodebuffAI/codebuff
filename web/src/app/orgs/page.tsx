@@ -82,15 +82,15 @@ const OrganizationsPage = () => {
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold">Organizations</h1>
             <p className="text-muted-foreground mt-2">
               Manage your organizations and team billing
             </p>
           </div>
-          <Link href="/orgs/new">
-            <Button>
+          <Link href="/orgs/new" className="sm:flex-shrink-0">
+            <Button className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Create Organization
             </Button>
@@ -118,7 +118,7 @@ const OrganizationsPage = () => {
           ) : organizations.length > 0 ? (
             // Display organizations
             organizations.map((org) => (
-              <Link key={org.id} href={`/orgs/${org.id}`}>
+              <Link key={org.id} href={`/orgs/${org.slug}`}>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardHeader>
                     <div className="flex items-center justify-between">

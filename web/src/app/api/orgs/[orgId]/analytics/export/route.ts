@@ -45,21 +45,21 @@ export async function GET(
 
     const usageData = await db
       .select({
-        date: schema.orgUsage.created_at,
+        date: schema.message.finished_at,
         user_name: schema.user.name,
         user_email: schema.user.email,
-        repository_url: schema.orgUsage.repo_url,
-        credits_used: schema.orgUsage.credits_used,
+        repository_url: schema.message.repo_url,
+        credits_used: schema.message.credits,
       })
-      .from(schema.orgUsage)
-      .innerJoin(schema.user, eq(schema.orgUsage.user_id, schema.user.id))
+      .from(schema.message)
+      .innerJoin(schema.user, eq(schema.message.user_id, schema.user.id))
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, currentMonthStart)
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, currentMonthStart)
         )
       )
-      .orderBy(desc(schema.orgUsage.created_at))
+      .orderBy(desc(schema.message.finished_at))
       .limit(1000) // Limit to prevent huge exports
 
     if (format === 'csv') {

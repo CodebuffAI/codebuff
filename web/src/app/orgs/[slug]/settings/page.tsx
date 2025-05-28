@@ -11,17 +11,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
-import { 
-  ArrowLeft, 
-  Settings, 
-  CreditCard, 
-  Bell, 
+import {
+  ArrowLeft,
+  Settings,
+  CreditCard,
+  Bell,
   Shield,
   Trash2,
   Save
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
+import { useOrganizationData } from '@/hooks/use-organization-data'
 
 interface OrganizationSettings {
   id: string
@@ -42,24 +43,29 @@ export default function OrganizationSettingsPage() {
   const { data: session, status } = useSession()
   const params = useParams()
   const router = useRouter()
-  const orgId = params.orgId as string
+  const orgSlug = params.slug as string
 
   const [settings, setSettings] = useState<OrganizationSettings | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [settingsLoading, setSettingsLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
+
+  // Use the custom hook for organization data
+  const { organization, isLoading, error } = useOrganizationData(orgSlug)
 
   useEffect(() => {
-    if (status === 'authenticated' && orgId) {
+    if (organization) {
       fetchSettings()
     }
-  }, [status, orgId])
+  }, [organization])
 
   const fetchSettings = async () => {
+    if (!organization) return
+
     try {
-      setLoading(true)
-      const response = await fetch(`/api/orgs/${orgId}/settings`)
-      
+      setSettingsLoading(true)
+      const response = await fetch(`/api/orgs/${organization.id}/settings`)
+
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Failed to fetch settings')
@@ -69,9 +75,9 @@ export default function OrganizationSettingsPage() {
       setSettings(data)
     } catch (error) {
       console.error('Error fetching settings:', error)
-      setError(error instanceof Error ? error.message : 'Failed to load settings')
+      setSettingsError(error instanceof Error ? error.message : 'Failed to load settings')
     } finally {
-      setLoading(false)
+      setSettingsLoading(false)
     }
   }
 
@@ -80,7 +86,7 @@ export default function OrganizationSettingsPage() {
 
     try {
       setSaving(true)
-      const response = await fetch(`/api/orgs/${orgId}/settings`, {
+      const response = await fetch(`/api/orgs/${settings.id}/settings`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -119,12 +125,14 @@ export default function OrganizationSettingsPage() {
   }
 
   const handleDeleteOrganization = async () => {
+    if (!settings) return
+
     if (!confirm('Are you sure you want to delete this organization? This action cannot be undone.')) {
       return
     }
 
     try {
-      const response = await fetch(`/api/orgs/${orgId}`, {
+      const response = await fetch(`/api/orgs/${settings.id}`, {
         method: 'DELETE',
       })
 
@@ -148,7 +156,7 @@ export default function OrganizationSettingsPage() {
     }
   }
 
-  if (status === 'loading' || loading) {
+  if (status === 'loading' || isLoading || settingsLoading) {
     return (
       <div className="container mx-auto py-6 px-4">
         <div className="max-w-4xl mx-auto">
@@ -183,7 +191,7 @@ export default function OrganizationSettingsPage() {
     )
   }
 
-  if (error || !settings) {
+  if (error || settingsError || !settings) {
     return (
       <div className="container mx-auto py-6 px-4">
         <div className="max-w-md mx-auto">
@@ -192,7 +200,7 @@ export default function OrganizationSettingsPage() {
               <CardTitle>Error</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">{error || 'Organization not found'}</p>
+              <p className="mb-4">{error || settingsError || 'Organization not found'}</p>
               <div className="flex gap-2">
                 <Button onClick={() => router.back()} variant="outline">
                   Go Back
@@ -221,7 +229,7 @@ export default function OrganizationSettingsPage() {
             </CardHeader>
             <CardContent>
               <p className="mb-4">You don't have permission to manage organization settings.</p>
-              <Link href={`/orgs/${orgId}`}>
+              <Link href={`/orgs/${orgSlug}`}>
                 <Button>Back to Organization</Button>
               </Link>
             </CardContent>
@@ -237,7 +245,7 @@ export default function OrganizationSettingsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center">
-            <Link href={`/orgs/${orgId}`}>
+            <Link href={`/orgs/${orgSlug}`}>
               <Button variant="ghost" size="sm" className="mr-4">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to {settings.name}
@@ -323,12 +331,12 @@ export default function OrganizationSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.autoTopupEnabled}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setSettings({ ...settings, autoTopupEnabled: checked })
                     }
                   />
                 </div>
-                
+
                 {settings.autoTopupEnabled && (
                   <div className="grid grid-cols-2 gap-4 pl-4 border-l-2 border-muted">
                     <div>
@@ -337,9 +345,9 @@ export default function OrganizationSettingsPage() {
                         id="threshold"
                         type="number"
                         value={settings.autoTopupThreshold}
-                        onChange={(e) => setSettings({ 
-                          ...settings, 
-                          autoTopupThreshold: parseInt(e.target.value) || 0 
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          autoTopupThreshold: parseInt(e.target.value) || 0
                         })}
                         placeholder="500"
                       />
@@ -353,9 +361,9 @@ export default function OrganizationSettingsPage() {
                         id="amount"
                         type="number"
                         value={settings.autoTopupAmount}
-                        onChange={(e) => setSettings({ 
-                          ...settings, 
-                          autoTopupAmount: parseInt(e.target.value) || 0 
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          autoTopupAmount: parseInt(e.target.value) || 0
                         })}
                         placeholder="2000"
                       />
@@ -382,9 +390,9 @@ export default function OrganizationSettingsPage() {
                 <Input
                   type="number"
                   value={settings.creditLimit || ''}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSettings({ 
-                    ...settings, 
-                    creditLimit: e.target.value ? parseInt(e.target.value) : undefined 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSettings({
+                    ...settings,
+                    creditLimit: e.target.value ? parseInt(e.target.value) : undefined
                   })}
                   placeholder="10000"
                   className="max-w-xs"
@@ -414,7 +422,7 @@ export default function OrganizationSettingsPage() {
                 </div>
                 <Switch
                   checked={settings.billingAlerts}
-                  onCheckedChange={(checked) => 
+                  onCheckedChange={(checked) =>
                     setSettings({ ...settings, billingAlerts: checked })
                   }
                 />
@@ -429,7 +437,7 @@ export default function OrganizationSettingsPage() {
                 </div>
                 <Switch
                   checked={settings.usageAlerts}
-                  onCheckedChange={(checked) => 
+                  onCheckedChange={(checked) =>
                     setSettings({ ...settings, usageAlerts: checked })
                   }
                 />
@@ -444,7 +452,7 @@ export default function OrganizationSettingsPage() {
                 </div>
                 <Switch
                   checked={settings.weeklyReports}
-                  onCheckedChange={(checked) => 
+                  onCheckedChange={(checked) =>
                     setSettings({ ...settings, weeklyReports: checked })
                   }
                 />
@@ -469,8 +477,8 @@ export default function OrganizationSettingsPage() {
                       Permanently delete this organization and all its data
                     </p>
                   </div>
-                  <Button 
-                    variant="destructive" 
+                  <Button
+                    variant="destructive"
                     onClick={handleDeleteOrganization}
                     className="ml-4"
                   >

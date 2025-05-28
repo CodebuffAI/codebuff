@@ -85,10 +85,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
         // Get last activity (most recent usage)
         const lastActivity = await db
-          .select({ created_at: schema.orgUsage.created_at })
-          .from(schema.orgUsage)
-          .where(eq(schema.orgUsage.org_id, org.id))
-          .orderBy(desc(schema.orgUsage.created_at))
+          .select({ finished_at: schema.message.finished_at })
+          .from(schema.message)
+          .where(eq(schema.message.org_id, org.id))
+          .orderBy(desc(schema.message.finished_at))
           .limit(1)
 
         return {
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           usage_this_cycle: usageThisCycle,
           health_status: healthStatus,
           created_at: org.created_at.toISOString(),
-          last_activity: lastActivity[0]?.created_at.toISOString() || org.created_at.toISOString(),
+          last_activity: lastActivity[0]?.finished_at.toISOString() || org.created_at.toISOString(),
         }
       })
     )

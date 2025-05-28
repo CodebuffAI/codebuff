@@ -26,6 +26,43 @@ async function handleCheckoutSessionCompleted(
   const sessionId = session.id
   const metadata = session.metadata
 
+  // Handle billing setup completion
+  if (metadata?.type === 'billing_setup' && metadata?.organization_id) {
+    const organizationId = metadata.organization_id
+
+    try {
+      // Get the setup intent from the session
+      if (session.setup_intent && typeof session.setup_intent === 'string') {
+        const setupIntent = await stripeServer.setupIntents.retrieve(session.setup_intent)
+        
+        if (setupIntent.payment_method && typeof setupIntent.payment_method === 'string') {
+          // Set the payment method as default for the customer
+          await stripeServer.customers.update(session.customer as string, {
+            invoice_settings: {
+              default_payment_method: setupIntent.payment_method,
+            },
+          })
+
+          logger.info(
+            { 
+              sessionId, 
+              organizationId, 
+              customerId: session.customer,
+              paymentMethodId: setupIntent.payment_method 
+            },
+            'Successfully set up billing for organization'
+          )
+        }
+      }
+    } catch (error) {
+      logger.error(
+        { sessionId, organizationId, error },
+        'Failed to complete billing setup for organization'
+      )
+    }
+    return
+  }
+
   // Handle user credit purchases
   if (
     metadata?.grantType === 'purchase' &&

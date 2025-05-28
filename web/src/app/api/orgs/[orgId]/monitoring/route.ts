@@ -63,13 +63,13 @@ export async function GET(
     // Calculate credit velocity (credits per hour)
     const recentUsage = await db
       .select({
-        credits_used: sql<number>`SUM(${schema.orgUsage.credits_used})`,
+        credits_used: sql<number>`SUM(${schema.message.credits})`,
       })
-      .from(schema.orgUsage)
+      .from(schema.message)
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, lastHour)
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, lastHour)
         )
       )
 
@@ -79,14 +79,14 @@ export async function GET(
     const previousHour = new Date(now.getTime() - 2 * 60 * 60 * 1000)
     const previousHourUsage = await db
       .select({
-        credits_used: sql<number>`SUM(${schema.orgUsage.credits_used})`,
+        credits_used: sql<number>`SUM(${schema.message.credits})`,
       })
-      .from(schema.orgUsage)
+      .from(schema.message)
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, previousHour),
-          sql`${schema.orgUsage.created_at} < ${lastHour}`
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, previousHour),
+          sql`${schema.message.finished_at} < ${lastHour}`
         )
       )
 
@@ -97,25 +97,25 @@ export async function GET(
     // Calculate burn rates
     const dailyUsage = await db
       .select({
-        credits_used: sql<number>`SUM(${schema.orgUsage.credits_used})`,
+        credits_used: sql<number>`SUM(${schema.message.credits})`,
       })
-      .from(schema.orgUsage)
+      .from(schema.message)
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, last24Hours)
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, last24Hours)
         )
       )
 
     const weeklyUsage = await db
       .select({
-        credits_used: sql<number>`SUM(${schema.orgUsage.credits_used})`,
+        credits_used: sql<number>`SUM(${schema.message.credits})`,
       })
-      .from(schema.orgUsage)
+      .from(schema.message)
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, lastWeek)
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, lastWeek)
         )
       )
 

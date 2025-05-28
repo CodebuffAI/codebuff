@@ -6,13 +6,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { 
-  ArrowLeft, 
-  TrendingUp, 
-  TrendingDown, 
-  Users, 
-  GitBranch, 
-  CreditCard, 
+import {
+  ArrowLeft,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  GitBranch,
+  CreditCard,
   Calendar,
   Download,
   BarChart3,
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
+import { useOrganizationData } from '@/hooks/use-organization-data'
 
 interface AnalyticsData {
   currentBalance: number
@@ -57,23 +58,28 @@ export default function OrganizationAnalyticsPage() {
   const { data: session, status } = useSession()
   const params = useParams()
   const router = useRouter()
-  const orgId = params.orgId as string
+  const orgSlug = params.slug as string
 
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+
+  // Use the custom hook for organization data
+  const { organization, isLoading, error } = useOrganizationData(orgSlug)
 
   useEffect(() => {
-    if (status === 'authenticated' && orgId) {
+    if (organization) {
       fetchAnalytics()
     }
-  }, [status, orgId])
+  }, [organization])
 
   const fetchAnalytics = async () => {
+    if (!organization) return
+
     try {
-      setLoading(true)
-      const response = await fetch(`/api/orgs/${orgId}/analytics`)
-      
+      setAnalyticsLoading(true)
+      const response = await fetch(`/api/orgs/${organization.id}/analytics`)
+
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Failed to fetch analytics')
@@ -83,16 +89,18 @@ export default function OrganizationAnalyticsPage() {
       setAnalytics(data)
     } catch (error) {
       console.error('Error fetching analytics:', error)
-      setError(error instanceof Error ? error.message : 'Failed to load analytics')
+      setAnalyticsError(error instanceof Error ? error.message : 'Failed to load analytics')
     } finally {
-      setLoading(false)
+      setAnalyticsLoading(false)
     }
   }
 
   const exportData = async (format: 'csv' | 'json') => {
+    if (!organization) return
+
     try {
-      const response = await fetch(`/api/orgs/${orgId}/analytics/export?format=${format}`)
-      
+      const response = await fetch(`/api/orgs/${organization.id}/analytics/export?format=${format}`)
+
       if (!response.ok) {
         throw new Error('Failed to export data')
       }
@@ -101,7 +109,7 @@ export default function OrganizationAnalyticsPage() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `org-${orgId}-analytics.${format}`
+      a.download = `org-${organization.id}-analytics.${format}`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -120,7 +128,7 @@ export default function OrganizationAnalyticsPage() {
     }
   }
 
-  if (status === 'loading' || loading) {
+  if (status === 'loading' || isLoading || analyticsLoading) {
     return (
       <div className="container mx-auto py-6 px-4">
         <div className="max-w-6xl mx-auto">
@@ -160,7 +168,7 @@ export default function OrganizationAnalyticsPage() {
     )
   }
 
-  if (error || !analytics) {
+  if (error || analyticsError || !analytics) {
     return (
       <div className="container mx-auto py-6 px-4">
         <div className="max-w-md mx-auto">
@@ -169,7 +177,7 @@ export default function OrganizationAnalyticsPage() {
               <CardTitle>Error</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">{error || 'Analytics data not found'}</p>
+              <p className="mb-4">{error || analyticsError || 'Analytics data not found'}</p>
               <div className="flex gap-2">
                 <Button onClick={() => router.back()} variant="outline">
                   Go Back
@@ -191,7 +199,7 @@ export default function OrganizationAnalyticsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center">
-            <Link href={`/orgs/${orgId}`}>
+            <Link href={`/orgs/${orgSlug}`}>
               <Button variant="ghost" size="sm" className="mr-4">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Organization
@@ -355,8 +363,8 @@ export default function OrganizationAnalyticsPage() {
                       <TrendingDown className="h-4 w-4 text-red-600" />
                     ) : null}
                     <span className={`text-sm font-medium ${
-                      trend.change > 0 ? 'text-green-600' : 
-                      trend.change < 0 ? 'text-red-600' : 
+                      trend.change > 0 ? 'text-green-600' :
+                      trend.change < 0 ? 'text-red-600' :
                       'text-muted-foreground'
                     }`}>
                       {trend.change > 0 ? '+' : ''}{trend.change.toFixed(1)}%

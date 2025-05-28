@@ -1,60 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { RepositoryManagement } from '@/components/organization/repository-management'
-
-interface OrganizationDetails {
-  id: string
-  name: string
-  userRole: 'owner' | 'admin' | 'member'
-}
+import { useOrganizationData } from '@/hooks/use-organization-data'
 
 export default function RepositoriesPage() {
   const { data: session, status } = useSession()
   const params = useParams()
   const router = useRouter()
-  const orgId = params.orgId as string
+  const orgSlug = params.slug as string
 
-  const [organization, setOrganization] = useState<OrganizationDetails | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // Use the custom hook for organization data
+  const { organization, isLoading, error } = useOrganizationData(orgSlug)
 
-  useEffect(() => {
-    if (status === 'authenticated' && orgId) {
-      fetchOrganizationData()
-    }
-  }, [status, orgId])
-
-  const fetchOrganizationData = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch(`/api/orgs/${orgId}`)
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to fetch organization')
-      }
-
-      const orgData = await response.json()
-      setOrganization({
-        id: orgData.id,
-        name: orgData.name,
-        userRole: orgData.userRole,
-      })
-    } catch (error) {
-      console.error('Error fetching organization:', error)
-      setError(error instanceof Error ? error.message : 'Failed to load organization')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (status === 'loading' || loading) {
+  if (status === 'loading' || isLoading) {
     return (
       <div className="container mx-auto py-6 px-4">
         <div className="max-w-6xl mx-auto">
@@ -96,7 +59,7 @@ export default function RepositoriesPage() {
               <Button onClick={() => router.back()} variant="outline">
                 Go Back
               </Button>
-              <Button onClick={fetchOrganizationData}>
+              <Button onClick={() => window.location.reload()}>
                 Try Again
               </Button>
             </div>
@@ -111,7 +74,7 @@ export default function RepositoriesPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center mb-8">
-          <Link href={`/orgs/${orgId}`}>
+          <Link href={`/orgs/${orgSlug}`}>
             <Button variant="ghost" size="sm" className="mr-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to {organization.name}
@@ -127,8 +90,8 @@ export default function RepositoriesPage() {
         </div>
 
         {/* Repository Management Component */}
-        <RepositoryManagement 
-          organizationId={orgId} 
+        <RepositoryManagement
+          organizationId={organization.id}
           userRole={organization.userRole}
         />
       </div>
