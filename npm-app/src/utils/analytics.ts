@@ -51,7 +51,10 @@ export function trackEvent(
     return
   }
   if (!client) {
-    throw new Error('Analytics client not initialized')
+    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production') {
+      throw new Error('Analytics client not initialized')
+    }
+    return
   }
 
   if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
