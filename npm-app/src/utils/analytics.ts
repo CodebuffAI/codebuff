@@ -15,10 +15,10 @@ export let identified: boolean = false
 export function initAnalytics() {
   if (
     !process.env.NEXT_PUBLIC_POSTHOG_API_KEY ||
-    !process.env.NEXT_PUBLIC_APP_URL
+    !process.env.NEXT_PUBLIC_POSTHOG_HOST_URL
   ) {
     throw new Error(
-      'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_APP_URL is not set'
+      'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_POSTHOG_HOST_URL is not set'
     )
   }
 
@@ -27,7 +27,6 @@ export function initAnalytics() {
     enableExceptionAutocapture: true,
   })
 }
-
 export async function flushAnalytics() {
   if (!client) {
     return
