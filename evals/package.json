@@ -9,7 +9,8 @@
     "test:swe-bench": "bun test swe-bench.test.ts",
     "typecheck": "tsc --noEmit",
     "gen-git-evals": "bun run git-evals/gen-evals.ts",
-    "run-git-evals": "bun run git-evals/run-git-evals.ts"
+    "run-git-evals": "bun run git-evals/run-git-evals.ts",
+    "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
   },
   "dependencies": {
     "async": "^3.2.6",

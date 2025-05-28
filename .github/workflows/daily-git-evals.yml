@@ -46,6 +46,13 @@ jobs:
         run: |
           echo "${{ secrets.ENV_LOCAL }}" > .env.local
 
+      - name: Setup codebuff test repository
+        run: |
+          cd evals
+          bun run setup-codebuff-repo.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run Evals
         run: |
           cd evals
