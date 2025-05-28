@@ -22,29 +22,39 @@ export async function setupCodebuffRepo() {
   }
 
   try {
-    // Since we're running in GitHub Actions, the repository is already checked out
-    // We need to copy the entire repository INCLUDING the .git directory to preserve history
-    console.log('Copying current repository with git history to test location...')
+    // Create the target directory
+    fs.mkdirSync(CODEBUFF_REPO_DIR, { recursive: true })
     
-    // Get the project root (parent directory of evals)
+    // Copy only the .git directory to preserve git history
+    console.log('Copying git history...')
     const projectRoot = path.join(__dirname, '..')
+    const sourceGitDir = path.join(projectRoot, '.git')
+    const targetGitDir = path.join(CODEBUFF_REPO_DIR, '.git')
     
-    // Copy the entire project including .git directory to preserve git history
-    // This is essential for the git evals to work with resetRepoToCommit
-    execSync(`cp -r "${projectRoot}" "${CODEBUFF_REPO_DIR}"`, {
-      timeout: 60_000, // 60 second timeout for larger repos
+    execSync(`cp -r "${sourceGitDir}" "${targetGitDir}"`, {
+      timeout: 30_000, // 30 second timeout
       stdio: 'inherit'
     })
     
-    console.log('Repository copied successfully!')
+    console.log('Git history copied successfully!')
     
-    // Verify the setup worked - check for both .git and package.json
+    // Recreate the working directory from git
+    console.log('Recreating working directory from git...')
+    execSync('git checkout HEAD -- .', {
+      cwd: CODEBUFF_REPO_DIR,
+      timeout: 30_000,
+      stdio: 'inherit'
+    })
+    
+    console.log('Working directory recreated successfully!')
+    
+    // Verify the setup worked
     if (!fs.existsSync(path.join(CODEBUFF_REPO_DIR, '.git'))) {
       throw new Error('Git directory was not copied properly')
     }
     
     if (!fs.existsSync(path.join(CODEBUFF_REPO_DIR, 'package.json'))) {
-      throw new Error('Repository files were not copied properly')
+      throw new Error('Working directory was not recreated properly')
     }
     
     // Verify git operations work in the copied repo
