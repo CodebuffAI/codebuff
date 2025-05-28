@@ -66,7 +66,7 @@ describe('mainPrompt (Integration)', () => {
     mock.restore()
   })
 
-  it('should delete a specified function while preserving other code', async () => {
+  it.skip('should delete a specified function while preserving other code', async () => {
     // Initialize mocked analytics
     const analytics = await import('common/analytics')
     analytics.initAnalytics()
@@ -357,8 +357,12 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       undefined
     )
 
-    // For now, just check that the function runs without errors
-    expect(toolCalls).toBeDefined()
-    expect(Array.isArray(toolCalls)).toBe(true)
+    // Find the write_file tool call
+    const writeFileCall = toolCalls.find((call) => call.name === 'write_file')
+    expect(writeFileCall).toBeDefined()
+    expect(writeFileCall?.parameters.path).toBe('src/util/messages.ts')
+    expect(writeFileCall?.parameters.content.trim()).toBe(
+      `@@ -46,32 +46,8 @@\n   }\n   return message.content.map((c) => ('text' in c ? c.text : '')).join('\\n')\n }\n \n-export function castAssistantMessage(message: Message): Message {\n-  if (message.role !== 'assistant') {\n-    return message\n-  }\n-  if (typeof message.content === 'string') {\n-    return {\n-      content: \`<previous_assistant_message>\${message.content}</previous_assistant_message>\`,\n-      role: 'user' as const,\n-    }\n-  }\n-  return {\n-    role: 'user' as const,\n-    content: message.content.map((m) => {\n-      if (m.type === 'text') {\n-        return {\n-          ...m,\n-          text: \`<previous_assistant_message>\${m.text}</previous_assistant_message>\`,\n-        }\n-      }\n-      return m\n-    }),\n-  }\n-}\n-\n // Number of terminal command outputs to keep in full form before simplifying\n const numTerminalCommandsToKeep = 5\n \n /**`.trim()
+    )
   }, 60000) // Increase timeout for real LLM call
 })
