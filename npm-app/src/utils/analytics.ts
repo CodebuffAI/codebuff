@@ -23,7 +23,7 @@ export function initAnalytics() {
   }
 
   client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY, {
-    host: `${process.env.NEXT_PUBLIC_APP_URL}/ingest`,
+    host: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
     enableExceptionAutocapture: true,
   })
 }
