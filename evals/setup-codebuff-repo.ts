@@ -22,56 +22,49 @@ export async function setupCodebuffRepo() {
   }
 
   try {
-    // Clone the current repository to the test-repos directory
-    console.log('Cloning current codebuff repository...')
+    // Since we're running in GitHub Actions, the repository is already checked out
+    // We need to copy the entire repository INCLUDING the .git directory to preserve history
+    console.log('Copying current repository with git history to test location...')
     
-    // Get the current git remote URL
-    const remoteUrl = execSync('git remote get-url origin', { 
-      encoding: 'utf-8',
-      timeout: 10_000 
-    }).trim()
+    // Get the project root (parent directory of evals)
+    const projectRoot = path.join(__dirname, '..')
     
-    console.log(`Original remote URL: ${remoteUrl}`)
-    
-    // Get GitHub token from environment
-    const githubToken = process.env.GITHUB_TOKEN
-    if (!githubToken) {
-      throw new Error('GITHUB_TOKEN environment variable is not set')
-    }
-    
-    // Convert the URL to use token authentication
-    // GitHub expects: https://token:x-oauth-basic@github.com/owner/repo
-    let authenticatedUrl: string
-    if (remoteUrl.startsWith('https://github.com/')) {
-      // For HTTPS URLs, inject the token with x-oauth-basic format
-      authenticatedUrl = remoteUrl.replace('https://github.com/', `https://${githubToken}:x-oauth-basic@github.com/`)
-    } else if (remoteUrl.startsWith('git@github.com:')) {
-      // For SSH URLs, convert to HTTPS with token
-      const repoPath = remoteUrl.replace('git@github.com:', '').replace('.git', '')
-      authenticatedUrl = `https://${githubToken}:x-oauth-basic@github.com/${repoPath}`
-    } else {
-      throw new Error(`Unsupported remote URL format: ${remoteUrl}`)
-    }
-    
-    console.log('Cloning with authentication...')
-    
-    // Clone the repo using the authenticated URL
-    execSync(`git clone ${authenticatedUrl} ${CODEBUFF_REPO_DIR}`, {
-      timeout: 60_000, // 1 minute timeout
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        GIT_TERMINAL_PROMPT: '0', // Disable git prompts
-        GIT_ASKPASS: 'echo', // Provide empty password when asked
-      }
+    // Copy the entire project including .git directory to preserve git history
+    // This is essential for the git evals to work with resetRepoToCommit
+    execSync(`cp -r "${projectRoot}" "${CODEBUFF_REPO_DIR}"`, {
+      timeout: 60_000, // 60 second timeout for larger repos
+      stdio: 'inherit'
     })
     
-    console.log('Codebuff repository cloned successfully!')
+    console.log('Repository copied successfully!')
     
-    // Verify the clone worked
+    // Verify the setup worked - check for both .git and package.json
     if (!fs.existsSync(path.join(CODEBUFF_REPO_DIR, '.git'))) {
-      throw new Error('Git repository was not cloned properly')
+      throw new Error('Git directory was not copied properly')
     }
+    
+    if (!fs.existsSync(path.join(CODEBUFF_REPO_DIR, 'package.json'))) {
+      throw new Error('Repository files were not copied properly')
+    }
+    
+    // Verify git operations work in the copied repo
+    console.log('Verifying git operations...')
+    const gitStatus = execSync('git status --porcelain', {
+      cwd: CODEBUFF_REPO_DIR,
+      encoding: 'utf-8',
+      timeout: 10_000
+    })
+    
+    console.log(`Git status check passed. Working directory status: ${gitStatus.trim() || 'clean'}`)
+    
+    // Test that we can access commit history
+    const commitCount = execSync('git rev-list --count HEAD', {
+      cwd: CODEBUFF_REPO_DIR,
+      encoding: 'utf-8',
+      timeout: 10_000
+    }).trim()
+    
+    console.log(`Repository has ${commitCount} commits in history`)
     
     console.log('Repository verification passed')
     
