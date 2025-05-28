@@ -367,6 +367,26 @@ export function transformMessages(
     }
 
     if (message.role === 'tool') {
+      // Handle tool messages - need to extract toolCallId properly
+      let toolCallId: string
+      
+      // For OpenAI-style tool messages, tool_call_id is directly on the message
+      if ('tool_call_id' in message) {
+        toolCallId = message.tool_call_id
+      } else {
+        // For CoreToolMessage, we need to extract from content
+        if (Array.isArray(message.content) && message.content.length > 0) {
+          const firstPart = message.content[0]
+          if (firstPart.type === 'tool-result' && 'toolCallId' in firstPart) {
+            toolCallId = firstPart.toolCallId
+          } else {
+            throw new Error('Unable to extract toolCallId from CoreToolMessage')
+          }
+        } else {
+          throw new Error('Tool message missing toolCallId')
+        }
+      }
+
       if (typeof message.content === 'string') {
         coreMessages.push({
           ...message,
@@ -374,7 +394,7 @@ export function transformMessages(
           content: [
             {
               type: 'tool-result',
-              toolCallId: message.tool_call_id,
+              toolCallId: toolCallId,
               result: message.content,
               // NOTE: OpenAI does not provide toolName in their message format
               toolName: 'unknown',
@@ -398,7 +418,7 @@ export function transformMessages(
           if (part.type === 'text') {
             parts.push({
               type: 'tool-result',
-              toolCallId: message.tool_call_id,
+              toolCallId: toolCallId,
               result: part.text,
               // NOTE: OpenAI does not provide toolName in their message format
               toolName: 'unknown',
