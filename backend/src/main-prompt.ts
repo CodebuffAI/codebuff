@@ -350,6 +350,7 @@ export const mainPrompt = async (
       userInputId: promptId,
       userId,
       costMode,
+      repoName,
     }
   )
   const [updatedFiles, newFiles] = partition(addedFiles, (f) =>
@@ -884,6 +885,7 @@ export const mainPrompt = async (
           userInputId: promptId,
           userId,
           costMode,
+          repoName,
         }
       )
       logger.debug(
@@ -932,6 +934,7 @@ export const mainPrompt = async (
             userInputId: promptId,
             userId,
             costMode,
+            repoName,
           }
         )
       logger.debug(
@@ -1081,7 +1084,7 @@ async function getFileReadingUpdates(
     userInputId: string
     userId: string | undefined
     costMode: CostMode
-    repoName?: string
+    repoName: string | undefined
   }
 ) {
   const FILE_TOKEN_BUDGET = 100_000
@@ -1293,7 +1296,7 @@ async function uploadExpandedFileContextForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName?: string
+  repoName: string | undefined
 ) {
   const files = await requestRelevantFilesForTraining(
     { messages, system },
