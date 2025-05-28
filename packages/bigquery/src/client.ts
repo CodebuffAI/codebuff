@@ -339,6 +339,7 @@ interface TraceBundle {
 export async function getTracesAndAllDataForUser(
   userId?: string,
   limit = 50,
+  pageCursor?: string,
   dataset = DATASET
 ): Promise<TraceBundle[]> {
   const EXTRA_TRACE_TYPES = [
@@ -354,6 +355,7 @@ export async function getTracesAndAllDataForUser(
     SELECT id, agent_step_id, user_id, created_at, type, payload
     FROM   \`${dataset}.${TRACES_TABLE}\` 
     WHERE  ${userId ? 'user_id = @userId AND' : ''} type = 'get-relevant-files' AND JSON_EXTRACT_SCALAR(payload, '$.request_type') = 'Key'
+           ${pageCursor ? 'AND created_at < @pageCursor' : ''}
     ORDER  BY created_at DESC
     LIMIT  @limit
   ),
@@ -403,7 +405,11 @@ export async function getTracesAndAllDataForUser(
 
   const [rows] = await getClient().query({
     query: sql,
-    params: { ...(userId ? { userId } : {}), limit },
+    params: {
+      ...(userId ? { userId } : {}),
+      limit,
+      ...(pageCursor ? { pageCursor } : {}),
+    },
   })
 
   /*──────────────────── shape rows into typed bundles ───────────────────*/

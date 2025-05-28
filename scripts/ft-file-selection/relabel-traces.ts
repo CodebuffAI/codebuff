@@ -1,10 +1,10 @@
-import { promptFlashWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
-import { GetRelevantFilesPayload } from '@codebuff/bigquery'
-import { claudeModels, models } from 'common/constants'
 import {
+  GetRelevantFilesPayload,
   getTracesWithoutRelabels,
   insertRelabel,
 } from '@codebuff/bigquery'
+import { promptFlashWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
+import { claudeModels, models } from 'common/constants'
 import { Message } from 'common/types/message'
 import { generateCompactId } from 'common/util/string'
 
@@ -97,8 +97,7 @@ async function runTraces() {
 
               // Store the relabel
               try {
-                const res = await insertRelabel(relabel, DATASET)
-                console.log('res', JSON.stringify(res, null, 2))
+                await insertRelabel(relabel, DATASET)
               } catch (error) {
                 console.error(
                   `Error inserting relabel for trace ${trace.id}:`,

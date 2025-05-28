@@ -411,11 +411,12 @@ export async function relabelWithClaudeWithFullFileContext(
 
   const output = await promptClaude(trace.payload.messages as Message[], {
     system: system,
-    model: claudeModels.sonnet,
+    model: model,
     clientSessionId: 'relabel-trace-api',
     fingerprintId: 'relabel-trace-api',
     userInputId: 'relabel-trace-api',
     ignoreDatabaseAndHelicone: true,
+    maxTokens: 1000,
   })
 
   const relabel = {
@@ -423,7 +424,7 @@ export async function relabelWithClaudeWithFullFileContext(
     agent_step_id: trace.agent_step_id,
     user_id: trace.user_id,
     created_at: new Date(),
-    model: `${model}-with-full-file-context`,
+    model: `${model}-with-full-file-context-new`,
     payload: {
       user_input_id: trace.payload.user_input_id,
       client_session_id: trace.payload.client_session_id,
@@ -433,8 +434,6 @@ export async function relabelWithClaudeWithFullFileContext(
   } as Relabel
 
   await insertRelabel(relabel, dataset)
-
-  console.log({ relabel })
 
   return relabel
 }
