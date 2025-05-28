@@ -255,6 +255,8 @@ The pattern supports regular expressions and will search recursively through all
 - Case-sensitive by default. Use -i to make it case insensitive.
 - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
 
+Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
+
 Params:
 - pattern: (required) The pattern to search for.
 
