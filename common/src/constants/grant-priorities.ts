@@ -5,5 +5,5 @@ export const GRANT_PRIORITIES: Record<GrantType, number> = {
   referral: 40,
   purchase: 60,
   admin: 80,
-  organization: 100,
+  organization: 90,
 } as const

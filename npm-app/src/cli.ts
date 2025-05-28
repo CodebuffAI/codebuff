@@ -1,24 +1,24 @@
+import { spawn } from 'child_process'
 import fs, { readdirSync } from 'fs'
-import * as os from 'os'
-import { homedir } from 'os'
-import path, { basename, dirname, isAbsolute, parse } from 'path'
-import * as readline from 'readline'
+import os from 'os'
+import path from 'path'
+import readline from 'readline'
 
-import { type ApiKeyType } from 'common/api-keys/constants'
-import type { CostMode } from 'common/constants'
+import { ApiKeyType } from 'common/api-keys/constants'
+import { CostMode } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { green, yellow } from 'picocolors'
+import { blueBright, green, yellow } from 'picocolors'
 
 import {
   killAllBackgroundProcesses,
+  getBackgroundProcessInfoString,
   sendKillSignalToAllBackgroundProcesses,
 } from './background-process-manager'
-import { setMessages } from './chat-storage'
+import { activeBrowserRunner } from './browser-runner'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
-import { detectApiKey, handleApiKeyInput } from './cli-handlers/api-key'
 import {
   displayCheckpointMenu,
   handleClearCheckpoints,
@@ -32,6 +32,7 @@ import {
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
+import { detectApiKey, handleApiKeyInput } from './cli-handlers/api-key'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { disableSquashNewlines, enableSquashNewlines } from './display'
@@ -47,19 +48,22 @@ import {
   getWorkingDirectory,
   initProjectFileContextWithWorker,
   isDir,
-  getCurrentRepositoryUrl
 } from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
 import { Spinner } from './utils/spinner'
 import {
+  clearScreen,
   isCommandRunning,
   killAndResetPersistentProcess,
   persistentProcess,
   resetShell,
 } from './utils/terminal'
 
+import { loadCodebuffConfig } from 'common/json-config/parser'
 import { CONFIG_DIR } from './credentials'
+import { logAndHandleStartup } from './startup-process-handler'
+import { setMessages } from './chat-storage'
 
 const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
 
@@ -249,19 +253,79 @@ export class CLI {
       return [[], line] // No slash command matches
     }
 
-    // Original file path completion logic
+    // Handle @ prefix for token and file completion
+    if (lastWord.startsWith('@')) {
+      const client = Client.getInstance()
+      if (!client.fileContext?.fileTree) return [[], line]
+
+      const searchTerm = lastWord.substring(1) // Remove @ prefix
+      const searchTermLower = searchTerm.toLowerCase()
+
+      // Get token names from fileTokenScores
+      const tokenNames = Object.values(
+        client.fileContext.fileTokenScores
+      ).flatMap((o) => Object.keys(o))
+
+      // Get all file paths
+      const paths = this.getAllFilePaths(client.fileContext.fileTree)
+
+      // Combine tokens and paths for matching
+      const allCandidates = [...tokenNames, ...paths]
+
+      const matchingItems = allCandidates.filter(
+        (item) =>
+          item.toLowerCase().startsWith(searchTermLower) ||
+          item.toLowerCase().includes('/' + searchTermLower)
+      )
+
+      // Limit the number of results to keep completion manageable
+      const MAX_COMPLETION_RESULTS = 20
+      const limitedMatches = matchingItems.slice(0, MAX_COMPLETION_RESULTS)
+
+      if (limitedMatches.length > 1) {
+        // Find common prefix among matches
+        const suffixes = limitedMatches.map((item) => {
+          const index = item.toLowerCase().indexOf(searchTermLower)
+          return item.slice(index + searchTerm.length)
+        })
+
+        let commonPrefix = ''
+        const firstSuffix = suffixes[0]
+        for (let i = 0; i < firstSuffix.length; i++) {
+          const char = firstSuffix[i]
+          if (suffixes.every((suffix) => suffix[i] === char)) {
+            commonPrefix += char
+          } else {
+            break
+          }
+        }
+
+        if (commonPrefix) {
+          // Return the completion with @ prefix preserved
+          return [['@' + searchTerm + commonPrefix], lastWord]
+        }
+
+        // Multiple matches but no common prefix - show matches WITHOUT @ prefix but keep @ in input
+        return [limitedMatches, lastWord]
+      }
+
+      // Single match or no matches - remove @ prefix from completion
+      return [limitedMatches, lastWord]
+    }
+
+    // Original file path completion logic (unchanged)
     const input = lastWord.startsWith('~')
-      ? homedir() + lastWord.slice(1)
+      ? os.homedir() + lastWord.slice(1)
       : lastWord
 
     const directorySuffix = process.platform === 'win32' ? '\\' : '/'
 
     const dir = input.endsWith(directorySuffix)
       ? input.slice(0, input.length - 1)
-      : dirname(input)
-    const partial = input.endsWith(directorySuffix) ? '' : basename(input)
+      : path.dirname(input)
+    const partial = input.endsWith(directorySuffix) ? '' : path.basename(input)
 
-    let baseDir = isAbsolute(dir) ? dir : path.join(getWorkingDirectory(), dir)
+    let baseDir = path.isAbsolute(dir) ? dir : path.join(getWorkingDirectory(), dir)
 
     try {
       const files = readdirSync(baseDir)
@@ -277,17 +341,36 @@ export class CLI {
     }
   }
 
+  private getAllFilePaths(nodes: any[], basePath: string = ''): string[] {
+    return nodes.flatMap((node) => {
+      if (node.type === 'file') {
+        return [path.join(basePath, node.name)]
+      }
+      return this.getAllFilePaths(
+        node.children || [],
+        path.join(basePath, node.name)
+      )
+    })
+  }
+
+  private getModeIndicator(): string {
+    return this.costMode !== 'normal' ? ` (${this.costMode})` : ''
+  }
+
   private setPrompt() {
     const projectRoot = getProjectRoot()
     const cwd = getWorkingDirectory()
-    const projectDirName = parse(projectRoot).base
+    const projectDirName = path.parse(projectRoot).base
     const ps1Dir =
       projectDirName +
       (cwd === projectRoot
         ? ''
         : (os.platform() === 'win32' ? '\\' : '/') +
           path.relative(projectRoot, cwd))
-    this.rl.setPrompt(green(`${ps1Dir} > `))
+
+    const modeIndicator = this.getModeIndicator()
+
+    this.rl.setPrompt(green(`${ps1Dir}${modeIndicator} > `))
   }
 
   /**
@@ -390,19 +473,16 @@ export class CLI {
       return
     }
     userInput = userInput.trim()
-    
-    // Update organization context when starting work
-    await this.updateAndDisplayOrganizationContext()
-    
+
     const processedResult = await this.processCommand(userInput)
 
     if (processedResult === null) {
       // Command was fully handled by processCommand
       return
     }
-    
+
     // processedResult is the string to be forwarded as a prompt
-    await this.forwardUserInput(typeof processedResult === 'string' ? processedResult : userInput)
+    await this.forwardUserInput(processedResult)
   }
 
   /**
@@ -434,51 +514,86 @@ export class CLI {
     this.freshPrompt()
   }
 
-  private async processCommand(userInput: string): Promise<boolean> {
+  private async processCommand(userInput: string): Promise<string | null> {
+    // Handle cost mode commands with optional message: /lite, /lite message, /normal, /normal message, etc.
+    const costModeMatch = userInput.match(/^\/(lite|normal|max)(?:\s+(.*))?$/i)
+    if (costModeMatch) {
+      const mode = costModeMatch[1].toLowerCase() as CostMode
+      const message = costModeMatch[2]?.trim() || ''
+
+      // Track the cost mode command usage
+      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
+        userId: Client.getInstance().user?.id || 'unknown',
+        command: mode,
+      })
+
+      this.costMode = mode
+      Client.getInstance().setCostMode(mode)
+
+      if (mode === 'lite') {
+        console.log(yellow('✨ Switched to lite mode (faster, cheaper)'))
+      } else if (mode === 'normal') {
+        console.log(green('⚖️ Switched to normal mode (balanced)'))
+      } else if (mode === 'max') {
+        console.log(
+          blueBright('⚡ Switched to max mode (slower, more thorough)')
+        )
+      }
+
+      if (!message) {
+        this.freshPrompt()
+        return null // Fully handled, no message to forward
+      }
+
+      // Return the message part to be processed as user input
+      return message
+    }
+
     const cleanInput = this.cleanCommandInput(userInput)
 
     // Handle empty slash command
     if (userInput === '/') {
-      return false
+      return userInput // Let it be processed as a prompt
     }
 
     // Track slash command usage if it starts with '/'
     if (userInput.startsWith('/') && !userInput.startsWith('/!')) {
-      if (!this.isKnownSlashCommand(cleanInput)) {
+      const commandBase = cleanInput.split(' ')[0]
+      if (!this.isKnownSlashCommand(commandBase)) {
         trackEvent(AnalyticsEvent.INVALID_COMMAND, {
           userId: Client.getInstance().user?.id || 'unknown',
           command: cleanInput,
         })
         this.handleUnknownCommand(userInput)
-        return true
+        return null
       }
       // Track successful slash command usage
       trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
         userId: Client.getInstance().user?.id || 'unknown',
-        command: cleanInput,
+        command: commandBase,
       })
     }
 
     if (cleanInput === 'help' || cleanInput === 'h') {
       displayMenu()
       this.freshPrompt()
-      return true
+      return null
     }
     if (cleanInput === 'login' || cleanInput === 'signin') {
       await Client.getInstance().login()
       checkpointManager.clearCheckpoints()
-      return true
+      return null
     }
     if (cleanInput === 'logout' || cleanInput === 'signout') {
       await Client.getInstance().logout()
       this.freshPrompt()
-      return true
+      return null
     }
     if (cleanInput.startsWith('ref-')) {
       // Referral codes can be entered with or without a leading slash.
       // Pass the cleaned input (without slash) to the handler.
       await Client.getInstance().handleReferralCode(cleanInput.trim())
-      return true
+      return null
     }
 
     // Detect potential API key input first
@@ -491,21 +606,43 @@ export class CLI {
         this.readyPromise,
         this.freshPrompt.bind(this)
       )
-      return true
+      return null
     }
 
     if (cleanInput === 'usage' || cleanInput === 'credits') {
       await Client.getInstance().getUsage()
-      return true
+      return null
     }
     if (cleanInput === 'quit' || cleanInput === 'exit' || cleanInput === 'q') {
       await this.handleExit()
-      return true
+      return null
+    }
+    if (cleanInput === 'reset') {
+      await this.readyPromise
+      await Client.getInstance().resetContext()
+      const projectRoot = getProjectRoot()
+      clearScreen()
+
+      // from index.ts
+      const config = loadCodebuffConfig(projectRoot)
+      await killAllBackgroundProcesses()
+      const processStartPromise = logAndHandleStartup(projectRoot, config)
+      const initFileContextPromise =
+        initProjectFileContextWithWorker(projectRoot)
+
+      this.readyPromise = Promise.all([
+        initFileContextPromise,
+        processStartPromise,
+      ])
+
+      displayGreeting(this.costMode, Client.getInstance().user?.name ?? null)
+      this.freshPrompt()
+      return null
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {
       handleDiff(Client.getInstance().lastChanges)
       this.freshPrompt()
-      return true
+      return null
     }
     if (
       cleanInput === 'uuddlrlrba' ||
@@ -513,7 +650,7 @@ export class CLI {
       cleanInput === 'codebuffy'
     ) {
       showEasterEgg(this.freshPrompt.bind(this))
-      return true
+      return null
     }
 
     // Checkpoint commands
@@ -525,19 +662,19 @@ export class CLI {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleUndo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
-        return true
+        return null
       }
       if (isCheckpointCommand(cleanInput, 'redo')) {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleRedo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
-        return true
+        return null
       }
       if (isCheckpointCommand(cleanInput, 'list')) {
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         await listCheckpoints()
         this.freshPrompt()
-        return true
+        return null
       }
       const restoreMatch = isCheckpointCommand(cleanInput, 'restore')
       if (restoreMatch) {
@@ -549,12 +686,12 @@ export class CLI {
           this.rl
         )
         this.freshPrompt(toRestore)
-        return true
+        return null
       }
       if (isCheckpointCommand(cleanInput, 'clear')) {
         handleClearCheckpoints()
         this.freshPrompt()
-        return true
+        return null
       }
       if (isCheckpointCommand(cleanInput, 'save')) {
         await saveCheckpoint(
@@ -565,26 +702,27 @@ export class CLI {
         )
         displayCheckpointMenu()
         this.freshPrompt()
-        return true
+        return null
       }
       // Default checkpoint action (if just "checkpoint" or "/checkpoint" is typed)
       displayCheckpointMenu()
       this.freshPrompt()
-      return true
+      return null
     }
 
     if (cleanInput === 'init') {
       handleInitializationFlowLocally()
       // Also forward user input (original with / if present, or cleanInput) to the backend
       // The original forwardUserInput takes the raw userInput.
-      return false // Let it fall through to forwardUserInput
+      return userInput // Let it fall through to forwardUserInput
     }
 
-    return false
+    // If no command was matched, return the original userInput to be processed as a prompt
+    return userInput
   }
 
-  private async forwardUserInput(userInput: string) {
-    const cleanedInput = this.cleanCommandInput(userInput)
+  private async forwardUserInput(promptContent: string) {
+    const cleanedInput = this.cleanCommandInput(promptContent)
 
     await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
     Spinner.get().start()
@@ -603,7 +741,7 @@ export class CLI {
 
     this.isReceivingResponse = true
     const { responsePromise, stopResponse } =
-      await Client.getInstance().sendUserInput(cleanedInput) // Fixed: Use cleaned input
+      await Client.getInstance().sendUserInput(cleanedInput)
 
     this.stopResponse = stopResponse
     await responsePromise
@@ -766,22 +904,5 @@ export class CLI {
       }
     }
     this.lastInputTime = currentTime
-  }
-
-  private async updateAndDisplayOrganizationContext() {
-    try {
-      const currentRepo = await getCurrentRepositoryUrl()
-      if (currentRepo) {
-        await this.orgContext.updateContextForRepository(currentRepo)
-        this.displayOrganizationContext()
-      }
-    } catch (error) {
-      // Silently fail - organization context is not critical
-    }
-  }
-
-  private displayOrganizationContext() {
-    const message = this.orgContext.getDisplayMessage()
-    console.log(`💳 ${message}`)
   }
 }

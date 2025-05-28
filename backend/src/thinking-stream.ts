@@ -16,7 +16,8 @@ export async function getThinkingStream(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
-    repositoryUrl?: string
+    repoName: string | undefined
+    repositoryUrl: string | undefined
   }
 ) {
   const { getStream } = getAgentStream({
@@ -26,12 +27,14 @@ export async function getThinkingStream(
       '</think_deeply>',
       '<think_deeply>',
       '<read_files>',
-      '<end_turn>'
+      '<end_turn>',
     ],
     clientSessionId: options.clientSessionId,
     fingerprintId: options.fingerprintId,
     userInputId: options.userInputId,
     userId: options.userId,
+    repositoryUrl: options.repositoryUrl,
+    repoName: options.repoName,
   })
 
   const thinkingPrompt = `You are an expert programmer. Think deeply about the user request in the message history and how to best approach it. Consider edge cases, potential issues, and alternative approaches. Only think - do not take any actions or make any changes.

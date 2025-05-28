@@ -2,7 +2,7 @@ import { logger } from 'common/util/logger'
 import { trackEvent } from 'common/analytics'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { calculateOrganizationUsageAndBalance } from './org-billing'
-import { getQuotaResetDate } from './utils'
+import { getNextQuotaReset } from 'common/util/dates'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
@@ -58,7 +58,7 @@ export async function getOrganizationAlerts(
 
     // Check current balance
     const now = new Date()
-    const quotaResetDate = getQuotaResetDate(now)
+    const quotaResetDate = getNextQuotaReset(now)
     const { balance, usageThisCycle } = await calculateOrganizationUsageAndBalance(
       organizationId,
       quotaResetDate,

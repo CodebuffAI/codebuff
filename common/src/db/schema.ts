@@ -254,6 +254,8 @@ export const org = pgTable('org', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   stripe_customer_id: text('stripe_customer_id').unique(),
+  current_period_start: timestamp('current_period_start', { mode: 'date', withTimezone: true }),
+  current_period_end: timestamp('current_period_end', { mode: 'date', withTimezone: true }),
   auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(false),
   auto_topup_threshold: integer('auto_topup_threshold').default(500),
   auto_topup_amount: integer('auto_topup_amount').default(2000),

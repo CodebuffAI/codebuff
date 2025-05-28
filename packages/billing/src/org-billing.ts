@@ -6,6 +6,8 @@ import { logger } from 'common/util/logger'
 import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
 import { withSerializableTransaction } from 'common/db/transaction'
 import { GrantTypeValues } from 'common/types/grant'
+import { stripeServer } from 'common/util/stripe'
+import { getNextQuotaReset } from 'common/util/dates'
 import { 
   CreditBalance, 
   CreditUsageAndBalance, 
@@ -17,6 +19,91 @@ import {
 
 // Add a minimal structural type that both `db` and `tx` satisfy
 type DbConn = Pick<typeof db, 'select' | 'update'>
+
+/**
+ * Syncs organization billing cycle with Stripe subscription and returns the current cycle start date.
+ * All organizations are expected to have Stripe subscriptions.
+ */
+export async function syncOrganizationBillingCycle(organizationId: string): Promise<Date> {
+  const organization = await db.query.org.findFirst({
+    where: eq(schema.org.id, organizationId),
+    columns: {
+      stripe_customer_id: true,
+      current_period_start: true,
+      current_period_end: true,
+    },
+  })
+
+  if (!organization) {
+    throw new Error(`Organization ${organizationId} not found`)
+  }
+
+  if (!organization.stripe_customer_id) {
+    throw new Error(`Organization ${organizationId} does not have a Stripe customer ID`)
+  }
+
+  const now = new Date()
+
+  try {
+    const subscriptions = await stripeServer.subscriptions.list({
+      customer: organization.stripe_customer_id,
+      status: 'active',
+      limit: 1,
+    })
+
+    if (subscriptions.data.length === 0) {
+      throw new Error(`No active Stripe subscription found for organization ${organizationId}`)
+    }
+
+    const subscription = subscriptions.data[0]
+    const stripeCurrentStart = new Date(subscription.current_period_start * 1000)
+    const stripeCurrentEnd = new Date(subscription.current_period_end * 1000)
+    
+    // Check if we need to update the stored billing cycle dates
+    const needsUpdate = 
+      !organization.current_period_start ||
+      !organization.current_period_end ||
+      Math.abs(stripeCurrentStart.getTime() - organization.current_period_start.getTime()) > 60 * 1000 ||
+      Math.abs(stripeCurrentEnd.getTime() - organization.current_period_end.getTime()) > 60 * 1000
+
+    if (needsUpdate) {
+      await db
+        .update(schema.org)
+        .set({ 
+          current_period_start: stripeCurrentStart,
+          current_period_end: stripeCurrentEnd,
+          updated_at: now,
+        })
+        .where(eq(schema.org.id, organizationId))
+
+      logger.info(
+        { 
+          organizationId, 
+          currentPeriodStart: stripeCurrentStart.toISOString(),
+          currentPeriodEnd: stripeCurrentEnd.toISOString()
+        },
+        'Synced organization billing cycle with Stripe subscription'
+      )
+    }
+
+    logger.debug(
+      { 
+        organizationId, 
+        stripeCurrentStart: stripeCurrentStart.toISOString(),
+        stripeCurrentEnd: stripeCurrentEnd.toISOString()
+      },
+      'Using Stripe subscription period for organization billing cycle'
+    )
+    
+    return stripeCurrentStart
+  } catch (error) {
+    logger.error(
+      { organizationId, error },
+      'Failed to sync organization billing cycle with Stripe'
+    )
+    throw error
+  }
+}
 
 /**
  * Gets active grants for an organization, ordered by expiration, priority, and creation date.

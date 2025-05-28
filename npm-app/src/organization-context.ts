@@ -1,5 +1,6 @@
 import { logger } from './utils/logger'
-import { getProjectRoot, getCurrentRepositoryUrl } from './project-files'
+import { getProjectRoot } from './project-files'
+import { getRepoMetrics } from './utils/git'
 import { Client } from './client'
 
 export interface OrganizationContext {
@@ -80,7 +81,8 @@ export class OrganizationContextManager {
  */
 export async function getOrganizationContext(client: Client): Promise<OrganizationContext> {
   try {
-    const repositoryUrl = await getCurrentRepositoryUrl()
+    const repoMetrics = await getRepoMetrics()
+    const repositoryUrl = repoMetrics.remoteUrl
     
     if (!repositoryUrl) {
       return {

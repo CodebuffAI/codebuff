@@ -54,6 +54,7 @@ export async function getRepoMetrics(): Promise<{
   trackedFiles?: number
   commits?: number
   repoName?: string
+  remoteUrl?: string
   commitsLast30Days?: number
   authorsLast30Days?: number
 }> {
@@ -99,6 +100,7 @@ export async function getRepoMetrics(): Promise<{
     trackedFiles: tracked.length,
     commits: commitsArr.length,
     repoName: parseRepoName(remoteUrl ?? undefined),
+    remoteUrl: remoteUrl ?? undefined,
     commitsLast30Days: recent.length,
     authorsLast30Days: authors.size,
   }

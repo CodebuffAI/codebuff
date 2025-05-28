@@ -5,7 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, desc, gte } from 'drizzle-orm'
 import { OrganizationUsageResponse } from 'common/types/organization'
-import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
+import { calculateOrganizationUsageAndBalance, syncOrganizationBillingCycle } from '@codebuff/billing'
 
 interface RouteParams {
   params: { orgId: string }
@@ -39,17 +39,17 @@ export async function GET(
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
-    // Get organization credit balance and usage
-    const now = new Date()
-    const quotaResetDate = new Date(now.getFullYear(), now.getMonth(), 1) // First of current month
+    // Sync organization billing cycle with Stripe and get current cycle start
+    const startOfCurrentCycle = await syncOrganizationBillingCycle(orgId)
     
     let currentBalance = 0
     let usageThisCycle = 0
     
     try {
+      const now = new Date()
       const { balance, usageThisCycle: usage } = await calculateOrganizationUsageAndBalance(
         orgId,
-        quotaResetDate,
+        startOfCurrentCycle,
         now
       )
       currentBalance = balance.netBalance
@@ -71,7 +71,7 @@ export async function GET(
       .where(
         and(
           eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, quotaResetDate)
+          gte(schema.orgUsage.created_at, startOfCurrentCycle)
         )
       )
       .groupBy(schema.orgUsage.user_id, schema.user.name)
@@ -91,7 +91,7 @@ export async function GET(
       .where(
         and(
           eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, quotaResetDate)
+          gte(schema.orgUsage.created_at, startOfCurrentCycle)
         )
       )
       .orderBy(desc(schema.orgUsage.created_at))

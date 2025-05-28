@@ -103,15 +103,14 @@ export const mainPrompt = async (
   let messageHistory = agentState.messageHistory
 
   const { getStream, model } = getAgentStream({
-    costMode,
+    costMode: 'max',
     selectedModel,
-    stopSequences: TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
     clientSessionId,
     fingerprintId,
     userInputId: promptId,
     userId,
-    repositoryUrl,
     repoName,
+    repositoryUrl,
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
@@ -571,6 +570,7 @@ export const mainPrompt = async (
         userInputId: promptId,
         userId,
         repositoryUrl,
+        repoName,
       }
     )
     if (model === models.gpt4_1) {

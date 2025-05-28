@@ -36,6 +36,7 @@ export {
   grantOrganizationCredits,
   normalizeRepositoryUrl,
   validateAndNormalizeRepositoryUrl,
+  syncOrganizationBillingCycle,
 } from './org-billing'
 
 // Organization monitoring
@@ -51,4 +52,4 @@ export {
 } from './org-monitoring'
 
 // Utilities
-export { generateOperationIdTimestamp, getQuotaResetDate } from './utils'
+export { generateOperationIdTimestamp } from './utils'

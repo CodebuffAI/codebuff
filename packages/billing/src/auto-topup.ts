@@ -12,7 +12,7 @@ import { generateOperationIdTimestamp } from './utils'
 import { env } from 'common/src/env.mjs'
 import { CREDIT_PRICING } from 'common/src/constants'
 import { grantOrganizationCredits, calculateOrganizationUsageAndBalance } from './org-billing'
-import { getQuotaResetDate } from './utils'
+import { getNextQuotaReset } from 'common/util/dates'
 
 const MINIMUM_PURCHASE_CREDITS = 500
 
@@ -366,7 +366,7 @@ export async function checkAndTriggerOrgAutoTopup(
 
     const { balance } = await calculateOrganizationUsageAndBalance(
       organizationId,
-      getQuotaResetDate()
+      getNextQuotaReset(null)
     )
 
     if (balance.netBalance > (org.auto_topup_threshold || 0)) {
