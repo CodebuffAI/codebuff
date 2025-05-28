@@ -143,7 +143,7 @@ export const mainPrompt = async (
   const userInstructions = buildArray(
     isLiteMode
       ? 'Please proceed toward the user request and any subgoals. Please complete the entire user request. You must finally use the end_turn tool at the end of your response.'
-      : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool).',
+      : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool). You must finally use the end_turn tool at the end of your response.',
 
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
@@ -192,7 +192,7 @@ export const mainPrompt = async (
     isNotFirstUserMessage &&
       "If you have learned something useful for the future that is not derivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
 
-    "Don't run git commands or scripts or start a dev server without being specifically asked to do so. This can prevent costly accidents.",
+    'Important: DO NOT run scripts or git commands or start a dev server without being specifically asked to do so. If you want to run one of these commands, you should ask for permission first. This can prevent costly accidents!',
 
     'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
