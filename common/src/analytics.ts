@@ -44,11 +44,15 @@ export function trackEvent(
     throw new Error('Analytics client not initialized')
   }
 
-  client.capture({
-    distinctId: userId,
-    event,
-    properties,
-  })
+  try {
+    client.capture({
+      distinctId: userId,
+      event,
+      properties,
+    })
+  } catch (error) {
+    logger.error({ error }, 'Failed to track event')
+  }
 }
 
 export function logError(
@@ -60,5 +64,9 @@ export function logError(
     throw new Error('Analytics client not initialized')
   }
 
-  client.captureException(error, userId ?? 'unknown', properties)
+  try {
+    client.captureException(error, userId ?? 'unknown', properties)
+  } catch (error) {
+    logger.error({ error }, 'Failed to log error')
+  }
 }
