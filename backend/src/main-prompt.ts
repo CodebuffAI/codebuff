@@ -22,6 +22,7 @@ import { toContentString } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
+import { transformMessages } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
 import { checkTerminalCommand } from './check-terminal-command'
 import {
@@ -572,15 +573,17 @@ export const mainPrompt = async (
   }
 
   const stream = getStream(
-    buildArray(
-      ...agentMessages,
-      // Add prefix of the response from fullResponse if it exists
-      fullResponse && {
-        role: 'assistant' as const,
-        content: fullResponse.trim(),
-      }
-    ),
-    system
+    transformMessages(
+      buildArray(
+        ...agentMessages,
+        // Add prefix of the response from fullResponse if it exists
+        fullResponse && {
+          role: 'assistant' as const,
+          content: fullResponse.trim(),
+        }
+      ),
+      system
+    )
   )
 
   const allToolCalls: ToolCall[] = []
