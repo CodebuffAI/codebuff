@@ -60,6 +60,7 @@ export const getAgentStream = (params: {
           fingerprintId,
           userInputId,
           userId,
+          maxTokens: 32_000,
         })
       : (() => {
           throw new Error(
