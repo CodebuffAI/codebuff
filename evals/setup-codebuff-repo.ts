@@ -23,7 +23,6 @@ export async function setupCodebuffRepo() {
 
   try {
     // Clone the current repository to the test-repos directory
-    // This uses the current working directory as the source
     console.log('Cloning current codebuff repository...')
     
     // Get the current git remote URL
@@ -32,12 +31,37 @@ export async function setupCodebuffRepo() {
       timeout: 10_000 
     }).trim()
     
-    console.log(`Cloning from: ${remoteUrl}`)
+    console.log(`Original remote URL: ${remoteUrl}`)
     
-    // Clone the repo using the GitHub token for authentication
-    execSync(`git clone ${remoteUrl} ${CODEBUFF_REPO_DIR}`, {
+    // Get GitHub token from environment
+    const githubToken = process.env.GITHUB_TOKEN
+    if (!githubToken) {
+      throw new Error('GITHUB_TOKEN environment variable is not set')
+    }
+    
+    // Convert the URL to use token authentication
+    let authenticatedUrl: string
+    if (remoteUrl.startsWith('https://github.com/')) {
+      // For HTTPS URLs, inject the token
+      authenticatedUrl = remoteUrl.replace('https://github.com/', `https://${githubToken}@github.com/`)
+    } else if (remoteUrl.startsWith('git@github.com:')) {
+      // For SSH URLs, convert to HTTPS with token
+      const repoPath = remoteUrl.replace('git@github.com:', '').replace('.git', '')
+      authenticatedUrl = `https://${githubToken}@github.com/${repoPath}`
+    } else {
+      throw new Error(`Unsupported remote URL format: ${remoteUrl}`)
+    }
+    
+    console.log('Cloning with authentication...')
+    
+    // Clone the repo using the authenticated URL
+    execSync(`git clone ${authenticatedUrl} ${CODEBUFF_REPO_DIR}`, {
       timeout: 60_000, // 1 minute timeout
-      stdio: 'inherit'
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: '0' // Disable git prompts
+      }
     })
     
     console.log('Codebuff repository cloned successfully!')
