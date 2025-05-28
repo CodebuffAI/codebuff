@@ -13,6 +13,7 @@ import {
   GitRepoEvalData,
   CommitFileState,
 } from './types'
+import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 
 const COMMIT_SELECTION_PROMPT = `You are an expert at identifying substantial and complete code changes in git commits.
 
@@ -233,21 +234,26 @@ ${diff}`
 }
 
 export async function generateEvalFile({
+  repoUrl,
   testRepoName,
   outputPath,
   clientSessionId,
   numberOfCommits,
 }: {
-  testRepoName: string
+  repoUrl: string
+  testRepoName?: string
   outputPath: string
   clientSessionId: string
   numberOfCommits: number
 }): Promise<void> {
-  const repoPath = path.join(__dirname, '../test-repos', testRepoName)
-  // Validate repo path
-  if (!fs.existsSync(path.join(repoPath, '.git'))) {
-    throw new Error(`${repoPath} is not a git repository`)
-  }
+  // Extract repo name from URL if not provided
+  const actualRepoName = testRepoName || extractRepoNameFromUrl(repoUrl)
+  
+  // Setup the test repository using the generic function
+  console.log(`Setting up test repository from: ${repoUrl}`)
+  const clonedRepoName = await setupTestRepo(repoUrl, actualRepoName)
+  
+  const repoPath = path.join(__dirname, '../test-repos', clonedRepoName)
 
   // Get commits
   const commits = getCommits(repoPath, numberOfCommits)
@@ -283,7 +289,9 @@ export async function generateEvalFile({
 
   // Create output data
   const evalData: GitRepoEvalData = {
-    testRepoName,
+    // only include testRepoName if explicitly provided
+    ...(testRepoName && { testRepoName }),
+    repoUrl,
     generationDate: new Date().toISOString(),
     evalCommits: evalCommits,
   }
@@ -295,16 +303,23 @@ export async function generateEvalFile({
 // CLI handling
 if (require.main === module) {
   const args = process.argv.slice(2)
-  console.info('Usage: bun run generate-git-evals <repo-name> [output-path]')
+  console.info('Usage: bun run generate-git-evals <repo-url> [output-path] [number-of-commits] [test-repo-name]')
 
-  const testRepoName = args[0] || 'codebuff'
+  const repoUrl = args[0]
+  if (!repoUrl) {
+    console.error('Error: repo-url is required')
+    process.exit(1)
+  }
+  
   const outputPath = args[1] || './git-evals/git-evals.json'
   const numberOfCommits = Number(args[2] || 100)
+  const testRepoName = args[3] // Optional custom repo name
 
   // Generate random ID for this run
   const sessionId = Math.random().toString(36).substring(2)
 
   generateEvalFile({
+    repoUrl,
     testRepoName,
     outputPath,
     clientSessionId: sessionId,

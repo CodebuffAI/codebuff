@@ -8,6 +8,7 @@ import { generateCompactId } from 'common/util/string'
 import { setProjectRoot, setWorkingDirectory } from 'npm-app/project-files'
 import { recreateShell } from 'npm-app/utils/terminal'
 import { judgeEvalRun } from './judge-git-eval'
+import { setupTestRepo, extractRepoNameFromUrl } from './setup-test-repo'
 import {
   AgentDecision,
   AgentDecisionSchema,
@@ -289,8 +290,16 @@ export async function runGitEvals(
     fs.readFileSync(evalDataPath, 'utf-8')
   ) as GitRepoEvalData
 
-  const { testRepoName } = evalData
-  const projectPath = path.join(__dirname, '../test-repos', testRepoName)
+  const { repoUrl } = evalData
+  
+  // Extract repo name from URL or use provided testRepoName as fallback
+  const testRepoName = evalData.testRepoName || extractRepoNameFromUrl(repoUrl)
+  
+  // Setup the test repository using the generic function
+  console.log(`Setting up test repository from: ${repoUrl}`)
+  const actualRepoName = await setupTestRepo(repoUrl, testRepoName)
+  
+  const projectPath = path.join(__dirname, '../test-repos', actualRepoName)
   setupTestEnvironmentVariables()
   createFileReadingMock(projectPath)
   recreateShell(projectPath, true)
@@ -344,7 +353,7 @@ export async function runGitEvals(
 
     // Save partial results after each completion
     const partialResult: FullEvalLog = {
-      test_repo_name: testRepoName,
+      test_repo_name: actualRepoName,
       generation_date: new Date().toISOString(),
       eval_runs: [...evalRuns],
       overall_metrics: calculateOverallMetrics(evalRuns),
@@ -360,7 +369,7 @@ export async function runGitEvals(
   const overallMetrics = calculateOverallMetrics(evalRuns)
 
   const result: FullEvalLog = {
-    test_repo_name: testRepoName,
+    test_repo_name: actualRepoName,
     generation_date: new Date().toISOString(),
     eval_runs: evalRuns,
     overall_metrics: overallMetrics,

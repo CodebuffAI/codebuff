@@ -27,7 +27,8 @@ export interface EvalCommit extends CommitInfo {
 }
 
 export interface GitRepoEvalData {
-  testRepoName: string
+  repoUrl: string // URL of the git repository to clone
+  testRepoName?: string // Optional - can be inferred from repoUrl
   generationDate: string
   evalCommits: EvalCommit[]
 }
