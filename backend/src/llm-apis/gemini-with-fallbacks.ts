@@ -3,15 +3,14 @@ import {
   CostMode,
   finetunedVertexModels,
   GeminiModel,
-  geminiModels,
   openaiModels,
 } from 'common/constants'
 import { Message } from 'common/types/message'
 
 import { logger } from '../util/logger'
 import { messagesWithSystem } from '../util/messages'
-import { promptClaude, promptClaudeStream, System } from './claude'
-import { promptGemini, promptGeminiStream } from './gemini-api'
+import { promptClaude, System } from './claude'
+import { promptGemini } from './gemini-api'
 import { promptGemini as promptVertexGemini } from './gemini-vertex-api'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
 import { promptAiSdk, transformMessages } from './vercel-ai-sdk/ai-sdk'
@@ -132,114 +131,5 @@ export async function promptFlashWithFallbacks(
         userId: options.userId,
       })
     }
-  }
-}
-
-/**
- * Streams a response from Gemini 2.5 Pro with multiple fallback strategies.
- *
- * Attempts the following endpoints in order until one succeeds:
- * 1. Gemini API (Internal Key - gemini-2.5-pro-exp)
- * 2. OpenRouter (Internal Key - google/gemini-2.5-pro-exp-03-25:free)
- * 3. OpenRouter (Internal Key - google/gemini-2.5-pro-preview-03-25)
- * 4. Claude Sonnet (Final Fallback)
- *
- * This function handles streaming requests and yields chunks of the response as they arrive.
- * If a stream fails mid-way (e.g., due to rate limits), it appends the partially
- * generated content to the message history before attempting the next fallback.
- *
- * @param messages - The array of messages forming the conversation history.
- * @param system - An optional system prompt string or array of text blocks.
- * @param options - Configuration options for the API call.
- * @param options.clientSessionId - Unique ID for the client session.
- * @param options.fingerprintId - Unique ID for the user's device/fingerprint.
- * @param options.userInputId - Unique ID for the specific user input triggering this call.
- * @param options.userId - The ID of the user making the request (required for user key fallback).
- * @param options.maxTokens - Optional maximum number of tokens for the response.
- * @param options.temperature - Optional temperature setting for generation (0-1).
- * @yields {string} Chunks of the generated response text.
- * @throws If all fallback attempts fail.
- */
-export async function* streamGemini25ProWithFallbacks(
-  messages: Message[],
-  system: System | undefined,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
-    maxTokens?: number
-    temperature?: number
-    stopSequences?: string[]
-    thinkingBudget?: number
-  }
-): AsyncGenerator<string, void, any> {
-  const {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    maxTokens,
-    temperature,
-    stopSequences,
-    thinkingBudget,
-  } = options
-
-  // Initialize the message list for the first attempt
-  let currentMessages: OpenAIMessage[] = system
-    ? messagesWithSystem(messages, system)
-    : (messages as OpenAIMessage[])
-
-  // Try Gemini API Stream (Internal Key - gemini-2.5-pro-preview)
-  const geminiPreviewOptions = {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    model: geminiModels.gemini2_5_pro_preview, // Preview model via Gemini API
-    maxTokens,
-    temperature,
-    stopSequences,
-    thinkingBudget,
-  }
-  try {
-    for await (const chunk of promptGeminiStream(
-      currentMessages,
-      geminiPreviewOptions
-    )) {
-      yield chunk
-    }
-    return // Success
-  } catch (error) {
-    logger.warn(
-      { error },
-      'Error calling Gemini 2.5 Pro (preview) via Gemini API Stream (Internal Key)'
-    )
-  }
-
-  // Final Fallback: Claude Sonnet
-  logger.debug('Attempting final fallback to Claude Sonnet Stream')
-  try {
-    for await (const chunk of promptClaudeStream(messages, {
-      model: claudeModels.sonnet,
-      system,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      maxTokens,
-      stopSequences,
-      // Temperature might differ, using Claude's default or a standard value
-    })) {
-      yield chunk
-    }
-    return // Success! Claude Sonnet worked.
-  } catch (claudeError) {
-    logger.error(
-      { error: claudeError },
-      'Error calling Claude Sonnet Stream. All fallbacks failed.'
-    )
-    // Throw the Claude error as it's the very last thing that failed
-    throw claudeError
   }
 }

@@ -1,7 +1,6 @@
 import {
   Content,
   GenerateContentResult,
-  GenerateContentStreamResult,
   GoogleGenerativeAI,
   HarmBlockThreshold,
   HarmCategory,
@@ -106,117 +105,6 @@ const timeoutPromise = (ms: number, message: string) =>
     setTimeout(() => reject(new Error(message)), ms)
   )
 
-export function promptGeminiStream(
-  messages: OpenAIMessage[],
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: GeminiModel
-    userId: string | undefined
-    maxTokens?: number
-    temperature?: number
-    apiKey?: string
-    stopSequences?: string[]
-    thinkingBudget?: number
-  }
-): ReadableStream<string> {
-  const {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    temperature,
-    userId,
-    model,
-    maxTokens,
-    apiKey,
-    stopSequences,
-    thinkingBudget,
-  } = options
-
-  const streamController = new AbortController()
-  const outputStream = new ReadableStream<string>({
-    async start(controller) {
-      const startTime = Date.now()
-      let streamResult: GenerateContentStreamResult | null = null
-      try {
-        const generativeModel = getGenerativeModel(model, apiKey)
-        const transformedMessages = transformMessagesToGoogle(messages)
-
-        const generationConfig = removeUndefinedProps({
-          temperature: temperature ?? 0.7,
-          maxOutputTokens: maxTokens,
-          stopSequences,
-          ...(thinkingBudget !== undefined ? { thinkingConfig: { thinkingBudget } } : {}),
-        })
-
-        streamResult = await generativeModel.generateContentStream({
-          contents: transformedMessages,
-          generationConfig,
-        })
-
-        let content = ''
-        for await (const chunk of streamResult.stream) {
-          if (streamController.signal.aborted) {
-            logger.warn('Gemini stream aborted, stopping processing.')
-            break
-          }
-          const textChunk = chunk.text()
-          if (textChunk) {
-            content += textChunk
-            controller.enqueue(textChunk)
-          }
-        }
-
-        const response = streamResult ? await streamResult.response : null
-        const usageMetadata = response?.usageMetadata
-        const inputTokens = usageMetadata?.promptTokenCount ?? 0
-        const outputTokens = usageMetadata?.candidatesTokenCount ?? 0
-
-        if (messages.length > 0 && userId !== TEST_USER_ID) {
-          saveMessage({
-            messageId: generateCompactId(),
-            userId,
-            clientSessionId,
-            fingerprintId,
-            userInputId,
-            model,
-            request: messages,
-            response: content,
-            inputTokens,
-            outputTokens,
-            finishedAt: new Date(),
-            latencyMs: Date.now() - startTime,
-            usesUserApiKey: !!apiKey,
-          })
-        }
-
-        controller.close()
-      } catch (error) {
-        logger.error(
-          {
-            error:
-              error instanceof Error
-                ? { message: error.message, stack: error.stack }
-                : error,
-            messages,
-            usingUserKey: !!apiKey,
-            model,
-          },
-          'Error calling Gemini API Stream'
-        )
-        controller.error(error)
-      }
-    },
-    cancel(reason) {
-      logger.warn({ reason }, 'Gemini stream cancelled')
-      streamController.abort()
-    },
-  })
-
-  return outputStream
-}
-
 export async function promptGemini(
   messages: OpenAIMessage[],
   options: {
@@ -256,7 +144,9 @@ export async function promptGemini(
       temperature: temperature ?? 0.7,
       maxOutputTokens: maxTokens,
       stopSequences,
-      ...(thinkingBudget !== undefined ? { thinkingConfig: { thinkingBudget } } : {}),
+      ...(thinkingBudget !== undefined
+        ? { thinkingConfig: { thinkingBudget } }
+        : {}),
     })
 
     const timeoutMs = model === geminiModels.gemini2flash ? 60_000 : 200_000

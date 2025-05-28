@@ -19,7 +19,6 @@ import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as claude from '../llm-apis/claude'
 import * as gemini from '../llm-apis/gemini-api'
-import * as geminiWithFallbacks from '../llm-apis/gemini-with-fallbacks'
 import * as openai from '../llm-apis/openai-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
@@ -45,21 +44,12 @@ const mockAgentStream = (streamOutput: string) => {
   spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
     yield streamOutput
   })
-  spyOn(gemini, 'promptGeminiStream').mockImplementation(async function* () {
-    yield streamOutput
-  } as any)
   spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
     yield streamOutput
   })
   spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
     yield streamOutput
   })
-  spyOn(
-    geminiWithFallbacks,
-    'streamGemini25ProWithFallbacks'
-  ).mockImplementation(async function* () {
-    yield streamOutput
-  } as any)
 }
 
 describe('mainPrompt', () => {
@@ -103,15 +93,6 @@ describe('mainPrompt', () => {
     spyOn(gemini, 'promptGemini').mockImplementation(() =>
       Promise.resolve('Test response')
     )
-    spyOn(gemini, 'promptGeminiStream').mockImplementation(
-      () =>
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue('Test response')
-            controller.close()
-          },
-        })
-    )
 
     spyOn(openai, 'promptOpenAI').mockImplementation(() =>
       Promise.resolve('Test response')
@@ -119,19 +100,6 @@ describe('mainPrompt', () => {
     spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
       yield 'Test response'
     })
-
-    spyOn(
-      geminiWithFallbacks,
-      'streamGemini25ProWithFallbacks'
-    ).mockImplementation(
-      () =>
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue('Test response')
-            controller.close()
-          },
-        }) as any
-    )
 
     // Mock websocket actions
     spyOn(websocketAction, 'requestFiles').mockImplementation(
