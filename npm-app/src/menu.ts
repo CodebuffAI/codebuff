@@ -134,6 +134,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
+    baseCommand: 'experimental',
+    description: 'Switch to experimental mode (cutting-edge)',
+    isSlashCommand: false,
+    commandText: '',
+  },
+  {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
     description: 'Quit Codebuff',
