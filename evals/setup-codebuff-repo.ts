@@ -40,14 +40,15 @@ export async function setupCodebuffRepo() {
     }
     
     // Convert the URL to use token authentication
+    // GitHub expects: https://token:x-oauth-basic@github.com/owner/repo
     let authenticatedUrl: string
     if (remoteUrl.startsWith('https://github.com/')) {
-      // For HTTPS URLs, inject the token
-      authenticatedUrl = remoteUrl.replace('https://github.com/', `https://${githubToken}@github.com/`)
+      // For HTTPS URLs, inject the token with x-oauth-basic format
+      authenticatedUrl = remoteUrl.replace('https://github.com/', `https://${githubToken}:x-oauth-basic@github.com/`)
     } else if (remoteUrl.startsWith('git@github.com:')) {
       // For SSH URLs, convert to HTTPS with token
       const repoPath = remoteUrl.replace('git@github.com:', '').replace('.git', '')
-      authenticatedUrl = `https://${githubToken}@github.com/${repoPath}`
+      authenticatedUrl = `https://${githubToken}:x-oauth-basic@github.com/${repoPath}`
     } else {
       throw new Error(`Unsupported remote URL format: ${remoteUrl}`)
     }
@@ -60,7 +61,8 @@ export async function setupCodebuffRepo() {
       stdio: 'inherit',
       env: {
         ...process.env,
-        GIT_TERMINAL_PROMPT: '0' // Disable git prompts
+        GIT_TERMINAL_PROMPT: '0', // Disable git prompts
+        GIT_ASKPASS: 'echo', // Provide empty password when asked
       }
     })
     
