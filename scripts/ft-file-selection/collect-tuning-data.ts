@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, writeFileSync } from 'fs'
 
-import { getTracesWithRelabels } from '@codebuff/bigquery'
+import { getTracesWithRelabels, setupBigQuery } from '@codebuff/bigquery'
 import { Message } from 'common/types/message'
 
 // Get model from command line args
@@ -12,7 +12,7 @@ const MAX_LENGTH_CHARS = 500_000
 if (!model) {
   console.log('Missing model argument')
   console.log(
-    'Usage: bun run scripts/ft-file-selection/collect-tuning-data.ts <model> [--production]'
+    'Usage: bun run scripts/ft-file-selection/collect-tuning-data.ts <model> [--prod]'
   )
   process.exit(1)
 }
@@ -22,7 +22,7 @@ function getNextAvailableFilename(
   baseFilename: string,
   extension: string
 ): string {
-  const dir = 'scripts/ft-file-selection'
+  const dir = 'ft-file-selection'
   const files = readdirSync(dir)
 
   // If base file doesn't exist yet, use it
@@ -199,6 +199,7 @@ function convertToOpenAIFormat(
 
 async function main() {
   try {
+    await setupBigQuery(DATASET)
     console.log(`Using dataset: ${DATASET}`)
 
     // Get traces for the specified model from BigQuery
