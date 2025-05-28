@@ -51,12 +51,15 @@ export async function setupTestRepo(repoUrl: string, customRepoName?: string) {
   }
 
   try {
-    // Check if we're in GitHub Actions environment
+    // Check if we're in a CI environment (GitHub Actions or Render.com)
     const isGitHubActions = process.env.GITHUB_ACTIONS === 'true'
+    const isRenderCron = process.env.RENDER === 'true' || process.env.IS_PULL_REQUEST === 'false'
+    const isCIEnvironment = isGitHubActions || isRenderCron
     
-    if (isGitHubActions) {
-      // In GitHub Actions, handle authentication for private repos
-      console.log('GitHub Actions detected - setting up authentication...')
+    if (isCIEnvironment) {
+      // In CI environments, handle authentication for private repos
+      const envName = isGitHubActions ? 'GitHub Actions' : 'Render.com'
+      console.log(`${envName} detected - setting up authentication...`)
       
       let cloneUrl = repoUrl
       const githubToken = process.env.GITHUB_TOKEN
