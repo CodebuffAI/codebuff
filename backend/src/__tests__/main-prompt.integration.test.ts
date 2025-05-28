@@ -4,19 +4,6 @@ import { getInitialAgentState } from 'common/types/agent-state'
 import { WebSocket } from 'ws'
 import { mainPrompt } from '../main-prompt'
 
-// Mock analytics module
-mock.module('common/analytics', () => ({
-  initAnalytics: mock(() => {}),
-  trackEvent: mock(() => {}),
-  getClient: mock(() => null),
-  getDistinctId: mock(() => 'mock-distinct-id'),
-}))
-
-// Mock bigquery module
-mock.module('@codebuff/bigquery', () => ({
-  insertTrace: mock(() => Promise.resolve(true)),
-}))
-
 // Mock imports needed for setup within the test
 import { renderReadFilesResult } from '@/util/parse-tool-call-xml'
 import * as checkTerminalCommandModule from '../check-terminal-command'
@@ -67,10 +54,6 @@ describe('mainPrompt (Integration)', () => {
   })
 
   it.skip('should delete a specified function while preserving other code', async () => {
-    // Initialize mocked analytics
-    const analytics = await import('common/analytics')
-    analytics.initAnalytics()
-
     // Mock necessary non-LLM functions
     spyOn(logger, 'debug').mockImplementation(() => {})
     spyOn(logger, 'error').mockImplementation(() => {})
@@ -308,10 +291,13 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       null
     )
 
-    // Mock LLM calls to return a simple response (this test is too complex for now)
-    spyOn(gemini, 'promptGemini').mockResolvedValue('Simple mock response')
-    spyOn(claude, 'promptClaude').mockResolvedValue('Simple mock response')
-    spyOn(openai, 'promptOpenAI').mockResolvedValue('Simple mock response')
+    // Mock LLM calls
+    // spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
+    //   yield 'Claude fallback response'
+    // })
+    spyOn(gemini, 'promptGemini').mockResolvedValue('Mocked non-stream Gemini')
+    spyOn(claude, 'promptClaude').mockResolvedValue('Mocked non-stream Claude')
+    spyOn(openai, 'promptOpenAI').mockResolvedValue('Mocked non-stream OpenAI')
 
     const agentState = getInitialAgentState(mockFileContext)
     agentState.messageHistory.push(
