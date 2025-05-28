@@ -1,4 +1,4 @@
-import { getRecentRelabels } from '@codebuff/bigquery'
+import { getRecentRelabels, setupBigQuery } from '@codebuff/bigquery'
 
 // Parse command line arguments to check for --prod flag
 const isProd = process.argv.includes('--prod')
@@ -6,6 +6,7 @@ const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
 
 async function printRecentRelabels() {
   try {
+    await setupBigQuery(DATASET)
     // Use the BigQuery client to get recent relabels
     const relabels = await getRecentRelabels(10, DATASET)
 
