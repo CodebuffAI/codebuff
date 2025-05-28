@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetch full git history instead of shallow clone
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2

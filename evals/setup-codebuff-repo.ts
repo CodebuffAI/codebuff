@@ -22,42 +22,66 @@ export async function setupCodebuffRepo() {
   }
 
   try {
-    // Create the target directory
-    fs.mkdirSync(CODEBUFF_REPO_DIR, { recursive: true })
-    
-    // Copy only the .git directory to preserve git history
-    console.log('Copying git history...')
     const projectRoot = path.join(__dirname, '..')
-    const sourceGitDir = path.join(projectRoot, '.git')
-    const targetGitDir = path.join(CODEBUFF_REPO_DIR, '.git')
     
-    execSync(`cp -r "${sourceGitDir}" "${targetGitDir}"`, {
-      timeout: 30_000, // 30 second timeout
-      stdio: 'inherit'
-    })
+    // Check if we're in GitHub Actions environment
+    const isGitHubActions = process.env.GITHUB_ACTIONS === 'true'
     
-    console.log('Git history copied successfully!')
+    if (isGitHubActions) {
+      // In GitHub Actions, clone from the remote repository to get full history
+      console.log('GitHub Actions detected - cloning from remote repository...')
+      
+      // Get the repository URL from git remote
+      let remoteUrl = execSync('git remote get-url origin', {
+        cwd: projectRoot,
+        encoding: 'utf-8',
+        timeout: 10_000
+      }).trim()
+      
+      // For private repos in GitHub Actions, we need to use the GITHUB_TOKEN
+      const githubToken = process.env.GITHUB_TOKEN
+      if (githubToken && remoteUrl.includes('github.com')) {
+        // Convert SSH URL to HTTPS with token if needed
+        if (remoteUrl.startsWith('git@github.com:')) {
+          remoteUrl = remoteUrl.replace('git@github.com:', 'https://github.com/')
+        }
+        if (remoteUrl.endsWith('.git')) {
+          remoteUrl = remoteUrl.slice(0, -4)
+        }
+        
+        // Add token authentication to the URL
+        remoteUrl = remoteUrl.replace('https://github.com/', `https://x-access-token:${githubToken}@github.com/`)
+        console.log('Using authenticated GitHub URL for private repository')
+      }
+      
+      console.log(`Cloning from remote: ${remoteUrl.replace(githubToken || '', '***')}`)
+      
+      execSync(`git clone "${remoteUrl}" "${CODEBUFF_REPO_DIR}"`, {
+        timeout: 120_000, // 2 minute timeout for cloning
+        stdio: 'inherit'
+      })
+    } else {
+      // Local development - clone from local repository
+      console.log('Local environment detected - cloning from local repository...')
+      
+      execSync(`git clone "${projectRoot}" "${CODEBUFF_REPO_DIR}"`, {
+        timeout: 120_000, // 2 minute timeout for cloning
+        stdio: 'inherit'
+      })
+    }
     
-    // Recreate the working directory from git
-    console.log('Recreating working directory from git...')
-    execSync('git checkout HEAD -- .', {
-      cwd: CODEBUFF_REPO_DIR,
-      timeout: 30_000,
-      stdio: 'inherit'
-    })
-    
-    console.log('Working directory recreated successfully!')
+    console.log('Repository cloned successfully!')
     
     // Verify the setup worked
     if (!fs.existsSync(path.join(CODEBUFF_REPO_DIR, '.git'))) {
-      throw new Error('Git directory was not copied properly')
+      throw new Error('Git directory was not cloned properly')
     }
     
     if (!fs.existsSync(path.join(CODEBUFF_REPO_DIR, 'package.json'))) {
-      throw new Error('Working directory was not recreated properly')
+      throw new Error('Working directory was not cloned properly')
     }
     
-    // Verify git operations work in the copied repo
+    // Verify git operations work in the cloned repo
     console.log('Verifying git operations...')
     const gitStatus = execSync('git status --porcelain', {
       cwd: CODEBUFF_REPO_DIR,
@@ -75,6 +99,16 @@ export async function setupCodebuffRepo() {
     }).trim()
     
     console.log(`Repository has ${commitCount} commits in history`)
+    
+    // Also verify we can see the full branch history
+    const branchInfo = execSync('git branch -a', {
+      cwd: CODEBUFF_REPO_DIR,
+      encoding: 'utf-8',
+      timeout: 10_000
+    }).trim()
+    
+    console.log('Available branches:')
+    console.log(branchInfo)
     
     console.log('Repository verification passed')
     
