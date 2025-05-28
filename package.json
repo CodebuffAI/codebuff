@@ -11,7 +11,8 @@
     "web",
     "test",
     "packages/*",
-    "scripts"
+    "scripts",
+    "evals"
   ],
   "scripts": {
     "start-db": "bun --cwd common db:start",
