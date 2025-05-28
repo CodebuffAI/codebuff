@@ -8,6 +8,7 @@ import { generateCompactId } from 'common/util/string'
 import { setProjectRoot, setWorkingDirectory } from 'npm-app/project-files'
 import { recreateShell } from 'npm-app/utils/terminal'
 import { judgeEvalRun } from './judge-git-eval'
+import { setupTestRepo, extractRepoNameFromUrl } from './setup-test-repo'
 import {
   AgentDecision,
   AgentDecisionSchema,
@@ -289,8 +290,16 @@ export async function runGitEvals(
     fs.readFileSync(evalDataPath, 'utf-8')
   ) as GitRepoEvalData
 
-  const { testRepoName } = evalData
-  const projectPath = path.join(__dirname, '../test-repos', testRepoName)
+  const { repoUrl } = evalData
+  
+  // Extract repo name from URL or use provided testRepoName as fallback
+  const testRepoName = evalData.testRepoName || extractRepoNameFromUrl(repoUrl)
+  
+  // Setup the test repository using the generic function
+  console.log(`Setting up test repository from: ${repoUrl}`)
+  const actualRepoName = await setupTestRepo(repoUrl, testRepoName)
+  
+  const projectPath = path.join(__dirname, '../test-repos', actualRepoName)
   setupTestEnvironmentVariables()
   createFileReadingMock(projectPath)
   recreateShell(projectPath, true)
@@ -313,11 +322,19 @@ export async function runGitEvals(
     `${outputBasename}-${traceId}-partial${outputExt}`
   )
 
+  let completedCount = 0
   const evalRuns: EvalRunJudged[] = []
-  for (let i = 0; i < evalData.evalCommits.length; i++) {
-    const evalCommit = evalData.evalCommits[i]
+
+  console.log(
+    `Running ${evalData.evalCommits.length} evaluations sequentially...`
+  )
+
+  // Run evaluations sequentially
+  for (let index = 0; index < evalData.evalCommits.length; index++) {
+    const evalCommit = evalData.evalCommits[index]
+
     console.log(
-      `Running eval ${i + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message}...`
+      `Starting eval ${index + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message}...`
     )
 
     const evalRun = await runSingleEval(
@@ -326,19 +343,25 @@ export async function runGitEvals(
       clientSessionId,
       fingerprintId
     )
+
+    completedCount++
+    console.log(
+      `Completed eval ${index + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message} (${completedCount}/${evalData.evalCommits.length} total)`
+    )
+
     evalRuns.push(evalRun)
 
-    // Save partial results after each iteration (overwrites the same file)
+    // Save partial results after each completion
     const partialResult: FullEvalLog = {
-      test_repo_name: testRepoName,
+      test_repo_name: actualRepoName,
       generation_date: new Date().toISOString(),
-      eval_runs: evalRuns,
+      eval_runs: [...evalRuns],
       overall_metrics: calculateOverallMetrics(evalRuns),
     }
 
     fs.writeFileSync(partialOutputPath, JSON.stringify(partialResult, null, 2))
     console.log(
-      `Partial results saved to ${partialOutputPath} (${i + 1}/${evalData.evalCommits.length} complete)`
+      `Partial results saved to ${partialOutputPath} (${completedCount}/${evalData.evalCommits.length} complete)`
     )
   }
 
@@ -346,7 +369,7 @@ export async function runGitEvals(
   const overallMetrics = calculateOverallMetrics(evalRuns)
 
   const result: FullEvalLog = {
-    test_repo_name: testRepoName,
+    test_repo_name: actualRepoName,
     generation_date: new Date().toISOString(),
     eval_runs: evalRuns,
     overall_metrics: overallMetrics,

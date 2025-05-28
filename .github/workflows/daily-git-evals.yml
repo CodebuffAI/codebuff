@@ -1,0 +1,81 @@
+# Daily Evals Workflow
+# Runs Codebuff git evaluations daily at 1am PT (8am UTC) to generate trace files for analysis
+
+name: Daily Evals
+
+on:
+  schedule:
+    # Run at 8am UTC (1am PT) every day
+    - cron: '0 8 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  CODEBUFF_GITHUB_ACTIONS: 'true'
+  NEXT_PUBLIC_CB_ENVIRONMENT: 'local'
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  run-git-evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # 6 hour timeout for long-running evals
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetch full git history instead of shallow clone
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.2.12'
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            */node_modules
+            packages/*/node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Set Environment Variables
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+
+      - name: Setup codebuff test repository
+        run: |
+          cd evals
+          bun run setup-codebuff-repo.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Evals
+        run: |
+          cd evals
+          bun run run-git-evals
+        continue-on-error: true # Don't fail the workflow if evals encounter errors
+
+      - name: Upload trace files
+        uses: actions/upload-artifact@v4
+        if: always() # Upload even if the previous step failed
+        with:
+          name: git-eval-traces-${{ github.run_number }}
+          path: |
+            evals/git-evals/eval-trace-*.json
+          retention-days: 30
+
+      - name: Create summary
+        if: always()
+        run: |
+          echo "## Codebuff Evals Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Run completed at: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "Trace files generated:" >> $GITHUB_STEP_SUMMARY
+          ls -la evals/git-evals/eval-trace-*.json 2>/dev/null | while read line; do
+            echo "- $line" >> $GITHUB_STEP_SUMMARY
+          done || echo "- No trace files found" >> $GITHUB_STEP_SUMMARY

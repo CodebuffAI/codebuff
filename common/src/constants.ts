@@ -110,7 +110,7 @@ export const getModelForMode = (
 ) => {
   if (operation === 'agent') {
     return {
-      lite: models.gemini2_5_flash_thinking,
+      lite: models.gemini2_5_flash,
       normal: models.sonnet,
       max: models.sonnet,
       experimental: models.gemini2_5_pro_preview,

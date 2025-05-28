@@ -9,12 +9,15 @@
     "test:swe-bench": "bun test swe-bench.test.ts",
     "typecheck": "tsc --noEmit",
     "gen-git-evals": "bun run git-evals/gen-evals.ts",
-    "run-git-evals": "bun run git-evals/run-git-evals.ts"
+    "run-git-evals": "bun run git-evals/run-git-evals.ts",
+    "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
   },
   "dependencies": {
+    "async": "^3.2.6",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
+    "@types/async": "^3.2.24",
     "@types/bun": "^1.1.16",
     "@types/lodash": "^4.14.195"
   }

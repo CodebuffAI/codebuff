@@ -39,6 +39,13 @@ graph TD
 - Environment variables are set from secrets
 - Build and typecheck are combined for efficiency
 
+## Artifact Actions
+
+- Use `actions/upload-artifact@v4` and `actions/download-artifact@v4`
+- v3 was deprecated and stopped working on January 30th, 2025
+- v4 provides up to 98% faster upload/download speeds
+- See [GitHub's migration guide](https://github.com/actions/upload-artifact/blob/main/docs/MIGRATION.md) for breaking changes
+
 ## Environment Variables in CI
 
 ### GitHub Actions Environment

@@ -6,6 +6,8 @@ import {
   getTracesAndAllDataForUser,
   getTracesWithoutRelabels,
   insertRelabel,
+  Relabel,
+  setupBigQuery,
 } from '@codebuff/bigquery'
 import {
   AnthropicModel,
@@ -370,11 +372,15 @@ async function relabelWithRelace(
   return relaced
 }
 
-async function relabelWithClaudeWithFullFileContext(
+export async function relabelWithClaudeWithFullFileContext(
   trace: GetRelevantFilesTrace,
   fileBlobs: GetExpandedFileContextForTrainingBlobTrace,
-  model: AnthropicModel
+  model: AnthropicModel,
+  dataset?: string
 ) {
+  if (dataset) {
+    await setupBigQuery(dataset)
+  }
   logger.info(`Relabeling ${trace.id} with Claude with full file context`)
   const filesWithPath = Object.entries(fileBlobs.payload.files).map(
     ([path, file]) => ({
@@ -397,13 +403,10 @@ async function relabelWithClaudeWithFullFileContext(
   let system = trace.payload.system as System
   if (typeof system === 'string') {
     system = system + partialFileContext
-    console.log({ system: system }, 'Updated system for Claude')
   } else {
     // append partialFileContext to the last element of the system array
     system[system.length - 1].text =
       system[system.length - 1].text + partialFileContext
-
-    console.log({ system: JSON.stringify(system) }, 'Updated system for Claude')
   }
 
   const output = await promptClaude(trace.payload.messages as Message[], {
@@ -427,9 +430,11 @@ async function relabelWithClaudeWithFullFileContext(
       fingerprint_id: trace.payload.fingerprint_id,
       output: output,
     },
-  }
+  } as Relabel
 
-  await insertRelabel(relabel)
+  await insertRelabel(relabel, dataset)
+
+  console.log({ relabel })
 
   return relabel
 }

@@ -150,7 +150,9 @@ export const mainPrompt = async (
 
     "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
 
-    'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
+    "The tool results will be provided by the user's *system* (and **NEVER** by the assistant).",
+
+    'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ...", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
 
     isGeminiPro
       ? toolsInstructions

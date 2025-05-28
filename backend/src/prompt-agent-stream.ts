@@ -64,6 +64,7 @@ export const getAgentStream = (params: {
           userInputId,
           userId,
           repositoryUrl,
+          maxTokens: 32_000,
         })
       : (() => {
           throw new Error(

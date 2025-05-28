@@ -10,7 +10,7 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { blueBright, green, yellow } from 'picocolors'
+import { green, yellow, blueBright, magenta } from 'picocolors'
 
 import {
   killAllBackgroundProcesses,
@@ -325,7 +325,9 @@ export class CLI {
       : path.dirname(input)
     const partial = input.endsWith(directorySuffix) ? '' : path.basename(input)
 
-    let baseDir = path.isAbsolute(dir) ? dir : path.join(getWorkingDirectory(), dir)
+    let baseDir = path.isAbsolute(dir)
+      ? dir
+      : path.join(getWorkingDirectory(), dir)
 
     try {
       const files = readdirSync(baseDir)
@@ -516,7 +518,9 @@ export class CLI {
 
   private async processCommand(userInput: string): Promise<string | null> {
     // Handle cost mode commands with optional message: /lite, /lite message, /normal, /normal message, etc.
-    const costModeMatch = userInput.match(/^\/(lite|normal|max)(?:\s+(.*))?$/i)
+    const costModeMatch = userInput.match(
+      /^\/(lite|normal|max|experimental)(?:\s+(.*))?$/i
+    )
     if (costModeMatch) {
       const mode = costModeMatch[1].toLowerCase() as CostMode
       const message = costModeMatch[2]?.trim() || ''
@@ -538,6 +542,8 @@ export class CLI {
         console.log(
           blueBright('⚡ Switched to max mode (slower, more thorough)')
         )
+      } else if (mode === 'experimental') {
+        console.log(magenta('🧪 Switched to experimental mode (cutting-edge)'))
       }
 
       if (!message) {

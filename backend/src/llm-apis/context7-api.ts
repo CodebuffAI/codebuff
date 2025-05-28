@@ -56,7 +56,6 @@ export async function searchLibraries(
   try {
     const url = new URL(`${CONTEXT7_API_BASE_URL}/search`)
     url.searchParams.set('query', query)
-    console.log('url', url)
     const response = await withTimeout(fetch(url), FETCH_TIMEOUT_MS)
 
     if (!response.ok) {
