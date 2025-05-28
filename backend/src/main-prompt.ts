@@ -552,8 +552,7 @@ export const mainPrompt = async (
   // Think deeply at the start of every response
   if (geminiThinkingEnabled) {
     let response = await getThinkingStream(
-      agentMessages,
-      system,
+      transformMessages(agentMessages, system),
       (chunk) => {
         onResponseChunk(chunk)
       },

@@ -1,16 +1,12 @@
 import { CostMode } from 'common/constants'
-import { Message } from 'common/types/message'
 
 import { CoreMessage } from 'ai'
-import { System } from './llm-apis/claude'
-import { transformMessages } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { getAgentStream } from './prompt-agent-stream'
 import { TOOL_LIST } from './tools'
 import { logger } from './util/logger'
 
 export async function getThinkingStream(
-  messages: Message[],
-  system: System,
+  messages: CoreMessage[],
   onChunk: (chunk: string) => void,
   options: {
     costMode: CostMode
@@ -60,7 +56,7 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
   const thinkDeeplyPrefix = '<think_deeply>\n<thought>'
 
   const agentMessages: CoreMessage[] = [
-    ...transformMessages(messages, system),
+    ...messages,
     { role: 'user' as const, content: thinkingPrompt },
     { role: 'assistant' as const, content: thinkDeeplyPrefix },
   ]
