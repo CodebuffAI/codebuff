@@ -4,16 +4,31 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
-import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
 
 interface RouteParams {
   params: { orgId: string }
 }
 
+interface AnalyticsData {
+  topUsers: Array<{
+    user_id: string
+    user_name: string
+    credits_used: number
+  }>
+  topRepositories: Array<{
+    repository_url: string
+    credits_used: number
+  }>
+  dailyUsage: Array<{
+    date: string
+    credits_used: number
+  }>
+}
+
 export async function GET(
   request: NextRequest,
   { params }: RouteParams
-): Promise<NextResponse> {
+): Promise<NextResponse<AnalyticsData | { error: string }>> {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -38,149 +53,78 @@ export async function GET(
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
+    // Get current month start
     const now = new Date()
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
 
-    // Get current balance and usage
-    let currentBalance = 0
-    let usageThisCycle = 0
-    
-    try {
-      const { balance, usageThisCycle: usage } = await calculateOrganizationUsageAndBalance(
-        orgId,
-        currentMonthStart,
-        now
-      )
-      currentBalance = balance.netBalance
-      usageThisCycle = usage
-    } catch (error) {
-      console.log('No organization credits found:', error)
-    }
-
-    // Get usage for last month for trend calculation
-    let lastMonthUsage = 0
-    try {
-      const { usageThisCycle: lastUsage } = await calculateOrganizationUsageAndBalance(
-        orgId,
-        lastMonthStart,
-        lastMonthEnd
-      )
-      lastMonthUsage = lastUsage
-    } catch (error) {
-      console.log('No last month usage found:', error)
-    }
-
-    // Calculate usage trends
-    const usageTrend = [
-      {
-        period: 'This Month',
-        usage: usageThisCycle,
-        change: lastMonthUsage > 0 ? ((usageThisCycle - lastMonthUsage) / lastMonthUsage) * 100 : 0
-      },
-      {
-        period: 'Last Month',
-        usage: lastMonthUsage,
-        change: 0 // Base comparison
-      }
-    ]
-
-    // Get top users by credit usage this cycle
-    const topUsersData = await db
+    // Get top users by credit usage this month
+    const topUsers = await db
       .select({
-        user_id: schema.orgUsage.user_id,
+        user_id: schema.message.user_id,
         user_name: schema.user.name,
-        credits_used: sql<number>`SUM(${schema.orgUsage.credits_used})`,
+        credits_used: sql<number>`SUM(${schema.message.credits})`,
       })
-      .from(schema.orgUsage)
-      .innerJoin(schema.user, eq(schema.orgUsage.user_id, schema.user.id))
+      .from(schema.message)
+      .innerJoin(schema.user, eq(schema.message.user_id, schema.user.id))
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, currentMonthStart)
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, currentMonthStart)
         )
       )
-      .groupBy(schema.orgUsage.user_id, schema.user.name)
-      .orderBy(desc(sql`SUM(${schema.orgUsage.credits_used})`))
+      .groupBy(schema.message.user_id, schema.user.name)
+      .orderBy(desc(sql`SUM(${schema.message.credits})`))
       .limit(10)
 
-    // Calculate percentages for top users
-    const totalUsageForPercentage = Math.max(usageThisCycle, 1) // Avoid division by zero
-    const topUsers = topUsersData.map(user => ({
-      user_id: user.user_id,
-      user_name: user.user_name || 'Unknown',
-      credits_used: user.credits_used,
-      percentage: (user.credits_used / totalUsageForPercentage) * 100
-    }))
-
-    // Get repository usage
-    const repositoryUsageData = await db
+    // Get top repositories by credit usage this month
+    const topRepositories = await db
       .select({
-        repository_url: schema.orgUsage.repo_url,
-        credits_used: sql<number>`SUM(${schema.orgUsage.credits_used})`,
+        repository_url: schema.message.repo_url,
+        credits_used: sql<number>`SUM(${schema.message.credits})`,
       })
-      .from(schema.orgUsage)
+      .from(schema.message)
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, currentMonthStart)
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, currentMonthStart)
         )
       )
-      .groupBy(schema.orgUsage.repo_url)
-      .orderBy(desc(sql`SUM(${schema.orgUsage.credits_used})`))
+      .groupBy(schema.message.repo_url)
+      .orderBy(desc(sql`SUM(${schema.message.credits})`))
       .limit(10)
-
-    // Calculate percentages and extract repository names
-    const repositoryUsage = repositoryUsageData.map(repo => {
-      const repoName = repo.repository_url.split('/').pop() || repo.repository_url
-      return {
-        repository_url: repo.repository_url,
-        repository_name: repoName,
-        credits_used: repo.credits_used,
-        percentage: (repo.credits_used / totalUsageForPercentage) * 100
-      }
-    })
 
     // Get daily usage for the last 30 days
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    const dailyUsageData = await db
+    const dailyUsage = await db
       .select({
-        date: sql<string>`DATE(${schema.orgUsage.created_at})`,
-        credits_used: sql<number>`SUM(${schema.orgUsage.credits_used})`,
+        date: sql<string>`DATE(${schema.message.finished_at})`,
+        credits_used: sql<number>`SUM(${schema.message.credits})`,
       })
-      .from(schema.orgUsage)
+      .from(schema.message)
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, thirtyDaysAgo)
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, thirtyDaysAgo)
         )
       )
-      .groupBy(sql`DATE(${schema.orgUsage.created_at})`)
-      .orderBy(sql`DATE(${schema.orgUsage.created_at})`)
+      .groupBy(sql`DATE(${schema.message.finished_at})`)
+      .orderBy(sql`DATE(${schema.message.finished_at})`)
 
-    // Calculate cost projections
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-    const daysPassed = now.getDate()
-    const averageDaily = daysPassed > 0 ? usageThisCycle / daysPassed : 0
-    const currentMonthProjected = averageDaily * daysInMonth
-    const nextMonthEstimate = averageDaily * 30 // Estimate for next month
-
-    const analytics = {
-      currentBalance,
-      usageThisCycle,
-      usageTrend,
-      topUsers,
-      repositoryUsage,
-      dailyUsage: dailyUsageData,
-      costProjection: {
-        currentMonthProjected: Math.round(currentMonthProjected),
-        nextMonthEstimate: Math.round(nextMonthEstimate),
-        averageDaily: Math.round(averageDaily)
-      }
-    }
-
-    return NextResponse.json(analytics)
+    return NextResponse.json({
+      topUsers: topUsers.map(user => ({
+        user_id: user.user_id!,
+        user_name: user.user_name || 'Unknown',
+        credits_used: user.credits_used,
+      })),
+      topRepositories: topRepositories.map(repo => ({
+        repository_url: repo.repository_url || '',
+        credits_used: repo.credits_used,
+      })),
+      dailyUsage: dailyUsage.map(usage => ({
+        date: usage.date,
+        credits_used: usage.credits_used,
+      })),
+    })
   } catch (error) {
     console.error('Error fetching organization analytics:', error)
     return NextResponse.json(

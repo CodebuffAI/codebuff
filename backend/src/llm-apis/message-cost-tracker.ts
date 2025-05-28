@@ -1,5 +1,8 @@
 import { consumeCredits, getUserCostPerCredit } from '@codebuff/billing'
-import { consumeCreditsWithDelegation, findOrganizationForRepository } from '../credit-delegation'
+import {
+  consumeCreditsWithDelegation,
+  findOrganizationForRepository,
+} from '../credit-delegation'
 import { CoreMessage } from 'ai'
 import { trackEvent } from 'common/analytics'
 import { models, TEST_USER_ID } from 'common/constants'
@@ -301,6 +304,8 @@ type InsertMessageParams = {
   creditsUsed: number
   finishedAt: Date
   latencyMs: number
+  orgId?: string
+  repoUrl?: string
 }
 
 async function insertMessageRecord(
@@ -323,6 +328,8 @@ async function insertMessageRecord(
     creditsUsed,
     finishedAt,
     latencyMs,
+    orgId,
+    repoUrl,
   } = params
 
   try {
@@ -347,6 +354,8 @@ async function insertMessageRecord(
         credits: creditsUsed,
         finished_at: finishedAt,
         latency_ms: latencyMs,
+        org_id: orgId,
+        repo_url: repoUrl,
       })
       .returning()
 
@@ -430,11 +439,19 @@ async function updateUserCycleUsage(
     // First, explicitly determine which organization (if any) to use
     let organizationId: string | undefined
     if (repositoryUrl) {
-      const orgLookup = await findOrganizationForRepository(userId, repositoryUrl)
+      const orgLookup = await findOrganizationForRepository(
+        userId,
+        repositoryUrl
+      )
       if (orgLookup.found) {
         organizationId = orgLookup.organizationId
         logger.debug(
-          { userId, repositoryUrl, organizationId, organizationName: orgLookup.organizationName },
+          {
+            userId,
+            repositoryUrl,
+            organizationId,
+            organizationName: orgLookup.organizationName,
+          },
           'Found organization for repository'
         )
       } else {
@@ -454,14 +471,14 @@ async function updateUserCycleUsage(
     )
 
     if (!delegationResult.success) {
-      // If delegation failed (e.g., org lacks credits and no override), 
+      // If delegation failed (e.g., org lacks credits and no override),
       // fall back to user credits for now
       logger.warn(
         { userId, creditsUsed, error: delegationResult.error },
         'Credit delegation failed, falling back to user credits'
       )
       const result = await consumeCredits(userId, creditsUsed)
-      
+
       if (VERBOSE) {
         logger.debug(
           { userId, creditsUsed, ...result },
@@ -481,42 +498,13 @@ async function updateUserCycleUsage(
     // Delegation succeeded - credits were consumed
     if (VERBOSE) {
       logger.debug(
-        { userId, creditsUsed, fromOrganization: delegationResult.fromOrganization },
+        {
+          userId,
+          creditsUsed,
+          fromOrganization: delegationResult.fromOrganization,
+        },
         `Consumed credits (${creditsUsed}) via delegation`
       )
-    }
-
-    // Track organization usage if credits came from organization
-    if (delegationResult.fromOrganization && delegationResult.organizationId && repositoryUrl) {
-      try {
-        await db.insert(schema.orgUsage).values({
-          org_id: delegationResult.organizationId,
-          user_id: userId,
-          repo_url: repositoryUrl,
-          credits_used: delegationResult.consumed,
-          // message_id will be set later when we have the saved message
-        })
-        
-        logger.debug(
-          { 
-            organizationId: delegationResult.organizationId, 
-            userId, 
-            repositoryUrl, 
-            creditsUsed: delegationResult.consumed 
-          },
-          'Recorded organization usage'
-        )
-      } catch (error) {
-        logger.error(
-          { 
-            organizationId: delegationResult.organizationId, 
-            userId, 
-            repositoryUrl, 
-            error 
-          },
-          'Failed to record organization usage'
-        )
-      }
     }
 
     trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
@@ -610,10 +598,24 @@ export const saveMessage = async (value: {
         )
       }
 
+      // Determine organization ID for the message
+      let orgId: string | undefined
+      if (value.repositoryUrl && value.userId) {
+        const orgLookup = await findOrganizationForRepository(
+          value.userId,
+          value.repositoryUrl
+        )
+        if (orgLookup.found) {
+          orgId = orgLookup.organizationId
+        }
+      }
+
       const savedMessageResult = await insertMessageRecord({
         ...value,
         cost,
         creditsUsed,
+        orgId,
+        repoUrl: value.repositoryUrl,
       })
 
       if (!savedMessageResult || !value.userId) {

@@ -4,6 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, desc, gte } from 'drizzle-orm'
+import { syncOrganizationBillingCycle } from '@codebuff/billing'
 
 interface RouteParams {
   params: { orgId: string }
@@ -21,7 +22,7 @@ export async function GET(
 
     const { orgId } = params
 
-    // Check if user is a member of this organization with admin/owner role
+    // Check if user is a member of this organization
     const membership = await db
       .select({ role: schema.orgMember.role })
       .from(schema.orgMember)
@@ -37,63 +38,48 @@ export async function GET(
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
-    const userRole = membership[0].role
-    if (userRole !== 'owner' && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
-    }
+    // Sync organization billing cycle with Stripe and get current cycle start
+    const quotaResetDate = await syncOrganizationBillingCycle(orgId)
 
-    // Get all usage data for the organization
-    const now = new Date()
-    const quotaResetDate = new Date(now.getFullYear(), now.getMonth(), 1) // First of current month
-    
+    // Get all usage data for this cycle
     const usageData = await db
       .select({
-        date: schema.orgUsage.created_at,
+        date: schema.message.finished_at,
         user_name: schema.user.name,
-        user_email: schema.user.email,
-        repository_url: schema.orgUsage.repo_url,
-        credits_used: schema.orgUsage.credits_used,
-        message_id: schema.orgUsage.message_id,
+        repository_url: schema.message.repo_url,
+        credits_used: schema.message.credits,
+        message_id: schema.message.id,
       })
-      .from(schema.orgUsage)
-      .innerJoin(schema.user, eq(schema.orgUsage.user_id, schema.user.id))
+      .from(schema.message)
+      .innerJoin(schema.user, eq(schema.message.user_id, schema.user.id))
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, quotaResetDate)
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, quotaResetDate)
         )
       )
-      .orderBy(desc(schema.orgUsage.created_at))
+      .orderBy(desc(schema.message.finished_at))
 
-    // Convert to CSV format
-    const csvHeaders = [
-      'Date',
-      'User Name',
-      'User Email',
-      'Repository',
-      'Credits Used',
-      'Message ID'
-    ]
+    // Convert to CSV
+    const csvHeaders = 'Date,User,Repository,Credits Used,Message ID\n'
+    const csvRows = usageData
+      .map(row => [
+        row.date.toISOString(),
+        row.user_name || 'Unknown',
+        row.repository_url || '',
+        row.credits_used.toString(),
+        row.message_id,
+      ])
+      .map(row => row.map(field => `"${field.replace(/"/g, '""')}"`).join(','))
+      .join('\n')
 
-    const csvRows = usageData.map(row => [
-      row.date.toISOString(),
-      row.user_name || 'Unknown',
-      row.user_email || 'Unknown',
-      row.repository_url,
-      row.credits_used.toString(),
-      row.message_id || ''
-    ])
+    const csv = csvHeaders + csvRows
 
-    const csvContent = [
-      csvHeaders.join(','),
-      ...csvRows.map(row => row.map(field => `"${field}"`).join(','))
-    ].join('\n')
-
-    return new NextResponse(csvContent, {
+    return new NextResponse(csv, {
       headers: {
         'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="organization-usage-${new Date().toISOString().split('T')[0]}.csv"`
-      }
+        'Content-Disposition': `attachment; filename="org-usage-${orgId}-${new Date().toISOString().split('T')[0]}.csv"`,
+      },
     })
   } catch (error) {
     console.error('Error exporting organization usage:', error)

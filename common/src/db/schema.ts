@@ -196,6 +196,8 @@ export const message = pgTable(
     fingerprint_id: text('fingerprint_id')
       .references(() => fingerprint.id, { onDelete: 'cascade' })
       .notNull(),
+    org_id: text('org_id').references(() => org.id, { onDelete: 'cascade' }),
+    repo_url: text('repo_url'),
   },
   (table) => [
     index('message_fingerprint_id_idx').on(table.fingerprint_id),
@@ -204,6 +206,8 @@ export const message = pgTable(
       table.finished_at,
       table.user_id
     ),
+    index('message_org_id_idx').on(table.org_id),
+    index('message_org_id_finished_at_idx').on(table.org_id, table.finished_at),
   ]
 )
 
@@ -312,37 +316,6 @@ export const orgRepo = pgTable(
     // Unique constraint on org + repo URL
     index('idx_org_repo_unique').on(table.org_id, table.repo_url),
   ]
-)
-
-export const orgUsage = pgTable(
-  'org_usage',
-  {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    org_id: text('org_id')
-      .notNull()
-      .references(() => org.id, { onDelete: 'cascade' }),
-    user_id: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    repo_url: text('repo_url').notNull(),
-    credits_used: integer('credits_used').notNull(),
-    message_id: text('message_id').references(() => message.id),
-    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => ({
-    idx_org_usage_org_date: index('idx_org_usage_org_date').on(
-      table.org_id,
-      table.created_at
-    ),
-    idx_org_usage_user_date: index('idx_org_usage_user_date').on(
-      table.user_id,
-      table.created_at
-    ),
-  })
 )
 
 export const orgInvite = pgTable(

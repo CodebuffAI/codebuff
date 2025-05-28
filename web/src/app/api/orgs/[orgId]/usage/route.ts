@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { eq, and, desc, gte } from 'drizzle-orm'
+import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { OrganizationUsageResponse } from 'common/types/organization'
 import { calculateOrganizationUsageAndBalance, syncOrganizationBillingCycle } from '@codebuff/billing'
 
@@ -62,53 +62,53 @@ export async function GET(
     // Get top users by credit usage this cycle
     const topUsers = await db
       .select({
-        user_id: schema.orgUsage.user_id,
+        user_id: schema.message.user_id,
         user_name: schema.user.name,
-        credits_used: schema.orgUsage.credits_used,
+        credits_used: sql<number>`SUM(${schema.message.credits})`,
       })
-      .from(schema.orgUsage)
-      .innerJoin(schema.user, eq(schema.orgUsage.user_id, schema.user.id))
+      .from(schema.message)
+      .innerJoin(schema.user, eq(schema.message.user_id, schema.user.id))
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, startOfCurrentCycle)
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, startOfCurrentCycle)
         )
       )
-      .groupBy(schema.orgUsage.user_id, schema.user.name)
-      .orderBy(desc(schema.orgUsage.credits_used))
+      .groupBy(schema.message.user_id, schema.user.name)
+      .orderBy(desc(sql`SUM(${schema.message.credits})`))
       .limit(10)
 
     // Get recent usage activity
     const recentUsage = await db
       .select({
-        date: schema.orgUsage.created_at,
-        credits_used: schema.orgUsage.credits_used,
-        repository_url: schema.orgUsage.repo_url,
+        date: schema.message.finished_at,
+        credits_used: schema.message.credits,
+        repository_url: schema.message.repo_url,
         user_name: schema.user.name,
       })
-      .from(schema.orgUsage)
-      .innerJoin(schema.user, eq(schema.orgUsage.user_id, schema.user.id))
+      .from(schema.message)
+      .innerJoin(schema.user, eq(schema.message.user_id, schema.user.id))
       .where(
         and(
-          eq(schema.orgUsage.org_id, orgId),
-          gte(schema.orgUsage.created_at, startOfCurrentCycle)
+          eq(schema.message.org_id, orgId),
+          gte(schema.message.finished_at, startOfCurrentCycle)
         )
       )
-      .orderBy(desc(schema.orgUsage.created_at))
+      .orderBy(desc(schema.message.finished_at))
       .limit(50)
 
     const response: OrganizationUsageResponse = {
       currentBalance,
       usageThisCycle,
       topUsers: topUsers.map(user => ({
-        user_id: user.user_id,
+        user_id: user.user_id!,
         user_name: user.user_name || 'Unknown',
         credits_used: user.credits_used,
       })),
       recentUsage: recentUsage.map(usage => ({
         date: usage.date.toISOString(),
         credits_used: usage.credits_used,
-        repository_url: usage.repository_url,
+        repository_url: usage.repository_url || '',
         user_name: usage.user_name || 'Unknown',
       })),
     }
