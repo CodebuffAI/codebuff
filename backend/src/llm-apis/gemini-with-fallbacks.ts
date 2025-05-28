@@ -14,7 +14,7 @@ import { promptClaude, promptClaudeStream, System } from './claude'
 import { promptGemini, promptGeminiStream } from './gemini-api'
 import { promptGemini as promptVertexGemini } from './gemini-vertex-api'
 import { OpenAIMessage, promptOpenAI } from './openai-api'
-import { promptAiSdk_GeminiFormat } from './vercel-ai-sdk/ai-sdk'
+import { promptAiSdk, transformMessages } from './vercel-ai-sdk/ai-sdk'
 
 /**
  * Prompts a Gemini model with fallback logic.
@@ -72,9 +72,8 @@ export async function promptFlashWithFallbacks(
         { model: finetunedVertexModels.ft_filepicker_005 },
         'Using finetuned model for file-picker!'
       )
-      return await promptAiSdk_GeminiFormat(
-        messages as OpenAIMessage[],
-        system,
+      return await promptAiSdk(
+        transformMessages(messages as OpenAIMessage[], system),
         {
           ...geminiOptions,
           model: finetunedVertexModels.ft_filepicker_005,

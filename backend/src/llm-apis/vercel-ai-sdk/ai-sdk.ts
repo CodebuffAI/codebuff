@@ -14,7 +14,6 @@ import {
 import {
   AnthropicModel,
   claudeModels,
-  FinetunedVertexModel,
   finetunedVertexModels,
   geminiModels,
   Model,
@@ -410,39 +409,4 @@ export function transformMessages(
   }
 
   return coreMessages
-}
-
-// TODO: temporary - ideally we'd call promptAiSdkStream directly
-export async function* promptAiSdkStream_GeminiFormat(
-  messages: GeminiMessage[],
-  system: System | undefined,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: FinetunedVertexModel
-    userId: string | undefined
-    maxTokens?: number
-    temperature?: number
-  }
-): AsyncGenerator<string, void, unknown> {
-  const coreMessages = transformMessages(messages, system)
-  yield* promptAiSdkStream(coreMessages, options)
-}
-
-export async function promptAiSdk_GeminiFormat(
-  messages: GeminiMessage[],
-  system: System | undefined,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: FinetunedVertexModel
-    userId: string | undefined
-    maxTokens?: number
-    temperature?: number
-  }
-) {
-  const coreMessages = transformMessages(messages, system)
-  return promptAiSdk(coreMessages, options)
 }
