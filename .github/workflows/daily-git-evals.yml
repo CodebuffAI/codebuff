@@ -53,7 +53,7 @@ jobs:
         continue-on-error: true # Don't fail the workflow if evals encounter errors
 
       - name: Upload trace files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always() # Upload even if the previous step failed
         with:
           name: git-eval-traces-${{ github.run_number }}
