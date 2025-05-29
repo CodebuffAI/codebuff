@@ -47,6 +47,7 @@ import { CREDIT_PRICING } from 'common/src/constants'
 import { useState, useEffect } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
+import { CreditManagementSection } from '@/components/credits/CreditManagementSection'
 
 export default function OrganizationPage() {
   const { data: session, status } = useSession()
@@ -417,6 +418,7 @@ export default function OrganizationPage() {
                       <TeamManagement
                         organizationId={organization.id}
                         userRole={organization.userRole}
+                        noCardWrapper={true}
                       />
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
@@ -470,6 +472,7 @@ export default function OrganizationPage() {
                     <RepositoryManagement
                       organizationId={organization.id}
                       userRole={organization.userRole}
+                      noCardWrapper={true}
                     />
                   </CardContent>
                 </CollapsibleContent>
@@ -519,9 +522,10 @@ export default function OrganizationPage() {
                 <CollapsibleContent>
                   <CardContent className="px-4 pb-4 pt-0">
                     {canManageBilling && organization.hasStripeSubscription ? (
-                      <CreditPurchaseSection
+                      <CreditManagementSection
                         onPurchase={handlePurchaseCredits}
                         isPurchasePending={purchasing || settingUpBilling}
+                        showAutoTopup={false}
                       />
                     ) : organization.hasStripeSubscription ? (
                       <CreditMonitor organizationId={organization.id} />
@@ -588,6 +592,7 @@ export default function OrganizationPage() {
               <TeamManagement
                 organizationId={organization.id}
                 userRole={organization.userRole}
+                noCardWrapper={isMobile}
               />
             )}
 
@@ -596,6 +601,7 @@ export default function OrganizationPage() {
               <RepositoryManagement
                 organizationId={organization.id}
                 userRole={organization.userRole}
+                noCardWrapper={isMobile}
               />
             )}
 
@@ -610,13 +616,14 @@ export default function OrganizationPage() {
                         <CardHeader>
                           <CardTitle className="flex items-center">
                             <CreditCard className="mr-2 h-5 w-5" />
-                            Purchase Credits
+                            Manage Credits
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <CreditPurchaseSection
+                          <CreditManagementSection
                             onPurchase={handlePurchaseCredits}
                             isPurchasePending={purchasing || settingUpBilling}
+                            showAutoTopup={false}
                           />
                         </CardContent>
                       </Card>

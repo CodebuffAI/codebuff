@@ -34,6 +34,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import { AutoTopupSettings } from '@/components/auto-topup/AutoTopupSettings'
 import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
 import { CreditConfetti } from '@/components/ui/credit-confetti'
+import { CreditManagementSection } from '@/components/credits/CreditManagementSection'
 
 type UserProfileKeys =
   | 'handle'
@@ -171,7 +172,6 @@ const ManageCreditsCard = () => {
         <div className="space-y-8">
           {showConfetti && <CreditConfetti amount={purchasedAmount} />}
           <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-bold">Buy Credits</h3>
             <Link
               href={`${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${email}`}
               target="_blank"
@@ -180,16 +180,11 @@ const ManageCreditsCard = () => {
               Billing Portal →
             </Link>
           </div>
-          <CreditPurchaseSection
+          <CreditManagementSection
             onPurchase={(credits) => buyCreditsMutation.mutate(credits)}
-            onSaveAutoTopupSettings={async () => true}
-            isAutoTopupEnabled={false}
-            isAutoTopupPending={false}
-            isPending={false}
             isPurchasePending={buyCreditsMutation.isPending}
+            showAutoTopup={true}
           />
-          <div className="border-t border-border" />
-          <AutoTopupSettings />
         </div>
       </CardContent>
     </Card>

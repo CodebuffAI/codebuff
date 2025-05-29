@@ -43,6 +43,7 @@ import {
 } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 
 interface Member {
   user: {
@@ -66,9 +67,10 @@ interface Invitation {
 interface TeamManagementProps {
   organizationId: string
   userRole: 'owner' | 'admin' | 'member'
+  noCardWrapper?: boolean
 }
 
-export function TeamManagement({ organizationId, userRole }: TeamManagementProps) {
+export function TeamManagement({ organizationId, userRole, noCardWrapper }: TeamManagementProps) {
   const [members, setMembers] = useState<Member[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading, setLoading] = useState(true)
@@ -397,14 +399,14 @@ export function TeamManagement({ organizationId, userRole }: TeamManagementProps
   if (loading) {
     return (
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
+        <Card className={noCardWrapper ? "border-none shadow-none bg-transparent" : ""}>
+          <CardHeader className={noCardWrapper ? "p-0" : ""}>
             <CardTitle className="flex items-center text-base sm:text-lg">
               <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
               Team Management
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className={noCardWrapper ? "p-0" : ""}>
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg">
@@ -425,25 +427,25 @@ export function TeamManagement({ organizationId, userRole }: TeamManagementProps
   return (
     <div className="w-full space-y-4 sm:space-y-6">
       {/* Team Members */}
-      <Card className="w-full">
-        <CardHeader>
+      <Card className={noCardWrapper ? "w-full border-none shadow-none bg-transparent" : "w-full"}>
+        <CardHeader className={noCardWrapper ? "p-0 pt-4" : "pt-4"}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="flex items-center text-base sm:text-lg">
               <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
               Team Members ({members.length})
             </CardTitle>
             {canManageTeam && (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex flex-row items-center gap-2">
                 <Dialog open={bulkInviteDialogOpen} onOpenChange={setBulkInviteDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size={isMobile ? "sm" : "default"} className="w-full sm:w-auto">
+                    <Button variant="outline" size={isMobile ? "sm" : "default"} className="flex-1 sm:flex-none">
                       <UserPlus className="mr-2 h-4 w-4" />
-                      {isMobile ? 'Bulk' : 'Bulk Invite'}
+                      {isMobile ? 'Bulk Add' : 'Bulk Add'}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="w-[95vw] max-w-md mx-auto">
                     <DialogHeader>
-                      <DialogTitle className="text-base sm:text-lg">Bulk Invite Team Members</DialogTitle>
+                      <DialogTitle className="text-base sm:text-lg">Bulk Add Team Members</DialogTitle>
                       <DialogDescription className="text-sm">
                         Send invitations to multiple people at once.
                       </DialogDescription>
@@ -504,7 +506,7 @@ export function TeamManagement({ organizationId, userRole }: TeamManagementProps
                 </Dialog>
                 <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button size={isMobile ? "sm" : "default"} className="w-full sm:w-auto">
+                    <Button size={isMobile ? "sm" : "default"} className="flex-1 sm:flex-none">
                       <Plus className="mr-2 h-4 w-4" />
                       {isMobile ? 'Invite' : 'Invite Member'}
                     </Button>
@@ -571,7 +573,7 @@ export function TeamManagement({ organizationId, userRole }: TeamManagementProps
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className={noCardWrapper ? "p-0 pt-4" : "pt-4"}>
           <div className="space-y-3 sm:space-y-4">
             {members.map((member) => (
               <div key={member.user.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
@@ -603,11 +605,14 @@ export function TeamManagement({ organizationId, userRole }: TeamManagementProps
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuContent 
+                        align={isMobile ? "center" : "end"} 
+                        className={isMobile ? "w-56" : "w-48"}
+                      >
                         {member.role === 'member' && (
                           <DropdownMenuItem
                             onClick={() => handleUpdateMemberRole(member.user.id, 'admin')}
-                            className="text-sm"
+                            className={isMobile ? "text-sm py-3" : "text-sm"}
                           >
                             <Shield className="mr-2 h-4 w-4" />
                             Make Admin
@@ -616,7 +621,7 @@ export function TeamManagement({ organizationId, userRole }: TeamManagementProps
                         {member.role === 'admin' && userRole === 'owner' && (
                           <DropdownMenuItem
                             onClick={() => handleUpdateMemberRole(member.user.id, 'member')}
-                            className="text-sm"
+                            className={isMobile ? "text-sm py-3" : "text-sm"}
                           >
                             <Users className="mr-2 h-4 w-4" />
                             Make Member
@@ -624,7 +629,7 @@ export function TeamManagement({ organizationId, userRole }: TeamManagementProps
                         )}
                         <DropdownMenuItem
                           onClick={() => handleRemoveMember(member.user.id, member.user.name)}
-                          className="text-red-600 text-sm"
+                          className={isMobile ? "text-red-600 text-sm py-3" : "text-red-600 text-sm"}
                         >
                           <UserMinus className="mr-2 h-4 w-4" />
                           Remove Member
@@ -646,14 +651,14 @@ export function TeamManagement({ organizationId, userRole }: TeamManagementProps
 
       {/* Pending Invitations */}
       {invitations.length > 0 && (
-        <Card className="w-full">
-          <CardHeader>
+        <Card className={noCardWrapper ? "w-full border-none shadow-none bg-transparent" : "w-full"}>
+          <CardHeader className={noCardWrapper ? "p-0" : ""}>
             <CardTitle className="flex items-center text-base sm:text-lg">
               <Mail className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
               Pending Invitations ({invitations.length})
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className={noCardWrapper ? "p-0" : ""}>
             <div className="space-y-3 sm:space-y-4">
               {invitations.map((invitation) => {
                 const isExpired = isInvitationExpired(invitation.expires_at)
@@ -695,7 +700,7 @@ export function TeamManagement({ organizationId, userRole }: TeamManagementProps
                             onClick={() => handleResendInvitation(invitation.email)}
                             disabled={isResending}
                             title="Resend invitation"
-                            className="h-8 w-8 p-0"
+                            className={isMobile ? "h-10 w-10 p-0" : "h-8 w-8 p-0"}
                           >
                             <RefreshCw className={`h-4 w-4 ${isResending ? 'animate-spin' : ''}`} />
                           </Button>
@@ -704,7 +709,7 @@ export function TeamManagement({ organizationId, userRole }: TeamManagementProps
                             size="sm"
                             onClick={() => handleCancelInvitation(invitation.email)}
                             title="Cancel invitation"
-                            className="h-8 w-8 p-0"
+                            className={isMobile ? "h-10 w-10 p-0" : "h-8 w-8 p-0"}
                           >
                             <X className="h-4 w-4" />
                           </Button>
