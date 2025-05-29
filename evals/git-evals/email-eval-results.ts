@@ -1,17 +1,6 @@
 import { sendLoopsEmail } from 'backend/src/util/loops'
-import { FullEvalLog } from './git-evals/types'
-
-interface PostEvalAnalysis {
-  summary: string
-  problems: Array<{
-    title: string
-    description: string
-    severity: 'critical' | 'high' | 'medium' | 'low'
-    frequency: number
-    examples: string[]
-  }>
-  recommendations: string[]
-}
+import { FullEvalLog } from './types'
+import { PostEvalAnalysis } from './post-eval-analysis'
 
 /**
  * Formats eval results and analysis into email-friendly content
@@ -96,7 +85,10 @@ ${evalResults
 ${allProblems
   .slice(0, 5)
   .map(
-    (problem, i) => `${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}
+    (
+      problem,
+      i
+    ) => `${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}
    Frequency: ${(problem.frequency * 100).toFixed(1)}%
    ${problem.description.substring(0, 200)}${problem.description.length > 200 ? '...' : ''}`
   )

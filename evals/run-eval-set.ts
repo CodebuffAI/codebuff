@@ -1,8 +1,11 @@
 #!/usr/bin/env bun
 
+import { sendEvalResultsEmail } from './git-evals/email-eval-results'
+import {
+  analyzeEvalResults,
+  PostEvalAnalysis,
+} from './git-evals/post-eval-analysis'
 import { runGitEvals } from './git-evals/run-git-evals'
-import { analyzeEvalResults, PostEvalAnalysis } from './post-eval-analysis'
-import { sendEvalResultsEmail } from './email-sender'
 import { FullEvalLog } from './git-evals/types'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
@@ -63,7 +66,7 @@ async function runEvalSet(
       console.log(
         `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`
       )
-      
+
       // Run post-eval analysis
       console.log(`Running post-eval analysis for ${config.name}...`)
       try {
@@ -73,11 +76,15 @@ async function runEvalSet(
         console.log(`Summary: ${analysis.summary}`)
         console.log(`\nTop Problems:`)
         analysis.problems.slice(0, 5).forEach((problem, i) => {
-          console.log(`${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}`)
+          console.log(
+            `${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}`
+          )
           console.log(`   Frequency: ${(problem.frequency * 100).toFixed(1)}%`)
-          console.log(`   ${problem.description.substring(0, 200)}${problem.description.length > 200 ? '...' : ''}`)
+          console.log(
+            `   ${problem.description.substring(0, 200)}${problem.description.length > 200 ? '...' : ''}`
+          )
         })
-        
+
         results.push({
           name: config.name,
           status: 'success',
@@ -86,7 +93,10 @@ async function runEvalSet(
           duration: evalDuration,
         })
       } catch (analysisError) {
-        console.warn(`⚠️ Post-eval analysis failed for ${config.name}:`, analysisError)
+        console.warn(
+          `⚠️ Post-eval analysis failed for ${config.name}:`,
+          analysisError
+        )
         results.push({
           name: config.name,
           status: 'success',
@@ -158,24 +168,32 @@ async function runEvalSet(
   console.log(`Failure: ${failureCount}/${evalConfigs.length}`)
 
   // Send email summary if we have successful results with analyses
-  const successfulResults = results.filter(r => r.status === 'success' && r.result && r.analysis)
+  const successfulResults = results.filter(
+    (r) => r.status === 'success' && r.result && r.analysis
+  )
   if (successfulResults.length > 0) {
     console.log('\n📧 Sending eval results email...')
     try {
-      const evalResults = successfulResults.map(r => r.result!).filter(Boolean)
-      const analyses = successfulResults.map(r => r.analysis!).filter(Boolean)
-      
+      const evalResults = successfulResults
+        .map((r) => r.result!)
+        .filter(Boolean)
+      const analyses = successfulResults.map((r) => r.analysis!).filter(Boolean)
+
       const emailSent = await sendEvalResultsEmail(evalResults, analyses)
       if (emailSent) {
         console.log('✅ Eval results email sent successfully!')
       } else {
-        console.log('⚠️ Email sending was skipped (likely missing configuration)')
+        console.log(
+          '⚠️ Email sending was skipped (likely missing configuration)'
+        )
       }
     } catch (emailError) {
       console.error('❌ Failed to send eval results email:', emailError)
     }
   } else {
-    console.log('\n📧 Skipping email - no successful results with analyses to send')
+    console.log(
+      '\n📧 Skipping email - no successful results with analyses to send'
+    )
   }
 
   if (failureCount > 0) {
