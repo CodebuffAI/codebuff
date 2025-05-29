@@ -1,5 +1,5 @@
 import { Message } from 'common/types/message'
-import { withCacheControl } from 'common/util/messages'
+import { withCacheControl, withCacheControlCore } from 'common/util/messages'
 
 import { CoreMessage } from 'ai'
 import { AssertionError } from 'assert'
@@ -372,13 +372,7 @@ export function getCoreMessagesSubset(
     )
     return messagesSubset
   }
-  if (!lastMessage.providerOptions) {
-    lastMessage.providerOptions = {}
-  }
-  if (!lastMessage.providerOptions.anthropic) {
-    lastMessage.providerOptions.anthropic = {}
-  }
-  lastMessage.providerOptions.anthropic.cacheControl = { type: 'ephemeral' }
+  messagesSubset[messagesSubset.length - 1] = withCacheControlCore(lastMessage)
 
   return messagesSubset
 }
