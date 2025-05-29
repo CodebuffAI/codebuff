@@ -201,6 +201,7 @@ describe('Organization Billing', () => {
   describe('grantOrganizationCredits', () => {
     it('should create organization credit grant', async () => {
       const organizationId = 'org-123'
+      const userId = 'user-123'
       const amount = 1000
       const operationId = 'test-operation-123'
       const description = 'Test organization credits'
@@ -208,6 +209,7 @@ describe('Organization Billing', () => {
       // Should not throw
       await expect(grantOrganizationCredits(
         organizationId,
+        userId,
         amount,
         operationId,
         description
@@ -230,6 +232,7 @@ describe('Organization Billing', () => {
       }))
 
       const organizationId = 'org-123'
+      const userId = 'user-123'
       const amount = 1000
       const operationId = 'duplicate-operation'
       const description = 'Duplicate test'
@@ -237,6 +240,7 @@ describe('Organization Billing', () => {
       // Should not throw, should handle gracefully
       await expect(grantOrganizationCredits(
         organizationId,
+        userId,
         amount,
         operationId,
         description

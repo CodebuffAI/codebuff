@@ -256,6 +256,7 @@ export async function consumeOrganizationCredits(
  */
 export async function grantOrganizationCredits(
   organizationId: string,
+  userId: string,
   amount: number,
   operationId: string,
   description: string = 'Organization credit purchase',
@@ -266,7 +267,7 @@ export async function grantOrganizationCredits(
   try {
     await db.insert(schema.creditLedger).values({
       operation_id: operationId,
-      user_id: '', // Organizations don't have a user_id, but column is required
+      user_id: userId, // The user who initiated the purchase
       org_id: organizationId,
       principal: amount,
       balance: amount,
@@ -278,14 +279,14 @@ export async function grantOrganizationCredits(
     })
 
     logger.info(
-      { organizationId, operationId, amount, expiresAt },
+      { organizationId, userId, operationId, amount, expiresAt },
       'Created new organization credit grant'
     )
   } catch (error: any) {
     // Check if this is a unique constraint violation on operation_id
     if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
       logger.info(
-        { organizationId, operationId, amount },
+        { organizationId, userId, operationId, amount },
         'Skipping duplicate organization credit grant due to idempotency check'
       )
       return // Exit successfully, another concurrent request already created this grant

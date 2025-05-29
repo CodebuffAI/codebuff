@@ -6,6 +6,7 @@ export interface CreditManagementSectionProps {
   isPurchasePending: boolean
   showAutoTopup?: boolean
   className?: string
+  isOrganization?: boolean
 }
 
 export function CreditManagementSection({
@@ -13,6 +14,7 @@ export function CreditManagementSection({
   isPurchasePending,
   showAutoTopup = true,
   className,
+  isOrganization = false,
 }: CreditManagementSectionProps) {
   return (
     <div className={className}>
@@ -23,6 +25,7 @@ export function CreditManagementSection({
         <CreditPurchaseSection
           onPurchase={onPurchase}
           isPurchasePending={isPurchasePending}
+          isOrganization={isOrganization}
         />
         {showAutoTopup && (
           <>

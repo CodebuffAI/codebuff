@@ -334,8 +334,12 @@ async function processOrgAutoTopupPayment(
     throw new AutoTopupPaymentError('Payment failed or requires action')
   }
 
+  // Use a system user ID for auto-topup since there's no specific user initiating this
+  const systemUserId = 'system-auto-topup'
+  
   await grantOrganizationCredits(
     organizationId,
+    systemUserId,
     amountToTopUp,
     operationId,
     `Organization auto top-up of ${amountToTopUp.toLocaleString()} credits`,

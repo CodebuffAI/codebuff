@@ -118,8 +118,23 @@ export default function OrganizationPage() {
         throw new Error(error.error || 'Failed to initiate credit purchase')
       }
 
-      const { checkout_url } = await response.json()
-      window.location.href = checkout_url
+      const responseData = await response.json()
+
+      if (responseData.direct_charge && responseData.success) {
+        // Direct charge was successful - show success message and refresh data
+        toast({
+          title: 'Credits Purchased!',
+          description: `${responseData.credits.toLocaleString()} credits have been added to your organization.`,
+        })
+        // Optionally refresh organization data here
+        window.location.reload()
+      } else if (responseData.checkout_url) {
+        // Redirect to Stripe Checkout
+        window.location.href = responseData.checkout_url
+      } else {
+        // Handle unexpected response
+        throw new Error('Unexpected response from server.')
+      }
     } catch (error) {
       toast({
         title: 'Error',
@@ -376,7 +391,7 @@ export default function OrganizationPage() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
           {/* Members Card - Collapsible */}
           <Collapsible
             open={activeSection === 'members'}
@@ -526,6 +541,7 @@ export default function OrganizationPage() {
                         onPurchase={handlePurchaseCredits}
                         isPurchasePending={purchasing || settingUpBilling}
                         showAutoTopup={false}
+                        isOrganization={true}
                       />
                     ) : organization.hasStripeSubscription ? (
                       <CreditMonitor organizationId={organization.id} />
@@ -542,46 +558,6 @@ export default function OrganizationPage() {
               )}
             </Card>
           </Collapsible>
-
-          {/* Billing Status Card - Links to appropriate billing page */}
-          <Link
-            href={
-              organization.hasStripeSubscription
-                ? `/orgs/${orgSlug}/settings`
-                : `/orgs/${orgSlug}/billing/purchase`
-            }
-          >
-            <Card className="hover:shadow-lg hover:border-primary transition-all duration-200 cursor-pointer transform hover:scale-105">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Billing Status
-                </CardTitle>
-                {organization.hasStripeSubscription ? (
-                  organization.creditBalance > 0 ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-orange-600" />
-                  )
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-orange-600" />
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm font-medium">
-                  {organization.hasStripeSubscription
-                    ? organization.creditBalance > 0
-                      ? 'Active'
-                      : 'No Credits'
-                    : 'Not Set Up'}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {organization.hasStripeSubscription
-                    ? 'View billing settings'
-                    : 'Set up billing'}
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
         </div>
 
         {/* Desktop: Management Components Below Cards */}
@@ -624,6 +600,7 @@ export default function OrganizationPage() {
                             onPurchase={handlePurchaseCredits}
                             isPurchasePending={purchasing || settingUpBilling}
                             showAutoTopup={false}
+                            isOrganization={true}
                           />
                         </CardContent>
                       </Card>

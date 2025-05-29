@@ -118,8 +118,23 @@ export default function OrganizationBillingPurchasePage() {
         throw new Error(error.error || 'Failed to initiate credit purchase')
       }
 
-      const { checkout_url } = await response.json()
-      window.location.href = checkout_url
+      const responseData = await response.json()
+
+      if (responseData.direct_charge && responseData.success) {
+        // Direct charge was successful - show success message and refresh data
+        toast({
+          title: 'Credits Purchased!',
+          description: `${responseData.credits.toLocaleString()} credits have been added to your organization.`,
+        })
+        // Optionally refresh organization data here
+        window.location.reload()
+      } else if (responseData.checkout_url) {
+        // Redirect to Stripe Checkout
+        window.location.href = responseData.checkout_url
+      } else {
+        // Handle unexpected response
+        throw new Error('Unexpected response from server.')
+      }
     } catch (error) {
       toast({
         title: 'Error',
@@ -284,6 +299,7 @@ export default function OrganizationBillingPurchasePage() {
             <CreditPurchaseSection
               onPurchase={handlePurchaseCredits}
               isPurchasePending={purchasing || settingUpBilling}
+              isOrganization={true}
             />
 
             {!billingStatus?.is_setup && (

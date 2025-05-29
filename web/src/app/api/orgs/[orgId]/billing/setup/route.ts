@@ -183,6 +183,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         organization_id: orgId,
         type: 'subscription_setup',
       },
+      subscription_data: {
+        metadata: {
+          organization_id: orgId,
+        },
+      },
     })
 
     if (!checkoutSession.url) {

@@ -25,77 +25,101 @@ async function handleCheckoutSessionCompleted(
 ) {
   const sessionId = session.id
   const metadata = session.metadata
+  const organizationId = metadata?.organization_id
 
-  // Handle billing setup completion
-  if (metadata?.type === 'billing_setup' && metadata?.organization_id) {
-    const organizationId = metadata.organization_id
+  logger.debug(
+    { sessionId, metadata },
+    'Entering handleCheckoutSessionCompleted'
+  )
 
-    try {
-      // Get the setup intent from the session
-      if (session.setup_intent && typeof session.setup_intent === 'string') {
-        const setupIntent = await stripeServer.setupIntents.retrieve(session.setup_intent)
-        
-        if (setupIntent.payment_method && typeof setupIntent.payment_method === 'string') {
-          // Set the payment method as default for the customer
-          await stripeServer.customers.update(session.customer as string, {
+  // Handle subscription setup completion
+  if (
+    organizationId &&
+    session.subscription &&
+    typeof session.subscription === 'string'
+  ) {
+    logger.debug(
+      { sessionId, subscriptionId: session.subscription },
+      'Updating organization with subscription ID'
+    )
+    // Update organization with subscription ID
+    await db
+      .update(schema.org)
+      .set({
+        stripe_subscription_id: session.subscription,
+        updated_at: new Date(),
+      })
+      .where(eq(schema.org.id, organizationId))
+
+    // Set the first payment method as default if available
+    if (session.customer && typeof session.customer === 'string') {
+      try {
+        logger.debug(
+          { sessionId, customerId: session.customer },
+          'Checking for payment methods to set as default'
+        )
+
+        const paymentMethods = await stripeServer.paymentMethods.list({
+          customer: session.customer,
+        })
+
+        if (paymentMethods.data.length > 0) {
+          const firstPaymentMethod = paymentMethods.data[0]
+
+          logger.debug(
+            { sessionId, paymentMethodId: firstPaymentMethod.id },
+            'Setting first payment method as default for organization'
+          )
+
+          await stripeServer.customers.update(session.customer, {
             invoice_settings: {
-              default_payment_method: setupIntent.payment_method,
+              default_payment_method: firstPaymentMethod.id,
             },
           })
 
           logger.info(
-            { 
-              sessionId, 
-              organizationId, 
+            {
+              sessionId,
+              organizationId,
               customerId: session.customer,
-              paymentMethodId: setupIntent.payment_method 
+              paymentMethodId: firstPaymentMethod.id,
+              subscriptionId: session.subscription,
             },
-            'Successfully set up billing for organization'
+            'Successfully set first payment method as default for organization subscription'
+          )
+        } else {
+          logger.warn(
+            { sessionId, organizationId, customerId: session.customer },
+            'No payment methods found for organization customer'
           )
         }
-      }
-    } catch (error) {
-      logger.error(
-        { sessionId, organizationId, error },
-        'Failed to complete billing setup for organization'
-      )
-    }
-    return
-  }
-
-  // Handle subscription setup completion
-  if (metadata?.type === 'subscription_setup' && metadata?.organization_id) {
-    const organizationId = metadata.organization_id
-
-    try {
-      // Get the subscription from the session
-      if (session.subscription && typeof session.subscription === 'string') {
-        // Update organization with subscription ID
-        await db
-          .update(schema.org)
-          .set({ 
-            stripe_subscription_id: session.subscription,
-            updated_at: new Date(),
-          })
-          .where(eq(schema.org.id, organizationId))
-
-        logger.info(
-          { 
-            sessionId, 
-            organizationId, 
-            customerId: session.customer,
-            subscriptionId: session.subscription 
-          },
-          'Successfully set up subscription for organization'
+      } catch (paymentMethodError) {
+        logger.warn(
+          { sessionId, organizationId, error: paymentMethodError },
+          'Failed to set default payment method for organization subscription, but subscription was created'
         )
       }
-    } catch (error) {
-      logger.error(
-        { sessionId, organizationId, error },
-        'Failed to complete subscription setup for organization'
+    } else {
+      logger.warn(
+        { sessionId, organizationId, subscriptionId: session.subscription },
+        'No customer ID found in subscription checkout session'
       )
     }
-    return
+
+    logger.info(
+      {
+        sessionId,
+        organizationId,
+        customerId: session.customer,
+        subscriptionId: session.subscription,
+      },
+      'Successfully set up subscription for organization'
+    )
+  } else {
+    logger.warn(
+      { sessionId },
+      'No subscription ID found in session for subscription_setup'
+    )
   }
 
   // Handle user credit purchases
@@ -105,6 +129,7 @@ async function handleCheckoutSessionCompleted(
     metadata?.credits &&
     metadata?.operationId
   ) {
+    logger.debug({ sessionId, metadata }, 'Handling user credit purchase')
     const userId = metadata.userId
     const credits = parseInt(metadata.credits, 10)
     const operationId = metadata.operationId
@@ -135,29 +160,43 @@ async function handleCheckoutSessionCompleted(
   else if (
     metadata?.grantType === 'organization_purchase' &&
     metadata?.organizationId &&
+    metadata?.userId &&
     metadata?.credits &&
     metadata?.operationId
   ) {
+    logger.debug(
+      { sessionId, metadata },
+      'Handling organization credit purchase'
+    )
     const organizationId = metadata.organizationId
+    const userId = metadata.userId
     const credits = parseInt(metadata.credits, 10)
     const operationId = metadata.operationId
     const paymentStatus = session.payment_status
 
     if (paymentStatus === 'paid') {
       logger.info(
-        { sessionId, organizationId, credits, operationId },
+        { sessionId, organizationId, userId, credits, operationId },
         'Checkout session completed and paid for organization credit purchase.'
       )
 
       await grantOrganizationCredits(
         organizationId,
+        userId, // Pass the user who initiated the purchase
         credits,
         operationId,
         `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`
       )
     } else {
       logger.warn(
-        { sessionId, organizationId, credits, operationId, paymentStatus },
+        {
+          sessionId,
+          organizationId,
+          userId,
+          credits,
+          operationId,
+          paymentStatus,
+        },
         "Checkout session completed but payment status is not 'paid'. No organization credits granted."
       )
     }
