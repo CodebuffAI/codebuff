@@ -68,7 +68,9 @@ const OrganizationsPage = () => {
               <CardTitle>Sign in Required</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">Please sign in to manage your organizations.</p>
+              <p className="mb-4">
+                Please sign in to manage your organizations.
+              </p>
               <Link href="/login">
                 <Button>Sign In</Button>
               </Link>
@@ -89,12 +91,14 @@ const OrganizationsPage = () => {
               Manage your organizations and team billing
             </p>
           </div>
-          <Link href="/orgs/new" className="sm:flex-shrink-0">
-            <Button className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Organization
-            </Button>
-          </Link>
+          {!loading && organizations.length > 0 && (
+            <Link href="/orgs/new" className="sm:flex-shrink-0">
+              <Button className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Organization
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Organizations Grid */}
@@ -145,16 +149,51 @@ const OrganizationsPage = () => {
               </Link>
             ))
           ) : (
-            // Empty state
-            <Card className="border-dashed border-2 border-gray-300 hover:border-gray-400 transition-colors">
+            // Empty state with integrated features
+            <Card className="border-dashed border-2 border-gray-300 hover:border-gray-400 transition-colors col-span-full">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Users className="h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Organizations Yet</h3>
-                <p className="text-sm text-muted-foreground text-center mb-4">
-                  Create your first organization to start managing team billing and repositories.
-                </p>
+                <h3 className="text-lg font-semibold mb-2">
+                  No Organization Yet
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl mx-auto mb-6 pt-4">
+                  <div>
+                    <h4 className="font-semibold mb-3">
+                      What are Organizations?
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Share billing and manage repository access across your
+                      team. Credits are consumed from the organization's balance
+                      instead of your personal account.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold mb-3">Key Features:</h4>
+                    <ul className="text-sm text-muted-foreground space-y-2">
+                      <li className="flex items-center">
+                        <CreditCard className="mr-2 h-4 w-4 text-blue-500" />
+                        Shared credit pools for team projects
+                      </li>
+                      <li className="flex items-center">
+                        <Building2 className="mr-2 h-4 w-4 text-blue-500" />
+                        Repository-based billing delegation
+                      </li>
+                      <li className="flex items-center">
+                        <Users className="mr-2 h-4 w-4 text-blue-500" />
+                        Member management and permissions
+                      </li>
+                      <li className="flex items-center">
+                        <Settings className="mr-2 h-4 w-4 text-blue-500" />
+                        Usage tracking and analytics
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
                 <Link href="/orgs/new">
-                  <Button variant="outline">
+                  <Button>
                     <Plus className="mr-2 h-4 w-4" />
                     Create Organization
                   </Button>
@@ -162,47 +201,6 @@ const OrganizationsPage = () => {
               </CardContent>
             </Card>
           )}
-        </div>
-
-        {/* Info Section */}
-        <div className="mt-12">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <CreditCard className="mr-2 h-5 w-5" />
-                Organization Billing
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Organizations allow you to manage billing and repository access for your team. 
-                  When you work on repositories associated with an organization, credits will be 
-                  consumed from the organization's balance instead of your personal credits.
-                </p>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <h4 className="font-semibold">Features:</h4>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Shared credit pools for team projects</li>
-                      <li>• Repository-based billing delegation</li>
-                      <li>• Member management and permissions</li>
-                      <li>• Usage tracking and analytics</li>
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-semibold">Getting Started:</h4>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Create an organization</li>
-                      <li>• Add team members</li>
-                      <li>• Associate repositories</li>
-                      <li>• Purchase organization credits</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

@@ -5,7 +5,9 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { CreateOrganizationRequest, ListOrganizationsResponse } from 'common/types/organization'
-import { generateOperationIdTimestamp } from '@codebuff/billing'
+import { stripeServer } from 'common/util/stripe'
+import { env } from 'common/src/env.mjs'
+import { logger } from '@/util/logger'
 
 function validateOrganizationName(name: string): string | null {
   if (!name || !name.trim()) {
@@ -159,6 +161,46 @@ export async function POST(request: NextRequest) {
       user_id: session.user.id,
       role: 'owner',
     })
+
+    // Create Stripe customer if needed
+    let stripeCustomerId = null
+    if (env.STRIPE_SECRET_KEY) {
+      try {
+        const customer = await stripeServer.customers.create({
+          name: newOrg.name,
+          email: session.user.email ?? undefined,
+          metadata: {
+            organization_id: newOrg.id,
+            type: 'organization',
+          },
+        })
+        stripeCustomerId = customer.id
+
+        // Update organization with Stripe customer ID
+        await db
+          .update(schema.org)
+          .set({ 
+            stripe_customer_id: stripeCustomerId,
+            updated_at: new Date(),
+          })
+          .where(eq(schema.org.id, newOrg.id))
+
+        logger.info(
+          { 
+            organizationId: newOrg.id, 
+            stripeCustomerId,
+            customerEmail: session.user.email
+          },
+          'Created Stripe customer for new organization'
+        )
+      } catch (error) {
+        logger.error(
+          { organizationId: newOrg.id, error },
+          'Failed to create Stripe customer for organization'
+        )
+        // Continue without Stripe setup - organization can still be created
+      }
+    }
 
     return NextResponse.json(newOrg, { status: 201 })
   } catch (error) {

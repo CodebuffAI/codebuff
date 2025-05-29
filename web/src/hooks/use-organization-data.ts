@@ -11,7 +11,9 @@ export interface OrganizationDetails {
   userRole: 'owner' | 'admin' | 'member'
   memberCount: number
   repositoryCount: number
-  creditBalance?: number
+  creditBalance: number // Made non-optional since API always provides a value
+  hasStripeSubscription: boolean
+  stripeSubscriptionId?: string
 }
 
 export interface BillingStatus {

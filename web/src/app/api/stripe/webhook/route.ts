@@ -63,6 +63,41 @@ async function handleCheckoutSessionCompleted(
     return
   }
 
+  // Handle subscription setup completion
+  if (metadata?.type === 'subscription_setup' && metadata?.organization_id) {
+    const organizationId = metadata.organization_id
+
+    try {
+      // Get the subscription from the session
+      if (session.subscription && typeof session.subscription === 'string') {
+        // Update organization with subscription ID
+        await db
+          .update(schema.org)
+          .set({ 
+            stripe_subscription_id: session.subscription,
+            updated_at: new Date(),
+          })
+          .where(eq(schema.org.id, organizationId))
+
+        logger.info(
+          { 
+            sessionId, 
+            organizationId, 
+            customerId: session.customer,
+            subscriptionId: session.subscription 
+          },
+          'Successfully set up subscription for organization'
+        )
+      }
+    } catch (error) {
+      logger.error(
+        { sessionId, organizationId, error },
+        'Failed to complete subscription setup for organization'
+      )
+    }
+    return
+  }
+
   // Handle user credit purchases
   if (
     metadata?.grantType === 'purchase' &&

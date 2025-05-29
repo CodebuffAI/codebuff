@@ -9,7 +9,8 @@
     {
       "name": "web-server",
       "command": "bun start-web",
-      "stdoutFile": "debug/web.log"
+      "stdoutFile": "debug/web.log",
+      "enabled": false
     },
     {
       "name": "typechecker",

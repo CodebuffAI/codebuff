@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { ArrowLeft, Building2, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
+import { OrganizationSuccessModal } from '@/components/organization/organization-success-modal'
 
 const CreateOrganizationPage = () => {
   const { data: session, status } = useSession()
@@ -21,26 +22,31 @@ const CreateOrganizationPage = () => {
     description: '',
   })
   const [nameError, setNameError] = useState('')
+  const [successModalOpen, setSuccessModalOpen] = useState(false)
+  const [createdOrganization, setCreatedOrganization] = useState<{
+    name: string
+    slug: string
+  } | null>(null)
 
   const validateName = (name: string) => {
     if (!name.trim()) {
       return 'Organization name is required'
     }
-    
+
     if (name.length < 3) {
       return 'Organization name must be at least 3 characters long'
     }
-    
+
     if (name.length > 50) {
       return 'Organization name must be no more than 50 characters long'
     }
-    
-    // Allow alphanumeric characters, spaces, hyphens, underscores, and periods
-    const validNameRegex = /^[a-zA-Z0-9\s\-_.]+$/
+
+    // Allow alphanumeric characters, spaces, hyphens, and underscores (no periods)
+    const validNameRegex = /^[a-zA-Z0-9\s\-_]+$/
     if (!validNameRegex.test(name)) {
-      return 'Organization name can only contain letters, numbers, spaces, hyphens, underscores, and periods'
+      return 'Organization name can only contain letters, numbers, spaces, hyphens, and underscores'
     }
-    
+
     return ''
   }
 
@@ -52,7 +58,7 @@ const CreateOrganizationPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     const nameValidationError = validateName(formData.name)
     if (nameValidationError) {
       setNameError(nameValidationError)
@@ -83,19 +89,27 @@ const CreateOrganizationPage = () => {
       }
 
       const organization = await response.json()
-      toast({
-        title: 'Success',
-        description: 'Organization created successfully',
-      })
-      router.push(`/orgs/${organization.id}`)
+      
+      // Show success modal first, then navigate when user clicks "Get Started"
+      setCreatedOrganization(organization)
+      setSuccessModalOpen(true)
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create organization',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to create organization',
         variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleContinueToOrganization = () => {
+    if (createdOrganization) {
+      router.push(`/orgs/${createdOrganization.slug}`)
     }
   }
 
@@ -154,7 +168,9 @@ const CreateOrganizationPage = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Organization Name *</Label>
+                <Label htmlFor="name">
+                  Organization Name <span className="text-red-500 text-xs">(required)</span>
+                </Label>
                 <Input
                   id="name"
                   type="text"
@@ -169,7 +185,8 @@ const CreateOrganizationPage = () => {
                   <p className="text-sm text-red-600">{nameError}</p>
                 )}
                 <p className="text-sm text-muted-foreground">
-                  3-50 characters. Letters, numbers, spaces, hyphens, underscores, and periods allowed.
+                  3-50 characters. Letters, numbers, spaces, hyphens,
+                  and underscores allowed.
                 </p>
               </div>
 
@@ -178,26 +195,31 @@ const CreateOrganizationPage = () => {
                 <textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe your organization (optional)"
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  placeholder="Brief description of your organization"
                   rows={3}
                   disabled={isLoading}
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
-                <p className="text-sm text-muted-foreground">
-                  Optional description to help team members understand the organization's purpose
-                </p>
               </div>
 
               <div className="border-t pt-6">
                 <div className="flex justify-end space-x-4">
                   <Link href="/orgs">
-                    <Button type="button" variant="outline" disabled={isLoading}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isLoading}
+                    >
                       Cancel
                     </Button>
                   </Link>
                   <Button type="submit" disabled={isLoading || !!nameError}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isLoading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
                     Create Organization
                   </Button>
                 </div>
@@ -206,24 +228,12 @@ const CreateOrganizationPage = () => {
           </CardContent>
         </Card>
 
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">What happens next?</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p>After creating your organization, you'll be able to:</p>
-                <ul className="space-y-1 ml-4">
-                  <li>• Invite team members to join</li>
-                  <li>• Associate repositories with the organization</li>
-                  <li>• Purchase credits for the organization</li>
-                  <li>• Monitor usage and billing</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <OrganizationSuccessModal
+          open={successModalOpen}
+          onOpenChange={setSuccessModalOpen}
+          organizationName={createdOrganization?.name || ''}
+          onContinue={handleContinueToOrganization}
+        />
       </div>
     </div>
   )

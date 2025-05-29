@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     // Check if user has access to this organization
     const membership = await db
-      .select({ 
+      .select({
         role: schema.orgMember.role,
         organization: schema.org,
       })
@@ -41,14 +41,20 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const { role, organization } = membership[0]
 
     // Check if user has permission to manage billing
     if (role !== 'owner' && role !== 'admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
     }
 
     // Check if billing is already set up
@@ -61,7 +67,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         })
         isSetup = paymentMethods.data.length > 0
       } catch (error) {
-        logger.warn({ orgId, error }, 'Failed to check existing payment methods')
+        logger.warn(
+          { orgId, error },
+          'Failed to check existing payment methods'
+        )
       }
     }
 
@@ -73,7 +82,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       },
     })
   } catch (error: any) {
-    logger.error({ error: error.message, orgId }, 'Failed to get billing setup status')
+    logger.error(
+      { error: error.message, orgId },
+      'Failed to get billing setup status'
+    )
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -92,7 +104,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     // Check if user has access to this organization and get org details
     const membership = await db
-      .select({ 
+      .select({
         role: schema.orgMember.role,
         organization: schema.org,
       })
@@ -107,14 +119,20 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const { role, organization } = membership[0]
 
     // Check if user has permission to setup billing
     if (role !== 'owner' && role !== 'admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
     }
 
     let stripeCustomerId = organization.stripe_customer_id
@@ -134,7 +152,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       // Update organization with Stripe customer ID
       await db
         .update(schema.org)
-        .set({ 
+        .set({
           stripe_customer_id: stripeCustomerId,
           updated_at: new Date(),
         })
@@ -146,16 +164,24 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Create Stripe Checkout session in setup mode
+    // Create Stripe Checkout session for subscription
     const checkoutSession = await stripeServer.checkout.sessions.create({
       customer: stripeCustomerId,
-      mode: 'setup',
-      payment_method_types: ['card'],
-      success_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.id}?billing_setup=success`,
-      cancel_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.id}/billing/setup?canceled=true`,
+      mode: 'subscription',
+      line_items: [
+        // {
+        //   price: env.STRIPE_TEAM_USAGE_PRICE_ID,
+        // },
+        {
+          price: env.STRIPE_TEAM_FEE_PRICE_ID,
+          quantity: 1,
+        },
+      ],
+      success_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}?subscription_success=true`,
+      cancel_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}?subscription_canceled=true`,
       metadata: {
         organization_id: orgId,
-        type: 'billing_setup',
+        type: 'subscription_setup',
       },
     })
 
