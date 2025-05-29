@@ -88,17 +88,17 @@ jobs:
         run: |
           cd npm-app
           # Run the process in background and capture its PID
-          bun run start-js &
+          bun run start-js > /dev/null 2>&1 &
           PID=$!
           
-          # Wait a short time for potential crashes
-          sleep 0.5
+          # Wait for it to start up
+          sleep 10
           
           # Check if process is still running
           if kill -0 $PID 2>/dev/null; then
             echo "✅ Process started successfully and is running"
-            # Kill the process since it's working
-            kill $PID 2>/dev/null || true
+            # Kill the process since it's working (suppress output)
+            kill -TERM $PID 2>/dev/null || true
             wait $PID 2>/dev/null || true
             exit 0
           else
