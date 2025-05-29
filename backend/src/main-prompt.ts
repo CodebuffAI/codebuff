@@ -514,7 +514,7 @@ export const mainPrompt = async (
   const debugPromptCaching = false
   if (debugPromptCaching) {
     // Store the agent request to a file for debugging
-    await saveAgentRequest(agentMessages, system, promptId)
+    await saveAgentRequest(transformMessages(agentMessages, system), promptId)
   }
 
   logger.debug(

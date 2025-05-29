@@ -1,3 +1,4 @@
+import { CoreMessage } from 'ai'
 import { Message } from '../types/message'
 
 interface ScreenshotRef {
@@ -48,6 +49,18 @@ export function toContentString(msg: Message): string {
   return content.map((item) => (item as any)?.text ?? '').join('\n')
 }
 
+export function withCacheControlCore(msg: CoreMessage): CoreMessage {
+  const message = { ...msg }
+  if (!message.providerOptions) {
+    message.providerOptions = {}
+  }
+  if (!message.providerOptions.anthropic) {
+    message.providerOptions.anthropic = {}
+  }
+  message.providerOptions.anthropic.cacheControl = { type: 'ephemeral' }
+  return message
+}
+
 export function withCacheControl(msg: Message): Message {
   if (typeof msg.content === 'string') {
     return {
@@ -73,14 +86,14 @@ export function withCacheControl(msg: Message): Message {
 }
 
 export function removeCache(messages: Message[]): Message[] {
-  return messages.map(msg => {
+  return messages.map((msg) => {
     if (typeof msg.content === 'object' && Array.isArray(msg.content)) {
       return {
         ...msg,
-        content: msg.content.map(item => {
+        content: msg.content.map((item) => {
           const { cache_control, ...rest } = item
           return rest
-        })
+        }),
       }
     }
     return msg
