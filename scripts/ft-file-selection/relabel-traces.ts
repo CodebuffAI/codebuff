@@ -8,6 +8,7 @@ import { claudeModels, models } from 'common/constants'
 import { Message } from 'common/types/message'
 import { generateCompactId } from 'common/util/string'
 
+import { transformMessages } from 'backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { promptClaude, System } from '../../backend/src/llm-apis/claude'
 
 // Models we want to test
@@ -68,8 +69,7 @@ async function runTraces() {
                 })
               } else {
                 output = await promptFlashWithFallbacks(
-                  messages as Message[],
-                  system as System,
+                  transformMessages(messages as Message[], system as System),
                   {
                     model: model as typeof models.gemini2_5_pro_exp,
                     clientSessionId: 'relabel-trace-run',

@@ -24,6 +24,7 @@ import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
 import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
+import { transformMessages } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
 import { getMessagesSubset } from '@/util/messages'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
@@ -252,15 +253,18 @@ async function getRelevantFiles(
     bufferTokens
   )
   const start = performance.now()
-  let response = await promptFlashWithFallbacks(messagesWithPrompt, system, {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    model: models.gemini2flash,
-    userId,
-    costMode,
-    useFinetunedModel: true,
-  })
+  let response = await promptFlashWithFallbacks(
+    transformMessages(messagesWithPrompt, system),
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.gemini2flash,
+      userId,
+      costMode,
+      useFinetunedModel: true,
+    }
+  )
   const end = performance.now()
   const duration = end - start
 
@@ -563,8 +567,7 @@ async function secondPassFindAdditionalFiles(
     },
   ]
   const additionalFilesResponse = await promptFlashWithFallbacks(
-    messages,
-    system,
+    transformMessages(messages, system),
     {
       clientSessionId,
       fingerprintId,

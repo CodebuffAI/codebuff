@@ -8,6 +8,7 @@ import { getToolCallString } from 'common/src/constants/tools'
 import { z } from 'zod'
 
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { transformMessages } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
 const tools = [
@@ -759,7 +760,7 @@ Please rewrite the entire context using the update instructions in a <new_contex
       content: '<new_context>',
     },
   ]
-  const response = await promptFlashWithFallbacks(messages, undefined, {
+  const response = await promptFlashWithFallbacks(transformMessages(messages), {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',
@@ -1003,7 +1004,7 @@ export async function summarizeOutput(xml: string): Promise<string> {
     },
   ]
 
-  return promptFlashWithFallbacks(messages, undefined, {
+  return promptFlashWithFallbacks(transformMessages(messages), {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',

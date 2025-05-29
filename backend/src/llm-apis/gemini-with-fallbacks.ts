@@ -5,15 +5,10 @@ import {
   GeminiModel,
   openaiModels,
 } from 'common/constants'
-import { Message } from 'common/types/message'
 
+import { CoreMessage } from 'ai'
 import { logger } from '../util/logger'
-import { messagesWithSystem } from '../util/messages'
-import { promptClaude, System } from './claude'
-import { promptGemini } from './gemini-api'
-import { promptGemini as promptVertexGemini } from './gemini-vertex-api'
-import { OpenAIMessage, promptOpenAI } from './openai-api'
-import { promptAiSdk, transformMessages } from './vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
 
 /**
  * Prompts a Gemini model with fallback logic.
@@ -41,8 +36,7 @@ import { promptAiSdk, transformMessages } from './vercel-ai-sdk/ai-sdk'
  * @throws If all API calls (primary and fallbacks) fail.
  */
 export async function promptFlashWithFallbacks(
-  messages: Message[],
-  system: System | undefined,
+  messages: CoreMessage[],
   options: {
     clientSessionId: string
     fingerprintId: string
@@ -71,13 +65,10 @@ export async function promptFlashWithFallbacks(
         { model: finetunedVertexModels.ft_filepicker_005 },
         'Using finetuned model for file-picker!'
       )
-      return await promptAiSdk(
-        transformMessages(messages as OpenAIMessage[], system),
-        {
-          ...geminiOptions,
-          model: finetunedVertexModels.ft_filepicker_005,
-        }
-      )
+      return await promptAiSdk(messages, {
+        ...geminiOptions,
+        model: finetunedVertexModels.ft_filepicker_005,
+      })
     } catch (error) {
       logger.warn(
         { error },
@@ -88,48 +79,22 @@ export async function promptFlashWithFallbacks(
 
   try {
     // First try Gemini
-    return await promptGemini(
-      system
-        ? messagesWithSystem(messages, system)
-        : (messages as OpenAIMessage[]),
-      geminiOptions
-    )
+    return await promptAiSdk(messages, geminiOptions)
   } catch (error) {
     logger.warn(
       { error },
-      'Error calling Gemini API, falling back to Vertex Gemini'
+      `Error calling Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`
     )
-    try {
-      // Then try Vertex Gemini
-      return await promptVertexGemini(
-        messages as OpenAIMessage[],
-        system,
-        geminiOptions
-      )
-    } catch (error) {
-      logger.warn(
-        { error },
-        `Error calling Vertex Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`
-      )
-      if (useGPT4oInsteadOfClaude) {
-        return await promptOpenAI(messages as OpenAIMessage[], {
-          model: openaiModels.gpt4o,
-          clientSessionId: options.clientSessionId,
-          fingerprintId: options.fingerprintId,
-          userInputId: options.userInputId,
-          userId: options.userId,
-          temperature: options.temperature,
-        })
-      }
-      // Finally fall back to Claude
-      return await promptClaude(messages, {
-        model: costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku,
-        system,
-        clientSessionId: options.clientSessionId,
-        fingerprintId: options.fingerprintId,
-        userInputId: options.userInputId,
-        userId: options.userId,
-      })
-    }
+    return await promptAiSdk(messages, {
+      ...geminiOptions,
+      model: useGPT4oInsteadOfClaude
+        ? openaiModels.gpt4o
+        : {
+            lite: claudeModels.haiku,
+            normal: claudeModels.haiku,
+            max: claudeModels.sonnet,
+            experimental: claudeModels.haiku,
+          }[costMode ?? 'normal'],
+    })
   }
 }

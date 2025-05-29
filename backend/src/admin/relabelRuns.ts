@@ -173,8 +173,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
               })
             } else if (model.startsWith('gemini')) {
               output = await promptFlashWithFallbacks(
-                messages as Message[],
-                system as System,
+                transformMessages(messages as Message[], system as System),
                 {
                   model: model as typeof geminiModels.gemini2_5_pro_exp,
                   clientSessionId: 'relabel-trace-api',

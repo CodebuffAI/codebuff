@@ -3,6 +3,7 @@ import { Message } from 'common/types/message'
 
 import { System } from '@/llm-apis/claude'
 import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
+import { transformMessages } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
 import { getMessagesSubset } from '@/util/messages'
 
 export const checkNewFilesNecessary = async (
@@ -49,11 +50,13 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
 
   const bufferTokens = 100_000
   const response = await promptFlashWithFallbacks(
-    getMessagesSubset(
-      [...messages, { role: 'user', content: prompt }],
-      bufferTokens
+    transformMessages(
+      getMessagesSubset(
+        [...messages, { role: 'user', content: prompt }],
+        bufferTokens
+      ),
+      systemWithCodebuffInfo
     ),
-    systemWithCodebuffInfo,
     {
       model: models.gemini2flash,
       clientSessionId,

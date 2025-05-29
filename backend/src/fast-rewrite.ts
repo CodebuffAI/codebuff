@@ -6,6 +6,7 @@ import { generateCompactId, hasLazyEdit } from 'common/util/string'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptOpenAI } from './llm-apis/openai-api'
 import { promptRelaceAI } from './llm-apis/relace-api'
+import { transformMessages } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 
 export async function fastRewrite(
@@ -843,7 +844,7 @@ export const generate = action({
     { role: 'user' as const, content: prompt },
     { role: 'assistant' as const, content: '```\n' },
   ]
-  const response = await promptFlashWithFallbacks(messages, undefined, {
+  const response = await promptFlashWithFallbacks(transformMessages(messages), {
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -922,7 +923,7 @@ Do not write anything else.
       content: prompt,
     }
   )
-  const response = await promptFlashWithFallbacks(messages, undefined, {
+  const response = await promptFlashWithFallbacks(transformMessages(messages), {
     clientSessionId,
     fingerprintId,
     userInputId,
