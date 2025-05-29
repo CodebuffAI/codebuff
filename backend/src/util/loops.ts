@@ -31,7 +31,9 @@ export async function sendLoopsEmail(
       body: JSON.stringify({
         email,
         transactionalId: LOOPS_SUBJECT_MESSAGE_TRANSACTIONAL_ID,
-        ...emailData,
+        dataVariables: {
+          ...emailData,
+        },
       }),
     })
 
