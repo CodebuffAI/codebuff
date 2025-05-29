@@ -25,7 +25,6 @@ import { System } from '../llm-apis/claude'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { logger } from '../util/logger'
 
-import { GeminiMessage } from '@/llm-apis/gemini-vertex-api'
 import { promptAiSdk, transformMessages } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
 
 // --- GET Handler Logic ---
@@ -187,10 +186,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
               )
             } else {
               output = await promptAiSdk(
-                transformMessages(
-                  messages as GeminiMessage[],
-                  system as System
-                ),
+                transformMessages(messages as Message[], system as System),
                 {
                   model:
                     model as (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels],

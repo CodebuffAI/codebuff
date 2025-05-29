@@ -8,7 +8,6 @@ import { mainPrompt } from '../main-prompt'
 import { renderReadFilesResult } from '@/util/parse-tool-call-xml'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
-import * as gemini from '../llm-apis/gemini-api'
 import * as openai from '../llm-apis/openai-api'
 import { logger } from '../util/logger'
 import * as websocketAction from '../websockets/websocket-action'
@@ -294,7 +293,6 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     // spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
     //   yield 'Claude fallback response'
     // })
-    spyOn(gemini, 'promptGemini').mockResolvedValue('Mocked non-stream Gemini')
     spyOn(openai, 'promptOpenAI').mockResolvedValue('Mocked non-stream OpenAI')
 
     const agentState = getInitialAgentState(mockFileContext)

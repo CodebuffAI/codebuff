@@ -17,7 +17,6 @@ import { WebSocket } from 'ws'
 // Mock imports
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
-import * as gemini from '../llm-apis/gemini-api'
 import * as openai from '../llm-apis/openai-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
@@ -78,10 +77,6 @@ describe('mainPrompt', () => {
       yield 'Test response'
       return
     })
-
-    spyOn(gemini, 'promptGemini').mockImplementation(() =>
-      Promise.resolve('Test response')
-    )
 
     spyOn(openai, 'promptOpenAI').mockImplementation(() =>
       Promise.resolve('Test response')

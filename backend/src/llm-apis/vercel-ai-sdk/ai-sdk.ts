@@ -4,7 +4,6 @@ import { openai } from '@ai-sdk/openai'
 import {
   CoreAssistantMessage,
   CoreMessage,
-  CoreToolMessage,
   CoreUserMessage,
   generateObject,
   generateText,
@@ -28,7 +27,6 @@ import { CoreMessageWithTtl, Message } from 'common/types/message'
 import { withTimeout } from 'common/util/promise'
 import { z } from 'zod'
 import { System } from '../claude'
-import { GeminiMessage } from '../gemini-vertex-api'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
 
@@ -226,7 +224,7 @@ export const promptAiSdkStructured = async function <T>(
 // TODO: temporary - ideally we move to using CoreMessage[] directly
 // and don't need this transform!!
 export function transformMessages(
-  messages: (GeminiMessage | Message | CoreMessageWithTtl)[],
+  messages: (Message | CoreMessageWithTtl)[],
   system?: System
 ): CoreMessage[] {
   const coreMessages: CoreMessage[] = []
@@ -245,18 +243,6 @@ export function transformMessages(
     if ('timeToLive' in message) {
       coreMessages.push(message)
       continue
-    }
-
-    if (message.role === 'developer') {
-      coreMessages.push({ role: 'user', content: message.content })
-      continue
-    }
-
-    if (message.role === 'function') {
-      // Skipping old-style function message - not supported anymore, use tools instead
-      throw new Error(
-        'Skipping function message - unsupported: use tools instead'
-      )
     }
 
     if (message.role === 'system') {
@@ -288,14 +274,6 @@ export function transformMessages(
               anthropic: { cacheControl: { type: 'ephemeral' } },
             }
           }
-          // Handle OpenAI image_url format
-          if (part.type === 'image_url') {
-            parts.push({
-              type: 'image' as const,
-              image: part.image_url.url,
-            })
-            continue
-          }
           // Handle Message type image format
           if (part.type === 'image' && 'source' in part) {
             parts.push({
@@ -303,9 +281,6 @@ export function transformMessages(
               image: `data:${part.source.media_type};base64,${part.source.data}`,
             })
             continue
-          }
-          if (part.type === 'input_audio') {
-            throw new Error('Audio messages not supported')
           }
           if (part.type === 'file') {
             throw new Error('File messages not supported')
@@ -355,9 +330,6 @@ export function transformMessages(
           if (part.type === 'text') {
             messageContent.push({ type: 'text', text: part.text })
           }
-          if (part.type === 'refusal') {
-            messageContent.push({ type: 'text', text: part.refusal })
-          }
           if (part.type === 'tool_use') {
             messageContent.push({
               type: 'tool-call',
@@ -373,66 +345,7 @@ export function transformMessages(
     }
 
     if (message.role === 'tool') {
-      // Handle tool messages - need to extract toolCallId properly
-      let toolCallId: string
-
-      // For OpenAI-style tool messages, tool_call_id is directly on the message
-      if ('tool_call_id' in message) {
-        toolCallId = message.tool_call_id
-      } else {
-        // For CoreToolMessage, we need to extract from content
-        if (Array.isArray(message.content) && message.content.length > 0) {
-          const firstPart = message.content[0]
-          if (firstPart.type === 'tool-result' && 'toolCallId' in firstPart) {
-            toolCallId = firstPart.toolCallId
-          } else {
-            throw new Error('Unable to extract toolCallId from CoreToolMessage')
-          }
-        } else {
-          throw new Error('Tool message missing toolCallId')
-        }
-      }
-
-      if (typeof message.content === 'string') {
-        coreMessages.push({
-          ...message,
-          role: 'tool',
-          content: [
-            {
-              type: 'tool-result',
-              toolCallId: toolCallId,
-              result: message.content,
-              // NOTE: OpenAI does not provide toolName in their message format
-              toolName: 'unknown',
-            },
-          ],
-        })
-      } else {
-        const parts: CoreToolMessage['content'] = []
-        const coreMessage: CoreToolMessage = {
-          ...message,
-          role: 'tool',
-          content: parts,
-        }
-        for (const part of message.content) {
-          // Add ephemeral if present
-          if ('cache_control' in part) {
-            coreMessage.providerOptions = {
-              anthropic: { cacheControl: { type: 'ephemeral' } },
-            }
-          }
-          if (part.type === 'text') {
-            parts.push({
-              type: 'tool-result',
-              toolCallId: toolCallId,
-              result: part.text,
-              // NOTE: OpenAI does not provide toolName in their message format
-              toolName: 'unknown',
-            })
-          }
-        }
-        coreMessages.push(coreMessage)
-      }
+      coreMessages.push(message)
       continue
     }
 
