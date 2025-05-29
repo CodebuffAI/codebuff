@@ -512,7 +512,7 @@ export class CLI {
 
   private async processCommand(userInput: string): Promise<string | null> {
     // Handle cost mode commands with optional message: /lite, /lite message, /normal, /normal message, etc.
-    const costModeMatch = userInput.match(/^\/(lite|normal|max|experimental|ask)(?:\s+(.*))?$/i)
+    const costModeMatch = userInput.match(/^\/?(lite|normal|max|experimental|ask)(?:\s+(.*))?$/i)
     if (costModeMatch) {
       const mode = costModeMatch[1].toLowerCase() as CostMode
       const message = costModeMatch[2]?.trim() || ''
