@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "gen-git-evals": "bun run git-evals/gen-evals.ts",
     "run-git-evals": "bun run git-evals/run-git-evals.ts",
+    "run-eval-set": "bun run run-eval-set.ts",
     "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
   },
   "dependencies": {
