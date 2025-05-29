@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { runGitEvals } from './git-evals/run-git-evals'
+import { analyzeEvalResults } from './post-eval-analysis'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
 
@@ -57,12 +58,36 @@ async function runEvalSet(
       console.log(
         `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`
       )
-      results.push({
-        name: config.name,
-        status: 'success',
-        result,
-        duration: evalDuration,
-      })
+      
+      // Run post-eval analysis
+      console.log(`Running post-eval analysis for ${config.name}...`)
+      try {
+        const analysis = await analyzeEvalResults(result)
+        console.log(`📊 Post-eval analysis completed for ${config.name}`)
+        console.log(`\n=== ${config.name.toUpperCase()} ANALYSIS ===`)
+        console.log(`Summary: ${analysis.summary}`)
+        console.log(`\nTop Problems:`)
+        analysis.problems.slice(0, 5).forEach((problem, i) => {
+          console.log(`${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}`)
+          console.log(`   Frequency: ${(problem.frequency * 100).toFixed(1)}%`)
+          console.log(`   ${problem.description.substring(0, 200)}${problem.description.length > 200 ? '...' : ''}`)
+        })
+        
+        results.push({
+          name: config.name,
+          status: 'success',
+          result: { ...result, analysis },
+          duration: evalDuration,
+        })
+      } catch (analysisError) {
+        console.warn(`⚠️ Post-eval analysis failed for ${config.name}:`, analysisError)
+        results.push({
+          name: config.name,
+          status: 'success',
+          result,
+          duration: evalDuration,
+        })
+      }
     } catch (error) {
       const evalDuration = Date.now() - evalStartTime
       console.error(
