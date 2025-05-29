@@ -21,7 +21,6 @@ import { toContentString } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
-import { transformMessages } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
 import { CoreMessage } from 'ai'
 import { checkTerminalCommand } from './check-terminal-command'
@@ -54,6 +53,7 @@ import {
   asSystemMessage,
   asUserMessage,
   castAssistantMessage,
+  coreMessagesWithSystem,
   getCoreMessagesSubset,
   isSystemInstruction,
 } from './util/messages'
@@ -514,7 +514,10 @@ export const mainPrompt = async (
   const debugPromptCaching = false
   if (debugPromptCaching) {
     // Store the agent request to a file for debugging
-    await saveAgentRequest(transformMessages(agentMessages, system), promptId)
+    await saveAgentRequest(
+      coreMessagesWithSystem(agentMessages, system),
+      promptId
+    )
   }
 
   logger.debug(
@@ -555,7 +558,7 @@ export const mainPrompt = async (
   // Think deeply at the start of every response
   if (geminiThinkingEnabled) {
     let response = await getThinkingStream(
-      transformMessages(agentMessages, system),
+      coreMessagesWithSystem(agentMessages, system),
       (chunk) => {
         onResponseChunk(chunk)
       },
@@ -575,7 +578,7 @@ export const mainPrompt = async (
   }
 
   const stream = getStream(
-    transformMessages(
+    coreMessagesWithSystem(
       buildArray(
         ...agentMessages,
         // Add prefix of the response from fullResponse if it exists
@@ -722,7 +725,7 @@ export const mainPrompt = async (
           path,
           latestContentPromise,
           fileContentWithoutStartNewline,
-          transformMessages(messagesWithUserMessage),
+          messagesWithUserMessage,
           fullResponse,
           prompt,
           clientSessionId,
@@ -1118,7 +1121,7 @@ async function getFileReadingUpdates(
     ? []
     : options.requestedFiles ??
       (await requestRelevantFiles(
-        { messages: transformMessages(messages), system },
+        { messages, system },
         fileContext,
         prompt,
         agentStepId,
@@ -1296,7 +1299,7 @@ async function uploadExpandedFileContextForTraining(
   repoName: string | undefined
 ) {
   const files = await requestRelevantFilesForTraining(
-    { messages: transformMessages(messages), system },
+    { messages, system },
     fileContext,
     assistantPrompt,
     agentStepId,

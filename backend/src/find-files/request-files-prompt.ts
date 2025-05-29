@@ -23,8 +23,8 @@ import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
 import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
-import { promptAiSdk, transformMessages } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
-import { getCoreMessagesSubset } from '@/util/messages'
+import { promptAiSdk } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
+import { coreMessagesWithSystem, getCoreMessagesSubset } from '@/util/messages'
 import { CoreMessage } from 'ai'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
@@ -258,7 +258,7 @@ async function getRelevantFiles(
   )
   const start = performance.now()
   let response = await promptFlashWithFallbacks(
-    transformMessages(messagesWithPrompt, system),
+    coreMessagesWithSystem(messagesWithPrompt, system),
     {
       clientSessionId,
       fingerprintId,
@@ -332,7 +332,7 @@ async function getRelevantFilesForTraining(
   )
   const start = performance.now()
   let response = await promptAiSdk(
-    transformMessages(messagesWithPrompt, system),
+    coreMessagesWithSystem(messagesWithPrompt, system),
     {
       clientSessionId,
       fingerprintId,
@@ -573,7 +573,7 @@ async function secondPassFindAdditionalFiles(
     },
   ]
   const additionalFilesResponse = await promptFlashWithFallbacks(
-    transformMessages(messages, system),
+    coreMessagesWithSystem(messages, system),
     {
       clientSessionId,
       fingerprintId,

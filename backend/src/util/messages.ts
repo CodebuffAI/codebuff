@@ -19,6 +19,22 @@ import { countTokensJson } from './token-counter'
 export const messagesWithSystem = (messages: Message[], system: System) =>
   [{ role: 'system', content: system }, ...messages] as OpenAIMessage[]
 
+export function coreMessagesWithSystem(
+  messages: CoreMessage[],
+  system: System
+): CoreMessage[] {
+  return [
+    {
+      role: 'system',
+      content:
+        typeof system === 'string'
+          ? system
+          : system.map((part) => part.text).join('\n\n'),
+    },
+    ...messages,
+  ]
+}
+
 export function asUserMessage(str: string): string {
   return `<user_message>${str}</user_message>`
 }
