@@ -1,6 +1,4 @@
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { BaseAutoTopupSwitch } from './BaseAutoTopupSwitch'
 
 interface OrgAutoTopupSwitchProps {
   isEnabled: boolean
@@ -16,29 +14,13 @@ export function OrgAutoTopupSwitch({
   canManageAutoTopup,
 }: OrgAutoTopupSwitchProps) {
   return (
-    <TooltipProvider>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <Switch
-            id="org-auto-topup-switch"
-            checked={isEnabled}
-            onCheckedChange={onToggle}
-            disabled={!canManageAutoTopup || isPending}
-            aria-describedby={
-              !canManageAutoTopup ? 'org-auto-topup-permission-note' : undefined
-            }
-          />
-          <Label htmlFor="org-auto-topup-switch">Organization Auto Top-up</Label>
-        </div>
-        {!canManageAutoTopup && (
-          <p 
-            id="org-auto-topup-permission-note"
-            className="text-sm text-muted-foreground"
-          >
-            Only organization owners can manage auto top-up settings.
-          </p>
-        )}
-      </div>
-    </TooltipProvider>
+    <BaseAutoTopupSwitch
+      isEnabled={isEnabled}
+      onToggle={onToggle}
+      isPending={isPending}
+      canManage={canManageAutoTopup}
+      label="Organization Auto Top-up"
+      permissionMessage="Only organization owners can manage auto top-up settings."
+    />
   )
 }
