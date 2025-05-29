@@ -1,4 +1,4 @@
-import { models, TEST_USER_ID } from 'common/constants'
+import { models } from 'common/constants'
 import {
   createMarkdownFileBlock,
   parseMarkdownCodeBlock,
@@ -80,28 +80,26 @@ export async function sendToRelaceLongContext(
 
     const data = (await response.json()) as { mergedCode: string }
 
-    if (userId !== TEST_USER_ID) {
-      const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
-      saveMessage({
-        messageId,
-        userId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        model: 'relace-long-context-test',
-        request: [
-          {
-            role: 'user',
-            content: fakeRequestContent,
-          },
-        ],
-        response: data.mergedCode,
-        inputTokens: countTokens(initialCode + editSnippet),
-        outputTokens: countTokens(data.mergedCode),
-        finishedAt: new Date(),
-        latencyMs: Date.now() - startTime,
-      })
-    }
+    const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
+    saveMessage({
+      messageId,
+      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: 'relace-long-context-test',
+      request: [
+        {
+          role: 'user',
+          content: fakeRequestContent,
+        },
+      ],
+      response: data.mergedCode,
+      inputTokens: countTokens(initialCode + editSnippet),
+      outputTokens: countTokens(data.mergedCode),
+      finishedAt: new Date(),
+      latencyMs: Date.now() - startTime,
+    })
 
     logger.info({ mergedCode: data.mergedCode }, 'Relace Long Context')
   } catch (error) {
@@ -171,28 +169,26 @@ export async function promptRelaceAI(
     const data = (await response.json()) as { mergedCode: string }
     const content = data.mergedCode
 
-    if (userId !== TEST_USER_ID) {
-      const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
-      saveMessage({
-        messageId,
-        userId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        model: 'relace-fast-apply',
-        request: [
-          {
-            role: 'user',
-            content: fakeRequestContent,
-          },
-        ],
-        response: content,
-        inputTokens: countTokens(initialCode + editSnippet),
-        outputTokens: countTokens(content),
-        finishedAt: new Date(),
-        latencyMs: Date.now() - startTime,
-      })
-    }
+    const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
+    saveMessage({
+      messageId,
+      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: 'relace-fast-apply',
+      request: [
+        {
+          role: 'user',
+          content: fakeRequestContent,
+        },
+      ],
+      response: content,
+      inputTokens: countTokens(initialCode + editSnippet),
+      outputTokens: countTokens(content),
+      finishedAt: new Date(),
+      latencyMs: Date.now() - startTime,
+    })
     return content + '\n'
   } catch (error) {
     logger.error(
@@ -312,28 +308,26 @@ export async function rerank(
       throw new Error('Invalid response format from Relace API')
     }
 
-    if (userId !== TEST_USER_ID) {
-      const fakeRequestContent = `Query: ${prompt}\n\nFiles:\n${files.map((f) => `${f.path}:\n${f.content}`).join('\n\n')}`
-      saveMessage({
-        messageId,
-        userId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        model: 'relace-ranker',
-        request: [
-          {
-            role: 'user',
-            content: fakeRequestContent,
-          },
-        ],
-        response: JSON.stringify(rankings),
-        inputTokens: countTokens(fakeRequestContent),
-        outputTokens: countTokens(JSON.stringify(rankings)),
-        finishedAt: new Date(),
-        latencyMs: Date.now() - startTime,
-      })
-    }
+    const fakeRequestContent = `Query: ${prompt}\n\nFiles:\n${files.map((f) => `${f.path}:\n${f.content}`).join('\n\n')}`
+    saveMessage({
+      messageId,
+      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: 'relace-ranker',
+      request: [
+        {
+          role: 'user',
+          content: fakeRequestContent,
+        },
+      ],
+      response: JSON.stringify(rankings),
+      inputTokens: countTokens(fakeRequestContent),
+      outputTokens: countTokens(JSON.stringify(rankings)),
+      finishedAt: new Date(),
+      latencyMs: Date.now() - startTime,
+    })
 
     return rankings
   } catch (error) {

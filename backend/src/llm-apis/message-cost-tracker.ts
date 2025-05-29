@@ -579,11 +579,19 @@ export const saveMessage = async (value: {
 
       const creditsUsed = Math.max(0, costInCents)
 
-      sendCostResponseToClient(
-        value.clientSessionId,
-        value.userInputId,
-        creditsUsed
-      )
+      if (value.userId === TEST_USER_ID) {
+        logger.info(
+          {
+            costUSD: cost,
+            costInCents,
+            creditsUsed,
+            centsPerCredit,
+            value: { ...value, request: 'Omitted', response: 'Omitted' },
+          },
+          `Credits used by test user (${creditsUsed})`
+        )
+        return
+      }
 
       if (VERBOSE) {
         logger.debug(
@@ -609,6 +617,11 @@ export const saveMessage = async (value: {
           orgId = orgLookup.organizationId
         }
       }
+      sendCostResponseToClient(
+        value.clientSessionId,
+        value.userInputId,
+        creditsUsed
+      )
 
       const savedMessageResult = await insertMessageRecord({
         ...value,
