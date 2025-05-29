@@ -1118,7 +1118,7 @@ async function getFileReadingUpdates(
     ? []
     : options.requestedFiles ??
       (await requestRelevantFiles(
-        { messages, system },
+        { messages: transformMessages(messages), system },
         fileContext,
         prompt,
         agentStepId,
@@ -1296,7 +1296,7 @@ async function uploadExpandedFileContextForTraining(
   repoName: string | undefined
 ) {
   const files = await requestRelevantFilesForTraining(
-    { messages, system },
+    { messages: transformMessages(messages), system },
     fileContext,
     assistantPrompt,
     agentStepId,

@@ -8,7 +8,6 @@ import {
 } from '@codebuff/bigquery'
 import { models, type CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
-import { Message } from 'common/types/message'
 import {
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
@@ -25,7 +24,8 @@ import { checkNewFilesNecessary } from './check-new-files-necessary'
 
 import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
 import { promptAiSdk, transformMessages } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
-import { getMessagesSubset } from '@/util/messages'
+import { getCoreMessagesSubset } from '@/util/messages'
+import { CoreMessage } from 'ai'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
@@ -35,7 +35,7 @@ export async function requestRelevantFiles(
     messages,
     system,
   }: {
-    messages: Message[]
+    messages: CoreMessage[]
     system: string | Array<TextBlockParam>
   },
   fileContext: ProjectFileContext,
@@ -48,12 +48,12 @@ export async function requestRelevantFiles(
   costMode: CostMode,
   repoName: string | undefined
 ) {
-  const countPerRequest = { 
-    lite: 8, 
-    normal: 12, 
-    max: 14, 
+  const countPerRequest = {
+    lite: 8,
+    normal: 12,
+    max: 14,
     experimental: 14,
-    ask: 12
+    ask: 12,
   }[costMode]
 
   const lastMessage = messages[messages.length - 1]
@@ -69,7 +69,7 @@ export async function requestRelevantFiles(
   const newFilesNecessaryPromise = assistantPrompt
     ? Promise.resolve({ newFilesNecessary: true, response: 'N/A', duration: 0 })
     : checkNewFilesNecessary(
-        transformMessages(messagesExcludingLastIfByUser),
+        messagesExcludingLastIfByUser,
         system,
         clientSessionId,
         fingerprintId,
@@ -148,7 +148,7 @@ export async function requestRelevantFilesForTraining(
     messages,
     system,
   }: {
-    messages: Message[]
+    messages: CoreMessage[]
     system: string | Array<TextBlockParam>
   },
   fileContext: ProjectFileContext,
@@ -232,7 +232,7 @@ async function getRelevantFiles(
     messages,
     system,
   }: {
-    messages: Message[]
+    messages: CoreMessage[]
     system: string | Array<TextBlockParam>
   },
   userPrompt: string,
@@ -246,7 +246,7 @@ async function getRelevantFiles(
   repoName: string | undefined
 ) {
   const bufferTokens = 100_000
-  const messagesWithPrompt = getMessagesSubset(
+  const messagesWithPrompt = getCoreMessagesSubset(
     [
       ...messages,
       {
@@ -306,7 +306,7 @@ async function getRelevantFilesForTraining(
     messages,
     system,
   }: {
-    messages: Message[]
+    messages: CoreMessage[]
     system: string | Array<TextBlockParam>
   },
   userPrompt: string,
@@ -320,7 +320,7 @@ async function getRelevantFilesForTraining(
   repoName: string | undefined
 ) {
   const bufferTokens = 100_000
-  const messagesWithPrompt = getMessagesSubset(
+  const messagesWithPrompt = getCoreMessagesSubset(
     [
       ...messages,
       {
@@ -517,7 +517,7 @@ Please limit your response just the file paths on new lines. Do not write anythi
 async function secondPassFindAdditionalFiles(
   system: System,
   candidateFiles: string[],
-  messagesExcludingLastIfByUser: Message[],
+  messagesExcludingLastIfByUser: CoreMessage[],
   userRequest: string,
   clientSessionId: string,
   fingerprintId: string,
@@ -601,7 +601,7 @@ async function secondPassFindAdditionalFiles(
 function generateAdditionalFilesPrompt(
   fileListString: string,
   userRequest: string,
-  messagesExcludingLastIfByUser: Message[],
+  messagesExcludingLastIfByUser: CoreMessage[],
   maxFiles: number
 ): string {
   return `
