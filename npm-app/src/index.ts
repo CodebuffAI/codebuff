@@ -23,8 +23,6 @@ import { initAnalytics } from './utils/analytics'
 import { findGitRoot } from './utils/git'
 import { recreateShell } from './utils/terminal'
 
-[''][1].split('')
-
 async function codebuff(
   projectDir: string | undefined,
   { initialInput, git, costMode, runInitFlow, model }: CliOptions
