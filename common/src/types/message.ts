@@ -1,3 +1,4 @@
+import { coreMessageSchema } from 'ai'
 import { z } from 'zod'
 
 const MessageContentObjectSchema = z.union([
@@ -53,15 +54,15 @@ export const MessageSchema = z.object({
 export type Message = z.infer<typeof MessageSchema>
 export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
 
-// export const CoreMessageWithTtlSchema = z.intersection(
-//   coreMessageSchema,
-//   z.object({
-//     timeToLive: z.union([
-//       z.literal('agentStep'),
-//       z.literal('userPrompt'),
-//       z.undefined(),
-//     ]),
-//   })
-// )
+export const CoreMessageWithTtlSchema = z.intersection(
+  coreMessageSchema,
+  z.object({
+    timeToLive: z.union([
+      z.literal('agentStep'),
+      z.literal('userPrompt'),
+      z.undefined(),
+    ]),
+  })
+)
 
-export type CoreMessageWithTtl = any // z.infer<typeof CoreMessageWithTtlSchema>
+export type CoreMessageWithTtl = z.infer<typeof CoreMessageWithTtlSchema>
