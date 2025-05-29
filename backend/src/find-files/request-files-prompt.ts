@@ -69,7 +69,7 @@ export async function requestRelevantFiles(
   const newFilesNecessaryPromise = assistantPrompt
     ? Promise.resolve({ newFilesNecessary: true, response: 'N/A', duration: 0 })
     : checkNewFilesNecessary(
-        messagesExcludingLastIfByUser,
+        transformMessages(messagesExcludingLastIfByUser),
         system,
         clientSessionId,
         fingerprintId,

@@ -1,6 +1,8 @@
 import { Message } from 'common/types/message'
 import { withCacheControl } from 'common/util/messages'
 
+import { CoreMessage } from 'ai'
+import { AssertionError } from 'assert'
 import { System } from '../llm-apis/claude'
 import { OpenAIMessage } from '../llm-apis/openai-api'
 import { logger } from './logger'
@@ -218,6 +220,165 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       'No last message found in messagesSubset!'
     )
   }
+
+  return messagesSubset
+}
+
+/**
+ * Trims messages from the beginning to fit within token limits while preserving
+ * important content. Also simplifies terminal command outputs to save tokens.
+ *
+ * The function:
+ * 1. Processes messages from newest to oldest
+ * 2. Simplifies terminal command outputs after keeping N most recent ones
+ * 3. Stops adding messages when approaching token limit
+ *
+ * @param messages - Array of messages to trim
+ * @param systemTokens - Number of tokens used by system prompt
+ * @param maxTotalTokens - Maximum total tokens allowed, defaults to 200k
+ * @returns Trimmed array of messages that fits within token limit
+ */
+export function trimCoreMessagesToFitTokenLimit(
+  messages: CoreMessage[],
+  systemTokens: number,
+  maxTotalTokens: number = 200_000
+): CoreMessage[] {
+  const MAX_MESSAGE_TOKENS = maxTotalTokens - systemTokens
+
+  // Check if we're already under the limit
+  const initialTokens = countTokensJson(messages)
+
+  if (initialTokens < MAX_MESSAGE_TOKENS) {
+    return messages
+  }
+
+  let totalTokens = 0
+  const targetTokens = MAX_MESSAGE_TOKENS * shortenedMessageTokenFactor
+  const results: CoreMessage[] = []
+  let numKept = 0
+
+  // Process messages from newest to oldest
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    let message: CoreMessage
+    if (m.role === 'tool' || m.role === 'system') {
+      message = messages[i]
+    } else if (m.role === 'user') {
+      let newContent: typeof m.content
+
+      // Handle string content (usually terminal output)
+      if (typeof m.content === 'string') {
+        const result = simplifyTerminalHelper(m.content, numKept)
+        message = { role: m.role, content: result.result }
+        numKept = result.numKept
+      } else {
+        // Handle array content (mixed content types)
+        newContent = []
+        // Process content parts from newest to oldest
+        for (let j = m.content.length - 1; j >= 0; j--) {
+          const messagePart = m.content[j]
+          // Preserve non-text content (i.e. images)
+          if (messagePart.type !== 'text') {
+            newContent.push(messagePart)
+            continue
+          }
+
+          const result = simplifyTerminalHelper(messagePart.text, numKept)
+          newContent.push({ ...messagePart, text: result.result })
+          numKept = result.numKept
+        }
+        newContent.reverse()
+        message = { role: m.role, content: newContent }
+      }
+    } else if (m.role === 'assistant') {
+      let newContent: typeof m.content
+
+      // Handle string content (usually terminal output)
+      if (typeof m.content === 'string') {
+        const result = simplifyTerminalHelper(m.content, numKept)
+        message = { role: m.role, content: result.result }
+        numKept = result.numKept
+      } else {
+        // Handle array content (mixed content types)
+        newContent = []
+        // Process content parts from newest to oldest
+        for (let j = m.content.length - 1; j >= 0; j--) {
+          const messagePart = m.content[j]
+          // Preserve non-text content (i.e. images)
+          if (messagePart.type !== 'text') {
+            newContent.push(messagePart)
+            continue
+          }
+
+          const result = simplifyTerminalHelper(messagePart.text, numKept)
+          newContent.push({ ...messagePart, text: result.result })
+          numKept = result.numKept
+        }
+        newContent.reverse()
+        message = { role: m.role, content: newContent }
+      }
+    } else {
+      throw new AssertionError({ message: 'Not a valid role' })
+    }
+
+    // Check if adding this message would exceed our token target
+    const messageTokens = countTokensJson(message)
+
+    if (totalTokens + messageTokens <= targetTokens) {
+      results.push(message)
+      totalTokens += messageTokens
+    } else {
+      break
+    }
+  }
+
+  results.reverse()
+  return results
+}
+
+export function getCoreMessagesSubset(
+  messages: CoreMessage[],
+  otherTokens: number
+) {
+  const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
+    JSON.stringify(content).includes('COMPLETE')
+  })
+
+  const messagesSubset = trimCoreMessagesToFitTokenLimit(
+    indexLastSubgoalComplete === -1
+      ? messages
+      : messages.slice(indexLastSubgoalComplete),
+    otherTokens
+  )
+
+  // Remove cache_control from all messages
+  for (const message of messagesSubset) {
+    if (typeof message.content === 'object' && message.content.length > 0) {
+      delete message.content[message.content.length - 1].providerOptions
+        ?.anthropic?.cacheControl
+    }
+  }
+
+  // Cache up to the last message!
+  const lastMessage = messagesSubset[messagesSubset.length - 1]
+  if (!lastMessage) {
+    logger.debug(
+      {
+        messages,
+        messagesSubset,
+        otherTokens,
+      },
+      'No last message found in messagesSubset!'
+    )
+    return messagesSubset
+  }
+  if (!lastMessage.providerOptions) {
+    lastMessage.providerOptions = {}
+  }
+  if (!lastMessage.providerOptions.anthropic) {
+    lastMessage.providerOptions.anthropic = {}
+  }
+  lastMessage.providerOptions.anthropic.cacheControl = { type: 'ephemeral' }
 
   return messagesSubset
 }
