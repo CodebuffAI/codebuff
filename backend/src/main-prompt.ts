@@ -40,12 +40,12 @@ import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { getThinkingStream } from './thinking-stream'
 import {
   ClientToolCall,
+  getFilteredToolsInstructions,
   parseRawToolCall,
   TOOL_LIST,
   ToolCall,
   ToolName,
   TOOLS_WHICH_END_THE_RESPONSE,
-  toolsInstructions,
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
@@ -132,6 +132,7 @@ export const mainPrompt = async (
   const justRanTerminalCommand = toolResults.some(
     (t) => t.name === 'run_terminal_command'
   )
+  const isAskMode = costMode === 'ask'
   const geminiThinkingEnabled = costMode === 'max'
   const isLiteMode = costMode === 'lite'
   const isGeminiPro = model === models.gemini2_5_pro_preview
@@ -140,6 +141,8 @@ export const mainPrompt = async (
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
+    isAskMode &&
+      'You are a coding agent in "ASK" mode so the user can ask questions, which means you do not have access to tools that can modify files or run terminal commands. You should instead answer the user\'s questions and come up with brilliant plans which can later be implemented.',
     isLiteMode
       ? 'Please proceed toward the user request and any subgoals. Please complete the entire user request. You must finally use the end_turn tool at the end of your response.'
       : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool). You must finally use the end_turn tool at the end of your response.',
@@ -155,7 +158,7 @@ export const mainPrompt = async (
     'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ...", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
 
     isGeminiPro
-      ? toolsInstructions
+      ? getFilteredToolsInstructions(costMode)
       : `Any tool calls will be run from the project root (${agentState.fileContext.currentWorkingDirectory}) unless otherwise specified`,
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
@@ -499,7 +502,7 @@ export const mainPrompt = async (
 
   const iterationNum = messagesWithUserMessage.length
 
-  const system = getAgentSystemPrompt(fileContext)
+  const system = getAgentSystemPrompt(fileContext, costMode)
   const systemTokens = countTokensJson(system)
 
   // Possibly truncated messagesWithUserMessage + cache.

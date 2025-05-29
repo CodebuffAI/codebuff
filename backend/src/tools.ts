@@ -640,7 +640,7 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'run_terminal_command',
 ]
 
-export const toolsInstructions = `
+export const getToolsInstructions = (toolDescriptions: string[]) => `
 # Tools
 
 You (Buffy) have access to the following tools. Call them when needed.
@@ -668,7 +668,6 @@ This also means that if you wish to write the literal string \`&lt;\` to a file 
 Provide commentary *around* your tool calls (explaining your actions).
 
 However, **DO NOT** narrate the tool or parameter names themselves.
-
 
 ### Array Params
 
@@ -717,7 +716,7 @@ The user does not need to know about the exact results of these tools, especiall
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
 
-${tools.map((tool) => tool.description).join('\n\n')}
+${toolDescriptions.join('\n\n')}
 `
 
 export async function updateContext(
@@ -1029,4 +1028,22 @@ function renderSubgoalUpdate(subgoal: {
     ...(log && { log }),
   }
   return getToolCallString('add_subgoal', params)
+}
+
+// Function to get filtered tools based on cost mode
+export function getFilteredToolsInstructions(costMode: string) {
+  const allowedTools =
+    costMode === 'ask'
+      ? // For ask mode, exclude write_file, str_replace, create_plan, and run_terminal_command
+        tools.filter(
+          (tool) =>
+            ![
+              'write_file',
+              'str_replace',
+              'create_plan',
+              'run_terminal_command',
+            ].includes(tool.name)
+        )
+      : tools
+  return getToolsInstructions(allowedTools.map((tool) => tool.description))
 }

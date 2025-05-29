@@ -140,6 +140,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
+    baseCommand: 'ask',
+    description: "Switch to ask mode (won't modify code)",
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
     description: 'Quit Codebuff',
@@ -193,6 +199,7 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
       blueBright('Max mode️ ⚡ enabled (switch modes by typing in "/")')
     ),
     experimental: bold(magenta('Experimental mode 🧪 enabled')),
+    ask: bold(cyan("Ask mode 💬 enabled (won't modify code)")),
   }
   if (costModeDescription[costMode]) {
     console.log(`${costModeDescription[costMode]}`)

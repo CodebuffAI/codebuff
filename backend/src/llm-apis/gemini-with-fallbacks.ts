@@ -94,6 +94,7 @@ export async function promptFlashWithFallbacks(
             normal: claudeModels.haiku,
             max: claudeModels.sonnet,
             experimental: claudeModels.haiku,
+            ask: claudeModels.haiku,
           }[costMode ?? 'normal'],
     })
   }

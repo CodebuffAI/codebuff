@@ -48,9 +48,13 @@ export async function requestRelevantFiles(
   costMode: CostMode,
   repoName: string | undefined
 ) {
-  const countPerRequest = { lite: 8, normal: 12, max: 14, experimental: 14 }[
-    costMode
-  ]
+  const countPerRequest = { 
+    lite: 8, 
+    normal: 12, 
+    max: 14, 
+    experimental: 14,
+    ask: 12
+  }[costMode]
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
