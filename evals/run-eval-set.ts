@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
 
 import { runGitEvals } from './git-evals/run-git-evals'
-import { analyzeEvalResults } from './post-eval-analysis'
+import { analyzeEvalResults, PostEvalAnalysis } from './post-eval-analysis'
+import { sendEvalResultsEmail } from './email-sender'
+import { FullEvalLog } from './git-evals/types'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
 
@@ -9,6 +11,15 @@ interface EvalConfig {
   name: string
   evalDataPath: string
   outputDir: string
+}
+
+interface EvalResult {
+  name: string
+  status: 'success' | 'error'
+  result?: FullEvalLog
+  analysis?: PostEvalAnalysis
+  error?: string
+  duration: number
 }
 
 async function runEvalSet(
@@ -39,13 +50,7 @@ async function runEvalSet(
   })
 
   const startTime = Date.now()
-  const results: Array<{
-    name: string
-    status: 'success' | 'error'
-    result?: any
-    error?: string
-    duration: number
-  }> = []
+  const results: EvalResult[] = []
 
   // Run all evaluations sequentially
   for (const config of evalConfigs) {
@@ -76,7 +81,8 @@ async function runEvalSet(
         results.push({
           name: config.name,
           status: 'success',
-          result: { ...result, analysis },
+          result,
+          analysis,
           duration: evalDuration,
         })
       } catch (analysisError) {
@@ -150,6 +156,27 @@ async function runEvalSet(
   console.log(`Total time: ${(totalDuration / 1000).toFixed(1)}s`)
   console.log(`Success: ${successCount}/${evalConfigs.length}`)
   console.log(`Failure: ${failureCount}/${evalConfigs.length}`)
+
+  // Send email summary if we have successful results with analyses
+  const successfulResults = results.filter(r => r.status === 'success' && r.result && r.analysis)
+  if (successfulResults.length > 0) {
+    console.log('\n📧 Sending eval results email...')
+    try {
+      const evalResults = successfulResults.map(r => r.result!).filter(Boolean)
+      const analyses = successfulResults.map(r => r.analysis!).filter(Boolean)
+      
+      const emailSent = await sendEvalResultsEmail(evalResults, analyses)
+      if (emailSent) {
+        console.log('✅ Eval results email sent successfully!')
+      } else {
+        console.log('⚠️ Email sending was skipped (likely missing configuration)')
+      }
+    } catch (emailError) {
+      console.error('❌ Failed to send eval results email:', emailError)
+    }
+  } else {
+    console.log('\n📧 Skipping email - no successful results with analyses to send')
+  }
 
   if (failureCount > 0) {
     console.log(

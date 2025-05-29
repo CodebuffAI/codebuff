@@ -15,11 +15,13 @@ const ProblemSchema = z.object({
   examples: z.array(z.string()).describe('Specific examples from the eval runs where this problem occurred')
 })
 
-const PostEvalAnalysisSchema = z.object({
+export const PostEvalAnalysisSchema = z.object({
   summary: z.string().describe('Overall summary of the eval results and key findings'),
   problems: z.array(ProblemSchema).describe('Priority-ordered list of problems to solve, most important first'),
   recommendations: z.array(z.string()).describe('Specific development recommendations based on the analysis')
 })
+
+export type PostEvalAnalysis = z.infer<typeof PostEvalAnalysisSchema>
 
 function buildAnalysisPrompt(evalResult: FullEvalLog): string {
   // Build summary of overall metrics
@@ -132,7 +134,7 @@ function truncatePromptIfNeeded(prompt: string, maxTokens: number): string {
  * @param evalResult The complete eval results from running git evals
  * @returns Analysis with prioritized list of problems to solve
  */
-export async function analyzeEvalResults(evalResult: FullEvalLog) {
+export async function analyzeEvalResults(evalResult: FullEvalLog): Promise<PostEvalAnalysis> {
   const prompt = buildAnalysisPrompt(evalResult)
   const finalPrompt = truncatePromptIfNeeded(prompt, MAX_TOKENS)
   
