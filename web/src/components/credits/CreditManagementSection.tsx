@@ -1,12 +1,15 @@
 import { CreditPurchaseSection } from './CreditPurchaseSection'
 import { AutoTopupSettings } from '@/components/auto-topup/AutoTopupSettings'
+import { OrgAutoTopupSettings } from '@/components/auto-topup/OrgAutoTopupSettings'
 
 export interface CreditManagementSectionProps {
   onPurchase: (credits: number) => void
   isPurchasePending: boolean
   showAutoTopup?: boolean
   className?: string
-  isOrganization?: boolean
+  context?: "user" | "organization"
+  organizationId?: string
+  isOrganization?: boolean // Keep for backward compatibility
 }
 
 export function CreditManagementSection({
@@ -14,8 +17,13 @@ export function CreditManagementSection({
   isPurchasePending,
   showAutoTopup = true,
   className,
+  context = "user",
+  organizationId,
   isOrganization = false,
 }: CreditManagementSectionProps) {
+  // Determine if we're in organization context
+  const isOrgContext = context === "organization" || isOrganization
+
   return (
     <div className={className}>
       <div className="space-y-8">
@@ -25,12 +33,16 @@ export function CreditManagementSection({
         <CreditPurchaseSection
           onPurchase={onPurchase}
           isPurchasePending={isPurchasePending}
-          isOrganization={isOrganization}
+          isOrganization={isOrgContext}
         />
         {showAutoTopup && (
           <>
             <div className="border-t border-border" />
-            <AutoTopupSettings />
+            {isOrgContext && organizationId ? (
+              <OrgAutoTopupSettings organizationId={organizationId} />
+            ) : (
+              <AutoTopupSettings />
+            )}
           </>
         )}
       </div>

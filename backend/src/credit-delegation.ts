@@ -4,6 +4,7 @@ import {
   normalizeRepositoryUrl,
   sendOrganizationAlert,
   monitorOrganizationCredits,
+  checkAndTriggerOrgAutoTopup,
 } from '@codebuff/billing'
 import { logger } from './util/logger'
 import db from 'common/db'
@@ -75,8 +76,6 @@ export async function findOrganizationForRepository(
     return { found: false }
   }
 }
-
-
 
 /**
  * Consumes credits from either user or organization based on explicit parameters.
@@ -170,6 +169,20 @@ export async function consumeCreditsWithDelegation(
           organizationId, // Include org ID to show which org was attempted
         }
       }
+    }
+
+    // Check and trigger auto-topup before attempting to consume credits
+    try {
+      await checkAndTriggerOrgAutoTopup(organizationId)
+      logger.debug(
+        { organizationId },
+        'Organization auto-topup check completed'
+      )
+    } catch (autoTopupError) {
+      logger.warn(
+        { organizationId, autoTopupError },
+        'Organization auto-topup check failed, continuing with credit consumption'
+      )
     }
 
     // Try to consume organization credits

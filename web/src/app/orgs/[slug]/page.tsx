@@ -540,8 +540,9 @@ export default function OrganizationPage() {
                       <CreditManagementSection
                         onPurchase={handlePurchaseCredits}
                         isPurchasePending={purchasing || settingUpBilling}
-                        showAutoTopup={false}
-                        isOrganization={true}
+                        showAutoTopup={canManageBilling}
+                        context="organization"
+                        organizationId={organization.id}
                       />
                     ) : organization.hasStripeSubscription ? (
                       <CreditMonitor organizationId={organization.id} />
@@ -599,8 +600,9 @@ export default function OrganizationPage() {
                           <CreditManagementSection
                             onPurchase={handlePurchaseCredits}
                             isPurchasePending={purchasing || settingUpBilling}
-                            showAutoTopup={false}
-                            isOrganization={true}
+                            showAutoTopup={canManageBilling}
+                            context="organization"
+                            organizationId={organization.id}
                           />
                         </CardContent>
                       </Card>
