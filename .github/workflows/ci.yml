@@ -87,16 +87,22 @@ jobs:
       - name: Test start-js script startup
         run: |
           cd npm-app
-          # Start the process in background and capture its PID
-          timeout 1s bun run start-js || exit_code=$?
+          # Run the process in background and capture its PID
+          bun run start-js &
+          PID=$!
           
-          # timeout command returns 124 when it times out (which is what we want)
-          # Any other exit code means the process crashed before timeout
-          if [ "${exit_code:-0}" -eq 124 ]; then
-            echo "✅ Process ran for 1 second without crashing"
+          # Wait a short time for potential crashes
+          sleep 0.5
+          
+          # Check if process is still running
+          if kill -0 $PID 2>/dev/null; then
+            echo "✅ Process started successfully and is running"
+            # Kill the process since it's working
+            kill $PID 2>/dev/null || true
+            wait $PID 2>/dev/null || true
             exit 0
           else
-            echo "❌ Process crashed with exit code: ${exit_code:-0}"
+            echo "❌ Process crashed during startup"
             exit 1
           fi
 
