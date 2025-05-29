@@ -29,12 +29,16 @@ export const handleUpdateFile: ToolHandler<{
   const projectPath = getProjectRoot()
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
-  const { created, modified, ignored, invalid } = applyChanges(projectPath, [fileChange])
+  const { created, modified, ignored, invalid } = applyChanges(projectPath, [
+    fileChange,
+  ])
   let result: string[] = []
 
   for (const file of created) {
     const counts = `(${green(`+${lines.length}`)})`
-    result.push(`Wrote to ${file} successfully.`)
+    result.push(
+      `Created ${file} successfully. Changes made:\n${lines.join('\n')}`
+    )
     console.log(green(`- Created ${file} ${counts}`))
   }
   for (const file of modified) {
@@ -50,7 +54,9 @@ export const handleUpdateFile: ToolHandler<{
     })
 
     const counts = `(${green(`+${addedLines}`)}, ${red(`-${deletedLines}`)})`
-    result.push(`Wrote to ${file} successfully.`)
+    result.push(
+      `Wrote to ${file} successfully. Changes made:\n${lines.join('\n')}`
+    )
     console.log(green(`- Updated ${file} ${counts}`))
   }
   for (const file of ignored) {
