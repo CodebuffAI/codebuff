@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useDebouncedCallback } from 'use-debounce'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,13 +22,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { 
-  GitBranch, 
-  Plus, 
-  MoreHorizontal, 
-  Trash2, 
+import {
+  GitBranch,
+  Plus,
+  MoreHorizontal,
+  Trash2,
   ExternalLink,
-  Github
+  Github,
 } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -51,18 +52,104 @@ interface RepositoryManagementProps {
   noCardWrapper?: boolean
 }
 
-export function RepositoryManagement({ organizationId, userRole, noCardWrapper }: RepositoryManagementProps) {
+// Helper function to extract repository name from URL
+function extractRepoNameFromUrl(url: string): string {
+  try {
+    // Handle empty or invalid URLs
+    if (!url.trim()) return ''
+
+    // Normalize the URL - add https:// if missing
+    let normalizedUrl = url.trim()
+    if (
+      !normalizedUrl.startsWith('http://') &&
+      !normalizedUrl.startsWith('https://')
+    ) {
+      normalizedUrl = 'https://' + normalizedUrl
+    }
+
+    const urlObj = new URL(normalizedUrl)
+    const pathname = urlObj.pathname
+
+    // Split the pathname and get segments
+    const pathSegments = pathname
+      .split('/')
+      .filter((segment) => segment.length > 0)
+
+    if (pathSegments.length === 0) return ''
+
+    // Handle GitHub URLs specifically
+    if (urlObj.hostname === 'github.com') {
+      // GitHub URLs follow the pattern: github.com/owner/repo
+      if (pathSegments.length >= 2) {
+        let repo = pathSegments[1]
+
+        // Remove .git suffix if present
+        if (repo.endsWith('.git')) {
+          repo = repo.slice(0, -4)
+        }
+
+        return repo
+      }
+    }
+
+    // For non-GitHub URLs, use the last segment as before
+    let repoName = pathSegments[pathSegments.length - 1]
+
+    // Remove .git suffix if present
+    if (repoName.endsWith('.git')) {
+      repoName = repoName.slice(0, -4)
+    }
+
+    return repoName
+  } catch (error) {
+    // If URL parsing fails, try to extract from the end of the string
+    const segments = url.split('/').filter((segment) => segment.length > 0)
+    if (segments.length > 0) {
+      let lastSegment = segments[segments.length - 1]
+      if (lastSegment.endsWith('.git')) {
+        lastSegment = lastSegment.slice(0, -4)
+      }
+      return lastSegment
+    }
+    return ''
+  }
+}
+
+export function RepositoryManagement({
+  organizationId,
+  userRole,
+  noCardWrapper,
+}: RepositoryManagementProps) {
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [addForm, setAddForm] = useState({
     repository_url: '',
-    repository_name: ''
+    repository_name: '',
   })
   const [adding, setAdding] = useState(false)
   const isMobile = useIsMobile()
 
   const canManageRepos = userRole === 'owner' || userRole === 'admin'
+
+  // Create a debounced version of the auto-fill logic using use-debounce
+  const debouncedAutoFill = useDebouncedCallback((url: string) => {
+    setAddForm(prev => {
+      // If URL is empty, clear the repository name
+      if (!url.trim()) {
+        return { ...prev, repository_name: '' }
+      }
+      
+      // Always auto-fill when URL changes (removed the empty name check)
+      if (url.trim()) {
+        const extractedName = extractRepoNameFromUrl(url)
+        if (extractedName) {
+          return { ...prev, repository_name: extractedName }
+        }
+      }
+      return prev
+    })
+  }, 500) // 500ms delay
 
   useEffect(() => {
     fetchRepositories()
@@ -94,6 +181,12 @@ export function RepositoryManagement({ organizationId, userRole, noCardWrapper }
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleUrlChange = (url: string) => {
+    setAddForm((prev) => ({ ...prev, repository_url: url }))
+    // Trigger debounced auto-fill
+    debouncedAutoFill(url)
   }
 
   const handleAddRepository = async () => {
@@ -142,7 +235,8 @@ export function RepositoryManagement({ organizationId, userRole, noCardWrapper }
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to add repository',
+        description:
+          error instanceof Error ? error.message : 'Failed to add repository',
         variant: 'destructive',
       })
     } finally {
@@ -151,14 +245,21 @@ export function RepositoryManagement({ organizationId, userRole, noCardWrapper }
   }
 
   const handleRemoveRepository = async (repoId: string, repoName: string) => {
-    if (!confirm(`Are you sure you want to remove "${repoName}" from the organization?`)) {
+    if (
+      !confirm(
+        `Are you sure you want to remove "${repoName}" from the organization?`
+      )
+    ) {
       return
     }
 
     try {
-      const response = await fetch(`/api/orgs/${organizationId}/repos/${repoId}`, {
-        method: 'DELETE',
-      })
+      const response = await fetch(
+        `/api/orgs/${organizationId}/repos/${repoId}`,
+        {
+          method: 'DELETE',
+        }
+      )
 
       if (!response.ok) {
         const data = await response.json()
@@ -174,7 +275,10 @@ export function RepositoryManagement({ organizationId, userRole, noCardWrapper }
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to remove repository',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to remove repository',
         variant: 'destructive',
       })
     }
@@ -200,17 +304,24 @@ export function RepositoryManagement({ organizationId, userRole, noCardWrapper }
 
   if (loading) {
     return (
-      <Card className={noCardWrapper ? "border-none shadow-none bg-transparent" : ""}>
-        <CardHeader className={noCardWrapper ? "p-0" : ""}>
+      <Card
+        className={
+          noCardWrapper ? 'border-none shadow-none bg-transparent' : ''
+        }
+      >
+        <CardHeader className={noCardWrapper ? 'p-0' : ''}>
           <CardTitle className="flex items-center text-base sm:text-lg">
             <GitBranch className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
             Repository Management
           </CardTitle>
         </CardHeader>
-        <CardContent className={noCardWrapper ? "p-0" : ""}>
+        <CardContent className={noCardWrapper ? 'p-0' : ''}>
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg">
+              <div
+                key={i}
+                className="flex items-center justify-between p-3 sm:p-4 border rounded-lg"
+              >
                 <div className="space-y-2 flex-1">
                   <div className="h-4 bg-gray-200 rounded w-32 sm:w-48"></div>
                   <div className="h-3 bg-gray-200 rounded w-24 sm:w-32"></div>
@@ -225,147 +336,198 @@ export function RepositoryManagement({ organizationId, userRole, noCardWrapper }
   }
 
   return (
-    <Card className={noCardWrapper ? "w-full border-none shadow-none bg-transparent" : "w-full"}>
-      <CardHeader className={noCardWrapper ? "p-0" : ""}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <CardTitle className="flex items-center text-base sm:text-lg">
-            <GitBranch className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-            Repositories ({repositories.length})
-          </CardTitle>
-          {canManageRepos && repositories.length > 0 && (
-            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size={isMobile ? "sm" : "default"} className="w-full sm:w-auto">
-                  <Plus className="mr-2 h-4 w-4" />
-                  {isMobile ? 'Add Repo' : 'Add Repository'}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="w-[95vw] max-w-md mx-auto">
-                <DialogHeader>
-                  <DialogTitle className="text-base sm:text-lg">Add Repository</DialogTitle>
-                  <DialogDescription className="text-sm">
-                    Add a repository to this organization for credit delegation.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="repository_url" className="text-sm">Repository URL</Label>
-                    <Input
-                      id="repository_url"
-                      type="url"
-                      placeholder="https://github.com/username/repository"
-                      value={addForm.repository_url}
-                      onChange={(e) => setAddForm({ ...addForm, repository_url: e.target.value })}
-                      className="text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Supports GitHub, GitLab, and Bitbucket repositories
-                    </p>
+    <>
+      <Card
+        className={
+          noCardWrapper
+            ? 'w-full border-none shadow-none bg-transparent'
+            : 'w-full'
+        }
+      >
+        <CardHeader className={noCardWrapper ? 'p-0' : ''}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="flex items-center text-base sm:text-lg">
+              <GitBranch className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+              Repositories ({repositories.length})
+            </CardTitle>
+            {canManageRepos && repositories.length > 0 && (
+              <Button
+                onClick={() => setAddDialogOpen(true)}
+                size={isMobile ? 'sm' : 'default'}
+                className="w-full sm:w-auto"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {isMobile ? 'Add Repo' : 'Add Repository'}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className={noCardWrapper ? 'p-0' : ''}>
+          <div className="space-y-3 sm:space-y-4">
+            {repositories.map((repo) => (
+              <div
+                key={repo.id}
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg"
+              >
+                <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    {getRepositoryIcon(repo.repository_url)}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="repository_name" className="text-sm">Repository Name</Label>
-                    <Input
-                      id="repository_name"
-                      placeholder="My Project"
-                      value={addForm.repository_name}
-                      onChange={(e) => setAddForm({ ...addForm, repository_name: e.target.value })}
-                      className="text-sm"
-                    />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-sm sm:text-base truncate">
+                      {repo.repository_name}
+                    </div>
+                    <div className="text-xs sm:text-sm text-muted-foreground flex items-center">
+                      <span className="truncate">
+                        {getRepositoryDomain(repo.repository_url)}
+                      </span>
+                      <a
+                        href={repo.repository_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 text-blue-600 hover:text-blue-800 flex-shrink-0"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Added by {repo.approver.name} •{' '}
+                      {new Date(repo.approved_at).toLocaleDateString()}
+                    </div>
                   </div>
                 </div>
-                <DialogFooter className="flex-col sm:flex-row gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setAddDialogOpen(false)}
-                    disabled={adding}
-                    className="w-full sm:w-auto"
-                    size={isMobile ? "sm" : "default"}
+                <div className="flex items-center justify-between sm:justify-end space-x-2 flex-shrink-0">
+                  <Badge
+                    variant={repo.is_active ? 'default' : 'secondary'}
+                    className="text-xs"
                   >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleAddRepository} 
-                    disabled={adding}
-                    className="w-full sm:w-auto"
-                    size={isMobile ? "sm" : "default"}
-                  >
-                    {adding ? 'Adding...' : 'Add Repository'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className={noCardWrapper ? "p-0" : ""}>
-        <div className="space-y-3 sm:space-y-4">
-          {repositories.map((repo) => (
-            <div key={repo.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
-              <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  {getRepositoryIcon(repo.repository_url)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-sm sm:text-base truncate">{repo.repository_name}</div>
-                  <div className="text-xs sm:text-sm text-muted-foreground flex items-center">
-                    <span className="truncate">{getRepositoryDomain(repo.repository_url)}</span>
-                    <a
-                      href={repo.repository_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-2 text-blue-600 hover:text-blue-800 flex-shrink-0"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Added by {repo.approver.name} • {new Date(repo.approved_at).toLocaleDateString()}
-                  </div>
+                    {repo.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                  {canManageRepos && repo.is_active && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={isMobile ? 'h-10 w-10 p-0' : 'h-8 w-8 p-0'}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align={isMobile ? 'center' : 'end'}
+                        className={isMobile ? 'w-56' : ''}
+                      >
+                        <DropdownMenuItem
+                          onClick={() =>
+                            handleRemoveRepository(
+                              repo.id,
+                              repo.repository_name
+                            )
+                          }
+                          className={
+                            isMobile
+                              ? 'text-red-600 text-sm py-3'
+                              : 'text-red-600 text-sm'
+                          }
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remove Repository
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center justify-between sm:justify-end space-x-2 flex-shrink-0">
-                <Badge variant={repo.is_active ? 'default' : 'secondary'} className="text-xs">
-                  {repo.is_active ? 'Active' : 'Inactive'}
-                </Badge>
-                {canManageRepos && repo.is_active && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className={isMobile ? "h-10 w-10 p-0" : "h-8 w-8 p-0"}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent 
-                      align={isMobile ? "center" : "end"}
-                      className={isMobile ? "w-56" : ""}
-                    >
-                      <DropdownMenuItem
-                        onClick={() => handleRemoveRepository(repo.id, repo.repository_name)}
-                        className={isMobile ? "text-red-600 text-sm py-3" : "text-red-600 text-sm"}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Remove Repository
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            ))}
+            {repositories.length === 0 && (
+              <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                <GitBranch className="mx-auto h-8 w-8 sm:h-12 sm:w-12 mb-4 opacity-50" />
+                <p className="text-base sm:text-lg font-medium mb-2">
+                  No repositories yet
+                </p>
+                <p className="mb-4 text-sm sm:text-base">
+                  Add repositories to enable credit delegation for your
+                  organization.
+                </p>
+                {canManageRepos && (
+                  <Button
+                    onClick={() => setAddDialogOpen(true)}
+                    size={isMobile ? 'sm' : 'default'}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Your First Repository
+                  </Button>
                 )}
               </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Move Dialog outside the Card and make it always available when canManageRepos is true */}
+      {canManageRepos && (
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+          <DialogContent className="w-[95vw] max-w-md mx-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg">
+                Add Repository
+              </DialogTitle>
+              <DialogDescription className="text-sm">
+                Add a repository to this organization for credit delegation.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="repository_url" className="text-sm">
+                  Repository URL
+                </Label>
+                <Input
+                  id="repository_url"
+                  type="url"
+                  placeholder="https://github.com/username/repository"
+                  value={addForm.repository_url}
+                  onChange={(e) => handleUrlChange(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="repository_name" className="text-sm">
+                  Repository Name
+                </Label>
+                <Input
+                  id="repository_name"
+                  placeholder="My Project"
+                  value={addForm.repository_name}
+                  onChange={(e) =>
+                    setAddForm({ ...addForm, repository_name: e.target.value })
+                  }
+                  className="text-sm"
+                />
+              </div>
             </div>
-          ))}
-          {repositories.length === 0 && (
-            <div className="text-center py-6 sm:py-8 text-muted-foreground">
-              <GitBranch className="mx-auto h-8 w-8 sm:h-12 sm:w-12 mb-4 opacity-50" />
-              <p className="text-base sm:text-lg font-medium mb-2">No repositories yet</p>
-              <p className="mb-4 text-sm sm:text-base">Add repositories to enable credit delegation for your organization.</p>
-              {canManageRepos && (
-                <Button onClick={() => setAddDialogOpen(true)} size={isMobile ? "sm" : "default"}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Your First Repository
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setAddDialogOpen(false)}
+                disabled={adding}
+                className="w-full sm:w-auto"
+                size={isMobile ? 'sm' : 'default'}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddRepository}
+                disabled={adding}
+                className="w-full sm:w-auto"
+                size={isMobile ? 'sm' : 'default'}
+              >
+                {adding ? 'Adding...' : 'Add Repository'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   )
 }

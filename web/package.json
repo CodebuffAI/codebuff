@@ -78,6 +78,7 @@
     "three": "^0.168.0",
     "three-globe": "^2.42.3",
     "ts-pattern": "^5.7.0",
+    "use-debounce": "^10.0.4",
     "zod": "^3.24.2"
   },
   "devDependencies": {
