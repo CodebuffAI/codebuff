@@ -722,7 +722,7 @@ export const mainPrompt = async (
           path,
           latestContentPromise,
           fileContentWithoutStartNewline,
-          messagesWithUserMessage,
+          transformMessages(messagesWithUserMessage),
           fullResponse,
           prompt,
           clientSessionId,

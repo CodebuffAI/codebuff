@@ -1,9 +1,9 @@
 import { CostMode, models } from 'common/constants'
-import { Message } from 'common/types/message'
 import { cleanMarkdownCodeBlock } from 'common/util/file'
 import { hasLazyEdit } from 'common/util/string'
 import { createPatch } from 'diff'
 
+import { CoreMessage } from 'ai'
 import { fastRewrite, shouldAddFilePlaceholders } from './fast-rewrite'
 import {
   parseAndGetDiffBlocksSingleFile,
@@ -17,7 +17,7 @@ export async function processFileBlock(
   path: string,
   initialContentPromise: Promise<string | null>,
   newContent: string,
-  messages: Message[],
+  messages: CoreMessage[],
   fullResponse: string,
   lastUserPrompt: string | undefined,
   clientSessionId: string,
