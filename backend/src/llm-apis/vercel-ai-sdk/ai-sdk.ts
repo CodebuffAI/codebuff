@@ -67,6 +67,7 @@ export const promptAiSdkStream = async function* (
     maxTokens?: number
     temperature?: number
     stopSequences?: string[]
+    chargeUser?: boolean
   }
 ) {
   const startTime = Date.now()
@@ -115,6 +116,7 @@ export const promptAiSdkStream = async function* (
     cacheReadInputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
+    chargeUser: options.chargeUser ?? true,
   })
 }
 
@@ -130,6 +132,7 @@ export const promptAiSdk = async function (
     maxTokens?: number
     temperature?: number
     stopSequences?: string[]
+    chargeUser?: boolean
   }
 ): Promise<string> {
   const startTime = Date.now()
@@ -160,6 +163,7 @@ export const promptAiSdk = async function (
     outputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
+    chargeUser: options.chargeUser ?? true,
   })
 
   return content
@@ -178,6 +182,7 @@ export const promptAiSdkStructured = async function <T>(
     maxTokens?: number
     temperature?: number
     timeout?: number
+    chargeUser?: boolean
   }
 ): Promise<T> {
   const startTime = Date.now()
@@ -212,6 +217,7 @@ export const promptAiSdkStructured = async function <T>(
     outputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
+    chargeUser: options.chargeUser ?? true,
   })
 
   return content

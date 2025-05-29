@@ -1,7 +1,8 @@
-import { promptClaude } from '@/llm-apis/claude'
+import { promptAiSdk } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
 import { Relabel } from '@codebuff/bigquery'
 
 import { GetRelevantFilesTrace } from '@codebuff/bigquery'
+import { claudeModels, TEST_USER_ID } from 'common/constants'
 
 const PROMPT = `
 You are an evaluator system, measuring how well various models perform at selecting the most relevant files for a given user request.
@@ -127,8 +128,9 @@ export async function gradeRun(tracesAndRelabels: {
   console.log(relabels)
 
   const stringified = JSON.stringify(messages)
-  const response = await promptClaude(
+  const response = await promptAiSdk(
     [
+      { role: 'system', content: PROMPT },
       {
         role: 'user',
         content: `<request_context>${stringified}</request_context>`,
@@ -140,11 +142,11 @@ export async function gradeRun(tracesAndRelabels: {
       { role: 'user', content: PROMPT },
     ],
     {
-      system: PROMPT,
+      model: claudeModels.sonnet,
       clientSessionId: 'relabel-trace-api',
       fingerprintId: 'relabel-trace-api',
       userInputId: 'relabel-trace-api',
-      ignoreDatabaseAndHelicone: true,
+      userId: TEST_USER_ID,
       //   thinking: {
       //     type: 'enabled',
       //     budget_tokens: 10000,

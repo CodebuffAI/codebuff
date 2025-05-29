@@ -4,12 +4,15 @@ import {
   insertRelabel,
 } from '@codebuff/bigquery'
 import { promptFlashWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
-import { claudeModels, models } from 'common/constants'
+import { claudeModels, models, TEST_USER_ID } from 'common/constants'
 import { Message } from 'common/types/message'
 import { generateCompactId } from 'common/util/string'
 
-import { transformMessages } from 'backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { promptClaude, System } from '../../backend/src/llm-apis/claude'
+import {
+  promptAiSdk,
+  transformMessages,
+} from 'backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { System } from '../../backend/src/llm-apis/claude'
 
 // Models we want to test
 const MODELS_TO_TEST = [
@@ -59,14 +62,16 @@ async function runTraces() {
               const system = payload.system
 
               if (model.startsWith('claude')) {
-                output = await promptClaude(messages as Message[], {
-                  system: system as System,
-                  model: model as typeof claudeModels.sonnet,
-                  clientSessionId: 'relabel-trace-run',
-                  fingerprintId: 'relabel-trace-run',
-                  userInputId: 'relabel-trace-run',
-                  ignoreDatabaseAndHelicone: true,
-                })
+                output = await promptAiSdk(
+                  transformMessages(messages as Message[], system as System),
+                  {
+                    model: model as typeof claudeModels.sonnet,
+                    clientSessionId: 'relabel-trace-run',
+                    fingerprintId: 'relabel-trace-run',
+                    userInputId: 'relabel-trace-run',
+                    userId: TEST_USER_ID,
+                  }
+                )
               } else {
                 output = await promptFlashWithFallbacks(
                   transformMessages(messages as Message[], system as System),

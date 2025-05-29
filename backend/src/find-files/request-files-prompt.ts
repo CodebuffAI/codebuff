@@ -17,14 +17,14 @@ import {
 import { range, shuffle, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
-import { promptClaude, System } from '../llm-apis/claude'
+import { System } from '../llm-apis/claude'
 import { logger } from '../util/logger'
 import { countTokens } from '../util/token-counter'
 import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
 import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
-import { transformMessages } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk, transformMessages } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
 import { getMessagesSubset } from '@/util/messages'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
@@ -327,15 +327,17 @@ async function getRelevantFilesForTraining(
     bufferTokens
   )
   const start = performance.now()
-  let response = await promptClaude(messagesWithPrompt, {
-    system,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    model: models.sonnet,
-    userId,
-    chargeUser: false,
-  })
+  let response = await promptAiSdk(
+    transformMessages(messagesWithPrompt, system),
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.sonnet,
+      userId,
+      chargeUser: false,
+    }
+  )
 
   const end = performance.now()
   const duration = end - start

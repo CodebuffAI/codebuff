@@ -17,7 +17,6 @@ import { WebSocket } from 'ws'
 // Mock imports
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
-import * as claude from '../llm-apis/claude'
 import * as gemini from '../llm-apis/gemini-api'
 import * as openai from '../llm-apis/openai-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
@@ -41,9 +40,6 @@ mock.module('../util/logger', () => ({
 }))
 
 const mockAgentStream = (streamOutput: string) => {
-  spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
-    yield streamOutput
-  })
   spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
     yield streamOutput
   })
@@ -75,13 +71,6 @@ describe('mainPrompt', () => {
     )
 
     // Mock LLM APIs
-    spyOn(claude, 'promptClaude').mockImplementation(() =>
-      Promise.resolve('Test response')
-    )
-    spyOn(claude, 'promptClaudeStream').mockImplementation(async function* () {
-      yield 'Test response'
-      return
-    })
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
       Promise.resolve('Test response')
     )

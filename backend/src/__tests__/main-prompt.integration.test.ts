@@ -8,7 +8,6 @@ import { mainPrompt } from '../main-prompt'
 import { renderReadFilesResult } from '@/util/parse-tool-call-xml'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
-import * as claude from '../llm-apis/claude'
 import * as gemini from '../llm-apis/gemini-api'
 import * as openai from '../llm-apis/openai-api'
 import { logger } from '../util/logger'
@@ -296,7 +295,6 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     //   yield 'Claude fallback response'
     // })
     spyOn(gemini, 'promptGemini').mockResolvedValue('Mocked non-stream Gemini')
-    spyOn(claude, 'promptClaude').mockResolvedValue('Mocked non-stream Claude')
     spyOn(openai, 'promptOpenAI').mockResolvedValue('Mocked non-stream OpenAI')
 
     const agentState = getInitialAgentState(mockFileContext)
