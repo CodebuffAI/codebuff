@@ -17,7 +17,6 @@ import { WebSocket } from 'ws'
 // Mock imports
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
-import * as openai from '../llm-apis/openai-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
@@ -39,9 +38,6 @@ mock.module('../util/logger', () => ({
 }))
 
 const mockAgentStream = (streamOutput: string) => {
-  spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
-    yield streamOutput
-  })
   spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
     yield streamOutput
   })
@@ -76,13 +72,6 @@ describe('mainPrompt', () => {
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield 'Test response'
       return
-    })
-
-    spyOn(openai, 'promptOpenAI').mockImplementation(() =>
-      Promise.resolve('Test response')
-    )
-    spyOn(openai, 'promptOpenAIStream').mockImplementation(async function* () {
-      yield 'Test response'
     })
 
     // Mock websocket actions

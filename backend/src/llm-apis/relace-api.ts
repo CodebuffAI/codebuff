@@ -8,7 +8,7 @@ import { env } from '../env.mjs'
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { logger } from '../util/logger'
 import { countTokens } from '../util/token-counter'
-import { promptOpenAI } from './openai-api'
+import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
@@ -226,7 +226,7 @@ Important:
 
 Please output just the complete updated file content with no other text.`
 
-    const content = await promptOpenAI(
+    const content = await promptAiSdk(
       [
         { role: 'user', content: prompt },
         { role: 'assistant', content: '```\n' },
