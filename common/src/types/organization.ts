@@ -60,12 +60,12 @@ export interface OrganizationDetailsResponse {
   name: string
   slug: string
   description?: string
-  owner_id: string
-  created_at: string
-  userRole: OrganizationRole
+  userRole: 'owner' | 'admin' | 'member'
   memberCount: number
   repositoryCount: number
-  creditBalance?: number
+  creditBalance: number
+  hasStripeSubscription?: boolean
+  stripeSubscriptionId?: string
 }
 
 export interface InviteMemberRequest {

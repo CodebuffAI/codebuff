@@ -15,7 +15,7 @@ import {
   CreditCard,
   Calendar,
   Download,
-  AlertTriangle
+  AlertTriangle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
@@ -72,7 +72,9 @@ export default function UsagePage() {
       }
     } catch (error) {
       console.error('Error fetching usage data:', error)
-      setUsageError(error instanceof Error ? error.message : 'Failed to load usage data')
+      setUsageError(
+        error instanceof Error ? error.message : 'Failed to load usage data'
+      )
     } finally {
       setUsageLoading(false)
     }
@@ -106,7 +108,10 @@ export default function UsagePage() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to export usage data',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to export usage data',
         variant: 'destructive',
       })
     }
@@ -164,14 +169,14 @@ export default function UsagePage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">{error || usageError || 'Organization not found'}</p>
+              <p className="mb-4">
+                {error || usageError || 'Organization not found'}
+              </p>
               <div className="flex gap-2">
                 <Button onClick={() => router.back()} variant="outline">
                   Go Back
                 </Button>
-                <Button onClick={fetchUsageData}>
-                  Try Again
-                </Button>
+                <Button onClick={fetchUsageData}>Try Again</Button>
               </div>
             </CardContent>
           </Card>
@@ -180,7 +185,8 @@ export default function UsagePage() {
     )
   }
 
-  const canViewUsage = organization.userRole === 'owner' || organization.userRole === 'admin'
+  const canViewUsage =
+    organization.userRole === 'owner' || organization.userRole === 'admin'
 
   if (!canViewUsage) {
     return (
@@ -191,7 +197,10 @@ export default function UsagePage() {
               <CardTitle>Access Denied</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">You don't have permission to view usage analytics for this organization.</p>
+              <p className="mb-4">
+                You don't have permission to view usage analytics for this
+                organization.
+              </p>
               <Link href={`/orgs/${orgSlug}`}>
                 <Button>Back to Organization</Button>
               </Link>
@@ -203,7 +212,12 @@ export default function UsagePage() {
   }
 
   const utilizationRate = usageData?.currentBalance
-    ? Math.min(100, (usageData.usageThisCycle / (usageData.currentBalance + usageData.usageThisCycle)) * 100)
+    ? Math.min(
+        100,
+        (usageData.usageThisCycle /
+          (usageData.currentBalance + usageData.usageThisCycle)) *
+          100
+      )
     : 0
 
   return (
@@ -236,52 +250,54 @@ export default function UsagePage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Current Balance
+              </CardTitle>
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {usageData?.currentBalance?.toLocaleString() || '—'}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Available credits
-              </p>
+              <p className="text-xs text-muted-foreground">Available credits</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Usage This Cycle</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Usage This Cycle
+              </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {usageData?.usageThisCycle?.toLocaleString() || '—'}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Credits consumed
-              </p>
+              <p className="text-xs text-muted-foreground">Credits consumed</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Active Users
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {usageData?.topUsers?.length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Users with usage
-              </p>
+              <p className="text-xs text-muted-foreground">Users with usage</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Utilization Rate</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Utilization Rate
+              </CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -309,7 +325,10 @@ export default function UsagePage() {
               <div className="space-y-4">
                 {usageData?.topUsers?.length ? (
                   usageData.topUsers.map((user, index) => (
-                    <div key={user.user_id} className="flex items-center justify-between">
+                    <div
+                      key={user.user_id}
+                      className="flex items-center justify-between"
+                    >
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium">
                           {index + 1}
@@ -322,7 +341,12 @@ export default function UsagePage() {
                         </div>
                       </div>
                       <Badge variant="secondary">
-                        {((user.credits_used / (usageData.usageThisCycle || 1)) * 100).toFixed(1)}%
+                        {(
+                          (user.credits_used /
+                            (usageData.usageThisCycle || 1)) *
+                          100
+                        ).toFixed(1)}
+                        %
                       </Badge>
                     </div>
                   ))
@@ -348,7 +372,10 @@ export default function UsagePage() {
               <div className="space-y-4">
                 {usageData?.recentUsage?.length ? (
                   usageData.recentUsage.slice(0, 10).map((usage, index) => (
-                    <div key={index} className="flex items-center justify-between">
+                    <div
+                      key={index}
+                      className="flex items-center justify-between"
+                    >
                       <div>
                         <div className="font-medium">{usage.user_name}</div>
                         <div className="text-sm text-muted-foreground">
@@ -385,7 +412,8 @@ export default function UsagePage() {
             </CardHeader>
             <CardContent>
               <p className="text-orange-700 mb-4">
-                Your organization has a low credit balance. Consider purchasing more credits to avoid service interruption.
+                Your organization has a low credit balance. Consider purchasing
+                more credits to avoid service interruption.
               </p>
               <Link href={`/orgs/${orgSlug}`}>
                 <Button className="bg-orange-600 hover:bg-orange-700">

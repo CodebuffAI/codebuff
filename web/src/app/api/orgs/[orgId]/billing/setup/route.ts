@@ -177,7 +177,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           quantity: 1,
         },
       ],
-      success_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}?subscription_success=true`,
+      success_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}/billing/purchase?subscription_success=true`,
       cancel_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}?subscription_canceled=true`,
       metadata: {
         organization_id: orgId,

@@ -7,6 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
   ArrowLeft,
   Building2,
   Users,
@@ -16,11 +21,15 @@ import {
   Plus,
   AlertCircle,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
 import { CreditMonitor } from '@/components/organization/credit-monitor'
 import { BillingAlerts } from '@/components/organization/billing-alerts'
+import { TeamManagement } from '@/components/organization/team-management'
+import { RepositoryManagement } from '@/components/organization/repository-management'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useOrganizationData } from '@/hooks/use-organization-data'
 import {
@@ -37,6 +46,7 @@ import { Label } from '@/components/ui/label'
 import { CREDIT_PRICING } from 'common/src/constants'
 import { useState, useEffect } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
+import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
 
 export default function OrganizationPage() {
   const { data: session, status } = useSession()
@@ -46,14 +56,20 @@ export default function OrganizationPage() {
   const orgSlug = params.slug as string
   const isMobile = useIsMobile()
 
-  const [creditPurchaseOpen, setCreditPurchaseOpen] = useState(false)
-  const [creditAmount, setCreditAmount] = useState('1000')
   const [purchasing, setPurchasing] = useState(false)
   const [settingUpBilling, setSettingUpBilling] = useState(false)
+
+  // Collapsible states - only one can be open at a time
+  const [activeSection, setActiveSection] = useState<
+    'members' | 'repositories' | 'creditBalance' | null
+  >(null)
 
   // Use the custom hook for organization data
   const { organization, billingStatus, isLoading, error } =
     useOrganizationData(orgSlug)
+
+  // Define low credit threshold
+  const LOW_CREDIT_THRESHOLD = 2000
 
   // Check for purchase success and subscription success
   useEffect(() => {
@@ -77,65 +93,12 @@ export default function OrganizationPage() {
     }
   }, [searchParams, orgSlug, router])
 
-  const handleSetupBilling = async () => {
+  const handlePurchaseCredits = async (credits: number) => {
     if (!organization) return
 
-    setSettingUpBilling(true)
-    try {
-      const response = await fetch(
-        `/api/orgs/${organization.id}/billing/setup`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to setup billing')
-      }
-
-      const { sessionId } = await response.json()
-
-      // Redirect to Stripe Checkout
-      const stripe = await loadStripe(
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
-      )
-
-      if (stripe) {
-        const { error } = await stripe.redirectToCheckout({
-          sessionId,
-        })
-
-        if (error) {
-          throw new Error(error.message)
-        }
-      }
-    } catch (error: any) {
-      console.error('Error setting up billing:', error)
-      toast({
-        title: 'Setup Failed',
-        description:
-          error.message || 'Failed to setup billing. Please try again.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSettingUpBilling(false)
-    }
-  }
-
-  const handlePurchaseCredits = async () => {
-    if (!organization) return
-
-    const credits = parseInt(creditAmount)
-    if (!credits || credits < CREDIT_PRICING.MIN_PURCHASE_CREDITS) {
-      toast({
-        title: 'Error',
-        description: `Please enter a valid credit amount (minimum ${CREDIT_PRICING.MIN_PURCHASE_CREDITS} credits)`,
-        variant: 'destructive',
-      })
+    // If billing is not set up, initiate setup first
+    if (!organization.hasStripeSubscription) {
+      await handleSetupBilling(credits)
       return
     }
 
@@ -168,13 +131,73 @@ export default function OrganizationPage() {
     }
   }
 
+  const handleSetupBilling = async (credits?: number) => {
+    if (!organization) return
+
+    setSettingUpBilling(true)
+    try {
+      const response = await fetch(
+        `/api/orgs/${organization.id}/billing/setup`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to setup billing')
+      }
+
+      const { sessionId } = await response.json()
+
+      // Store the intended credit amount in localStorage for after setup
+      if (credits) {
+        localStorage.setItem('pendingCreditPurchase', credits.toString())
+      }
+
+      // Redirect to Stripe Checkout
+      const stripe = await loadStripe(
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+      )
+
+      if (stripe) {
+        const { error } = await stripe.redirectToCheckout({
+          sessionId,
+        })
+
+        if (error) {
+          throw new Error(error.message)
+        }
+      }
+    } catch (error: any) {
+      console.error('Error setting up billing:', error)
+      toast({
+        title: 'Setup Failed',
+        description:
+          error.message || 'Failed to setup billing. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSettingUpBilling(false)
+    }
+  }
+
+  const handleSectionToggle = (
+    section: 'members' | 'repositories' | 'creditBalance'
+  ) => {
+    setActiveSection(activeSection === section ? null : section)
+  }
+
   if (status === 'loading' || isLoading) {
     return (
       <div className="container mx-auto py-6 px-4">
         <div className="max-w-6xl mx-auto">
           <Skeleton className="h-8 w-64 mb-6" />
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
               <Skeleton key={i} className="h-48" />
             ))}
           </div>
@@ -239,6 +262,11 @@ export default function OrganizationPage() {
   const canManageOrg =
     organization.userRole === 'owner' || organization.userRole === 'admin'
 
+  // Check if credits are low
+  const hasLowCredits =
+    organization.hasStripeSubscription &&
+    organization.creditBalance < LOW_CREDIT_THRESHOLD
+
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -285,6 +313,38 @@ export default function OrganizationPage() {
           )}
         </div>
 
+        {/* Low Credit Balance Notification */}
+        {hasLowCredits && (
+          <Card className="mb-8 border-red-200 bg-red-50">
+            <CardContent className="py-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
+                <div className="flex items-center">
+                  <AlertCircle className="mr-3 h-5 w-5 text-red-600 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-medium text-red-800">
+                      Low Credit Balance
+                    </h3>
+                    <p className="text-sm text-red-700">
+                      Your organization has{' '}
+                      {organization.creditBalance.toLocaleString()} credits
+                      remaining. Consider purchasing more credits to avoid
+                      service interruption.
+                    </p>
+                  </div>
+                </div>
+                {canManageBilling && (
+                  <Link href={`/orgs/${orgSlug}/billing/purchase`}>
+                    <Button className="text-center text-white bg-red-600 hover:bg-red-700 flex-shrink-0 w-full sm:w-auto">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Purchase Credits
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Billing Setup Section */}
         {canManageBilling && !organization.hasStripeSubscription && (
           <Card className="mb-8 border-orange-200 bg-orange-50">
@@ -303,7 +363,7 @@ export default function OrganizationPage() {
                   </div>
                 </div>
                 <Button
-                  onClick={handleSetupBilling}
+                  onClick={() => handleSetupBilling()}
                   disabled={settingUpBilling}
                   className="text-center text-white bg-orange-600 hover:bg-orange-700 flex-shrink-0 w-full sm:w-auto"
                 >
@@ -316,70 +376,173 @@ export default function OrganizationPage() {
 
         {/* Stats Cards */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          {/* Members Card - Links to Team Management */}
-          <Link href={`/orgs/${orgSlug}/team`}>
-            <Card className="hover:shadow-lg hover:border-primary transition-all duration-200 cursor-pointer transform hover:scale-105">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Members</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {organization.memberCount}
+          {/* Members Card - Collapsible */}
+          <Collapsible
+            open={activeSection === 'members'}
+            onOpenChange={() => handleSectionToggle('members')}
+          >
+            <Card className="hover:shadow-lg hover:border-primary transition-all duration-200">
+              <CollapsibleTrigger asChild>
+                <div className="cursor-pointer">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Members
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      {activeSection === 'members' ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {organization.memberCount}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {activeSection === 'members'
+                        ? 'Hide members'
+                        : 'View members'}
+                    </p>
+                  </CardContent>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  View members
-                </p>
-              </CardContent>
+              </CollapsibleTrigger>
+              {/* Mobile: Show content inside card */}
+              {isMobile && (
+                <CollapsibleContent>
+                  <CardContent className="px-4 pb-4 pt-0">
+                    {canManageOrg ? (
+                      <TeamManagement
+                        organizationId={organization.id}
+                        userRole={organization.userRole}
+                      />
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Users className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                        <p>You don't have permission to manage team members.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              )}
             </Card>
-          </Link>
+          </Collapsible>
 
-          {/* Repositories Card - Links to Repository Management */}
-          <Link href={`/orgs/${orgSlug}/repositories`}>
-            <Card className="hover:shadow-lg hover:border-primary transition-all duration-200 cursor-pointer transform hover:scale-105">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Repositories
-                </CardTitle>
-                <GitBranch className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {organization.repositoryCount}
+          {/* Repositories Card - Collapsible */}
+          <Collapsible
+            open={activeSection === 'repositories'}
+            onOpenChange={() => handleSectionToggle('repositories')}
+          >
+            <Card className="hover:shadow-lg hover:border-primary transition-all duration-200">
+              <CollapsibleTrigger asChild>
+                <div className="cursor-pointer">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Repositories
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <GitBranch className="h-4 w-4 text-muted-foreground" />
+                      {activeSection === 'repositories' ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {organization.repositoryCount}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {activeSection === 'repositories'
+                        ? 'Hide repositories'
+                        : 'View repositories'}
+                    </p>
+                  </CardContent>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  View repositories
-                </p>
-              </CardContent>
+              </CollapsibleTrigger>
+              {/* Mobile: Show content inside card */}
+              {isMobile && (
+                <CollapsibleContent>
+                  <CardContent className="px-4 pb-4 pt-0">
+                    <RepositoryManagement
+                      organizationId={organization.id}
+                      userRole={organization.userRole}
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              )}
             </Card>
-          </Link>
+          </Collapsible>
 
-          {/* Credit Balance Card - Links to Usage Analytics */}
-          <Link href={`/orgs/${orgSlug}/usage`}>
-            <Card className="hover:shadow-lg hover:border-primary transition-all duration-200 cursor-pointer transform hover:scale-105">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Credit Balance
-                </CardTitle>
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {organization.creditBalance !== undefined
-                    ? organization.creditBalance.toLocaleString()
-                    : '—'}
+          {/* Credit Balance Card - Collapsible */}
+          <Collapsible
+            open={isMobile && activeSection === 'creditBalance'}
+            onOpenChange={() => handleSectionToggle('creditBalance')}
+          >
+            <Card className="hover:shadow-lg hover:border-primary transition-all duration-200">
+              <CollapsibleTrigger asChild>
+                <div className="cursor-pointer">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Credit Balance
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-muted-foreground" />
+                      {activeSection === 'creditBalance' ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {organization.creditBalance !== undefined
+                        ? organization.creditBalance.toLocaleString()
+                        : '—'}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {activeSection === 'creditBalance'
+                        ? 'Hide details'
+                        : isMobile
+                          ? 'Purchase credits / View monitor'
+                          : 'View details below'}
+                    </p>
+                  </CardContent>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  View usage details
-                </p>
-              </CardContent>
+              </CollapsibleTrigger>
+              {/* Mobile: Show CreditPurchaseSection or CreditMonitor in collapsible content */}
+              {isMobile && (
+                <CollapsibleContent>
+                  <CardContent className="px-4 pb-4 pt-0">
+                    {canManageBilling && organization.hasStripeSubscription ? (
+                      <CreditPurchaseSection
+                        onPurchase={handlePurchaseCredits}
+                        isPurchasePending={purchasing || settingUpBilling}
+                      />
+                    ) : organization.hasStripeSubscription ? (
+                      <CreditMonitor organizationId={organization.id} />
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <CreditCard className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                        <p className="text-sm">
+                          Set up billing to purchase credits.
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              )}
             </Card>
-          </Link>
+          </Collapsible>
 
           {/* Billing Status Card - Links to appropriate billing page */}
-          <Link 
+          <Link
             href={
-              organization.hasStripeSubscription 
+              organization.hasStripeSubscription
                 ? `/orgs/${orgSlug}/settings`
                 : `/orgs/${orgSlug}/billing/purchase`
             }
@@ -408,27 +571,87 @@ export default function OrganizationPage() {
                     : 'Not Set Up'}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {organization.hasStripeSubscription 
+                  {organization.hasStripeSubscription
                     ? 'View billing settings'
-                    : 'Set up billing'
-                  }
+                    : 'Set up billing'}
                 </p>
               </CardContent>
             </Card>
           </Link>
         </div>
 
-        {/* Billing Alerts */}
-        {organization.hasStripeSubscription && (
-          <div className="mb-8">
-            <BillingAlerts organizationId={organization.id} />
-          </div>
-        )}
+        {/* Desktop: Management Components Below Cards */}
+        {!isMobile && (
+          <div className="space-y-6 mb-8">
+            {/* Members Management Section */}
+            {activeSection === 'members' && (
+              <TeamManagement
+                organizationId={organization.id}
+                userRole={organization.userRole}
+              />
+            )}
 
-        {/* Credit Monitor */}
-        {organization.hasStripeSubscription && (
-          <div className="mb-8">
-            <CreditMonitor organizationId={organization.id} />
+            {/* Repositories Management Section */}
+            {activeSection === 'repositories' && (
+              <RepositoryManagement
+                organizationId={organization.id}
+                userRole={organization.userRole}
+              />
+            )}
+
+            {/* Credit Balance Section */}
+            {activeSection === 'creditBalance' && (
+              <div className="space-y-6">
+                {organization.hasStripeSubscription ? (
+                  <>
+                    <CreditMonitor organizationId={organization.id} />
+                    {canManageBilling && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center">
+                            <CreditCard className="mr-2 h-5 w-5" />
+                            Purchase Credits
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <CreditPurchaseSection
+                            onPurchase={handlePurchaseCredits}
+                            isPurchasePending={purchasing || settingUpBilling}
+                          />
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <AlertCircle className="mr-2 h-5 w-5 text-orange-600" />
+                        Billing Setup Required
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground mb-4">
+                        Please set up billing to monitor usage and purchase
+                        credits for your organization.
+                      </p>
+                      {canManageBilling && (
+                        <Button
+                          onClick={() => handleSetupBilling()}
+                          disabled={settingUpBilling}
+                          size="sm"
+                          className="bg-orange-600 hover:bg-orange-700 text-white"
+                        >
+                          {settingUpBilling
+                            ? 'Setting up...'
+                            : 'Set Up Billing'}
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

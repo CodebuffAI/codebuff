@@ -135,8 +135,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const amountInCents = credits * CREDIT_PRICING.CENTS_PER_CREDIT
 
     // Create Stripe Checkout session for credit purchase
-    const successUrl = `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}/billing/purchase?purchase_success=true`
-    const cancelUrl = `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}/billing/purchase?purchase_canceled=true`
+    const successUrl = `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}?purchase_success=true`
+    const cancelUrl = `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}?purchase_canceled=true`
 
     const checkoutSession = await stripeServer.checkout.sessions.create({
       payment_method_types: ['card'],
