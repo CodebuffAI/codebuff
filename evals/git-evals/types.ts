@@ -57,7 +57,7 @@ export interface EvalRunJudged extends EvalRunLog {
 export interface FullEvalLog {
   test_repo_name: string
   generation_date: string
-  eval_runs: EvalRunLog[]
+  eval_runs: EvalRunJudged[]
   overall_metrics: {
     average_completion: number
     average_efficiency: number

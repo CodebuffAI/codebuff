@@ -284,7 +284,7 @@ function getCodebuffFileStates(
 
 export async function runGitEvals(
   evalDataPath: string,
-  outputPath: string
+  outputDir: string
 ): Promise<FullEvalLog> {
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8')
@@ -313,13 +313,15 @@ export async function runGitEvals(
   const traceId = generateCompactId()
   console.log(`Starting eval run with trace ID: ${traceId}`)
 
-  // Create partial filename with trace ID (single file that gets overwritten)
-  const outputDir = path.dirname(outputPath)
-  const outputBasename = path.basename(outputPath, path.extname(outputPath))
-  const outputExt = path.extname(outputPath)
+  // Ensure output directory exists
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true })
+  }
+
+  // Generate filenames with trace ID (single file that gets overwritten)
   const partialOutputPath = path.join(
     outputDir,
-    `${outputBasename}-${traceId}-partial${outputExt}`
+    `eval-partial-${actualRepoName}-${traceId}.json`
   )
 
   let completedCount = 0
@@ -378,7 +380,7 @@ export async function runGitEvals(
   // Create final filename with trace ID
   const finalOutputPath = path.join(
     outputDir,
-    `${outputBasename}-${traceId}${outputExt}`
+    `eval-result-${actualRepoName}-${traceId}.json`
   )
 
   // Write final results to file
@@ -423,12 +425,12 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
 // CLI handling
 if (require.main === module) {
   const args = process.argv.slice(2)
-  console.info('Usage: bun run run-git-eval [eval-data-path] [output-path]')
+  console.info('Usage: bun run run-git-eval [eval-data-path] [output-dir]')
 
   const evalDataPath = args[0] || 'git-evals/git-evals.json'
-  const outputPath = args[1] || 'git-evals/eval-trace.json'
+  const outputDir = args[1] || 'git-evals'
 
-  runGitEvals(evalDataPath, outputPath)
+  runGitEvals(evalDataPath, outputDir)
     .then(() => {
       console.log('Done!')
       process.exit(0)

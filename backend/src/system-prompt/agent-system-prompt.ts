@@ -5,7 +5,7 @@ import { buildArray } from 'common/util/array'
 import { ProjectFileContext } from 'common/util/file'
 import { countTokens } from 'gpt-tokenizer'
 
-import { toolsInstructions } from '../tools'
+import { getFilteredToolsInstructions } from '../tools'
 import { logger } from '../util/logger'
 import { countTokensJson } from '../util/token-counter'
 import {
@@ -16,7 +16,7 @@ import {
   knowledgeFilesPrompt,
 } from './prompts'
 
-export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
+export const getAgentSystemPrompt = (fileContext: ProjectFileContext, costMode?: string) => {
   const agentInstructions = fs.readFileSync(
     path.join(__dirname, 'agent-instructions.md'),
     'utf8'
@@ -45,6 +45,8 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext) => {
   const systemInfoTokens = countTokens(systemInfoPrompt)
 
   const configSchemaTokens = countTokens(configSchemaPrompt)
+
+  const toolsInstructions = getFilteredToolsInstructions(costMode || 'normal')
 
   const systemPrompt = buildArray(
     agentInstructions,

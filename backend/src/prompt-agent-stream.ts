@@ -5,13 +5,9 @@ import {
   providerModelNames,
   shortModelNames,
 } from 'common/constants'
-import { Message } from 'common/types/message'
+import { CoreMessage } from 'ai'
 
-import { System } from './llm-apis/claude'
-import {
-  promptAiSdkStream,
-  transformMessages,
-} from './llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
 export const getAgentStream = (params: {
   costMode: CostMode
@@ -51,12 +47,11 @@ export const getAgentStream = (params: {
 
   const provider = providerModelNames[model as keyof typeof providerModelNames]
 
-  const getStream = (messages: Message[], system: System) => {
-    const coreMessages = transformMessages(messages, system)
+  const getStream = (messages: CoreMessage[]) => {
     return provider === 'anthropic' ||
       provider === 'openai' ||
       provider === 'gemini'
-      ? promptAiSdkStream(coreMessages, {
+      ? promptAiSdkStream(messages, {
           model: model as AnthropicModel,
           stopSequences,
           clientSessionId,

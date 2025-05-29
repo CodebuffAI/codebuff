@@ -140,12 +140,15 @@ async function selectSubstantialCommits(
   try {
     return commits
       .filter((commit) =>
-        response.commits.some((selected: { sha: string }) => commit.sha.startsWith(selected.sha))
+        response.commits.some((selected: { sha: string }) =>
+          commit.sha.startsWith(selected.sha)
+        )
       )
       .map((commit) => ({
         ...commit,
-        selectionReason: response.commits.find((selected: { sha: string; reason: string }) =>
-          commit.sha.startsWith(selected.sha)
+        selectionReason: response.commits.find(
+          (selected: { sha: string; reason: string }) =>
+            commit.sha.startsWith(selected.sha)
         )!.reason,
       }))
   } catch (e) {
@@ -174,7 +177,7 @@ async function generateSpecForCommit(
       // Get content from parent commit (commit^)
       const preCommand = `git show ${commit.sha}^:${file}`
       const preContent = execSync(preCommand, { cwd: repoPath }).toString()
-      
+
       // Get content after commit
       const postCommand = `git show ${commit.sha}:${file}`
       const postContent = execSync(postCommand, { cwd: repoPath }).toString()
@@ -182,18 +185,32 @@ async function generateSpecForCommit(
       fileStates.push({
         path: file,
         preContent,
-        postContent
+        postContent,
       })
     } catch (e) {
       // File might not exist in parent commit (new file)
       // Or might be deleted in this commit
-      const isNewFile = !execSync(`git show ${commit.sha}^:${file} 2>/dev/null || true`, { cwd: repoPath }).toString()
-      const isDeletedFile = !execSync(`git show ${commit.sha}:${file} 2>/dev/null || true`, { cwd: repoPath }).toString()
-      
+      const isNewFile = !execSync(
+        `git show ${commit.sha}^:${file} 2>/dev/null || true`,
+        { cwd: repoPath }
+      ).toString()
+      const isDeletedFile = !execSync(
+        `git show ${commit.sha}:${file} 2>/dev/null || true`,
+        { cwd: repoPath }
+      ).toString()
+
       fileStates.push({
         path: file,
-        preContent: isNewFile ? '[NEW FILE]' : execSync(`git show ${commit.sha}^:${file}`, { cwd: repoPath }).toString(),
-        postContent: isDeletedFile ? '[DELETED]' : execSync(`git show ${commit.sha}:${file}`, { cwd: repoPath }).toString()
+        preContent: isNewFile
+          ? '[NEW FILE]'
+          : execSync(`git show ${commit.sha}^:${file}`, {
+              cwd: repoPath,
+            }).toString(),
+        postContent: isDeletedFile
+          ? '[DELETED]'
+          : execSync(`git show ${commit.sha}:${file}`, {
+              cwd: repoPath,
+            }).toString(),
       })
     }
   }
@@ -205,7 +222,8 @@ async function generateSpecForCommit(
   // Build the prompt with pre-commit file contents
   const preCommitContext = fileStates
     .map(
-      ({ path, preContent }) => `File: ${path}\nPre-commit content:\n${preContent}\n`
+      ({ path, preContent }) =>
+        `File: ${path}\nPre-commit content:\n${preContent}\n`
     )
     .join('\n---\n')
 
@@ -235,24 +253,22 @@ ${diff}`
 
 export async function generateEvalFile({
   repoUrl,
-  testRepoName,
   outputPath,
   clientSessionId,
   numberOfCommits,
 }: {
   repoUrl: string
-  testRepoName?: string
-  outputPath: string
+  outputPath: string | undefined
   clientSessionId: string
   numberOfCommits: number
 }): Promise<void> {
   // Extract repo name from URL if not provided
-  const actualRepoName = testRepoName || extractRepoNameFromUrl(repoUrl)
-  
+  const actualRepoName = extractRepoNameFromUrl(repoUrl)
+
   // Setup the test repository using the generic function
   console.log(`Setting up test repository from: ${repoUrl}`)
   const clonedRepoName = await setupTestRepo(repoUrl, actualRepoName)
-  
+
   const repoPath = path.join(__dirname, '../test-repos', clonedRepoName)
 
   // Get commits
@@ -282,45 +298,47 @@ export async function generateEvalFile({
       ...commitChunk.map((commit, index) => ({
         ...commit,
         spec: results[index].spec,
-        fileStates: results[index].fileStates
+        fileStates: results[index].fileStates,
       }))
     )
   }
 
   // Create output data
   const evalData: GitRepoEvalData = {
-    // only include testRepoName if explicitly provided
-    ...(testRepoName && { testRepoName }),
     repoUrl,
     generationDate: new Date().toISOString(),
     evalCommits: evalCommits,
   }
 
+  const generatedOutputPath =
+    outputPath ||
+    path.join(__dirname, `../git-evals/eval-${actualRepoName}.json`)
+
   // Write to file
-  fs.writeFileSync(outputPath, JSON.stringify(evalData, null, 2))
+  fs.writeFileSync(generatedOutputPath, JSON.stringify(evalData, null, 2))
 }
 
 // CLI handling
 if (require.main === module) {
   const args = process.argv.slice(2)
-  console.info('Usage: bun run generate-git-evals <repo-url> [output-path] [number-of-commits] [test-repo-name]')
+  console.info(
+    'Usage: bun run generate-git-evals <repo-url> [output-path] [number-of-commits]'
+  )
 
   const repoUrl = args[0]
   if (!repoUrl) {
     console.error('Error: repo-url is required')
     process.exit(1)
   }
-  
-  const outputPath = args[1] || './git-evals/git-evals.json'
+
+  const outputPath = args[1]
   const numberOfCommits = Number(args[2] || 100)
-  const testRepoName = args[3] // Optional custom repo name
 
   // Generate random ID for this run
   const sessionId = Math.random().toString(36).substring(2)
 
   generateEvalFile({
     repoUrl,
-    testRepoName,
     outputPath,
     clientSessionId: sessionId,
     numberOfCommits,

@@ -1,48 +1,19 @@
-import { Anthropic, APIConnectionError } from '@anthropic-ai/sdk'
-import type { TextBlockParam, Tool } from '@anthropic-ai/sdk/resources'
+import Anthropic, { APIConnectionError } from '@anthropic-ai/sdk'
+import { TextBlockParam, MessageParam, ImageBlockParam } from '@anthropic-ai/sdk/resources'
 import { AnthropicModel, claudeModels, STOP_MARKER } from 'common/constants'
 import { Message } from 'common/types/message'
-import { limitScreenshots } from 'common/util/messages'
-import { removeUndefinedProps } from 'common/util/object'
-import { sleep } from 'common/util/promise'
-import { match } from 'ts-pattern'
+import { CoreMessage } from 'ai'
 import { env } from '../env.mjs'
-import { saveMessage } from '../llm-apis/message-cost-tracker'
-import { TOOLS_WHICH_END_THE_RESPONSE } from '../tools'
 import { logger } from '../util/logger'
-
-const MAX_SCREENSHOTS = 2
-
-/**
- * Transform messages for Anthropic API.
- * Anthropic's format matches our internal format, but we still want to be explicit
- * about when we don't send images to certain models.
- */
-function transformMessages(
-  messages: Message[],
-  model: AnthropicModel
-): Message[] {
-  return match(model)
-    .with(claudeModels.sonnet, () =>
-      limitScreenshots(messages, MAX_SCREENSHOTS)
-    )
-    .with(claudeModels.sonnet3_7, () =>
-      limitScreenshots(messages, MAX_SCREENSHOTS)
-    )
-    .with(claudeModels.opus4, () => limitScreenshots(messages, MAX_SCREENSHOTS))
-    .with(claudeModels.haiku, () =>
-      messages.map((msg) => ({
-        ...msg,
-        content: Array.isArray(msg.content)
-          ? msg.content.filter((item) => item.type !== 'image')
-          : msg.content,
-      }))
-    )
-    .exhaustive()
-}
+import { removeUndefinedProps } from 'common/util/object'
+import { saveMessage } from './message-cost-tracker'
+import { transformMessages } from './vercel-ai-sdk/ai-sdk'
+import { INITIAL_RETRY_DELAY, sleep } from 'common/util/promise'
 
 const MAX_RETRIES = 3
-const INITIAL_RETRY_DELAY = 1000 // 1 second
+
+// Define tools that end the response locally for now
+const TOOLS_WHICH_END_THE_RESPONSE = ['end_turn']
 
 export type System = string | Array<TextBlockParam>
 
@@ -52,11 +23,60 @@ export type Thinking = {
   budget_tokens: number
 }
 
+// Convert CoreMessage to Anthropic MessageParam
+function convertToAnthropicMessages(coreMessages: CoreMessage[]): MessageParam[] {
+  return coreMessages
+    .filter(msg => msg.role === 'user' || msg.role === 'assistant') // Anthropic only wants user/assistant in messages array
+    .map(msg => {
+      let content: string | (TextBlockParam | ImageBlockParam)[]
+      if (typeof msg.content === 'string') {
+        content = msg.content
+      } else {
+        content = msg.content.map(part => {
+          if (part.type === 'text') {
+            return { type: 'text', text: part.text } as TextBlockParam
+          } else if (part.type === 'image' && typeof part.image === 'string' && part.image.startsWith('data:')) {
+            // Assuming part.image is a data URL string like "data:image/jpeg;base64,..."
+            const [header, base64Data] = part.image.split(',')
+            if (!header || !base64Data) {
+              // Invalid data URL, skip or handle error
+              logger.warn({ part }, 'Invalid image data URL in convertToAnthropicMessages')
+              return null
+            }
+            const mimeMatch = header.match(/^data:(image\/(jpeg|png|gif|webp));base64$/)
+            if (!mimeMatch || !mimeMatch[1]) {
+              logger.warn({ header }, 'Unsupported image MIME type in convertToAnthropicMessages')
+              return null
+            }
+            return {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: mimeMatch[1] as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+                data: base64Data,
+              },
+            } as ImageBlockParam
+          }
+          // Other parts or non-data-URL images are ignored for now
+          return null
+        }).filter(Boolean) as (TextBlockParam | ImageBlockParam)[]
+        
+        if (content.length === 0) {
+          content = "" // if truly empty after filtering
+        }
+      }
+      return {
+        role: msg.role as 'user' | 'assistant',
+        content: content,
+      }
+    }) as MessageParam[]
+}
+
 async function* promptClaudeStreamWithoutRetry(
   messages: Message[],
   options: {
     system?: System
-    tools?: Tool[]
+    tools?: any[] // Temporarily any[] to avoid tool schema issues
     model?: AnthropicModel
     maxTokens?: number
     thinking?: Thinking
@@ -112,6 +132,7 @@ async function* promptClaudeStreamWithoutRetry(
 
   // Transform messages before sending to Anthropic
   const transformedMsgs = transformMessages(messages, model)
+  const anthropicMessages = convertToAnthropicMessages(transformedMsgs)
 
   let content = ''
   let usage: {
@@ -132,13 +153,13 @@ async function* promptClaudeStreamWithoutRetry(
       model,
       max_tokens: maxTokens ?? (model === claudeModels.sonnet ? 32_000 : 8096),
       temperature: thinking?.type === 'enabled' ? 1 : 0,
-      messages: transformedMsgs,
+      messages: anthropicMessages,
       system,
-      tools,
+      tools: undefined, // Disable tools for now to avoid schema issues
       thinking,
       stop_sequences: stopSequences
         ? stopSequences
-        : TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
+        : TOOLS_WHICH_END_THE_RESPONSE.map((tool: string) => `</${tool}>`),
     })
   )
 
@@ -226,7 +247,7 @@ export async function* promptClaudeStream(
   messages: Message[],
   options: {
     system?: System
-    tools?: Tool[]
+    tools?: any[]
     model?: AnthropicModel
     stopSequences?: string[]
     maxTokens?: number
@@ -269,7 +290,7 @@ export async function promptClaude(
   messages: Message[],
   options: {
     system?: string | Array<TextBlockParam>
-    tools?: Tool[]
+    tools?: any[]
     model?: AnthropicModel
     maxTokens?: number
     thinking?: Thinking
@@ -294,7 +315,7 @@ export async function promptClaudeWithContinuation(
   messages: Message[],
   options: {
     system?: string | Array<TextBlockParam>
-    tools?: Tool[]
+    tools?: any[]
     model?: AnthropicModel
     maxTokens?: number
     thinking?: Thinking

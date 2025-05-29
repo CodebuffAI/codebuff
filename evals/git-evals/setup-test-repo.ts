@@ -55,42 +55,45 @@ export async function setupTestRepo(repoUrl: string, customRepoName?: string) {
     const isGitHubActions = process.env.GITHUB_ACTIONS === 'true'
     const isRenderCron =
       process.env.RENDER === 'true' || process.env.IS_PULL_REQUEST === 'false'
-    const isCIEnvironment = isGitHubActions || isRenderCron
 
-    if (isCIEnvironment) {
-      // In CI environments, handle authentication for private repos
-      const envName = isGitHubActions ? 'GitHub Actions' : 'Render.com'
+    // Always try authenticated approach first if we have a token, regardless of environment
+    const githubToken = process.env.GITHUB_TOKEN
+    const shouldUseAuth = githubToken && repoUrl.includes('github.com')
+
+    if (shouldUseAuth) {
+      // In CI environments or when we have a token, handle authentication for private repos
+      const envName = isGitHubActions
+        ? 'GitHub Actions'
+        : isRenderCron
+          ? 'Render.com'
+          : 'Local with token'
       console.log(`${envName} detected - setting up authentication...`)
 
       let cloneUrl = repoUrl
-      const githubToken = process.env.GITHUB_TOKEN
 
-      if (githubToken && repoUrl.includes('github.com')) {
-        // Convert SSH URL to HTTPS with token if needed
-        if (repoUrl.startsWith('git@github.com:')) {
-          cloneUrl = repoUrl.replace('git@github.com:', 'https://github.com/')
-        }
-        if (cloneUrl.endsWith('.git')) {
-          cloneUrl = cloneUrl.slice(0, -4)
-        }
-
-        // Validate token format
-        if (
-          !githubToken.startsWith('ghp_') &&
-          !githubToken.startsWith('github_pat_')
-        ) {
-          console.warn('GitHub token does not appear to be in expected format')
-        }
-
-        // Add token authentication to the URL - try different formats
-        // Format 1: Use token directly as username (recommended for PATs)
-        cloneUrl = cloneUrl.replace(
-          'https://github.com/',
-          `https://${githubToken}@github.com/`
-        )
-        console.log('Using GitHub token authentication for private repository')
-        console.log(`Token prefix: ${githubToken.substring(0, 10)}...`)
+      // Convert SSH URL to HTTPS with token if needed
+      if (repoUrl.startsWith('git@github.com:')) {
+        cloneUrl = repoUrl.replace('git@github.com:', 'https://github.com/')
       }
+      if (cloneUrl.endsWith('.git')) {
+        cloneUrl = cloneUrl.slice(0, -4)
+      }
+
+      // Validate token format
+      if (
+        !githubToken.startsWith('ghp_') &&
+        !githubToken.startsWith('github_pat_')
+      ) {
+        console.warn('GitHub token does not appear to be in expected format')
+      }
+
+      // Add token authentication to the URL
+      cloneUrl = cloneUrl.replace(
+        'https://github.com/',
+        `https://${githubToken}@github.com/`
+      )
+      console.log('Using GitHub token authentication for private repository')
+      console.log(`Token prefix: ${githubToken.substring(0, 10)}...`)
 
       console.log(
         `Cloning from remote: ${cloneUrl.replace(githubToken || '', '***')}`

@@ -1,10 +1,10 @@
+import { CostMode, models } from 'common/constants'
 import {
   createMarkdownFileBlock,
   createSearchReplaceBlock,
 } from 'common/util/file'
-import { CostMode, models } from 'common/constants'
+import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
-import { promptClaude } from './llm-apis/claude'
 
 export const parseAndGetDiffBlocksSingleFile = (
   newContent: string,
@@ -152,7 +152,7 @@ The search content needs to match an exact substring of the old file content, wh
 
 Provide a new set of SEARCH/REPLACE changes to make the intended edit from the old file.`.trim()
 
-  const response = await promptClaude([{ role: 'user', content: newPrompt }], {
+  const response = await promptAiSdk([{ role: 'user', content: newPrompt }], {
     model: models.sonnet,
     clientSessionId,
     fingerprintId,

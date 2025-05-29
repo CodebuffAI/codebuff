@@ -1,18 +1,18 @@
-import OpenAI from 'openai'
-import { z } from 'zod'
-import { openaiModels, STOP_MARKER, TEST_USER_ID } from 'common/constants'
+import OpenAI, { APIConnectionError } from 'openai'
 import { Stream } from 'openai/streaming'
-import { env } from '../env.mjs'
-import { saveMessage } from './message-cost-tracker'
-import { logger } from '../util/logger'
-import { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions'
-
-export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
-import { OpenAIModel } from 'common/constants'
+import { z } from 'zod'
+import { OpenAIModel, openaiModels, TEST_USER_ID, STOP_MARKER } from 'common/constants'
 import { match, P } from 'ts-pattern'
 import { generateCompactId } from 'common/util/string'
 import { countTokensJson } from '@/util/token-counter'
 import { removeUndefinedProps } from 'common/util/object'
+import { logger } from '../util/logger'
+import { saveMessage } from './message-cost-tracker'
+import { env } from '../env.mjs'
+
+export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
+export type ChatCompletionReasoningEffort = 'low' | 'medium' | 'high'
+type OpenAICompletionStream = Stream<OpenAI.Chat.Completions.ChatCompletionChunk>
 
 let openai: OpenAI | null = null
 
@@ -418,9 +418,7 @@ export async function promptOpenAIWithContinuation(
             },
           })
         ),
-        timeoutPromise(120000) as Promise<
-          Stream<OpenAI.Chat.Completions.ChatCompletionChunk>
-        >,
+        timeoutPromise(120000) as Promise<OpenAICompletionStream>,
       ])
 
       for await (const chunk of stream) {

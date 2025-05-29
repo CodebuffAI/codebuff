@@ -8,6 +8,7 @@ import { getToolCallString } from 'common/src/constants/tools'
 import { z } from 'zod'
 
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
+import { transformMessages } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
 const tools = [
@@ -254,6 +255,8 @@ The pattern supports regular expressions and will search recursively through all
 - Automatically ignores binary files, hidden files, and files in .gitignore
 - Case-sensitive by default. Use -i to make it case insensitive.
 - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
+
+Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
 
 Params:
 - pattern: (required) The pattern to search for.
@@ -637,7 +640,7 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'run_terminal_command',
 ]
 
-export const toolsInstructions = `
+export const getToolsInstructions = (toolDescriptions: string[]) => `
 # Tools
 
 You (Buffy) have access to the following tools. Call them when needed.
@@ -665,7 +668,6 @@ This also means that if you wish to write the literal string \`&lt;\` to a file 
 Provide commentary *around* your tool calls (explaining your actions).
 
 However, **DO NOT** narrate the tool or parameter names themselves.
-
 
 ### Array Params
 
@@ -714,7 +716,7 @@ The user does not need to know about the exact results of these tools, especiall
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
 
-${tools.map((tool) => tool.description).join('\n\n')}
+${toolDescriptions.join('\n\n')}
 `
 
 export async function updateContext(
@@ -757,7 +759,7 @@ Please rewrite the entire context using the update instructions in a <new_contex
       content: '<new_context>',
     },
   ]
-  const response = await promptFlashWithFallbacks(messages, undefined, {
+  const response = await promptFlashWithFallbacks(transformMessages(messages), {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',
@@ -1001,7 +1003,7 @@ export async function summarizeOutput(xml: string): Promise<string> {
     },
   ]
 
-  return promptFlashWithFallbacks(messages, undefined, {
+  return promptFlashWithFallbacks(transformMessages(messages), {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',
@@ -1026,4 +1028,22 @@ function renderSubgoalUpdate(subgoal: {
     ...(log && { log }),
   }
   return getToolCallString('add_subgoal', params)
+}
+
+// Function to get filtered tools based on cost mode
+export function getFilteredToolsInstructions(costMode: string) {
+  const allowedTools =
+    costMode === 'ask'
+      ? // For ask mode, exclude write_file, str_replace, create_plan, and run_terminal_command
+        tools.filter(
+          (tool) =>
+            ![
+              'write_file',
+              'str_replace',
+              'create_plan',
+              'run_terminal_command',
+            ].includes(tool.name)
+        )
+      : tools
+  return getToolsInstructions(allowedTools.map((tool) => tool.description))
 }

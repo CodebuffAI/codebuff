@@ -1,7 +1,7 @@
 import { CostMode, models } from 'common/constants'
 import { Message } from 'common/types/message'
 import { cleanMarkdownCodeBlock } from 'common/util/file'
-import { generateCompactId, hasLazyEdit } from 'common/util/string'
+import { hasLazyEdit } from 'common/util/string'
 import { createPatch } from 'diff'
 
 import { fastRewrite, shouldAddFilePlaceholders } from './fast-rewrite'
@@ -9,8 +9,7 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { promptOpenAI } from './llm-apis/openai-api'
-import { sendToRelaceLongContext } from './llm-apis/relace-api'
+import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
 
@@ -77,7 +76,7 @@ export async function processFileBlock(
     return {
       tool: 'write_file' as const,
       path,
-      error: 'The new content was the same as the old content, skipping.'
+      error: 'The new content was the same as the old content, skipping.',
     }
   }
 
@@ -106,7 +105,8 @@ export async function processFileBlock(
       return {
         tool: 'write_file' as const,
         path,
-        error: 'Failed to apply the write file change to this large file. You should try using the str_replace tool instead for large files.',
+        error:
+          'Failed to apply the write file change to this large file. You should try using the str_replace tool instead for large files.',
       }
     }
 
@@ -168,7 +168,7 @@ export async function processFileBlock(
     return {
       tool: 'write_file' as const,
       path,
-      error: 'The new content was the same as the old content, skipping.'
+      error: 'The new content was the same as the old content, skipping.',
     }
   }
   logger.debug(
@@ -244,7 +244,7 @@ Please output just the SEARCH/REPLACE blocks like this:
 [new content that matches edit snippet intent]
 >>>>>>> REPLACE`
 
-  const response = await promptOpenAI([{ role: 'user', content: prompt }], {
+  const response = await promptAiSdk([{ role: 'user', content: prompt }], {
     model: models.o4mini,
     clientSessionId,
     fingerprintId,

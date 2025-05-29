@@ -4,7 +4,6 @@ import { openai } from '@ai-sdk/openai'
 import {
   CoreAssistantMessage,
   CoreMessage,
-  CoreToolMessage,
   CoreUserMessage,
   generateObject,
   generateText,
@@ -14,7 +13,6 @@ import {
 import {
   AnthropicModel,
   claudeModels,
-  FinetunedVertexModel,
   finetunedVertexModels,
   geminiModels,
   Model,
@@ -25,11 +23,10 @@ import {
 
 import { generateCompactId } from 'common/util/string'
 
-import { Message } from 'common/types/message'
+import { CoreMessageWithTtl, Message } from 'common/types/message'
 import { withTimeout } from 'common/util/promise'
 import { z } from 'zod'
 import { System } from '../claude'
-import { GeminiMessage } from '../gemini-vertex-api'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
 
@@ -69,6 +66,7 @@ export const promptAiSdkStream = async function* (
     temperature?: number
     stopSequences?: string[]
     repositoryUrl?: string
+    chargeUser?: boolean
   }
 ) {
   const startTime = Date.now()
@@ -117,6 +115,8 @@ export const promptAiSdkStream = async function* (
     cacheReadInputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
+    chargeUser: options.chargeUser ?? true,
+    repositoryUrl: options.repositoryUrl,
   })
 }
 
@@ -133,6 +133,7 @@ export const promptAiSdk = async function (
     temperature?: number
     stopSequences?: string[]
     repositoryUrl?: string
+    chargeUser?: boolean
   }
 ): Promise<string> {
   const startTime = Date.now()
@@ -163,6 +164,8 @@ export const promptAiSdk = async function (
     outputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
+    chargeUser: options.chargeUser ?? true,
+    repositoryUrl: options.repositoryUrl,
   })
 
   return content
@@ -181,6 +184,7 @@ export const promptAiSdkStructured = async function <T>(
     maxTokens?: number
     temperature?: number
     timeout?: number
+    chargeUser?: boolean
   }
 ): Promise<T> {
   const startTime = Date.now()
@@ -215,6 +219,7 @@ export const promptAiSdkStructured = async function <T>(
     outputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
+    chargeUser: options.chargeUser ?? true,
   })
 
   return content
@@ -223,8 +228,8 @@ export const promptAiSdkStructured = async function <T>(
 // TODO: temporary - ideally we move to using CoreMessage[] directly
 // and don't need this transform!!
 export function transformMessages(
-  messages: (GeminiMessage | Message)[],
-  system: System | undefined
+  messages: (Message | CoreMessageWithTtl)[],
+  system?: System
 ): CoreMessage[] {
   const coreMessages: CoreMessage[] = []
 
@@ -239,16 +244,9 @@ export function transformMessages(
   }
 
   for (const message of messages) {
-    if (message.role === 'developer') {
-      coreMessages.push({ role: 'user', content: message.content })
+    if ('timeToLive' in message) {
+      coreMessages.push(message)
       continue
-    }
-
-    if (message.role === 'function') {
-      // Skipping old-style function message - not supported anymore, use tools instead
-      throw new Error(
-        'Skipping function message - unsupported: use tools instead'
-      )
     }
 
     if (message.role === 'system') {
@@ -280,14 +278,6 @@ export function transformMessages(
               anthropic: { cacheControl: { type: 'ephemeral' } },
             }
           }
-          // Handle OpenAI image_url format
-          if (part.type === 'image_url') {
-            parts.push({
-              type: 'image' as const,
-              image: part.image_url.url,
-            })
-            continue
-          }
           // Handle Message type image format
           if (part.type === 'image' && 'source' in part) {
             parts.push({
@@ -295,9 +285,6 @@ export function transformMessages(
               image: `data:${part.source.media_type};base64,${part.source.data}`,
             })
             continue
-          }
-          if (part.type === 'input_audio') {
-            throw new Error('Audio messages not supported')
           }
           if (part.type === 'file') {
             throw new Error('File messages not supported')
@@ -347,9 +334,6 @@ export function transformMessages(
           if (part.type === 'text') {
             messageContent.push({ type: 'text', text: part.text })
           }
-          if (part.type === 'refusal') {
-            messageContent.push({ type: 'text', text: part.refusal })
-          }
           if (part.type === 'tool_use') {
             messageContent.push({
               type: 'tool-call',
@@ -365,46 +349,7 @@ export function transformMessages(
     }
 
     if (message.role === 'tool') {
-      if (typeof message.content === 'string') {
-        coreMessages.push({
-          ...message,
-          role: 'tool',
-          content: [
-            {
-              type: 'tool-result',
-              toolCallId: message.tool_call_id,
-              result: message.content,
-              // NOTE: OpenAI does not provide toolName in their message format
-              toolName: 'unknown',
-            },
-          ],
-        })
-      } else {
-        const parts: CoreToolMessage['content'] = []
-        const coreMessage: CoreToolMessage = {
-          ...message,
-          role: 'tool',
-          content: parts,
-        }
-        for (const part of message.content) {
-          // Add ephemeral if present
-          if ('cache_control' in part) {
-            coreMessage.providerOptions = {
-              anthropic: { cacheControl: { type: 'ephemeral' } },
-            }
-          }
-          if (part.type === 'text') {
-            parts.push({
-              type: 'tool-result',
-              toolCallId: message.tool_call_id,
-              result: part.text,
-              // NOTE: OpenAI does not provide toolName in their message format
-              toolName: 'unknown',
-            })
-          }
-        }
-        coreMessages.push(coreMessage)
-      }
+      coreMessages.push(message)
       continue
     }
 
@@ -412,39 +357,4 @@ export function transformMessages(
   }
 
   return coreMessages
-}
-
-// TODO: temporary - ideally we'd call promptAiSdkStream directly
-export async function* promptAiSdkStream_GeminiFormat(
-  messages: GeminiMessage[],
-  system: System | undefined,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: FinetunedVertexModel
-    userId: string | undefined
-    maxTokens?: number
-    temperature?: number
-  }
-): AsyncGenerator<string, void, unknown> {
-  const coreMessages = transformMessages(messages, system)
-  yield* promptAiSdkStream(coreMessages, options)
-}
-
-export async function promptAiSdk_GeminiFormat(
-  messages: GeminiMessage[],
-  system: System | undefined,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: FinetunedVertexModel
-    userId: string | undefined
-    maxTokens?: number
-    temperature?: number
-  }
-) {
-  const coreMessages = transformMessages(messages, system)
-  return promptAiSdk(coreMessages, options)
 }

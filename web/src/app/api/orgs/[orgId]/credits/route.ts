@@ -90,7 +90,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           customer: organization.stripe_customer_id,
           items: [
             {
-              price: env.STRIPE_TEAM_USAGE_PRICE_ID,
+              price: env.STRIPE_TEAM_FEE_PRICE_ID,
             },
             {
               price: env.STRIPE_USAGE_PRICE_ID,

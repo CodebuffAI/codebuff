@@ -7,14 +7,11 @@ import {
   openaiModels,
 } from 'common/constants'
 import { Message } from 'common/types/message'
-
+import { CoreMessage } from 'ai'
 import { logger } from '../util/logger'
-import { messagesWithSystem } from '../util/messages'
-import { promptClaude, promptClaudeStream, System } from './claude'
-import { promptGemini, promptGeminiStream } from './gemini-api'
-import { promptGemini as promptVertexGemini } from './gemini-vertex-api'
-import { OpenAIMessage, promptOpenAI } from './openai-api'
-import { promptAiSdk_GeminiFormat } from './vercel-ai-sdk/ai-sdk'
+import { promptAiSdk, promptAiSdkStream, transformMessages as transformToCoreMessages } from './vercel-ai-sdk/ai-sdk'
+import { System } from './claude'
+import { promptClaudeStream } from './claude'
 
 /**
  * Prompts a Gemini model with fallback logic.
@@ -42,8 +39,7 @@ import { promptAiSdk_GeminiFormat } from './vercel-ai-sdk/ai-sdk'
  * @throws If all API calls (primary and fallbacks) fail.
  */
 export async function promptFlashWithFallbacks(
-  messages: Message[],
-  system: System | undefined,
+  messages: CoreMessage[],
   options: {
     clientSessionId: string
     fingerprintId: string
@@ -73,14 +69,10 @@ export async function promptFlashWithFallbacks(
         { model: finetunedVertexModels.ft_filepicker_005 },
         'Using finetuned model for file-picker!'
       )
-      return await promptAiSdk_GeminiFormat(
-        messages as OpenAIMessage[],
-        system,
-        {
-          ...geminiOptions,
-          model: finetunedVertexModels.ft_filepicker_005,
-        }
-      )
+      return await promptAiSdk(messages, {
+        ...geminiOptions,
+        model: finetunedVertexModels.ft_filepicker_005,
+      })
     } catch (error) {
       logger.warn(
         { error },
@@ -91,51 +83,24 @@ export async function promptFlashWithFallbacks(
 
   try {
     // First try Gemini
-    return await promptGemini(
-      system
-        ? messagesWithSystem(messages, system)
-        : (messages as OpenAIMessage[]),
-      geminiOptions
-    )
+    return await promptAiSdk(messages, geminiOptions)
   } catch (error) {
     logger.warn(
       { error },
-      'Error calling Gemini API, falling back to Vertex Gemini'
+      `Error calling Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`
     )
-    try {
-      // Then try Vertex Gemini
-      return await promptVertexGemini(
-        messages as OpenAIMessage[],
-        system,
-        geminiOptions
-      )
-    } catch (error) {
-      logger.warn(
-        { error },
-        `Error calling Vertex Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`
-      )
-      if (useGPT4oInsteadOfClaude) {
-        return await promptOpenAI(messages as OpenAIMessage[], {
-          model: openaiModels.gpt4o,
-          clientSessionId: options.clientSessionId,
-          fingerprintId: options.fingerprintId,
-          userInputId: options.userInputId,
-          userId: options.userId,
-          repositoryUrl: options.repositoryUrl,
-          temperature: options.temperature,
-        })
-      }
-      // Finally fall back to Claude
-      return await promptClaude(messages, {
-        model: costMode === 'max' ? claudeModels.sonnet : claudeModels.haiku,
-        system,
-        clientSessionId: options.clientSessionId,
-        fingerprintId: options.fingerprintId,
-        userInputId: options.userInputId,
-        userId: options.userId,
-        repositoryUrl: options.repositoryUrl,
-      })
-    }
+    return await promptAiSdk(messages, {
+      ...geminiOptions,
+      model: useGPT4oInsteadOfClaude
+        ? openaiModels.gpt4o
+        : {
+            lite: claudeModels.haiku,
+            normal: claudeModels.haiku,
+            max: claudeModels.sonnet,
+            experimental: claudeModels.haiku,
+            ask: claudeModels.haiku,
+          }[costMode ?? 'normal'],
+    })
   }
 }
 
@@ -191,10 +156,14 @@ export async function* streamGemini25ProWithFallbacks(
     thinkingBudget,
   } = options
 
-  // Initialize the message list for the first attempt
-  let currentMessages: OpenAIMessage[] = system
-    ? messagesWithSystem(messages, system)
-    : (messages as OpenAIMessage[])
+  // Transform messages to CoreMessage format for Vercel AI SDK
+  let currentMessages: CoreMessage[]
+  if (system) {
+    const messagesWithSystemForTransform = [{ role: 'system' as const, content: system }, ...messages]
+    currentMessages = transformToCoreMessages(messagesWithSystemForTransform, geminiModels.gemini2_5_flash)
+  } else {
+    currentMessages = transformToCoreMessages(messages, geminiModels.gemini2_5_flash)
+  }
 
   // Try Gemini API Stream (Internal Key - gemini-2.5-pro-preview)
   const geminiPreviewOptions = {
@@ -209,7 +178,7 @@ export async function* streamGemini25ProWithFallbacks(
     thinkingBudget,
   }
   try {
-    for await (const chunk of promptGeminiStream(
+    for await (const chunk of promptAiSdkStream(
       currentMessages,
       geminiPreviewOptions
     )) {

@@ -15,19 +15,18 @@ export let identified: boolean = false
 export function initAnalytics() {
   if (
     !process.env.NEXT_PUBLIC_POSTHOG_API_KEY ||
-    !process.env.NEXT_PUBLIC_APP_URL
+    !process.env.NEXT_PUBLIC_POSTHOG_HOST_URL
   ) {
     throw new Error(
-      'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_APP_URL is not set'
+      'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_POSTHOG_HOST_URL is not set'
     )
   }
 
   client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY, {
-    host: `${process.env.NEXT_PUBLIC_APP_URL}/ingest`,
+    host: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
     enableExceptionAutocapture: true,
   })
 }
-
 export async function flushAnalytics() {
   if (!client) {
     return
@@ -51,7 +50,10 @@ export function trackEvent(
     return
   }
   if (!client) {
-    throw new Error('Analytics client not initialized')
+    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production') {
+      throw new Error('Analytics client not initialized')
+    }
+    return
   }
 
   if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {

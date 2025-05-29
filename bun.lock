@@ -110,7 +110,7 @@
     },
     "npm-app": {
       "name": "codebuff",
-      "version": "1.0.297",
+      "version": "1.0.301",
       "bin": {
         "codebuff": "dist/index.js",
       },

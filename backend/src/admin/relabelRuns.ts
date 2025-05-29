@@ -14,18 +14,18 @@ import {
   claudeModels,
   finetunedVertexModels,
   geminiModels,
+  TEST_USER_ID,
 } from 'common/constants'
 import { Message } from 'common/types/message'
 import { generateCompactId } from 'common/util/string'
 import { Request, Response } from 'express'
 
 import { rerank } from '@/llm-apis/relace-api'
-import { promptClaude, System } from '../llm-apis/claude'
+import { System } from '../llm-apis/claude'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { logger } from '../util/logger'
 
-import { GeminiMessage } from '@/llm-apis/gemini-vertex-api'
-import { promptAiSdk_GeminiFormat } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk, transformMessages } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
 
 // --- GET Handler Logic ---
 
@@ -163,37 +163,37 @@ export async function relabelForUserHandler(req: Request, res: Response) {
             const system = payload.system
 
             if (model.startsWith('claude')) {
-              output = await promptClaude(messages as Message[], {
-                system: system as System,
-                model: model as typeof claudeModels.sonnet,
-                clientSessionId: 'relabel-trace-api',
-                fingerprintId: 'relabel-trace-api',
-                userInputId: 'relabel-trace-api',
-                ignoreDatabaseAndHelicone: true,
-              })
+              output = await promptAiSdk(
+                transformMessages(messages as Message[], system as System),
+                {
+                  model: model as typeof claudeModels.sonnet,
+                  clientSessionId: 'relabel-trace-api',
+                  fingerprintId: 'relabel-trace-api',
+                  userInputId: 'relabel-trace-api',
+                  userId: TEST_USER_ID,
+                }
+              )
             } else if (model.startsWith('gemini')) {
               output = await promptFlashWithFallbacks(
-                messages as Message[],
-                system as System,
+                transformMessages(messages as Message[], system as System),
                 {
                   model: model as typeof geminiModels.gemini2_5_pro_exp,
                   clientSessionId: 'relabel-trace-api',
                   fingerprintId: 'relabel-trace-api',
                   userInputId: 'relabel-trace-api',
-                  userId: 'relabel-trace-api',
+                  userId: TEST_USER_ID,
                 }
               )
             } else {
-              output = await promptAiSdk_GeminiFormat(
-                messages as GeminiMessage[],
-                system as System,
+              output = await promptAiSdk(
+                transformMessages(messages as Message[], system as System),
                 {
                   model:
                     model as (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels],
                   clientSessionId: 'relabel-trace-api',
                   fingerprintId: 'relabel-trace-api',
                   userInputId: 'relabel-trace-api',
-                  userId: 'relabel-trace-api',
+                  userId: TEST_USER_ID,
                 }
               )
             }
@@ -383,7 +383,7 @@ export async function relabelWithClaudeWithFullFileContext(
   }
   logger.info(`Relabeling ${trace.id} with Claude with full file context`)
   const filesWithPath = Object.entries(fileBlobs.payload.files).map(
-    ([path, file]) => ({
+    ([path, file]): { path: string; content: string } => ({
       path,
       content: file.content,
     })
@@ -409,21 +409,24 @@ export async function relabelWithClaudeWithFullFileContext(
       system[system.length - 1].text + partialFileContext
   }
 
-  const output = await promptClaude(trace.payload.messages as Message[], {
-    system: system,
-    model: claudeModels.sonnet,
-    clientSessionId: 'relabel-trace-api',
-    fingerprintId: 'relabel-trace-api',
-    userInputId: 'relabel-trace-api',
-    ignoreDatabaseAndHelicone: true,
-  })
+  const output = await promptAiSdk(
+    transformMessages(trace.payload.messages as Message[], system),
+    {
+      model: model,
+      clientSessionId: 'relabel-trace-api',
+      fingerprintId: 'relabel-trace-api',
+      userInputId: 'relabel-trace-api',
+      userId: TEST_USER_ID,
+      maxTokens: 1000,
+    }
+  )
 
   const relabel = {
     id: generateCompactId(),
     agent_step_id: trace.agent_step_id,
     user_id: trace.user_id,
     created_at: new Date(),
-    model: `${model}-with-full-file-context`,
+    model: `${model}-with-full-file-context-new`,
     payload: {
       user_input_id: trace.payload.user_input_id,
       client_session_id: trace.payload.client_session_id,
@@ -433,8 +436,6 @@ export async function relabelWithClaudeWithFullFileContext(
   } as Relabel
 
   await insertRelabel(relabel, dataset)
-
-  console.log({ relabel })
 
   return relabel
 }

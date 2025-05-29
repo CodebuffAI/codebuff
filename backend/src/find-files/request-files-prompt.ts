@@ -17,13 +17,14 @@ import {
 import { range, shuffle, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
-import { promptClaude, System } from '../llm-apis/claude'
+import { System } from '../llm-apis/claude'
 import { logger } from '../util/logger'
 import { countTokens } from '../util/token-counter'
 import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
 import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
+import { promptAiSdk, transformMessages } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
 import { getMessagesSubset } from '@/util/messages'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
@@ -47,9 +48,13 @@ export async function requestRelevantFiles(
   costMode: CostMode,
   repoName: string | undefined
 ) {
-  const countPerRequest = { lite: 8, normal: 12, max: 14, experimental: 14 }[
-    costMode
-  ]
+  const countPerRequest = { 
+    lite: 8, 
+    normal: 12, 
+    max: 14, 
+    experimental: 14,
+    ask: 12
+  }[costMode]
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -252,15 +257,18 @@ async function getRelevantFiles(
     bufferTokens
   )
   const start = performance.now()
-  let response = await promptFlashWithFallbacks(messagesWithPrompt, system, {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    model: models.gemini2flash,
-    userId,
-    costMode,
-    useFinetunedModel: true,
-  })
+  let response = await promptFlashWithFallbacks(
+    transformMessages(messagesWithPrompt, system),
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.gemini2flash,
+      userId,
+      costMode,
+      useFinetunedModel: true,
+    }
+  )
   const end = performance.now()
   const duration = end - start
 
@@ -323,15 +331,17 @@ async function getRelevantFilesForTraining(
     bufferTokens
   )
   const start = performance.now()
-  let response = await promptClaude(messagesWithPrompt, {
-    system,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    model: models.sonnet,
-    userId,
-    chargeUser: false,
-  })
+  let response = await promptAiSdk(
+    transformMessages(messagesWithPrompt, system),
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.sonnet,
+      userId,
+      chargeUser: false,
+    }
+  )
 
   const end = performance.now()
   const duration = end - start
@@ -563,8 +573,7 @@ async function secondPassFindAdditionalFiles(
     },
   ]
   const additionalFilesResponse = await promptFlashWithFallbacks(
-    messages,
-    system,
+    transformMessages(messages, system),
     {
       clientSessionId,
       fingerprintId,

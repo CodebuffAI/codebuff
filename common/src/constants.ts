@@ -101,7 +101,7 @@ export function getUserState(isLoggedIn: boolean, credits: number): UserState {
   return UserState.DEPLETED
 }
 
-export const costModes = ['lite', 'normal', 'max', 'experimental'] as const
+export const costModes = ['lite', 'normal', 'max', 'experimental', 'ask'] as const
 export type CostMode = (typeof costModes)[number]
 
 export const getModelForMode = (
@@ -114,6 +114,7 @@ export const getModelForMode = (
       normal: models.sonnet,
       max: models.sonnet,
       experimental: models.gemini2_5_pro_preview,
+      ask: models.gemini2_5_pro_preview,
     }[costMode]
   }
   if (operation === 'file-requests') {
@@ -122,6 +123,7 @@ export const getModelForMode = (
       normal: claudeModels.haiku,
       max: claudeModels.sonnet,
       experimental: claudeModels.sonnet,
+      ask: claudeModels.haiku,
     }[costMode]
   }
   if (operation === 'check-new-files') {
@@ -130,6 +132,7 @@ export const getModelForMode = (
       normal: models.gpt4o,
       max: models.gpt4o,
       experimental: models.gpt4o,
+      ask: models.gpt4o,
     }[costMode]
   }
   throw new Error(`Unknown operation: ${operation}`)

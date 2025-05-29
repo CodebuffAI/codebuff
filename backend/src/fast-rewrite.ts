@@ -4,8 +4,8 @@ import { buildArray } from 'common/util/array'
 import { parseFileBlocks, parseMarkdownCodeBlock } from 'common/util/file'
 import { generateCompactId, hasLazyEdit } from 'common/util/string'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
-import { promptOpenAI } from './llm-apis/openai-api'
 import { promptRelaceAI } from './llm-apis/relace-api'
+import { promptAiSdk, transformMessages } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 
 export async function fastRewrite(
@@ -100,7 +100,7 @@ Important:
 
 Please output just the complete updated file content with the edit applied and no additional text.`
 
-  const response = await promptOpenAI(
+  const response = await promptAiSdk(
     [
       { role: 'user', content: prompt },
       { role: 'assistant', content: '```\n' },
@@ -843,7 +843,7 @@ export const generate = action({
     { role: 'user' as const, content: prompt },
     { role: 'assistant' as const, content: '```\n' },
   ]
-  const response = await promptFlashWithFallbacks(messages, undefined, {
+  const response = await promptFlashWithFallbacks(transformMessages(messages), {
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -922,7 +922,7 @@ Do not write anything else.
       content: prompt,
     }
   )
-  const response = await promptFlashWithFallbacks(messages, undefined, {
+  const response = await promptFlashWithFallbacks(transformMessages(messages), {
     clientSessionId,
     fingerprintId,
     userInputId,
