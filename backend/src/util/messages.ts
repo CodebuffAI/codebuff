@@ -3,6 +3,7 @@ import { withCacheControl, withCacheControlCore } from 'common/util/messages'
 
 import { CoreMessage } from 'ai'
 import { AssertionError } from 'assert'
+import { buildArray } from 'common/util/array'
 import { System } from '../llm-apis/claude'
 import { OpenAIMessage } from '../llm-apis/openai-api'
 import { logger } from './logger'
@@ -53,7 +54,7 @@ export function getMessageText(message: Message): string | undefined {
   return message.content.map((c) => ('text' in c ? c.text : '')).join('\n')
 }
 
-export function castAssistantMessage(message: Message): Message {
+export function castAssistantMessage(message: CoreMessage): CoreMessage | null {
   if (message.role !== 'assistant') {
     return message
   }
@@ -63,18 +64,23 @@ export function castAssistantMessage(message: Message): Message {
       role: 'user' as const,
     }
   }
-  return {
-    role: 'user' as const,
-    content: message.content.map((m) => {
+  const content = buildArray(
+    message.content.map((m) => {
       if (m.type === 'text') {
         return {
           ...m,
           text: `<previous_assistant_message>${m.text}</previous_assistant_message>`,
         }
       }
-      return m
-    }),
-  }
+      return null
+    })
+  )
+  return content
+    ? {
+        role: 'user' as const,
+        content,
+      }
+    : null
 }
 
 // Number of terminal command outputs to keep in full form before simplifying

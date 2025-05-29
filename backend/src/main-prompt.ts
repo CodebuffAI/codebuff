@@ -15,7 +15,6 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { getToolCallString, toolSchema } from 'common/constants/tools'
 import { trackEvent } from 'common/src/analytics'
 import { AgentState, ToolResult } from 'common/types/agent-state'
-import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { toContentString } from 'common/util/messages'
@@ -24,6 +23,7 @@ import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 import { transformMessages } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
+import { CoreMessage } from 'ai'
 import { checkTerminalCommand } from './check-terminal-command'
 import {
   requestRelevantFiles,
@@ -54,7 +54,7 @@ import {
   asSystemMessage,
   asUserMessage,
   castAssistantMessage,
-  getMessagesSubset,
+  getCoreMessagesSubset,
   isSystemInstruction,
 } from './util/messages'
 import {
@@ -400,7 +400,7 @@ export const mainPrompt = async (
     })
   }
 
-  const readFileMessages: Message[] = []
+  const readFileMessages: CoreMessage[] = []
   if (newFiles.length > 0) {
     const readFilesToolResult = {
       id: generateCompactId(),
@@ -506,7 +506,7 @@ export const mainPrompt = async (
   const systemTokens = countTokensJson(system)
 
   // Possibly truncated messagesWithUserMessage + cache.
-  const agentMessages = getMessagesSubset(
+  const agentMessages = getCoreMessagesSubset(
     messagesWithUserMessage,
     systemTokens + countTokensJson({ agentContext, userInstructions })
   )
@@ -1067,7 +1067,7 @@ const getInitialFiles = (fileContext: ProjectFileContext) => {
 
 async function getFileReadingUpdates(
   ws: WebSocket,
-  messages: Message[],
+  messages: CoreMessage[],
   system: string | Array<TextBlockParam>,
   fileContext: ProjectFileContext,
   prompt: string | null,
@@ -1282,7 +1282,7 @@ async function uploadExpandedFileContextForTraining(
     messages,
     system,
   }: {
-    messages: Message[]
+    messages: CoreMessage[]
     system: string | Array<TextBlockParam>
   },
   fileContext: ProjectFileContext,

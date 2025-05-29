@@ -1,5 +1,5 @@
+import { CoreMessage } from 'ai'
 import { ToolResult } from 'common/types/agent-state'
-import { Message } from 'common/types/message'
 import { toContentString } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
 
@@ -107,6 +107,6 @@ export function parseReadFilesResult(
   return files
 }
 
-export function isToolResult(message: Message): boolean {
+export function isToolResult(message: CoreMessage): boolean {
   return toContentString(message).includes('<tool_result')
 }

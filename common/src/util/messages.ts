@@ -43,7 +43,7 @@ export function limitScreenshots(
   )
 }
 
-export function toContentString(msg: Message): string {
+export function toContentString(msg: CoreMessage): string {
   const { content } = msg
   if (typeof content === 'string') return content
   return content.map((item) => (item as any)?.text ?? '').join('\n')
