@@ -10,7 +10,7 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { green, yellow, blueBright, magenta, cyan } from 'picocolors'
+import { blueBright, cyan, green, magenta, yellow } from 'picocolors'
 
 import {
   killAllBackgroundProcesses,
@@ -512,7 +512,9 @@ export class CLI {
 
   private async processCommand(userInput: string): Promise<string | null> {
     // Handle cost mode commands with optional message: /lite, /lite message, /normal, /normal message, etc.
-    const costModeMatch = userInput.match(/^\/?(lite|normal|max|experimental|ask)(?:\s+(.*))?$/i)
+    const costModeMatch = userInput.match(
+      /^\/?(lite|normal|max|experimental|ask)(?:\s+(.*))?$/i
+    )
     if (costModeMatch) {
       const mode = costModeMatch[1].toLowerCase() as CostMode
       const message = costModeMatch[2]?.trim() || ''
@@ -537,7 +539,9 @@ export class CLI {
       } else if (mode === 'experimental') {
         console.log(magenta('🧪 Switched to experimental mode (cutting-edge)'))
       } else if (mode === 'ask') {
-        console.log(cyan('💬 Switched to ask mode (questions only, no code changes)'))
+        console.log(
+          cyan('💬 Switched to ask mode (questions only, no code changes)')
+        )
       }
 
       if (!message) {
@@ -627,8 +631,10 @@ export class CLI {
       const config = loadCodebuffConfig(projectRoot)
       await killAllBackgroundProcesses()
       const processStartPromise = logAndHandleStartup(projectRoot, config)
-      const initFileContextPromise =
-        initProjectFileContextWithWorker(projectRoot)
+      const initFileContextPromise = initProjectFileContextWithWorker(
+        projectRoot,
+        true
+      )
 
       this.readyPromise = Promise.all([
         initFileContextPromise,

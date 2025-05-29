@@ -167,7 +167,13 @@ export function isSubdir(fromPath: string, toPath: string) {
 
 let cachedProjectFileContext: ProjectFileContext | undefined
 
-export function initProjectFileContextWithWorker(dir: string) {
+export function initProjectFileContextWithWorker(
+  dir: string,
+  resetCache: boolean = false
+) {
+  if (resetCache) {
+    cachedProjectFileContext = undefined
+  }
   // NOTE: Uses the built worker-script-project-context.js within dist.
   // So you need to run `bun run build` before running locally.
   const workerPath = __filename.endsWith('.ts')
