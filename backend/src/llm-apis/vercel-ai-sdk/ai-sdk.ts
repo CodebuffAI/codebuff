@@ -221,7 +221,7 @@ export const promptAiSdkStructured = async function <T>(
 // and don't need this transform!!
 export function transformMessages(
   messages: (GeminiMessage | Message | CoreMessageWithTtl)[],
-  system: System | undefined
+  system?: System
 ): CoreMessage[] {
   const coreMessages: CoreMessage[] = []
 
@@ -369,7 +369,7 @@ export function transformMessages(
     if (message.role === 'tool') {
       // Handle tool messages - need to extract toolCallId properly
       let toolCallId: string
-      
+
       // For OpenAI-style tool messages, tool_call_id is directly on the message
       if ('tool_call_id' in message) {
         toolCallId = message.tool_call_id
