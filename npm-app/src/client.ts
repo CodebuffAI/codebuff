@@ -64,6 +64,7 @@ import { backendUrl, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { calculateFingerprint } from './fingerprint'
 import { displayGreeting } from './menu'
+import { OrganizationContextManager } from './organization-context'
 import {
   getCurrentRepositoryUrl,
   getFiles,
@@ -138,7 +139,7 @@ export class Client {
   private webSocket: APIRealtimeClient
   private freshPrompt: () => void
   private reconnectWhenNextIdle: () => void
-  private fingerprintId!: string | Promise<string>
+  public fingerprintId!: string | Promise<string>
   private costMode: CostMode
   private hadFileChanges: boolean = false
   private git: GitCommand
@@ -167,6 +168,7 @@ export class Client {
   public storedApiKeyTypes: ApiKeyType[] = []
   public lastToolResults: ToolResult[] = []
   public model: string | undefined
+  public orgContext = new OrganizationContextManager()
 
   private constructor({
     websocketUrl,
@@ -246,6 +248,7 @@ export class Client {
     checkpointManager.clearCheckpoints(true)
     setMessages([])
     startNewChat()
+    this.orgContext.reset()
     await this.warmContextCache()
   }
 
@@ -265,6 +268,14 @@ export class Client {
     loggerContext.repoCommits = repoMetrics.commits
     loggerContext.repoCommitsLast30Days = repoMetrics.commitsLast30Days
     loggerContext.repoAuthorsLast30Days = repoMetrics.authorsLast30Days
+
+    // Update organization context if we have a repository URL
+    if (repoMetrics.remoteUrl && this.user?.authToken) {
+      await this.orgContext.updateContextForRepository(
+        repoMetrics.remoteUrl,
+        this.user.authToken
+      )
+    }
 
     if (this.user) {
       identifyUser(this.user?.id, {
@@ -473,6 +484,7 @@ export class Client {
           this.oneTimeFlags = Object.fromEntries(
             ONE_TIME_LABELS.map((tag) => [tag, false])
           ) as Record<(typeof ONE_TIME_LABELS)[number], boolean>
+          this.orgContext.reset()
         } catch (error) {
           console.error('Error removing credentials file:', error)
         }
@@ -607,6 +619,15 @@ export class Client {
             this.oneTimeFlags = Object.fromEntries(
               ONE_TIME_LABELS.map((tag) => [tag, false])
             ) as Record<(typeof ONE_TIME_LABELS)[number], boolean>
+
+            // Update organization context after login
+            const repoMetrics = await getRepoMetrics()
+            if (repoMetrics.remoteUrl) {
+              await this.orgContext.updateContextForRepository(
+                repoMetrics.remoteUrl,
+                user.authToken
+              )
+            }
 
             displayGreeting(this.costMode, null)
             clearInterval(pollInterval)
@@ -795,6 +816,9 @@ export class Client {
       `mc-input-` + Math.random().toString(36).substring(2, 15)
     loggerContext.clientRequestId = userInputId
     const startTime = Date.now() // Capture start time
+
+    // Organization context message is now shown only once at startup
+    // No longer showing it here
 
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
@@ -1089,9 +1113,19 @@ Go to https://www.codebuff.com/config for more information.`) +
         const credits =
           this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
         if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
-          console.log(
-            `\n\n${pluralize(credits, 'credit')} used for this request.`
-          )
+          const orgContext = this.orgContext.getContext()
+          if (
+            orgContext.usingOrganizationCredits &&
+            orgContext.repositoryOrganization
+          ) {
+            console.log(
+              `\n\n${pluralize(credits, 'credit')} used for this request (billed to ${orgContext.repositoryOrganization.name}).`
+            )
+          } else {
+            console.log(
+              `\n\n${pluralize(credits, 'credit')} used for this request.`
+            )
+          }
         }
 
         if (this.hadFileChanges) {
@@ -1125,6 +1159,12 @@ Go to https://www.codebuff.com/config for more information.`) +
 
   public async getUsage() {
     try {
+      // Check if we're in an organization context
+      if (this.orgContext.isOrganizationContext()) {
+        await this.getOrganizationUsage()
+        return
+      }
+
       const response = await fetch(`${backendUrl}/api/usage`, {
         method: 'POST',
         headers: {
@@ -1198,6 +1238,81 @@ Go to https://www.codebuff.com/config for more information.`) +
       }
     } finally {
       this.freshPrompt()
+    }
+  }
+
+  private async getOrganizationUsage() {
+    try {
+      const orgId = this.orgContext.getOrganizationId()
+      const orgName = this.orgContext.getOrganizationName()
+
+      if (!orgId || !this.user?.authToken) {
+        console.error(red('Unable to fetch organization usage data'))
+        return
+      }
+
+      // Use the backend usage API with organizationId parameter
+      const response = await fetch(`${backendUrl}/api/usage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fingerprintId: await this.fingerprintId,
+          authToken: this.user.authToken,
+          organizationId: orgId,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch organization usage')
+      }
+
+      const data = await response.json()
+
+      // Use zod schema to validate response
+      const parsedResponse = UsageReponseSchema.parse(data)
+
+      const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
+        .flat()
+        .reduce((sum, credits) => sum + credits, 0)
+
+      console.log(`\n🏢 Organization Usage for ${orgName}:`)
+      console.log(
+        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()} credits (billed to organization)`
+      )
+
+      if (parsedResponse.remainingBalance !== null) {
+        const remainingColor =
+          parsedResponse.remainingBalance <= 0
+            ? red
+            : parsedResponse.remainingBalance <= 1000
+              ? yellow
+              : green
+        console.log(
+          `Organization Credits Remaining: ${remainingColor(parsedResponse.remainingBalance.toLocaleString())}`
+        )
+      }
+
+      if (parsedResponse.usage !== undefined) {
+        console.log(
+          `Organization usage this cycle: ${parsedResponse.usage.toLocaleString()} credits`
+        )
+      }
+
+      const orgUsageLink = `${websiteUrl}/orgs/${orgId}/usage`
+      console.log(
+        `View detailed organization usage: ${underline(blue(orgUsageLink))}`
+      )
+    } catch (error) {
+      console.error(
+        red(
+          `Error checking organization usage: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      )
+      // Fall back to personal usage
+      console.log(yellow('Falling back to personal usage data...'))
+      await this.getUsage()
     }
   }
 

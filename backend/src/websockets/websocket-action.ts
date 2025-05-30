@@ -90,9 +90,9 @@ export async function genUsageResponse(
     }
 
     try {
-      // Get the usage data
+      // Get the usage data - pass isPersonalContext: true to exclude organization credits
       const { balance: balanceDetails, usageThisCycle } =
-        await calculateUsageAndBalance(userId, new Date())
+        await calculateUsageAndBalance(userId, new Date(), new Date(), db, true)
 
       return {
         type: 'usage-response' as const,

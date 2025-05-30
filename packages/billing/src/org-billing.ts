@@ -296,6 +296,54 @@ export async function grantOrganizationCredits(
 }
 
 /**
+ * Extracts owner and repository name from a repository URL.
+ * Returns null if the URL format is not recognized.
+ */
+export function extractOwnerAndRepo(url: string): { owner: string; repo: string } | null {
+  try {
+    // Handle empty or invalid URLs
+    if (!url.trim()) return null
+
+    // Normalize the URL - add https:// if missing
+    let normalizedUrl = url.trim()
+    if (
+      !normalizedUrl.startsWith('http://') &&
+      !normalizedUrl.startsWith('https://')
+    ) {
+      normalizedUrl = 'https://' + normalizedUrl
+    }
+
+    // Convert SSH to HTTPS format for parsing
+    if (normalizedUrl.startsWith('git@')) {
+      normalizedUrl = normalizedUrl.replace(/^git@([^:]+):/, 'https://$1/')
+    }
+
+    const urlObj = new URL(normalizedUrl)
+    const pathSegments = urlObj.pathname
+      .split('/')
+      .filter((segment) => segment.length > 0)
+
+    // For known Git hosting providers, extract owner/repo from path
+    const knownHosts = ['github.com', 'gitlab.com', 'bitbucket.org']
+    if (knownHosts.includes(urlObj.hostname) && pathSegments.length >= 2) {
+      let owner = pathSegments[0]
+      let repo = pathSegments[1]
+
+      // Remove .git suffix if present
+      if (repo.endsWith('.git')) {
+        repo = repo.slice(0, -4)
+      }
+
+      return { owner: owner.toLowerCase(), repo: repo.toLowerCase() }
+    }
+
+    return null
+  } catch (error) {
+    return null
+  }
+}
+
+/**
  * Normalizes a repository URL to a standard format.
  */
 export function normalizeRepositoryUrl(url: string): string {
@@ -314,6 +362,23 @@ export function normalizeRepositoryUrl(url: string): string {
   // Ensure https:// prefix for github URLs
   if (!normalized.startsWith('http') && normalized.includes('github.com')) {
     normalized = 'https://' + normalized
+  }
+  
+  // Parse URL to extract base repository URL (strip extra paths like /pull/123/files)
+  try {
+    const urlObj = new URL(normalized)
+    const pathSegments = urlObj.pathname.split('/').filter(segment => segment.length > 0)
+    
+    // For known Git hosting providers, only keep the first two path segments (owner/repo)
+    const knownHosts = ['github.com', 'gitlab.com', 'bitbucket.org']
+    if (knownHosts.includes(urlObj.hostname) && pathSegments.length >= 2) {
+      // Reconstruct URL with only owner/repo path
+      const basePath = `/${pathSegments[0]}/${pathSegments[1]}`
+      normalized = `${urlObj.protocol}//${urlObj.hostname}${basePath}`
+    }
+  } catch (error) {
+    // If URL parsing fails, return the normalized string as-is
+    // This maintains backward compatibility
   }
   
   return normalized

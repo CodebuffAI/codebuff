@@ -237,7 +237,9 @@ export function CreditMonitor({ organizationId, refreshInterval = 30000 }: Credi
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{activity.user_name}</div>
                     <div className="text-muted-foreground truncate">
-                      {new URL(activity.repository_url).pathname.slice(1)}
+                      {activity.repository_url && activity.repository_url.startsWith('http') 
+                        ? new URL(activity.repository_url).pathname.slice(1)
+                        : activity.repository_url || 'Unknown repository'}
                     </div>
                   </div>
                   <div className="flex items-center space-x-1">

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,8 @@ import {
   Trash2,
   ExternalLink,
   Github,
+  AlertTriangle,
+  PauseCircle,
 } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -123,6 +126,13 @@ export function RepositoryManagement({
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false)
+  const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false)
+  const [repoToRemove, setRepoToRemove] = useState<{ id: string; name: string } | null>(null)
+  const [repoToDeactivate, setRepoToDeactivate] = useState<{ id: string; name: string } | null>(null)
+  const [removing, setRemoving] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
+  const [activating, setActivating] = useState<string | null>(null) // Track which repo is being activated
   const [addForm, setAddForm] = useState({
     repository_url: '',
     repository_name: '',
@@ -244,18 +254,68 @@ export function RepositoryManagement({
     }
   }
 
-  const handleRemoveRepository = async (repoId: string, repoName: string) => {
-    if (
-      !confirm(
-        `Are you sure you want to remove "${repoName}" from the organization?`
-      )
-    ) {
-      return
-    }
+  const handleRemoveRepository = (repoId: string, repoName: string) => {
+    setRepoToRemove({ id: repoId, name: repoName })
+    setRemoveConfirmOpen(true)
+  }
 
+  const handleToggleRepository = (repo: Repository) => {
+    if (repo.is_active) {
+      // Deactivating - show confirmation modal
+      setRepoToDeactivate({ id: repo.id, name: repo.repository_name })
+      setDeactivateConfirmOpen(true)
+    } else {
+      // Activating - do it directly
+      activateRepository(repo.id, repo.repository_name)
+    }
+  }
+
+  const activateRepository = async (repoId: string, repoName: string) => {
+    setActivating(repoId)
     try {
       const response = await fetch(
         `/api/orgs/${organizationId}/repos/${repoId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ isActive: true }),
+        }
+      )
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to activate repository')
+      }
+
+      toast({
+        title: 'Success',
+        description: `Repository "${repoName}" has been activated`,
+      })
+
+      fetchRepositories() // Refresh the data
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to activate repository',
+        variant: 'destructive',
+      })
+    } finally {
+      setActivating(null)
+    }
+  }
+
+  const confirmRemoveRepository = async () => {
+    if (!repoToRemove) return
+
+    setRemoving(true)
+    try {
+      const response = await fetch(
+        `/api/orgs/${organizationId}/repos/${repoToRemove.id}`,
         {
           method: 'DELETE',
         }
@@ -268,9 +328,11 @@ export function RepositoryManagement({
 
       toast({
         title: 'Success',
-        description: `Repository "${repoName}" has been removed from the organization`,
+        description: `Repository "${repoToRemove.name}" has been permanently removed from the organization`,
       })
 
+      setRemoveConfirmOpen(false)
+      setRepoToRemove(null)
       fetchRepositories() // Refresh the data
     } catch (error) {
       toast({
@@ -281,6 +343,51 @@ export function RepositoryManagement({
             : 'Failed to remove repository',
         variant: 'destructive',
       })
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  const confirmDeactivateRepository = async () => {
+    if (!repoToDeactivate) return
+
+    setDeactivating(true)
+    try {
+      const response = await fetch(
+        `/api/orgs/${organizationId}/repos/${repoToDeactivate.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ isActive: false }),
+        }
+      )
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to deactivate repository')
+      }
+
+      toast({
+        title: 'Success',
+        description: `Repository "${repoToDeactivate.name}" has been deactivated`,
+      })
+
+      setDeactivateConfirmOpen(false)
+      setRepoToDeactivate(null)
+      fetchRepositories() // Refresh the data
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to deactivate repository',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeactivating(false)
     }
   }
 
@@ -396,14 +503,24 @@ export function RepositoryManagement({
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between sm:justify-end space-x-2 flex-shrink-0">
-                  <Badge
-                    variant={repo.is_active ? 'default' : 'secondary'}
-                    className="text-xs"
-                  >
-                    {repo.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                  {canManageRepos && repo.is_active && (
+                <div className="flex items-center justify-between sm:justify-end space-x-3 flex-shrink-0">
+                  <div className="flex items-center space-x-2">
+                    <Badge
+                      variant={repo.is_active ? 'default' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {repo.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                    {canManageRepos && (
+                      <Switch
+                        checked={repo.is_active}
+                        onCheckedChange={() => handleToggleRepository(repo)}
+                        disabled={activating === repo.id || deactivating}
+                        aria-label={`${repo.is_active ? 'Deactivate' : 'Activate'} ${repo.repository_name}`}
+                      />
+                    )}
+                  </div>
+                  {canManageRepos && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -465,7 +582,7 @@ export function RepositoryManagement({
         </CardContent>
       </Card>
 
-      {/* Move Dialog outside the Card and make it always available when canManageRepos is true */}
+      {/* Add Repository Dialog */}
       {canManageRepos && (
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogContent className="w-[95vw] max-w-md mx-auto">
@@ -528,6 +645,102 @@ export function RepositoryManagement({
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Deactivate Repository Confirmation Dialog */}
+      <Dialog open={deactivateConfirmOpen} onOpenChange={setDeactivateConfirmOpen}>
+        <DialogContent className="w-[95vw] max-w-md mx-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-orange-600">
+              <PauseCircle className="mr-2 h-5 w-5" />
+              Deactivate Repository
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to deactivate this repository?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <p className="text-sm text-orange-800">
+                <strong>Repository:</strong> {repoToDeactivate?.name}
+              </p>
+              <p className="text-sm text-orange-700 mt-2">
+                This action will disable credit delegation for this repository. The repository will remain in your organization but will be marked as inactive. You can reactivate it later using the toggle switch.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeactivateConfirmOpen(false)
+                setRepoToDeactivate(null)
+              }}
+              disabled={deactivating}
+              className="w-full sm:w-auto"
+              size={isMobile ? 'sm' : 'default'}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeactivateRepository}
+              disabled={deactivating}
+              className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
+              size={isMobile ? 'sm' : 'default'}
+            >
+              {deactivating ? 'Deactivating...' : 'Deactivate Repository'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Repository Confirmation Dialog */}
+      <Dialog open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen}>
+        <DialogContent className="w-[95vw] max-w-md mx-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-red-600">
+              <AlertTriangle className="mr-2 h-5 w-5" />
+              Remove Repository
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently remove this repository from the organization?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800">
+                <strong>Repository:</strong> {repoToRemove?.name}
+              </p>
+              <p className="text-sm text-red-700 mt-2">
+                This action will permanently delete the repository from the organization. All associated data and credit delegation history will be lost. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRemoveConfirmOpen(false)
+                setRepoToRemove(null)
+              }}
+              disabled={removing}
+              className="w-full sm:w-auto"
+              size={isMobile ? 'sm' : 'default'}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRemoveRepository}
+              disabled={removing}
+              className="w-full sm:w-auto"
+              size={isMobile ? 'sm' : 'default'}
+            >
+              {removing ? 'Removing...' : 'Remove Repository'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

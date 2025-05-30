@@ -1,6 +1,5 @@
 import { logger } from './utils/logger'
-import { getProjectRoot } from './project-files'
-import { getRepoMetrics } from './utils/git'
+import { backendUrl } from './config'
 import { Client } from './client'
 
 export interface OrganizationContext {
@@ -12,6 +11,7 @@ export interface OrganizationContext {
   repositoryOrganization?: {
     id: string
     name: string
+    creditBalance?: number
   }
   fallbackToPersonal: boolean
   repositoryUrl?: string
@@ -21,23 +21,37 @@ export interface OrganizationContext {
 }
 
 export class OrganizationContextManager {
-  private context: OrganizationContext = { 
+  public context: OrganizationContext = {
     fallbackToPersonal: true,
-    usingOrganizationCredits: false
+    usingOrganizationCredits: false,
   }
 
-  async updateContextForRepository(repositoryUrl: string): Promise<void> {
-    try {
-      this.context.repositoryUrl = repositoryUrl
+  private hasShownOrganizationMessage = false
 
+  /**
+   * Calls the backend API to check organization for repository and saves the result
+   */
+  async checkAndSaveOrganizationForRepository(
+    repositoryUrl: string,
+    fingerprintId: string,
+    authToken?: string
+  ): Promise<void> {
+    try {
       // Call backend to determine organization for this repo
-      const response = await fetch('/api/user/repository-organization', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ repositoryUrl })
-      })
+      const response = await fetch(
+        `${backendUrl}/api/repository-organization`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fingerprintId,
+            authToken,
+            repositoryUrl,
+          }),
+        }
+      )
 
       if (response.ok) {
         const { organization } = await response.json()
@@ -45,6 +59,15 @@ export class OrganizationContextManager {
           this.context.repositoryOrganization = organization
           this.context.usingOrganizationCredits = true
           this.context.fallbackToPersonal = false
+
+          logger.info(
+            {
+              repositoryUrl,
+              organizationId: organization.id,
+              organizationName: organization.name,
+            },
+            'Repository is associated with organization'
+          )
         } else {
           this.context.repositoryOrganization = undefined
           this.context.usingOrganizationCredits = false
@@ -52,10 +75,49 @@ export class OrganizationContextManager {
         }
       } else {
         // API call failed, fall back to personal
+        logger.warn(
+          { status: response.status },
+          'Failed to check organization for repository'
+        )
         this.context.repositoryOrganization = undefined
         this.context.usingOrganizationCredits = false
         this.context.fallbackToPersonal = true
       }
+    } catch (error) {
+      logger.error({ error }, 'Error checking organization for repository')
+      this.context.repositoryOrganization = undefined
+      this.context.usingOrganizationCredits = false
+      this.context.fallbackToPersonal = true
+    }
+  }
+
+  async updateContextForRepository(
+    repositoryUrl: string,
+    authToken?: string
+  ): Promise<void> {
+    try {
+      this.context.repositoryUrl = repositoryUrl
+
+      // Get fingerprint ID from client - use dynamic import to avoid circular dependency
+      let fingerprintId: string | undefined
+      const client = Client.getInstance()
+      fingerprintId = await client.fingerprintId
+
+      if (!fingerprintId) {
+        logger.warn(
+          'No fingerprint ID available for organization context update'
+        )
+        this.context.repositoryOrganization = undefined
+        this.context.usingOrganizationCredits = false
+        this.context.fallbackToPersonal = true
+        return
+      }
+
+      await this.checkAndSaveOrganizationForRepository(
+        repositoryUrl,
+        fingerprintId,
+        authToken
+      )
     } catch (error) {
       logger.error({ error }, 'Error updating organization context')
       this.context.repositoryOrganization = undefined
@@ -71,78 +133,56 @@ export class OrganizationContextManager {
     return 'Credits will be charged to your personal account'
   }
 
+  getBillingContextMessage(): string {
+    // Don't show the message anymore since it's shown once at startup
+    return ''
+  }
+
+  getInitialOrganizationMessage(): string | null {
+    if (
+      this.context.repositoryOrganization &&
+      !this.hasShownOrganizationMessage
+    ) {
+      this.hasShownOrganizationMessage = true
+      return `🏢 Using credits from ${this.context.repositoryOrganization.name}`
+    }
+    return null
+  }
+  
+
+  getPromptIndicator(): string {
+    if (this.context.repositoryOrganization) {
+      return ` (${this.context.repositoryOrganization.name})`
+    }
+    return ''
+  }
+
   getContext(): OrganizationContext {
     return { ...this.context }
   }
-}
 
-/**
- * Determines organization context for the current project
- */
-export async function getOrganizationContext(client: Client): Promise<OrganizationContext> {
-  try {
-    const repoMetrics = await getRepoMetrics()
-    const repositoryUrl = repoMetrics.remoteUrl
-    
-    if (!repositoryUrl) {
-      return {
-        usingOrganizationCredits: false,
-        fallbackToPersonal: true,
-      }
-    }
+  isOrganizationContext(): boolean {
+    return (
+      this.context.usingOrganizationCredits &&
+      !!this.context.repositoryOrganization
+    )
+  }
 
-    // Check if this repository is associated with an organization
-    // This would typically be done via an API call to the backend
-    // For now, we'll implement a placeholder
-    
-    const context: OrganizationContext = {
-      repositoryUrl,
-      usingOrganizationCredits: false,
+  getOrganizationId(): string | undefined {
+    return this.context.repositoryOrganization?.id
+  }
+
+  getOrganizationName(): string | undefined {
+    return this.context.repositoryOrganization?.name
+  }
+
+  reset(): void {
+    this.context = {
       fallbackToPersonal: true,
-    }
-
-    // TODO: Implement API call to check organization association
-    // const orgInfo = await client.checkOrganizationForRepository(repositoryUrl)
-    // if (orgInfo) {
-    //   context.organizationId = orgInfo.id
-    //   context.organizationName = orgInfo.name
-    //   context.usingOrganizationCredits = true
-    //   context.organizationBalance = orgInfo.balance
-    // }
-
-    return context
-  } catch (error) {
-    logger.error({ error }, 'Error getting organization context')
-    return {
       usingOrganizationCredits: false,
-      fallbackToPersonal: true,
     }
+    this.hasShownOrganizationMessage = false
   }
-}
-
-/**
- * Displays organization context information to the user
- */
-export function displayOrganizationContext(context: OrganizationContext): string {
-  if (!context.usingOrganizationCredits) {
-    return 'Using personal credits'
-  }
-
-  const parts = []
-  
-  if (context.repositoryOrganization?.name) {
-    parts.push(`Organization: ${context.repositoryOrganization.name}`)
-  }
-  
-  if (context.organizationBalance !== undefined) {
-    parts.push(`Org Credits: ${context.organizationBalance.toLocaleString()}`)
-  }
-  
-  if (context.userBalance !== undefined) {
-    parts.push(`Personal Credits: ${context.userBalance.toLocaleString()}`)
-  }
-
-  return parts.join(' | ')
 }
 
 /**
@@ -153,54 +193,13 @@ export function formatCreditUsage(
   context: OrganizationContext
 ): string {
   const baseMessage = `Used ${creditsUsed.toLocaleString()} credits`
-  
-  if (context.usingOrganizationCredits && context.repositoryOrganization?.name) {
+
+  if (
+    context.usingOrganizationCredits &&
+    context.repositoryOrganization?.name
+  ) {
     return `${baseMessage} (from ${context.repositoryOrganization.name})`
   }
-  
+
   return `${baseMessage} (personal)`
-}
-
-/**
- * Checks if user can override organization credit usage
- */
-export function canOverrideOrganizationCredits(context: OrganizationContext): boolean {
-  // Users can always fall back to personal credits if they have them
-  return context.userBalance !== undefined && context.userBalance > 0
-}
-
-/**
- * Gets organization-specific CLI commands
- */
-export function getOrganizationCommands(): Array<{
-  command: string
-  description: string
-  handler: () => Promise<void>
-}> {
-  return [
-    {
-      command: '/org-status',
-      description: 'Show organization credit status',
-      handler: async () => {
-        // TODO: Implement organization status display
-        console.log('Organization status not yet implemented')
-      },
-    },
-    {
-      command: '/org-switch',
-      description: 'Switch between personal and organization credits',
-      handler: async () => {
-        // TODO: Implement organization switching
-        console.log('Organization switching not yet implemented')
-      },
-    },
-    {
-      command: '/org-usage',
-      description: 'Show organization usage breakdown',
-      handler: async () => {
-        // TODO: Implement organization usage display
-        console.log('Organization usage display not yet implemented')
-      },
-    },
-  ]
 }

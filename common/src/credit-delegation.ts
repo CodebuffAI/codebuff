@@ -1,7 +1,12 @@
 import db from './db'
 import * as schema from './db/schema'
 import { eq, and } from 'drizzle-orm'
-import { InferSelectModel } from 'drizzle-orm'
+import { logger } from './util/logger'
+import { 
+  consumeOrganizationCredits, 
+  normalizeRepositoryUrl,
+  extractOwnerAndRepo
+} from '@codebuff/billing'
 
 export interface OrganizationLookupResult {
   found: boolean
@@ -10,100 +15,183 @@ export interface OrganizationLookupResult {
 }
 
 export interface CreditDelegationResult {
-  useOrganization: boolean
+  success: boolean
   organizationId?: string
   organizationName?: string
-  fallbackToPersonal: boolean
-}
-
-type OrgRepoSelect = InferSelectModel<typeof schema.orgRepo>
-type OrgSelect = InferSelectModel<typeof schema.org>
-
-type OrgRepoWithOrg = OrgRepoSelect & {
-  org: Pick<OrgSelect, 'id' | 'name'> | null
+  error?: string
 }
 
 /**
- * Finds the organization associated with a repository for a given user
+ * Finds the organization associated with a repository for a given user.
+ * Uses owner/repo comparison for better matching.
  */
 export async function findOrganizationForRepository(
   userId: string,
   repositoryUrl: string
 ): Promise<OrganizationLookupResult> {
   try {
-    // Normalize repository URL (remove trailing slash, convert to lowercase)
-    const normalizedUrl = repositoryUrl.toLowerCase().replace(/\/$/, '')
+    const normalizedUrl = normalizeRepositoryUrl(repositoryUrl)
+    const ownerRepo = extractOwnerAndRepo(normalizedUrl)
     
-    // Find the repository in org_repo table
-    const orgRepo = await db.query.orgRepo.findFirst({
-      where: and(
-        eq(schema.orgRepo.repo_url, normalizedUrl),
-        eq(schema.orgRepo.is_active, true)
-      ),
-      with: {
-        org: {
-          columns: {
-            id: true,
-            name: true,
+    if (!ownerRepo) {
+      logger.debug(
+        { userId, repositoryUrl, normalizedUrl },
+        'Could not extract owner/repo from repository URL'
+      )
+      return { found: false }
+    }
+
+    // First, check if user is a member of any organizations
+    const userOrganizations = await db
+      .select({
+        orgId: schema.orgMember.org_id,
+        orgName: schema.org.name,
+      })
+      .from(schema.orgMember)
+      .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
+      .where(eq(schema.orgMember.user_id, userId))
+
+    if (userOrganizations.length === 0) {
+      logger.debug(
+        { userId, repositoryUrl },
+        'User is not a member of any organizations'
+      )
+      return { found: false }
+    }
+
+    // Check each organization for matching repositories
+    for (const userOrg of userOrganizations) {
+      const orgRepos = await db
+        .select({
+          repoUrl: schema.orgRepo.repo_url,
+          repoName: schema.orgRepo.repo_name,
+          isActive: schema.orgRepo.is_active,
+        })
+        .from(schema.orgRepo)
+        .where(
+          and(
+            eq(schema.orgRepo.org_id, userOrg.orgId),
+            eq(schema.orgRepo.is_active, true)
+          )
+        )
+
+      // Check if any repository in this organization matches
+      for (const orgRepo of orgRepos) {
+        const orgOwnerRepo = extractOwnerAndRepo(orgRepo.repoUrl)
+        
+        if (orgOwnerRepo && 
+            orgOwnerRepo.owner === ownerRepo.owner && 
+            orgOwnerRepo.repo === ownerRepo.repo) {
+          logger.info(
+            { 
+              userId, 
+              repositoryUrl, 
+              organizationId: userOrg.orgId,
+              organizationName: userOrg.orgName,
+              matchedRepoUrl: orgRepo.repoUrl,
+              ownerRepo: ownerRepo
+            },
+            'Found organization for repository using owner/repo matching'
+          )
+          
+          return {
+            found: true,
+            organizationId: userOrg.orgId,
+            organizationName: userOrg.orgName,
           }
         }
       }
-    }) as OrgRepoWithOrg | undefined
-
-    if (!orgRepo) {
-      return { found: false }
     }
 
-    // Explicitly check if org relation was loaded
-    if (!orgRepo.org) {
-      console.error(`Organization details not loaded for org_id: ${orgRepo.org_id}`)
-      return { found: false }
-    }
-
-    // Check if the user is a member of this organization
-    const membership = await db.query.orgMember.findFirst({
-      where: and(
-        eq(schema.orgMember.org_id, orgRepo.org_id),
-        eq(schema.orgMember.user_id, userId)
-      )
-    })
-
-    if (!membership) {
-      return { found: false }
-    }
-
-    return {
-      found: true,
-      organizationId: orgRepo.org_id,
-      organizationName: orgRepo.org.name
-    }
+    logger.debug(
+      { userId, repositoryUrl, ownerRepo, userOrganizations: userOrganizations.length },
+      'No organization found for repository'
+    )
+    
+    return { found: false }
   } catch (error) {
-    console.error('Error finding organization for repository:', error)
+    logger.error(
+      { userId, repositoryUrl, error },
+      'Error finding organization for repository'
+    )
     return { found: false }
   }
 }
 
 /**
- * Determines credit delegation for a user and repository
+ * Consumes credits with organization delegation if applicable.
  */
 export async function consumeCreditsWithDelegation(
   userId: string,
-  repositoryUrl: string,
+  repositoryUrl: string | null,
   creditsToConsume: number
 ): Promise<CreditDelegationResult> {
-  const orgLookup = await findOrganizationForRepository(userId, repositoryUrl)
-  
-  if (orgLookup.found) {
-    return {
-      useOrganization: true,
-      organizationId: orgLookup.organizationId,
-      organizationName: orgLookup.organizationName,
-      fallbackToPersonal: false
+  try {
+    // If no repository URL, fall back to personal credits
+    if (!repositoryUrl) {
+      logger.debug(
+        { userId, creditsToConsume },
+        'No repository URL provided, falling back to personal credits'
+      )
+      return { success: false, error: 'No repository URL provided' }
     }
-  }
 
-  return {
-    useOrganization: false,
-    fallbackToPersonal: true
+    // Find organization for this repository
+    const orgLookup = await findOrganizationForRepository(userId, repositoryUrl)
+    
+    if (!orgLookup.found || !orgLookup.organizationId) {
+      logger.debug(
+        { userId, repositoryUrl, creditsToConsume },
+        'No organization found for repository, falling back to personal credits'
+      )
+      return { success: false, error: 'No organization found for repository' }
+    }
+
+    // Consume credits from organization
+    try {
+      await consumeOrganizationCredits(orgLookup.organizationId, creditsToConsume)
+      
+      logger.info(
+        { 
+          userId, 
+          repositoryUrl, 
+          organizationId: orgLookup.organizationId,
+          organizationName: orgLookup.organizationName,
+          creditsToConsume 
+        },
+        'Successfully consumed credits from organization'
+      )
+      
+      return {
+        success: true,
+        organizationId: orgLookup.organizationId,
+        organizationName: orgLookup.organizationName,
+      }
+    } catch (consumeError) {
+      logger.error(
+        { 
+          userId, 
+          repositoryUrl, 
+          organizationId: orgLookup.organizationId,
+          creditsToConsume,
+          error: consumeError 
+        },
+        'Failed to consume credits from organization'
+      )
+      
+      return { 
+        success: false, 
+        error: 'Failed to consume organization credits',
+        organizationId: orgLookup.organizationId,
+        organizationName: orgLookup.organizationName,
+      }
+    }
+  } catch (error) {
+    logger.error(
+      { userId, repositoryUrl, creditsToConsume, error },
+      'Error in credit delegation process'
+    )
+    
+    return { success: false, error: 'Credit delegation process failed' }
   }
 }

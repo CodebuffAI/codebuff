@@ -238,7 +238,7 @@ export const UsageDisplay = ({
 
   // Group credits by expiration type
   const expiringTypes: GrantType[] = ['free', 'referral']
-  const nonExpiringTypes: GrantType[] = ['admin', 'purchase']
+  const nonExpiringTypes: GrantType[] = ['admin', 'purchase', 'organization']
 
   const expiringTotal = expiringTypes.reduce(
     (acc, type) => acc + (principals?.[type] || breakdown[type] || 0),
@@ -259,14 +259,6 @@ export const UsageDisplay = ({
     (acc, type) => acc + (usedCredits[type] || 0),
     0
   )
-
-  // Format date for display
-  const formattedRenewalDate = nextQuotaReset
-    ? nextQuotaReset.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-      })
-    : null
 
   return (
     <Card className="w-full max-w-2xl mx-auto -mt-8">

@@ -10,7 +10,7 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { blueBright, cyan, green, magenta, yellow } from 'picocolors'
+import { blue, blueBright, cyan, green, magenta, yellow } from 'picocolors'
 
 import {
   killAllBackgroundProcesses,
@@ -42,7 +42,10 @@ import {
   displaySlashCommandHelperMenu,
   getSlashCommands,
 } from './menu'
-import { OrganizationContextManager } from './organization-context'
+import {
+  formatCreditUsage,
+  OrganizationContextManager,
+} from './organization-context'
 import {
   getProjectRoot,
   getWorkingDirectory,
@@ -51,6 +54,7 @@ import {
 } from './project-files'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
+import { loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import {
   clearScreen,
@@ -85,7 +89,7 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
-  private orgContext = new OrganizationContextManager()
+  private org = new OrganizationContextManager()
 
   public rl!: readline.Interface
 
@@ -432,6 +436,12 @@ export class CLI {
     const client = Client.getInstance()
     if (client.user) {
       displayGreeting(this.costMode, client.user.name)
+      
+      // Show organization context message if applicable
+      const orgMessage = this.org.getInitialOrganizationMessage()
+      if (orgMessage) {
+        console.log('\n' + blue(orgMessage) + '\n')
+      }
     } else {
       console.log(
         `Welcome to Codebuff! Give us a sec to get your account set up...`
@@ -648,6 +658,7 @@ export class CLI {
       ])
 
       displayGreeting(this.costMode, Client.getInstance().user?.name ?? null)
+
       this.freshPrompt()
       return null
     }
@@ -872,27 +883,51 @@ export class CLI {
     await killAllBackgroundProcesses()
 
     const client = Client.getInstance()
-    const logMessages = []
     const totalCreditsUsedThisSession = Object.values(client.creditsByPromptId)
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
 
-    logMessages.push(
-      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session${
-        client.usageData.remainingBalance !== null
-          ? `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`
-          : '.'
-      }`
-    )
+    // Create a reasonable credit usage message for this session
+    const creditUsageMessage = `${pluralize(totalCreditsUsedThisSession, 'credit')} used`
+
+    const logMessages = []
+
+    if (
+      this.org.context.usingOrganizationCredits &&
+      this.org.context.repositoryOrganization
+    ) {
+      logMessages.push(
+        `${creditUsageMessage} this session. Organization balance: ${
+          client.usageData.remainingBalance !== null
+            ? `${client.usageData.remainingBalance.toLocaleString()} credits.`
+            : 'unknown.'
+        }`
+      )
+    } else {
+      logMessages.push(
+        `${creditUsageMessage} this session${
+          client.usageData.remainingBalance !== null
+            ? `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`
+            : '.'
+        }`
+      )
+    }
 
     if (client.usageData.next_quota_reset) {
       const daysUntilReset = Math.ceil(
         (new Date(client.usageData.next_quota_reset).getTime() - Date.now()) /
           (1000 * 60 * 60 * 24)
       )
-      logMessages.push(
-        `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`
-      )
+
+      if (this.org.context.usingOrganizationCredits) {
+        logMessages.push(
+          `Organization billing cycle resets in ${pluralize(daysUntilReset, 'day')}.`
+        )
+      } else {
+        logMessages.push(
+          `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`
+        )
+      }
     }
 
     console.log(logMessages.join(' '))

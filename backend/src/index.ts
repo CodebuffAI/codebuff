@@ -18,6 +18,7 @@ import {
   waitForAllClientsDisconnected,
   listen as webSocketListen,
 } from './websockets/server'
+import repositoryOrganizationHandler from './api/repository-organization'
 
 const app = express()
 const port = env.PORT
@@ -51,6 +52,9 @@ app.post(
   checkAdmin,
   relabelForUserHandler
 )
+
+// Add the repository-organization route
+app.post('/api/repository-organization', repositoryOrganizationHandler)
 
 app.use(
   (
