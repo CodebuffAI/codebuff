@@ -651,6 +651,10 @@ export class Client {
     loggerContext.costMode = this.costMode
   }
 
+  public close() {
+    this.webSocket.close()
+  }
+
   private setupSubscriptions() {
     this.webSocket.subscribe('action-error', (action) => {
       if (action.error === 'Insufficient credits') {

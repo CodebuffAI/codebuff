@@ -167,6 +167,9 @@ export class CLI {
         process.removeAllListeners('uncaughtException')
         Spinner.get().restoreCursor()
         await killAllBackgroundProcesses()
+
+        Client.getInstance().close()
+
         await flushAnalytics()
         process.exit(0)
       })
@@ -864,6 +867,8 @@ export class CLI {
     killAndResetPersistentProcess()
 
     await killAllBackgroundProcesses()
+
+    Client.getInstance().close() // Close WebSocket
 
     const client = Client.getInstance()
     const logMessages = []
