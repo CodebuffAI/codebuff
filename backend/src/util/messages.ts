@@ -1,4 +1,4 @@
-import { CoreMessageWithTtl, Message } from 'common/types/message'
+import { CodebuffMessage, Message } from 'common/types/message'
 import { withCacheControl, withCacheControlCore } from 'common/util/messages'
 
 import { CoreMessage } from 'ai'
@@ -261,10 +261,10 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
  * @returns Trimmed array of messages that fits within token limit
  */
 export function trimCoreMessagesToFitTokenLimit(
-  messages: CoreMessageWithTtl[],
+  messages: CodebuffMessage[],
   systemTokens: number,
   maxTotalTokens: number = 200_000
-): CoreMessageWithTtl[] {
+): CodebuffMessage[] {
   const MAX_MESSAGE_TOKENS = maxTotalTokens - systemTokens
 
   // Check if we're already under the limit
@@ -282,7 +282,7 @@ export function trimCoreMessagesToFitTokenLimit(
   // Process messages from newest to oldest
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
-    let message: CoreMessageWithTtl
+    let message: CodebuffMessage
     if (m.role === 'tool' || m.role === 'system') {
       message = messages[i]
     } else if (m.role === 'user') {
@@ -359,7 +359,7 @@ export function trimCoreMessagesToFitTokenLimit(
 }
 
 export function getCoreMessagesSubset(
-  messages: CoreMessageWithTtl[],
+  messages: CodebuffMessage[],
   otherTokens: number
 ) {
   const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
@@ -406,9 +406,9 @@ export function getCoreMessagesSubset(
 }
 
 export function expireMessages(
-  messages: CoreMessageWithTtl[],
+  messages: CodebuffMessage[],
   endOf: 'agentStep' | 'userPrompt'
-): CoreMessageWithTtl[] {
+): CodebuffMessage[] {
   return messages.filter(
     (m) =>
       (m.timeToLive === undefined && true) ||

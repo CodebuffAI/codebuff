@@ -54,7 +54,7 @@ export const MessageSchema = z.object({
 export type Message = z.infer<typeof MessageSchema>
 export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
 
-export const CoreMessageWithTtlSchema = z.intersection(
+export const CodebuffMessageSchema = z.intersection(
   coreMessageSchema,
   z.object({
     timeToLive: z
@@ -63,4 +63,4 @@ export const CoreMessageWithTtlSchema = z.intersection(
   })
 )
 
-export type CoreMessageWithTtl = z.infer<typeof CoreMessageWithTtlSchema>
+export type CodebuffMessage = z.infer<typeof CodebuffMessageSchema>

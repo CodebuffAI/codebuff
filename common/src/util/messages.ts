@@ -1,5 +1,5 @@
 import { CoreMessage } from 'ai'
-import { CoreMessageWithTtl, Message } from '../types/message'
+import { CodebuffMessage, Message } from '../types/message'
 
 interface ScreenshotRef {
   msgIdx: number
@@ -49,9 +49,7 @@ export function toContentString(msg: CoreMessage): string {
   return content.map((item) => (item as any)?.text ?? '').join('\n')
 }
 
-export function withCacheControlCore(
-  msg: CoreMessageWithTtl
-): CoreMessageWithTtl {
+export function withCacheControlCore(msg: CodebuffMessage): CodebuffMessage {
   const message = { ...msg }
   if (!message.providerOptions) {
     message.providerOptions = {}

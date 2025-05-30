@@ -1,15 +1,15 @@
-import { CoreMessage } from 'ai'
 import { type Log } from 'common/browser-actions'
+import { type CodebuffMessage } from 'common/types/message'
 import { transformJsonInString } from 'common/util/string'
 import * as fs from 'fs'
 import * as path from 'path'
 import { getCurrentChatDir, getCurrentChatId } from './project-files'
 
-export function setMessages(messages: CoreMessage[]) {
+export function setMessages(messages: CodebuffMessage[]) {
   // Clean up any screenshots and logs in previous messages
   // Skip the last message as it may not have been processed by the backend yet
   const lastIndex = messages.length - 1
-  const cleanedMessages = messages.map((msg, index): CoreMessage => {
+  const cleanedMessages = messages.map((msg, index): CodebuffMessage => {
     if (index === lastIndex) {
       return msg // Preserve the most recent message in its entirety
     }

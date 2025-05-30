@@ -23,7 +23,7 @@ import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { CoreMessage } from 'ai'
-import { CoreMessageWithTtl } from 'common/types/message'
+import { CodebuffMessage } from 'common/types/message'
 import { checkTerminalCommand } from './check-terminal-command'
 import {
   requestRelevantFiles,
@@ -219,7 +219,7 @@ export const mainPrompt = async (
       `If the tool result above is of a terminal command succeeding and you have completed the user's request, please do not write anything else and end your response.`
   ).join('\n\n')
 
-  const messagesWithToolResultsAndUser = buildArray<CoreMessageWithTtl>(
+  const messagesWithToolResultsAndUser = buildArray<CodebuffMessage>(
     ...messageHistory,
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -406,7 +406,7 @@ export const mainPrompt = async (
     })
   }
 
-  const readFileMessages: CoreMessageWithTtl[] = []
+  const readFileMessages: CodebuffMessage[] = []
   if (newFiles.length > 0) {
     const readFilesToolResult = {
       id: generateCompactId(),
@@ -438,7 +438,7 @@ export const mainPrompt = async (
   const relevantDocumentation = await relevantDocumentationPromise
 
   const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
-  const messagesWithUserMessage = buildArray<CoreMessageWithTtl>(
+  const messagesWithUserMessage = buildArray<CodebuffMessage>(
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep').map(
       (m) => castAssistantMessage(m)
     ),

@@ -4,7 +4,6 @@ import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
-import { CoreMessage } from 'ai'
 import { type ApiKeyType } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
@@ -59,6 +58,7 @@ import {
 } from './utils/terminal'
 
 import { loadCodebuffConfig } from 'common/json-config/parser'
+import { type CodebuffMessage } from 'common/types/message'
 import { CONFIG_DIR } from './credentials'
 import { logAndHandleStartup } from './startup-process-handler'
 
@@ -738,7 +738,7 @@ export class CLI {
 
     Client.getInstance().lastChanges = []
 
-    const newMessage: CoreMessage = {
+    const newMessage: CodebuffMessage = {
       role: 'user',
       content: cleanedInput,
     }
