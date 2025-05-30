@@ -117,6 +117,7 @@ const models = [
   // claudeModels.opus4,
   // finetunedVertexModels.ft_filepicker_005,
   finetunedVertexModels.ft_filepicker_007,
+  finetunedVertexModels.ft_filepicker_topk_001,
 ] as const
 
 export async function relabelForUserHandler(req: Request, res: Response) {

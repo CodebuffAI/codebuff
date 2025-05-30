@@ -187,6 +187,7 @@ export const finetunedVertexModels = {
   ft_filepicker_003: '196166068534771712',
   ft_filepicker_005: '8493203957034778624',
   ft_filepicker_007: '2589952415784501248',
+  ft_filepicker_topk_001: '3676445825887633408',
 } as const
 export type FinetunedVertexModel =
   (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels]

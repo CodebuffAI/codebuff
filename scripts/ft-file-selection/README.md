@@ -49,7 +49,7 @@
   - over $660 for generating relabel inputs (at $15.00/1M input Claude tokens + some additional file context tokens)
 
 `ft_filepicker_topk_001`
-- Gemini Endpoint ID: 
+- Gemini Endpoint ID: 3676445825887633408
 - Finetune date: May 30, 2025
 - Finetune file: gemini-tune-data-039-top2.jsonl, available in the GCS bucket
 - Validation file: gemini-tune-data-039-top2-validation.jsonl, available in the GCS bucket
