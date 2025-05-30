@@ -887,25 +887,38 @@ export class CLI {
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
 
-    // Create a reasonable credit usage message for this session
-    const creditUsageMessage = `${pluralize(totalCreditsUsedThisSession, 'credit')} used`
+    // Get organization context for exit message
+    const orgContext = client.orgContext.getContext()
 
     const logMessages = []
 
     if (
-      this.org.context.usingOrganizationCredits &&
-      this.org.context.repositoryOrganization
+      orgContext.usingOrganizationCredits &&
+      orgContext.repositoryOrganization
     ) {
       logMessages.push(
-        `${creditUsageMessage} this session. Organization balance: ${
-          client.usageData.remainingBalance !== null
-            ? `${client.usageData.remainingBalance.toLocaleString()} credits.`
-            : 'unknown.'
-        }`
+        `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session (billed to ${orgContext.repositoryOrganization.name}).`
       )
+      
+      // Fetch current organization balance for accurate display
+      try {
+        const orgUsageResponse = await client.getOrganizationUsageData()
+        if (orgUsageResponse && orgUsageResponse.remainingBalance !== null) {
+          logMessages.push(
+            `Organization balance: ${orgUsageResponse.remainingBalance.toLocaleString()} credits.`
+          )
+        }
+      } catch (error) {
+        // If we can't fetch org balance, fall back to showing what we know
+        if (client.usageData.remainingBalance !== null) {
+          logMessages.push(
+            `Organization balance: ${client.usageData.remainingBalance.toLocaleString()} credits.`
+          )
+        }
+      }
     } else {
       logMessages.push(
-        `${creditUsageMessage} this session${
+        `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session${
           client.usageData.remainingBalance !== null
             ? `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`
             : '.'
@@ -919,7 +932,7 @@ export class CLI {
           (1000 * 60 * 60 * 24)
       )
 
-      if (this.org.context.usingOrganizationCredits) {
+      if (orgContext.usingOrganizationCredits) {
         logMessages.push(
           `Organization billing cycle resets in ${pluralize(daysUntilReset, 'day')}.`
         )

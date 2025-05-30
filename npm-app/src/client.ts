@@ -1241,7 +1241,52 @@ Go to https://www.codebuff.com/config for more information.`) +
     }
   }
 
-  private async getOrganizationUsage() {
+  /**
+   * Fetches organization usage data without displaying it (for internal use)
+   */
+  public async getOrganizationUsageData(): Promise<UsageData | null> {
+    try {
+      const orgId = this.orgContext.getOrganizationId()
+
+      if (!orgId || !this.user?.authToken) {
+        return null
+      }
+
+      const response = await fetch(`${backendUrl}/api/usage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fingerprintId: await this.fingerprintId,
+          authToken: this.user.authToken,
+          organizationId: orgId,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch organization usage')
+      }
+
+      const data = await response.json()
+      const parsedResponse = UsageReponseSchema.parse(data)
+
+      return {
+        usage: parsedResponse.usage,
+        remainingBalance: parsedResponse.remainingBalance,
+        balanceBreakdown: parsedResponse.balanceBreakdown,
+        next_quota_reset: parsedResponse.next_quota_reset,
+      }
+    } catch (error) {
+      logger.error(
+        { error },
+        'Error fetching organization usage data'
+      )
+      return null
+    }
+  }
+
+  public async getOrganizationUsage() {
     try {
       const orgId = this.orgContext.getOrganizationId()
       const orgName = this.orgContext.getOrganizationName()
@@ -1277,28 +1322,7 @@ Go to https://www.codebuff.com/config for more information.`) +
         .flat()
         .reduce((sum, credits) => sum + credits, 0)
 
-      console.log(`\n🏢 Organization Usage for ${orgName}:`)
-      console.log(
-        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()} credits (billed to organization)`
-      )
-
-      if (parsedResponse.remainingBalance !== null) {
-        const remainingColor =
-          parsedResponse.remainingBalance <= 0
-            ? red
-            : parsedResponse.remainingBalance <= 1000
-              ? yellow
-              : green
-        console.log(
-          `Organization Credits Remaining: ${remainingColor(parsedResponse.remainingBalance.toLocaleString())}`
-        )
-      }
-
-      if (parsedResponse.usage !== undefined) {
-        console.log(
-          `Organization usage this cycle: ${parsedResponse.usage.toLocaleString()} credits`
-        )
-      }
+      console.log(`\n🏢 ${orgName}: ${totalCreditsUsedThisSession.toLocaleString()} session credits, ${parsedResponse.remainingBalance?.toLocaleString() || 'unknown'} remaining, ${parsedResponse.usage?.toLocaleString() || 'unknown'} cycle usage`)
 
       const orgUsageLink = `${websiteUrl}/orgs/${orgId}/usage`
       console.log(
