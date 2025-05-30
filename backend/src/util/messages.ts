@@ -375,10 +375,7 @@ export function getCoreMessagesSubset(
 
   // Remove cache_control from all messages
   for (const message of messagesSubset) {
-    if (typeof message.content === 'object' && message.content.length > 0) {
-      delete message.content[message.content.length - 1].providerOptions
-        ?.anthropic?.cacheControl
-    }
+    delete message.providerOptions?.anthropic?.cacheControl
   }
 
   // Cache up to the last message!
