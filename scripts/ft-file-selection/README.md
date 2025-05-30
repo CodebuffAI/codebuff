@@ -17,7 +17,7 @@
 - Gemini Endpoint ID: 8493203957034778624
 - Finetune date: Apr 23, 2025
 - Finetune file: gemini-tune-data-007.jsonl, available in the GCS bucket
-- Finetune samples: 1934
+- Finetune samples: 1934 model messages
 - Tokens: 74.6M
 - Epochs: 2
 - Base model: gemini-2.0-flash-001
@@ -30,6 +30,24 @@
 - Est costs:
   - ~$400 for finetuning ($3.00/1M tokens * 2 epochs * 74.6M tokens)
   - ~$200 for generating relabel inputs (at $3.00/1M input Claude tokens)
+
+`ft_filepicker_007`
+- Gemini Endpoint ID: 2589952415784501248
+- Finetune date: May 29, 2025
+- Finetune file: gemini-tune-data-027.jsonl, available in the GCS bucket
+- Finetune samples: 1077 model messages
+- Tokens: 44.7M
+- Epochs: 1
+- Base model: gemini-2.0-flash-001
+- Distilled model: claude-opus-4-20250514 
+- Notes: 
+  - Unlike previous finetunes, this also provided "additional file context" to the teacher model, so it not only used a stronger model, but also more informative context. 
+  - Forced maximum adapter size, and 1 epoch
+  - Only used 'Key' traces AFAIK - TODO: Will this worsen non-obvious, or encourage 'Key' to pick too many?
+- Est costs:
+  - ~$150 for finetuning ($3.00/1M tokens * 1 epoch * 44.7M tokens)
+  - >$660 for generating relabel inputs (at $15.00/1M input Claude tokens + some additional file context tokens)
+
 
 ## Scripts
 
