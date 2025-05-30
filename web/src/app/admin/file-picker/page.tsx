@@ -66,18 +66,29 @@ export default function FilePicker() {
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set())
   const [limit, setLimit] = useState(10)
 
-  // Prevent browser back navigation on horizontal scroll
+  // Prevent browser back navigation on horizontal scroll while preserving table scrolling
   useEffect(() => {
     const preventSwipeNavigation = (e: TouchEvent) => {
-      // Prevent horizontal swipe gestures that trigger browser navigation
-      if (e.touches.length === 1) {
+      // Only prevent if it's a two-finger gesture (common for navigation)
+      // Allow single finger touches for normal scrolling
+      if (e.touches.length === 2) {
         e.preventDefault()
       }
     }
 
     const preventMouseNavigation = (e: WheelEvent) => {
-      // Prevent horizontal scroll from triggering browser navigation
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      // Only prevent if it's a strong horizontal scroll that could trigger navigation
+      // Allow normal horizontal scrolling within elements
+      const target = e.target as Element
+      const isScrollableElement = target.closest('.overflow-auto, .overflow-x-auto, .overflow-scroll, .overflow-x-scroll')
+      
+      // If we're scrolling within a scrollable element, allow it
+      if (isScrollableElement) {
+        return
+      }
+      
+      // Only prevent very strong horizontal scrolls that are likely navigation gestures
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 50) {
         e.preventDefault()
       }
     }
@@ -87,7 +98,7 @@ export default function FilePicker() {
     document.addEventListener('touchmove', preventSwipeNavigation, { passive: false })
     document.addEventListener('wheel', preventMouseNavigation, { passive: false })
 
-    // Add CSS to prevent overscroll behavior
+    // Add CSS to prevent overscroll behavior only on the document level
     document.body.style.overscrollBehaviorX = 'none'
     document.documentElement.style.overscrollBehaviorX = 'none'
 
@@ -234,7 +245,7 @@ export default function FilePicker() {
   }
 
   return (
-    <div className="container mx-auto py-8" style={{ overscrollBehaviorX: 'none' }}>
+    <div className="container mx-auto py-8">
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl font-bold">
@@ -392,7 +403,7 @@ export default function FilePicker() {
                     </div>
                   </div>
 
-                  <div style={{ overscrollBehaviorX: 'none' }}>
+                  <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
