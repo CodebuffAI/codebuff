@@ -23,7 +23,7 @@ import {
 
 import { generateCompactId } from 'common/util/string'
 
-import { CoreMessageWithTtl, Message } from 'common/types/message'
+import { Message } from 'common/types/message'
 import { withTimeout } from 'common/util/promise'
 import { z } from 'zod'
 import { System } from '../claude'
@@ -224,7 +224,7 @@ export const promptAiSdkStructured = async function <T>(
 // TODO: temporary - ideally we move to using CoreMessage[] directly
 // and don't need this transform!!
 export function transformMessages(
-  messages: (Message | CoreMessageWithTtl)[],
+  messages: (Message | CoreMessage)[],
   system?: System
 ): CoreMessage[] {
   const coreMessages: CoreMessage[] = []
@@ -240,11 +240,6 @@ export function transformMessages(
   }
 
   for (const message of messages) {
-    if ('timeToLive' in message) {
-      coreMessages.push(message)
-      continue
-    }
-
     if (message.role === 'system') {
       if (typeof message.content === 'string') {
         coreMessages.push({ role: 'system', content: message.content })

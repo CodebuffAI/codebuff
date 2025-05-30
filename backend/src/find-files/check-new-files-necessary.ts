@@ -1,13 +1,16 @@
 import { CostMode, models } from 'common/constants'
-import { Message } from 'common/types/message'
 
 import { System } from '@/llm-apis/claude'
 import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
-import { transformMessages } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
-import { getMessagesSubset } from '@/util/messages'
+import { getCoreMessagesSubset } from '@/util/messages'
+import { CoreMessage } from 'ai'
+
+const systemIntro = `
+You are assisting the user with their software project, in the application Codebuff. Codebuff is a coding agent that helps developers write code or perform utility tasks.
+`.trim()
 
 export const checkNewFilesNecessary = async (
-  messages: Message[],
+  messages: CoreMessage[],
   system: System,
   clientSessionId: string,
   fingerprintId: string,
@@ -50,13 +53,13 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
 
   const bufferTokens = 100_000
   const response = await promptFlashWithFallbacks(
-    transformMessages(
-      getMessagesSubset(
+    [
+      { role: 'system', content: systemWithCodebuffInfo },
+      ...getCoreMessagesSubset(
         [...messages, { role: 'user', content: prompt }],
         bufferTokens
       ),
-      systemWithCodebuffInfo
-    ),
+    ],
     {
       model: models.gemini2flash,
       clientSessionId,
@@ -71,7 +74,3 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
   const newFilesNecessary = response.trim().toUpperCase().includes('YES')
   return { newFilesNecessary, response, duration }
 }
-
-const systemIntro = `
-You are assisting the user with their software project, in the application Codebuff. Codebuff is a coding agent that helps developers write code or perform utility tasks.
-`.trim()
