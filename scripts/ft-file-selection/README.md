@@ -17,7 +17,7 @@
 - Gemini Endpoint ID: 8493203957034778624
 - Finetune date: Apr 23, 2025
 - Finetune file: gemini-tune-data-007.jsonl, available in the GCS bucket
-- Finetune samples: 1934 model messages
+- Finetune samples: 1934 messages
 - Tokens: 74.6M
 - Epochs: 2
 - Base model: gemini-2.0-flash-001
@@ -35,7 +35,7 @@
 - Gemini Endpoint ID: 2589952415784501248
 - Finetune date: May 29, 2025
 - Finetune file: gemini-tune-data-027.jsonl, available in the GCS bucket
-- Finetune samples: 1077 model messages
+- Finetune samples: 1077 messages
 - Tokens: 44.7M
 - Epochs: 1
 - Base model: gemini-2.0-flash-001
@@ -46,7 +46,26 @@
   - Only used 'Key' traces AFAIK - TODO: Will this worsen non-obvious, or encourage 'Key' to pick too many?
 - Est costs:
   - ~$150 for finetuning ($3.00/1M tokens * 1 epoch * 44.7M tokens)
-  - >$660 for generating relabel inputs (at $15.00/1M input Claude tokens + some additional file context tokens)
+  - over $660 for generating relabel inputs (at $15.00/1M input Claude tokens + some additional file context tokens)
+
+`ft_filepicker_topk_001`
+- Gemini Endpoint ID: 
+- Finetune date: May 30, 2025
+- Finetune file: gemini-tune-data-039-top2.jsonl, available in the GCS bucket
+- Validation file: gemini-tune-data-039-top2-validation.jsonl, available in the GCS bucket
+- Finetune samples: 1432 messages
+- Validation samples: 119 messages
+- Tokens: 60.5M
+- Epochs: 2
+- Base model: gemini-2.0-flash-001
+- Distilled model: claude-opus-4-20250514 
+- Notes: 
+  - Trained only on the top-2 file predictions from claude-opus-4
+    - Otherwise, identical to the `ft_filepicker_007` finetune
+  - Forced maximum adapter size, and 2 epochs
+- Est costs:
+  - ~$300 for finetuning ($3.00/1M tokens * 1 epoch * 44.7M tokens)
+  - Mostly reuses relabel inputs from other Claude runs - no additional cost anticipated.
 
 
 ## Scripts
@@ -58,6 +77,8 @@ Contains a variety of scripts for inspecting and processing finetuning data from
 `print-recent-relabels.ts [--prod]` - Prints the most recent relabels from BigQuery.
 
 `relabel-traces.ts [--prod]` - Relabels traces in BigQuery, ie: generates new outputs using more powerful models for real production inputs.
+
+`relabel-traces-with-context.ts [--prod]` - Relabels traces using the uploaded "full file context"
 
 `collect-tuning-data.ts <model> [--prod]` - Downloads tuning data from BigQuery, using real inputs + relabeled outputs. The `model` parameter controls which relabeler model is used. 
 

@@ -331,7 +331,7 @@ export async function getTracesAndRelabelsForUser(
   })
 }
 
-interface TraceBundle {
+export interface TraceBundle {
   trace: GetRelevantFilesTrace // the base row
   relatedTraces: BaseTrace[] // the extras (runtime-typed)
   relabels: Relabel[]
