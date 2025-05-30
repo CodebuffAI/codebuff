@@ -361,7 +361,7 @@ export function trimCoreMessagesToFitTokenLimit(
 export function getCoreMessagesSubset(
   messages: CodebuffMessage[],
   otherTokens: number
-) {
+): CodebuffMessage[] {
   const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
     JSON.stringify(content).includes('COMPLETE')
   })

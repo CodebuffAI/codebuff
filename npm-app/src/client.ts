@@ -790,7 +790,14 @@ export class Client {
     })
   }
 
-  async sendUserInput(prompt: string) {
+  async sendUserInput(
+    prompt: string
+  ): Promise<{
+    responsePromise: Promise<
+      ServerAction & { type: 'prompt-response' } & { wasStoppedByUser: boolean }
+    >
+    stopResponse: () => void
+  }> {
     if (!this.agentState) {
       throw new Error('Agent state not initialized')
     }
