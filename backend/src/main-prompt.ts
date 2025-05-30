@@ -55,6 +55,7 @@ import {
   asUserMessage,
   castAssistantMessage,
   coreMessagesWithSystem,
+  expireMessages,
   getCoreMessagesSubset,
   isSystemInstruction,
 } from './util/messages'
@@ -218,7 +219,7 @@ export const mainPrompt = async (
       `If the tool result above is of a terminal command succeeding and you have completed the user's request, please do not write anything else and end your response.`
   ).join('\n\n')
 
-  const messagesWithToolResultsAndUser = buildArray(
+  const messagesWithToolResultsAndUser = buildArray<CoreMessageWithTtl>(
     ...messageHistory,
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -230,6 +231,7 @@ export const mainPrompt = async (
         content: asSystemMessage(
           `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
         ),
+        timeToLive: 'agentStep',
       },
       {
         role: 'user' as const,
@@ -261,7 +263,10 @@ export const mainPrompt = async (
       )
       const newAgentState = {
         ...agentState,
-        messageHistory: messagesWithToolResultsAndUser,
+        messageHistory: expireMessages(
+          messagesWithToolResultsAndUser,
+          'userPrompt'
+        ),
       }
       return {
         agentState: newAgentState,
@@ -300,7 +305,7 @@ export const mainPrompt = async (
       agentState: {
         ...agentState,
         messageHistory: [
-          ...messageHistory,
+          ...expireMessages(messageHistory, 'userPrompt'),
           { role: 'assistant', content: warningString },
         ],
       },
@@ -434,14 +439,9 @@ export const mainPrompt = async (
 
   const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
   const messagesWithUserMessage = buildArray<CoreMessageWithTtl>(
-    ...messageHistory
-      .filter(
-        (m: CoreMessageWithTtl) =>
-          (m.timeToLive === undefined && true) ||
-          (m.timeToLive === 'userPrompt' && !prompt) ||
-          (m.timeToLive === 'agentStep' && false)
-      )
-      .map((m) => castAssistantMessage(m)),
+    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep').map(
+      (m) => castAssistantMessage(m)
+    ),
     !prompt && {
       role: 'user' as const,
       content: asSystemInstruction(
@@ -474,7 +474,7 @@ export const mainPrompt = async (
       ? {
           role: 'user' as const,
           content: asSystemInstruction(userInstructions),
-          timeToLive: 'userPrompt' as const,
+          timeToLive: 'userPrompt',
         }
       : toolInstructions && {
           role: 'user' as const,
@@ -1034,9 +1034,7 @@ export const mainPrompt = async (
 
   const newAgentState: AgentState = {
     ...agentState,
-    messageHistory: messagesWithResponse.filter(
-      (m) => m.timeToLive !== 'agentStep'
-    ),
+    messageHistory: expireMessages(messagesWithResponse, 'agentStep'),
     agentContext: newAgentContext,
     consecutiveAssistantMessages: prompt
       ? 1

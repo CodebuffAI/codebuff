@@ -404,3 +404,15 @@ export function getCoreMessagesSubset(
 
   return messagesSubset
 }
+
+export function expireMessages(
+  messages: CoreMessageWithTtl[],
+  endOf: 'agentStep' | 'userPrompt'
+): CoreMessageWithTtl[] {
+  return messages.filter(
+    (m) =>
+      (m.timeToLive === undefined && true) ||
+      (m.timeToLive === 'userPrompt' && endOf === 'agentStep') ||
+      (m.timeToLive === 'agentStep' && false)
+  )
+}
