@@ -319,7 +319,7 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
     }
   }
 
-  await Promise.all(relabelPromises)
+  await Promise.allSettled(relabelPromises)
 
   return relabeled
 }
