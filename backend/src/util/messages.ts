@@ -1,4 +1,4 @@
-import { Message } from 'common/types/message'
+import { CoreMessageWithTtl, Message } from 'common/types/message'
 import { withCacheControl, withCacheControlCore } from 'common/util/messages'
 
 import { CoreMessage } from 'ai'
@@ -261,10 +261,10 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
  * @returns Trimmed array of messages that fits within token limit
  */
 export function trimCoreMessagesToFitTokenLimit(
-  messages: CoreMessage[],
+  messages: CoreMessageWithTtl[],
   systemTokens: number,
   maxTotalTokens: number = 200_000
-): CoreMessage[] {
+): CoreMessageWithTtl[] {
   const MAX_MESSAGE_TOKENS = maxTotalTokens - systemTokens
 
   // Check if we're already under the limit
@@ -282,7 +282,7 @@ export function trimCoreMessagesToFitTokenLimit(
   // Process messages from newest to oldest
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
-    let message: CoreMessage
+    let message: CoreMessageWithTtl
     if (m.role === 'tool' || m.role === 'system') {
       message = messages[i]
     } else if (m.role === 'user') {
@@ -310,7 +310,7 @@ export function trimCoreMessagesToFitTokenLimit(
           numKept = result.numKept
         }
         newContent.reverse()
-        message = { role: m.role, content: newContent }
+        message = { ...m, content: newContent }
       }
     } else if (m.role === 'assistant') {
       let newContent: typeof m.content
@@ -337,7 +337,7 @@ export function trimCoreMessagesToFitTokenLimit(
           numKept = result.numKept
         }
         newContent.reverse()
-        message = { role: m.role, content: newContent }
+        message = { ...m, content: newContent }
       }
     } else {
       throw new AssertionError({ message: 'Not a valid role' })
@@ -359,7 +359,7 @@ export function trimCoreMessagesToFitTokenLimit(
 }
 
 export function getCoreMessagesSubset(
-  messages: CoreMessage[],
+  messages: CoreMessageWithTtl[],
   otherTokens: number
 ) {
   const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
@@ -390,6 +390,15 @@ export function getCoreMessagesSubset(
       'No last message found in messagesSubset!'
     )
     return messagesSubset
+  }
+
+  // add cache control to specific messages
+  for (const ttl of ['agentStep', 'userPrompt'] as const) {
+    const index = messagesSubset.findIndex((m) => m.timeToLive === ttl)
+    if (index <= 0) {
+      continue
+    }
+    messagesSubset[index - 1] = withCacheControlCore(messagesSubset[index - 1])
   }
   messagesSubset[messagesSubset.length - 1] = withCacheControlCore(lastMessage)
 

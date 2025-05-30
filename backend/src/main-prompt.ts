@@ -23,6 +23,7 @@ import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { CoreMessage } from 'ai'
+import { CoreMessageWithTtl } from 'common/types/message'
 import { checkTerminalCommand } from './check-terminal-command'
 import {
   requestRelevantFiles,
@@ -400,7 +401,7 @@ export const mainPrompt = async (
     })
   }
 
-  const readFileMessages: CoreMessage[] = []
+  const readFileMessages: CoreMessageWithTtl[] = []
   if (newFiles.length > 0) {
     const readFilesToolResult = {
       id: generateCompactId(),
@@ -414,6 +415,7 @@ export const mainPrompt = async (
         content: asSystemInstruction(
           'Before continuing with the user request, read some relevant files first.'
         ),
+        timeToLive: 'userPrompt',
       },
       {
         role: 'assistant' as const,
@@ -431,13 +433,21 @@ export const mainPrompt = async (
   const relevantDocumentation = await relevantDocumentationPromise
 
   const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
-  const messagesWithUserMessage = buildArray(
-    ...messageHistory.map((m) => castAssistantMessage(m)),
+  const messagesWithUserMessage = buildArray<CoreMessageWithTtl>(
+    ...messageHistory
+      .filter(
+        (m: CoreMessageWithTtl) =>
+          (m.timeToLive === undefined && true) ||
+          (m.timeToLive === 'userPrompt' && !prompt) ||
+          (m.timeToLive === 'agentStep' && false)
+      )
+      .map((m) => castAssistantMessage(m)),
     !prompt && {
       role: 'user' as const,
       content: asSystemInstruction(
         'The following messages (in <system> or <system_instructions> tags) are **only** from the **system** to display tool results. Do not assume any user intent other than what the user has explicitly stated. e.g. if you asked a question about whether to proceed, do NOT interpret this message as responding affirmatively.'
       ),
+      timeToLive: 'agentStep',
     },
 
     toolResults.length > 0 && {
@@ -450,6 +460,7 @@ export const mainPrompt = async (
       content: asSystemInstruction(
         "All <previous_assistant_message>messages</previous_assistant_message> were from some previous assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes (including errors from the system), identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Continue the conversation as if you are the same assistant."
       ),
+      timeToLive: 'agentStep',
     },
 
     // Add in new copy of agent context.
@@ -463,10 +474,12 @@ export const mainPrompt = async (
       ? {
           role: 'user' as const,
           content: asSystemInstruction(userInstructions),
+          timeToLive: 'userPrompt' as const,
         }
       : toolInstructions && {
           role: 'user' as const,
           content: asSystemInstruction(toolInstructions),
+          timeToLive: 'agentStep' as const,
         },
 
     relevantDocumentation && {
@@ -482,6 +495,7 @@ export const mainPrompt = async (
         content: asSystemMessage(
           `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
         ),
+        timeToLive: 'agentStep',
       },
       {
         role: 'user' as const,
@@ -1020,7 +1034,9 @@ export const mainPrompt = async (
 
   const newAgentState: AgentState = {
     ...agentState,
-    messageHistory: messagesWithResponse,
+    messageHistory: messagesWithResponse.filter(
+      (m) => m.timeToLive !== 'agentStep'
+    ),
     agentContext: newAgentContext,
     consecutiveAssistantMessages: prompt
       ? 1
