@@ -112,10 +112,11 @@ export async function getTracesForUserHandler(req: Request, res: Response) {
 // --- POST Handler Logic ---
 
 const models = [
-  geminiModels.gemini2_5_pro_preview,
-  claudeModels.sonnet,
-  claudeModels.opus4,
-  finetunedVertexModels.ft_filepicker_005,
+  // geminiModels.gemini2_5_pro_preview,
+  // claudeModels.sonnet,
+  // claudeModels.opus4,
+  // finetunedVertexModels.ft_filepicker_005,
+  finetunedVertexModels.ft_filepicker_007,
 ] as const
 
 export async function relabelForUserHandler(req: Request, res: Response) {

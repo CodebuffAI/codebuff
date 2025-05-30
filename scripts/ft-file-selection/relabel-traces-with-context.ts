@@ -12,7 +12,7 @@ const MODEL_TO_TEST = claudeModels.opus4
 
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
-const MAX_PARALLEL = 5 // Maximum number of traces to process in parallel
+const MAX_PARALLEL = 2 // Maximum number of traces to process in parallel
 const LIMIT = 2000
 const PAGE_SIZE = 50
 

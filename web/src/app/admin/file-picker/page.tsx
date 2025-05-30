@@ -39,6 +39,7 @@ const localUsers = [
 const nameOverrides = {
   [finetunedVertexModels.ft_filepicker_003]: 'ft_filepicker_003',
   [finetunedVertexModels.ft_filepicker_005]: 'ft_filepicker_005',
+  [finetunedVertexModels.ft_filepicker_007]: 'ft_filepicker_007',
 }
 
 // Choose user list based on environment
