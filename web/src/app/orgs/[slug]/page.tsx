@@ -32,22 +32,8 @@ import { TeamManagement } from '@/components/organization/team-management'
 import { RepositoryManagement } from '@/components/organization/repository-management'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useOrganizationData } from '@/hooks/use-organization-data'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { CREDIT_PRICING } from 'common/src/constants'
 import { useState, useEffect } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
-import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
-import { CreditManagementSection } from '@/components/credits/CreditManagementSection'
 
 export default function OrganizationPage() {
   const { data: session, status } = useSession()
@@ -57,7 +43,6 @@ export default function OrganizationPage() {
   const orgSlug = params.slug as string
   const isMobile = useIsMobile()
 
-  const [purchasing, setPurchasing] = useState(false)
   const [settingUpBilling, setSettingUpBilling] = useState(false)
 
   // Collapsible states - only one can be open at a time
@@ -72,17 +57,8 @@ export default function OrganizationPage() {
   // Define low credit threshold
   const LOW_CREDIT_THRESHOLD = 2000
 
-  // Check for purchase success and subscription success
+  // Check for subscription success
   useEffect(() => {
-    if (searchParams.get('purchase_success') === 'true') {
-      toast({
-        title: 'Credits Purchased!',
-        description: 'Your organization credits have been successfully added.',
-      })
-      // Clean up the URL
-      router.replace(`/orgs/${orgSlug}`, { scroll: false })
-    }
-
     if (searchParams.get('subscription_success') === 'true') {
       toast({
         title: 'Subscription Active!',
@@ -94,60 +70,7 @@ export default function OrganizationPage() {
     }
   }, [searchParams, orgSlug, router])
 
-  const handlePurchaseCredits = async (credits: number) => {
-    if (!organization) return
-
-    // If billing is not set up, initiate setup first
-    if (!organization.hasStripeSubscription) {
-      await handleSetupBilling(credits)
-      return
-    }
-
-    setPurchasing(true)
-    try {
-      const response = await fetch(`/api/orgs/${organization.id}/credits`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ amount: credits }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to initiate credit purchase')
-      }
-
-      const responseData = await response.json()
-
-      if (responseData.direct_charge && responseData.success) {
-        // Direct charge was successful - show success message and refresh data
-        toast({
-          title: 'Credits Purchased!',
-          description: `${responseData.credits.toLocaleString()} credits have been added to your organization.`,
-        })
-        // Optionally refresh organization data here
-        window.location.reload()
-      } else if (responseData.checkout_url) {
-        // Redirect to Stripe Checkout
-        window.location.href = responseData.checkout_url
-      } else {
-        // Handle unexpected response
-        throw new Error('Unexpected response from server.')
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to purchase credits',
-        variant: 'destructive',
-      })
-    } finally {
-      setPurchasing(false)
-    }
-  }
-
-  const handleSetupBilling = async (credits?: number) => {
+  const handleSetupBilling = async () => {
     if (!organization) return
 
     setSettingUpBilling(true)
@@ -168,11 +91,6 @@ export default function OrganizationPage() {
       }
 
       const { sessionId } = await response.json()
-
-      // Store the intended credit amount in localStorage for after setup
-      if (credits) {
-        localStorage.setItem('pendingCreditPurchase', credits.toString())
-      }
 
       // Redirect to Stripe Checkout
       const stripe = await loadStripe(
@@ -314,7 +232,19 @@ export default function OrganizationPage() {
             )}
           </div>
           {canManageOrg && (
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 flex gap-2">
+              {canManageBilling && organization.hasStripeSubscription && (
+                <Link href={`/orgs/${orgSlug}/billing/purchase`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    {!isMobile && <span className="ml-2">Buy Credits</span>}
+                  </Button>
+                </Link>
+              )}
               <Link href={`/orgs/${orgSlug}/settings`}>
                 <Button
                   variant="outline"
@@ -526,31 +456,23 @@ export default function OrganizationPage() {
                       {activeSection === 'creditBalance'
                         ? 'Hide details'
                         : isMobile
-                          ? 'Purchase credits / View monitor'
+                          ? 'View monitor'
                           : 'View details below'}
                     </p>
                   </CardContent>
                 </div>
               </CollapsibleTrigger>
-              {/* Mobile: Show CreditPurchaseSection or CreditMonitor in collapsible content */}
+              {/* Mobile: Show CreditMonitor in collapsible content */}
               {isMobile && (
                 <CollapsibleContent>
                   <CardContent className="px-4 pb-4 pt-0">
-                    {canManageBilling && organization.hasStripeSubscription ? (
-                      <CreditManagementSection
-                        onPurchase={handlePurchaseCredits}
-                        isPurchasePending={purchasing || settingUpBilling}
-                        showAutoTopup={canManageBilling}
-                        context="organization"
-                        organizationId={organization.id}
-                      />
-                    ) : organization.hasStripeSubscription ? (
-                      <CreditMonitor organizationId={organization.id} />
+                    {organization.hasStripeSubscription ? (
+                      <CreditMonitor organizationId={organization.id} noCardWrapper={true} />
                     ) : (
                       <div className="text-center py-4 text-muted-foreground">
                         <CreditCard className="mx-auto h-8 w-8 mb-2 opacity-50" />
                         <p className="text-sm">
-                          Set up billing to purchase credits.
+                          Set up billing to view credit monitor.
                         </p>
                       </div>
                     )}
@@ -586,28 +508,7 @@ export default function OrganizationPage() {
             {activeSection === 'creditBalance' && (
               <div className="space-y-6">
                 {organization.hasStripeSubscription ? (
-                  <>
-                    <CreditMonitor organizationId={organization.id} />
-                    {canManageBilling && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center">
-                            <CreditCard className="mr-2 h-5 w-5" />
-                            Manage Credits
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <CreditManagementSection
-                            onPurchase={handlePurchaseCredits}
-                            isPurchasePending={purchasing || settingUpBilling}
-                            showAutoTopup={canManageBilling}
-                            context="organization"
-                            organizationId={organization.id}
-                          />
-                        </CardContent>
-                      </Card>
-                    )}
-                  </>
+                  <CreditMonitor organizationId={organization.id} />
                 ) : (
                   <Card>
                     <CardHeader>

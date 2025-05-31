@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
 import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
+import { OrgAutoTopupSettings } from '@/components/auto-topup/OrgAutoTopupSettings'
 import { useState, useEffect } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 
@@ -287,6 +288,18 @@ export default function OrganizationBillingPurchasePage() {
           </CardContent>
         </Card>
 
+        {/* Auto Top-up Settings */}
+        {billingStatus?.is_setup && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Auto Top-up Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OrgAutoTopupSettings organizationId={organization.id} />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Credit Purchase Section */}
         <Card>
           <CardHeader>
@@ -301,17 +314,6 @@ export default function OrganizationBillingPurchasePage() {
               isPurchasePending={purchasing || settingUpBilling}
               isOrganization={true}
             />
-
-            {!billingStatus?.is_setup && (
-              <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Next steps:</strong> After selecting your credit
-                  amount, you'll be taken to Stripe to securely add your payment
-                  method. Once complete, your credits will be purchased
-                  automatically.
-                </p>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
