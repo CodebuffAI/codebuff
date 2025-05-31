@@ -30,6 +30,7 @@ import {
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
 import { getDocumentationForQuery } from './get-documentation-for-query'
+import { toolFormatter } from './llm-apis/relace-api'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStream } from './prompt-agent-stream'
@@ -606,6 +607,8 @@ export const mainPrompt = async (
     { name: 'add_subgoal' | 'update_subgoal' }
   >[] = []
 
+  let foundParsingError = false
+
   function toolCallback<T extends ToolName>(
     tool: T,
     after: (toolCall: Extract<ToolCall, { name: T }>) => void
@@ -631,6 +634,7 @@ export const mainPrompt = async (
             id: generateCompactId(),
             result: toolCall.error,
           })
+          foundParsingError = true
           return
         }
         allToolCalls.push(toolCall as Extract<ToolCall, { name: T }>)
@@ -810,6 +814,16 @@ export const mainPrompt = async (
       fullResponse += chunk
     }
     onResponseChunk(chunk)
+  }
+
+  if (foundParsingError) {
+    toolFormatter(fullResponse, {
+      messageId: generateCompactId('cb-tf-'),
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+    })
   }
 
   const agentResponseTrace: AgentResponseTrace = {
