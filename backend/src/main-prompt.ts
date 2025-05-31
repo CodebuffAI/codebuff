@@ -610,11 +610,14 @@ export const mainPrompt = async (
   const allToolCalls: ToolCall[] = []
   const clientToolCalls: ClientToolCall[] = []
   const serverToolResults: ToolResult[] = []
-  const subgoalToolCalls: ToolCall<'add_subgoal' | 'update_subgoal'>[] = []
+  const subgoalToolCalls: Extract<
+    ToolCall,
+    { name: 'add_subgoal' | 'update_subgoal' }
+  >[] = []
 
   function toolCallback<T extends ToolName>(
     tool: T,
-    after: (toolCall: ToolCall<T>) => void
+    after: (toolCall: Extract<ToolCall, { name: T }>) => void
   ): {
     params: (string | RegExp)[]
     onTagStart: () => void
@@ -627,7 +630,7 @@ export const mainPrompt = async (
       params: toolSchema[tool],
       onTagStart: () => {},
       onTagEnd: async (_: string, parameters: Record<string, string>) => {
-        const toolCall = parseRawToolCall<typeof tool>({
+        const toolCall = parseRawToolCall({
           name: tool,
           parameters,
         })
@@ -639,9 +642,9 @@ export const mainPrompt = async (
           })
           return
         }
-        allToolCalls.push(toolCall)
+        allToolCalls.push(toolCall as Extract<ToolCall, { name: T }>)
 
-        after(toolCall)
+        after(toolCall as Extract<ToolCall, { name: T }>)
       },
     }
   }
@@ -869,9 +872,11 @@ export const mainPrompt = async (
     ) {
       // Handled above
     } else if (toolCall.name === 'read_files') {
-      const paths = (toolCall as ToolCall<'read_files'>).parameters.paths
+      const paths = (
+        toolCall as Extract<ToolCall, { name: 'read_files' }>
+      ).parameters.paths
         .split(/\s+/)
-        .map((path) => path.trim())
+        .map((path: string) => path.trim())
         .filter(Boolean)
 
       const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
@@ -921,8 +926,9 @@ export const mainPrompt = async (
         ),
       })
     } else if (toolCall.name === 'find_files') {
-      const description = (toolCall as ToolCall<'find_files'>).parameters
-        .description
+      const description = (
+        toolCall as Extract<ToolCall, { name: 'find_files' }>
+      ).parameters.description
       const { addedFiles, updatedFilePaths, printedPaths } =
         await getFileReadingUpdates(
           ws,
