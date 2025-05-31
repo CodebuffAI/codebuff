@@ -20,6 +20,7 @@ import {
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
+import { pluralize } from 'common/src/util/string'
 
 interface UsageData {
   currentBalance: number
@@ -290,7 +291,7 @@ export default function UsagePage() {
               <div className="text-2xl font-bold">
                 {usageData?.topUsers?.length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">Users with usage</p>
+              <p className="text-xs text-muted-foreground">{pluralize(usageData?.topUsers?.length || 0, 'User')} with usage</p>
             </CardContent>
           </Card>
 

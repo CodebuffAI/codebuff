@@ -22,6 +22,7 @@ import {
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
+import { pluralize } from 'common/src/util/string'
 
 interface AnalyticsData {
   currentBalance: number
@@ -237,7 +238,7 @@ export default function OrganizationAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{analytics.currentBalance.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Credits remaining</p>
+              <p className="text-xs text-muted-foreground">{pluralize(analytics.currentBalance, 'Credit')} remaining</p>
             </CardContent>
           </Card>
 
@@ -248,7 +249,7 @@ export default function OrganizationAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{analytics.usageThisCycle.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Credits consumed</p>
+              <p className="text-xs text-muted-foreground">{pluralize(analytics.usageThisCycle, 'Credit')} consumed</p>
             </CardContent>
           </Card>
 
@@ -259,7 +260,7 @@ export default function OrganizationAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{analytics.costProjection.averageDaily.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Credits per day</p>
+              <p className="text-xs text-muted-foreground">{pluralize(analytics.costProjection.averageDaily, 'Credit')} per day</p>
             </CardContent>
           </Card>
 
@@ -300,7 +301,7 @@ export default function OrganizationAnalyticsPage() {
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{user.credits_used.toLocaleString()}</p>
-                      <p className="text-sm text-muted-foreground">credits</p>
+                      <p className="text-sm text-muted-foreground">{pluralize(user.credits_used, 'credit')}</p>
                     </div>
                   </div>
                 ))}
@@ -331,7 +332,7 @@ export default function OrganizationAnalyticsPage() {
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{repo.credits_used.toLocaleString()}</p>
-                      <p className="text-sm text-muted-foreground">credits</p>
+                      <p className="text-sm text-muted-foreground">{pluralize(repo.credits_used, 'credit')}</p>
                     </div>
                   </div>
                 ))}
@@ -354,7 +355,7 @@ export default function OrganizationAnalyticsPage() {
                 <div key={trend.period} className="flex items-center justify-between p-4 border rounded-lg">
                   <div>
                     <p className="font-medium">{trend.period}</p>
-                    <p className="text-sm text-muted-foreground">{trend.usage.toLocaleString()} credits used</p>
+                    <p className="text-sm text-muted-foreground">{trend.usage.toLocaleString()} {pluralize(trend.usage, 'credit')} used</p>
                   </div>
                   <div className="flex items-center space-x-2">
                     {trend.change > 0 ? (
@@ -389,7 +390,7 @@ export default function OrganizationAnalyticsPage() {
               <div className="text-center">
                 <BarChart3 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                 <p className="text-muted-foreground">Interactive charts coming soon</p>
-                <p className="text-sm text-muted-foreground">Daily usage data: {analytics.dailyUsage.length} days tracked</p>
+                <p className="text-sm text-muted-foreground">Daily usage data: {analytics.dailyUsage.length} {pluralize(analytics.dailyUsage.length, 'day')} tracked</p>
               </div>
             </div>
           </CardContent>

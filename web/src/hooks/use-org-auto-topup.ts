@@ -39,7 +39,7 @@ export interface OrgAutoTopupState {
   isPending: boolean
   organizationSettings: OrganizationSettings | null
   canManageAutoTopup: boolean
-  handleToggleAutoTopup: (checked: boolean) => void
+  handleToggleAutoTopup: (checked: boolean) => Promise<boolean>
   handleThresholdChange: (value: number) => void
   handleTopUpAmountChange: (value: number) => void
 }
@@ -250,14 +250,14 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
     }
   }
 
-  const handleToggleAutoTopup = (checked: boolean) => {
+  const handleToggleAutoTopup = async (checked: boolean): Promise<boolean> => {
     if (!canManageAutoTopup) {
       toast({
         title: 'Permission Denied',
         description: 'Only organization owners can manage auto top-up settings.',
         variant: 'destructive',
       })
-      return
+      return false
     }
 
     setIsEnabled(checked)
@@ -277,45 +277,41 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
           variant: 'destructive',
         })
         setIsEnabled(false)
-        return
+        return false
       }
 
       const topUpCredits = Math.round((topUpAmountDollars * 100) / ORG_AUTO_TOPUP_CONSTANTS.CENTS_PER_CREDIT)
 
-      autoTopupMutation.mutate(
-        {
+      try {
+        await autoTopupMutation.mutateAsync({
           autoTopupEnabled: true,
           autoTopupThreshold: threshold,
           autoTopupAmount: topUpCredits,
-        },
-        {
-          onSuccess: () => {
-            toast({
-              title: 'Organization auto top-up enabled!',
-              description: `We'll automatically add credits when the organization balance falls below ${threshold.toLocaleString()} credits.`,
-            })
-          },
-          onError: () => {
-            setIsEnabled(false)
-          },
-        }
-      )
+        })
+        
+        toast({
+          title: 'Organization auto top-up enabled!',
+          description: `We'll automatically add credits when the organization balance falls below ${threshold.toLocaleString()} credits.`,
+        })
+        return true
+      } catch (error) {
+        setIsEnabled(false)
+        return false
+      }
     } else {
-      autoTopupMutation.mutate(
-        {
+      try {
+        await autoTopupMutation.mutateAsync({
           autoTopupEnabled: false,
           autoTopupThreshold: ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS,
           autoTopupAmount: ORG_AUTO_TOPUP_CONSTANTS.MIN_TOPUP_CREDITS,
-        },
-        {
-          onSuccess: () => {
-            toast({ title: 'Organization auto top-up disabled.' })
-          },
-          onError: () => {
-            setIsEnabled(true)
-          },
-        }
-      )
+        })
+        
+        toast({ title: 'Organization auto top-up disabled.' })
+        return true
+      } catch (error) {
+        setIsEnabled(true)
+        return false
+      }
     }
   }
 

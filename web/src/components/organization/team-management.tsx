@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -29,21 +29,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { 
-  Users, 
-  Plus, 
-  Mail, 
-  MoreHorizontal, 
-  UserMinus, 
-  Shield, 
+import {
+  Users,
+  Plus,
+  Mail,
+  MoreHorizontal,
+  UserMinus,
+  Shield,
   Clock,
   X,
   RefreshCw,
-  UserPlus
+  UserPlus,
 } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
+import { pluralize } from 'common/src/util/string'
 
 interface Member {
   user: {
@@ -70,7 +71,11 @@ interface TeamManagementProps {
   noCardWrapper?: boolean
 }
 
-export function TeamManagement({ organizationId, userRole, noCardWrapper }: TeamManagementProps) {
+export function TeamManagement({
+  organizationId,
+  userRole,
+  noCardWrapper,
+}: TeamManagementProps) {
   const [members, setMembers] = useState<Member[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,15 +84,17 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
   const [bulkInviteDialogOpen, setBulkInviteDialogOpen] = useState(false)
   const [inviteForm, setInviteForm] = useState({
     email: '',
-    role: 'member' as 'admin' | 'member'
+    role: 'member' as 'admin' | 'member',
   })
   const [bulkInviteForm, setBulkInviteForm] = useState({
     emails: '',
-    role: 'member' as 'admin' | 'member'
+    role: 'member' as 'admin' | 'member',
   })
   const [inviting, setInviting] = useState(false)
   const [bulkInviting, setBulkInviting] = useState(false)
-  const [resendingInvites, setResendingInvites] = useState<Set<string>>(new Set())
+  const [resendingInvites, setResendingInvites] = useState<Set<string>>(
+    new Set()
+  )
   const [refreshing, setRefreshing] = useState(false)
 
   const canManageTeam = userRole === 'owner' || userRole === 'admin'
@@ -112,10 +119,10 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
       } else {
         setRefreshing(true)
       }
-      
+
       const [membersResponse, invitationsResponse] = await Promise.all([
         fetch(`/api/orgs/${organizationId}/members`),
-        fetch(`/api/orgs/${organizationId}/invitations`)
+        fetch(`/api/orgs/${organizationId}/invitations`),
       ])
 
       if (membersResponse.ok) {
@@ -127,7 +134,7 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
         const invitationsData = await invitationsResponse.json()
         setInvitations(invitationsData.invitations || [])
       }
-      
+
       if (!hasInitiallyLoaded) {
         setHasInitiallyLoaded(true)
       }
@@ -188,7 +195,8 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to send invitation',
+        description:
+          error instanceof Error ? error.message : 'Failed to send invitation',
         variant: 'destructive',
       })
     } finally {
@@ -209,8 +217,8 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
     // Parse emails from textarea (split by newlines, commas, or spaces)
     const emailList = bulkInviteForm.emails
       .split(/[\n,\s]+/)
-      .map(email => email.trim())
-      .filter(email => email.length > 0)
+      .map((email) => email.trim())
+      .filter((email) => email.length > 0)
 
     if (emailList.length === 0) {
       toast({
@@ -232,18 +240,21 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
 
     setBulkInviting(true)
     try {
-      const invitations = emailList.map(email => ({
+      const invitations = emailList.map((email) => ({
         email,
-        role: bulkInviteForm.role
+        role: bulkInviteForm.role,
       }))
 
-      const response = await fetch(`/api/orgs/${organizationId}/invitations/bulk`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ invitations }),
-      })
+      const response = await fetch(
+        `/api/orgs/${organizationId}/invitations/bulk`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ invitations }),
+        }
+      )
 
       const data = await response.json()
 
@@ -252,7 +263,7 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
       }
 
       const { summary, results } = data
-      
+
       if (summary.successful > 0) {
         toast({
           title: 'Success',
@@ -265,7 +276,7 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
           .filter((r: any) => !r.success)
           .map((r: any) => `${r.email}: ${r.error}`)
           .join('\n')
-        
+
         toast({
           title: 'Some invitations failed',
           description: failedEmails,
@@ -279,7 +290,10 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to send bulk invitations',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to send bulk invitations',
         variant: 'destructive',
       })
     } finally {
@@ -288,12 +302,15 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
   }
 
   const handleResendInvitation = async (email: string) => {
-    setResendingInvites(prev => new Set(prev).add(email))
-    
+    setResendingInvites((prev) => new Set(prev).add(email))
+
     try {
-      const response = await fetch(`/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}/resend`, {
-        method: 'POST',
-      })
+      const response = await fetch(
+        `/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}/resend`,
+        {
+          method: 'POST',
+        }
+      )
 
       const data = await response.json()
 
@@ -310,11 +327,14 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to resend invitation',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to resend invitation',
         variant: 'destructive',
       })
     } finally {
-      setResendingInvites(prev => {
+      setResendingInvites((prev) => {
         const newSet = new Set(prev)
         newSet.delete(email)
         return newSet
@@ -324,9 +344,12 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
 
   const handleCancelInvitation = async (email: string) => {
     try {
-      const response = await fetch(`/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}`, {
-        method: 'DELETE',
-      })
+      const response = await fetch(
+        `/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}`,
+        {
+          method: 'DELETE',
+        }
+      )
 
       if (!response.ok) {
         const data = await response.json()
@@ -342,21 +365,30 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to cancel invitation',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to cancel invitation',
         variant: 'destructive',
       })
     }
   }
 
-  const handleUpdateMemberRole = async (userId: string, newRole: 'admin' | 'member') => {
+  const handleUpdateMemberRole = async (
+    userId: string,
+    newRole: 'admin' | 'member'
+  ) => {
     try {
-      const response = await fetch(`/api/orgs/${organizationId}/members/${userId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ role: newRole }),
-      })
+      const response = await fetch(
+        `/api/orgs/${organizationId}/members/${userId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ role: newRole }),
+        }
+      )
 
       if (!response.ok) {
         const data = await response.json()
@@ -372,21 +404,31 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to update member role',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to update member role',
         variant: 'destructive',
       })
     }
   }
 
   const handleRemoveMember = async (userId: string, memberName: string) => {
-    if (!confirm(`Are you sure you want to remove ${memberName} from the organization?`)) {
+    if (
+      !confirm(
+        `Are you sure you want to remove ${memberName} from the organization?`
+      )
+    ) {
       return
     }
 
     try {
-      const response = await fetch(`/api/orgs/${organizationId}/members/${userId}`, {
-        method: 'DELETE',
-      })
+      const response = await fetch(
+        `/api/orgs/${organizationId}/members/${userId}`,
+        {
+          method: 'DELETE',
+        }
+      )
 
       if (!response.ok) {
         const data = await response.json()
@@ -402,7 +444,8 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to remove member',
+        description:
+          error instanceof Error ? error.message : 'Failed to remove member',
         variant: 'destructive',
       })
     }
@@ -427,17 +470,24 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
   if (loading && !hasInitiallyLoaded) {
     return (
       <div className="space-y-6">
-        <Card className={noCardWrapper ? "border-none shadow-none bg-transparent" : ""}>
-          <CardHeader className={noCardWrapper ? "p-0" : ""}>
+        <Card
+          className={
+            noCardWrapper ? 'border-none shadow-none bg-transparent' : ''
+          }
+        >
+          <CardHeader className={noCardWrapper ? 'p-0' : ''}>
             <CardTitle className="flex items-center text-base sm:text-lg">
               <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-              Team Management
+              Team ({pluralize(members.length, 'Member')})
             </CardTitle>
           </CardHeader>
-          <CardContent className={noCardWrapper ? "p-0" : ""}>
+          <CardContent className={noCardWrapper ? 'p-0' : ''}>
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg">
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-3 sm:p-4 border rounded-lg"
+                >
                   <div className="space-y-2 flex-1">
                     <div className="h-4 bg-gray-200 rounded w-24 sm:w-32 animate-pulse"></div>
                     <div className="h-3 bg-gray-200 rounded w-32 sm:w-48 animate-pulse"></div>
@@ -455,49 +505,59 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
   return (
     <div className="w-full space-y-4 sm:space-y-6">
       {/* Team Members */}
-      <Card className={noCardWrapper ? "w-full border-none shadow-none bg-transparent" : "w-full"}>
-        <CardHeader className={noCardWrapper ? "p-0 pt-4" : "pt-4"}>
+      <Card
+        className={
+          noCardWrapper
+            ? 'w-full border-none shadow-none bg-transparent'
+            : 'w-full'
+        }
+      >
+        <CardHeader className={noCardWrapper ? 'p-0 pt-4' : 'pt-4'}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="flex items-center text-base sm:text-lg">
               <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-              Team Members ({members.length})
-              {refreshing && (
-                <RefreshCw className="ml-2 h-4 w-4 animate-spin text-muted-foreground" />
-              )}
+              Team ({pluralize(members.length, 'Member')})
             </CardTitle>
             {canManageTeam && (
               <div className="flex flex-row items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size={isMobile ? "sm" : "default"}
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="flex-shrink-0"
+                <Dialog
+                  open={bulkInviteDialogOpen}
+                  onOpenChange={setBulkInviteDialogOpen}
                 >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                </Button>
-                <Dialog open={bulkInviteDialogOpen} onOpenChange={setBulkInviteDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size={isMobile ? "sm" : "default"} className="flex-1 sm:flex-none">
+                    <Button
+                      variant="outline"
+                      size={isMobile ? 'sm' : 'default'}
+                      className="flex-1 sm:flex-none"
+                    >
                       <UserPlus className="mr-2 h-4 w-4" />
                       {isMobile ? 'Bulk Add' : 'Bulk Add'}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="w-[95vw] max-w-md mx-auto">
                     <DialogHeader>
-                      <DialogTitle className="text-base sm:text-lg">Bulk Add Team Members</DialogTitle>
+                      <DialogTitle className="text-base sm:text-lg">
+                        Bulk Add Team Members
+                      </DialogTitle>
                       <DialogDescription className="text-sm">
                         Send invitations to multiple people at once.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="bulk-emails" className="text-sm">Email Addresses</Label>
+                        <Label htmlFor="bulk-emails" className="text-sm">
+                          Email Addresses
+                        </Label>
                         <Textarea
                           id="bulk-emails"
                           placeholder="Enter email addresses (one per line, or separated by commas)"
                           value={bulkInviteForm.emails}
-                          onChange={(e) => setBulkInviteForm({ ...bulkInviteForm, emails: e.target.value })}
+                          onChange={(e) =>
+                            setBulkInviteForm({
+                              ...bulkInviteForm,
+                              emails: e.target.value,
+                            })
+                          }
                           rows={4}
                           className="text-sm"
                         />
@@ -506,11 +566,16 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
                         </p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="bulk-role" className="text-sm">Role</Label>
+                        <Label htmlFor="bulk-role" className="text-sm">
+                          Role
+                        </Label>
                         <Select
                           value={bulkInviteForm.role}
-                          onValueChange={(value: 'admin' | 'member') => 
-                            setBulkInviteForm({ ...bulkInviteForm, role: value })
+                          onValueChange={(value: 'admin' | 'member') =>
+                            setBulkInviteForm({
+                              ...bulkInviteForm,
+                              role: value,
+                            })
                           }
                         >
                           <SelectTrigger className="text-sm">
@@ -529,52 +594,69 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
                         onClick={() => setBulkInviteDialogOpen(false)}
                         disabled={bulkInviting}
                         className="w-full sm:w-auto"
-                        size={isMobile ? "sm" : "default"}
+                        size={isMobile ? 'sm' : 'default'}
                       >
                         Cancel
                       </Button>
-                      <Button 
-                        onClick={handleBulkInviteMembers} 
+                      <Button
+                        onClick={handleBulkInviteMembers}
                         disabled={bulkInviting}
                         className="w-full sm:w-auto"
-                        size={isMobile ? "sm" : "default"}
+                        size={isMobile ? 'sm' : 'default'}
                       >
                         {bulkInviting ? 'Sending...' : 'Send Invitations'}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-                <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+                <Dialog
+                  open={inviteDialogOpen}
+                  onOpenChange={setInviteDialogOpen}
+                >
                   <DialogTrigger asChild>
-                    <Button size={isMobile ? "sm" : "default"} className="flex-1 sm:flex-none">
+                    <Button
+                      size={isMobile ? 'sm' : 'default'}
+                      className="flex-1 sm:flex-none"
+                    >
                       <Plus className="mr-2 h-4 w-4" />
                       {isMobile ? 'Invite' : 'Invite Member'}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="w-[95vw] max-w-md mx-auto">
                     <DialogHeader>
-                      <DialogTitle className="text-base sm:text-lg">Invite Team Member</DialogTitle>
+                      <DialogTitle className="text-base sm:text-lg">
+                        Invite Team Member
+                      </DialogTitle>
                       <DialogDescription className="text-sm">
                         Send an invitation to join this organization.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="email" className="text-sm">Email Address</Label>
+                        <Label htmlFor="email" className="text-sm">
+                          Email Address
+                        </Label>
                         <Input
                           id="email"
                           type="email"
                           placeholder="Enter email address"
                           value={inviteForm.email}
-                          onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                          onChange={(e) =>
+                            setInviteForm({
+                              ...inviteForm,
+                              email: e.target.value,
+                            })
+                          }
                           className="text-sm"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="role" className="text-sm">Role</Label>
+                        <Label htmlFor="role" className="text-sm">
+                          Role
+                        </Label>
                         <Select
                           value={inviteForm.role}
-                          onValueChange={(value: 'admin' | 'member') => 
+                          onValueChange={(value: 'admin' | 'member') =>
                             setInviteForm({ ...inviteForm, role: value })
                           }
                         >
@@ -594,15 +676,15 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
                         onClick={() => setInviteDialogOpen(false)}
                         disabled={inviting}
                         className="w-full sm:w-auto"
-                        size={isMobile ? "sm" : "default"}
+                        size={isMobile ? 'sm' : 'default'}
                       >
                         Cancel
                       </Button>
-                      <Button 
-                        onClick={handleInviteMember} 
+                      <Button
+                        onClick={handleInviteMember}
                         disabled={inviting}
                         className="w-full sm:w-auto"
-                        size={isMobile ? "sm" : "default"}
+                        size={isMobile ? 'sm' : 'default'}
                       >
                         {inviting ? 'Sending...' : 'Send Invitation'}
                       </Button>
@@ -613,19 +695,27 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
             )}
           </div>
         </CardHeader>
-        <CardContent className={noCardWrapper ? "p-0 pt-4" : "pt-4"}>
+        <CardContent className={noCardWrapper ? 'p-0 pt-4' : 'pt-4'}>
           <div className="space-y-3 sm:space-y-4">
             {members.map((member) => (
-              <div key={member.user.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
+              <div
+                key={member.user.id}
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg"
+              >
                 <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-blue-600 font-semibold text-sm sm:text-base">
-                      {member.user.name?.charAt(0) || member.user.email.charAt(0)}
+                      {member.user.name?.charAt(0) ||
+                        member.user.email.charAt(0)}
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sm sm:text-base truncate">{member.user.name || 'Unknown'}</div>
-                    <div className="text-xs sm:text-sm text-muted-foreground truncate">{member.user.email}</div>
+                    <div className="font-medium text-sm sm:text-base truncate">
+                      {member.user.name || 'Unknown'}
+                    </div>
+                    <div className="text-xs sm:text-sm text-muted-foreground truncate">
+                      {member.user.email}
+                    </div>
                     <div className="text-xs text-muted-foreground sm:hidden">
                       Joined {new Date(member.joined_at).toLocaleDateString()}
                     </div>
@@ -635,24 +725,33 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
                   </div>
                 </div>
                 <div className="flex items-center justify-between sm:justify-end space-x-2 flex-shrink-0">
-                  <Badge variant={getRoleBadgeVariant(member.role)} className="text-xs">
+                  <Badge
+                    variant={getRoleBadgeVariant(member.role)}
+                    className="text-xs"
+                  >
                     {member.role}
                   </Badge>
                   {canManageTeam && member.role !== 'owner' && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent 
-                        align={isMobile ? "center" : "end"} 
-                        className={isMobile ? "w-56" : "w-48"}
+                      <DropdownMenuContent
+                        align={isMobile ? 'center' : 'end'}
+                        className={isMobile ? 'w-56' : 'w-48'}
                       >
                         {member.role === 'member' && (
                           <DropdownMenuItem
-                            onClick={() => handleUpdateMemberRole(member.user.id, 'admin')}
-                            className={isMobile ? "text-sm py-3" : "text-sm"}
+                            onClick={() =>
+                              handleUpdateMemberRole(member.user.id, 'admin')
+                            }
+                            className={isMobile ? 'text-sm py-3' : 'text-sm'}
                           >
                             <Shield className="mr-2 h-4 w-4" />
                             Make Admin
@@ -660,16 +759,24 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
                         )}
                         {member.role === 'admin' && userRole === 'owner' && (
                           <DropdownMenuItem
-                            onClick={() => handleUpdateMemberRole(member.user.id, 'member')}
-                            className={isMobile ? "text-sm py-3" : "text-sm"}
+                            onClick={() =>
+                              handleUpdateMemberRole(member.user.id, 'member')
+                            }
+                            className={isMobile ? 'text-sm py-3' : 'text-sm'}
                           >
                             <Users className="mr-2 h-4 w-4" />
                             Make Member
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem
-                          onClick={() => handleRemoveMember(member.user.id, member.user.name)}
-                          className={isMobile ? "text-red-600 text-sm py-3" : "text-red-600 text-sm"}
+                          onClick={() =>
+                            handleRemoveMember(member.user.id, member.user.name)
+                          }
+                          className={
+                            isMobile
+                              ? 'text-red-600 text-sm py-3'
+                              : 'text-red-600 text-sm'
+                          }
                         >
                           <UserMinus className="mr-2 h-4 w-4" />
                           Remove Member
@@ -682,7 +789,9 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
             ))}
             {members.length === 0 && (
               <div className="text-center py-6 sm:py-8 text-muted-foreground">
-                <p className="text-sm sm:text-base">No team members yet. Invite someone to get started!</p>
+                <p className="text-sm sm:text-base">
+                  No team members yet. Invite someone to get started!
+                </p>
               </div>
             )}
           </div>
@@ -691,31 +800,46 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
 
       {/* Pending Invitations */}
       {invitations.length > 0 && (
-        <Card className={noCardWrapper ? "w-full border-none shadow-none bg-transparent" : "w-full"}>
-          <CardHeader className={noCardWrapper ? "p-0" : ""}>
+        <Card
+          className={
+            noCardWrapper
+              ? 'w-full border-none shadow-none bg-transparent'
+              : 'w-full'
+          }
+        >
+          <CardHeader className={noCardWrapper ? 'p-0' : ''}>
             <CardTitle className="flex items-center text-base sm:text-lg">
               <Mail className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-              Pending Invitations ({invitations.length})
+              Pending {pluralize(invitations.length, 'Invitation')}
             </CardTitle>
           </CardHeader>
-          <CardContent className={noCardWrapper ? "p-0" : ""}>
+          <CardContent className={noCardWrapper ? 'p-0' : ''}>
             <div className="space-y-3 sm:space-y-4">
               {invitations.map((invitation) => {
                 const isExpired = isInvitationExpired(invitation.expires_at)
                 const isResending = resendingInvites.has(invitation.email)
-                
+
                 return (
-                  <div key={invitation.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
+                  <div
+                    key={invitation.id}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg"
+                  >
                     <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
-                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        isExpired ? 'bg-red-100' : 'bg-orange-100'
-                      }`}>
-                        <Clock className={`h-4 w-4 sm:h-5 sm:w-5 ${
-                          isExpired ? 'text-red-600' : 'text-orange-600'
-                        }`} />
+                      <div
+                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          isExpired ? 'bg-red-100' : 'bg-orange-100'
+                        }`}
+                      >
+                        <Clock
+                          className={`h-4 w-4 sm:h-5 sm:w-5 ${
+                            isExpired ? 'text-red-600' : 'text-orange-600'
+                          }`}
+                        />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm sm:text-base truncate">{invitation.email}</div>
+                        <div className="font-medium text-sm sm:text-base truncate">
+                          {invitation.email}
+                        </div>
                         <div className="text-xs sm:text-sm text-muted-foreground">
                           Invited by {invitation.invited_by_name}
                         </div>
@@ -725,31 +849,46 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
                         <div className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                           {new Date(invitation.created_at).toLocaleDateString()}
                         </div>
-                        <div className={`text-xs ${isExpired ? 'text-red-600' : 'text-muted-foreground'}`}>
-                          {isExpired ? 'Expired' : 'Expires'} {new Date(invitation.expires_at).toLocaleDateString()}
+                        <div
+                          className={`text-xs ${isExpired ? 'text-red-600' : 'text-muted-foreground'}`}
+                        >
+                          {isExpired ? 'Expired' : 'Expires'}{' '}
+                          {new Date(invitation.expires_at).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between sm:justify-end space-x-2 flex-shrink-0">
-                      <Badge variant="outline" className="text-xs">{invitation.role}</Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {invitation.role}
+                      </Badge>
                       {canManageTeam && (
                         <div className="flex items-center space-x-1">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleResendInvitation(invitation.email)}
+                            onClick={() =>
+                              handleResendInvitation(invitation.email)
+                            }
                             disabled={isResending}
                             title="Resend invitation"
-                            className={isMobile ? "h-10 w-10 p-0" : "h-8 w-8 p-0"}
+                            className={
+                              isMobile ? 'h-10 w-10 p-0' : 'h-8 w-8 p-0'
+                            }
                           >
-                            <RefreshCw className={`h-4 w-4 ${isResending ? 'animate-spin' : ''}`} />
+                            <RefreshCw
+                              className={`h-4 w-4 ${isResending ? 'animate-spin' : ''}`}
+                            />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleCancelInvitation(invitation.email)}
+                            onClick={() =>
+                              handleCancelInvitation(invitation.email)
+                            }
                             title="Cancel invitation"
-                            className={isMobile ? "h-10 w-10 p-0" : "h-8 w-8 p-0"}
+                            className={
+                              isMobile ? 'h-10 w-10 p-0' : 'h-8 w-8 p-0'
+                            }
                           >
                             <X className="h-4 w-4" />
                           </Button>

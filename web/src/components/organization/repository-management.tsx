@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { pluralize } from 'common/src/util/string'
 
 interface Repository {
   id: string
@@ -455,7 +456,7 @@ export function RepositoryManagement({
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="flex items-center text-base sm:text-lg">
               <GitBranch className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-              Repositories ({repositories.length})
+              {pluralize(repositories.length, 'Repository')}
             </CardTitle>
             {canManageRepos && repositories.length > 0 && (
               <Button

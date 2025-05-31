@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Users, CreditCard, Settings, Building2 } from 'lucide-react'
 import Link from 'next/link'
+import { pluralize } from 'common/src/util/string'
 
 interface Organization {
   id: string
@@ -137,11 +138,11 @@ const OrganizationsPage = () => {
                     <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-0 text-xs sm:text-sm text-muted-foreground">
                       <span className="flex items-center">
                         <Users className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
-                        {org.memberCount} members
+                        {pluralize(org.memberCount, 'member')}
                       </span>
                       <span className="flex items-center">
                         <CreditCard className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
-                        {org.repositoryCount} repos
+                        {pluralize(org.repositoryCount, 'repo')}
                       </span>
                     </div>
                   </CardContent>

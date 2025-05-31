@@ -15,7 +15,7 @@ import {
   Power,
   Loader2,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Switch } from '@/components/ui/switch'
@@ -24,6 +24,7 @@ import { useOrgAutoTopup } from '@/hooks/use-org-auto-topup'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { toast } from '@/components/ui/use-toast'
+import { useState } from 'react'
 
 interface CreditStatus {
   currentBalance: number
@@ -92,10 +93,12 @@ export function CreditMonitor({
 }: CreditMonitorProps) {
   const isMobile = useIsMobile()
   const router = useRouter()
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   const {
     data: creditStatus,
     isLoading,
+    isFetching,
     dataUpdatedAt,
   } = useQuery({
     queryKey: ['creditStatus', organizationId],
@@ -120,20 +123,33 @@ export function CreditMonitor({
     isPending: isAutoTopupPending,
   } = useOrgAutoTopup(organizationId)
 
+  const queryClient = useQueryClient()
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['creditStatus', organizationId] })
+    queryClient.invalidateQueries({ queryKey: ['organizationSettings', organizationId] })
+  }
+
   const handleEnableAutoTopup = async () => {
     if (!orgSettings || !canManageAutoTopup) return
 
+    setIsRedirecting(true)
+    
     try {
       // Enable auto top-up first
-      handleToggleAutoTopup(true)
+      const success = await handleToggleAutoTopup(true)
       
-      // Wait a moment for the mutation to complete, then navigate
-      setTimeout(() => {
+      if (success) {
+        // Navigate to billing page
         router.push(`/orgs/${orgSettings.slug}/billing/purchase`)
-      }, 1000)
+      } else {
+        // Reset loading state if enabling failed
+        setIsRedirecting(false)
+      }
     } catch (error) {
       // Error handling is already done in the hook
       console.error('Failed to enable auto top-up:', error)
+      setIsRedirecting(false)
     }
   }
 
@@ -221,8 +237,18 @@ export function CreditMonitor({
       >
         <CardTitle className="flex items-center justify-between text-base sm:text-lg">
           <span className="flex items-center min-w-0">
+            <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
             <span className="truncate">Credit Monitor</span>
           </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isFetching}
+            className="h-8 w-8 p-0"
+          >
+            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent
@@ -247,16 +273,17 @@ export function CreditMonitor({
                 </div>
                 <Button
                   size={isMobile ? 'sm' : 'default'}
-                  className="bg-blue-500 text-white hover:bg-blue-600 focus-visible:ring-blue-400 w-full sm:w-auto"
+                  variant="secondary"
+                  className="w-full sm:w-auto"
                   onClick={handleEnableAutoTopup}
-                  disabled={isAutoTopupPending}
+                  disabled={isAutoTopupPending || isRedirecting}
                 >
-                  {isAutoTopupPending ? (
+                  {(isAutoTopupPending || isRedirecting) ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Power className="mr-2 h-4 w-4" />
                   )}
-                  Enable
+                  {(isAutoTopupPending || isRedirecting) ? 'Enabling...' : 'Enable'}
                 </Button>
               </div>
             </div>
