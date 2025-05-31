@@ -202,57 +202,60 @@ export default function OrganizationPage() {
     organization.creditBalance < LOW_CREDIT_THRESHOLD
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="container mx-auto py-4 sm:py-6 px-4">
+      <div className="max-w-6xl mx-auto px-0 sm:px-4 lg:px-8">
         {/* Header */}
-        <div className="flex items-center mb-8">
+        <div className="flex items-center mb-6 sm:mb-8">
           <Link href="/orgs">
-            <Button variant="ghost" size="sm" className="mr-4">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Organizations
+            <Button variant="ghost" size="sm" className="mr-2 sm:mr-4 px-2 sm:px-3">
+              <ArrowLeft className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Back to Organizations</span>
+              <span className="sm:hidden">Back</span>
             </Button>
           </Link>
         </div>
 
-        <div className="flex justify-between items-start mb-8">
-          <div className="flex-1 min-w-0 pr-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-              <Building2 className="h-8 w-8 text-blue-600 flex-shrink-0" />
-              <h1 className="text-2xl sm:text-3xl font-bold break-words">
-                {organization.name}
-              </h1>
-              <Badge variant="secondary" className="self-start sm:self-auto">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-6 sm:mb-8 gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col gap-3 mb-2">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 flex-shrink-0" />
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold break-words min-w-0">
+                  {organization.name}
+                </h1>
+              </div>
+              <Badge variant="secondary" className="self-start text-xs sm:text-sm">
                 {organization.userRole}
               </Badge>
             </div>
             {organization.description && (
-              <p className="text-muted-foreground mt-2">
+              <p className="text-muted-foreground mt-2 text-sm sm:text-base">
                 {organization.description}
               </p>
             )}
           </div>
           {canManageOrg && (
-            <div className="flex-shrink-0 flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               {canManageBilling && organization.hasStripeSubscription && (
-                <Link href={`/orgs/${orgSlug}/billing/purchase`}>
+                <Link href={`/orgs/${orgSlug}/billing/purchase`} className="w-full sm:w-auto">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full sm:w-auto"
+                    className="w-full sm:w-auto justify-center"
                   >
-                    <CreditCard className="h-4 w-4" />
-                    {!isMobile && <span className="ml-2">Buy Credits</span>}
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Buy Credits
                   </Button>
                 </Link>
               )}
-              <Link href={`/orgs/${orgSlug}/settings`}>
+              <Link href={`/orgs/${orgSlug}/settings`} className="w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto justify-center"
                 >
-                  <Settings className="h-4 w-4" />
-                  {!isMobile && <span className="ml-2">Settings</span>}
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
                 </Button>
               </Link>
             </div>
@@ -261,16 +264,16 @@ export default function OrganizationPage() {
 
         {/* Low Credit Balance Notification */}
         {hasLowCredits && (
-          <Card className="mb-8 border-red-200 bg-red-50">
-            <CardContent className="py-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
-                <div className="flex items-center">
-                  <AlertCircle className="mr-3 h-5 w-5 text-red-600 flex-shrink-0" />
+          <Card className="mb-6 sm:mb-8 border-red-200 bg-red-50">
+            <CardContent className="py-3 sm:py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex items-start sm:items-center">
+                  <AlertCircle className="mr-3 h-5 w-5 text-red-600 flex-shrink-0 mt-0.5 sm:mt-0" />
                   <div>
-                    <h3 className="font-medium text-red-800">
+                    <h3 className="font-medium text-red-800 text-sm sm:text-base">
                       Low Credit Balance
                     </h3>
-                    <p className="text-sm text-red-700">
+                    <p className="text-xs sm:text-sm text-red-700 mt-1">
                       Your organization has{' '}
                       {organization.creditBalance.toLocaleString()} credits
                       remaining. Consider purchasing more credits to avoid
@@ -279,8 +282,8 @@ export default function OrganizationPage() {
                   </div>
                 </div>
                 {canManageBilling && (
-                  <Link href={`/orgs/${orgSlug}/billing/purchase`}>
-                    <Button className="text-center text-white bg-red-600 hover:bg-red-700 flex-shrink-0 w-full sm:w-auto">
+                  <Link href={`/orgs/${orgSlug}/billing/purchase`} className="w-full sm:w-auto">
+                    <Button className="text-center text-white bg-red-600 hover:bg-red-700 w-full sm:w-auto">
                       <Plus className="mr-2 h-4 w-4" />
                       Purchase Credits
                     </Button>
@@ -293,16 +296,16 @@ export default function OrganizationPage() {
 
         {/* Billing Setup Section */}
         {canManageBilling && !organization.hasStripeSubscription && (
-          <Card className="mb-8 border-orange-200 bg-orange-50">
-            <CardContent className="py-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
-                <div className="flex items-center">
-                  <AlertCircle className="mr-3 h-5 w-5 text-orange-600 flex-shrink-0" />
+          <Card className="mb-6 sm:mb-8 border-orange-200 bg-orange-50">
+            <CardContent className="py-3 sm:py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex items-start sm:items-center">
+                  <AlertCircle className="mr-3 h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5 sm:mt-0" />
                   <div>
-                    <h3 className="font-medium text-orange-800">
+                    <h3 className="font-medium text-orange-800 text-sm sm:text-base">
                       Billing Setup Required
                     </h3>
-                    <p className="text-sm text-orange-700">
+                    <p className="text-xs sm:text-sm text-orange-700 mt-1">
                       Set up billing to purchase credits and enable team usage
                       tracking.
                     </p>
@@ -311,7 +314,7 @@ export default function OrganizationPage() {
                 <Button
                   onClick={() => handleSetupBilling()}
                   disabled={settingUpBilling}
-                  className="text-center text-white bg-orange-600 hover:bg-orange-700 flex-shrink-0 w-full sm:w-auto"
+                  className="text-center text-white bg-orange-600 hover:bg-orange-700 w-full sm:w-auto"
                 >
                   {settingUpBilling ? 'Setting up...' : 'Set up billing'}
                 </Button>
@@ -321,7 +324,7 @@ export default function OrganizationPage() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6 sm:mb-8">
           {/* Members Card - Collapsible */}
           <Collapsible
             open={activeSection === 'members'}
@@ -330,7 +333,7 @@ export default function OrganizationPage() {
             <Card className="hover:shadow-lg hover:border-primary transition-all duration-200">
               <CollapsibleTrigger asChild>
                 <div className="cursor-pointer">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3 sm:px-6 sm:py-4">
                     <CardTitle className="text-sm font-medium">
                       Members
                     </CardTitle>
@@ -343,8 +346,8 @@ export default function OrganizationPage() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
+                  <CardContent className="px-4 pb-3 sm:px-6 sm:pb-4">
+                    <div className="text-xl sm:text-2xl font-bold">
                       {organization.memberCount}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -358,7 +361,7 @@ export default function OrganizationPage() {
               {/* Mobile: Show content inside card */}
               {isMobile && (
                 <CollapsibleContent>
-                  <CardContent className="px-4 pb-4 pt-0">
+                  <CardContent className="px-4 pb-4 pt-0 sm:px-6">
                     {canManageOrg ? (
                       <TeamManagement
                         organizationId={organization.id}
@@ -366,9 +369,9 @@ export default function OrganizationPage() {
                         noCardWrapper={true}
                       />
                     ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Users className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                        <p>You don't have permission to manage team members.</p>
+                      <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                        <Users className="mx-auto h-8 w-8 sm:h-12 sm:w-12 mb-4 opacity-50" />
+                        <p className="text-sm">You don't have permission to manage team members.</p>
                       </div>
                     )}
                   </CardContent>
@@ -385,7 +388,7 @@ export default function OrganizationPage() {
             <Card className="hover:shadow-lg hover:border-primary transition-all duration-200">
               <CollapsibleTrigger asChild>
                 <div className="cursor-pointer">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3 sm:px-6 sm:py-4">
                     <CardTitle className="text-sm font-medium">
                       Repositories
                     </CardTitle>
@@ -398,8 +401,8 @@ export default function OrganizationPage() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
+                  <CardContent className="px-4 pb-3 sm:px-6 sm:pb-4">
+                    <div className="text-xl sm:text-2xl font-bold">
                       {organization.repositoryCount}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -413,7 +416,7 @@ export default function OrganizationPage() {
               {/* Mobile: Show content inside card */}
               {isMobile && (
                 <CollapsibleContent>
-                  <CardContent className="px-4 pb-4 pt-0">
+                  <CardContent className="px-4 pb-4 pt-0 sm:px-6">
                     <RepositoryManagement
                       organizationId={organization.id}
                       userRole={organization.userRole}
@@ -430,10 +433,10 @@ export default function OrganizationPage() {
             open={isMobile && activeSection === 'creditBalance'}
             onOpenChange={() => handleSectionToggle('creditBalance')}
           >
-            <Card className="hover:shadow-lg hover:border-primary transition-all duration-200">
+            <Card className="hover:shadow-lg hover:border-primary transition-all duration-200 sm:col-span-2 lg:col-span-1">
               <CollapsibleTrigger asChild>
                 <div className="cursor-pointer">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3 sm:px-6 sm:py-4">
                     <CardTitle className="text-sm font-medium">
                       Credit Balance
                     </CardTitle>
@@ -446,8 +449,8 @@ export default function OrganizationPage() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
+                  <CardContent className="px-4 pb-3 sm:px-6 sm:pb-4">
+                    <div className="text-xl sm:text-2xl font-bold">
                       {organization.creditBalance !== undefined
                         ? organization.creditBalance.toLocaleString()
                         : '—'}
@@ -465,15 +468,20 @@ export default function OrganizationPage() {
               {/* Mobile: Show CreditMonitor in collapsible content */}
               {isMobile && (
                 <CollapsibleContent>
-                  <CardContent className="px-4 pb-4 pt-0">
+                  <CardContent className="px-4 pb-4 pt-0 sm:px-6">
                     {organization.hasStripeSubscription ? (
                       <CreditMonitor organizationId={organization.id} noCardWrapper={true} />
                     ) : (
                       <div className="text-center py-4 text-muted-foreground">
-                        <CreditCard className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                        <p className="text-sm">
-                          Set up billing to view credit monitor.
+                        <CreditCard className="mx-auto h-6 w-6 sm:h-8 sm:w-8 mb-2 opacity-50" />
+                        <p className="text-xs sm:text-sm">
+                          Set up billing to monitor credit usage
                         </p>
+                        <Link href={`/orgs/${organization.slug}/billing/setup`}>
+                          <Button size="sm" className="mt-2 w-full sm:w-auto">
+                            Set up billing
+                          </Button>
+                        </Link>
                       </div>
                     )}
                   </CardContent>
@@ -491,7 +499,7 @@ export default function OrganizationPage() {
               <TeamManagement
                 organizationId={organization.id}
                 userRole={organization.userRole}
-                noCardWrapper={isMobile}
+                noCardWrapper={false}
               />
             )}
 
@@ -500,7 +508,7 @@ export default function OrganizationPage() {
               <RepositoryManagement
                 organizationId={organization.id}
                 userRole={organization.userRole}
-                noCardWrapper={isMobile}
+                noCardWrapper={false}
               />
             )}
 
@@ -513,27 +521,24 @@ export default function OrganizationPage() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center">
-                        <AlertCircle className="mr-2 h-5 w-5 text-orange-600" />
-                        Billing Setup Required
+                        <CreditCard className="mr-2 h-5 w-5" />
+                        Credit Balance
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-muted-foreground mb-4">
-                        Please set up billing to monitor usage and purchase
-                        credits for your organization.
-                      </p>
-                      {canManageBilling && (
-                        <Button
-                          onClick={() => handleSetupBilling()}
-                          disabled={settingUpBilling}
-                          size="sm"
-                          className="bg-orange-600 hover:bg-orange-700 text-white"
-                        >
-                          {settingUpBilling
-                            ? 'Setting up...'
-                            : 'Set Up Billing'}
-                        </Button>
-                      )}
+                      <div className="text-center py-8 text-muted-foreground">
+                        <CreditCard className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                        <h3 className="text-lg font-semibold mb-2">
+                          Billing Not Set Up
+                        </h3>
+                        <p className="mb-4">
+                          Set up billing to start using organization credits and
+                          monitor usage.
+                        </p>
+                        <Link href={`/orgs/${organization.slug}/billing/setup`}>
+                          <Button>Set up billing</Button>
+                        </Link>
+                      </div>
                     </CardContent>
                   </Card>
                 )}

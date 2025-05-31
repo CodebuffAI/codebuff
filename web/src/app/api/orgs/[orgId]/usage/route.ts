@@ -42,6 +42,19 @@ export async function GET(
     // Sync organization billing cycle with Stripe and get current cycle start
     const startOfCurrentCycle = await syncOrganizationBillingCycle(orgId)
     
+    // Get the organization to fetch the current period end date
+    const organization = await db.query.org.findFirst({
+      where: eq(schema.org.id, orgId),
+      columns: {
+        current_period_start: true,
+        current_period_end: true,
+      },
+    })
+
+    // Use the synced dates or fallback to reasonable defaults
+    const cycleStartDate = organization?.current_period_start || startOfCurrentCycle
+    const cycleEndDate = organization?.current_period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+    
     let currentBalance = 0
     let usageThisCycle = 0
     
@@ -101,6 +114,8 @@ export async function GET(
     const response: OrganizationUsageResponse = {
       currentBalance,
       usageThisCycle,
+      cycleStartDate: cycleStartDate.toISOString(),
+      cycleEndDate: cycleEndDate.toISOString(),
       topUsers: topUsers.map(user => ({
         user_id: user.user_id!,
         user_name: user.user_name || 'Unknown',

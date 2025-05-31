@@ -276,7 +276,7 @@ export default function OrganizationBillingPurchasePage() {
         <Card className="mb-8">
           <CardContent className="py-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-              <div className="text-center sm:flex-shrink-0">
+              <div className="sm:flex-shrink-0">
                 <div className="text-sm text-muted-foreground mb-1">
                   Current Balance
                 </div>

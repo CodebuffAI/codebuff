@@ -85,6 +85,8 @@ export interface AddRepositoryRequest {
 export interface OrganizationUsageResponse {
   currentBalance: number
   usageThisCycle: number
+  cycleStartDate: string
+  cycleEndDate: string
   topUsers: Array<{
     user_id: string
     user_name: string

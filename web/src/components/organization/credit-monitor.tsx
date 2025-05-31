@@ -12,12 +12,18 @@ import {
   Users,
   AlertTriangle,
   Settings,
+  Power,
+  Loader2,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useOrgAutoTopup } from '@/hooks/use-org-auto-topup'
+import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { toast } from '@/components/ui/use-toast'
 
 interface CreditStatus {
   currentBalance: number
@@ -82,19 +88,20 @@ async function fetchOrganizationSettings(
 
 export function CreditMonitor({
   organizationId,
-  noCardWrapper,
+  noCardWrapper = false,
 }: CreditMonitorProps) {
+  const isMobile = useIsMobile()
+  const router = useRouter()
+
   const {
     data: creditStatus,
     isLoading,
-    isError,
-    isFetching,
-    refetch,
     dataUpdatedAt,
   } = useQuery({
     queryKey: ['creditStatus', organizationId],
     queryFn: () => fetchCreditStatus(organizationId),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchInterval: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
   })
 
@@ -113,90 +120,90 @@ export function CreditMonitor({
     isPending: isAutoTopupPending,
   } = useOrgAutoTopup(organizationId)
 
+  const handleEnableAutoTopup = async () => {
+    if (!orgSettings || !canManageAutoTopup) return
+
+    try {
+      // Enable auto top-up first
+      handleToggleAutoTopup(true)
+      
+      // Wait a moment for the mutation to complete, then navigate
+      setTimeout(() => {
+        router.push(`/orgs/${orgSettings.slug}/billing/purchase`)
+      }, 1000)
+    } catch (error) {
+      // Error handling is already done in the hook
+      console.error('Failed to enable auto top-up:', error)
+    }
+  }
+
   if (isLoading || isLoadingSettings) {
     return (
       <Card
-        className={
-          noCardWrapper ? 'border-none shadow-none bg-transparent' : ''
-        }
+        className={cn(
+          'w-full',
+          noCardWrapper && 'border-0 shadow-none bg-transparent'
+        )}
       >
-        <CardHeader className={noCardWrapper ? 'p-0' : ''}>
-          <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center">
-              <CreditCard className="mr-2 h-5 w-5" />
-              Credit Monitor
-            </span>
+        <CardHeader
+          className={noCardWrapper ? 'p-0' : 'px-4 py-3 sm:px-6 sm:py-4'}
+        >
+          <CardTitle className="flex items-center text-base sm:text-lg">
+            <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+            Credit Monitor
           </CardTitle>
         </CardHeader>
-        <CardContent className={noCardWrapper ? 'p-0' : ''}>
-          <div className="space-y-6">
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-40 w-full" />
+        <CardContent
+          className={noCardWrapper ? 'p-0' : 'px-4 pb-4 sm:px-6 sm:pb-6'}
+        >
+          <div className="space-y-3 sm:space-y-4">
+            <div className="h-3 sm:h-4 bg-gray-200 rounded animate-pulse" />
+            <div className="h-16 sm:h-20 bg-gray-200 rounded animate-pulse" />
+            <div className="h-24 sm:h-32 bg-gray-200 rounded animate-pulse" />
           </div>
         </CardContent>
       </Card>
     )
   }
 
-  if (isError) {
+  if (!creditStatus || !orgSettings) {
     return (
       <Card
-        className={
-          noCardWrapper ? 'border-none shadow-none bg-transparent' : ''
-        }
+        className={cn(
+          'w-full',
+          noCardWrapper && 'border-0 shadow-none bg-transparent'
+        )}
       >
-        <CardHeader className={noCardWrapper ? 'p-0' : ''}>
-          <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center">
-              <CreditCard className="mr-2 h-5 w-5" />
-              Credit Monitor
-            </span>
+        <CardHeader
+          className={noCardWrapper ? 'p-0' : 'px-4 py-3 sm:px-6 sm:py-4'}
+        >
+          <CardTitle className="flex items-center text-base sm:text-lg">
+            <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+            Credit Monitor
           </CardTitle>
         </CardHeader>
-        <CardContent className={noCardWrapper ? 'p-0' : ''}>
-          <div className="text-center py-8">
-            <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-            <p className="text-muted-foreground mb-4">
-              Failed to load credit data
+        <CardContent
+          className={noCardWrapper ? 'p-0' : 'px-4 pb-4 sm:px-6 sm:pb-6'}
+        >
+          <div className="text-center py-6 sm:py-8 text-muted-foreground">
+            <AlertTriangle className="mx-auto h-6 w-6 sm:h-8 sm:w-8 mb-2 opacity-50" />
+            <p className="text-sm sm:text-base">
+              Unable to load credit information
             </p>
-            <Button onClick={() => refetch()} variant="outline">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Try Again
-            </Button>
+            <p className="text-xs sm:text-sm">Please try refreshing the page</p>
           </div>
         </CardContent>
       </Card>
     )
   }
 
-  if (!creditStatus) {
-    return null
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
-  const totalUsage = creditStatus.topUsers.reduce(
-    (sum, user) => sum + (user.credits_used || 0),
-    0
-  )
-
-  // Calculate burndown progress - how much balance is left relative to total available this cycle
-  const totalAvailableThisCycle =
-    creditStatus.currentBalance + creditStatus.usageThisCycle
-  const usagePercentage =
-    totalAvailableThisCycle > 0
-      ? (creditStatus.usageThisCycle / totalAvailableThisCycle) * 100
-      : 0
-
-  // Define low balance threshold (same as typical auto-topup threshold)
   const LOW_BALANCE_THRESHOLD = 500
   const isLowBalance = creditStatus.currentBalance < LOW_BALANCE_THRESHOLD
+
+  // Calculate usage percentage for progress bar
+  const totalCredits = creditStatus.currentBalance + creditStatus.usageThisCycle
+  const usagePercentage =
+    totalCredits > 0 ? (creditStatus.usageThisCycle / totalCredits) * 100 : 0
 
   // Check if auto top-up is disabled and user can manage it
   const isAutoTopupDisabled = !orgSettings?.autoTopupEnabled
@@ -204,157 +211,178 @@ export function CreditMonitor({
 
   return (
     <Card
-      className={noCardWrapper ? 'border-none shadow-none bg-transparent' : ''}
+      className={cn(
+        'w-full',
+        noCardWrapper && 'border-0 shadow-none bg-transparent'
+      )}
     >
-      <CardHeader className={noCardWrapper ? 'p-0' : ''}>
-        <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center">
-            <CreditCard className="mr-2 h-5 w-5" />
-            Credit Monitor
+      <CardHeader
+        className={noCardWrapper ? 'p-0' : 'px-4 py-3 sm:px-6 sm:py-4'}
+      >
+        <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+          <span className="flex items-center min-w-0">
+            <span className="truncate">Credit Monitor</span>
           </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="h-8 w-8 p-0"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
-            />
-          </Button>
         </CardTitle>
-        {dataUpdatedAt && (
-          <p className="text-xs text-muted-foreground">
-            Last updated: {new Date(dataUpdatedAt).toLocaleTimeString()}
-          </p>
-        )}
       </CardHeader>
-      <CardContent className={noCardWrapper ? 'p-0' : ''}>
-        <div className="space-y-6">
+      <CardContent
+        className={noCardWrapper ? 'p-0' : 'px-4 pb-4 sm:px-6 sm:pb-6'}
+      >
+        <div className="space-y-4 sm:space-y-6">
           {/* Auto Top-up Disabled Banner */}
           {shouldShowAutoTopupBanner && orgSettings && (
-            <div className="p-4 border border-amber-200 bg-amber-50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <AlertTriangle className="mr-3 h-5 w-5 text-amber-600 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-amber-800">
+            <div className="p-3 sm:p-4 border border-amber-200 bg-amber-50 rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                <div className="flex items-start sm:items-center flex-1 min-w-0">
+                  <AlertTriangle className="mr-3 h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5 sm:mt-0" />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-medium text-amber-800 text-sm sm:text-base">
                       Auto Top-up Disabled
                     </h4>
-                    <p className="text-sm text-amber-700">
+                    <p className="text-xs sm:text-sm text-amber-700 mt-1">
                       Enable auto top-up to automatically purchase credits when
                       your balance runs low.
                     </p>
                   </div>
                 </div>
-                <Link href={`/orgs/${orgSettings.slug}/billing/purchase`}>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-amber-300 text-amber-700 hover:bg-amber-100"
-                  >
-                    <Settings className="mr-2 h-4 w-4" />
-                    Enable
-                  </Button>
-                </Link>
+                <Button
+                  size={isMobile ? 'sm' : 'default'}
+                  className="bg-blue-500 text-white hover:bg-blue-600 focus-visible:ring-blue-400 w-full sm:w-auto"
+                  onClick={handleEnableAutoTopup}
+                  disabled={isAutoTopupPending}
+                >
+                  {isAutoTopupPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Power className="mr-2 h-4 w-4" />
+                  )}
+                  Enable
+                </Button>
               </div>
             </div>
           )}
 
+          {dataUpdatedAt && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Last updated: {new Date(dataUpdatedAt).toLocaleTimeString()}
+            </p>
+          )}
+
           {/* Credit Usage Progress */}
           <div
-            className={`p-4 border rounded-lg ${isLowBalance ? 'border-red-200 bg-red-50' : ''}`}
+            className={`p-3 sm:p-4 border rounded-lg ${isLowBalance ? 'border-red-200 bg-red-50' : ''}`}
           >
-            <div className="flex items-center justify-between mb-3">
-              <span
-                className={`text-sm font-medium ${isLowBalance ? 'text-red-800' : ''}`}
-              >
-                Credits Used This Cycle
-              </span>
-              <span
-                className={`text-xs ${isLowBalance ? 'text-red-600' : 'text-muted-foreground'}`}
-              >
-                {usagePercentage.toFixed(1)}% used
-              </span>
+            {/* Credit Usage Progress Bar */}
+            <div className="space-y-3 mb-3">
+              <div className="flex justify-between text-xs sm:text-sm">
+                <span className="text-muted-foreground">
+                  Credit Usage This Cycle
+                </span>
+                <span className="font-medium">
+                  {usagePercentage.toFixed(1)}%
+                </span>
+              </div>
+              <Progress
+                value={usagePercentage}
+                className={`h-2 sm:h-3 ${isLowBalance ? 'bg-red-100' : ''}`}
+              />
             </div>
-            <Progress
-              value={usagePercentage}
-              className={`h-3 mb-2 ${isLowBalance ? '[&>div]:bg-red-500' : ''}`}
-            />
-            <div className="flex justify-between text-xs">
-              <span
-                className={
-                  isLowBalance ? 'text-red-600' : 'text-muted-foreground'
-                }
-              >
-                {creditStatus.usageThisCycle.toLocaleString()} used
-              </span>
-              <span
-                className={
-                  isLowBalance ? 'text-red-600' : 'text-muted-foreground'
-                }
-              >
-                {totalAvailableThisCycle.toLocaleString()} total
-              </span>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs sm:text-sm">
+                <span className="text-muted-foreground">Used this cycle</span>
+                <span className="font-medium">
+                  {creditStatus.usageThisCycle.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs sm:text-sm">
+                <span className="text-muted-foreground">Total credits</span>
+                <span className="font-medium">
+                  {totalCredits.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs sm:text-sm">
+                <span className="text-muted-foreground">Cycle resets</span>
+                <span className="font-medium">
+                  {(() => {
+                    try {
+                      const date = new Date(creditStatus.cycleEndDate)
+                      return isNaN(date.getTime())
+                        ? 'Unknown'
+                        : date.toLocaleDateString()
+                    } catch {
+                      return 'Unknown'
+                    }
+                  })()}
+                </span>
+              </div>
             </div>
+
             {isLowBalance && (
-              <div className="mt-3 p-2 bg-red-100 border border-red-200 rounded text-xs text-red-700">
-                ⚠️ Low balance: {creditStatus.currentBalance.toLocaleString()}{' '}
-                credits remaining
+              <div className="mt-3 p-2 sm:p-3 bg-red-100 border border-red-200 rounded-md">
+                <div className="flex items-center">
+                  <AlertTriangle className="mr-2 h-4 w-4 text-red-600 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm text-red-700 font-medium">
+                    Low balance warning
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-red-600 mt-1">
+                  Consider purchasing more credits or enabling auto top-up.
+                </p>
               </div>
             )}
           </div>
 
           {/* Top Users This Cycle */}
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center">
-                <Users className="mr-2 h-5 w-5" />
-                Top Users This Cycle
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center">
+                <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="hidden sm:inline">Top Users This Cycle</span>
+                <span className="sm:hidden">Top Users</span>
               </h3>
             </div>
-            <div className="space-y-3">
-              {creditStatus.topUsers.length > 0 ? (
+            <div className="space-y-2 sm:space-y-3">
+              {creditStatus.topUsers && creditStatus.topUsers.length > 0 ? (
                 creditStatus.topUsers.map((user, index) => {
-                  const creditsUsed = user.credits_used || 0
-                  const percentage =
-                    totalUsage > 0 ? (creditsUsed / totalUsage) * 100 : 0
+                  const displayName =
+                    user.user_name || user.user_email || 'Unknown User'
+
                   return (
                     <div
                       key={user.user_id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
+                      className="flex items-center justify-between p-2 sm:p-3 border rounded-lg"
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-semibold text-sm">
+                      <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-blue-600 font-semibold text-xs sm:text-sm">
                             #{index + 1}
                           </span>
                         </div>
-                        <div>
-                          <div className="font-medium text-sm">
-                            {user.user_name}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-xs sm:text-sm truncate">
+                            {displayName}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
                             {user.user_email}
-                          </div>
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-semibold">
-                          {creditsUsed.toLocaleString()}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {percentage.toFixed(1)}%
-                        </div>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <p className="font-semibold text-xs sm:text-sm">
+                          {user.credits_used.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">credits</p>
                       </div>
                     </div>
                   )
                 })
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                  <p>No usage data available for this cycle</p>
+                <div className="text-center py-4 sm:py-6 text-muted-foreground">
+                  <Users className="mx-auto h-6 w-6 sm:h-8 sm:w-8 mb-2 opacity-50" />
+                  <p className="text-sm">
+                    No usage data available for this cycle
+                  </p>
                 </div>
               )}
             </div>
