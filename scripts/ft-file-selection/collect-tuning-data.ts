@@ -17,6 +17,7 @@ const MAX_LENGTH_CHARS = 500_000
 
 const VALIDATION_SAMPLING_RATE = 0.1
 const SAVE_TOP_FEW_DATA = true
+const ADD_DASHES_TO_TOP_FEW_DATA = true
 
 if (!model) {
   console.log('Missing model argument')
@@ -112,13 +113,24 @@ function convertToTopFewTrainingExample(
   const lastMessageContent = lastMessage.parts[0].text
   const topNFiles = lastMessageContent.split('\n').slice(0, TOP_N_FILES)
   lastMessage.parts[0].text = topNFiles.join('\n')
+  if (ADD_DASHES_TO_TOP_FEW_DATA) {
+    lastMessage.parts[0].text +=
+      '\n--------------------------------\n--------------------------------\n--------------------------------'
+  }
 
   example.contents.forEach((msg) => {
     msg.parts.forEach((part) => {
       if (typeof part.text === 'string') {
+        let repString = `Remember to focus on the most important files and limit your selection to ${TOP_N_FILES}`
+
+        if (ADD_DASHES_TO_TOP_FEW_DATA) {
+          repString +=
+            '. Make sure to end your response with three lines of dashes, ie: "--------------------------------\n--------------------------------\n--------------------------------"'
+        }
+
         const msgContentWithTopN = part.text.replace(
           /Remember to focus on the most important files and limit your selection to (\d+)/,
-          `Remember to focus on the most important files and limit your selection to ${TOP_N_FILES}`
+          repString
         )
         part.text = msgContentWithTopN
       }
@@ -379,7 +391,7 @@ async function main() {
     console.log(`Using dataset: ${DATASET}`)
 
     // Get traces for the specified model from BigQuery
-    const traces = await getTracesWithRelabels(model, 10000, DATASET)
+    const traces = await getTracesWithRelabels(model, 1000, DATASET)
     console.log(`Found ${traces.length} traces for model ${model}`)
 
     // Process traces and convert to Gemini format

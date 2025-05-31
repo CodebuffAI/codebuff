@@ -67,6 +67,41 @@
   - ~$300 for finetuning ($3.00/1M tokens * 1 epoch * 44.7M tokens)
   - Mostly reuses relabel inputs from other Claude runs - no additional cost anticipated.
 
+`ft_filepicker_008`
+- Gemini Endpoint ID: TBD
+- Finetune date: May 31, 2025
+- Finetune file: gemini-tune-data-043.jsonl, available in the GCS bucket
+- Validation file: gemini-tune-data-043.jsonl, available in the GCS bucket
+- Finetune samples: 2648 messages
+- Validation samples: 253 messages
+- Tokens: TBD
+- Epochs: 2
+- Base model: gemini-2.0-flash-001
+- Distilled model: claude-opus-4-20250514 
+- Notes: 
+  - Identical to `ft_filepicker_007` - except more data and epochs
+- Est costs:
+  - TBD for finetuning ($3.00/1M tokens * 1 epoch * 44.7M tokens)
+  - over $660 for generating relabel inputs (at $15.00/1M input Claude tokens + some additional file context tokens) (about half of this is reused from ft_filepicker_007 though)
+
+`ft_filepicker_topk_002`
+- Gemini Endpoint ID: 
+- Finetune date: May 31, 2025
+- Finetune file: gemini-tune-data-045-top2.jsonl, available in the GCS bucket
+- Validation file: gemini-tune-data-045-top2-validation.jsonl, available in the GCS bucket
+- Finetune samples: 909 messages
+- Validation samples: 71 messages
+- Tokens: TBD
+- Epochs: 2
+- Base model: gemini-2.0-flash-001
+- Distilled model: claude-opus-4-20250514 
+- Notes: 
+  - Similar to `ft_filepicker_topk_001` but each input has three lines of dashes appended to the end - to encourage it to "stop" early
+  - Super small training run to test: "does this work at all?" - thus fewer epochs and less data.
+- Est costs:
+  - TBD for finetuning ($3.00/1M tokens * 1 epoch * 44.7M tokens)
+  - Mostly reuses relabel inputs from other Claude runs - no additional cost anticipated.
+
 
 ## Scripts
 
