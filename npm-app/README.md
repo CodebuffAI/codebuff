@@ -28,14 +28,7 @@ codebuff [project-directory]
 
 If no project directory is specified, Codebuff will use the current directory.
 
-You can also control the cost/quality tradeoff with these flags:
-
-```bash
-codebuff --lite  # Budget mode for more econonmical responses
-codebuff --max   # Premium mode for higher quality responses (--o1 also works)
-```
-
-After running `codebuff`, simply chat with it to say what coding task you want done.
+Once running, simply chat with Codebuff to say what coding task you want done.
 
 ## Features
 
@@ -56,9 +49,10 @@ Some have said every change should be paired with a unit test. In 2024, every ch
 
 ## Tips
 
-1. Create a `knowledge.md` file and collect specific points of advice. The assistant will use this knowledge to improve its responses.
-2. Type `undo` or `redo` to revert or reapply file changes from the conversation.
-3. Press `Esc` or `Ctrl+C` while Codebuff is generating a response to stop it.
+1. Type '/help' or just '/' to see available commands.
+2. Create a `knowledge.md` file and collect specific points of advice. The assistant will use this knowledge to improve its responses.
+3. Type `undo` or `redo` to revert or reapply file changes from the conversation.
+4. Press `Esc` or `Ctrl+C` while Codebuff is generating a response to stop it.
 
 ## Troubleshooting
 
@@ -68,19 +62,7 @@ If you are getting permission errors during installation, try using sudo:
 sudo npm install -g codebuff
 ```
 
-Or, we recommend [installing node with a version manager](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). See below.
-
-#### For Mac or Unix, use [nvm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). Run:
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-```
-
-#### For Windows, use [nvm-windows](https://github.com/coreybutler/nvm-windows):
-
-Make sure to uninstall your existing node program. Then get this executable:
-
-[Download the release .exe](https://github.com/coreybutler/nvm-windows/releases)
+If you still have errors, it's a good idea to [reinstall Node](https://nodejs.org/en/download).
 
 ## Feedback
 
