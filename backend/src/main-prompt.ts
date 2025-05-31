@@ -442,17 +442,18 @@ export const mainPrompt = async (
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep').map(
       (m) => castAssistantMessage(m)
     ),
+
+    toolResults.length > 0 && {
+      role: 'user' as const,
+      content: asSystemMessage(renderToolResults(toolResults)),
+    },
+
     !prompt && {
       role: 'user' as const,
       content: asSystemInstruction(
         'The following messages (in <system> or <system_instructions> tags) are **only** from the **system** to display tool results. Do not assume any user intent other than what the user has explicitly stated. e.g. if you asked a question about whether to proceed, do NOT interpret this message as responding affirmatively.'
       ),
       timeToLive: 'agentStep',
-    },
-
-    toolResults.length > 0 && {
-      role: 'user' as const,
-      content: asSystemMessage(renderToolResults(toolResults)),
     },
 
     hasAssistantMessage && {
@@ -468,6 +469,7 @@ export const mainPrompt = async (
       agentContext && {
         role: 'user' as const,
         content: asSystemMessage(agentContext.trim()),
+        timeToLive: 'userPrompt',
       },
 
     prompt
