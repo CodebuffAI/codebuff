@@ -275,30 +275,29 @@ export default function OrganizationBillingPurchasePage() {
         {/* Organization Info Card */}
         <Card className="mb-8">
           <CardContent className="py-6">
-            <div className="text-center">
-              <div className="text-sm text-muted-foreground mb-1">
-                Current Balance
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+              <div className="text-center sm:flex-shrink-0">
+                <div className="text-sm text-muted-foreground mb-1">
+                  Current Balance
+                </div>
+                <div className="text-3xl font-bold">
+                  {organization.creditBalance !== undefined
+                    ? `${organization.creditBalance.toLocaleString()} credits`
+                    : '—'}
+                </div>
               </div>
-              <div className="text-3xl font-bold">
-                {organization.creditBalance !== undefined
-                  ? `${organization.creditBalance.toLocaleString()} credits`
-                  : '—'}
-              </div>
+
+              {/* Auto Top-up Toggle */}
+              {canManageBilling && (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:ml-8 sm:flex-1">
+                  <div className="text-center sm:text-right w-full">
+                    <OrgAutoTopupSettings organizationId={organization.id} />
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
-
-        {/* Auto Top-up Settings */}
-        {billingStatus?.is_setup && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Auto Top-up Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <OrgAutoTopupSettings organizationId={organization.id} />
-            </CardContent>
-          </Card>
-        )}
 
         {/* Credit Purchase Section */}
         <Card>

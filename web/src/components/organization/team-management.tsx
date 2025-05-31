@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -74,6 +74,7 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
   const [members, setMembers] = useState<Member[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading, setLoading] = useState(true)
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false)
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [bulkInviteDialogOpen, setBulkInviteDialogOpen] = useState(false)
   const [inviteForm, setInviteForm] = useState({
@@ -87,17 +88,31 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
   const [inviting, setInviting] = useState(false)
   const [bulkInviting, setBulkInviting] = useState(false)
   const [resendingInvites, setResendingInvites] = useState<Set<string>>(new Set())
+  const [refreshing, setRefreshing] = useState(false)
 
   const canManageTeam = userRole === 'owner' || userRole === 'admin'
   const isMobile = useIsMobile()
+  const hasMountedRef = useRef(false)
 
   useEffect(() => {
-    fetchTeamData()
+    // Only show loading skeleton on initial mount, not on subsequent mounts
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true
+      fetchTeamData(true) // true = initial load
+    } else if (hasInitiallyLoaded) {
+      // If we've loaded before, just refresh without showing skeleton
+      fetchTeamData(false) // false = refresh load
+    }
   }, [organizationId])
 
-  const fetchTeamData = async () => {
+  const fetchTeamData = async (isInitialLoad = false) => {
     try {
-      setLoading(true)
+      if (isInitialLoad) {
+        setLoading(true)
+      } else {
+        setRefreshing(true)
+      }
+      
       const [membersResponse, invitationsResponse] = await Promise.all([
         fetch(`/api/orgs/${organizationId}/members`),
         fetch(`/api/orgs/${organizationId}/invitations`)
@@ -112,6 +127,10 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
         const invitationsData = await invitationsResponse.json()
         setInvitations(invitationsData.invitations || [])
       }
+      
+      if (!hasInitiallyLoaded) {
+        setHasInitiallyLoaded(true)
+      }
     } catch (error) {
       console.error('Error fetching team data:', error)
       toast({
@@ -120,8 +139,16 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
         variant: 'destructive',
       })
     } finally {
-      setLoading(false)
+      if (isInitialLoad) {
+        setLoading(false)
+      } else {
+        setRefreshing(false)
+      }
     }
+  }
+
+  const handleRefresh = () => {
+    fetchTeamData(false)
   }
 
   const handleInviteMember = async () => {
@@ -157,7 +184,7 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
 
       setInviteDialogOpen(false)
       setInviteForm({ email: '', role: 'member' })
-      fetchTeamData() // Refresh the data
+      fetchTeamData(false) // Refresh without showing skeleton
     } catch (error) {
       toast({
         title: 'Error',
@@ -248,7 +275,7 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
 
       setBulkInviteDialogOpen(false)
       setBulkInviteForm({ emails: '', role: 'member' })
-      fetchTeamData() // Refresh the data
+      fetchTeamData(false) // Refresh without showing skeleton
     } catch (error) {
       toast({
         title: 'Error',
@@ -279,7 +306,7 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
         description: `Invitation resent to ${email}`,
       })
 
-      fetchTeamData() // Refresh the data to show updated expiration
+      fetchTeamData(false) // Refresh without showing skeleton
     } catch (error) {
       toast({
         title: 'Error',
@@ -311,7 +338,7 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
         description: 'Invitation cancelled',
       })
 
-      fetchTeamData() // Refresh the data
+      fetchTeamData(false) // Refresh without showing skeleton
     } catch (error) {
       toast({
         title: 'Error',
@@ -341,7 +368,7 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
         description: 'Member role updated',
       })
 
-      fetchTeamData() // Refresh the data
+      fetchTeamData(false) // Refresh without showing skeleton
     } catch (error) {
       toast({
         title: 'Error',
@@ -371,7 +398,7 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
         description: `${memberName} has been removed from the organization`,
       })
 
-      fetchTeamData() // Refresh the data
+      fetchTeamData(false) // Refresh without showing skeleton
     } catch (error) {
       toast({
         title: 'Error',
@@ -396,7 +423,8 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
     return new Date(expiresAt) < new Date()
   }
 
-  if (loading) {
+  // Only show skeleton loading on initial load, not on subsequent mounts
+  if (loading && !hasInitiallyLoaded) {
     return (
       <div className="space-y-6">
         <Card className={noCardWrapper ? "border-none shadow-none bg-transparent" : ""}>
@@ -411,10 +439,10 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg">
                   <div className="space-y-2 flex-1">
-                    <div className="h-4 bg-gray-200 rounded w-24 sm:w-32"></div>
-                    <div className="h-3 bg-gray-200 rounded w-32 sm:w-48"></div>
+                    <div className="h-4 bg-gray-200 rounded w-24 sm:w-32 animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 rounded w-32 sm:w-48 animate-pulse"></div>
                   </div>
-                  <div className="h-6 bg-gray-200 rounded w-12 sm:w-16"></div>
+                  <div className="h-6 bg-gray-200 rounded w-12 sm:w-16 animate-pulse"></div>
                 </div>
               ))}
             </div>
@@ -433,9 +461,21 @@ export function TeamManagement({ organizationId, userRole, noCardWrapper }: Team
             <CardTitle className="flex items-center text-base sm:text-lg">
               <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
               Team Members ({members.length})
+              {refreshing && (
+                <RefreshCw className="ml-2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
             </CardTitle>
             {canManageTeam && (
               <div className="flex flex-row items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size={isMobile ? "sm" : "default"}
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="flex-shrink-0"
+                >
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                </Button>
                 <Dialog open={bulkInviteDialogOpen} onOpenChange={setBulkInviteDialogOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size={isMobile ? "sm" : "default"} className="flex-1 sm:flex-none">

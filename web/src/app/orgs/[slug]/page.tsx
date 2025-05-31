@@ -48,7 +48,7 @@ export default function OrganizationPage() {
   // Collapsible states - only one can be open at a time
   const [activeSection, setActiveSection] = useState<
     'members' | 'repositories' | 'creditBalance' | null
-  >(null)
+  >('creditBalance') // Default to showing credit monitor
 
   // Use the custom hook for organization data
   const { organization, billingStatus, isLoading, error } =

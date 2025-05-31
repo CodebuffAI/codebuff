@@ -64,6 +64,7 @@ export async function GET(
       .select({
         user_id: schema.message.user_id,
         user_name: schema.user.name,
+        user_email: schema.user.email,
         credits_used: sql<number>`SUM(${schema.message.credits})`,
       })
       .from(schema.message)
@@ -74,7 +75,7 @@ export async function GET(
           gte(schema.message.finished_at, startOfCurrentCycle)
         )
       )
-      .groupBy(schema.message.user_id, schema.user.name)
+      .groupBy(schema.message.user_id, schema.user.name, schema.user.email)
       .orderBy(desc(sql`SUM(${schema.message.credits})`))
       .limit(10)
 
@@ -103,6 +104,7 @@ export async function GET(
       topUsers: topUsers.map(user => ({
         user_id: user.user_id!,
         user_name: user.user_name || 'Unknown',
+        user_email: user.user_email || 'Unknown',
         credits_used: user.credits_used,
       })),
       recentUsage: recentUsage.map(usage => ({

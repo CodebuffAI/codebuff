@@ -27,6 +27,7 @@ interface UsageData {
   topUsers: Array<{
     user_id: string
     user_name: string
+    user_email: string
     credits_used: number
   }>
   recentUsage: Array<{

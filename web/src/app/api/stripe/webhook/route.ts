@@ -42,14 +42,22 @@ async function handleCheckoutSessionCompleted(
       { sessionId, subscriptionId: session.subscription },
       'Updating organization with subscription ID'
     )
-    // Update organization with subscription ID
+    // Update organization with subscription ID and enable auto top-up by default
     await db
       .update(schema.org)
       .set({
         stripe_subscription_id: session.subscription,
+        auto_topup_enabled: true,
+        auto_topup_threshold: 500, // Default threshold: 500 credits
+        auto_topup_amount: 2000,   // Default amount: 2000 credits ($20)
         updated_at: new Date(),
       })
       .where(eq(schema.org.id, organizationId))
+
+    logger.info(
+      { sessionId, organizationId, subscriptionId: session.subscription },
+      'Enabled auto top-up by default for new organization subscription'
+    )
 
     // Set the first payment method as default if available
     if (session.customer && typeof session.customer === 'string') {
