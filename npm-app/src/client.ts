@@ -747,7 +747,7 @@ export class Client {
           toolResults.push({
             id: toolCall.id,
             name: toolCall.name,
-            result: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+            result: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
           })
         }
       }
@@ -824,9 +824,7 @@ export class Client {
     })
   }
 
-  async sendUserInput(
-    prompt: string
-  ): Promise<{
+  async sendUserInput(prompt: string): Promise<{
     responsePromise: Promise<
       ServerAction & { type: 'prompt-response' } & { wasStoppedByUser: boolean }
     >
@@ -874,7 +872,7 @@ export class Client {
 
     // Check if we're in agent mode using CLI's isAgentMode flag
     const cli = CLI.getInstance()
-    if (cli.isAgentMode) {
+    if (cli.isManagerMode) {
       this.webSocket.sendAction({
         type: 'agent-prompt',
         prompt,

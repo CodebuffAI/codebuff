@@ -227,7 +227,7 @@ export function runBackgroundCommand(
   options: {
     toolCallId: string
     command: string
-    mode: 'user' | 'assistant' | 'agent'
+    mode: 'user' | 'assistant' | 'manager'
     cwd: string
     stdoutFile?: string
     stderrFile?: string
@@ -375,7 +375,7 @@ export function runBackgroundCommand(
 export const runTerminalCommand = async (
   toolCallId: string,
   command: string,
-  mode: 'user' | 'assistant' | 'agent',
+  mode: 'user' | 'assistant' | 'manager',
   processType: 'SYNC' | 'BACKGROUND',
   timeoutSeconds: number,
   cwd?: string,
@@ -429,8 +429,8 @@ export const runTerminalCommand = async (
         resolveCommand
       )
     } else if (persistentProcess.type === 'pty') {
-      if (mode === 'agent') {
-        runCommandPtyAgent(
+      if (mode === 'manager') {
+        runCommandPtyManager(
           persistentProcess,
           modifiedCommand,
           cwd,
@@ -470,7 +470,7 @@ export const runCommandPty = (
     type: 'pty'
   },
   command: string,
-  mode: 'user' | 'assistant' | 'agent',
+  mode: 'user' | 'assistant' | 'manager',
   cwd: string,
   maybeTimeoutSeconds: number | null,
   resolve: (value: {
@@ -654,7 +654,7 @@ const runCommandChildProcess = (
     type: 'process'
   },
   command: string,
-  mode: 'user' | 'assistant' | 'agent',
+  mode: 'user' | 'assistant' | 'manager',
   cwd: string,
   maybeTimeoutSeconds: number | null,
   resolve: (value: {
@@ -754,8 +754,8 @@ export function clearScreen() {
   process.stdout.write('\u001b[2J\u001b[0;0H')
 }
 
-// New function specifically for agent mode with settling behavior
-export const runCommandPtyAgent = (
+// New function specifically for manager mode with settling behavior
+export const runCommandPtyManager = (
   persistentProcess: PersistentProcess & {
     type: 'pty'
   },
@@ -783,8 +783,8 @@ export const runCommandPtyAgent = (
 
   const projectRoot = getProjectRoot()
   const isWindows = os.platform() === 'win32'
-  
-  // For agent mode, don't show the command in console
+
+  // For manager mode, don't show the command in console
   // console.log(green(`${displayDirectory} > ${command}`))
 
   let commandOutput = ''
@@ -793,13 +793,14 @@ export const runCommandPtyAgent = (
 
   let timer: NodeJS.Timeout | null = null
   let settleTimer: NodeJS.Timeout | null = null
-  
-  // Use the provided timeout or default to 10 seconds for agent mode
-  const agentTimeoutMs = maybeTimeoutSeconds !== null ? maybeTimeoutSeconds * 1000 : 10000
-  
+
+  // Use the provided timeout or default to 10 seconds for manager mode
+  const managerTimeoutMs =
+    maybeTimeoutSeconds !== null ? maybeTimeoutSeconds * 1000 : 10000
+
   if (maybeTimeoutSeconds !== null) {
     timer = setTimeout(() => {
-      // In agent mode, don't kill the terminal - just report what we have
+      // In manager mode, don't kill the terminal - just report what we have
       if (timer) {
         clearTimeout(timer)
       }
@@ -812,12 +813,12 @@ export const runCommandPtyAgent = (
         result: formatResult(
           command,
           commandOutput,
-          `Command timed out after ${agentTimeoutMs / 1000} seconds. Output captured so far. Terminal is still running.`
+          `Command timed out after ${managerTimeoutMs / 1000} seconds. Output captured so far. Terminal is still running.`
         ),
         stdout: commandOutput,
         exitCode: null, // null indicates timeout, not failure
       })
-    }, agentTimeoutMs)
+    }, managerTimeoutMs)
   }
 
   persistentProcess.timerId = timer
@@ -842,12 +843,10 @@ export const runCommandPtyAgent = (
     }
     dataDisposable.dispose()
 
-    const statusMessage = exitCode === 0 || exitCode === null
-      ? 'Complete'
-      : `Failed with exit code: ${exitCode}`
-
-    // For agent mode, always return to project root
-    ptyProcess.write(`cd ${getProjectRoot()}\r\n`)
+    const statusMessage =
+      exitCode === 0 || exitCode === null
+        ? 'Complete'
+        : `Failed with exit code: ${exitCode}`
 
     resolve({
       result: formatResult(
@@ -881,7 +880,7 @@ export const runCommandPtyAgent = (
       toProcess = toProcess.slice(0, indexOfPromptIdentifier)
     }
 
-    // For agent mode, don't write to stdout
+    // For manager mode, don't write to stdout
     // process.stdout.write(toProcess)
     commandOutput += toProcess
 
@@ -889,7 +888,7 @@ export const runCommandPtyAgent = (
     if (settleTimer) {
       clearTimeout(settleTimer)
     }
-    
+
     // Set settle timer for 500ms - if no new output comes, finish the command
     settleTimer = setTimeout(() => {
       finishCommand()
@@ -904,16 +903,11 @@ export const runCommandPtyAgent = (
             const match = buffer.match(/Command failed with exit code (\d+)\./)
             return match ? parseInt(match[1]) : null
           })()
-      
+
       finishCommand(exitCode)
       return
     }
   })
 
-  // Write the command
-  const cdCommand = `cd ${path.resolve(projectRoot, cwd)}`
-  const commandWithCheck = isWindows
-    ? `${cdCommand} & ${command} & echo ${promptIdentifier}%cd%${promptIdentifier}`
-    : `${cdCommand}; ${command}; ec=$?; printf "${promptIdentifier}$(pwd)${promptIdentifier}"; if [ $ec -eq 0 ]; then printf "Command completed."; else printf "Command failed with exit code $ec."; fi`
-  ptyProcess.write(`${commandWithCheck}\r`)
+  ptyProcess.write(`${command}\r`)
 }

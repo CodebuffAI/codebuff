@@ -86,7 +86,7 @@ export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
 export const handleRunTerminalCommand = async (
   parameters: {
     command: string
-    mode?: 'user' | 'assistant' | 'agent'
+    mode?: 'user' | 'assistant' | 'manager'
     process_type?: 'SYNC' | 'BACKGROUND'
     cwd?: string
     timeout_seconds?: string

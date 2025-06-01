@@ -159,10 +159,10 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
-    commandText: '"agent"',
-    baseCommand: 'agent',
-    description: 'Enter autonomous agent mode for multi-step tasks',
+    baseCommand: 'manager',
+    description: 'Enter autonomous manager mode for multi-step tasks',
     isSlashCommand: true,
+    commandText: '',
   },
   {
     commandText: '"exit" or Ctrl-C x2',

@@ -8,12 +8,12 @@ import { getAgentStream } from './prompt-agent-stream'
 import { sendAction } from './websockets/websocket-action'
 import { getFilteredToolsInstructions } from './tools'
 
-function getAgentSystemPrompt() {
+function getManagerSystemPrompt() {
   const toolsInstructions = getFilteredToolsInstructions('normal', true) // true for agent mode
 
-  return `You are Codebuff operating in Agent Mode. Your goal is to accomplish the user's multi-step task autonomously through conversation.
+  return `You are Codebuff operating in Manager Mode. Your goal is to accomplish the user's multi-step task autonomously through conversation.
 
-Your primary method of interaction is through tools, especially \`run_terminal_command\`. When using \`run_terminal_command\`, always set the mode parameter to 'agent' for optimal autonomous execution. Analyze output carefully to decide subsequent actions.
+Your primary method of interaction is through tools, especially \`run_terminal_command\`. When using \`run_terminal_command\`, always set the mode parameter to 'manager' for optimal autonomous execution. Analyze output carefully to decide subsequent actions.
 
 Available tools: \`run_terminal_command\`, \`read_files\`, \`write_file\`, \`code_search\`, \`add_subgoal\`, \`update_subgoal\`, \`kill_terminal\`, \`sleep\`, \`end_turn\`.
 
@@ -40,9 +40,8 @@ You are in a conversational mode - the user will give you tasks and you should w
 ${toolsInstructions}`
 }
 
-
-interface AgentPromptAction {
-  type: 'agent-prompt'
+interface ManagerPromptAction {
+  type: 'manager-prompt'
   prompt?: string // Optional for tool result responses
   agentState: AgentState
   toolResults: ToolResult[]
@@ -54,9 +53,9 @@ interface AgentPromptAction {
   repoName?: string
 }
 
-export async function handleAgentPrompt(
+export async function handleManagerPrompt(
   ws: WebSocket,
-  action: AgentPromptAction,
+  action: ManagerPromptAction,
   userId: string | undefined,
   clientSessionId: string,
   onResponseChunk: (chunk: string) => void,
@@ -68,7 +67,7 @@ export async function handleAgentPrompt(
   if (action.agentState.messageHistory.length === 0 && action.prompt) {
     // First time entering agent mode - initialize with system prompt
     currentMessageHistory = [
-      { role: 'system', content: getAgentSystemPrompt() },
+      { role: 'system', content: getManagerSystemPrompt() },
       { role: 'user', content: action.prompt },
     ]
   } else if (action.prompt) {
@@ -97,7 +96,7 @@ export async function handleAgentPrompt(
     })
   }
 
-  // Get agent stream
+  // Get manager stream
   const costMode = action.costMode || 'normal'
   const model = action.model
 

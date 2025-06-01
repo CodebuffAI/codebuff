@@ -82,7 +82,7 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
-  public isAgentMode: boolean = false // Track if we're in agent mode - make public so client can access
+  public isManagerMode: boolean = false // Track if we're in agent mode - make public so client can access
 
   public rl!: readline.Interface
 
@@ -354,8 +354,9 @@ export class CLI {
   }
 
   private getModeIndicator(): string {
-    const costModeIndicator = this.costMode !== 'normal' ? ` (${this.costMode})` : ''
-    const agentModeIndicator = this.isAgentMode ? ' [AGENT]' : ''
+    const costModeIndicator =
+      this.costMode !== 'normal' ? ` (${this.costMode})` : ''
+    const agentModeIndicator = this.isManagerMode ? ' [AGENT]' : ''
     return costModeIndicator + agentModeIndicator
   }
 
@@ -532,8 +533,8 @@ export class CLI {
       })
 
       // Exit agent mode if currently in it
-      if (this.isAgentMode) {
-        this.isAgentMode = false
+      if (this.isManagerMode) {
+        this.isManagerMode = false
         console.log(green('🔄 Exiting agent mode...'))
       }
 
@@ -557,7 +558,9 @@ export class CLI {
           )
         )
         console.log(
-          gray('Tip: Use /export to save conversation summary to a file after fleshing out a plan')
+          gray(
+            'Tip: Use /export to save conversation summary to a file after fleshing out a plan'
+          )
         )
       }
 
@@ -577,17 +580,13 @@ export class CLI {
       return userInput // Let it be processed as a prompt
     }
 
-    // Handle /agent command - enter agent mode
-    if (cleanInput === 'agent') {
-      // Track agent command usage
-      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
-        userId: Client.getInstance().user?.id || 'unknown',
-        command: 'agent',
-      })
-
-      this.isAgentMode = true
-      console.log(magenta('🤖 Entering Agent Mode...'))
-      console.log(cyan('You are now chatting with Codebuff in autonomous agent mode.'))
+    // Handle /manager command - enter manager mode
+    if (cleanInput === 'manager') {
+      this.isManagerMode = true
+      console.log(magenta('🤖 Entering Manager Mode...'))
+      console.log(
+        cyan('You are now chatting with Codebuff in autonomous manager mode.')
+      )
       console.log(gray('Type "/normal" to return to normal mode.'))
       this.freshPrompt()
       return null
@@ -791,7 +790,7 @@ export class CLI {
     }
 
     this.isReceivingResponse = true
-    
+
     const { responsePromise, stopResponse } =
       await Client.getInstance().sendUserInput(cleanedInput)
 

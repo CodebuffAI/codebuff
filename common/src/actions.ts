@@ -40,7 +40,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     repoName: z.string().optional(),
   }),
   z.object({
-    type: z.literal('agent-prompt'),
+    type: z.literal('manager-prompt'),
     prompt: z.string().optional(), // Optional for tool result responses
     agentState: AgentStateSchema,
     toolResults: z.array(ToolResultSchema),
