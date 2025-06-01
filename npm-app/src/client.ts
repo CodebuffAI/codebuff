@@ -752,9 +752,9 @@ export class Client {
         }
       }
 
-      // Send tool results back to agent using the same agent-prompt action
+      // Send tool results back to agent using the same manager-prompt action
       this.webSocket.sendAction({
-        type: 'agent-prompt',
+        type: 'manager-prompt',
         // No prompt - this is just tool results
         agentState,
         toolResults,
@@ -870,11 +870,11 @@ export class Client {
 
     Spinner.get().start()
 
-    // Check if we're in agent mode using CLI's isAgentMode flag
+    // Check if we're in manager mode using CLI's isManagerMode flag
     const cli = CLI.getInstance()
     if (cli.isManagerMode) {
       this.webSocket.sendAction({
-        type: 'agent-prompt',
+        type: 'manager-prompt',
         prompt,
         agentState: this.agentState,
         toolResults,
