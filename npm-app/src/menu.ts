@@ -49,6 +49,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
     isSlashCommand: true,
   },
   {
+    commandText: '"agent"',
+    baseCommand: 'agent',
+    description: 'Enter autonomous agent mode for multi-step tasks',
+    isSlashCommand: true,
+  },
+  {
     commandText: '"diff" or "d"',
     baseCommand: 'diff',
     aliases: ['d'],

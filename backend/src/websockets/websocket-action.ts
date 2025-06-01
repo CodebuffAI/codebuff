@@ -15,6 +15,7 @@ import { WebSocket } from 'ws'
 import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
 import { sendMessage } from './server'
+import { handleAgentPrompt } from '../agent-prompt'
 
 import { logger, withLoggerContext } from '@/util/logger'
 import { renderToolResults } from '@/util/parse-tool-call-xml'
@@ -139,6 +140,7 @@ const onPrompt = async (
         trackEvent(AnalyticsEvent.USER_INPUT, userId, {
           prompt,
           promptId,
+          isAgentMode: false,
         })
       }
 
@@ -215,6 +217,68 @@ const onPrompt = async (
     }
   )
 }
+
+/**
+ * Handles agent prompt actions from the client
+ */
+const onAgentPrompt = async (
+  action: Extract<ClientAction, { type: 'agent-prompt' }>,
+  clientSessionId: string,
+  ws: WebSocket
+) => {
+  const { fingerprintId, authToken, prompt, agentState, toolResults, costMode, model } = action
+
+  await withLoggerContext(
+    { fingerprintId, clientRequestId: 'agent-' + Date.now(), costMode },
+    async () => {
+      const userId = await getUserIdFromAuthToken(authToken)
+      if (!userId) {
+        throw new Error('User not found')
+      }
+
+      logger.info(`AGENT PROMPT: ${prompt}`)
+      trackEvent(AnalyticsEvent.USER_INPUT, userId, {
+        prompt,
+        promptId: 'agent-' + Date.now(),
+        isAgentMode: true,
+      })
+
+      try {
+        await handleAgentPrompt(
+          ws,
+          { type: 'agent-prompt', prompt, agentState, toolResults, fingerprintId, authToken, costMode, model },
+          userId,
+          clientSessionId,
+          (chunk) =>
+            sendAction(ws, {
+              type: 'response-chunk',
+              userInputId: 'agent-' + Date.now(),
+              chunk,
+            }),
+          agentState.fileContext
+        )
+      } catch (e) {
+        logger.error(e, 'Error in handleAgentPrompt')
+        const response = e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
+        
+        sendAction(ws, {
+          type: 'response-chunk',
+          userInputId: 'agent-' + Date.now(),
+          chunk: response,
+        })
+      } finally {
+        const usageResponse = await genUsageResponse(
+          fingerprintId,
+          userId,
+          undefined
+        )
+        sendAction(ws, usageResponse)
+      }
+    }
+  )
+}
+
+
 
 /**
  * Handles initialization actions from the client
@@ -328,6 +392,7 @@ export const onWebsocketAction = async (
 // Register action handlers
 subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
+subscribeToAction('agent-prompt', protec.run(onAgentPrompt))
 
 /**
  * Requests multiple files from the client

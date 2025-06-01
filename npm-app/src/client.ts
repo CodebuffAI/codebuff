@@ -733,6 +733,40 @@ export class Client {
       }
     })
 
+    // Handle agent tool execution requests
+    this.webSocket.subscribe('agent_request_tool_execution', async (action) => {
+      const { toolCalls, agentState } = action
+      const toolResults: ToolResult[] = []
+
+      for (const toolCall of toolCalls) {
+        try {
+          const result = await handleToolCall(toolCall)
+          toolResults.push(result)
+        } catch (error) {
+          console.error(`Error executing tool ${toolCall.name}:`, error)
+          toolResults.push({
+            id: toolCall.id,
+            name: toolCall.name,
+            result: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+          })
+        }
+      }
+
+      // Send tool results back to agent using the same agent-prompt action
+      this.webSocket.sendAction({
+        type: 'agent-prompt',
+        // No prompt - this is just tool results
+        agentState,
+        toolResults,
+        fingerprintId: await this.fingerprintId,
+        authToken: this.user?.authToken,
+        costMode: this.costMode,
+        model: this.model,
+        cwd: getWorkingDirectory(),
+        repoName: loggerContext.repoName,
+      })
+    })
+
     // Used to handle server restarts gracefully
     this.webSocket.subscribe('request-reconnect', () => {
       this.reconnectWhenNextIdle()
@@ -837,19 +871,37 @@ export class Client {
     )
 
     Spinner.get().start()
-    this.webSocket.sendAction({
-      type: 'prompt',
-      promptId: userInputId,
-      prompt,
-      agentState: this.agentState,
-      toolResults,
-      fingerprintId: await this.fingerprintId,
-      authToken: this.user?.authToken,
-      costMode: this.costMode,
-      model: this.model,
-      cwd: getWorkingDirectory(),
-      repoName: loggerContext.repoName,
-    })
+
+    // Check if we're in agent mode using CLI's isAgentMode flag
+    const cli = CLI.getInstance()
+    if (cli.isAgentMode) {
+      this.webSocket.sendAction({
+        type: 'agent-prompt',
+        prompt,
+        agentState: this.agentState,
+        toolResults,
+        fingerprintId: await this.fingerprintId,
+        authToken: this.user?.authToken,
+        costMode: this.costMode,
+        model: this.model,
+        cwd: getWorkingDirectory(),
+        repoName: loggerContext.repoName,
+      })
+    } else {
+      this.webSocket.sendAction({
+        type: 'prompt',
+        promptId: userInputId,
+        prompt,
+        agentState: this.agentState,
+        toolResults,
+        fingerprintId: await this.fingerprintId,
+        authToken: this.user?.authToken,
+        costMode: this.costMode,
+        model: this.model,
+        cwd: getWorkingDirectory(),
+        repoName: loggerContext.repoName,
+      })
+    }
 
     return {
       responsePromise,

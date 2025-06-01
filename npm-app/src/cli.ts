@@ -82,6 +82,7 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
+  public isAgentMode: boolean = false // Track if we're in agent mode - make public so client can access
 
   public rl!: readline.Interface
 
@@ -353,7 +354,9 @@ export class CLI {
   }
 
   private getModeIndicator(): string {
-    return this.costMode !== 'normal' ? ` (${this.costMode})` : ''
+    const costModeIndicator = this.costMode !== 'normal' ? ` (${this.costMode})` : ''
+    const agentModeIndicator = this.isAgentMode ? ' [AGENT]' : ''
+    return costModeIndicator + agentModeIndicator
   }
 
   private setPrompt() {
@@ -528,6 +531,12 @@ export class CLI {
         command: mode,
       })
 
+      // Exit agent mode if currently in it
+      if (this.isAgentMode) {
+        this.isAgentMode = false
+        console.log(green('🔄 Exiting agent mode...'))
+      }
+
       this.costMode = mode
       Client.getInstance().setCostMode(mode)
 
@@ -566,6 +575,22 @@ export class CLI {
     // Handle empty slash command
     if (userInput === '/') {
       return userInput // Let it be processed as a prompt
+    }
+
+    // Handle /agent command - enter agent mode
+    if (cleanInput === 'agent') {
+      // Track agent command usage
+      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
+        userId: Client.getInstance().user?.id || 'unknown',
+        command: 'agent',
+      })
+
+      this.isAgentMode = true
+      console.log(magenta('🤖 Entering Agent Mode...'))
+      console.log(cyan('You are now chatting with Codebuff in autonomous agent mode.'))
+      console.log(gray('Type "/normal" to return to normal mode.'))
+      this.freshPrompt()
+      return null
     }
 
     // Track slash command usage if it starts with '/'
@@ -764,6 +789,7 @@ export class CLI {
     }
 
     this.isReceivingResponse = true
+    
     const { responsePromise, stopResponse } =
       await Client.getInstance().sendUserInput(cleanedInput)
 

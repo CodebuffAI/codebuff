@@ -40,6 +40,18 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     repoName: z.string().optional(),
   }),
   z.object({
+    type: z.literal('agent-prompt'),
+    prompt: z.string().optional(), // Optional for tool result responses
+    agentState: AgentStateSchema,
+    toolResults: z.array(ToolResultSchema),
+    fingerprintId: z.string(),
+    authToken: z.string().optional(),
+    costMode: z.enum(costModes).optional().default('normal'),
+    model: z.string().optional(),
+    cwd: z.string().optional(),
+    repoName: z.string().optional(),
+  }),
+  z.object({
     type: z.literal('read-files-response'),
     files: z.record(z.string(), z.union([z.string(), z.null()])),
     requestId: z.string().optional(),
@@ -162,6 +174,11 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('commit-message-response'),
     commitMessage: z.string(),
+  }),
+  z.object({
+    type: z.literal('agent_request_tool_execution'),
+    toolCalls: z.array(NewToolCallSchema),
+    agentState: AgentStateSchema,
   }),
   z.object({
     // The server is imminently going to shutdown, and the client should reconnect
