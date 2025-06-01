@@ -448,59 +448,15 @@ export const mainPrompt = async (
       content: asSystemMessage(renderToolResults(toolResults)),
     },
 
-    // [J] This didn't work. So instead I changed the below prompt to be per userPrompt to prevent it from going on forever.
-    // !prompt && {
-    //   role: 'user' as const,
-    //   content: asSystemInstruction(
-    //     'The following messages (in <system> or <system_instructions> tags) are **only** from the **system** to display tool results. Do not assume any user intent other than what the user has explicitly stated. e.g. if you asked a question about whether to proceed, do NOT interpret this message as responding affirmatively.'
-    //   ),
-    //   timeToLive: 'agentStep',
-    // },
-
-    prompt && hasAssistantMessage && {
-      role: 'user' as const,
-      content: asSystemInstruction(
-        "All <previous_assistant_message>messages</previous_assistant_message> were from some less intelligent assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes (including errors from the system), identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Simply continue the conversation as if you are the same assistant. The user has seen the previous assistant's messages, so do not repeat what was already said."
-      ),
-      timeToLive: 'userPrompt',
-    },
-
-    // Add in new copy of agent context.
-    prompt &&
-      agentContext && {
-        role: 'user' as const,
-        content: asSystemMessage(agentContext.trim()),
-        timeToLive: 'userPrompt',
-      },
-
-    prompt
-      ? {
-          role: 'user' as const,
-          content: asSystemInstruction(userInstructions),
-          timeToLive: 'userPrompt',
-        }
-      : toolInstructions && {
-          role: 'user' as const,
-          content: asSystemInstruction(toolInstructions),
-          timeToLive: 'agentStep' as const,
-        },
-
-    relevantDocumentation && {
-      role: 'user' as const,
-      content: asSystemMessage(
-        `Relevant context from web documentation:\n${relevantDocumentation}`
-      ),
-    },
-
     prompt && [
-      cwd && {
+      relevantDocumentation && {
         role: 'user' as const,
         content: asSystemMessage(
-          `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
+          `Relevant context from web documentation:\n${relevantDocumentation}`
         ),
-        timeToLive: 'agentStep',
       },
       {
+        // Actual user prompt!
         role: 'user' as const,
         content: asUserMessage(prompt),
       },
@@ -514,7 +470,41 @@ export const mainPrompt = async (
       },
     ],
 
-    ...readFileMessages
+    ...readFileMessages,
+
+    prompt && [
+      agentContext && {
+        role: 'user' as const,
+        content: asSystemMessage(agentContext.trim()),
+        timeToLive: 'userPrompt',
+      },
+      hasAssistantMessage && {
+        role: 'user' as const,
+        content: asSystemInstruction(
+          "All <previous_assistant_message>messages</previous_assistant_message> were from some less intelligent assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes (including errors from the system), identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Simply continue the conversation as if you are the same assistant. The user has seen the previous assistant's messages, so do not repeat what was already said."
+        ),
+        timeToLive: 'userPrompt',
+      },
+      {
+        role: 'user' as const,
+        content: asSystemInstruction(userInstructions),
+        timeToLive: 'userPrompt',
+      },
+      cwd && {
+        role: 'user' as const,
+        content: asSystemMessage(
+          `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
+        ),
+        timeToLive: 'agentStep',
+      },
+    ],
+
+    !prompt &&
+      toolInstructions && {
+        role: 'user' as const,
+        content: asSystemInstruction(toolInstructions),
+        timeToLive: 'agentStep' as const,
+      }
   )
 
   const iterationNum = messagesWithUserMessage.length
@@ -540,9 +530,6 @@ export const mainPrompt = async (
   logger.debug(
     {
       agentMessages,
-      messagesWithoutToolResults: messagesWithUserMessage.filter(
-        (m) => !isToolResult(m)
-      ),
       prompt,
       agentContext,
       iteration: iterationNum,
