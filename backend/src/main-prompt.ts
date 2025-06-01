@@ -448,20 +448,21 @@ export const mainPrompt = async (
       content: asSystemMessage(renderToolResults(toolResults)),
     },
 
-    !prompt && {
-      role: 'user' as const,
-      content: asSystemInstruction(
-        'The following messages (in <system> or <system_instructions> tags) are **only** from the **system** to display tool results. Do not assume any user intent other than what the user has explicitly stated. e.g. if you asked a question about whether to proceed, do NOT interpret this message as responding affirmatively.'
-      ),
-      timeToLive: 'agentStep',
-    },
+    // [J] This didn't work. So instead I changed the below prompt to be per userPrompt to prevent it from going on forever.
+    // !prompt && {
+    //   role: 'user' as const,
+    //   content: asSystemInstruction(
+    //     'The following messages (in <system> or <system_instructions> tags) are **only** from the **system** to display tool results. Do not assume any user intent other than what the user has explicitly stated. e.g. if you asked a question about whether to proceed, do NOT interpret this message as responding affirmatively.'
+    //   ),
+    //   timeToLive: 'agentStep',
+    // },
 
-    hasAssistantMessage && {
+    prompt && hasAssistantMessage && {
       role: 'user' as const,
       content: asSystemInstruction(
         "All <previous_assistant_message>messages</previous_assistant_message> were from some less intelligent assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes (including errors from the system), identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Simply continue the conversation as if you are the same assistant. The user has seen the previous assistant's messages, so do not repeat what was already said."
       ),
-      timeToLive: 'agentStep',
+      timeToLive: 'userPrompt',
     },
 
     // Add in new copy of agent context.
