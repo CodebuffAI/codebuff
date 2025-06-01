@@ -751,20 +751,6 @@ export class Client {
           })
         }
       }
-
-      // Send tool results back to agent using the same manager-prompt action
-      this.webSocket.sendAction({
-        type: 'manager-prompt',
-        // No prompt - this is just tool results
-        agentState,
-        toolResults,
-        fingerprintId: await this.fingerprintId,
-        authToken: this.user?.authToken,
-        costMode: this.costMode,
-        model: this.model,
-        cwd: getWorkingDirectory(),
-        repoName: loggerContext.repoName,
-      })
     })
 
     // Used to handle server restarts gracefully
@@ -838,6 +824,16 @@ export class Client {
     loggerContext.clientRequestId = userInputId
     const startTime = Date.now() // Capture start time
 
+    // Check if we're in manager mode using CLI's isManagerMode flag
+    const cli = CLI.getInstance()
+    if (cli.isManagerMode) {
+      // Type casting is needed here because sendManagerInput's responsePromise resolves with
+      // a 'manager-prompt-response' type, while sendUserInput expects 'prompt-response'.
+      // This assumes the structures are compatible enough for the calling code in cli.ts.
+      const managerResult = await this.sendManagerInput(prompt)
+      return managerResult as any // Simplified casting for now.
+    }
+
     const { responsePromise, stopResponse } = this.subscribeToResponse(
       (chunk) => {
         Spinner.get().stop()
@@ -870,36 +866,19 @@ export class Client {
 
     Spinner.get().start()
 
-    // Check if we're in manager mode using CLI's isManagerMode flag
-    const cli = CLI.getInstance()
-    if (cli.isManagerMode) {
-      this.webSocket.sendAction({
-        type: 'manager-prompt',
-        prompt,
-        agentState: this.agentState,
-        toolResults,
-        fingerprintId: await this.fingerprintId,
-        authToken: this.user?.authToken,
-        costMode: this.costMode,
-        model: this.model,
-        cwd: getWorkingDirectory(),
-        repoName: loggerContext.repoName,
-      })
-    } else {
-      this.webSocket.sendAction({
-        type: 'prompt',
-        promptId: userInputId,
-        prompt,
-        agentState: this.agentState,
-        toolResults,
-        fingerprintId: await this.fingerprintId,
-        authToken: this.user?.authToken,
-        costMode: this.costMode,
-        model: this.model,
-        cwd: getWorkingDirectory(),
-        repoName: loggerContext.repoName,
-      })
-    }
+    this.webSocket.sendAction({
+      type: 'prompt',
+      promptId: userInputId,
+      prompt,
+      agentState: this.agentState,
+      toolResults,
+      fingerprintId: await this.fingerprintId,
+      authToken: this.user?.authToken,
+      costMode: this.costMode,
+      model: this.model,
+      cwd: getWorkingDirectory(),
+      repoName: loggerContext.repoName,
+    })
 
     return {
       responsePromise,
@@ -1278,5 +1257,186 @@ Go to https://www.codebuff.com/config for more information.`) +
     })
 
     await this.fetchStoredApiKeyTypes()
+  }
+
+  public async sendManagerInput(prompt: string): Promise<{
+    responsePromise: Promise<
+      ServerAction & { type: 'manager-prompt-response' } & {
+        wasStoppedByUser: boolean
+      }
+    >
+    stopResponse: () => void
+  }> {
+    if (!this.agentState) {
+      throw new Error('Agent state not initialized for manager input')
+    }
+    const managerInputId = `mc-manager-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    loggerContext.clientRequestId = managerInputId
+    // const startTime = Date.now(); // For logging/analytics if needed
+
+    let resolveResponsePromise: (
+      value: ServerAction & { type: 'manager-prompt-response' } & {
+        wasStoppedByUser: boolean
+      }
+    ) => void
+    // @ts-ignore variable is used in a promise
+    let rejectResponsePromise: (reason?: any) => void
+
+    const responsePromise = new Promise<
+      ServerAction & { type: 'manager-prompt-response' } & {
+        wasStoppedByUser: boolean
+      }
+    >((resolve, reject) => {
+      resolveResponsePromise = resolve
+      rejectResponsePromise = reject
+    })
+
+    let unsubscribeChunks: (() => void) | undefined
+    let unsubscribeManagerResponse: (() => void) | undefined
+    let interactionActive = true
+
+    const cleanupListeners = () => {
+      interactionActive = false
+      if (unsubscribeChunks) unsubscribeChunks()
+      if (unsubscribeManagerResponse) unsubscribeManagerResponse()
+      unsubscribeChunks = undefined
+      unsubscribeManagerResponse = undefined
+    }
+
+    const stopResponse = () => {
+      if (!interactionActive) return
+      cleanupListeners()
+      Spinner.get().stop()
+      resolveResponsePromise({
+        type: 'manager-prompt-response', // Matches server action type
+        agentState: this.agentState!,
+        toolCalls: [], // No new tool calls from a stop action
+        // toolResults is NOT part of ManagerPromptResponseAction from server
+        wasStoppedByUser: true,
+      })
+      this.freshPrompt()
+    }
+
+    const urls = parseUrlsFromContent(prompt)
+    const scrapedBlocks = await getScrapedContentBlocks(urls)
+    const scrapedContent =
+      scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
+    const initialToolResults = buildArray(
+      ...(this.lastToolResults || []),
+      ...getBackgroundProcessUpdates(),
+      scrapedContent && {
+        id: 'scraped-content-' + Date.now(),
+        name: 'web-scraper',
+        result: scrapedContent,
+      }
+    )
+    this.lastToolResults = []
+
+    Spinner.get().start()
+
+    let streamStarted = false
+    unsubscribeChunks = this.webSocket.subscribe('response-chunk', (action) => {
+      // Assuming server might use managerInputId in action.userInputId for chunks
+      if (!interactionActive || action.userInputId !== managerInputId) return
+
+      const { chunk } = action
+      Spinner.get().stop()
+      if (!streamStarted && chunk.trim()) {
+        streamStarted = true
+        process.stdout.write(
+          '\n' + green(underline('Codebuff') + ' (Manager): ')
+        )
+      }
+      process.stdout.write(chunk)
+    })
+
+    unsubscribeManagerResponse = this.webSocket.subscribe(
+      'manager-prompt-response',
+      async (serverAction) => {
+        if (!interactionActive) return
+        // This assumes any 'manager-prompt-response' received while this interaction is active belongs to it.
+        // For more robust correlation, the server would need to echo managerInputId or a similar request-specific ID.
+
+        Spinner.get().stop()
+        this.agentState = serverAction.agentState
+
+        const executedToolResults: ToolResult[] = []
+        let endTurnReceived = false
+        const toolsToExecute = serverAction.toolCalls.filter((tc) => {
+          if (tc.name === 'end_turn') {
+            endTurnReceived = true
+            executedToolResults.push({
+              id: tc.id,
+              name: tc.name,
+              result: 'Turn ended by assistant.',
+            })
+            return false
+          }
+          return true
+        })
+
+        for (const toolCall of toolsToExecute) {
+          try {
+            const result = await handleToolCall(toolCall)
+            executedToolResults.push(result)
+            if (toolCall.name === 'write_file') {
+              this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
+              this.hadFileChanges = true
+            }
+          } catch (error) {
+            console.error(`Error executing tool ${toolCall.name}:`, error)
+            executedToolResults.push({
+              id: toolCall.id,
+              name: toolCall.name,
+              result: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            })
+          }
+        }
+
+        this.lastToolResults = executedToolResults // Store results for potential next step or inspection
+
+        if (endTurnReceived || toolsToExecute.length === 0) {
+          cleanupListeners()
+          if (this.hadFileChanges) {
+            this.fileContext = await getProjectFileContext(getProjectRoot(), {})
+          }
+          // Resolve with the serverAction (which matches ManagerPromptResponseAction schema)
+          // and the client-side wasStoppedByUser flag.
+          resolveResponsePromise({ ...serverAction, wasStoppedByUser: false })
+          this.freshPrompt()
+        } else {
+          Spinner.get().start()
+          this.webSocket.sendAction({
+            type: 'manager-prompt',
+            prompt: undefined, // This is a follow-up, not a new user prompt
+            agentState: this.agentState,
+            toolResults: executedToolResults, // Send back the results of executed tools
+            fingerprintId: await this.fingerprintId,
+            authToken: this.user?.authToken,
+            costMode: this.costMode,
+            model: this.model,
+            cwd: getWorkingDirectory(),
+            repoName: loggerContext.repoName,
+            // managerInputId removed as it's not in schema
+          })
+        }
+      }
+    )
+
+    this.webSocket.sendAction({
+      type: 'manager-prompt',
+      prompt, // Initial prompt from user
+      agentState: this.agentState,
+      toolResults: initialToolResults,
+      fingerprintId: await this.fingerprintId,
+      authToken: this.user?.authToken,
+      costMode: this.costMode,
+      model: this.model,
+      cwd: getWorkingDirectory(),
+      repoName: loggerContext.repoName,
+      // managerInputId removed as it's not in schema
+    })
+
+    return { responsePromise, stopResponse }
   }
 }
