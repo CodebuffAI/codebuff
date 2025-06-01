@@ -82,7 +82,7 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
-  public isManagerMode: boolean = false // Track if we're in agent mode - make public so client can access
+  public isManagerMode: boolean = false // Track if we're in manager mode - make public so client can access
 
   public rl!: readline.Interface
 
@@ -356,8 +356,8 @@ export class CLI {
   private getModeIndicator(): string {
     const costModeIndicator =
       this.costMode !== 'normal' ? ` (${this.costMode})` : ''
-    const agentModeIndicator = this.isManagerMode ? ' [AGENT]' : ''
-    return costModeIndicator + agentModeIndicator
+    const managerModeIndicator = this.isManagerMode ? ' (manager)' : ''
+    return costModeIndicator + managerModeIndicator
   }
 
   private setPrompt() {
@@ -532,10 +532,10 @@ export class CLI {
         command: mode,
       })
 
-      // Exit agent mode if currently in it
+      // Exit manager mode if currently in it
       if (this.isManagerMode) {
         this.isManagerMode = false
-        console.log(green('🔄 Exiting agent mode...'))
+        console.log(green('🔄 Exiting manager mode...'))
       }
 
       this.costMode = mode
