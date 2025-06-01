@@ -9,7 +9,7 @@ import type { CostMode } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { blueBright, cyan, green, magenta, yellow } from 'picocolors'
+import { blueBright, cyan, gray, green, magenta, yellow } from 'picocolors'
 
 import {
   killAllBackgroundProcesses,
@@ -543,7 +543,12 @@ export class CLI {
         console.log(magenta('🧪 Switched to experimental mode (cutting-edge)'))
       } else if (mode === 'ask') {
         console.log(
-          cyan('💬 Switched to ask mode (questions only, no code changes)')
+          cyan(
+            '💬 Switched to ask mode (questions & planning only, no code changes)'
+          )
+        )
+        console.log(
+          gray('Tip: Use /export to save conversation summary to a file after fleshing out a plan')
         )
       }
 
@@ -723,6 +728,16 @@ export class CLI {
       handleInitializationFlowLocally()
       // Also forward user input (original with / if present, or cleanInput) to the backend
       // The original forwardUserInput takes the raw userInput.
+      return userInput // Let it fall through to forwardUserInput
+    }
+
+    if (cleanInput === 'export') {
+      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
+        userId: Client.getInstance().user?.id || 'unknown',
+        command: 'export',
+      })
+      console.log(yellow('Exporting conversation to a file...'))
+      // Forward to backend like init command
       return userInput // Let it fall through to forwardUserInput
     }
 

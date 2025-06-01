@@ -146,6 +146,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
+    baseCommand: 'export',
+    description: 'Export conversation summary to file',
+    isSlashCommand: true,
+    commandText: '"export"',
+  },
+  {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
     description: 'Quit Codebuff',
@@ -183,7 +189,7 @@ export function displaySlashCommandHelperMenu() {
 
   // Add the shell command tip at the end
   const shellTip = gray(
-    '(Tip: Type "!" followed by a command to run it in your shell, e.g., !ls)'
+    'Tip: Type "!" followed by a command to run it in your shell, e.g., !ls'
   )
 
   // Print with consistent spacing
