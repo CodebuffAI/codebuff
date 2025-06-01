@@ -259,28 +259,38 @@ const onManagerPrompt = async (
       })
 
       try {
-        await handleManagerPrompt(
-          ws,
-          {
-            type: 'manager-prompt',
-            prompt,
-            agentState,
-            toolResults,
-            fingerprintId,
-            authToken,
-            costMode,
-            model,
-          },
-          userId,
-          clientSessionId,
-          (chunk) =>
-            sendAction(ws, {
-              type: 'response-chunk',
-              userInputId: 'manager-' + Date.now(),
-              chunk,
-            }),
-          agentState.fileContext
-        )
+        const { toolCalls, agentState: updatedAgentState } =
+          await handleManagerPrompt(
+            ws,
+            {
+              type: 'manager-prompt',
+              prompt,
+              agentState,
+              toolResults,
+              fingerprintId,
+              authToken,
+              costMode,
+              model,
+            },
+            userId,
+            clientSessionId,
+            (chunk) =>
+              sendAction(ws, {
+                type: 'response-chunk',
+                userInputId: 'manager-' + Date.now(),
+                chunk,
+              }),
+            agentState.fileContext
+          )
+        sendAction(ws, {
+          type: 'manager-prompt-response',
+          toolCalls: toolCalls.map((tc) => ({
+            name: tc.name,
+            parameters: tc.parameters,
+            id: tc.name + '-' + Date.now(), // Generate ID since RawToolCall doesn't have one
+          })),
+          agentState: updatedAgentState,
+        })
       } catch (e) {
         logger.error(e, 'Error in handleManagerPrompt')
         const response =
@@ -291,6 +301,28 @@ const onManagerPrompt = async (
           userInputId: 'manager-' + Date.now(),
           chunk: response,
         })
+
+        const updatedAgentState = {
+          ...agentState,
+          messageHistory: buildArray(
+            ...agentState.messageHistory,
+            prompt && {
+              role: 'user' as const,
+              content: [{ type: 'text' as const, text: prompt }],
+            },
+            {
+              role: 'assistant' as const,
+              content: [{ type: 'text' as const, text: response }],
+            }
+          ),
+        }
+        setTimeout(() => {
+          sendAction(ws, {
+            type: 'manager-prompt-response',
+            toolCalls: [],
+            agentState: updatedAgentState,
+          })
+        }, 100)
       } finally {
         const usageResponse = await genUsageResponse(
           fingerprintId,

@@ -60,7 +60,7 @@ export async function handleManagerPrompt(
   clientSessionId: string,
   onResponseChunk: (chunk: string) => void,
   fileContext: ProjectFileContext
-): Promise<void> {
+): Promise<{ toolCalls: RawToolCall[]; agentState: AgentState }> {
   let currentMessageHistory: CoreMessage[]
 
   // Check if this is the first message in agent mode, a new user prompt, or tool results
@@ -113,52 +113,31 @@ export async function handleManagerPrompt(
   let fullResponse = ''
   const toolCalls: RawToolCall[] = []
 
-  try {
-    const stream = getStream(currentMessageHistory)
+  const stream = getStream(currentMessageHistory)
 
-    for await (const chunk of stream) {
-      fullResponse += chunk
-      onResponseChunk(chunk)
+  for await (const chunk of stream) {
+    fullResponse += chunk
+    onResponseChunk(chunk)
 
-      // Parse for complete tool calls
-      const newToolCalls = parseToolCalls(fullResponse)
-      if (newToolCalls.length > toolCalls.length) {
-        // Add new tool calls
-        toolCalls.push(...newToolCalls.slice(toolCalls.length))
-      }
+    // Parse for complete tool calls
+    const newToolCalls = parseToolCalls(fullResponse)
+    if (newToolCalls.length > toolCalls.length) {
+      // Add new tool calls
+      toolCalls.push(...newToolCalls.slice(toolCalls.length))
     }
-
-    // Append assistant message to history
-    currentMessageHistory.push({
-      role: 'assistant',
-      content: fullResponse,
-    })
-
-    // Update agent state
-    const updatedAgentState: AgentState = {
-      ...action.agentState,
-      messageHistory: currentMessageHistory,
-    }
-
-    if (toolCalls.length > 0) {
-      // Send tool calls to client for execution
-      sendAction(ws, {
-        type: 'agent_request_tool_execution',
-        toolCalls: toolCalls.map((tc) => ({
-          name: tc.name,
-          parameters: tc.parameters,
-          id: tc.name + '-' + Date.now(), // Generate ID since RawToolCall doesn't have one
-        })),
-        agentState: updatedAgentState,
-      })
-    } else {
-      // No tool calls, agent is done or waiting for user input
-      // This would be handled by the client showing the response
-    }
-  } catch (error) {
-    console.error('Error in agent prompt handling:', error)
-    onResponseChunk(
-      `\n\nError: ${error instanceof Error ? error.message : 'Unknown error occurred'}`
-    )
   }
+
+  // Append assistant message to history
+  currentMessageHistory.push({
+    role: 'assistant',
+    content: fullResponse,
+  })
+
+  // Update agent state
+  const updatedAgentState: AgentState = {
+    ...action.agentState,
+    messageHistory: currentMessageHistory,
+  }
+
+  return { toolCalls, agentState: updatedAgentState }
 }

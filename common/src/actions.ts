@@ -138,6 +138,11 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   ResponseCompleteSchema,
   PromptResponseSchema,
   z.object({
+    type: z.literal('manager-prompt-response'),
+    toolCalls: z.array(NewToolCallSchema),
+    agentState: AgentStateSchema,
+  }),
+  z.object({
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),
     requestId: z.string(),
@@ -174,11 +179,6 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('commit-message-response'),
     commitMessage: z.string(),
-  }),
-  z.object({
-    type: z.literal('agent_request_tool_execution'),
-    toolCalls: z.array(NewToolCallSchema),
-    agentState: AgentStateSchema,
   }),
   z.object({
     // The server is imminently going to shutdown, and the client should reconnect

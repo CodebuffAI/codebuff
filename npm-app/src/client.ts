@@ -734,7 +734,7 @@ export class Client {
     })
 
     // Handle agent tool execution requests
-    this.webSocket.subscribe('agent_request_tool_execution', async (action) => {
+    this.webSocket.subscribe('manager-prompt-response', async (action) => {
       const { toolCalls, agentState } = action
       const toolResults: ToolResult[] = []
 
