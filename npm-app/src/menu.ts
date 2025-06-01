@@ -146,6 +146,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
+    baseCommand: 'compact',
+    description: 'Summarize conversation so far, for greater efficiency',
+    isSlashCommand: true,
+    commandText: '"compact"',
+  },
+  {
     baseCommand: 'export',
     description: 'Export conversation summary to file',
     isSlashCommand: true,

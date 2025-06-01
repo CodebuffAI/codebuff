@@ -1028,9 +1028,25 @@ export const mainPrompt = async (
 
   const newAgentContext = await agentContextPromise
 
+  let finalMessageHistory = expireMessages(messagesWithResponse, 'agentStep')
+
+  // Handle /compact command: replace message history with the summary
+  const wasCompacted =
+    prompt &&
+    (prompt.toLowerCase() === '/compact' || prompt.toLowerCase() === 'compact')
+  if (wasCompacted) {
+    finalMessageHistory = [
+      {
+        role: 'user',
+        content: `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`,
+      },
+    ]
+    logger.debug({ summary: fullResponse }, 'Compacted messages')
+  }
+
   const newAgentState: AgentState = {
     ...agentState,
-    messageHistory: expireMessages(messagesWithResponse, 'agentStep'),
+    messageHistory: finalMessageHistory,
     agentContext: newAgentContext,
     consecutiveAssistantMessages: prompt
       ? 1
