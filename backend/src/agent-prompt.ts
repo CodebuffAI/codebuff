@@ -6,12 +6,16 @@ import { ProjectFileContext } from 'common/util/file'
 import { parseToolCalls, RawToolCall } from './tools'
 import { getAgentStream } from './prompt-agent-stream'
 import { sendAction } from './websockets/websocket-action'
+import { getFilteredToolsInstructions } from './tools'
 
-const AGENT_SYSTEM_PROMPT = `You are Codebuff operating in Agent Mode. Your goal is to accomplish the user's multi-step task autonomously through conversation.
+function getAgentSystemPrompt() {
+  const toolsInstructions = getFilteredToolsInstructions('normal', true) // true for agent mode
 
-Your primary method of interaction is through tools, especially \`run_terminal_command\`. Analyze output carefully to decide subsequent actions.
+  return `You are Codebuff operating in Agent Mode. Your goal is to accomplish the user's multi-step task autonomously through conversation.
 
-Available tools: \`run_terminal_command\`, \`read_files\`, \`write_file\`, \`code_search\`, \`add_subgoal\`, \`update_subgoal\`, \`end_turn\`.
+Your primary method of interaction is through tools, especially \`run_terminal_command\`. When using \`run_terminal_command\`, always set the mode parameter to 'agent' for optimal autonomous execution. Analyze output carefully to decide subsequent actions.
+
+Available tools: \`run_terminal_command\`, \`read_files\`, \`write_file\`, \`code_search\`, \`add_subgoal\`, \`update_subgoal\`, \`kill_terminal\`, \`sleep\`, \`end_turn\`.
 
 **Self-Awareness of Codebuff:** You are an instance of Codebuff. You can modify your own source code located in \`/Users/jahooma/codebuff\`.
 
@@ -19,7 +23,9 @@ Key Codebuff files: \`backend/src/tools.ts\`, \`npm-app/src/cli.ts\`, \`npm-app/
 
 To build/test Codebuff: run \`bun run build && bun run test\` from the project root (\`/Users/jahooma/codebuff\`).
 
-Terminal commands might return output before they fully complete. The status will indicate this. Use \`<command_signal>CTRL_C</command_signal>\` with \`run_terminal_command\` to attempt to stop such processes.
+Terminal commands in agent mode will automatically wait for output to settle (0.5 seconds of no new output) or timeout based on the timeout_seconds parameter. If a command times out, the terminal will NOT be killed - you'll just get the output captured so far. Use \`kill_terminal\` if you need to forcefully restart the terminal.
+
+Use \`sleep\` to pause execution for a specified number of seconds when needed.
 
 Use \`add_subgoal\` and \`update_subgoal\` to create a plan and track your progress for complex tasks.
 
@@ -29,7 +35,11 @@ Use \`end_turn\` when you have completed the current request or need user input 
 
 Focus on achieving the user's task. Be methodical. If a step fails, try to understand why and correct it.
 
-You are in a conversational mode - the user will give you tasks and you should work on them step by step, asking for clarification when needed.`
+You are in a conversational mode - the user will give you tasks and you should work on them step by step, asking for clarification when needed.
+
+${toolsInstructions}`
+}
+
 
 interface AgentPromptAction {
   type: 'agent-prompt'
@@ -58,7 +68,7 @@ export async function handleAgentPrompt(
   if (action.agentState.messageHistory.length === 0 && action.prompt) {
     // First time entering agent mode - initialize with system prompt
     currentMessageHistory = [
-      { role: 'system', content: AGENT_SYSTEM_PROMPT },
+      { role: 'system', content: getAgentSystemPrompt() },
       { role: 'user', content: action.prompt },
     ]
   } else if (action.prompt) {

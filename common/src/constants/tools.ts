@@ -11,13 +11,17 @@ export const toolSchema = {
 
   // Search and terminal
   code_search: ['pattern'],
-  run_terminal_command: ['command', 'process_type', 'cwd', 'timeout_seconds'],
+  run_terminal_command: ['command', 'process_type', 'cwd', 'timeout_seconds', 'mode'],
 
   // Planning tools
   think_deeply: ['thought'],
   create_plan: ['path', 'plan'],
 
   browser_logs: ['type', 'url', 'waitUntil'],
+
+  // Agent-only tools
+  kill_terminal: [],
+  sleep: ['seconds'],
 
   end_turn: [],
 }
