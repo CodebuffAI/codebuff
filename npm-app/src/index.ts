@@ -129,6 +129,8 @@ For all commands and options, run 'codebuff' and then type 'help'.
     costMode = 'max'
   } else if (options.experimental) {
     costMode = 'experimental'
+  } else if (options.ask) {
+    costMode = 'ask'
   }
 
   // Handle git integration

@@ -37,22 +37,16 @@ export const interactiveCommandDetails: CommandInfo[] = [
     aliases: ['h'], // Optional: if you want /h to also work for tab completion
   },
   {
-    commandText: '"login"',
-    baseCommand: 'login',
-    description: 'Authenticate your session',
-    isSlashCommand: false,
-  },
-  {
     commandText: '"init"',
     baseCommand: 'init',
     description: 'Configure project for better results',
     isSlashCommand: true,
   },
   {
-    commandText: '"agent"',
-    baseCommand: 'agent',
-    description: 'Enter autonomous agent mode for multi-step tasks',
-    isSlashCommand: true,
+    commandText: '"login"',
+    baseCommand: 'login',
+    description: 'Authenticate your session',
+    isSlashCommand: false,
   },
   {
     commandText: '"diff" or "d"',
@@ -89,8 +83,21 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '"reset"',
     baseCommand: 'reset',
     description:
-      'Reset the conversation context, as if you just started a new Codebuff session',
+      'Reset the conversation history, as if you just started a new Codebuff session',
     isSlashCommand: true,
+  },
+  {
+    baseCommand: 'compact',
+    description:
+      'Replace the conversation history with a summary and free up context',
+    isSlashCommand: true,
+    commandText: '"compact"',
+  },
+  {
+    baseCommand: 'export',
+    description: 'Export conversation summary to file',
+    isSlashCommand: true,
+    commandText: '"export"',
   },
   {
     commandText: 'ESC key or Ctrl-C',
@@ -122,6 +129,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
+    baseCommand: 'ask',
+    description: "Switch to ask mode (won't modify code)",
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
     baseCommand: 'lite',
     description: 'Switch to lite mode (faster, cheaper)',
     isSlashCommand: true,
@@ -146,16 +159,10 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
-    baseCommand: 'ask',
-    description: "Switch to ask mode (won't modify code)",
+    commandText: '"agent"',
+    baseCommand: 'agent',
+    description: 'Enter autonomous agent mode for multi-step tasks',
     isSlashCommand: true,
-    commandText: '',
-  },
-  {
-    baseCommand: 'export',
-    description: 'Export conversation summary to file',
-    isSlashCommand: true,
-    commandText: '"export"',
   },
   {
     commandText: '"exit" or Ctrl-C x2',
@@ -166,9 +173,9 @@ export const interactiveCommandDetails: CommandInfo[] = [
 ]
 
 export function getSlashCommands(): CommandInfo[] {
-  return interactiveCommandDetails
-    .filter((cmd) => cmd.isSlashCommand && cmd.baseCommand)
-    .sort((a, b) => a.baseCommand!.localeCompare(b.baseCommand!))
+  return interactiveCommandDetails.filter(
+    (cmd) => cmd.isSlashCommand && cmd.baseCommand
+  )
 }
 
 export function displaySlashCommandHelperMenu() {

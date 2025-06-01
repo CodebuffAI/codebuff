@@ -757,13 +757,15 @@ export class CLI {
     }
 
     if (cleanInput === 'export') {
-      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
-        userId: Client.getInstance().user?.id || 'unknown',
-        command: 'export',
-      })
       console.log(yellow('Exporting conversation to a file...'))
       // Forward to backend like init command
       return userInput // Let it fall through to forwardUserInput
+    }
+
+    if (cleanInput === 'compact') {
+      console.log(yellow('Compacting conversation...'))
+      // Forward to backend
+      return userInput
     }
 
     // If no command was matched, return the original userInput to be processed as a prompt

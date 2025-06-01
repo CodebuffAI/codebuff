@@ -98,6 +98,13 @@ Config file (probably already exists):
   - Provide startupProcesses.item.cwd only if it is not '.'
 `.trim()
 
+const compactPrompt = `
+User has typed "compact". Summarize the current conversation and prepare it to replace the existing message history.
+
+1. Summarize the entire conversation up to this point (excluding this 'compact' command).
+2. The summary should be detailed and must capture the key decisions, analysis, changes, and outcomes.
+`.trim()
+
 const exportPrompt = `
 User has typed "export". Export the current conversation. (It's ok to proceed even if in "Ask" mode because of user change to "Export" mode).
 
@@ -124,6 +131,8 @@ export const additionalSystemPrompts = {
   init: initPrompt,
   '/export': exportPrompt,
   export: exportPrompt,
+  '/compact': compactPrompt,
+  compact: compactPrompt,
 } as const
 
 export const getProjectFileTreePrompt = (
