@@ -45,19 +45,34 @@ export const getAgentStream = (params: {
   const provider = providerModelNames[model as keyof typeof providerModelNames]
 
   const getStream = (messages: CoreMessage[]) => {
+    const options: Parameters<typeof promptAiSdkStream>[0] = {
+      messages,
+      model: model as AnthropicModel,
+      stopSequences,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      maxTokens: 32_000,
+    }
+
+    if (provider === 'gemini') {
+      if (!options.providerOptions) {
+        options.providerOptions = {}
+      }
+      if (!options.providerOptions.gemini) {
+        options.providerOptions.gemini = {}
+      }
+      if (!options.providerOptions.gemini.thinkingConfig) {
+        options.providerOptions.gemini.thinkingConfig = {
+          thinkingBudget: 0,
+        }
+      }
+    }
     return provider === 'anthropic' ||
       provider === 'openai' ||
       provider === 'gemini'
-      ? promptAiSdkStream({
-          messages,
-          model: model as AnthropicModel,
-          stopSequences,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-          maxTokens: 32_000,
-        })
+      ? promptAiSdkStream(options)
       : (() => {
           throw new Error(
             `Unknown model/provider: ${selectedModel}/${model}/${provider}`
