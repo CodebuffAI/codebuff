@@ -4,7 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, desc, gte } from 'drizzle-orm'
-import { syncOrganizationBillingCycle } from '@codebuff/billing'
+import { checkOrganizationPermission } from '@/lib/organization-permissions'
 
 interface RouteParams {
   params: { orgId: string }
@@ -22,60 +22,59 @@ export async function GET(
 
     const { orgId } = params
 
-    // Check if user is a member of this organization
-    const membership = await db
-      .select({ role: schema.orgMember.role })
-      .from(schema.orgMember)
-      .where(
-        and(
-          eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id)
-        )
+    // Step 6.2.a: Check organization permission (owner or admin)
+    const permissionResult = await checkOrganizationPermission(orgId, ['owner', 'admin'])
+    if (!permissionResult.success || !permissionResult.organization) {
+      return NextResponse.json(
+        { error: permissionResult.error || 'Permission check failed' },
+        { status: permissionResult.status || 403 }
       )
-      .limit(1)
-
-    if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
+    const organizationDetails = permissionResult.organization
 
-    // Sync organization billing cycle with Stripe and get current cycle start
-    const quotaResetDate = await syncOrganizationBillingCycle(orgId)
+    // Step 6.2.b: Determine billing cycle start date
+    const cycleStartDate = organizationDetails.current_period_start || organizationDetails.created_at
 
-    // Get all usage data for this cycle
+    // Step 6.2.c: Fetch all usage messages for the organization within the current billing cycle
     const usageData = await db
       .select({
         date: schema.message.finished_at,
+        user_id: schema.message.user_id, // Added for CSV
         user_name: schema.user.name,
+        user_email: schema.user.email, // Added for CSV
         repository_url: schema.message.repo_url,
         credits_used: schema.message.credits,
-        message_id: schema.message.id,
+        // message_id: schema.message.id, // Removed as not in plan for CSV
       })
       .from(schema.message)
       .innerJoin(schema.user, eq(schema.message.user_id, schema.user.id))
       .where(
         and(
           eq(schema.message.org_id, orgId),
-          gte(schema.message.finished_at, quotaResetDate)
+          gte(schema.message.finished_at, cycleStartDate)
         )
       )
       .orderBy(desc(schema.message.finished_at))
 
-    // Convert to CSV
-    const csvHeaders = 'Date,User,Repository,Credits Used,Message ID\n'
+    // Step 6.2.d: Convert these messages to a CSV format
+    const csvHeaders = 'Date,User ID,User Name,User Email,Repository URL,Credits Used\n'
     const csvRows = usageData
       .map(row => [
-        row.date.toISOString(),
+        row.date ? new Date(row.date).toISOString() : '',
+        row.user_id || '',
         row.user_name || 'Unknown',
+        row.user_email || 'Unknown',
         row.repository_url || '',
-        row.credits_used.toString(),
-        row.message_id,
+        row.credits_used?.toString() || '0',
       ])
-      .map(row => row.map(field => `"${field.replace(/"/g, '""')}"`).join(','))
+      .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
       .join('\n')
 
     const csv = csvHeaders + csvRows
 
+    // Step 6.2.e: Return the CSV data as a downloadable file
     return new NextResponse(csv, {
+      status: 200,
       headers: {
         'Content-Type': 'text/csv',
         'Content-Disposition': `attachment; filename="org-usage-${orgId}-${new Date().toISOString().split('T')[0]}.csv"`,
@@ -83,8 +82,9 @@ export async function GET(
     })
   } catch (error) {
     console.error('Error exporting organization usage:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

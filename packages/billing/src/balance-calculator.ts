@@ -38,14 +38,46 @@ type DbConn = Pick<
 export async function getOrderedActiveGrants(
   userId: string,
   now: Date,
-  conn: DbConn = db // use DbConn instead of typeof db
+  conn: DbConn = db, // use DbConn instead of typeof db
+  isPersonalContext?: boolean // Added isPersonalContext
+) {
+  const conditions = [
+    eq(schema.creditLedger.user_id, userId),
+    or(
+      isNull(schema.creditLedger.expires_at),
+      gt(schema.creditLedger.expires_at, now)
+    ),
+  ]
+
+  if (isPersonalContext) {
+    conditions.push(isNull(schema.creditLedger.org_id))
+  }
+
+  return conn
+    .select()
+    .from(schema.creditLedger)
+    .where(and(...conditions)) // Apply all conditions together)
+    .orderBy(
+      asc(schema.creditLedger.priority),
+      asc(schema.creditLedger.expires_at),
+      asc(schema.creditLedger.created_at)
+    )
+}
+
+/**
+ * Gets active grants for an organization, ordered by expiration (soonest first), then priority, and creation date.
+ */
+export async function getOrderedActiveOrgGrants(
+  orgId: string,
+  now: Date,
+  conn: DbConn = db
 ) {
   return conn
     .select()
     .from(schema.creditLedger)
     .where(
       and(
-        eq(schema.creditLedger.user_id, userId),
+        eq(schema.creditLedger.org_id, orgId), // Filter by org_id
         or(
           isNull(schema.creditLedger.expires_at),
           gt(schema.creditLedger.expires_at, now)
@@ -53,7 +85,6 @@ export async function getOrderedActiveGrants(
       )
     )
     .orderBy(
-      // Use grants based on priority, then expiration date, then creation date
       asc(schema.creditLedger.priority),
       asc(schema.creditLedger.expires_at),
       asc(schema.creditLedger.created_at)
@@ -182,10 +213,12 @@ export async function calculateUsageAndBalance(
   userId: string,
   quotaResetDate: Date,
   now: Date = new Date(),
-  conn: DbConn = db // Add optional conn parameter to pass transaction
+  conn: DbConn = db, // Add optional conn parameter to pass transaction
+  isPersonalContext?: boolean // Added isPersonalContext parameter
 ): Promise<CreditUsageAndBalance> {
   // Get all relevant grants in one query, using the provided connection
-  const grants = await getOrderedActiveGrants(userId, now, conn)
+  // Pass isPersonalContext to getOrderedActiveGrants
+  const grants = await getOrderedActiveGrants(userId, now, conn, isPersonalContext)
 
   // Initialize breakdown and principals with all grant types set to 0
   const initialBreakdown: Record<GrantType, number> = {} as Record<
@@ -262,6 +295,87 @@ export async function calculateUsageAndBalance(
   logger.debug(
     { userId, balance, usageThisCycle, grantsCount: grants.length },
     'Calculated usage and settled balance'
+  )
+
+  return { usageThisCycle, balance }
+}
+
+/**
+ * Calculates both the current balance and usage in this cycle for an organization.
+ */
+export async function calculateOrganizationUsageAndBalance(
+  orgId: string,
+  quotaResetDate: Date, // This is cycleStartDate for orgs
+  now: Date = new Date(),
+  conn: DbConn = db
+): Promise<CreditUsageAndBalance> {
+  const grants = await getOrderedActiveOrgGrants(orgId, now, conn)
+
+  const initialBreakdown: Record<GrantType, number> = {} as Record<
+    GrantType,
+    number
+  >
+  const initialPrincipals: Record<GrantType, number> = {} as Record<
+    GrantType,
+    number
+  >
+
+  for (const type of GrantTypeValues) {
+    initialBreakdown[type] = 0
+    initialPrincipals[type] = 0
+  }
+
+  const balance: CreditBalance = {
+    totalRemaining: 0,
+    totalDebt: 0,
+    netBalance: 0,
+    breakdown: initialBreakdown,
+    principals: initialPrincipals,
+  }
+
+  let usageThisCycle = 0
+  let totalPositiveBalance = 0
+  let totalDebt = 0
+
+  for (const grant of grants) {
+    const grantType = grant.type as GrantType
+
+    if (
+      grant.created_at > quotaResetDate ||
+      !grant.expires_at ||
+      grant.expires_at > quotaResetDate
+    ) {
+      usageThisCycle += grant.principal - grant.balance
+    }
+
+    if (!grant.expires_at || grant.expires_at > now) {
+      balance.principals[grantType] += grant.principal
+      if (grant.balance > 0) {
+        totalPositiveBalance += grant.balance
+        balance.breakdown[grantType] += grant.balance
+      } else if (grant.balance < 0) {
+        totalDebt += Math.abs(grant.balance)
+      }
+    }
+  }
+
+  if (totalDebt > 0 && totalPositiveBalance > 0) {
+    const settlementAmount = Math.min(totalDebt, totalPositiveBalance)
+    logger.debug(
+      { orgId, totalDebt, totalPositiveBalance, settlementAmount },
+      'Performing in-memory settlement for organization'
+    )
+    totalPositiveBalance -= settlementAmount
+    totalDebt -= settlementAmount
+  }
+
+  balance.totalRemaining = totalPositiveBalance
+  balance.totalDebt = totalDebt
+  balance.netBalance = totalPositiveBalance - totalDebt
+
+  logger.debug(
+    { orgId, balance, usageThisCycle, grantsCount: grants.length },
+    'Calculated org usage and settled balance'
   )
 
   return { usageThisCycle, balance }

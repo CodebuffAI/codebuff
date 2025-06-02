@@ -234,3 +234,8 @@ export const providerModelNames = {
 export type Model = (typeof models)[keyof typeof models]
 
 export const TEST_USER_ID = 'test-user-id'
+
+export const CREDIT_PRICING = {
+  CENTS_PER_CREDIT: 1, // Example: 1 cent per credit. Adjust as per actual pricing.
+  DISPLAY_RATE: '$0.01 per credit', // Example display rate. Adjust as per actual pricing.
+} as const;

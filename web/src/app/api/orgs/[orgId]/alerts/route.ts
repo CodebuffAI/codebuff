@@ -5,6 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getOrganizationAlerts } from '@codebuff/billing'
+import { OrganizationAlert } from 'common/src/types/organization'; // Import the type
 
 interface RouteParams {
   params: { orgId: string }
@@ -23,6 +24,7 @@ export async function GET(
     const { orgId } = params
 
     // Check if user is a member of this organization
+    // Consider replacing this with checkOrganizationPermission for consistency and robustness
     const membership = await db
       .select({ role: schema.orgMember.role })
       .from(schema.orgMember)
@@ -39,13 +41,14 @@ export async function GET(
     }
 
     // Get alerts using centralized billing logic
-    const alerts = await getOrganizationAlerts(orgId)
+    const alerts: OrganizationAlert[] = await getOrganizationAlerts(orgId) // Type the result
 
     // Convert Date objects to ISO strings for JSON serialization
-    const serializedAlerts = alerts.map(alert => ({
+    const serializedAlerts = alerts.map((alert: OrganizationAlert) => ({ // Explicitly type 'alert' parameter
       ...alert,
-      timestamp: alert.timestamp.toISOString()
-    }))
+      // Ensure timestamp exists before calling toISOString, or handle potential undefined
+      timestamp: alert.timestamp ? alert.timestamp.toISOString() : new Date(0).toISOString(), // Fallback for safety
+    }));
 
     return NextResponse.json({ alerts: serializedAlerts })
   } catch (error) {

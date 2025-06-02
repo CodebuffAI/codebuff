@@ -10,6 +10,8 @@ export {
   calculateUsageAndBalance,
   consumeCredits,
   calculateUsageThisCycle,
+  getOrderedActiveOrgGrants,
+  calculateOrganizationUsageAndBalance,
   type CreditBalance,
   type CreditUsageAndBalance,
   type CreditConsumptionResult,
@@ -23,6 +25,7 @@ export {
   getPreviousFreeGrantAmount,
   calculateTotalReferralBonus,
   grantCreditOperation,
+  grantOrganizationCredits,
 } from './grant-credits'
 
 // Credit conversion utilities
@@ -30,3 +33,8 @@ export { getUserCostPerCredit } from './conversion'
 
 // Utilities
 export { generateOperationIdTimestamp } from './utils'
+
+// New exports for Step 7
+export { getOrganizationAlerts } from './alerts';
+export { validateAndNormalizeRepositoryUrl } from './repositories';
+export { syncOrganizationBillingCycle } from './billing-cycle';

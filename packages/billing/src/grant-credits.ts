@@ -109,7 +109,8 @@ export async function grantCreditOperation(
   description: string,
   expiresAt: Date | null,
   operationId: string,
-  tx?: DbTransaction
+  tx?: DbTransaction,
+  orgId?: string // Added orgId parameter
 ) {
   const dbClient = tx || db
 
@@ -146,8 +147,8 @@ export async function grantCreditOperation(
       try {
         await dbClient.insert(schema.creditLedger).values({
           operation_id: operationId,
-          user_id: userId,
-          principal: amount,
+          user_id: userId, // For org grants, this is the purchasing user
+          principal: amount, // Store the original amount before debt clearance
           balance: remainingAmount,
           type,
           description:
@@ -157,6 +158,7 @@ export async function grantCreditOperation(
           priority: GRANT_PRIORITIES[type],
           expires_at: expiresAt,
           created_at: now,
+          org_id: orgId, // Pass orgId here
         })
       } catch (error: any) {
         // Check if this is a unique constraint violation on operation_id
@@ -165,7 +167,7 @@ export async function grantCreditOperation(
           error.constraint === 'credit_ledger_pkey'
         ) {
           logger.info(
-            { userId, operationId, type, amount },
+            { userId, orgId, operationId, type, amount },
             'Skipping duplicate credit grant due to idempotency check'
           )
           return // Exit successfully, another concurrent request already created this grant
@@ -178,7 +180,7 @@ export async function grantCreditOperation(
     try {
       await dbClient.insert(schema.creditLedger).values({
         operation_id: operationId,
-        user_id: userId,
+        user_id: userId, // For org grants, this is the purchasing user
         principal: amount,
         balance: amount,
         type,
@@ -186,12 +188,13 @@ export async function grantCreditOperation(
         priority: GRANT_PRIORITIES[type],
         expires_at: expiresAt,
         created_at: now,
+        org_id: orgId, // Pass orgId here
       })
     } catch (error: any) {
       // Check if this is a unique constraint violation on operation_id
       if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
         logger.info(
-          { userId, operationId, type, amount },
+          { userId, orgId, operationId, type, amount },
           'Skipping duplicate credit grant due to idempotency check'
         )
         return // Exit successfully, another concurrent request already created this grant
@@ -206,10 +209,11 @@ export async function grantCreditOperation(
     description,
     amount,
     expiresAt,
+    orgId, // Added orgId to tracking
   })
 
   logger.info(
-    { userId, operationId, type, amount, expiresAt },
+    { userId, orgId, operationId, type, amount, expiresAt },
     'Created new credit grant'
   )
 }
@@ -224,7 +228,8 @@ export async function processAndGrantCredit(
   type: GrantType,
   description: string,
   expiresAt: Date | null,
-  operationId: string
+  operationId: string,
+  orgId?: string // Added orgId parameter
 ): Promise<void> {
   try {
     await withRetry(
@@ -235,7 +240,9 @@ export async function processAndGrantCredit(
           type,
           description,
           expiresAt,
-          operationId
+          operationId,
+          undefined, // tx
+          orgId // Pass orgId here
         ),
       {
         maxRetries: 3,
@@ -309,6 +316,44 @@ export async function revokeGrantByOperationId(
 
     return true
   })
+}
+
+/**
+ * Grants credits to an organization.
+ * @param orgId The ID of the organization.
+ * @param purchasingUserId The ID of the user making the purchase.
+ * @param amount The amount of credits to grant.
+ * @param operationId The operation ID for the grant.
+ * @param description A description of the grant.
+ */
+export async function grantOrganizationCredits(
+  orgId: string,
+  purchasingUserId: string, // User making the purchase
+  amount: number,
+  operationId: string,
+  description: string
+): Promise<void> {
+  // For organization grants, expiresAt is typically null (non-expiring)
+  // unless specific business logic dictates otherwise.
+  const expiresAt = null;
+  // The 'type' should be the new organization grant type
+  const type: GrantType = 'organization';
+
+  // processAndGrantCredit already handles idempotency and retries.
+  // We pass the orgId to it.
+  await processAndGrantCredit(
+    purchasingUserId, // user_id in creditLedger will be the purchasing user
+    amount,
+    type,
+    description,
+    expiresAt,
+    operationId,
+    orgId // Pass the orgId here
+  );
+  logger.info(
+    { orgId, purchasingUserId, amount, operationId },
+    'Granted credits to organization'
+  );
 }
 
 /**

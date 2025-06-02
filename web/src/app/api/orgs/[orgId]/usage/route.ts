@@ -5,7 +5,8 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { OrganizationUsageResponse } from 'common/types/organization'
-import { calculateOrganizationUsageAndBalance, syncOrganizationBillingCycle } from '@codebuff/billing'
+import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
+import { checkOrganizationPermission } from '@/lib/organization-permissions'
 
 interface RouteParams {
   params: { orgId: string }
@@ -23,76 +24,62 @@ export async function GET(
 
     const { orgId } = params
 
-    // Check if user is a member of this organization
-    const membership = await db
-      .select({ role: schema.orgMember.role })
-      .from(schema.orgMember)
-      .where(
-        and(
-          eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id)
-        )
+    // Step 5.2.a: Check organization permission (owner or admin)
+    const permissionResult = await checkOrganizationPermission(orgId, ['owner', 'admin'])
+    if (!permissionResult.success || !permissionResult.organization) {
+      return NextResponse.json(
+        { error: permissionResult.error || 'Permission check failed' },
+        { status: permissionResult.status || 403 }
       )
-      .limit(1)
-
-    if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
+    // Use the organization details from the permission check
+    const organizationDetails = permissionResult.organization
 
-    // Sync organization billing cycle with Stripe and get current cycle start
-    const startOfCurrentCycle = await syncOrganizationBillingCycle(orgId)
-    
-    // Get the organization to fetch the current period end date
-    const organization = await db.query.org.findFirst({
-      where: eq(schema.org.id, orgId),
-      columns: {
-        current_period_start: true,
-        current_period_end: true,
-      },
-    })
+    // Step 5.2.b: Determine billing cycle start date
+    // Use current_period_start from the fetched organization details, fallback to created_at
+    const cycleStartDate = organizationDetails.current_period_start || organizationDetails.created_at
+    // Use current_period_end, with a fallback if it's null
+    const cycleEndDate = organizationDetails.current_period_end || new Date(new Date(cycleStartDate).setDate(new Date(cycleStartDate).getDate() + 30))
 
-    // Use the synced dates or fallback to reasonable defaults
-    const cycleStartDate = organization?.current_period_start || startOfCurrentCycle
-    const cycleEndDate = organization?.current_period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
-    
     let currentBalance = 0
     let usageThisCycle = 0
     
     try {
       const now = new Date()
+      // Step 5.2.c: Call calculateOrganizationUsageAndBalance
       const { balance, usageThisCycle: usage } = await calculateOrganizationUsageAndBalance(
         orgId,
-        startOfCurrentCycle,
+        cycleStartDate, // Use determined cycleStartDate
         now
       )
       currentBalance = balance.netBalance
       usageThisCycle = usage
     } catch (error) {
-      // If no credits exist yet, that's fine
-      console.log('No organization credits found:', error)
+      // If no credits exist yet, that's fine, balances will be 0
+      console.log('No organization credits found or error in calculation:', error)
     }
 
-    // Get top users by credit usage this cycle
+    // Step 5.2.d: Fetch top users by usage for the cycle
     const topUsers = await db
       .select({
         user_id: schema.message.user_id,
         user_name: schema.user.name,
         user_email: schema.user.email,
-        credits_used: sql<number>`SUM(${schema.message.credits})`,
+        credits_used: sql<number>`SUM(${schema.message.credits})`.mapWith(Number),
       })
       .from(schema.message)
       .innerJoin(schema.user, eq(schema.message.user_id, schema.user.id))
       .where(
         and(
           eq(schema.message.org_id, orgId),
-          gte(schema.message.finished_at, startOfCurrentCycle)
+          gte(schema.message.finished_at, cycleStartDate) // Use determined cycleStartDate
         )
       )
       .groupBy(schema.message.user_id, schema.user.name, schema.user.email)
       .orderBy(desc(sql`SUM(${schema.message.credits})`))
       .limit(10)
 
-    // Get recent usage activity
+    // Step 5.2.e: Fetch recent usage activity for the organization
     const recentUsage = await db
       .select({
         date: schema.message.finished_at,
@@ -105,26 +92,27 @@ export async function GET(
       .where(
         and(
           eq(schema.message.org_id, orgId),
-          gte(schema.message.finished_at, startOfCurrentCycle)
+          gte(schema.message.finished_at, cycleStartDate) // Use determined cycleStartDate
         )
       )
       .orderBy(desc(schema.message.finished_at))
       .limit(50)
 
+    // Step 5.2.f: Return currentBalance, usageThisCycle, topUsers, and recentUsage
     const response: OrganizationUsageResponse = {
       currentBalance,
       usageThisCycle,
       cycleStartDate: cycleStartDate.toISOString(),
       cycleEndDate: cycleEndDate.toISOString(),
       topUsers: topUsers.map(user => ({
-        user_id: user.user_id!,
+        user_id: user.user_id!, // Assuming user_id is always present after join
         user_name: user.user_name || 'Unknown',
         user_email: user.user_email || 'Unknown',
-        credits_used: user.credits_used,
+        credits_used: user.credits_used || 0,
       })),
       recentUsage: recentUsage.map(usage => ({
         date: usage.date.toISOString(),
-        credits_used: usage.credits_used,
+        credits_used: usage.credits_used || 0,
         repository_url: usage.repository_url || '',
         user_name: usage.user_name || 'Unknown',
       })),
@@ -133,8 +121,10 @@ export async function GET(
     return NextResponse.json(response)
   } catch (error) {
     console.error('Error fetching organization usage:', error)
+    // It's good practice to type the error if possible, or log its specific structure
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: errorMessage },
       { status: 500 }
     )
   }
