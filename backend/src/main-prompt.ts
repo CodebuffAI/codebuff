@@ -312,7 +312,7 @@ export const mainPrompt = async (
       agentState: {
         ...agentState,
         messageHistory: [
-          ...expireMessages(messageHistory, 'userPrompt'),
+          ...expireMessages(messagesWithToolResultsAndUser, 'userPrompt'),
           { role: 'assistant', content: warningString },
         ],
       },
