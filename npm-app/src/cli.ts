@@ -429,6 +429,12 @@ export class CLI {
     const client = Client.getInstance()
     if (client.user) {
       displayGreeting(this.costMode, client.user.name)
+      // Display repo billing status after greeting
+      if (client.repoBillingStatus?.isOrgCovered && client.repoBillingStatus.orgName) {
+        console.log(green(`This repository's usage is covered by your organization: ${client.repoBillingStatus.orgName}`))
+      } else if (client.repoBillingStatus?.error && client.repoBillingStatus.error !== "Missing auth or repo info") {
+        // console.log(yellow(`Note: Could not determine organization coverage. ${client.repoBillingStatus.error}`));
+      }
     } else {
       console.log(
         `Welcome to Codebuff! Give us a sec to get your account set up...`
@@ -900,6 +906,10 @@ export class CLI {
           : '.'
       }`
     )
+
+    if (client.repoBillingStatus?.isOrgCovered && client.repoBillingStatus.orgName) {
+      logMessages.push(green(`Usage for this repository was covered by your organization: ${client.repoBillingStatus.orgName}`))
+    }
 
     if (client.usageData.next_quota_reset) {
       const daysUntilReset = Math.ceil(

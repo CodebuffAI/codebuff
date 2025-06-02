@@ -121,6 +121,12 @@ const WARNING_CONFIG = {
 
 type UsageData = Omit<MakeNullable<UsageResponse, 'remainingBalance'>, 'type'>
 
+interface RepoBillingStatus {
+  isOrgCovered: boolean
+  orgName?: string
+  error?: string
+}
+
 interface ClientOptions {
   websocketUrl: string
   onWebSocketError: () => void
@@ -155,6 +161,7 @@ export class Client {
     balanceBreakdown: undefined,
     next_quota_reset: null,
   }
+  public repoBillingStatus: RepoBillingStatus | undefined
   public pendingTopUpMessageAmount: number = 0
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
@@ -305,6 +312,9 @@ export class Client {
     await this.webSocket.connect()
     this.setupSubscriptions()
     await this.fetchStoredApiKeyTypes()
+    // Call new method after user and repo context might be available
+    // It's okay if repoName is not yet set, getRepoBillingStatus will handle it
+    await this.getRepoBillingStatus()
   }
 
   async fetchStoredApiKeyTypes(): Promise<void> {
@@ -312,43 +322,38 @@ export class Client {
       return
     }
 
-    // const TIMEOUT_MS = 5_000
-    //   try {
-    //     const timeoutPromise = new Promise<Response>((_, reject) => {
-    //       setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS)
-    //     })
-
-    //     const fetchPromise = fetch(
-    //       `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
-    //       {
-    //         method: 'GET',
-    //         headers: {
-    //           'Content-Type': 'application/json',
-    //           Cookie: `next-auth.session-token=${this.user.authToken}`,
-    //           Authorization: `Bearer ${this.user.authToken}`,
-    //         },
-    //       }
-    //     )
-
-    //     const response = await Promise.race([fetchPromise, timeoutPromise])
-
-    //     if (response.ok) {
-    //       const { keyTypes } = await response.json()
-    //       this.storedApiKeyTypes = keyTypes as ApiKeyType[]
-    //     } else {
-    //       this.storedApiKeyTypes = []
-    //     }
-    //   } catch (error) {
-    //     if (process.env.NODE_ENV !== 'production') {
-    //       console.error(
-    //         'Error fetching stored API key types (is there something else on port 3000?):',
-    //         error
-    //       )
-    //     }
-    //     this.storedApiKeyTypes = []
-    //   }
-
     this.storedApiKeyTypes = []
+  }
+
+  async getRepoBillingStatus(): Promise<void> {
+    if (!this.user || !this.user.authToken || !loggerContext.repoName) {
+      this.repoBillingStatus = { isOrgCovered: false, error: "Missing auth or repo info" };
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/repo-billing-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fingerprintId: await this.fingerprintId,
+          authToken: this.user.authToken,
+          repoUrl: loggerContext.repoName, // Assuming repoName is the URL
+        }),
+      });
+
+      const data: RepoBillingStatus = await response.json();
+      if (response.ok) {
+        this.repoBillingStatus = data;
+      } else {
+        this.repoBillingStatus = { isOrgCovered: false, error: data.error || `HTTP error ${response.status}` };
+      }
+    } catch (error) {
+      logger.error({ error }, 'Error fetching repo billing status');
+      this.repoBillingStatus = { isOrgCovered: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
   }
 
   async handleAddApiKey(keyType: ApiKeyType, apiKey: string): Promise<void> {
@@ -1166,13 +1171,21 @@ Go to https://www.codebuff.com/config for more information.`) +
       const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
         .flat()
         .reduce((sum, credits) => sum + credits, 0)
-      console.log(
-        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}${
-          this.usageData.remainingBalance !== null
-            ? `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
-            : '.'
-        }`
-      )
+      
+      let billingMessage = `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}${
+        this.usageData.remainingBalance !== null
+          ? `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
+          : '.'
+      }`;
+      
+      if (this.repoBillingStatus?.isOrgCovered && this.repoBillingStatus.orgName) {
+        billingMessage += `\n${green(`This repository's usage is covered by your organization: ${this.repoBillingStatus.orgName}`)}`;
+      } else if (this.repoBillingStatus?.error) {
+        // Optionally log an error or a subtle hint if status check failed
+        // console.log(yellow(`Could not determine organization coverage: ${this.repoBillingStatus.error}`));
+      }
+
+      console.log(billingMessage)
 
       if (this.usageData.next_quota_reset) {
         const resetDate = new Date(this.usageData.next_quota_reset)
@@ -1212,12 +1225,14 @@ Go to https://www.codebuff.com/config for more information.`) +
       throw new Error('Failed to initialize project file context')
     }
 
-    this.webSocket.subscribe('init-response', (a) => {
+    this.webSocket.subscribe('init-response', async (a) => { // made async
       const parsedAction = InitResponseSchema.safeParse(a)
       if (!parsedAction.success) return
 
       // Set initial usage data from the init response
       this.setUsage(parsedAction.data)
+      // Fetch repo billing status after usage data is set and user context is likely established
+      await this.getRepoBillingStatus();
     })
 
     this.webSocket.sendAction({

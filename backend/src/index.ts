@@ -9,6 +9,7 @@ import {
   getTracesForUserHandler,
   relabelForUserHandler,
 } from './admin/relabelRuns'
+import repoBillingStatusHandler from './api/repo-billing-status' // Added import
 import usageHandler from './api/usage'
 import { env } from './env.mjs'
 import { checkAdmin } from './util/check-auth'
@@ -33,6 +34,7 @@ app.get('/healthz', (req, res) => {
 })
 
 app.post('/api/usage', usageHandler)
+app.post('/api/repo-billing-status', repoBillingStatusHandler) // Added new route
 
 // Enable CORS for preflight requests to the admin relabel endpoint
 app.options('/api/admin/relabel-for-user', cors())
