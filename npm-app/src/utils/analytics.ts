@@ -113,7 +113,8 @@ export function logError(
   properties?: Record<string, any>
 ) {
   if (!client) {
-    throw new Error('Analytics client not initialized')
+    logger.info('Skipping error logging: Analytics client not initialized')
+    return
   }
 
   client.captureException(
