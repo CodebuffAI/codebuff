@@ -1041,7 +1041,9 @@ export const mainPrompt = async (
     finalMessageHistory = [
       {
         role: 'user',
-        content: `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`,
+        content: asSystemMessage(
+          `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`
+        ),
       },
     ]
     logger.debug({ summary: fullResponse }, 'Compacted messages')
