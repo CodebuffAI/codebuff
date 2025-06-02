@@ -1,175 +1,157 @@
-import { validateAndNormalizeRepositoryUrl } from '../repositories';
+import { extractOrgAndRepoFromUrl } from '../repositories';
 
-describe('validateAndNormalizeRepositoryUrl', () => {
-  // Helper to extract comparable parts (host, owner, repo) from a normalized URL
-  // This is specific to the test's needs for comparing "sameness"
-  const getRepoParts = (normalizedUrl: string | undefined): { host?: string; owner?: string; repo?: string } | null => {
-    if (!normalizedUrl) return null;
-
-    const httpMatch = normalizedUrl.match(/^https?:\/\/([\w.-]+)\/([\w.-]+)\/([\w.-]+)\.git$/i);
-    if (httpMatch) {
-      return { host: httpMatch[1], owner: httpMatch[2], repo: httpMatch[3] };
-    }
-
-    const sshMatch = normalizedUrl.match(/^(?:[\w.-]+@)?([\w.-]+):([\w.-]+)\/([\w.-]+)\.git$/i);
-    if (sshMatch) {
-      return { host: sshMatch[1], owner: sshMatch[2], repo: sshMatch[3] };
-    }
-    
-    const sshProtocolMatch = normalizedUrl.match(/^ssh:\/\/([\w.-]+@)?([\w.-]+)\/([\w.-]+)\/([\w.-]+)\.git$/i); // Fixed regex: ssh:\/\/
-    if (sshProtocolMatch) {
-        // For ssh://git@host/owner/repo.git
-        // match[1] is user@ (e.g., git@) - we don't need it for host comparison here
-        // match[2] is host
-        // match[3] is owner
-        // match[4] is repo
-        return { host: sshProtocolMatch[2], owner: sshProtocolMatch[3], repo: sshProtocolMatch[4] };
-    }
-
-    return null;
-  };
-
+describe('extractOrgAndRepoFromUrl', () => {
   describe('Valid URLs', () => {
-    test('should validate and normalize HTTPS URL', () => {
-      const result = validateAndNormalizeRepositoryUrl('https://github.com/TestUser/TestRepo');
+    test('should extract org and repo from HTTPS URL', () => {
+      const result = extractOrgAndRepoFromUrl('https://github.com/TestUser/TestRepo');
       expect(result.isValid).toBe(true);
-      expect(result.normalizedUrl).toBe('https://github.com/testuser/testrepo.git');
+      expect(result.host).toBe('github.com');
+      expect(result.owner).toBe('testuser');
+      expect(result.repo).toBe('testrepo');
     });
 
-    test('should validate and normalize HTTPS URL with .git suffix', () => {
-      const result = validateAndNormalizeRepositoryUrl('https://gitlab.com/AnotherUser/MyProject.git');
+    test('should extract org and repo from HTTPS URL with .git suffix', () => {
+      const result = extractOrgAndRepoFromUrl('https://gitlab.com/AnotherUser/MyProject.git');
       expect(result.isValid).toBe(true);
-      expect(result.normalizedUrl).toBe('https://gitlab.com/anotheruser/myproject.git');
+      expect(result.host).toBe('gitlab.com');
+      expect(result.owner).toBe('anotheruser');
+      expect(result.repo).toBe('myproject');
     });
 
-    test('should validate and normalize HTTPS URL with trailing slash', () => {
-      const result = validateAndNormalizeRepositoryUrl('https://bitbucket.org/Org/RepoName/');
+    test('should extract org and repo from HTTPS URL with trailing slash', () => {
+      const result = extractOrgAndRepoFromUrl('https://bitbucket.org/Org/RepoName/');
       expect(result.isValid).toBe(true);
-      expect(result.normalizedUrl).toBe('https://bitbucket.org/org/reponame.git');
+      expect(result.host).toBe('bitbucket.org');
+      expect(result.owner).toBe('org');
+      expect(result.repo).toBe('reponame');
     });
-    
+
     test('should handle uppercase in owner and repo names for HTTPS', () => {
-      const result = validateAndNormalizeRepositoryUrl('https://github.com/CodeBuffAI/CodeBuff');
+      const result = extractOrgAndRepoFromUrl('https://github.com/CodeBuffAI/CodeBuff');
       expect(result.isValid).toBe(true);
-      expect(result.normalizedUrl).toBe('https://github.com/codebuffai/codebuff.git');
+      expect(result.host).toBe('github.com');
+      expect(result.owner).toBe('codebuffai');
+      expect(result.repo).toBe('codebuff');
     });
 
-    test('should validate and normalize Git SSH URL', () => {
-      const result = validateAndNormalizeRepositoryUrl('git@github.com:TestUser/TestRepo');
+    test('should extract org and repo from Git SSH URL', () => {
+      const result = extractOrgAndRepoFromUrl('git@github.com:TestUser/TestRepo');
       expect(result.isValid).toBe(true);
-      expect(result.normalizedUrl).toBe('git@github.com:testuser/testrepo.git');
+      expect(result.host).toBe('github.com');
+      expect(result.owner).toBe('testuser');
+      expect(result.repo).toBe('testrepo');
     });
 
-    test('should validate and normalize Git SSH URL with .git suffix', () => {
-      const result = validateAndNormalizeRepositoryUrl('git@gitlab.com:AnotherUser/MyProject.git');
+    test('should extract org and repo from Git SSH URL with .git suffix', () => {
+      const result = extractOrgAndRepoFromUrl('git@gitlab.com:AnotherUser/MyProject.git');
       expect(result.isValid).toBe(true);
-      expect(result.normalizedUrl).toBe('git@gitlab.com:anotheruser/myproject.git');
+      expect(result.host).toBe('gitlab.com');
+      expect(result.owner).toBe('anotheruser');
+      expect(result.repo).toBe('myproject');
     });
 
     test('should handle custom user in Git SSH URL', () => {
-      const resultSimple = validateAndNormalizeRepositoryUrl('user@customhost.com:Owner/Repo');
-      expect(resultSimple.isValid).toBe(true);
-      expect(resultSimple.normalizedUrl).toBe('user@customhost.com:owner/repo.git');
+      const result = extractOrgAndRepoFromUrl('user@customhost.com:Owner/Repo');
+      expect(result.isValid).toBe(true);
+      expect(result.host).toBe('customhost.com');
+      expect(result.owner).toBe('owner');
+      expect(result.repo).toBe('repo');
     });
 
     test('should handle uppercase in owner and repo names for Git SSH', () => {
-      const result = validateAndNormalizeRepositoryUrl('git@github.com:CodeBuffAI/CodeBuff.git');
+      const result = extractOrgAndRepoFromUrl('git@github.com:CodeBuffAI/CodeBuff.git');
       expect(result.isValid).toBe(true);
-      expect(result.normalizedUrl).toBe('git@github.com:codebuffai/codebuff.git');
+      expect(result.host).toBe('github.com');
+      expect(result.owner).toBe('codebuffai');
+      expect(result.repo).toBe('codebuff');
     });
 
-    test('should validate and normalize SSH protocol URL', () => {
-      const result = validateAndNormalizeRepositoryUrl('ssh://git@github.com/TestUser/TestRepo.git');
+    test('should extract org and repo from SSH protocol URL', () => {
+      const result = extractOrgAndRepoFromUrl('ssh://git@github.com/TestUser/TestRepo.git');
       expect(result.isValid).toBe(true);
-      expect(result.normalizedUrl).toBe('ssh://git@github.com/testuser/testrepo.git');
+      expect(result.host).toBe('github.com');
+      expect(result.owner).toBe('testuser');
+      expect(result.repo).toBe('testrepo');
     });
 
-    test('should validate and normalize SSH protocol URL without .git and with trailing slash', () => {
-      const result = validateAndNormalizeRepositoryUrl('ssh://user@custom.host/Owner/Project/');
+    test('should extract org and repo from SSH protocol URL without .git and with trailing slash', () => {
+      const result = extractOrgAndRepoFromUrl('ssh://user@custom.host/Owner/Project/');
       expect(result.isValid).toBe(true);
-      expect(result.normalizedUrl).toBe('ssh://user@custom.host/owner/project.git');
+      expect(result.host).toBe('custom.host');
+      expect(result.owner).toBe('owner');
+      expect(result.repo).toBe('project');
     });
 
-    test('should validate and normalize SSH protocol URL without user', () => {
-      const result = validateAndNormalizeRepositoryUrl('ssh://custom.host/Owner/Project.git');
+    test('should extract org and repo from SSH protocol URL without user', () => {
+      const result = extractOrgAndRepoFromUrl('ssh://custom.host/Owner/Project.git');
       expect(result.isValid).toBe(true);
-      expect(result.normalizedUrl).toBe('ssh://git@custom.host/owner/project.git'); // Defaults to git@
+      expect(result.host).toBe('custom.host');
+      expect(result.owner).toBe('owner');
+      expect(result.repo).toBe('project');
     });
   });
 
   describe('Invalid URLs', () => {
     test('should invalidate empty string', () => {
-      const result = validateAndNormalizeRepositoryUrl('');
+      const result = extractOrgAndRepoFromUrl('');
       expect(result.isValid).toBe(false);
       expect(result.error).toBe('Repository URL cannot be empty.');
     });
 
     test('should invalidate string with only spaces', () => {
-      const result = validateAndNormalizeRepositoryUrl('   ');
+      const result = extractOrgAndRepoFromUrl('   ');
       expect(result.isValid).toBe(false);
       expect(result.error).toBe('Repository URL cannot be empty.');
     });
 
     test('should invalidate plain text', () => {
-      const result = validateAndNormalizeRepositoryUrl('justsometext');
+      const result = extractOrgAndRepoFromUrl('justsometext');
       expect(result.isValid).toBe(false);
       expect(result.error).toContain('Invalid repository URL format.');
     });
 
     test('should invalidate incomplete SSH URL', () => {
-      const result = validateAndNormalizeRepositoryUrl('git@github.com:TestUser'); // Missing repo
+      const result = extractOrgAndRepoFromUrl('git@github.com:TestUser'); // Missing repo
       expect(result.isValid).toBe(false);
       expect(result.error).toContain('Invalid repository URL format.');
     });
 
     test('should invalidate incomplete HTTPS URL', () => {
-      const result = validateAndNormalizeRepositoryUrl('https://github.com/TestUser'); // Missing repo
+      const result = extractOrgAndRepoFromUrl('https://github.com/TestUser'); // Missing repo
       expect(result.isValid).toBe(false);
       expect(result.error).toContain('Invalid repository URL format.');
     });
   });
 
-  describe('Equivalence Tests (User Specific Request)', () => {
-    test('HTTPS and Git SSH URLs for the same repo (case difference) should be considered equivalent', () => {
+  describe('Equivalence Tests', () => {
+    test('HTTPS and Git SSH URLs for the same repo (case difference) should extract same org/repo', () => {
       const url1 = 'https://github.com/codebuffai/codebuff';
       const url2 = 'git@github.com:CodebuffAI/codebuff.git';
 
-      const result1 = validateAndNormalizeRepositoryUrl(url1);
-      const result2 = validateAndNormalizeRepositoryUrl(url2);
+      const result1 = extractOrgAndRepoFromUrl(url1);
+      const result2 = extractOrgAndRepoFromUrl(url2);
 
       expect(result1.isValid).toBe(true);
       expect(result2.isValid).toBe(true);
       
-      const parts1 = getRepoParts(result1.normalizedUrl);
-      const parts2 = getRepoParts(result2.normalizedUrl);
-
-      expect(parts1).not.toBeNull();
-      expect(parts2).not.toBeNull();
-
-      expect(parts1?.host?.toLowerCase()).toBe(parts2?.host?.toLowerCase());
-      expect(parts1?.owner).toBe(parts2?.owner); 
-      expect(parts1?.repo).toBe(parts2?.repo);   
+      expect(result1.host).toBe(result2.host);
+      expect(result1.owner).toBe(result2.owner);
+      expect(result1.repo).toBe(result2.repo);
     });
 
-    test('HTTPS and SSH Protocol URLs for the same repo should be considered equivalent', () => {
-        const url1 = 'https://github.com/AnotherOrg/AnotherRepo.git';
-        const url2 = 'ssh://git@github.com/anotherorg/anotherrepo';
-  
-        const result1 = validateAndNormalizeRepositoryUrl(url1);
-        const result2 = validateAndNormalizeRepositoryUrl(url2);
-  
-        expect(result1.isValid).toBe(true);
-        expect(result2.isValid).toBe(true);
-        
-        const parts1 = getRepoParts(result1.normalizedUrl);
-        const parts2 = getRepoParts(result2.normalizedUrl);
-  
-        expect(parts1).not.toBeNull();
-        expect(parts2).not.toBeNull();
-  
-        expect(parts1?.host?.toLowerCase()).toBe(parts2?.host?.toLowerCase());
-        expect(parts1?.owner).toBe(parts2?.owner);
-        expect(parts1?.repo).toBe(parts2?.repo);
-      });
+    test('HTTPS and SSH Protocol URLs for the same repo should extract same org/repo', () => {
+      const url1 = 'https://github.com/AnotherOrg/AnotherRepo.git';
+      const url2 = 'ssh://git@github.com/anotherorg/anotherrepo';
+
+      const result1 = extractOrgAndRepoFromUrl(url1);
+      const result2 = extractOrgAndRepoFromUrl(url2);
+
+      expect(result1.isValid).toBe(true);
+      expect(result2.isValid).toBe(true);
+      
+      expect(result1.host).toBe(result2.host);
+      expect(result1.owner).toBe(result2.owner);
+      expect(result1.repo).toBe(result2.repo);
+    });
   });
 });

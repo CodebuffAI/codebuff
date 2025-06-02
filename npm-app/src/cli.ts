@@ -430,9 +430,19 @@ export class CLI {
     if (client.user) {
       displayGreeting(this.costMode, client.user.name)
       // Display repo billing status after greeting
-      if (client.repoBillingStatus?.isOrgCovered && client.repoBillingStatus.orgName) {
-        console.log(green(`This repository's usage is covered by your organization: ${client.repoBillingStatus.orgName}`))
-      } else if (client.repoBillingStatus?.error && client.repoBillingStatus.error !== "Missing auth or repo info") {
+      if (
+        client.repoBillingStatus?.isOrgCovered &&
+        client.repoBillingStatus.orgName
+      ) {
+        console.log(
+          green(
+            `Your organization ${client.repoBillingStatus.orgName} covered your credits usage.`
+          )
+        )
+      } else if (
+        client.repoBillingStatus?.error &&
+        client.repoBillingStatus.error !== 'Missing auth or repo info'
+      ) {
         // console.log(yellow(`Note: Could not determine organization coverage. ${client.repoBillingStatus.error}`));
       }
     } else {
@@ -554,7 +564,9 @@ export class CLI {
           )
         )
         console.log(
-          gray('Tip: Use /export to save conversation summary to a file after fleshing out a plan')
+          gray(
+            'Tip: Use /export to save conversation summary to a file after fleshing out a plan'
+          )
         )
       }
 
@@ -907,8 +919,15 @@ export class CLI {
       }`
     )
 
-    if (client.repoBillingStatus?.isOrgCovered && client.repoBillingStatus.orgName) {
-      logMessages.push(green(`Usage for this repository was covered by your organization: ${client.repoBillingStatus.orgName}`))
+    if (
+      client.repoBillingStatus?.isOrgCovered &&
+      client.repoBillingStatus.orgName
+    ) {
+      logMessages.push(
+        green(
+          `Your organization ${client.repoBillingStatus.orgName} covered your credits usage.`
+        )
+      )
     }
 
     if (client.usageData.next_quota_reset) {

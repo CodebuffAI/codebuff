@@ -75,7 +75,7 @@ import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
-import { logger, loggerContext } from './utils/logger'
+import { logger, loggerContext, LoggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
@@ -266,6 +266,7 @@ export class Client {
     const repoMetrics = await getRepoMetrics()
 
     loggerContext.repoName = repoMetrics.repoName
+    loggerContext.repoRemoteUrl = repoMetrics.repoRemoteUrl // Store the remote URL
     loggerContext.repoAgeDays = repoMetrics.ageDays
     loggerContext.repoTrackedFiles = repoMetrics.trackedFiles
     loggerContext.repoCommits = repoMetrics.commits
@@ -275,6 +276,7 @@ export class Client {
     if (this.user) {
       identifyUser(this.user?.id, {
         repoName: loggerContext.repoName,
+        repoRemoteUrl: loggerContext.repoRemoteUrl, // Add to analytics if needed
         repoAgeDays: loggerContext.repoAgeDays,
         repoTrackedFiles: loggerContext.repoTrackedFiles,
         repoCommits: loggerContext.repoCommits,
@@ -326,9 +328,12 @@ export class Client {
   }
 
   async getRepoBillingStatus(): Promise<void> {
-    if (!this.user || !this.user.authToken || !loggerContext.repoName) {
-      this.repoBillingStatus = { isOrgCovered: false, error: "Missing auth or repo info" };
-      return;
+    if (!this.user || !this.user.authToken || !loggerContext.repoRemoteUrl) {
+      this.repoBillingStatus = {
+        isOrgCovered: false,
+        error: 'Missing auth or repo info',
+      }
+      return
     }
 
     try {
@@ -340,19 +345,26 @@ export class Client {
         body: JSON.stringify({
           fingerprintId: await this.fingerprintId,
           authToken: this.user.authToken,
-          repoUrl: loggerContext.repoName, // Assuming repoName is the URL
+          repoUrl: loggerContext.repoRemoteUrl,
         }),
-      });
+      })
 
-      const data: RepoBillingStatus = await response.json();
+      const data: RepoBillingStatus = await response.json()
+
       if (response.ok) {
-        this.repoBillingStatus = data;
+        this.repoBillingStatus = data
       } else {
-        this.repoBillingStatus = { isOrgCovered: false, error: data.error || `HTTP error ${response.status}` };
+        this.repoBillingStatus = {
+          isOrgCovered: false,
+          error: data.error || `HTTP error ${response.status}`,
+        }
       }
     } catch (error) {
-      logger.error({ error }, 'Error fetching repo billing status');
-      this.repoBillingStatus = { isOrgCovered: false, error: error instanceof Error ? error.message : 'Unknown error' };
+      logger.error({ error }, 'Error fetching repo billing status')
+      this.repoBillingStatus = {
+        isOrgCovered: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
     }
   }
 
@@ -795,9 +807,7 @@ export class Client {
     })
   }
 
-  async sendUserInput(
-    prompt: string
-  ): Promise<{
+  async sendUserInput(prompt: string): Promise<{
     responsePromise: Promise<
       ServerAction & { type: 'prompt-response' } & { wasStoppedByUser: boolean }
     >
@@ -1120,7 +1130,14 @@ Go to https://www.codebuff.com/config for more information.`) +
 
         unsubscribeChunks()
         unsubscribeComplete()
-        resolveResponse({ ...a, wasStoppedByUser: false })
+        resolveResponse({
+          type: 'prompt-response',
+          promptId: userInputId,
+          agentState: this.agentState!,
+          toolCalls: [],
+          toolResults: [],
+          wasStoppedByUser: false,
+        })
       }
     )
 
@@ -1171,15 +1188,18 @@ Go to https://www.codebuff.com/config for more information.`) +
       const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
         .flat()
         .reduce((sum, credits) => sum + credits, 0)
-      
+
       let billingMessage = `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}${
         this.usageData.remainingBalance !== null
           ? `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
           : '.'
-      }`;
-      
-      if (this.repoBillingStatus?.isOrgCovered && this.repoBillingStatus.orgName) {
-        billingMessage += `\n${green(`This repository's usage is covered by your organization: ${this.repoBillingStatus.orgName}`)}`;
+      }`
+
+      if (
+        this.repoBillingStatus?.isOrgCovered &&
+        this.repoBillingStatus.orgName
+      ) {
+        billingMessage += `\n${green(`Your organization ${this.repoBillingStatus.orgName} covered your credits usage.`)}`
       } else if (this.repoBillingStatus?.error) {
         // Optionally log an error or a subtle hint if status check failed
         // console.log(yellow(`Could not determine organization coverage: ${this.repoBillingStatus.error}`));
@@ -1224,15 +1244,18 @@ Go to https://www.codebuff.com/config for more information.`) +
     if (!fileContext) {
       throw new Error('Failed to initialize project file context')
     }
+    // Ensure repoContext is set before this, or make sure init can handle it if not fully ready
+    await this.setRepoContext() // Ensure repo context including remote URL is set
 
-    this.webSocket.subscribe('init-response', async (a) => { // made async
+    this.webSocket.subscribe('init-response', async (a) => {
+      // made async
       const parsedAction = InitResponseSchema.safeParse(a)
       if (!parsedAction.success) return
 
       // Set initial usage data from the init response
       this.setUsage(parsedAction.data)
       // Fetch repo billing status after usage data is set and user context is likely established
-      await this.getRepoBillingStatus();
+      await this.getRepoBillingStatus()
     })
 
     this.webSocket.sendAction({
@@ -1240,8 +1263,17 @@ Go to https://www.codebuff.com/config for more information.`) +
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       fileContext,
+      // Pass repoRemoteUrl if the 'init' action schema supports/needs it
+      // repoRemoteUrl: loggerContext.repoRemoteUrl
     })
 
     await this.fetchStoredApiKeyTypes()
   }
+}
+
+// Extend LoggerContext if it's a defined type, or just use it if it's an object
+if (typeof loggerContext === 'object' && loggerContext !== null) {
+  // This is a runtime check, for type safety you'd extend an interface if defined
+  ;(loggerContext as LoggerContext & { repoRemoteUrl?: string }).repoRemoteUrl =
+    undefined
 }

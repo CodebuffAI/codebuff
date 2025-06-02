@@ -6,28 +6,10 @@ export {
 } from './auto-topup'
 
 // Balance calculation
-export {
-  calculateUsageAndBalance,
-  consumeCredits,
-  calculateUsageThisCycle,
-  getOrderedActiveOrgGrants,
-  calculateOrganizationUsageAndBalance,
-  consumeOrganizationCredits,
-  type CreditBalance,
-  type CreditUsageAndBalance,
-  type CreditConsumptionResult,
-} from './balance-calculator'
+export * from './balance-calculator'
 
 // Credit grant operations
-export {
-  triggerMonthlyResetAndGrant,
-  processAndGrantCredit,
-  revokeGrantByOperationId,
-  getPreviousFreeGrantAmount,
-  calculateTotalReferralBonus,
-  grantCreditOperation,
-  grantOrganizationCredits,
-} from './grant-credits'
+export * from './grant-credits'
 
 // Credit conversion utilities
 export { getUserCostPerCredit } from './conversion'
@@ -36,5 +18,5 @@ export { getUserCostPerCredit } from './conversion'
 export { generateOperationIdTimestamp } from './utils'
 
 export { getOrganizationAlerts } from './alerts'
-export { validateAndNormalizeRepositoryUrl } from './repositories'
+export { validateAndNormalizeRepositoryUrl, extractOrgAndRepoFromUrl } from './repositories'
 export { syncOrganizationBillingCycle } from './billing-cycle'

@@ -7,6 +7,7 @@ import { z } from 'zod'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { and, eq } from 'drizzle-orm'
+import { extractOrgAndRepoFromUrl } from '@codebuff/billing'
 
 import { checkAuth } from '../util/check-auth'
 import { getUserIdFromAuthToken } from '../websockets/auth' // Re-using this helper
@@ -15,7 +16,19 @@ import { logger } from '@/util/logger'
 const repoBillingStatusRequestSchema = z.object({
   fingerprintId: z.string(),
   authToken: z.string().optional(),
-  repoUrl: z.string().url(), // Expecting a full URL
+  repoUrl: z
+    .string()
+    .min(1, 'Repository URL is required')
+    .refine(
+      (url) => {
+        const parseResult = extractOrgAndRepoFromUrl(url)
+        return parseResult.isValid
+      },
+      {
+        message:
+          'Invalid repository URL format. Supported formats: HTTP(S), git@host:path/repo, ssh://user@host/path/repo.',
+      }
+    ),
 })
 
 interface RepoBillingStatusResponse {
@@ -33,6 +46,16 @@ async function repoBillingStatusHandler(
     const { fingerprintId, authToken, repoUrl } =
       repoBillingStatusRequestSchema.parse(req.body)
     const clientSessionId = `api-repo-billing-${fingerprintId}-${Date.now()}`
+
+    // Extract org and repo names from the repository URL
+    const repoParseResult = extractOrgAndRepoFromUrl(repoUrl)
+    if (!repoParseResult.isValid) {
+      return res.status(400).json({
+        isOrgCovered: false,
+        error: repoParseResult.error || 'Invalid repository URL',
+      })
+    }
+    const { host, owner, repo } = repoParseResult
 
     const authResult = await checkAuth({
       fingerprintId,
@@ -53,33 +76,43 @@ async function repoBillingStatusHandler(
       : undefined
 
     if (!userId) {
-      // This case might be for anonymous users or if token is invalid
-      // For now, let's assume an org can't cover a repo for an unauthenticated user.
-      // Or, if the repo is public and covered by an org, maybe it should still show?
-      // For now, require userId to check org membership.
       return res
         .status(401)
         .json({ isOrgCovered: false, error: 'Authentication required' })
     }
 
-    // Find if the repo is associated with an active organization
-    const orgRepoEntry = await db
+    // Fetch all active repository URLs from the database and extract their org/repo names for comparison
+    const allOrgRepos = await db
       .select({
         orgId: schema.orgRepo.org_id,
         orgName: schema.org.name,
+        repoUrl: schema.orgRepo.repo_url,
       })
       .from(schema.orgRepo)
       .innerJoin(schema.org, eq(schema.orgRepo.org_id, schema.org.id))
-      .where(
-        and(
-          eq(schema.orgRepo.repo_url, repoUrl),
-          eq(schema.orgRepo.is_active, true)
-        )
-      )
-      .limit(1)
-      .then((rows) => rows[0])
+      .where(eq(schema.orgRepo.is_active, true))
 
-    if (!orgRepoEntry) {
+    // Find a matching repository by extracting org/repo names from each stored URL and comparing
+    let matchingOrgRepo: { orgId: string; orgName: string } | undefined
+
+    for (const orgRepo of allOrgRepos) {
+      const storedParseResult = extractOrgAndRepoFromUrl(orgRepo.repoUrl)
+
+      if (
+        storedParseResult.isValid &&
+        storedParseResult.host === host &&
+        storedParseResult.owner === owner &&
+        storedParseResult.repo === repo
+      ) {
+        matchingOrgRepo = {
+          orgId: orgRepo.orgId,
+          orgName: orgRepo.orgName,
+        }
+        break
+      }
+    }
+
+    if (!matchingOrgRepo) {
       return res.status(200).json({ isOrgCovered: false })
     }
 
@@ -89,7 +122,7 @@ async function repoBillingStatusHandler(
       .from(schema.orgMember)
       .where(
         and(
-          eq(schema.orgMember.org_id, orgRepoEntry.orgId),
+          eq(schema.orgMember.org_id, matchingOrgRepo.orgId),
           eq(schema.orgMember.user_id, userId)
         )
       )
@@ -99,20 +132,16 @@ async function repoBillingStatusHandler(
     if (orgMemberEntry) {
       return res
         .status(200)
-        .json({ isOrgCovered: true, orgName: orgRepoEntry.orgName })
+        .json({ isOrgCovered: true, orgName: matchingOrgRepo.orgName })
     } else {
-      // Repo is managed by an org, but this user isn't part of it.
-      // Or, user is part of the org, but this specific repo isn't linked for billing.
-      // For simplicity, if the user is not in the org that covers the repo, we say it's not covered for them.
       return res.status(200).json({ isOrgCovered: false })
     }
   } catch (error) {
-    logger.error({ error }, 'Error handling /api/repo-billing-status request')
+    logger.error({ error }, 'repoBillingStatusHandler: Error handling request')
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         isOrgCovered: false,
         error: 'Invalid request body',
-        // issues: error.errors // Optionally include detailed validation issues
       })
     }
     // Pass to generic error handler
