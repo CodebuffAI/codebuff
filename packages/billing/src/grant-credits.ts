@@ -4,12 +4,14 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { GrantType } from 'common/db/schema'
+import { GrantType } from 'common/db/schema' // Removed CreditLedgerEntry
 import { getNextQuotaReset } from 'common/util/dates'
 import { logger } from 'common/util/logger'
 import { withRetry } from 'common/util/promise'
 import { logSyncFailure } from 'common/util/sync-failure'
-import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, isNull, lte, or, sql, SQL } from 'drizzle-orm' // Added SQL
+import { withSerializableTransaction } from 'common/db/transaction' // Removed DrizzleTransactionScope
+import { calculateOrganizationUsageAndBalance, CreditUsageAndBalance, DbConn } from './balance-calculator' // Import necessary types and DbConn
 
 import { generateOperationIdTimestamp } from './utils'
 
@@ -103,51 +105,59 @@ export async function calculateTotalReferralBonus(
  * Core grant operation that can be part of a larger transaction.
  */
 export async function grantCreditOperation(
-  userId: string,
+  userId: string, // This is the identifier for logging and debt checking (could be orgId or userId)
   amount: number,
   type: GrantType,
-  description: string,
-  expiresAt: Date | null,
+  description: string, // Added description parameter
+  priority: number, // Changed from string to number
   operationId: string,
-  tx?: DbTransaction,
-  orgId?: string // Added orgId parameter
+  expiresAt: Date | null,
+  userIdForGrant: string, // This is the actual user_id to be stored in creditLedger.user_id
+  orgId: string | null, // This is the actual org_id to be stored in creditLedger.org_id
+  tx?: DbTransaction
 ) {
-  const dbClient = tx || db
+  const dbClient = tx || db;
 
-  const now = new Date()
+  const now = new Date();
 
-  // First check for any negative balances
+  // First check for any negative balances associated with the entity (userId or orgId)
+  // For orgs, debt is on org-specific grants. For users, on user-specific grants.
+  const debtCheckIdentifier = orgId || userId; // Check debt against the org if orgId is present, else user.
+  const debtGrantCondition = orgId
+    ? eq(schema.creditLedger.org_id, orgId)
+    : eq(schema.creditLedger.user_id, userId);
+
   const negativeGrants = await dbClient
     .select()
     .from(schema.creditLedger)
     .where(
       and(
-        eq(schema.creditLedger.user_id, userId),
+        debtGrantCondition, // Check against the correct entity
         or(
           isNull(schema.creditLedger.expires_at),
           gt(schema.creditLedger.expires_at, now)
         )
       )
     )
-    .then((grants) => grants.filter((g) => g.balance < 0))
+    .then((grants) => grants.filter((g) => g.balance < 0));
 
   if (negativeGrants.length > 0) {
     const totalDebt = negativeGrants.reduce(
       (sum, g) => sum + Math.abs(g.balance),
       0
-    )
+    );
     for (const grant of negativeGrants) {
       await dbClient
         .update(schema.creditLedger)
         .set({ balance: 0 })
-        .where(eq(schema.creditLedger.operation_id, grant.operation_id))
+        .where(eq(schema.creditLedger.operation_id, grant.operation_id));
     }
-    const remainingAmount = Math.max(0, amount - totalDebt)
+    const remainingAmount = Math.max(0, amount - totalDebt);
     if (remainingAmount > 0) {
       try {
         await dbClient.insert(schema.creditLedger).values({
           operation_id: operationId,
-          user_id: userId, // For org grants, this is the purchasing user
+          user_id: userIdForGrant,
           principal: amount, // Store the original amount before debt clearance
           balance: remainingAmount,
           type,
@@ -155,11 +165,11 @@ export async function grantCreditOperation(
             totalDebt > 0
               ? `${description} (${totalDebt} credits used to clear existing debt)`
               : description,
-          priority: GRANT_PRIORITIES[type],
+          priority: priority, // Use the passed priority (now a number)
           expires_at: expiresAt,
           created_at: now,
-          org_id: orgId, // Pass orgId here
-        })
+          org_id: orgId,
+        });
       } catch (error: any) {
         // Check if this is a unique constraint violation on operation_id
         if (
@@ -180,16 +190,16 @@ export async function grantCreditOperation(
     try {
       await dbClient.insert(schema.creditLedger).values({
         operation_id: operationId,
-        user_id: userId, // For org grants, this is the purchasing user
+        user_id: userIdForGrant,
         principal: amount,
         balance: amount,
         type,
-        description,
-        priority: GRANT_PRIORITIES[type],
+        description, // Use the passed description
+        priority: priority, // Use the passed priority (now a number)
         expires_at: expiresAt,
         created_at: now,
-        org_id: orgId, // Pass orgId here
-      })
+        org_id: orgId,
+      });
     } catch (error: any) {
       // Check if this is a unique constraint violation on operation_id
       if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
@@ -203,19 +213,19 @@ export async function grantCreditOperation(
     }
   }
 
-  trackEvent(AnalyticsEvent.CREDIT_GRANT, userId, {
+  trackEvent(AnalyticsEvent.CREDIT_GRANT, userIdForGrant || orgId || 'unknown', { // Ensure a valid subject for trackEvent
     operationId,
     type,
-    description,
+    description, // Use the passed description
     amount,
     expiresAt,
-    orgId, // Added orgId to tracking
-  })
+    orgId,
+  });
 
   logger.info(
-    { userId, orgId, operationId, type, amount, expiresAt },
+    { userId: userIdForGrant, orgId, operationId, type, amount, expiresAt, description }, // Added description to log
     'Created new credit grant'
-  )
+  );
 }
 
 /**
@@ -229,20 +239,22 @@ export async function processAndGrantCredit(
   description: string,
   expiresAt: Date | null,
   operationId: string,
-  orgId?: string // Added orgId parameter
+  orgId?: string
 ): Promise<void> {
   try {
     await withRetry(
       () =>
         grantCreditOperation(
-          userId,
+          orgId || userId, // Identifier for debt checking
           amount,
           type,
-          description,
-          expiresAt,
+          description, // Pass description
+          GRANT_PRIORITIES[type], // This should be a number
           operationId,
-          undefined, // tx
-          orgId // Pass orgId here
+          expiresAt,
+          userId,    // Actual user_id for the grant record
+          orgId || null, // Actual org_id for the grant record
+          undefined // tx
         ),
       {
         maxRetries: 3,
@@ -254,7 +266,7 @@ export async function processAndGrantCredit(
           )
         },
       }
-    )
+    );
   } catch (error: any) {
     await logSyncFailure(operationId, error.message, 'internal')
     logger.error(
@@ -320,40 +332,47 @@ export async function revokeGrantByOperationId(
 
 /**
  * Grants credits to an organization.
+ * This function will create a new credit ledger entry for the organization.
+ * After granting, it recalculates and returns the organization's new balance state.
+ *
  * @param orgId The ID of the organization.
- * @param purchasingUserId The ID of the user making the purchase.
  * @param amount The amount of credits to grant.
- * @param operationId The operation ID for the grant.
- * @param description A description of the grant.
+ * @param operationId Optional custom operation ID.
+ * @param expiresAt Optional expiration date for the grant.
+ * @param userIdForGrant Optional user ID to associate with this grant (e.g., admin who granted).
+ * @returns Promise resolving to the organization's new CreditUsageAndBalance.
  */
 export async function grantOrganizationCredits(
   orgId: string,
-  purchasingUserId: string, // User making the purchase
   amount: number,
-  operationId: string,
-  description: string
-): Promise<void> {
-  // For organization grants, expiresAt is typically null (non-expiring)
-  // unless specific business logic dictates otherwise.
-  const expiresAt = null;
-  // The 'type' should be the new organization grant type
-  const type: GrantType = 'organization';
+  operationId: string = `org_grant-${generateOperationIdTimestamp(new Date())}`, // Corrected default operationId generation
+  expiresAt: Date | null = null,
+  userIdForGrant?: string, // This is the user ID to be stored in credit_ledger.user_id
+): Promise<CreditUsageAndBalance> {
+  return await withSerializableTransaction(async (tx: DbTransaction) => { // Used DbTransaction type
+    await grantCreditOperation(
+      orgId, // Identifier for debt checking and logging context
+      amount,
+      'organization',
+      'Organization credit grant', // Default description
+      GRANT_PRIORITIES.organization, // This should be a number
+      operationId,
+      expiresAt,
+      userIdForGrant || orgId, // If no specific user, associate with orgId (or handle as needed)
+      orgId, // The org_id for the grant record
+      tx
+    );
 
-  // processAndGrantCredit already handles idempotency and retries.
-  // We pass the orgId to it.
-  await processAndGrantCredit(
-    purchasingUserId, // user_id in creditLedger will be the purchasing user
-    amount,
-    type,
-    description,
-    expiresAt,
-    operationId,
-    orgId // Pass the orgId here
-  );
-  logger.info(
-    { orgId, purchasingUserId, amount, operationId },
-    'Granted credits to organization'
-  );
+    const now = new Date();
+    // Corrected the where clause and property access for billing_cycle_start_date
+    const organization = await tx.query.org.findFirst({ 
+      where: eq(schema.org.id, orgId) 
+    });
+    // Use current_period_start as per schema, then created_at as fallback
+    const cycleStartDate = organization?.current_period_start ?? organization?.created_at ?? new Date(0); 
+
+    return calculateOrganizationUsageAndBalance(orgId, cycleStartDate, now, tx as unknown as DbConn);
+  }, { orgId, amount });
 }
 
 /**

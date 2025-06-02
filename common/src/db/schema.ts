@@ -27,9 +27,9 @@ export const apiKeyTypeEnum = pgEnum('api_key_type', [
 ])
 
 export const grantTypeEnum = pgEnum('grant_type', [
-  GrantTypeValues[0], // 'free'
-  ...GrantTypeValues.slice(1), // 'referral', 'purchase', 'admin', 'organization'
-]);
+  GrantTypeValues[0],
+  ...GrantTypeValues.slice(1),
+])
 export type GrantType = (typeof grantTypeEnum.enumValues)[number]
 
 export const user = pgTable('user', {

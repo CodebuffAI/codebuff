@@ -12,6 +12,7 @@ export {
   calculateUsageThisCycle,
   getOrderedActiveOrgGrants,
   calculateOrganizationUsageAndBalance,
+  consumeOrganizationCredits,
   type CreditBalance,
   type CreditUsageAndBalance,
   type CreditConsumptionResult,
@@ -34,7 +35,6 @@ export { getUserCostPerCredit } from './conversion'
 // Utilities
 export { generateOperationIdTimestamp } from './utils'
 
-// New exports for Step 7
-export { getOrganizationAlerts } from './alerts';
-export { validateAndNormalizeRepositoryUrl } from './repositories';
-export { syncOrganizationBillingCycle } from './billing-cycle';
+export { getOrganizationAlerts } from './alerts'
+export { validateAndNormalizeRepositoryUrl } from './repositories'
+export { syncOrganizationBillingCycle } from './billing-cycle'

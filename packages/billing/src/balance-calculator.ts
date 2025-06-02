@@ -26,7 +26,8 @@ export interface CreditConsumptionResult {
 }
 
 // Add a minimal structural type that both `db` and `tx` satisfy
-type DbConn = Pick<
+// Exporting DbConn to be used in other files
+export type DbConn = Pick<
   typeof db,
   'select' | 'update'
 > /* + whatever else you call */
@@ -93,40 +94,53 @@ export async function getOrderedActiveOrgGrants(
 
 /**
  * Updates a single grant's balance and logs the change.
+ * Adapts to handle either userId or orgId for logging context.
  */
 async function updateGrantBalance(
-  userId: string,
+  identifier: string, // Can be userId or orgId
   grant: typeof schema.creditLedger.$inferSelect,
   consumed: number,
   newBalance: number,
-  tx: DbConn
+  tx: DbConn,
+  isOrgContext: boolean,
+  triggeringUserId?: string // Optional: for org context
 ) {
   await tx
     .update(schema.creditLedger)
     .set({ balance: newBalance })
     .where(eq(schema.creditLedger.operation_id, grant.operation_id))
 
+  const logContext: any = {
+    grantId: grant.operation_id,
+    grantType: grant.type,
+    consumed,
+    remaining: newBalance,
+    expiresAt: grant.expires_at,
+  }
+  if (isOrgContext) {
+    logContext.orgId = identifier
+    if (triggeringUserId) logContext.triggeringUserId = triggeringUserId
+  } else {
+    logContext.userId = identifier
+  }
+
   logger.debug(
-    {
-      userId,
-      grantId: grant.operation_id,
-      grantType: grant.type,
-      consumed,
-      remaining: newBalance,
-      expiresAt: grant.expires_at,
-    },
+    logContext,
     'Updated grant remaining amount after consumption'
   )
 }
 
 /**
  * Consumes credits from a list of ordered grants.
+ * Adapts to handle either userId or orgId.
  */
 async function consumeFromOrderedGrants(
-  userId: string,
+  identifier: string, // Can be userId or orgId
   creditsToConsume: number,
   grants: (typeof schema.creditLedger.$inferSelect)[],
-  tx: DbConn
+  tx: DbConn,
+  isOrgContext: boolean,
+  triggeringUserId?: string // Optional: for org context
 ): Promise<CreditConsumptionResult> {
   let remainingToConsume = creditsToConsume
   let consumed = 0
@@ -141,12 +155,16 @@ async function consumeFromOrderedGrants(
       remainingToConsume -= repayAmount
       consumed += repayAmount
 
-      await updateGrantBalance(userId, grant, -repayAmount, newBalance, tx)
+      await updateGrantBalance(identifier, grant, -repayAmount, newBalance, tx, isOrgContext, triggeringUserId)
 
-      logger.debug(
-        { userId, grantId: grant.operation_id, repayAmount, newBalance },
-        'Repaid debt in grant'
-      )
+      const logContext: any = { grantId: grant.operation_id, repayAmount, newBalance }
+      if (isOrgContext) {
+        logContext.orgId = identifier
+        if (triggeringUserId) logContext.triggeringUserId = triggeringUserId
+      } else {
+        logContext.userId = identifier
+      }
+      logger.debug(logContext, 'Repaid debt in grant')
     }
   }
 
@@ -161,44 +179,63 @@ async function consumeFromOrderedGrants(
     consumed += consumeFromThisGrant
 
     // Track consumption from purchased credits
-    if (grant.type === 'purchase') {
+    if (grant.type === 'purchase' || grant.type === 'organization') { // Organization credits are also considered "purchased" in terms of priority/source
       fromPurchased += consumeFromThisGrant
     }
 
     await updateGrantBalance(
-      userId,
+      identifier,
       grant,
       consumeFromThisGrant,
       newBalance,
-      tx
+      tx,
+      isOrgContext,
+      triggeringUserId
     )
   }
 
   // If we still have remaining to consume and no grants left, create debt in the last grant
+  // For organizations, we might want to prevent debt creation or handle it differently.
+  // The plan mentions "Potentially create a debt grant for the organization here if desired, or throw an error."
+  // For now, let's mirror the user behavior but log a specific warning for orgs.
   if (remainingToConsume > 0 && grants.length > 0) {
     const lastGrant = grants[grants.length - 1]
 
+    // Only create/increase debt if the last grant is an 'organization' type grant for org context,
+    // or any type for user context. This prevents creating debt on e.g. a 'free' grant of an org.
+    // However, the current logic for users creates debt on the *last available grant* regardless of its type.
+    // To keep it consistent for now, we'll allow debt on the last org grant.
+    // A more robust solution might involve a dedicated "debt" grant type for orgs.
+
+    // if (lastGrant.balance <= 0 || (isOrgContext && lastGrant.type === 'organization') || !isOrgContext ) {
+    // Simplified: always allow adding to debt on the last grant if it's already zero or negative.
     if (lastGrant.balance <= 0) {
       const newBalance = lastGrant.balance - remainingToConsume
       await updateGrantBalance(
-        userId,
+        identifier,
         lastGrant,
         remainingToConsume,
         newBalance,
-        tx
+        tx,
+        isOrgContext,
+        triggeringUserId
       )
       consumed += remainingToConsume
-
-      logger.warn(
-        {
-          userId,
-          grantId: lastGrant.operation_id,
-          requested: remainingToConsume,
-          consumed: remainingToConsume,
-          newDebt: Math.abs(newBalance),
-        },
-        'Created new debt in grant'
-      )
+      
+      const logContext: any = {
+        grantId: lastGrant.operation_id,
+        requested: remainingToConsume,
+        consumed: remainingToConsume,
+        newDebt: Math.abs(newBalance),
+      }
+      if (isOrgContext) {
+        logContext.orgId = identifier
+        if (triggeringUserId) logContext.triggeringUserId = triggeringUserId
+        logger.warn(logContext, 'Created new debt in organization grant')
+      } else {
+        logContext.userId = identifier
+        logger.warn(logContext, 'Created new debt in user grant')
+      }
     }
   }
 
@@ -414,13 +451,62 @@ export async function consumeCredits(
         userId,
         creditsToConsume,
         activeGrants,
-        tx
+        tx,
+        false, // isOrgContext: false for personal credits
+        undefined // triggeringUserId: undefined for personal credits
       )
 
       return result
     },
     { userId, creditsToConsume }
   )
+}
+
+/**
+ * Consumes credits from an organization's account.
+ *
+ * @param orgId The ID of the organization
+ * @param creditsToConsume Number of credits being consumed
+ * @param triggeringUserId Optional: The ID of the user who triggered this consumption
+ * @returns Promise resolving to details about credit consumption
+ */
+export async function consumeOrganizationCredits(
+  orgId: string,
+  creditsToConsume: number,
+  triggeringUserId?: string // Optional: for logging who caused the consumption
+): Promise<CreditConsumptionResult> {
+  return await withSerializableTransaction(
+    async (tx) => {
+      const now = new Date();
+      const activeGrants = await getOrderedActiveOrgGrants(orgId, now, tx);
+
+      if (activeGrants.length === 0) {
+        logger.error(
+          { orgId, creditsToConsume, triggeringUserId },
+          'No active organization grants found to consume credits from'
+        );
+        // As per plan: "Potentially create a debt grant for the organization here if desired,
+        // or throw an error. For now, let's assume throwing is appropriate."
+        // However, consumeFromOrderedGrants can create debt if a grant exists, even if its balance is 0.
+        // If there are truly NO grants (not even one with 0 balance), then we should throw.
+        // The current consumeFromOrderedGrants logic will handle creating debt on the last grant if one exists.
+        // So, this specific error for "no active grants" means no grant records at all.
+        throw new Error(`No active organization grants found for orgId ${orgId} to consume ${creditsToConsume} credits.`);
+      }
+
+      const result = await consumeFromOrderedGrants(
+        orgId,
+        creditsToConsume,
+        activeGrants,
+        tx,
+        true, // isOrgContext
+        triggeringUserId
+      );
+      logger.info({ orgId, consumed: result.consumed, fromPurchased: result.fromPurchased, triggeringUserId }, "Consumed credits from organization account");
+      return result;
+    },
+    { orgId, creditsToConsume, triggeringUserId } // Context for withSerializableTransaction logging
+  );
 }
 
 /**
