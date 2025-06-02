@@ -1,3 +1,4 @@
+import { CoreMessage } from 'ai'
 import {
   AnthropicModel,
   CostMode,
@@ -5,7 +6,6 @@ import {
   providerModelNames,
   shortModelNames,
 } from 'common/constants'
-import { CoreMessage } from 'ai'
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
@@ -48,7 +48,8 @@ export const getAgentStream = (params: {
     return provider === 'anthropic' ||
       provider === 'openai' ||
       provider === 'gemini'
-      ? promptAiSdkStream(messages, {
+      ? promptAiSdkStream({
+          messages,
           model: model as AnthropicModel,
           stopSequences,
           clientSessionId,

@@ -59,10 +59,9 @@ ${JSON.stringify(prompt)}`,
   try {
     // Race between OpenAI and Gemini with timeouts
     const response = await withTimeout(
-      promptAiSdk(messages, {
-        model: models.gpt4omini,
-        ...options,
-      }).then((response) => response.toLowerCase().includes('y')),
+      promptAiSdk({ messages, model: models.gpt4omini, ...options }).then(
+        (response) => response.toLowerCase().includes('y')
+      ),
       30000,
       'OpenAI API request timed out'
     )

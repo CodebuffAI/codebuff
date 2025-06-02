@@ -1,11 +1,10 @@
 import { logger } from '@/util/logger'
-import { z } from 'zod'
 import { uniq } from 'lodash'
+import { z } from 'zod'
 
 import { geminiModels } from 'common/constants'
-import { promptAiSdkStructured } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
-
+import { promptAiSdkStructured } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
 const DELIMITER = `\n\n----------------------------------------\n\n`
 
@@ -135,7 +134,6 @@ export async function getDocumentationForQuery(
   return relevantChunks.join(DELIMITER)
 }
 
-
 const suggestLibraries = async (
   query: string,
   options: {
@@ -163,24 +161,22 @@ ${query}
 
   const geminiStartTime = Date.now()
   try {
-    const response = await promptAiSdkStructured(
-      [{ role: 'user', content: prompt }],
-      {
-        ...options,
-        userId: options.userId,
-        model: geminiModels.gemini2flash,
-        temperature: 0,
-        schema: z.object({
-          libraries: z.array(
-            z.object({
-              libraryName: z.string(),
-              topic: z.string(),
-            })
-          ),
-        }),
-        timeout: 5_000,
-      }
-    )
+    const response = await promptAiSdkStructured({
+      ...options,
+      messages: [{ role: 'user', content: prompt }],
+      userId: options.userId,
+      model: geminiModels.gemini2flash,
+      temperature: 0,
+      schema: z.object({
+        libraries: z.array(
+          z.object({
+            libraryName: z.string(),
+            topic: z.string(),
+          })
+        ),
+      }),
+      timeout: 5_000,
+    })
     return {
       libraries: response.libraries,
       geminiDuration: Date.now() - geminiStartTime,
@@ -224,21 +220,19 @@ ${allChunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(DELIMITE
 
   const geminiStartTime = Date.now()
   try {
-    const response = await promptAiSdkStructured(
-      [{ role: 'user', content: prompt }],
-      {
-        clientSessionId: options.clientSessionId,
-        userInputId: options.userInputId,
-        fingerprintId: options.fingerprintId,
-        userId: options.userId,
-        model: geminiModels.gemini2_5_flash,
-        temperature: 0,
-        schema: z.object({
-          relevant_chunks: z.array(z.number()),
-        }),
-        timeout: 20_000,
-      }
-    )
+    const response = await promptAiSdkStructured({
+      messages: [{ role: 'user', content: prompt }],
+      clientSessionId: options.clientSessionId,
+      userInputId: options.userInputId,
+      fingerprintId: options.fingerprintId,
+      userId: options.userId,
+      model: geminiModels.gemini2_5_flash,
+      temperature: 0,
+      schema: z.object({
+        relevant_chunks: z.array(z.number()),
+      }),
+      timeout: 20_000,
+    })
     const geminiDuration = Date.now() - geminiStartTime
 
     const selectedChunks = response.relevant_chunks
@@ -249,7 +243,11 @@ ${allChunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(DELIMITE
   } catch (error) {
     const e = error as Error
     logger.error(
-      { error: { message: e.message, stack: e.stack }, query, allChunksCount: allChunks.length },
+      {
+        error: { message: e.message, stack: e.stack },
+        query,
+        allChunksCount: allChunks.length,
+      },
       'Failed to get Gemini response in filterRelevantChunks'
     )
     return null

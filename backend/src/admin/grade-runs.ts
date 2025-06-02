@@ -128,8 +128,8 @@ export async function gradeRun(tracesAndRelabels: {
   console.log(relabels)
 
   const stringified = JSON.stringify(messages)
-  const response = await promptAiSdk(
-    [
+  const response = await promptAiSdk({
+    messages: [
       { role: 'system', content: PROMPT },
       {
         role: 'user',
@@ -141,18 +141,16 @@ export async function gradeRun(tracesAndRelabels: {
       },
       { role: 'user', content: PROMPT },
     ],
-    {
-      model: claudeModels.sonnet,
-      clientSessionId: 'relabel-trace-api',
-      fingerprintId: 'relabel-trace-api',
-      userInputId: 'relabel-trace-api',
-      userId: TEST_USER_ID,
-      //   thinking: {
-      //     type: 'enabled',
-      //     budget_tokens: 10000,
-      //   },
-    }
-  )
+    model: claudeModels.sonnet,
+    clientSessionId: 'relabel-trace-api',
+    fingerprintId: 'relabel-trace-api',
+    userInputId: 'relabel-trace-api',
+    userId: TEST_USER_ID,
+    //   thinking: {
+    //     type: 'enabled',
+    //     budget_tokens: 10000,
+    //   },
+  })
 
   const { scores } = extractResponse(response)
 
