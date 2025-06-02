@@ -17,5 +17,5 @@
       "stdoutFile": "debug/typecheck.log"
     }
   ],
-  "maxAgentSteps": 5
+  "maxAgentSteps": 20
 }
