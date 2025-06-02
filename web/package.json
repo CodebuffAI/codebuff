@@ -18,7 +18,6 @@
     "test:watch": "jest --watchAll",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "discord:start": "bun run scripts/discord/index.ts",
     "discord:register": "bun run scripts/discord/register-commands.ts"
   },
   "dependencies": {
@@ -47,6 +46,7 @@
     "@t3-oss/env-core": "^0.7.1",
     "@t3-oss/env-nextjs": "^0.11.1",
     "@tanstack/react-virtual": "^3.13.6",
+    "@types/node-cron": "^3.0.11",
     "aceternity-ui": "^0.2.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -62,6 +62,7 @@
     "next-contentlayer": "0.3.4",
     "next-themes": "^0.3.0",
     "nextjs-linkedin-insight-tag": "^0.0.6",
+    "node-cron": "^4.0.5",
     "pg": "^8.14.1",
     "pino": "^9.6.0",
     "posthog-js": "^1.234.10",

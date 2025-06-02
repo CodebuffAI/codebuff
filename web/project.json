@@ -32,13 +32,37 @@
       },
       "dependsOn": ["contentlayer"]
     },
-    "start": {
+    "start-app": {
       "executor": "nx:run-commands",
       "options": {
         "command": "next start",
         "cwd": "web"
       },
       "dependsOn": ["build"]
+    },
+    "start-discord-bot": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run scripts/discord/index.ts",
+        "cwd": "web"
+      }
+    },
+    "start-message-expiration": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run scripts/message-expiration/index.ts",
+        "cwd": "web"
+      }
+    },
+    "start-all-background-tasks": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx web:start-discord-bot",
+          "nx web:start-message-expiration"
+        ],
+        "parallel": true
+      }
     }
   },
   "implicitDependencies": ["common", "@codebuff/billing"]
