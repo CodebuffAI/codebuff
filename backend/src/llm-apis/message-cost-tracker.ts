@@ -300,6 +300,8 @@ type InsertMessageParams = {
   creditsUsed: number
   finishedAt: Date
   latencyMs: number
+  orgId: string | null
+  repoUrl: string | null
 }
 
 async function insertMessageRecord(
@@ -322,6 +324,8 @@ async function insertMessageRecord(
     creditsUsed,
     finishedAt,
     latencyMs,
+    orgId,
+    repoUrl,
   } = params
 
   try {
@@ -337,6 +341,8 @@ async function insertMessageRecord(
           model: model,
           request: request,
           response: response,
+          org_id: orgId,
+          repo_url: repoUrl,
         }),
         input_tokens: inputTokens,
         output_tokens: outputTokens,
@@ -464,6 +470,8 @@ export const saveMessage = async (value: {
   latencyMs: number
   usesUserApiKey?: boolean
   chargeUser?: boolean
+  orgId: string | null
+  repoUrl: string | null
 }) =>
   withLoggerContext(
     {
