@@ -35,10 +35,13 @@ export async function GET() {
     }
 
     // Use the canonical balance calculation function with the effective reset date
+    // Pass isPersonalContext: true to exclude organization credits from personal usage
     const { usageThisCycle, balance } = await calculateUsageAndBalance(
       userId,
       effectiveQuotaResetDate,
-      now
+      now,
+      undefined, // Use default db connection
+      true // isPersonalContext: true to exclude organization credits
     )
 
     // Prepare the response data
