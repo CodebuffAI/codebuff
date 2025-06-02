@@ -91,5 +91,13 @@ export function setMessages(messages: CodebuffMessage[]) {
       },
       'Failed to save messages to file'
     )
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        messagesCount: messages.length,
+      },
+      'Failed to save messages to file'
+    )
   }
 }

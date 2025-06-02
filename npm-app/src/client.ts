@@ -484,6 +484,12 @@ export class Client {
         if (!response.ok) {
           const error = await response.text()
           console.error(red('Failed to log out: ' + error))
+          logger.error(
+            {
+              errorMessage: 'Failed to log out: ' + error,
+            },
+            'Failed to log out'
+          )
         }
 
         try {
@@ -548,6 +554,12 @@ export class Client {
       if (!response.ok) {
         const error = await response.text()
         console.error(red('Login code request failed: ' + error))
+        logger.error(
+          {
+            errorMessage: 'Login code request failed: ' + error,
+          },
+          'Login code request failed'
+        )
         this.freshPrompt()
         return
       }
@@ -606,6 +618,14 @@ export class Client {
                   errorStatus: statusResponse.status,
                   errorStatusText: statusResponse.statusText,
                   msg: 'Error checking login status',
+                },
+                'Error checking login status'
+              )
+              logger.error(
+                {
+                  errorMessage: 'Error checking login status: ' + text,
+                  errorStatus: statusResponse.status,
+                  errorStatusText: statusResponse.statusText,
                 },
                 'Error checking login status'
               )
@@ -713,11 +733,23 @@ export class Client {
     this.webSocket.subscribe('action-error', (action) => {
       if (action.error === 'Insufficient credits') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
+        logger.info(
+          {
+            errorMessage: action.message,
+          },
+          'Action error insufficient credits'
+        )
         console.error(
           `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`
         )
       } else if (action.error === 'Auto top-up disabled') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
+        logger.info(
+          {
+            errorMessage: action.message,
+          },
+          'Auto top-up disabled error'
+        )
         console.error(
           yellow(
             `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to update your payment settings.`
@@ -725,6 +757,12 @@ export class Client {
         )
       } else {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
+        logger.error(
+          {
+            errorMessage: action.message,
+          },
+          'Unknown action error'
+        )
       }
       this.freshPrompt()
       return
@@ -770,6 +808,13 @@ export class Client {
         console.error(
           red('Received invalid usage data from server:'),
           parsedAction.error.errors
+        )
+        logger.error(
+          {
+            errorMessage: 'Received invalid usage data from server',
+            errors: parsedAction.error.errors,
+          },
+          'Invalid usage data from server'
         )
         return
       }
@@ -1038,9 +1083,13 @@ export class Client {
             'If this issues persists, please contact support@codebuff.com',
           ].join('\n')
           console.error(message)
-          logger.error(message, {
-            eventId: AnalyticsEvent.MALFORMED_PROMPT_RESPONSE,
-          })
+          logger.error(
+            {
+              errorMessage: message,
+              eventId: AnalyticsEvent.MALFORMED_PROMPT_RESPONSE,
+            },
+            'Malformed prompt response'
+          )
           return
         }
         if (action.promptId !== userInputId) return
@@ -1249,6 +1298,12 @@ Go to https://www.codebuff.com/config for more information.`) +
 
       if (data.type === 'action-error') {
         console.error(red(data.message))
+        logger.error(
+          {
+            errorMessage: data.message,
+          },
+          'Action error'
+        )
         return
       }
 
@@ -1306,8 +1361,23 @@ Go to https://www.codebuff.com/config for more information.`) +
       // Check if it's a ZodError for more specific feedback
       if (error instanceof z.ZodError) {
         console.error(red('Data validation failed:'), error.errors)
+        logger.error(
+          {
+            errorMessage: 'Data validation failed',
+            errors: error.errors,
+          },
+          'Data validation failed'
+        )
       } else {
         console.error(error)
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Error checking usage'
+        )
       }
     } finally {
       this.freshPrompt()

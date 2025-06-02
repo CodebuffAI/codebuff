@@ -68,6 +68,7 @@ import { type CodebuffMessage } from 'common/types/message'
 import { CONFIG_DIR } from './credentials'
 import { logAndHandleStartup } from './startup-process-handler'
 import { setMessages } from './chat-storage'
+import { logger } from './utils/logger'
 
 const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
 
@@ -127,6 +128,14 @@ export class CLI {
 
     process.on('unhandledRejection', (reason, promise) => {
       console.error('\nUnhandled Rejection at:', promise, 'reason:', reason)
+      logger.error(
+        {
+          errorMessage:
+            reason instanceof Error ? reason.message : String(reason),
+          errorStack: reason instanceof Error ? reason.stack : undefined,
+        },
+        'Unhandled Rejection'
+      )
       this.freshPrompt()
     })
 
@@ -135,6 +144,14 @@ export class CLI {
         `\nCaught exception: ${err}\n` + `Exception origin: ${origin}`
       )
       console.error(err.stack)
+      logger.error(
+        {
+          errorMessage: err.message,
+          errorStack: err.stack,
+          origin,
+        },
+        'Uncaught Exception'
+      )
       this.freshPrompt()
     })
   }
@@ -196,6 +213,13 @@ export class CLI {
       }
     } catch (error) {
       console.error('Error loading prompt history:', error)
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        'Error loading prompt history'
+      )
       // If file doesn't exist or is invalid JSON, create empty history file
       fs.writeFileSync(PROMPT_HISTORY_PATH, '[]')
     }
@@ -219,6 +243,13 @@ export class CLI {
       }
     } catch (error) {
       console.error('Error appending to prompt history:', error)
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        'Error appending to prompt history'
+      )
     }
   }
 
@@ -564,7 +595,9 @@ export class CLI {
           )
         )
         console.log(
-          gray('Tip: Use /export to save conversation summary to a file after fleshing out a plan')
+          gray(
+            'Tip: Use /export to save conversation summary to a file after fleshing out a plan'
+          )
         )
       }
 
@@ -813,6 +846,12 @@ export class CLI {
       this.stopResponse = null
     }
     console.error('\n' + yellow('Could not connect. Retrying...'))
+    logger.error(
+      {
+        errorMessage: 'Could not connect. Retrying...',
+      },
+      'WebSocket connection error'
+    )
   }
 
   private onWebSocketReconnect() {

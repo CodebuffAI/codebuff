@@ -1,6 +1,8 @@
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { PostHog } from 'posthog-node'
 
+import { logger } from './logger'
+
 // Prints the events to console
 // It's very noisy, so recommended you set this to true
 // only when you're actively adding new analytics
@@ -39,6 +41,13 @@ export async function flushAnalytics() {
     if (DEBUG_DEV_EVENTS) {
       console.error('PostHog error:', error)
     }
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+      'PostHog error'
+    )
   }
 }
 

@@ -264,6 +264,12 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
     // Log any browser errors
     if (!response.success && response.error) {
       console.error(red(`Browser action failed: ${response.error}`))
+      logger.error(
+        {
+          errorMessage: response.error,
+        },
+        'Browser action failed'
+      )
     }
     if (response.logs) {
       response.logs.forEach((log) => {
@@ -271,6 +277,12 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
           switch (log.type) {
             case 'error':
               console.error(red(log.message))
+              logger.error(
+                {
+                  errorMessage: log.message,
+                },
+                'Browser tool error'
+              )
               break
             case 'warning':
               console.warn(yellow(log.message))
