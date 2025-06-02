@@ -152,7 +152,8 @@ The search content needs to match an exact substring of the old file content, wh
 
 Provide a new set of SEARCH/REPLACE changes to make the intended edit from the old file.`.trim()
 
-  const response = await promptAiSdk([{ role: 'user', content: newPrompt }], {
+  const response = await promptAiSdk({
+    messages: [{ role: 'user', content: newPrompt }],
     model: models.sonnet,
     clientSessionId,
     fingerprintId,

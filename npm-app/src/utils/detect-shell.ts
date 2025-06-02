@@ -1,5 +1,6 @@
 import { execSync } from 'child_process'
 import { platform } from 'os'
+import { logger } from './logger'
 
 export function detectShell():
   | 'bash'
@@ -57,8 +58,15 @@ export function detectShell():
       if (parentProcess) return parentProcess
     }
   } catch (error) {
-    // Log error if needed
-    // console.error('Error detecting shell:', error);
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        platform: platform(),
+        shell,
+      },
+      'Error detecting shell'
+    )
   }
 
   return 'unknown'

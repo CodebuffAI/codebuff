@@ -24,7 +24,8 @@ export function initAnalytics() {
 
   client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY, {
     host: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
-    enableExceptionAutocapture: true,
+    enableExceptionAutocapture:
+      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production',
   })
 }
 export async function flushAnalytics() {

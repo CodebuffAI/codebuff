@@ -165,16 +165,17 @@ export async function relabelForUserHandler(req: Request, res: Response) {
             const messages = payload.messages
             const system = payload.system
 
-            output = await promptAiSdk(
-              transformMessages(messages as Message[], system as System),
-              {
-                model: model,
-                clientSessionId: 'relabel-trace-api',
-                fingerprintId: 'relabel-trace-api',
-                userInputId: 'relabel-trace-api',
-                userId: TEST_USER_ID,
-              }
-            )
+            output = await promptAiSdk({
+              messages: transformMessages(
+                messages as Message[],
+                system as System
+              ),
+              model: model,
+              clientSessionId: 'relabel-trace-api',
+              fingerprintId: 'relabel-trace-api',
+              userInputId: 'relabel-trace-api',
+              userId: TEST_USER_ID,
+            })
 
             // Create relabel record
             const relabel = {
@@ -387,17 +388,15 @@ export async function relabelWithClaudeWithFullFileContext(
       system[system.length - 1].text + partialFileContext
   }
 
-  const output = await promptAiSdk(
-    transformMessages(trace.payload.messages as Message[], system),
-    {
-      model: model,
-      clientSessionId: 'relabel-trace-api',
-      fingerprintId: 'relabel-trace-api',
-      userInputId: 'relabel-trace-api',
-      userId: TEST_USER_ID,
-      maxTokens: 1000,
-    }
-  )
+  const output = await promptAiSdk({
+    messages: transformMessages(trace.payload.messages as Message[], system),
+    model: model,
+    clientSessionId: 'relabel-trace-api',
+    fingerprintId: 'relabel-trace-api',
+    userInputId: 'relabel-trace-api',
+    userId: TEST_USER_ID,
+    maxTokens: 1000,
+  })
 
   const relabel = {
     id: generateCompactId(),

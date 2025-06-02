@@ -4,6 +4,7 @@ import gitUrlParse from 'git-url-parse'
 import { getConfig, listFiles, log } from 'isomorphic-git'
 import path from 'path'
 import { getWorkingDirectory } from '../project-files'
+import { logger } from './logger'
 
 /**
  * Checks if the native git command is available on the system.
@@ -17,6 +18,13 @@ export function gitCommandIsAvailable(): boolean {
       execFileSync('git', ['--version'], { stdio: 'ignore' })
       cachedGitAvailable = true
     } catch (error) {
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        'Git command not available'
+      )
       cachedGitAvailable = false
     }
   }

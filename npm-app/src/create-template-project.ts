@@ -3,6 +3,7 @@ import { join } from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
 import { green } from 'picocolors'
+import { logger } from './utils/logger'
 
 export async function createTemplateProject(
   template: string,
@@ -102,6 +103,16 @@ export async function createTemplateProject(
     console.log('--------------------------------\n')
     execSync('codebuff', { stdio: 'inherit' })
   } catch (error) {
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        template,
+        projectDir,
+        projectName,
+      },
+      'Failed to initialize project'
+    )
     console.error('Failed to initialize project:', error)
     process.exit(1)
   }

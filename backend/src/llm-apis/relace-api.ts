@@ -122,19 +122,17 @@ Important:
 
 Please output just the complete updated file content with no other text.`
 
-    const content = await promptAiSdk(
-      [
+    const content = await promptAiSdk({
+      messages: [
         { role: 'user', content: prompt },
         { role: 'assistant', content: '```\n' },
       ],
-      {
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        model: models.o3mini,
-        userId,
-      }
-    )
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.o3mini,
+      userId,
+    })
 
     return parseMarkdownCodeBlock(content) + '\n'
   }

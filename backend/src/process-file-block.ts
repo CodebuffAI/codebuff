@@ -244,7 +244,8 @@ Please output just the SEARCH/REPLACE blocks like this:
 [new content that matches edit snippet intent]
 >>>>>>> REPLACE`
 
-  const response = await promptAiSdk([{ role: 'user', content: prompt }], {
+  const response = await promptAiSdk({
+    messages: [{ role: 'user', content: prompt }],
     model: models.o4mini,
     clientSessionId,
     fingerprintId,

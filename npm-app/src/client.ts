@@ -404,6 +404,14 @@ export class Client {
     } catch (e) {
       Spinner.get().stop()
       const error = e as Error
+      logger.error(
+        {
+          errorMessage: error.message,
+          errorStack: error.stack,
+          keyType,
+        },
+        'Error adding API key'
+      )
       console.error(red('Error adding API key: ' + error.message))
     } finally {
       this.freshPrompt()
@@ -443,6 +451,14 @@ export class Client {
         }
       } catch (e) {
         const error = e as Error
+        logger.error(
+          {
+            errorMessage: error.message,
+            errorStack: error.stack,
+            referralCode,
+          },
+          'Error redeeming referral code'
+        )
         console.error(red('Error: ' + error.message))
         this.freshPrompt()
       }
@@ -486,9 +502,25 @@ export class Client {
           ) as Record<(typeof ONE_TIME_LABELS)[number], boolean>
           this.orgContext.reset()
         } catch (error) {
+          logger.error(
+            {
+              errorMessage:
+                error instanceof Error ? error.message : String(error),
+              errorStack: error instanceof Error ? error.stack : undefined,
+            },
+            'Error removing credentials file'
+          )
           console.error('Error removing credentials file:', error)
         }
       } catch (error) {
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Error during logout'
+        )
         console.error('Error during logout:', error)
       }
     }
@@ -812,9 +844,7 @@ export class Client {
     })
   }
 
-  async sendUserInput(
-    prompt: string
-  ): Promise<{
+  async sendUserInput(prompt: string): Promise<{
     responsePromise: Promise<
       ServerAction & { type: 'prompt-response' } & { wasStoppedByUser: boolean }
     >
@@ -984,7 +1014,14 @@ export class Client {
       try {
         xmlStreamParser.write(chunk, 'utf8')
       } catch (e) {
-        // console.error('Error writing chunk', e)
+        logger.error(
+          {
+            errorMessage: e instanceof Error ? e.message : String(e),
+            errorStack: e instanceof Error ? e.stack : undefined,
+            chunk,
+          },
+          'Error writing chunk to XML stream parser'
+        )
       }
     })
 
@@ -1045,6 +1082,16 @@ export class Client {
             const toolResult = await handleToolCall(toolCall)
             toolResults.push(toolResult)
           } catch (error) {
+            logger.error(
+              {
+                errorMessage:
+                  error instanceof Error ? error.message : String(error),
+                errorStack: error instanceof Error ? error.stack : undefined,
+                toolCallName: toolCall.name,
+                toolCallId: toolCall.id,
+              },
+              'Error parsing tool call'
+            )
             console.error(
               '\n\n' +
                 red(`Error parsing tool call ${toolCall.name}:\n${error}`) +
@@ -1145,6 +1192,14 @@ Go to https://www.codebuff.com/config for more information.`) +
             checkpointAddendum = ` or "checkpoint ${checkpointManager.getLatestCheckpoint().id}" to revert`
           } catch (error) {
             // No latest checkpoint, don't show addendum
+            logger.info(
+              {
+                errorMessage:
+                  error instanceof Error ? error.message : String(error),
+                errorStack: error instanceof Error ? error.stack : undefined,
+              },
+              'No latest checkpoint for addendum'
+            )
           }
           console.log(
             `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n`
@@ -1236,6 +1291,13 @@ Go to https://www.codebuff.com/config for more information.`) +
 
       this.showUsageWarning()
     } catch (error) {
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        'Error checking usage'
+      )
       console.error(
         red(
           `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`

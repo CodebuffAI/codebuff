@@ -331,17 +331,15 @@ async function getRelevantFilesForTraining(
     bufferTokens
   )
   const start = performance.now()
-  let response = await promptAiSdk(
-    coreMessagesWithSystem(messagesWithPrompt, system),
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: models.sonnet,
-      userId,
-      chargeUser: false,
-    }
-  )
+  let response = await promptAiSdk({
+    messages: coreMessagesWithSystem(messagesWithPrompt, system),
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model: models.sonnet,
+    userId,
+    chargeUser: false,
+  })
 
   const end = performance.now()
   const duration = end - start
