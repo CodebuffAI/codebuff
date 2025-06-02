@@ -18,7 +18,6 @@
     "paths": {
       "common/*": ["./src/common/*", "../common/src/*"],
       "@/*": ["./src/*"],
-      "@codebuff/billing": ["../packages/billing/src"],
       "@codebuff/bigquery": ["../packages/bigquery/src"]
     },
     "typeRoots": [
