@@ -291,11 +291,14 @@ export const mainPrompt = async (
   }
 
   // Check number of assistant messages since last user message with prompt
-  const consecutiveAssistantMessages =
-    agentState.consecutiveAssistantMessages ?? 0
-  if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
+  const remainingAssistantMessages =
+    agentState.agentStepsRemaining !== undefined
+      ? agentState.agentStepsRemaining - 1
+      : MAX_CONSECUTIVE_ASSISTANT_MESSAGES -
+        (agentState.consecutiveAssistantMessages ?? 0)
+  if (remainingAssistantMessages < 0) {
     logger.warn(
-      `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
+      `Detected ${remainingAssistantMessages} consecutive assistant messages without user prompt`
     )
 
     const warningString = [
@@ -1073,6 +1076,10 @@ export const mainPrompt = async (
     consecutiveAssistantMessages: prompt
       ? 1
       : (agentState.consecutiveAssistantMessages ?? 0) + 1,
+    agentStepsRemaining:
+      agentState.agentStepsRemaining === undefined
+        ? undefined
+        : agentState.agentStepsRemaining - 1,
   }
 
   logger.debug(

@@ -63,6 +63,7 @@ import { CLI } from './cli'
 import { backendUrl, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { calculateFingerprint } from './fingerprint'
+import { loadCodebuffConfig } from './json-config-parser'
 import { displayGreeting } from './menu'
 import { OrganizationContextManager } from './organization-context'
 import {
@@ -898,6 +899,9 @@ export class Client {
     if (!this.agentState) {
       throw new Error('Agent state not initialized')
     }
+
+    this.agentState.agentStepsRemaining = loadCodebuffConfig()?.maxAgentSteps
+
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
     loggerContext.clientRequestId = userInputId
