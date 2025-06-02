@@ -18,6 +18,7 @@ const MAX_LENGTH_CHARS = 500_000
 const VALIDATION_SAMPLING_RATE = 0.1
 const SAVE_TOP_FEW_DATA = true
 const ADD_DASHES_TO_TOP_FEW_DATA = true
+const BLOBBIFY_MESSAGE_HISTORY = true
 
 if (!model) {
   console.log('Missing model argument')
@@ -140,6 +141,17 @@ function convertToTopFewTrainingExample(
   return example
 }
 
+function compressMessagesToHistory(messages: GeminiMessage[]): string {
+  let out =
+    "Message History \n Here is the conversation so far, use it to help you determine which files are most relevant to the user's query. \n <message_history>\n"
+  for (const msg of messages) {
+    const allParts = msg.parts.map((p) => p.text).join('\n')
+    out += `<${msg.role}> ${allParts}\n </${msg.role}>`
+  }
+  out += '</message_history>'
+  return out
+}
+
 function convertToGeminiFormat(
   system: SystemMessage[],
   messages: Message[],
@@ -201,6 +213,19 @@ function convertToGeminiFormat(
       combinedMessages[combinedMessages.length - 1].parts.push(...msg.parts)
     } else {
       combinedMessages.push(msg)
+    }
+  }
+
+  if (BLOBBIFY_MESSAGE_HISTORY) {
+    // Append all except the last message to the system message
+    // Then return only the last message as contents
+    systemMessage.parts.push({
+      text: compressMessagesToHistory(combinedMessages.slice(0, -1)),
+    })
+
+    return {
+      systemInstruction: systemMessage,
+      contents: [combinedMessages[combinedMessages.length - 1]],
     }
   }
 
@@ -391,7 +416,7 @@ async function main() {
     console.log(`Using dataset: ${DATASET}`)
 
     // Get traces for the specified model from BigQuery
-    const traces = await getTracesWithRelabels(model, 1000, DATASET)
+    const traces = await getTracesWithRelabels(model, 100, DATASET)
     console.log(`Found ${traces.length} traces for model ${model}`)
 
     // Process traces and convert to Gemini format

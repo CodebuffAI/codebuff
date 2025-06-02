@@ -3,7 +3,7 @@
 import { finetunedVertexModels } from 'common/constants'
 import { Info, Settings } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,6 +41,8 @@ const nameOverrides = {
   [finetunedVertexModels.ft_filepicker_005]: 'ft_filepicker_005',
   [finetunedVertexModels.ft_filepicker_007]: 'ft_filepicker_007',
   [finetunedVertexModels.ft_filepicker_topk_001]: 'ft_filepicker_topk_001',
+  [finetunedVertexModels.ft_filepicker_008]: 'ft_filepicker_008',
+  [finetunedVertexModels.ft_filepicker_topk_002]: 'ft_filepicker_topk_002',
 }
 
 // Choose user list based on environment
@@ -81,12 +83,12 @@ export default function FilePicker() {
       // Allow normal horizontal scrolling within elements
       const target = e.target as Element
       const isScrollableElement = target.closest('.overflow-auto, .overflow-x-auto, .overflow-scroll, .overflow-x-scroll')
-      
+
       // If we're scrolling within a scrollable element, allow it
       if (isScrollableElement) {
         return
       }
-      
+
       // Only prevent very strong horizontal scrolls that are likely navigation gestures
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 50) {
         e.preventDefault()
