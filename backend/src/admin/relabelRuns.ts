@@ -50,9 +50,12 @@ export async function getTracesForUserHandler(req: Request, res: Response) {
 
         // Extract query from the last message in the messages array
         const messages = trace.payload.messages || []
+
         const queryBody =
           Array.isArray(messages) && messages.length > 0
-            ? messages[messages.length - 1].content[0].text || 'Unknown query'
+            ? messages[messages.length - 1].content[0].text ??
+              messages[messages.length - 1].content ??
+              'Unknown query'
             : 'Unknown query'
 
         // User prompt: User prompt: \"still not seeing it, can you see it on the page?\"
