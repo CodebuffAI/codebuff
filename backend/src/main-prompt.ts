@@ -816,7 +816,7 @@ export const mainPrompt = async (
     onResponseChunk(chunk)
   }
 
-  if (foundParsingError) {
+  if (foundParsingError && process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local') {
     toolFormatter(fullResponse, {
       messageId: generateCompactId('cb-tf-'),
       clientSessionId,
