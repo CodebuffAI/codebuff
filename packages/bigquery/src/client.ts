@@ -264,6 +264,7 @@ export async function getTracesWithRelabels(
 export async function getTracesAndRelabelsForUser(
   userId?: string,
   limit: number = 50,
+  cursor: string | undefined = undefined,
   dataset: string = DATASET,
   joinType: 'INNER' | 'LEFT' = 'LEFT'
 ) {
@@ -280,6 +281,7 @@ export async function getTracesAndRelabelsForUser(
     FROM \`${dataset}.${TRACES_TABLE}\`
     WHERE type = 'get-relevant-files'
     ${userId ? `AND user_id = '${userId}'` : ''}
+    ${cursor ? `AND created_at < '${cursor}'` : ''}
     ORDER BY created_at DESC
     LIMIT ${limit}
   )

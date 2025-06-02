@@ -68,21 +68,21 @@
   - Mostly reuses relabel inputs from other Claude runs - no additional cost anticipated.
 
 `ft_filepicker_008`
-- Gemini Endpoint ID: TBD
+- Gemini Endpoint ID: 2672143108984012800
 - Finetune date: May 31, 2025
 - Finetune file: gemini-tune-data-043.jsonl, available in the GCS bucket
 - Validation file: gemini-tune-data-043.jsonl, available in the GCS bucket
 - Finetune samples: 2648 messages
 - Validation samples: 253 messages
-- Tokens: TBD
+- Tokens: 108M
 - Epochs: 2
 - Base model: gemini-2.0-flash-001
 - Distilled model: claude-opus-4-20250514 
 - Notes: 
   - Identical to `ft_filepicker_007` - except more data and epochs
 - Est costs:
-  - TBD for finetuning ($3.00/1M tokens * 1 epoch * 44.7M tokens)
-  - over $660 for generating relabel inputs (at $15.00/1M input Claude tokens + some additional file context tokens) (about half of this is reused from ft_filepicker_007 though)
+  - $648 for finetuning ($3.00/1M tokens * 2 epoch * 108M tokens)
+  - about $3K for generating relabel inputs (at $15.00/1M input Claude tokens + some additional file context tokens) (about lot of this reused from ft_filepicker_007 though)
 
 `ft_filepicker_topk_002`
 - Gemini Endpoint ID: 

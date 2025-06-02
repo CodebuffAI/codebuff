@@ -191,6 +191,14 @@ export const finetunedVertexModels = {
   ft_filepicker_008: '2672143108984012800',
   ft_filepicker_topk_002: '1694861989844615168',
 } as const
+export const finetunedVertexModelNames: Record<string, string> = {
+  [finetunedVertexModels.ft_filepicker_003]: 'ft_filepicker_003',
+  [finetunedVertexModels.ft_filepicker_005]: 'ft_filepicker_005',
+  [finetunedVertexModels.ft_filepicker_007]: 'ft_filepicker_007',
+  [finetunedVertexModels.ft_filepicker_topk_001]: 'ft_filepicker_topk_001',
+  [finetunedVertexModels.ft_filepicker_008]: 'ft_filepicker_008',
+  [finetunedVertexModels.ft_filepicker_topk_002]: 'ft_filepicker_topk_002',
+}
 export type FinetunedVertexModel =
   (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels]
 
