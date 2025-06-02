@@ -78,6 +78,9 @@ import {
 import { processStreamWithTags } from './xml-stream-parser'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
+// Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
+// TODO: We might want to be able to turn this on on a per-repo basis.
+const COLLECT_FULL_FILE_CONTEXT = false
 
 export const mainPrompt = async (
   ws: WebSocket,
@@ -1161,7 +1164,7 @@ async function getFileReadingUpdates(
       []
 
   // Only record training data if we requested files
-  if (requestedFiles.length > 0) {
+  if (requestedFiles.length > 0 && COLLECT_FULL_FILE_CONTEXT) {
     uploadExpandedFileContextForTraining(
       ws,
       { messages, system },
