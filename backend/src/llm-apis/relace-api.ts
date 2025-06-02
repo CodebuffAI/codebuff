@@ -313,6 +313,9 @@ export async function toolFormatter(
           temperature: 0,
           max_tokens: 32_000,
           response_format: { type: 'json_schema', json_schema: outputSchema },
+          'relace-metadata': {
+            'codebuff-id': messageId,
+          },
         }),
       }),
       timeoutPromise(100_000),
