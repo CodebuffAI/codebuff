@@ -57,9 +57,9 @@ import {
   resetShell,
 } from './utils/terminal'
 
-import { loadCodebuffConfig } from 'common/json-config/parser'
 import { type CodebuffMessage } from 'common/types/message'
 import { CONFIG_DIR } from './credentials'
+import { loadCodebuffConfig } from './json-config-parser'
 import { logAndHandleStartup } from './startup-process-handler'
 import { logger } from './utils/logger'
 
@@ -669,9 +669,9 @@ export class CLI {
       clearScreen()
 
       // from index.ts
-      const config = loadCodebuffConfig(projectRoot)
+      const config = loadCodebuffConfig()
       await killAllBackgroundProcesses()
-      const processStartPromise = logAndHandleStartup(projectRoot, config)
+      const processStartPromise = logAndHandleStartup()
       const initFileContextPromise = initProjectFileContextWithWorker(
         projectRoot,
         true
