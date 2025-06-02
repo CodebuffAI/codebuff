@@ -19,6 +19,13 @@ export async function createTemplateProject(
     console.error(
       'Template name can only contain letters, numbers, dash and underscore'
     )
+    logger.error(
+      {
+        errorMessage: 'Template name can only contain letters, numbers, dash and underscore',
+        template,
+      },
+      'Invalid template name'
+    )
     process.exit(1)
   }
 
@@ -26,6 +33,13 @@ export async function createTemplateProject(
   if (!/^[a-zA-Z0-9-_]+$/.test(projectName)) {
     console.error(
       'Project name can only contain letters, numbers, dash and underscore'
+    )
+    logger.error(
+      {
+        errorMessage: 'Project name can only contain letters, numbers, dash and underscore',
+        projectName,
+      },
+      'Invalid project name'
     )
     process.exit(1)
   }
@@ -35,6 +49,13 @@ export async function createTemplateProject(
   // Check if directory already exists
   if (fs.existsSync(projectPath)) {
     console.error(`Directory ${projectPath} already exists`)
+    logger.error(
+      {
+        errorMessage: `Directory ${projectPath} already exists`,
+        projectPath,
+      },
+      'Directory already exists'
+    )
     process.exit(1)
   }
 
@@ -62,6 +83,13 @@ export async function createTemplateProject(
     } else {
       console.error(
         `Template ${template} not found in starter-templates/ or showcase/`
+      )
+      logger.error(
+        {
+          errorMessage: `Template ${template} not found in starter-templates/ or showcase/`,
+          template,
+        },
+        'Template not found'
       )
       fs.rmSync(tempDir, { recursive: true, force: true })
       process.exit(1)

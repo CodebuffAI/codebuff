@@ -1,21 +1,22 @@
-import puppeteer, {
-  Browser,
-  Page,
-  HTTPRequest,
-  HTTPResponse,
-} from 'puppeteer-core'
+import {
+  BROWSER_DEFAULTS,
+  BrowserAction,
+  BrowserConfig,
+  BrowserResponse,
+} from 'common/browser-actions'
+import { ensureDirectoryExists } from 'common/util/file'
 import { sleep } from 'common/util/promise'
 import { ensureUrlProtocol } from 'common/util/string'
-import {
-  BrowserAction,
-  BrowserResponse,
-  BROWSER_DEFAULTS,
-  BrowserConfig,
-} from 'common/browser-actions'
 import * as fs from 'fs'
 import * as path from 'path'
+import puppeteer, {
+  Browser,
+  HTTPRequest,
+  HTTPResponse,
+  Page,
+} from 'puppeteer-core'
 import { getCurrentChatDir, getProjectDataDir } from './project-files'
-import { ensureDirectoryExists } from 'common/util/file'
+import { logger } from './utils/logger'
 
 type NonOptional<T, K extends keyof T> = T & { [P in K]-?: T[P] }
 
@@ -545,6 +546,14 @@ export class BrowserRunner {
           timestamp: Date.now(),
           source: 'tool',
         })
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Failed to save screenshot'
+        )
       }
     }
 
@@ -769,6 +778,13 @@ export class BrowserRunner {
         await browser.close()
       } catch (err) {
         console.error('Error closing browser:', err)
+        logger.error(
+          {
+            errorMessage: err instanceof Error ? err.message : String(err),
+            errorStack: err instanceof Error ? err.stack : undefined,
+          },
+          'Error closing browser'
+        )
       }
     }
   }

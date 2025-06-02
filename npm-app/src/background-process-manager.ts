@@ -374,6 +374,14 @@ export async function killAllBackgroundProcesses(): Promise<void> {
             `Failed to kill: \`${processInfo.command}\` (pid ${pid}): ${error?.message || error}`
           )
         )
+        logger.error(
+          {
+            errorMessage: error?.message || String(error),
+            pid,
+            command: processInfo.command,
+          },
+          'Failed to kill process'
+        )
       }
     })
 
