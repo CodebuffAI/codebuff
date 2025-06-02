@@ -6,6 +6,7 @@ import * as schema from 'common/db/schema'
 import { hasMaxedReferrals } from '@/lib/server/referral'
 import { logger } from '@/util/logger'
 import { grantCreditOperation } from '@codebuff/billing'
+import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
 
 export async function redeemReferralCode(referralCode: string, userId: string) {
   try {
@@ -154,12 +155,15 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       // Process Referrer
       grantPromises.push(
         grantCreditOperation(
-          referrer.id,
+          referrer.id, // identifier for debt check
           CREDITS_REFERRAL_BONUS,
           'referral',
           'Referral bonus (referrer)',
-          user.next_quota_reset,
-          `${operationId}-referrer`,
+          GRANT_PRIORITIES.referral, // priority
+          `${operationId}-referrer`, // operationId
+          user.next_quota_reset, // expiresAt
+          referrer.id, // userIdForGrant
+          null, // orgId
           tx
         )
           .then(() => true)
@@ -180,12 +184,15 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       // Process Referred User
       grantPromises.push(
         grantCreditOperation(
-          referred.id,
+          referred.id, // identifier for debt check
           CREDITS_REFERRAL_BONUS,
           'referral',
           'Referral bonus (referred)',
-          user.next_quota_reset,
-          `${operationId}-referred`,
+          GRANT_PRIORITIES.referral, // priority
+          `${operationId}-referred`, // operationId
+          user.next_quota_reset, // expiresAt
+          referred.id, // userIdForGrant
+          null, // orgId
           tx
         )
           .then(() => true)

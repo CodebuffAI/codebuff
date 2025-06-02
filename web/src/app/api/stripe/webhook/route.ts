@@ -190,10 +190,11 @@ async function handleCheckoutSessionCompleted(
 
       await grantOrganizationCredits(
         organizationId,
-        userId, // Pass the user who initiated the purchase
-        credits,
-        operationId,
-        `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`
+        credits, // Corrected: amount of credits
+        operationId, // Corrected: operationId
+        null, // Corrected: expiresAt (null for purchases)
+        userId // Corrected: userIdForGrant (the user who initiated the purchase)
+        // The description is handled internally by grantCreditOperation via grantOrganizationCredits
       )
     } else {
       logger.warn(

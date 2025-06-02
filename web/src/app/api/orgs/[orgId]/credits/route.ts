@@ -175,10 +175,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             // Grant credits immediately
             await grantOrganizationCredits(
               orgId,
-              session.user.id, // Pass the user who initiated the purchase
-              credits,
-              operationId,
-              `Direct purchase of ${credits.toLocaleString()} credits`
+              credits, // Corrected: amount of credits
+              operationId, // Corrected: operationId
+              null, // Corrected: expiresAt (null for purchases)
+              session.user.id // Corrected: userIdForGrant
+              // The description is handled internally by grantCreditOperation via grantOrganizationCredits
             )
 
             logger.info(
