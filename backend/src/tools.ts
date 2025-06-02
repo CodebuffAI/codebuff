@@ -4,47 +4,87 @@ import path from 'path'
 
 import { FileChange } from 'common/actions'
 import { models, TEST_USER_ID } from 'common/constants'
-import { getToolCallString } from 'common/src/constants/tools'
+import {
+  getToolCallString,
+  ToolName as GlobalToolNameImport,
+} from 'common/src/constants/tools'
 import { z } from 'zod'
 
+import { buildArray } from 'common/util/array'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
-import { transformMessages } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
-const tools = [
+// Define Zod schemas for parameter validation
+const toolConfigsList = [
   {
     name: 'add_subgoal',
-    description: `
-### add_subgoal
+    schema: z
+      .object({
+        id: z
+          .string()
+          .min(1, 'Id cannot be empty')
+          .describe(
+            `A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.`
+          ),
+        objective: z
+          .string()
+          .min(1, 'Objective cannot be empty')
+          .describe(
+            `The objective of the subgoal, concisely and clearly stated.`
+          ),
+        status: z
+          .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED'])
+          .describe(
+            `The status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "ABORTED"]`
+          ),
+        plan: z.string().optional().describe('A plan for the subgoal.'),
+        log: z
+          .string()
+          .optional()
+          .describe('A log message for the subgoal progress.'),
+      })
+      .describe(
+        `Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!`
+      ),
 
-Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!
-Params:
-- \`id\`: (required) A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.
-- \`objective\`: (required) The objective of the subgoal, concisely and clearly stated.
-- \`status\`: (required) The status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "ABORTED"]
-- \`plan\`: (optional) A plan for the subgoal.
-
+    additionalInfo: `
 Example:
 ${getToolCallString('add_subgoal', {
   id: '1',
   objective: 'Add a new "deploy api" subgoal',
   status: 'IN_PROGRESS',
 })}
-    `.trim(),
+`.trim(),
   },
   {
     name: 'update_subgoal',
-    description: `
-### update_subgoal
-
-Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.
-
-Params:
-- \`id\`: (required) The id of the subgoal to update.
-- \`status\`: (optional) Change the status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "FAILED"]
-- \`plan\`: (optional) Change the plan for the subgoal.
-- \`log\`: (optional) Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.
-
+    schema: z
+      .object({
+        id: z
+          .string()
+          .min(1, 'Id cannot be empty')
+          .describe(`The id of the subgoal to update.`),
+        status: z
+          .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'FAILED'])
+          .optional()
+          .describe(
+            `Change the status of the subgoal. One of ["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "FAILED"]`
+          ),
+        plan: z
+          .string()
+          .optional()
+          .describe(`Change the plan for the subgoal.`),
+        log: z
+          .string()
+          .optional()
+          .describe(
+            `Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.`
+          ),
+      })
+      .describe(
+        `Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.`
+      ),
+    additionalInfo: `
 Examples:
 
 Usage 1 (update status):
@@ -75,11 +115,16 @@ ${getToolCallString('update_subgoal', {
   },
   {
     name: 'write_file',
-    description: `
-### write_file
-
-Create or edit a file with the given content.
-
+    schema: z
+      .object({
+        path: z
+          .string()
+          .min(1, 'Path cannot be empty')
+          .describe(`Path to the file relative to the **project root**`),
+        content: z.string().describe(`Edit snippet to apply to the file.`),
+      })
+      .describe(`Create or edit a file with the given content.`),
+    additionalInfo: `
 #### **IMPORTANT** Edit Snippet
 
 Format the \`content\` parameter as an edit snippet that describes how you would like to modify the provided existing code.
@@ -126,10 +171,6 @@ Notes for editing a file:
 - You can also use this tool to create new files.
 - After you have written out a write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
 
-Parameters:
-- \`path\`: (required) Path to the file relative to the **project root**
-- \`content\`: (required) Edit snippet to apply to the file.
-
 Examples:
 ${getToolCallString('write_file', {
   path: 'path/to/file',
@@ -162,17 +203,29 @@ function foo() {
   },
   {
     name: 'str_replace',
-    description: `
-### str_replace
-
-Replace strings in a file with new strings.
-
+    schema: z
+      .object({
+        path: z
+          .string()
+          .min(1, 'Path cannot be empty')
+          .describe(`The path to the file to edit.`),
+        old_vals: z
+          .array(z.string())
+          .describe(
+            `The strings to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.`
+          ),
+        new_vals: z
+          .array(z.string())
+          .describe(
+            `The strings to replace the corresponding old string with. Can be empty to delete.`
+          ),
+      })
+      .refine((data) => data.old_vals.length === data.new_vals.length, {
+        message: 'old_vals and new_vals must have the same number of elements.',
+      })
+      .describe(`Replace strings in a file with new strings.`),
+    additionalInfo: `
 This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
-
-Params:
-- \`path\`: (required) The path to the file to edit.
-- \`old_{i}\`: (required) One item of the \`old_vals\` array. The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
-- \`new_{i}\`: (required) One item of the \`new_vals\` array. The string to replace the corresponding old string with.
 
 If you are making multiple edits row to a single file with this tool, use only one <str_replace> call (without closing the tool) with old_0, new_0, old_1, new_1, old_2, new_2, etc. instead of calling str_replace multiple times on the same file.
 
@@ -188,29 +241,42 @@ ${getToolCallString('str_replace', {
   },
   {
     name: 'read_files',
-    description: `
-### read_files
-Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.
-Params:
-- \`paths\`: (required) List of file paths to read relative to the **project root**, separated by newlines. Absolute file paths will not work.
+    schema: z
+      .object({
+        paths: z
+          .string()
+          .min(1, 'Paths cannot be empty')
+          .describe(
+            `List of file paths to read relative to the **project root**, separated by newlines. Absolute file paths will not work.`
+          ),
+      })
+      .describe(
+        `Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`
+      ),
+    additionalInfo: `
+Note: DO NOT call this tool for files you've already read! There's no need to read them again — any changes to the files will be surfaced to you as a file update tool result.
 
 Example:
 ${getToolCallString('read_files', {
   paths: 'path/to/file1.ts\npath/to/file2.ts',
 })}
-
-
-Note: DO NOT call this tool for files you've already read! There's no need to read them again — any changes to the files will be surfaced to you as a file update tool result.`.trim(),
+    `.trim(),
   },
   {
     name: 'find_files',
-    description: `
-### find_files
-Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.
-
-Params:
-- \`description\`: (required) A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
-
+    schema: z
+      .object({
+        description: z
+          .string()
+          .min(1, 'Description cannot be empty')
+          .describe(
+            `A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.`
+          ),
+      })
+      .describe(
+        `Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.`
+      ),
+    additionalInfo: `
 Example:
 ${getToolCallString('find_files', {
   description: 'The implementation of function foo',
@@ -225,19 +291,26 @@ Use cases:
 Don't use this tool if:
 - You already know the exact path of the file(s) you are looking for — in this case, use read_files.
 - You already read the files you need in context.
+- You know the name of the file you need. Instead use run_terminal_command with \`find -name\` (or \`dir /s /b\` or \`Get-ChildItem -Recurse -Filter\`)
 
-In general, prefer using read_files instead of find_files.
+This tool is not guaranteed to find the correct file. In general, prefer using read_files instead of find_files.
       `.trim(),
   },
   {
     name: 'code_search',
-    description: `
-### code_search
-Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.
+    schema: z
+      .object({
+        pattern: z
+          .string()
+          .min(1, 'Pattern cannot be empty')
+          .describe(`The pattern to search for.`),
+      })
+      .describe(
+        `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`
+      ),
 
+    additionalInfo: `
 Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
-
-Note: quotes will be automatically added around your code search pattern. You might need to escape special characters like '-' or '.' or '\\' if you want to search for them.
 
 Prefer to use read_files instead of code_search unless you need to search for a specific pattern in multiple files.
 
@@ -258,21 +331,42 @@ The pattern supports regular expressions and will search recursively through all
 
 Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
 
-Params:
-- pattern: (required) The pattern to search for.
-
 Examples:
 ${getToolCallString('code_search', { pattern: 'foo' })}
 ${getToolCallString('code_search', { pattern: 'import.*foo' })}
-
     `.trim(),
   },
   {
     name: 'run_terminal_command',
-    description: `
-### run_terminal_command
-Execute a CLI command from the **project root** (different from the user's cwd).
-
+    schema: z
+      .object({
+        command: z
+          .string()
+          .min(1, 'Command cannot be empty')
+          .describe(`CLI command valid for user's OS.`),
+        process_type: z
+          .enum(['SYNC', 'BACKGROUND'])
+          .default('SYNC')
+          .describe(
+            `Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC`
+          ),
+        cwd: z
+          .string()
+          .optional()
+          .describe(
+            `The working directory to run the command in. Default is the project root.`
+          ),
+        timeout_seconds: z
+          .string()
+          .default('30')
+          .describe(
+            `Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30`
+          ),
+      })
+      .describe(
+        `Execute a CLI command from the **project root** (different from the user's cwd).`
+      ),
+    additionalInfo: `
 Stick to these use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
@@ -286,24 +380,18 @@ When using this tool, please adhere to the following rules:
 2. Do not run \`git push\` because it can break production (!) if the user was not expecting it. Don't run \`git commit\`, \`git rebase\`, or related commands unless you get explicit permission. If a user asks to commit changes, you can do so, but you should not invoke any further git commands beyond the git commit command.
 3. Do not run scripts without asking. Especially don't run scripts that could run against the production environment or have permanent effects without explicit permission from the user. Don't run scripts with side effects without permission from the user unless they don't have much effect or are simple.
 4. Be careful with any command that has big or irreversible effects. Anything that touches a production environment, servers, the database, or other systems that could be affected by a command should be run with explicit permission from the user.
-4. Don't run too many commands in a row without pausing to check in with what the user wants to do next.
-5. Do not use the run_terminal_command tool to create or edit files. Do not use \`cat\` or \`echo\` to create or edit files. You should instead write out <write_file> blocks for for editing or creating files as detailed above in the <editing_instructions> block.
-6. Do not install packages without asking, unless it is within a small, new-ish project. Users working on a larger project will want to manage packages themselves, so ask first.
-7. Do not use the wrong package manager for the project. For example, if the project uses \`pnpm\` or \`bun\` or \`yarn\`, you should not use \`npm\`. Similarly not everyone uses \`pip\` for python, etc.
-8. Do not use more than one run_terminal_command tool call in a single response. Wait for the tool results of each command before invoking the next one.
-9. The user will not be able to interact with these processes, e.g. confirming the command. So if there's an opportunity to use "-y" or "--yes" flags, use them. Any command that prompts for confirmation will hang if you don't use the flags.
+5. Do not run too many commands in a row without pausing to check in with what the user wants to do next.
+6. Do not use the run_terminal_command tool to create or edit files. Do not use \`cat\` or \`echo\` to create or edit files. You should instead write out <write_file> blocks for for editing or creating files as detailed above in the <editing_instructions> block.
+7. Do not install packages without asking, unless it is within a small, new-ish project. Users working on a larger project will want to manage packages themselves, so ask first.
+8. Do not use the wrong package manager for the project. For example, if the project uses \`pnpm\` or \`bun\` or \`yarn\`, you should not use \`npm\`. Similarly not everyone uses \`pip\` for python, etc.
+9. Do not use more than one run_terminal_command tool call in a single response. Wait for the tool results of each command before invoking the next one.
+10. The user will not be able to interact with these processes, e.g. confirming the command. So if there's an opportunity to use "-y" or "--yes" flags, use them. Any command that prompts for confirmation will hang if you don't use the flags.
 
 Notes:
 - If the user references a specific file, it could be either from their cwd or from the project root. You **must** determine which they are referring to (either infer or ask). Then, you must specify the path relative to the project root (or use the cwd parameter)
 - Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
 
 ${gitCommitGuidePrompt}
-
-Params:  
-- \`command\`: (required) CLI command valid for user's OS.
-- \`process_type\`: (optional) Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC
-- \`cwd\`: (optional) The working directory to run the command in. Default is the project root.
-- \`timeout_seconds\`: (optional) Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30
 
 Example:
 ${getToolCallString('run_terminal_command', {
@@ -314,11 +402,19 @@ ${getToolCallString('run_terminal_command', {
   },
   {
     name: 'think_deeply',
-    description: `
-### think_deeply
-
-Deeply consider complex tasks by brainstorming approaches and tradeoffs step-by-step.
-
+    schema: z
+      .object({
+        thought: z
+          .string()
+          .min(1, 'Thought cannot be empty')
+          .describe(
+            `Detailed step-by-step analysis. Initially keep each step concise (max ~5-7 words per step).`
+          ),
+      })
+      .describe(
+        `Deeply consider complex tasks by brainstorming approaches and tradeoffs step-by-step.`
+      ),
+    additionalInfo: `
 Use when user request:
 - Explicitly asks for deep planning.
 - Requires multi-file changes or complex logic.
@@ -327,9 +423,6 @@ Use when user request:
 Avoid for simple changes (e.g., single functions, minor edits).
 
 This tool does not generate a tool result.
-
-Params:
-- \`thought\`: (required) Detailed step-by-step analysis. Initially keep each step concise (max ~5-7 words per step).
 
 Example:
 ${getToolCallString('think_deeply', {
@@ -344,11 +437,21 @@ ${getToolCallString('think_deeply', {
   },
   {
     name: 'create_plan',
-    description: `
-### create_plan
-
-Generate a detailed markdown plan for complex tasks.
-
+    schema: z
+      .object({
+        path: z
+          .string()
+          .min(1, 'Path cannot be empty')
+          .describe(
+            `The path including the filename of a markdown file that will be overwritten with the plan.`
+          ),
+        plan: z
+          .string()
+          .min(1, 'Plan cannot be empty')
+          .describe(`A detailed plan to solve the user's request.`),
+      })
+      .describe(`Generate a detailed markdown plan for complex tasks.`),
+    additionalInfo: `
 Use when:  
 - User explicitly requests a detailed plan.  
 - Task involves significant architectural or multi-file changes.
@@ -379,10 +482,6 @@ After creating than plan, you should end turn to let the user review the plan.
 
 Important: Use this tool sparingly. Do not use this tool more than once in a conversation, if a plan was already created, or for similar user requests.
 
-Params:
-- \`path\`: (required) The path including the filename of a markdown file that will be overwritten with the plan.
-- \`plan\`: (required) A detailed plan to solve the user's request.
-
 Examples:
 ${getToolCallString('create_plan', {
   path: 'feature-x-plan.md',
@@ -400,11 +499,29 @@ ${getToolCallString('create_plan', {
   },
   {
     name: 'browser_logs',
-    description: `
-### browser_logs
-
-In a headless browser, navigate to a web page and get the console logs after page load.
-
+    schema: z
+      .object({
+        type: z
+          .string()
+          .min(1, 'Type cannot be empty')
+          .describe(
+            'The type of browser action to perform (e.g., "navigate").'
+          ),
+        url: z
+          .string()
+          .min(1, 'URL cannot be empty')
+          .describe('The URL to navigate to.'),
+        waitUntil: z
+          .enum(['load', 'domcontentloaded', 'networkidle0'])
+          .optional()
+          .describe(
+            "When to consider navigation successful. Defaults to 'load'."
+          ),
+      })
+      .describe(
+        `In a headless browser, navigate to a web page and get the console logs after page load.`
+      ),
+    additionalInfo: `
 Purpose: Use this tool to check the output of console.log or errors in order to debug issues, test functionality, or verify expected behavior.
 
 IMPORTANT: Assume the user's development server is ALREADY running and active, unless you see logs indicating otherwise. Never start the user's development server for them, unless they ask you to do so.
@@ -442,8 +559,8 @@ There is currently only one type of browser action available:
 Navigate:
    - Load a new URL in the current browser window and get the logs after page load.
    Params:
-   - \`type\`: Must be equal to 'navigate'
-   - \`url\`: (required)
+   - \`type\`: (required) Must be equal to 'navigate'
+   - \`url\`: (required) The URL to navigate to.
    - \`waitUntil\`: (required) One of 'load', 'domcontentloaded', 'networkidle0'
 
 Example:
@@ -456,16 +573,16 @@ ${getToolCallString('browser_logs', {
   },
   {
     name: 'end_turn',
-    description: `
-### end_turn
-
-End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.
-
+    schema: z
+      .object({})
+      .transform(() => ({}))
+      .describe(
+        `End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.`
+      ),
+    additionalInfo: `
 Purpose: Use this tool if you have fully responded to the user and want to get their feedback. This ignores any tool results (from write_file, run_terminal_command, etc.), so be sure you are done before using it.
 
-Params: None
-
-Make sure to use this tool if you want a response fromt the user and not the system. Otherwise, you may receive tool results from the previous tools. e.g. "Let me know if you need xyz!${getToolCallString('end_turn', {})}"
+Make sure to use this tool if you want a response from the user and not the system. Otherwise, you may receive tool results from the previous tools. e.g. "Let me know if you need xyz!${getToolCallString('end_turn', {})}"
 
 Example:
 ${getToolCallString('end_turn', {})}
@@ -473,166 +590,181 @@ ${getToolCallString('end_turn', {})}
   },
 ] as const
 
-// Define Zod schemas for parameter validation
-const addSubgoalSchema = z.object({
-  id: z.string().min(1, 'Id cannot be empty'),
-  objective: z.string().min(1, 'Objective cannot be empty'),
-  status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED']),
-  plan: z.string().optional(),
-  log: z.string().optional(),
-})
+// Helper function to generate markdown for parameter list
+function generateParamsList(
+  toolName: string,
+  schema: z.ZodType<any, any, any>
+): string[] {
+  const params: string[] = []
+  let shape = null
 
-const updateSubgoalSchema = z.object({
-  id: z.string().min(1, 'Id cannot be empty'),
-  status: z
-    .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'FAILED'])
-    .optional(),
-  plan: z.string().optional(),
-  log: z.string().optional(),
-})
-
-const writeFileSchema = z.object({
-  path: z.string().min(1, 'Path cannot be empty'),
-  content: z.string(),
-})
-
-const strReplaceSchema = z.object({
-  path: z.string().min(1, 'Path cannot be empty'),
-  old_vals: z.array(z.string().min(1, 'Old cannot be empty')),
-  new_vals: z.array(z.string()),
-})
-
-const readFilesSchema = z.object({
-  paths: z.string().min(1, 'Paths cannot be empty'),
-})
-
-const findFilesSchema = z.object({
-  description: z.string().min(1, 'Description cannot be empty'),
-})
-
-const codeSearchSchema = z.object({
-  pattern: z.string().min(1, 'Pattern cannot be empty'),
-})
-
-const runTerminalCommandSchema = z.object({
-  command: z.string().min(1, 'Command cannot be empty'),
-  process_type: z.enum(['SYNC', 'BACKGROUND']).default('SYNC'),
-  cwd: z.string().optional(),
-  timeout_seconds: z.string().default('30'),
-})
-
-const thinkDeeplySchema = z.object({
-  thought: z.string().min(1, 'Thought cannot be empty'),
-})
-
-const createPlanSchema = z.object({
-  path: z.string().min(1, 'Path cannot be empty'),
-  plan: z.string().min(1, 'Plan cannot be empty'),
-})
-
-const browserActionSchema = z.object({
-  type: z.string().min(1, 'Type cannot be empty'),
-  url: z.string().min(1, 'URL cannot be empty'),
-  waitUntil: z.string().optional(),
-})
-
-const emptySchema = z.object({}).transform(() => ({}))
-
-// Map tool names to their schemas
-const toolSchemas = {
-  add_subgoal: addSubgoalSchema,
-  update_subgoal: updateSubgoalSchema,
-  write_file: writeFileSchema,
-  str_replace: strReplaceSchema,
-  read_files: readFilesSchema,
-  find_files: findFilesSchema,
-  code_search: codeSearchSchema,
-  run_terminal_command: runTerminalCommandSchema,
-  think_deeply: thinkDeeplySchema,
-  create_plan: createPlanSchema,
-  browser_logs: browserActionSchema,
-  end_turn: emptySchema,
-} as const
-
-export function parseRawToolCall<T extends ToolName>(rawToolCall: {
-  name: T
-  parameters: Record<string, string>
-}): ToolCall<T & ToolName> | ToolCallError {
-  const { name, parameters } = rawToolCall
-
-  // Look up the schema for this tool
-  const schema = toolSchemas[name]
-  if (!schema) {
-    return { name: name as string, parameters, error: `Tool ${name} not found` }
+  if (schema instanceof z.ZodObject) {
+    shape = schema.shape
+  } else if (
+    schema instanceof z.ZodEffects &&
+    schema._def.schema instanceof z.ZodObject
+  ) {
+    shape = schema._def.schema.shape
   }
 
-  // Handle array parameters: convert param_name_0, param_name_1, etc. into param_name_vals array
-  const processedParameters = { ...parameters }
+  if (shape) {
+    for (const key in shape) {
+      const paramSchema = shape[key] as z.ZodTypeAny
+      let paramMarkdownName = `\`${key}\``
 
-  // Find array parameter patterns
-  const arrayParamPattern = /^(.+)_(\d+)$/
-  const arrayParams: Record<string, string[]> = {}
-
-  for (const [key, value] of Object.entries(parameters)) {
-    const match = key.match(arrayParamPattern)
-    if (match) {
-      const [, paramName, indexStr] = match
-      const index = parseInt(indexStr, 10)
-      const arrayKey = `${paramName}_vals`
-
-      if (!arrayParams[arrayKey]) {
-        arrayParams[arrayKey] = []
+      if (
+        toolName === 'str_replace' &&
+        (key === 'old_vals' || key === 'new_vals')
+      ) {
+        paramMarkdownName = `\`${key.replace('_vals', '')}_{i}\``
       }
-      arrayParams[arrayKey][index] = value
-      delete processedParameters[key]
-    }
-  }
 
-  // Validate array continuity and add to processed parameters
-  for (const [arrayKey, values] of Object.entries(arrayParams)) {
-    // Check for gaps in the array indices
-    for (let i = 0; i < values.length; i++) {
-      if (values[i] === undefined) {
-        return {
-          name,
-          parameters,
-          error: `Missing parameter ${arrayKey.replace('_vals', '')}_${i} - array parameters must be continuous starting from 0`,
-        }
+      let paramLine = `- ${paramMarkdownName}: `
+
+      let requiredOptionalMarker = '(required)'
+      if (
+        paramSchema instanceof z.ZodOptional ||
+        paramSchema._def.typeName === 'ZodDefault'
+      ) {
+        requiredOptionalMarker = '(optional)'
       }
-    }
-    processedParameters[arrayKey] = values as any
-  }
 
-  // Parse and validate the parameters
-  const result = schema.safeParse(processedParameters)
-  if (!result.success) {
-    return {
-      name,
-      parameters,
-      error: `Invalid parameters for ${name}: ${JSON.stringify(result.error.issues, null, 2)}`,
+      const descriptionText =
+        paramSchema.description ||
+        `(${paramSchema._def.typeName || 'parameter'})`
+      paramLine += `${requiredOptionalMarker} ${descriptionText}`
+      params.push(paramLine)
     }
   }
 
-  // Return the validated and transformed parameters
-  return {
-    name,
-    parameters: result.data,
+  if (params.length === 0) {
+    return ['None']
   }
+
+  return params
 }
 
-export const TOOL_LIST = tools.map((tool) => tool.name)
-export type ToolName = (typeof TOOL_LIST)[number]
+// Helper function to build the full tool description markdown
+function buildToolDescription(
+  toolName: string,
+  schema: z.ZodType<any, any, any>,
+  additionalInfo: string
+): string {
+  const mainDescription = schema.description || ''
+  const paramsArray = generateParamsList(toolName, schema)
 
-export type ToolCall<T extends ToolName = ToolName> = {
-  name: T
-  parameters: z.infer<(typeof toolSchemas)[T]>
+  let paramsSection = ''
+  if (paramsArray.length === 1 && paramsArray[0] === 'None') {
+    paramsSection = 'Params: None'
+  } else if (paramsArray.length > 0) {
+    paramsSection = `Params:\n${paramsArray.join('\n')}`
+  }
+
+  return buildArray([
+    `### ${toolName}`,
+    mainDescription,
+    paramsSection,
+    additionalInfo,
+  ]).join('\n\n')
 }
+
+const tools = toolConfigsList.map((config) => ({
+  name: config.name,
+  description: buildToolDescription(
+    config.name,
+    config.schema,
+    config.additionalInfo
+  ),
+})) as { name: GlobalToolNameImport; description: string }[]
+
+const toolSchemas = Object.fromEntries(
+  toolConfigsList.map((tool) => [tool.name, tool.schema])
+) as {
+  [K in (typeof toolConfigsList)[number]['name']]: Extract<
+    (typeof toolConfigsList)[number],
+    { name: K }
+  >['schema']
+}
+
+type ToolConfig = (typeof toolConfigsList)[number]
+
+export type ToolCall = {
+  [K in ToolConfig as K['name']]: {
+    name: K['name']
+    parameters: z.infer<K['schema']>
+  }
+}[ToolConfig['name']]
 
 export type ToolCallError = {
   name?: string
   parameters: Record<string, string>
   error: string
 }
+
+export function parseRawToolCall(rawToolCall: {
+  name: string
+  parameters: Record<string, string>
+}): ToolCall | ToolCallError {
+  const name = rawToolCall.name
+
+  if (!(name in toolSchemas)) {
+    return {
+      name,
+      parameters: rawToolCall.parameters,
+      error: `Tool ${name} not found`,
+    }
+  }
+  const validName = name as GlobalToolNameImport
+
+  let schema: z.ZodObject<any> | z.ZodEffects<any> = toolSchemas[validName]
+  while (schema instanceof z.ZodEffects) {
+    schema = schema.innerType()
+  }
+  const processedParameters: Record<string, any> = { ...rawToolCall.parameters }
+
+  const arrayParamPattern = /^(.+)_(\d+)$/
+  const arrayParamsCollector: Record<string, string[]> = {}
+
+  for (const [key, value] of Object.entries(rawToolCall.parameters)) {
+    const match = key.match(arrayParamPattern)
+    if (match) {
+      const [, paramNameBase, indexStr] = match
+      const index = parseInt(indexStr, 10)
+      const arraySchemaKey = `${paramNameBase}_vals`
+
+      const schemaShape = schema.shape
+      if (
+        schemaShape &&
+        schemaShape[arraySchemaKey] &&
+        schemaShape[arraySchemaKey] instanceof z.ZodArray
+      ) {
+        if (!arrayParamsCollector[arraySchemaKey]) {
+          arrayParamsCollector[arraySchemaKey] = []
+        }
+        arrayParamsCollector[arraySchemaKey][index] = value
+        delete processedParameters[key]
+      }
+    }
+  }
+
+  for (const [arrayKey, values] of Object.entries(arrayParamsCollector)) {
+    processedParameters[arrayKey] = values.filter((v) => v !== undefined)
+  }
+
+  const result = schema.safeParse(processedParameters)
+  if (!result.success) {
+    return {
+      name: validName,
+      parameters: rawToolCall.parameters,
+      error: `Invalid parameters for ${validName}: ${JSON.stringify(result.error.issues, null, 2)}`,
+    }
+  }
+
+  return { name: validName, parameters: result.data } as ToolCall
+}
+
+export const TOOL_LIST = tools.map((tool) => tool.name)
+export type ToolName = (typeof TOOL_LIST)[number]
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
   'read_files',
@@ -760,7 +892,7 @@ Please rewrite the entire context using the update instructions in a <new_contex
       content: '<new_context>',
     },
   ]
-  const response = await promptFlashWithFallbacks(transformMessages(messages), {
+  const response = await promptFlashWithFallbacks(messages, {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',
@@ -773,7 +905,7 @@ Please rewrite the entire context using the update instructions in a <new_contex
 
 export async function updateContextFromToolCalls(
   agentContext: string,
-  toolCalls: ToolCall<'update_subgoal' | 'add_subgoal'>[]
+  toolCalls: Extract<ToolCall, { name: 'update_subgoal' | 'add_subgoal' }>[]
 ) {
   let prompt = [] // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
 
@@ -1004,7 +1136,7 @@ export async function summarizeOutput(xml: string): Promise<string> {
     },
   ]
 
-  return promptFlashWithFallbacks(transformMessages(messages), {
+  return promptFlashWithFallbacks(messages, {
     model: models.gemini2flash,
     clientSessionId: 'strange-loop',
     fingerprintId: 'strange-loop',

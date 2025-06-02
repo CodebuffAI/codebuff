@@ -16,6 +16,7 @@ import {
   yellow,
 } from 'picocolors'
 
+import { codebuffConfigFile } from 'common/json-config/constants'
 import { Formatter } from 'picocolors/types'
 import { getProjectRoot, isSubdir } from './project-files'
 
@@ -37,16 +38,16 @@ export const interactiveCommandDetails: CommandInfo[] = [
     aliases: ['h'], // Optional: if you want /h to also work for tab completion
   },
   {
-    commandText: '"login"',
-    baseCommand: 'login',
-    description: 'Authenticate your session',
-    isSlashCommand: false,
-  },
-  {
     commandText: '"init"',
     baseCommand: 'init',
     description: 'Configure project for better results',
     isSlashCommand: true,
+  },
+  {
+    commandText: '"login"',
+    baseCommand: 'login',
+    description: 'Authenticate your session',
+    isSlashCommand: false,
   },
   {
     commandText: '"diff" or "d"',
@@ -83,8 +84,20 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '"reset"',
     baseCommand: 'reset',
     description:
-      'Reset the conversation context, as if you just started a new Codebuff session',
+      'Reset the conversation history, as if you just started a new Codebuff session',
     isSlashCommand: true,
+  },
+  {
+    baseCommand: 'compact',
+    description: 'Replace the conversation history with a summary and free up context',
+    isSlashCommand: true,
+    commandText: '"compact"',
+  },
+  {
+    baseCommand: 'export',
+    description: 'Export conversation summary to file',
+    isSlashCommand: true,
+    commandText: '"export"',
   },
   {
     commandText: 'ESC key or Ctrl-C',
@@ -116,6 +129,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
+    baseCommand: 'ask',
+    description: "Switch to ask mode (won't modify code)",
+    isSlashCommand: true,
+    commandText: '',
+  },
+  {
     baseCommand: 'lite',
     description: 'Switch to lite mode (faster, cheaper)',
     isSlashCommand: true,
@@ -140,12 +159,6 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
-    baseCommand: 'ask',
-    description: "Switch to ask mode (won't modify code)",
-    isSlashCommand: true,
-    commandText: '',
-  },
-  {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
     description: 'Quit Codebuff',
@@ -154,9 +167,9 @@ export const interactiveCommandDetails: CommandInfo[] = [
 ]
 
 export function getSlashCommands(): CommandInfo[] {
-  return interactiveCommandDetails
-    .filter((cmd) => cmd.isSlashCommand && cmd.baseCommand)
-    .sort((a, b) => a.baseCommand!.localeCompare(b.baseCommand!))
+  return interactiveCommandDetails.filter(
+    (cmd) => cmd.isSlashCommand && cmd.baseCommand
+  )
 }
 
 export function displaySlashCommandHelperMenu() {
@@ -183,7 +196,7 @@ export function displaySlashCommandHelperMenu() {
 
   // Add the shell command tip at the end
   const shellTip = gray(
-    '(Tip: Type "!" followed by a command to run it in your shell, e.g., !ls)'
+    'Tip: Type "!" followed by a command to run it in your shell, e.g., !ls'
   )
 
   // Print with consistent spacing
@@ -291,7 +304,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
         path.join(getProjectRoot(), 'knowledge.md')
       )
       const hasCodebuffJson = fs.existsSync(
-        path.join(getProjectRoot(), 'codebuff.json')
+        path.join(getProjectRoot(), codebuffConfigFile)
       )
       const gitignoreNote =
         ' (Codebuff never reads files in your .gitignore/.codebuffignore)'
@@ -301,7 +314,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
         return `${currentDirectoryLine}\n${green('✅ Git repo: detected')}
 ${green('✅ .gitignore: detected')}${gitignoreNote}
 ${green('✅ knowledge.md: detected')}
-${green('✅ codebuff.json: detected')}`
+${green(`✅ ${codebuffConfigFile}: detected`)}`
       }
 
       // Condition 2: Git repo not found
@@ -309,7 +322,7 @@ ${green('✅ codebuff.json: detected')}`
         return `${currentDirectoryLine}\n${yellow('❌ Git repo: not found')}${' - navigate to a working directory!'}
 ${hasGitIgnore ? green('✅ .gitignore: detected') : yellow('❌ .gitignore: missing')}${gitignoreNote}
 ${hasKnowledgeMd ? green('✅ knowledge.md: detected') : yellow('❌ knowledge.md: missing')}${' — run "init" to fix'}
-${hasCodebuffJson ? green('✅ codebuff.json: detected') : yellow('❌ codebuff.json: missing')}${' — run "init" to fix'}`
+${hasCodebuffJson ? green(`✅ ${codebuffConfigFile}: detected`) : yellow(`❌ ${codebuffConfigFile}: missing`)}${' — run "init" to fix'}`
       }
 
       // Condition 3: Missing .gitignore
@@ -317,23 +330,23 @@ ${hasCodebuffJson ? green('✅ codebuff.json: detected') : yellow('❌ codebuff.
         return `${currentDirectoryLine}\n${green('✅ Git repo: detected')}
 ${yellow('❌ .gitignore: missing - type "generate a reasonable .gitignore"')}${gitignoreNote}
 ${hasKnowledgeMd ? green('✅ knowledge.md: detected') : yellow('❌ knowledge.md: missing')}
-${hasCodebuffJson ? green('✅ codebuff.json: detected') : yellow('❌ codebuff.json: missing')}`
+${hasCodebuffJson ? green(`✅ ${codebuffConfigFile}: detected`) : yellow(`❌ ${codebuffConfigFile}: missing`)}`
       }
       // Condition 4: Missing knowledge files
       return `${currentDirectoryLine}\n${green('✅ Git repo: detected')}
 ${green('✅ .gitignore: detected')}${gitignoreNote}
 ${
   !hasKnowledgeMd && !hasCodebuffJson
-    ? yellow('❌ knowledge.md & codebuff.json: missing - type "init"')
+    ? yellow(`❌ knowledge.md & ${codebuffConfigFile}: missing - type "init"`)
     : !hasKnowledgeMd
       ? yellow('❌ knowledge.md: missing - type "init"')
       : !hasCodebuffJson
-        ? yellow('❌ codebuff.json: missing - type "init"')
-        : green('✅ knowledge.md & codebuff.json: detected')
+        ? yellow(`❌ ${codebuffConfigFile}: missing - type "init"`)
+        : green(`✅ knowledge.md & ${codebuffConfigFile}: detected`)
 }
-${hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow('codebuff.json runs deployment scripts for you to test your code and runs configured checks for you by running your dev server.')}` : ''}
+${hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow(`${codebuffConfigFile} runs deployment scripts for you to test your code and runs configured checks for you by running your dev server.`)}` : ''}
 ${!hasKnowledgeMd && hasCodebuffJson ? `\n${yellow('knowledge.md helps Codebuff understand your project structure and codebase better for better results.')}` : ''}
-${!hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow('knowledge.md helps Codebuff understand your project structure and codebase better for better results.')}\n${yellow('codebuff.json runs deployment scripts for you to test your code and runs configured checks for you by running your dev server.')}` : ''}`
+${!hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow('knowledge.md helps Codebuff understand your project structure and codebase better for better results.')}\n${yellow(`${codebuffConfigFile} runs deployment scripts for you to test your code and runs configured checks for you by running your dev server.`)}` : ''}`
     })()
   )
 

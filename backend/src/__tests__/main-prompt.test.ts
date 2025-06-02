@@ -177,6 +177,7 @@ describe('mainPrompt', () => {
       undefined // Mock model
     )
 
+    // 1. First, find the tool results message
     const userToolResultMessageIndex = newAgentState.messageHistory.findIndex(
       (m) =>
         m.role === 'user' &&
@@ -184,40 +185,33 @@ describe('mainPrompt', () => {
         m.content.includes('<tool_result>') &&
         m.content.includes('read_files')
     )
-    expect(userToolResultMessageIndex).toBeGreaterThanOrEqual(0) // Should be index 0
+    expect(userToolResultMessageIndex).toBeGreaterThanOrEqual(0)
     const userToolResultMessage =
       newAgentState.messageHistory[userToolResultMessageIndex]
     expect(userToolResultMessage).toBeDefined()
     expect(userToolResultMessage?.content).toContain('read_files')
 
-    // 2. The user instructions message should be next (we don't need to assert its exact content)
-    const userInstructionsMessageIndex = userToolResultMessageIndex + 1
-    const userInstructionsMessage =
-      newAgentState.messageHistory[userInstructionsMessageIndex]
-    expect(userInstructionsMessage?.role).toBe('user')
-    expect(typeof userInstructionsMessage?.content).toBe('string')
-
-    // 3. The user prompt message should be after instructions
-    const userPromptMessageIndex = userInstructionsMessageIndex + 1
+    // 2. Find the actual user prompt message (wrapped in <user_message> tags)
+    const userPromptMessageIndex = newAgentState.messageHistory.findIndex(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content === asUserMessage(userPromptText)
+    )
+    expect(userPromptMessageIndex).toBeGreaterThanOrEqual(0)
     const userPromptMessage =
       newAgentState.messageHistory[userPromptMessageIndex]
     expect(userPromptMessage?.role).toBe('user')
-    // Check the content structure (array with text block)
-    expect(Array.isArray(userPromptMessage?.content)).toBe(true)
-    expect((userPromptMessage?.content as any)?.[0]?.type).toBe('text')
-    expect((userPromptMessage?.content as any)?.[0]?.text).toBe(
-      asUserMessage(userPromptText)
-    ) // Check text property
+    expect(userPromptMessage.content).toEqual(asUserMessage(userPromptText))
 
-    // 4. The assistant response should be after the prompt message
-    const assistantResponseMessageIndex = userPromptMessageIndex + 1
+    // 3. The assistant response should be the last message
     const assistantResponseMessage =
-      newAgentState.messageHistory[assistantResponseMessageIndex]
+      newAgentState.messageHistory[newAgentState.messageHistory.length - 1]
     expect(assistantResponseMessage?.role).toBe('assistant')
     expect(assistantResponseMessage?.content).toBe('Test response')
 
-    // Check overall length
-    expect(newAgentState.messageHistory.length).toBeGreaterThanOrEqual(4)
+    // Check overall length - should have at least the tool results, user prompt, and assistant response
+    expect(newAgentState.messageHistory.length).toBeGreaterThanOrEqual(3)
   })
 
   it('should add file updates to tool results in message history', async () => {

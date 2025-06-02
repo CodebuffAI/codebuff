@@ -15,21 +15,22 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { getToolCallString, toolSchema } from 'common/constants/tools'
 import { trackEvent } from 'common/src/analytics'
 import { AgentState, ToolResult } from 'common/types/agent-state'
-import { Message } from 'common/types/message'
 import { buildArray } from 'common/util/array'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { toContentString } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
-import { transformMessages } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
+import { CoreMessage } from 'ai'
+import { CodebuffMessage } from 'common/types/message'
 import { checkTerminalCommand } from './check-terminal-command'
 import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
 import { getDocumentationForQuery } from './get-documentation-for-query'
+import { toolFormatter } from './llm-apis/relace-api'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStream } from './prompt-agent-stream'
@@ -54,7 +55,9 @@ import {
   asSystemMessage,
   asUserMessage,
   castAssistantMessage,
-  getMessagesSubset,
+  coreMessagesWithSystem,
+  expireMessages,
+  getCoreMessagesSubset,
   isSystemInstruction,
 } from './util/messages'
 import {
@@ -76,6 +79,9 @@ import {
 import { processStreamWithTags } from './xml-stream-parser'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
+// Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
+// TODO: We might want to be able to turn this on on a per-repo basis.
+const COLLECT_FULL_FILE_CONTEXT = false
 
 export const mainPrompt = async (
   ws: WebSocket,
@@ -218,7 +224,7 @@ export const mainPrompt = async (
       `If the tool result above is of a terminal command succeeding and you have completed the user's request, please do not write anything else and end your response.`
   ).join('\n\n')
 
-  const messagesWithToolResultsAndUser = buildArray(
+  const messagesWithToolResultsAndUser = buildArray<CodebuffMessage>(
     ...messageHistory,
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -230,6 +236,7 @@ export const mainPrompt = async (
         content: asSystemMessage(
           `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
         ),
+        timeToLive: 'agentStep',
       },
       {
         role: 'user' as const,
@@ -261,7 +268,10 @@ export const mainPrompt = async (
       )
       const newAgentState = {
         ...agentState,
-        messageHistory: messagesWithToolResultsAndUser,
+        messageHistory: expireMessages(
+          messagesWithToolResultsAndUser,
+          'userPrompt'
+        ),
       }
       return {
         agentState: newAgentState,
@@ -300,7 +310,7 @@ export const mainPrompt = async (
       agentState: {
         ...agentState,
         messageHistory: [
-          ...messageHistory,
+          ...expireMessages(messageHistory, 'userPrompt'),
           { role: 'assistant', content: warningString },
         ],
       },
@@ -401,7 +411,7 @@ export const mainPrompt = async (
     })
   }
 
-  const readFileMessages: Message[] = []
+  const readFileMessages: CodebuffMessage[] = []
   if (newFiles.length > 0) {
     const readFilesToolResult = {
       id: generateCompactId(),
@@ -415,6 +425,7 @@ export const mainPrompt = async (
         content: asSystemInstruction(
           'Before continuing with the user request, read some relevant files first.'
         ),
+        timeToLive: 'userPrompt',
       },
       {
         role: 'assistant' as const,
@@ -432,67 +443,19 @@ export const mainPrompt = async (
   const relevantDocumentation = await relevantDocumentationPromise
 
   const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
-  const messagesWithUserMessage = buildArray(
-    ...messageHistory
-      .filter((m) => {
-        return (
-          !prompt ||
-          typeof m.content !== 'string' ||
-          !isSystemInstruction(m.content)
-        )
-      })
-      .map((m) => castAssistantMessage(m)),
-    !prompt && {
-      role: 'user' as const,
-      content: asSystemInstruction(
-        'The following messages (in <system> or <system_instructions> tags) are **only** from the **system** to display tool results. Do not assume any user intent other than what the user has explicitly stated. e.g. if you asked a question about whether to proceed, do NOT interpret this message as responding affirmatively.'
-      ),
-    },
+  const messagesWithUserMessage = buildArray<CodebuffMessage>(
+    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep').map(
+      (m) => castAssistantMessage(m)
+    ),
 
     toolResults.length > 0 && {
       role: 'user' as const,
       content: asSystemMessage(renderToolResults(toolResults)),
     },
 
-    hasAssistantMessage && {
-      role: 'user' as const,
-      content: asSystemInstruction(
-        "All <previous_assistant_message>messages</previous_assistant_message> were from some previous assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes (including errors from the system), identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Continue the conversation as if you are the same assistant."
-      ),
-    },
-
-    // Add in new copy of agent context.
-    prompt &&
-      agentContext && {
-        role: 'user' as const,
-        content: asSystemMessage(agentContext.trim()),
-      },
-
-    prompt
-      ? {
-          role: 'user' as const,
-          content: asSystemInstruction(userInstructions),
-        }
-      : toolInstructions && {
-          role: 'user' as const,
-          content: asSystemInstruction(toolInstructions),
-        },
-
-    relevantDocumentation && {
-      role: 'user' as const,
-      content: asSystemMessage(
-        `Relevant context from web documentation:\n${relevantDocumentation}`
-      ),
-    },
-
     prompt && [
-      cwd && {
-        role: 'user' as const,
-        content: asSystemMessage(
-          `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
-        ),
-      },
       {
+        // Actual user prompt!
         role: 'user' as const,
         content: asUserMessage(prompt),
       },
@@ -506,7 +469,47 @@ export const mainPrompt = async (
       },
     ],
 
-    ...readFileMessages
+    ...readFileMessages,
+
+    prompt && [
+      relevantDocumentation && {
+        role: 'user' as const,
+        content: asSystemMessage(
+          `Relevant context from web documentation:\n${relevantDocumentation}`
+        ),
+      },
+      agentContext && {
+        role: 'user' as const,
+        content: asSystemMessage(agentContext.trim()),
+        timeToLive: 'userPrompt',
+      },
+      hasAssistantMessage && {
+        role: 'user' as const,
+        content: asSystemInstruction(
+          "All <previous_assistant_message>messages</previous_assistant_message> were from some less intelligent assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes (including errors from the system), identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Simply continue the conversation as if you are the same assistant. The user has seen the previous assistant's messages, so do not repeat what was already said."
+        ),
+        timeToLive: 'userPrompt',
+      },
+      {
+        role: 'user' as const,
+        content: asSystemInstruction(userInstructions),
+        timeToLive: 'userPrompt',
+      },
+      cwd && {
+        role: 'user' as const,
+        content: asSystemMessage(
+          `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
+        ),
+        timeToLive: 'agentStep',
+      },
+    ],
+
+    !prompt &&
+      toolInstructions && {
+        role: 'user' as const,
+        content: asSystemInstruction(toolInstructions),
+        timeToLive: 'agentStep' as const,
+      }
   )
 
   const iterationNum = messagesWithUserMessage.length
@@ -515,7 +518,7 @@ export const mainPrompt = async (
   const systemTokens = countTokensJson(system)
 
   // Possibly truncated messagesWithUserMessage + cache.
-  const agentMessages = getMessagesSubset(
+  const agentMessages = getCoreMessagesSubset(
     messagesWithUserMessage,
     systemTokens + countTokensJson({ agentContext, userInstructions })
   )
@@ -523,15 +526,15 @@ export const mainPrompt = async (
   const debugPromptCaching = false
   if (debugPromptCaching) {
     // Store the agent request to a file for debugging
-    await saveAgentRequest(agentMessages, system, promptId)
+    await saveAgentRequest(
+      coreMessagesWithSystem(agentMessages, system),
+      promptId
+    )
   }
 
   logger.debug(
     {
       agentMessages,
-      messagesWithoutToolResults: messagesWithUserMessage.filter(
-        (m) => !isToolResult(m)
-      ),
       prompt,
       agentContext,
       iteration: iterationNum,
@@ -564,7 +567,7 @@ export const mainPrompt = async (
   // Think deeply at the start of every response
   if (geminiThinkingEnabled) {
     let response = await getThinkingStream(
-      transformMessages(agentMessages, system),
+      coreMessagesWithSystem(agentMessages, system),
       (chunk) => {
         onResponseChunk(chunk)
       },
@@ -586,7 +589,7 @@ export const mainPrompt = async (
   }
 
   const stream = getStream(
-    transformMessages(
+    coreMessagesWithSystem(
       buildArray(
         ...agentMessages,
         // Add prefix of the response from fullResponse if it exists
@@ -602,11 +605,16 @@ export const mainPrompt = async (
   const allToolCalls: ToolCall[] = []
   const clientToolCalls: ClientToolCall[] = []
   const serverToolResults: ToolResult[] = []
-  const subgoalToolCalls: ToolCall<'add_subgoal' | 'update_subgoal'>[] = []
+  const subgoalToolCalls: Extract<
+    ToolCall,
+    { name: 'add_subgoal' | 'update_subgoal' }
+  >[] = []
+
+  let foundParsingError = false
 
   function toolCallback<T extends ToolName>(
     tool: T,
-    after: (toolCall: ToolCall<T>) => void
+    after: (toolCall: Extract<ToolCall, { name: T }>) => void
   ): {
     params: (string | RegExp)[]
     onTagStart: () => void
@@ -619,7 +627,7 @@ export const mainPrompt = async (
       params: toolSchema[tool],
       onTagStart: () => {},
       onTagEnd: async (_: string, parameters: Record<string, string>) => {
-        const toolCall = parseRawToolCall<typeof tool>({
+        const toolCall = parseRawToolCall({
           name: tool,
           parameters,
         })
@@ -629,11 +637,12 @@ export const mainPrompt = async (
             id: generateCompactId(),
             result: toolCall.error,
           })
+          foundParsingError = true
           return
         }
-        allToolCalls.push(toolCall)
+        allToolCalls.push(toolCall as Extract<ToolCall, { name: T }>)
 
-        after(toolCall)
+        after(toolCall as Extract<ToolCall, { name: T }>)
       },
     }
   }
@@ -810,6 +819,16 @@ export const mainPrompt = async (
     onResponseChunk(chunk)
   }
 
+  if (foundParsingError && process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local') {
+    toolFormatter(fullResponse, {
+      messageId: generateCompactId('cb-tf-'),
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+    })
+  }
+
   const agentResponseTrace: AgentResponseTrace = {
     type: 'agent-response',
     created_at: new Date(),
@@ -861,9 +880,11 @@ export const mainPrompt = async (
     ) {
       // Handled above
     } else if (toolCall.name === 'read_files') {
-      const paths = (toolCall as ToolCall<'read_files'>).parameters.paths
+      const paths = (
+        toolCall as Extract<ToolCall, { name: 'read_files' }>
+      ).parameters.paths
         .split(/\s+/)
-        .map((path) => path.trim())
+        .map((path: string) => path.trim())
         .filter(Boolean)
 
       const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
@@ -913,8 +934,9 @@ export const mainPrompt = async (
         ),
       })
     } else if (toolCall.name === 'find_files') {
-      const description = (toolCall as ToolCall<'find_files'>).parameters
-        .description
+      const description = (
+        toolCall as Extract<ToolCall, { name: 'find_files' }>
+      ).parameters.description
       const { addedFiles, updatedFilePaths, printedPaths } =
         await getFileReadingUpdates(
           ws,
@@ -1026,9 +1048,27 @@ export const mainPrompt = async (
 
   const newAgentContext = await agentContextPromise
 
+  let finalMessageHistory = expireMessages(messagesWithResponse, 'agentStep')
+
+  // Handle /compact command: replace message history with the summary
+  const wasCompacted =
+    prompt &&
+    (prompt.toLowerCase() === '/compact' || prompt.toLowerCase() === 'compact')
+  if (wasCompacted) {
+    finalMessageHistory = [
+      {
+        role: 'user',
+        content: asSystemMessage(
+          `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`
+        ),
+      },
+    ]
+    logger.debug({ summary: fullResponse }, 'Compacted messages')
+  }
+
   const newAgentState: AgentState = {
     ...agentState,
-    messageHistory: messagesWithResponse,
+    messageHistory: finalMessageHistory,
     agentContext: newAgentContext,
     consecutiveAssistantMessages: prompt
       ? 1
@@ -1078,7 +1118,7 @@ const getInitialFiles = (fileContext: ProjectFileContext) => {
 
 async function getFileReadingUpdates(
   ws: WebSocket,
-  messages: Message[],
+  messages: CoreMessage[],
   system: string | Array<TextBlockParam>,
   fileContext: ProjectFileContext,
   prompt: string | null,
@@ -1142,7 +1182,7 @@ async function getFileReadingUpdates(
       []
 
   // Only record training data if we requested files
-  if (requestedFiles.length > 0) {
+  if (requestedFiles.length > 0 && COLLECT_FULL_FILE_CONTEXT) {
     uploadExpandedFileContextForTraining(
       ws,
       { messages, system },
@@ -1292,7 +1332,7 @@ async function uploadExpandedFileContextForTraining(
     messages,
     system,
   }: {
-    messages: Message[]
+    messages: CoreMessage[]
     system: string | Array<TextBlockParam>
   },
   fileContext: ProjectFileContext,

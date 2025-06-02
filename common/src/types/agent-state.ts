@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { ProjectFileContext, ProjectFileContextSchema } from '../util/file'
-import { MessageSchema } from './message'
+import { CodebuffMessageSchema } from './message'
 
 export const ToolCallSchema = z.object({
   name: z.string(),
@@ -19,7 +19,7 @@ export type ToolResult = z.infer<typeof ToolResultSchema>
 export const AgentStateSchema = z.object({
   agentContext: z.string(),
   fileContext: ProjectFileContextSchema,
-  messageHistory: z.array(MessageSchema),
+  messageHistory: z.array(CodebuffMessageSchema),
   consecutiveAssistantMessages: z.number().optional(),
 })
 export type AgentState = z.infer<typeof AgentStateSchema>

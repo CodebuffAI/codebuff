@@ -12,9 +12,10 @@ const MODEL_TO_TEST = claudeModels.opus4
 
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
-const MAX_PARALLEL = 5 // Maximum number of traces to process in parallel
-const LIMIT = 1000
-const PAGE_SIZE = 50
+const MAX_PARALLEL = 2 // Maximum number of traces to process in parallel
+const LIMIT = 3000
+const PAGE_SIZE = 30
+const START_CURSOR = '2025-05-27T00:00:00.000Z' // only helpful if you quit midway thru
 
 async function runTraces() {
   await setupBigQuery(DATASET)
@@ -22,7 +23,7 @@ async function runTraces() {
     console.log(
       `\nProcessing traces for model ${MODEL_TO_TEST} with full file context...`
     )
-    let cursor: string | undefined = undefined
+    let cursor: string | undefined = START_CURSOR
 
     for (let i = 0; i < LIMIT; i += PAGE_SIZE) {
       // Get traces and all related data

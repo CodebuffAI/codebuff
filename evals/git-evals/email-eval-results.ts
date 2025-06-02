@@ -83,14 +83,13 @@ ${evalResults
 
   const topProblems = `🚨 TOP PROBLEMS TO SOLVE:
 ${allProblems
-  .slice(0, 5)
   .map(
     (
       problem,
       i
     ) => `${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}
    Frequency: ${(problem.frequency * 100).toFixed(1)}%
-   ${problem.description.substring(0, 200)}${problem.description.length > 200 ? '...' : ''}`
+   ${problem.description}`
   )
   .join('\n\n')}`
 
@@ -100,10 +99,7 @@ ${allProblems
   const uniqueRecommendations = [...new Set(allRecommendations)]
 
   const recommendations = `💡 DEVELOPMENT RECOMMENDATIONS:
-${uniqueRecommendations
-  .slice(0, 8)
-  .map((rec, i) => `${i + 1}. ${rec}`)
-  .join('\n')}`
+${uniqueRecommendations.map((rec, i) => `${i + 1}. ${rec}`).join('\n')}`
 
   // Combine everything into a single message
   const message = `${summary}

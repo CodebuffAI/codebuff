@@ -673,6 +673,10 @@ export class Client {
     loggerContext.costMode = this.costMode
   }
 
+  public close() {
+    this.webSocket.close()
+  }
+
   private setupSubscriptions() {
     this.webSocket.subscribe('action-error', (action) => {
       if (action.error === 'Insufficient credits') {
@@ -808,7 +812,14 @@ export class Client {
     })
   }
 
-  async sendUserInput(prompt: string) {
+  async sendUserInput(
+    prompt: string
+  ): Promise<{
+    responsePromise: Promise<
+      ServerAction & { type: 'prompt-response' } & { wasStoppedByUser: boolean }
+    >
+    stopResponse: () => void
+  }> {
     if (!this.agentState) {
       throw new Error('Agent state not initialized')
     }

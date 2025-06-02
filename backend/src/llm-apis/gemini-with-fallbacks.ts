@@ -159,7 +159,8 @@ export async function* streamGemini25ProWithFallbacks(
   // Transform messages to CoreMessage format for Vercel AI SDK
   let currentMessages: CoreMessage[]
   if (system) {
-    const messagesWithSystemForTransform = [{ role: 'system' as const, content: system }, ...messages]
+    const systemContentString = typeof system === 'string' ? system : system.map(block => block.text).join('\n');
+    const messagesWithSystemForTransform = [{ role: 'system' as const, content: systemContentString }, ...messages];
     currentMessages = transformToCoreMessages(messagesWithSystemForTransform, geminiModels.gemini2_5_flash)
   } else {
     currentMessages = transformToCoreMessages(messages, geminiModels.gemini2_5_flash)

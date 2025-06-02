@@ -97,9 +97,42 @@ Config file (probably already exists):
     - startupProcesses.item.enabled
   - Provide startupProcesses.item.cwd only if it is not '.'
 `.trim()
+
+const compactPrompt = `
+User has typed "compact". Summarize the current conversation and prepare it to replace the existing message history.
+
+1. Summarize the entire conversation up to this point (excluding this 'compact' command).
+2. The summary should be detailed and must capture the key decisions, analysis, changes, and outcomes.
+`.trim()
+
+const exportPrompt = `
+User has typed "export". Export the current conversation. (It's ok to proceed even if in "Ask" mode because of user change to "Export" mode).
+
+1. Summarize the entire conversation up to this point from the message history (excluding this 'export' command) into a new file.
+2. The summary MUST be in Markdown format.
+3. The summary MUST include:
+   - All key decisions made during the conversation.
+   - All significant file changes. If you have access to write_file blocks from our history, reproduce their paths and content accurately. If you only have diffs or descriptions of changes, summarize those.
+   - The reasoning behind those decisions and changes.
+4. Use the 'write_file' tool to save this Markdown summary to a new file with a generated name starting with the prefix 'codebuff-export-' like 'codebuff-export-topic-of-conversation.md' in the project root directory.
+
+Write file tool format:
+
+<write_file>
+<path>codebuff-export-file-name.md</path>
+<content>
+[Insert markdown content here]
+</content>
+</write_file>
+`.trim()
+
 export const additionalSystemPrompts = {
   '/init': initPrompt,
   init: initPrompt,
+  '/export': exportPrompt,
+  export: exportPrompt,
+  '/compact': compactPrompt,
+  compact: compactPrompt,
 } as const
 
 export const getProjectFileTreePrompt = (

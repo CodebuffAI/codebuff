@@ -1,4 +1,5 @@
-import { Message } from '../types/message'
+import { CoreMessage } from 'ai'
+import { CodebuffMessage, Message } from '../types/message'
 
 interface ScreenshotRef {
   msgIdx: number
@@ -42,10 +43,22 @@ export function limitScreenshots(
   )
 }
 
-export function toContentString(msg: Message): string {
+export function toContentString(msg: CoreMessage): string {
   const { content } = msg
   if (typeof content === 'string') return content
   return content.map((item) => (item as any)?.text ?? '').join('\n')
+}
+
+export function withCacheControlCore(msg: CodebuffMessage): CodebuffMessage {
+  const message = { ...msg }
+  if (!message.providerOptions) {
+    message.providerOptions = {}
+  }
+  if (!message.providerOptions.anthropic) {
+    message.providerOptions.anthropic = {}
+  }
+  message.providerOptions.anthropic.cacheControl = { type: 'ephemeral' }
+  return message
 }
 
 export function withCacheControl(msg: Message): Message {
@@ -73,14 +86,14 @@ export function withCacheControl(msg: Message): Message {
 }
 
 export function removeCache(messages: Message[]): Message[] {
-  return messages.map(msg => {
+  return messages.map((msg) => {
     if (typeof msg.content === 'object' && Array.isArray(msg.content)) {
       return {
         ...msg,
-        content: msg.content.map(item => {
+        content: msg.content.map((item) => {
           const { cache_control, ...rest } = item
           return rest
-        })
+        }),
       }
     }
     return msg

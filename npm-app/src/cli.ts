@@ -7,10 +7,9 @@ import readline from 'readline'
 import { ApiKeyType } from 'common/api-keys/constants'
 import { CostMode } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { Message } from 'common/types/message'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { blue, blueBright, cyan, green, magenta, yellow } from 'picocolors'
+import { blue, blueBright, cyan, gray, green, magenta, yellow } from 'picocolors'
 
 import {
   killAllBackgroundProcesses,
@@ -65,6 +64,7 @@ import {
 } from './utils/terminal'
 
 import { loadCodebuffConfig } from 'common/json-config/parser'
+import { type CodebuffMessage } from 'common/types/message'
 import { CONFIG_DIR } from './credentials'
 import { logAndHandleStartup } from './startup-process-handler'
 import { setMessages } from './chat-storage'
@@ -175,6 +175,9 @@ export class CLI {
         process.removeAllListeners('uncaughtException')
         Spinner.get().restoreCursor()
         await killAllBackgroundProcesses()
+
+        Client.getInstance().close()
+
         await flushAnalytics()
         process.exit(0)
       })
@@ -556,7 +559,12 @@ export class CLI {
         console.log(magenta('🧪 Switched to experimental mode (cutting-edge)'))
       } else if (mode === 'ask') {
         console.log(
-          cyan('💬 Switched to ask mode (questions only, no code changes)')
+          cyan(
+            '💬 Switched to ask mode (questions & planning only, no code changes)'
+          )
+        )
+        console.log(
+          gray('Tip: Use /export to save conversation summary to a file after fleshing out a plan')
         )
       }
 
@@ -740,6 +748,18 @@ export class CLI {
       return userInput // Let it fall through to forwardUserInput
     }
 
+    if (cleanInput === 'export') {
+      console.log(yellow('Exporting conversation to a file...'))
+      // Forward to backend like init command
+      return userInput // Let it fall through to forwardUserInput
+    }
+
+    if (cleanInput === 'compact') {
+      console.log(yellow('Compacting conversation...'))
+      // Forward to backend
+      return userInput
+    }
+
     // If no command was matched, return the original userInput to be processed as a prompt
     return userInput
   }
@@ -752,7 +772,7 @@ export class CLI {
 
     Client.getInstance().lastChanges = []
 
-    const newMessage: Message = {
+    const newMessage: CodebuffMessage = {
       role: 'user',
       content: cleanedInput,
     }
@@ -881,6 +901,8 @@ export class CLI {
     killAndResetPersistentProcess()
 
     await killAllBackgroundProcesses()
+
+    Client.getInstance().close() // Close WebSocket
 
     const client = Client.getInstance()
     const totalCreditsUsedThisSession = Object.values(client.creditsByPromptId)

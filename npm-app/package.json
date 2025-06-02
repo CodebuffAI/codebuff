@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.301",
+  "version": "1.0.307",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -17,6 +17,7 @@
     "start": "nx build npm-app > /dev/null && bun run with-env -- sh -c 'TS_NODE_PROJECT=./tsconfig.json ts-node -r tsconfig-paths/register src/index.ts ..'",
     "start-max": "nx build npm-app > /dev/null && bun run with-env -- sh -c 'TS_NODE_PROJECT=./tsconfig.json ts-node -r tsconfig-paths/register src/index.ts .. --max'",
     "start-lite": "nx build npm-app > /dev/null && bun run with-env -- sh -c 'TS_NODE_PROJECT=./tsconfig.json ts-node -r tsconfig-paths/register src/index.ts .. --lite'",
+    "start-ask": "nx build npm-app > /dev/null && bun run with-env -- sh -c 'TS_NODE_PROJECT=./tsconfig.json ts-node -r tsconfig-paths/register src/index.ts .. --ask'",
     "start-dir": "bun run with-env -- ts-node -r tsconfig-paths/register src/index.ts",
     "start-experimental": "nx build npm-app > /dev/null && bun run with-env -- sh -c 'TS_NODE_PROJECT=./tsconfig.json ts-node -r tsconfig-paths/register src/index.ts .. --experimental'",
     "with-env": "env-cmd -f ./loadEnv.js",
@@ -28,7 +29,7 @@
     "start-prod": "bun run with-env -- ts-node -r tsconfig-paths/register src/index.ts",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
     "typecheck-only": "tsc --noEmit && tsc-alias",
-    "build": "nx clean npm-app && nx reset && nx build npm-app"
+    "build": "nx build npm-app"
   },
   "files": [
     "dist",
@@ -40,6 +41,7 @@
   "dependencies": {
     "@types/diff": "5.2.1",
     "@vscode/ripgrep": "1.15.9",
+    "ai": "^4.3.16",
     "axios": "1.7.4",
     "code-map": "1.0.0",
     "commander": "^13.1.0",

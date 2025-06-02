@@ -69,8 +69,8 @@ async function calculateMonthlyUsage(month: string) {
   }
 }
 
-// Get month from command line argument or default to 2025-04
-const month = process.argv[2] || '2025-04'
+// Get month from command line argument or default to current month
+const month = process.argv[2] || new Date().toISOString().split('-')[0] + '-' + new Date().toISOString().split('-')[1]
 
 // Run the calculation
 calculateMonthlyUsage(month)

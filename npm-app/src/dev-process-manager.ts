@@ -1,6 +1,9 @@
 import path from 'path'
 
-import { StartupProcess } from 'common/json-config/constants'
+import {
+  codebuffConfigFile,
+  StartupProcess,
+} from 'common/json-config/constants'
 import { generateCompactId } from 'common/util/string'
 import { yellow } from 'picocolors'
 
@@ -24,7 +27,7 @@ export function startDevProcesses(
     return
   }
 
-  console.log(yellow('Starting codebuff.json processes:'))
+  console.log(yellow(`Starting ${codebuffConfigFile} processes:`))
 
   for (const {
     name,

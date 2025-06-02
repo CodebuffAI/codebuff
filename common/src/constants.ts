@@ -101,7 +101,13 @@ export function getUserState(isLoggedIn: boolean, credits: number): UserState {
   return UserState.DEPLETED
 }
 
-export const costModes = ['lite', 'normal', 'max', 'experimental', 'ask'] as const
+export const costModes = [
+  'lite',
+  'normal',
+  'max',
+  'experimental',
+  'ask',
+] as const
 export type CostMode = (typeof costModes)[number]
 
 export const getModelForMode = (
@@ -187,6 +193,10 @@ export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 export const finetunedVertexModels = {
   ft_filepicker_003: '196166068534771712',
   ft_filepicker_005: '8493203957034778624',
+  ft_filepicker_007: '2589952415784501248',
+  ft_filepicker_topk_001: '3676445825887633408',
+  ft_filepicker_008: '2672143108984012800',
+  ft_filepicker_topk_002: '1694861989844615168',
 } as const
 export type FinetunedVertexModel =
   (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels]

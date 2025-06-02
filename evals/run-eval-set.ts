@@ -75,14 +75,12 @@ async function runEvalSet(
         console.log(`\n=== ${config.name.toUpperCase()} ANALYSIS ===`)
         console.log(`Summary: ${analysis.summary}`)
         console.log(`\nTop Problems:`)
-        analysis.problems.slice(0, 5).forEach((problem, i) => {
+        analysis.problems.forEach((problem, i) => {
           console.log(
             `${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}`
           )
           console.log(`   Frequency: ${(problem.frequency * 100).toFixed(1)}%`)
-          console.log(
-            `   ${problem.description.substring(0, 200)}${problem.description.length > 200 ? '...' : ''}`
-          )
+          console.log(`   ${problem.description}`)
         })
 
         results.push({

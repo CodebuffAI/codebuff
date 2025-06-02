@@ -3,7 +3,7 @@
 import { finetunedVertexModels } from 'common/constants'
 import { Info, Settings } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,6 +39,10 @@ const localUsers = [
 const nameOverrides = {
   [finetunedVertexModels.ft_filepicker_003]: 'ft_filepicker_003',
   [finetunedVertexModels.ft_filepicker_005]: 'ft_filepicker_005',
+  [finetunedVertexModels.ft_filepicker_007]: 'ft_filepicker_007',
+  [finetunedVertexModels.ft_filepicker_topk_001]: 'ft_filepicker_topk_001',
+  [finetunedVertexModels.ft_filepicker_008]: 'ft_filepicker_008',
+  [finetunedVertexModels.ft_filepicker_topk_002]: 'ft_filepicker_topk_002',
 }
 
 // Choose user list based on environment
@@ -63,6 +67,52 @@ export default function FilePicker() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set())
   const [limit, setLimit] = useState(10)
+
+  // Prevent browser back navigation on horizontal scroll while preserving table scrolling
+  useEffect(() => {
+    const preventSwipeNavigation = (e: TouchEvent) => {
+      // Only prevent if it's a two-finger gesture (common for navigation)
+      // Allow single finger touches for normal scrolling
+      if (e.touches.length === 2) {
+        e.preventDefault()
+      }
+    }
+
+    const preventMouseNavigation = (e: WheelEvent) => {
+      // Only prevent if it's a strong horizontal scroll that could trigger navigation
+      // Allow normal horizontal scrolling within elements
+      const target = e.target as Element
+      const isScrollableElement = target.closest('.overflow-auto, .overflow-x-auto, .overflow-scroll, .overflow-x-scroll')
+
+      // If we're scrolling within a scrollable element, allow it
+      if (isScrollableElement) {
+        return
+      }
+
+      // Only prevent very strong horizontal scrolls that are likely navigation gestures
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 50) {
+        e.preventDefault()
+      }
+    }
+
+    // Add event listeners to prevent swipe navigation
+    document.addEventListener('touchstart', preventSwipeNavigation, { passive: false })
+    document.addEventListener('touchmove', preventSwipeNavigation, { passive: false })
+    document.addEventListener('wheel', preventMouseNavigation, { passive: false })
+
+    // Add CSS to prevent overscroll behavior only on the document level
+    document.body.style.overscrollBehaviorX = 'none'
+    document.documentElement.style.overscrollBehaviorX = 'none'
+
+    return () => {
+      // Cleanup event listeners and styles
+      document.removeEventListener('touchstart', preventSwipeNavigation)
+      document.removeEventListener('touchmove', preventSwipeNavigation)
+      document.removeEventListener('wheel', preventMouseNavigation)
+      document.body.style.overscrollBehaviorX = ''
+      document.documentElement.style.overscrollBehaviorX = ''
+    }
+  }, [])
 
   const fetchUserTraces = async (userId: string) => {
     if (status !== 'authenticated') {
@@ -355,55 +405,57 @@ export default function FilePicker() {
                     </div>
                   </div>
 
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[180px]">Timestamp</TableHead>
-                        <TableHead>Query</TableHead>
-                        {visibleModelNames.map((model) => (
-                          <TableHead key={model}>
-                            {nameOverrides[model as keyof typeof nameOverrides] ||
-                              model}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {results.map((result, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-mono text-xs">
-                            {new Date(result.timestamp).toLocaleString()}
-                          </TableCell>
-                          <TableCell>{result.query}</TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[180px]">Timestamp</TableHead>
+                          <TableHead>Query</TableHead>
                           {visibleModelNames.map((model) => (
-                            <TableCell
-                              key={model}
-                              className="max-w-[300px] break-words"
-                            >
-                              <div className="max-h-[200px] overflow-y-auto">
-                                {result.outputs[model]
-                                  ? result.outputs[model]
-                                    .split('\n')
-                                    .map((file) => file.trim())
-                                    .filter((file) => file.length > 0)
-                                    .map((file, fileIndex) => (
-                                      <div
-                                        key={fileIndex}
-                                        className="block mb-2"
-                                      >
-                                        <span className="px-2 py-1 bg-secondary rounded-full text-xs">
-                                          {file}
-                                        </span>
-                                      </div>
-                                    ))
-                                  : 'N/A'}
-                              </div>
-                            </TableCell>
+                            <TableHead key={model}>
+                              {nameOverrides[model as keyof typeof nameOverrides] ||
+                                model}
+                            </TableHead>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {results.map((result, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-mono text-xs">
+                              {new Date(result.timestamp).toLocaleString()}
+                            </TableCell>
+                            <TableCell>{result.query}</TableCell>
+                            {visibleModelNames.map((model) => (
+                              <TableCell
+                                key={model}
+                                className="max-w-[300px] break-words"
+                              >
+                                <div className="max-h-[200px] overflow-y-auto">
+                                  {result.outputs[model]
+                                    ? result.outputs[model]
+                                      .split('\n')
+                                      .map((file) => file.trim())
+                                      .filter((file) => file.length > 0)
+                                      .map((file, fileIndex) => (
+                                        <div
+                                          key={fileIndex}
+                                          className="block mb-2"
+                                        >
+                                          <span className="px-2 py-1 bg-secondary rounded-full text-xs">
+                                            {file}
+                                          </span>
+                                        </div>
+                                      ))
+                                    : 'N/A'}
+                                </div>
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               )}
             </>
