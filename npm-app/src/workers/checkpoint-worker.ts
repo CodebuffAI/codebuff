@@ -62,6 +62,7 @@ if (maybeParentPort) {
 
       parentPort.postMessage({ id, success: true, result })
     } catch (error) {
+      // Note: logger is not available in worker threads, so we just send the error back
       parentPort.postMessage({
         id,
         success: false,
