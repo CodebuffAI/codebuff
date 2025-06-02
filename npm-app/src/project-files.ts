@@ -23,6 +23,7 @@ import { green } from 'picocolors'
 
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
+import { logger } from './utils/logger'
 import { getSystemInfo } from './utils/system-info'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
@@ -316,6 +317,14 @@ async function getGitChanges() {
 
     return { status, diff, diffCached, lastCommitMessages }
   } catch (error) {
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        projectRoot,
+      },
+      'Failed to get git changes'
+    )
     return { status: '', diff: '', diffCached: '', lastCommitMessages: '' }
   }
 }
@@ -350,7 +359,15 @@ export function getChangesSinceLastFileVersion(
         }
         return [filePath, createPatch(filePath, file, currentContent)] as const
       } catch (error) {
-        // console.error(`Error reading file ${fullFilePath}:`, error)
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+            filePath: fullFilePath,
+          },
+          'Error reading file for changes comparison'
+        )
         return [filePath, null] as const
       }
     })
@@ -383,6 +400,14 @@ export function getFiles(filePaths: string[]) {
         continue
       }
     } catch (error) {
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          relativePath,
+        },
+        'Error checking if file is ignored'
+      )
       result[relativePath] = FILE_READ_STATUS.ERROR
       continue
     }
@@ -405,6 +430,15 @@ export function getFiles(filePaths: string[]) {
       ) {
         result[relativePath] = FILE_READ_STATUS.DOES_NOT_EXIST
       } else {
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+            fullPath,
+          },
+          'Error reading file'
+        )
         result[relativePath] = FILE_READ_STATUS.ERROR
       }
     }
@@ -455,13 +489,28 @@ function findKnowledgeFilesInDir(dir: string): Record<string, string> {
           result[file.name] = content
         } catch (error) {
           // Skip files we can't read
-          console.error(`Error reading knowledge file ${fullPath}:`, error)
+          logger.error(
+            {
+              errorMessage:
+                error instanceof Error ? error.message : String(error),
+              errorStack: error instanceof Error ? error.stack : undefined,
+              fullPath,
+            },
+            'Error reading knowledge file'
+          )
         }
       }
     }
   } catch (error) {
     // Skip directories we can't read
-    console.error(`Error reading directory ${dir}:`, error)
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        dir,
+      },
+      'Error reading directory for knowledge files'
+    )
   }
   return result
 }
@@ -473,6 +522,14 @@ export function getFilesAbsolutePath(filePaths: string[]) {
       const content = fs.readFileSync(filePath, 'utf8')
       result[filePath] = content
     } catch (error) {
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          filePath,
+        },
+        'Error reading file by absolute path'
+      )
       result[filePath] = null
     }
   }
@@ -504,9 +561,15 @@ export function getFileBlocks(filePaths: string[]) {
         : '[FILE_READ_ERROR]'
 
       if (!fileDoesNotExist) {
-        console.error(
-          `Error reading file ${fullPath}:`,
-          error instanceof Error ? error.message : error
+        console.error(`Error reading file ${fullPath}`)
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+            fullPath,
+          },
+          'Error reading file for file blocks'
         )
       }
     }
@@ -619,6 +682,14 @@ export const deleteFile = (fullPath: string): boolean => {
     return false
   } catch (error) {
     console.error(`Error deleting file ${fullPath}:`, error)
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        fullPath,
+      },
+      'Error deleting file'
+    )
     return false
   }
 }

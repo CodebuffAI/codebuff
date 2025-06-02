@@ -1,4 +1,5 @@
 import { ensureUrlProtocol } from 'common/util/string'
+import { logger } from './utils/logger'
 
 // Global cache for scraped web pages
 const scrapedPagesCache: Record<string, string> = {}
@@ -24,10 +25,14 @@ export async function scrapeWebPage(url: string) {
 
     return content
   } catch (error) {
-    // console.error(
-    //   `Error scraping web page ${url}:`,
-    //   error instanceof Error ? error.message : error
-    // )
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        url,
+      },
+      'Failed to scrape web page'
+    )
     scrapedPagesCache[url] = ''
     return ''
   }

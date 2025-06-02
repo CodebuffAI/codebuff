@@ -17,6 +17,7 @@ import {
 
 import { getProjectDataDir } from '../project-files'
 import { gitCommandIsAvailable } from '../utils/git'
+import { logger } from '../utils/logger'
 
 /**
  * Generates a unique path for storing the bare git repository based on the project directory.
@@ -62,7 +63,15 @@ export async function hasUnsavedChanges({
       ).toString()
       return output.trim().length > 0
     } catch (error) {
-      // error running git
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          projectDir,
+          bareRepoPath,
+        },
+        'Error running git status for unsaved changes check'
+      )
     }
   }
 
@@ -100,7 +109,14 @@ export async function getLatestCommit({
         .toString()
         .trim()
     } catch (error) {
-      // unable to get head
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          bareRepoPath,
+        },
+        'Error getting latest commit with git command'
+      )
     }
   }
   return await resolveRef({
@@ -189,7 +205,15 @@ async function gitAddAll({
       )
       return
     } catch (error) {
-      // Failed to `git add .`
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          projectDir,
+          bareRepoPath,
+        },
+        'Failed to git add all files'
+      )
     }
   }
 
@@ -214,14 +238,34 @@ async function gitAddAll({
       try {
         await add({ fs, dir: projectDir, gitdir: bareRepoPath, filepath })
       } catch (error) {
-        // error adding files
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+            filepath,
+            projectDir,
+            bareRepoPath,
+          },
+          'Error adding file to git'
+        )
       }
     } else if (workdirStatus === 0) {
       // Deleted file
       try {
         await remove({ fs, dir: projectDir, gitdir: bareRepoPath, filepath })
       } catch (error) {
-        // error removing file
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+            filepath,
+            projectDir,
+            bareRepoPath,
+          },
+          'Error removing file from git'
+        )
       }
     }
   }
@@ -253,7 +297,16 @@ async function gitCommit({
       )
       return await getLatestCommit({ bareRepoPath })
     } catch (error) {
-      // Failed to commit, continue to isomorphic-git implementation
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          projectDir,
+          bareRepoPath,
+          message,
+        },
+        'Failed to commit with git command, falling back to isomorphic-git'
+      )
     }
   }
 
@@ -282,7 +335,15 @@ async function gitCommit({
       )
       return commitHash
     } catch (error) {
-      // Unable to checkout with git
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          projectDir,
+          bareRepoPath,
+        },
+        'Unable to checkout with git command'
+      )
     }
   }
 
@@ -354,7 +415,16 @@ export async function restoreFileState({
       ])
       return
     } catch (error) {
-      // Failed to use git, continue to isomorphic-git implementation
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          projectDir,
+          bareRepoPath,
+          commit,
+        },
+        'Failed to use git reset, falling back to isomorphic-git'
+      )
     }
   }
 

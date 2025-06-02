@@ -13,6 +13,7 @@ import {
   getLatestCommit,
   hasUnsavedChanges,
 } from './file-manager'
+import { logger } from '../utils/logger'
 
 export class CheckpointsDisabledError extends Error {
   constructor(message?: string, options?: ErrorOptions) {
@@ -325,6 +326,14 @@ export class CheckpointManager {
       await this.restoreCheckointFileState({ id: targetId })
     } catch (error) {
       this.undoIds.push(targetId)
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          targetId,
+        },
+        'Unable to restore checkpoint during redo'
+      )
       throw new Error('Unable to restore checkpoint', { cause: error })
     }
   }
