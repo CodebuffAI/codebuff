@@ -81,6 +81,7 @@ import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+import { readNewTerminalOutput } from './utils/terminal'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -837,6 +838,11 @@ export class Client {
     const toolResults = buildArray(
       ...(this.lastToolResults || []),
       ...getBackgroundProcessUpdates(),
+      cli.isManagerMode && {
+        id: 'continued-terminal-output',
+        name: 'run_terminal_command',
+        result: readNewTerminalOutput(),
+      },
       scrapedContent && {
         id: 'scraped-content',
         name: 'web-scraper',
@@ -1417,6 +1423,11 @@ Go to https://www.codebuff.com/config for more information.`) +
         if (!isComplete) {
           // Append process updates to existing tool results
           toolResults.push(...getBackgroundProcessUpdates())
+          toolResults.push({
+            id: 'continued-terminal-output',
+            name: 'run_terminal_command',
+            result: readNewTerminalOutput(),
+          })
           // Continue the prompt with the tool results.
           Spinner.get().start()
           this.webSocket.sendAction({

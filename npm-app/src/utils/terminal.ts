@@ -43,12 +43,18 @@ type PersistentProcess =
       shell: 'pty'
       pty: IPty
       timerId: NodeJS.Timeout | null
+      // Add persistent output buffer for manager mode
+      globalOutputBuffer: string
+      globalOutputLastReadLength: number
     }
   | {
       type: 'process'
       shell: 'bash' | 'cmd.exe' | 'powershell.exe'
       childProcess: ChildProcessWithoutNullStreams | null
       timerId: NodeJS.Timeout | null
+      // Add persistent output buffer for manager mode
+      globalOutputBuffer: string
+      globalOutputLastReadLength: number
     }
 
 const createPersistantProcess = (
@@ -149,7 +155,23 @@ const createPersistantProcess = (
       )
     }
 
-    return { type: 'pty', shell: 'pty', pty: persistentPty, timerId: null }
+    const persistentProcessInfo: PersistentProcess = { 
+      type: 'pty', 
+      shell: 'pty', 
+      pty: persistentPty, 
+      timerId: null,
+      globalOutputBuffer: '',
+      globalOutputLastReadLength: 0
+    }
+
+    // Add a persistent listener to capture all output for manager mode
+    persistentPty.onData((data: string) => {
+      if (persistentProcessInfo.type === 'pty') {
+        persistentProcessInfo.globalOutputBuffer += data.toString() // Should we use stripColors(...)?
+      }
+    })
+
+    return persistentProcessInfo
   } else {
     // Fallback to child_process
     const isWindows = os.platform() === 'win32'
@@ -165,6 +187,8 @@ const createPersistantProcess = (
       shell,
       childProcess,
       timerId: null,
+      globalOutputBuffer: '',
+      globalOutputLastReadLength: 0
     }
   }
 }
@@ -909,4 +933,21 @@ export const runCommandPtyManager = (
   })
 
   ptyProcess.write(`${command}\r`)
+}
+
+// Add a function to get new terminal output since last read
+export const readNewTerminalOutput = (): string => {
+  if (!persistentProcess) {
+    return ''
+  }
+
+  const currentLength = persistentProcess.globalOutputBuffer.length
+  const newOutput = persistentProcess.globalOutputBuffer.slice(
+    persistentProcess.globalOutputLastReadLength
+  )
+  
+  // Update the last read position
+  persistentProcess.globalOutputLastReadLength = currentLength
+  
+  return newOutput
 }
