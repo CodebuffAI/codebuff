@@ -863,7 +863,7 @@ export class Client {
       costMode: this.costMode,
       model: this.model,
       cwd: getWorkingDirectory(),
-      repoName: loggerContext.repoName,
+      repoName: loggerContext.repoRemoteUrl, // Send remote URL instead of just repo name
     })
 
     return {
@@ -1065,7 +1065,7 @@ export class Client {
             authToken: this.user?.authToken,
             costMode: this.costMode,
             model: this.model,
-            repoName: loggerContext.repoName,
+            repoName: loggerContext.repoRemoteUrl, // Send remote URL instead of just repo name
           })
           return
         }

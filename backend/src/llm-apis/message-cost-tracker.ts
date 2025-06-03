@@ -417,38 +417,45 @@ type CreditConsumptionResult = {
   fromPurchased: number
 }
 
-async function updateUserCycleUsage(
+/**
+ * Updates credit usage - either for a user or organization based on context
+ */
+async function updateCycleUsage(
   userId: string,
-  creditsUsed: number
+  creditsUsed: number,
+  orgId: string | null
 ): Promise<CreditConsumptionResult> {
   if (creditsUsed <= 0) {
     if (VERBOSE) {
       logger.debug(
-        { userId, creditsUsed },
-        'Skipping user usage update (zero credits).'
+        { userId, orgId, creditsUsed },
+        'Skipping usage update (zero credits).'
       )
     }
     return { consumed: 0, fromPurchased: 0 }
   }
+
   try {
-    // Consume from grants in priority order and track purchased credit usage
-    const result = await consumeCredits(userId, creditsUsed)
+    // Use the refactored consumeCredits function that handles both user and org consumption
+    const result = await consumeCredits(userId, creditsUsed, orgId)
 
     if (VERBOSE) {
       logger.debug(
-        { userId, creditsUsed, ...result },
-        `Consumed credits (${creditsUsed})`
+        { userId, orgId, creditsUsed, ...result },
+        `Consumed credits from ${orgId ? 'organization' : 'user'} (${creditsUsed})`
       )
     }
 
     trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
       creditsUsed,
       fromPurchased: result.fromPurchased,
+      orgId,
+      source: orgId ? 'organization' : 'user',
     })
 
     return result
   } catch (error) {
-    logger.error({ userId, creditsUsed, error }, 'Error consuming credits.')
+    logger.error({ userId, orgId, creditsUsed, error }, 'Error consuming credits.')
     throw error
   }
 }
@@ -530,6 +537,7 @@ export const saveMessage = async (value: {
             costInCents,
             creditsUsed,
             centsPerCredit,
+            orgId: value.orgId,
           },
           `Calculated credits (${creditsUsed})`
         )
@@ -555,9 +563,11 @@ export const saveMessage = async (value: {
         return null
       }
 
-      const consumptionResult = await updateUserCycleUsage(
+      // Use the new updateCycleUsage function that handles both user and org consumption
+      const consumptionResult = await updateCycleUsage(
         value.userId,
-        creditsUsed
+        creditsUsed,
+        value.orgId
       )
 
       // Only sync the portion from purchased credits to Stripe
@@ -565,6 +575,9 @@ export const saveMessage = async (value: {
         const purchasedCostInCents = Math.round(
           (costInCents * consumptionResult.fromPurchased) / creditsUsed
         )
+        
+        // TODO: For organization billing, we might need to sync to the org's Stripe customer
+        // For now, we'll sync to the user's Stripe account regardless of whether it was org or user consumption
         syncMessageToStripe({
           messageId: value.messageId,
           userId: value.userId,

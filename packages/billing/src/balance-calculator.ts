@@ -428,12 +428,20 @@ export async function calculateOrganizationUsageAndBalance(
  *
  * @param userId The ID of the user
  * @param creditsToConsume Number of credits being consumed
+ * @param orgId Optional organization ID - if provided, consumes from org credits instead of user credits
  * @returns Promise resolving to number of credits consumed
  */
 export async function consumeCredits(
   userId: string,
-  creditsToConsume: number
+  creditsToConsume: number,
+  orgId?: string | null
 ): Promise<CreditConsumptionResult> {
+  // If orgId is provided, delegate to organization credit consumption
+  if (orgId) {
+    return await consumeOrganizationCredits(orgId, creditsToConsume, userId)
+  }
+
+  // Otherwise, consume from user credits (existing logic)
   return await withSerializableTransaction(
     async (tx) => {
       const now = new Date()
