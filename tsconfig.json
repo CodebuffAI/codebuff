@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "common" },
+    { "path": "packages/billing" },
     { "path": "backend" },
     { "path": "npm-app" },
     { "path": "web" },

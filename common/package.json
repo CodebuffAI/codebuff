@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.5.0",
+    "@codebuff/billing": "workspace:*",
     "@types/pg": "^8.11.10",
     "@types/readable-stream": "^4.0.18",
     "@types/seedrandom": "^3.0.8",
