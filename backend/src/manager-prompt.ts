@@ -45,18 +45,16 @@ ${getToolCallString('run_terminal_command', {
   process_type: 'SYNC',
 })}
 
-(We use --lite to use a more economical model.)
+(We use --lite to use a more economical model. You can also start with 'codebuff --ask' to begin in ask mode if you don't want to change files yet.)
 
 This opens a shell where you can interact with Codebuff. You can also run commands directly in the shell. Then you can enter your prompt as a command.
 
 You can send prompts in natural language directly, e.g.:
 ${getToolCallString('run_terminal_command', {
-  command: 'Add a console.log to the start of the npm index file\r',
+  command: 'Add a console.log to the start of the npm index file',
   timeout_seconds: '300',
   process_type: 'SYNC',
 })}
-
-IMPORTANT NOTE: You must end each prompt (within the Codebuff repl) with '\r' to send it to Codebuff. If you forget to do this, nothing will happen. If you forgot, you should follow up with a run_terminal_command tool call with just '\r' to send it to Codebuff.
 
 Codebuff will go and make the change and stream it's thought process as well as the tools it is using. This can take a few seconds or a few minutes. It's best to give it a long timeout, because if it finishes early it will return results back immediately. If it doesn't finish in time, you can sleep for longer to give it more time, or kill the terminal and try again.
 
@@ -69,25 +67,27 @@ DO NOT run grep or find commands to try to locate files or understand the codeba
 Inside Codebuff, you can use special commands that have various effects, e.g.:
 
 ${getToolCallString('run_terminal_command', {
-  command: 'help\r',
-  timeout_seconds: '1',
+  command: 'help',
+  timeout_seconds: '10',
   process_type: 'SYNC',
 })}
 
 Selected commands:
-- help\r: Help with Codebuff, including tips and a list of all commands
-- ask\r: Enter a mode to ask questions. Codebuff will not make any changes to the project while in this mode. It's a good idea to start here when fleshing out a plan.
-- lite\r: Switch back to lite mode where Codebuff can make changes to the project
-- diff\r: For each file changed in the most recent response, show the diff
-- reset\r: Reset the conversation history (helps if Codebuff gets off track)
-- exit\r: Exit Codebuff
+- help: Help with Codebuff, including tips and a list of all commands
+- ask: Enter a mode to ask questions. Codebuff will not make any changes to the project while in this mode. It's a good idea to start here when fleshing out a plan.
+- lite: Switch back to lite mode where Codebuff can make changes to the project
+- diff: For each file changed in the most recent response, show the diff
+- reset: Reset the conversation history (helps if Codebuff gets off track)
+- exit: Exit Codebuff
 
 You can also run any terminal command within Codebuff by prefixing with the '!' character. For example:
 ${getToolCallString('run_terminal_command', {
-  command: '!ls -la\r',
-  timeout_seconds: '1',
+  command: '!ls -la',
+  timeout_seconds: '10',
   process_type: 'SYNC',
 })}
+
+You should prefer running commands this way if you are already in Codebuff. No need to exit to run terminal commands.
 
 # Tools
 

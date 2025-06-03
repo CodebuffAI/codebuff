@@ -817,9 +817,9 @@ export const runCommandPtyManager = (
   let timer: NodeJS.Timeout | null = null
   let settleTimer: NodeJS.Timeout | null = null
 
-  // Use the provided timeout or default to 10 seconds for manager mode
+  // Use the provided timeout or default to 30 seconds for manager mode
   const managerTimeoutMs =
-    maybeTimeoutSeconds !== null ? maybeTimeoutSeconds * 1000 : 10000
+    maybeTimeoutSeconds !== null ? maybeTimeoutSeconds * 1000 : 30000
 
   if (maybeTimeoutSeconds !== null) {
     timer = setTimeout(() => {
@@ -911,10 +911,10 @@ export const runCommandPtyManager = (
       clearTimeout(settleTimer)
     }
 
-    // Set settle timer for 500ms - if no new output comes, finish the command
+    // Set settle timer for 1000ms - if no new output comes, finish the command
     settleTimer = setTimeout(() => {
       finishCommand()
-    }, 500)
+    }, 3000)
 
     const commandDone = buffer.match(commandDonePattern)
     if (commandDone && echoLinesRemaining === 0) {
