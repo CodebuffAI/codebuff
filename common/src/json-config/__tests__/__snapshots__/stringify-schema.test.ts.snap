@@ -52,7 +52,10 @@ exports[`stringifySchema should correctly stringify CodebuffConfigSchema 1`] = `
       // (optional): Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile.
       "stderrFile": string | undefined
     }
-  ] | undefined
+  ] | undefined,
+
+  // (optional): Maximum number of turns agent will take before being forced to end, default: 12
+  "maxAgentSteps": number
 }"
 `;
 
