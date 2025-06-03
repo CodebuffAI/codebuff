@@ -6,7 +6,7 @@ import { signOut } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { useRouter } from 'next/navigation'
 import { env } from '@/env.mjs'
-import { Gift, CreditCard } from 'lucide-react'
+import { Gift, CreditCard, Users } from 'lucide-react'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
@@ -40,6 +40,9 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>{user?.name}</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => router.push('/orgs')}>
+          <Users className="mr-2 size-4" /> <span>Organizations</span>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push('/referrals')}>
           <Gift className="mr-2 size-4" /> <span>Referrals</span>
         </DropdownMenuItem>
