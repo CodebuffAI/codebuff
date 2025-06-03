@@ -1075,6 +1075,7 @@ export class Client {
 
         this.agentState = a.agentState
         const toolResults: ToolResult[] = [...a.toolResults]
+        const changedFiles: string[] = []
 
         for (const toolCall of a.toolCalls) {
           try {
@@ -1087,6 +1088,8 @@ export class Client {
               // Save lastChanges for `diff` command
               this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
               this.hadFileChanges = true
+              // Track the changed file path
+              changedFiles.push(toolCall.parameters.path)
             }
             if (
               toolCall.name === 'run_terminal_command' &&
@@ -1135,8 +1138,8 @@ export class Client {
         if (this.hadFileChanges) {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
 
-          // Run file change hooks
-          const hookResults = await runFileChangeHooks()
+          // Run file change hooks with the actual changed files
+          const hookResults = await runFileChangeHooks(changedFiles)
           toolResults.push(...hookResults)
           if (hookResults.length > 0) {
             isComplete = false

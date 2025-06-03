@@ -55,6 +55,7 @@ export const FileChangeHook = z
       .string()
       .optional()
       .describe('The working directory from which to run the command.'),
+    filePattern: z.string().optional().describe('Glob pattern to match files.'),
     enabled: z
       .boolean()
       .optional()

@@ -1,5 +1,6 @@
 import { ToolResult } from 'common/types/agent-state'
 import { generateCompactId } from 'common/util/string'
+import micromatch from 'micromatch'
 
 import { getProjectRoot } from '../project-files'
 import { logger } from '../utils/logger'
@@ -10,7 +11,9 @@ import { loadCodebuffConfig } from './parser'
  * Runs file change hooks defined in the codebuff.json configuration.
  * Returns an array of tool results for any hooks that fail.
  */
-export async function runFileChangeHooks(): Promise<ToolResult[]> {
+export async function runFileChangeHooks(
+  filesChanged: string[]
+): Promise<ToolResult[]> {
   const config = loadCodebuffConfig()
   const toolResults: ToolResult[] = []
 
@@ -21,6 +24,15 @@ export async function runFileChangeHooks(): Promise<ToolResult[]> {
   for (const hook of config.fileChangeHooks) {
     if (!hook.enabled) {
       continue
+    }
+
+    // If a filePattern is specified, check if any of the changed files match
+    if (hook.filePattern && filesChanged.length > 0) {
+      const matchingFiles = micromatch(filesChanged, hook.filePattern)
+      if (matchingFiles.length === 0) {
+        // No files match the pattern, skip this hook
+        continue
+      }
     }
 
     try {

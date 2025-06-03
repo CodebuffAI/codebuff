@@ -14,9 +14,22 @@
   ],
   "fileChangeHooks": [
     {
-      "name": "typechecker",
+      "name": "typecheck-backend",
       "command": "bun run typecheck",
-      "stdoutFile": "debug/typecheck.log"
+      "cwd": "backend",
+      "filePattern": "backend/**/*.ts"
+    },
+    {
+      "name": "typecheck-npm-app",
+      "command": "bun run typecheck-this-package",
+      "cwd": "npm-app",
+      "filePattern": "npm-app/**/*.ts"
+    },
+    {
+      "name": "typecheck-web",
+      "command": "bun run typecheck",
+      "cwd": "web",
+      "filePattern": "web/**/*.ts"
     }
   ],
   "maxAgentSteps": 20
