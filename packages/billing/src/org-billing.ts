@@ -304,18 +304,19 @@ export function extractOwnerAndRepo(url: string): { owner: string; repo: string 
     // Handle empty or invalid URLs
     if (!url.trim()) return null
 
-    // Normalize the URL - add https:// if missing
     let normalizedUrl = url.trim()
+
+    // Convert SSH to HTTPS format for parsing BEFORE adding https:// prefix
+    if (normalizedUrl.startsWith('git@')) {
+      normalizedUrl = normalizedUrl.replace(/^git@([^:]+):/, 'https://$1/')
+    }
+
+    // Normalize the URL - add https:// if missing (after SSH conversion)
     if (
       !normalizedUrl.startsWith('http://') &&
       !normalizedUrl.startsWith('https://')
     ) {
       normalizedUrl = 'https://' + normalizedUrl
-    }
-
-    // Convert SSH to HTTPS format for parsing
-    if (normalizedUrl.startsWith('git@')) {
-      normalizedUrl = normalizedUrl.replace(/^git@([^:]+):/, 'https://$1/')
     }
 
     const urlObj = new URL(normalizedUrl)
