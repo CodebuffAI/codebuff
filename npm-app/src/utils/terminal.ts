@@ -215,7 +215,7 @@ function formatResult(command: string, stdout: string, status: string): string {
   return buildArray(
     `<command>${command}</command>`,
     '<terminal_command_result>',
-    `<output>${truncateStringWithMessage({ str: stdout, maxLength: COMMAND_OUTPUT_LIMIT, remove: 'MIDDLE' })}</output>`,
+    `<output>${truncateStringWithMessage({ str: stripColors(stdout), maxLength: COMMAND_OUTPUT_LIMIT, remove: 'MIDDLE' })}</output>`,
     `<status>${status}</status>`,
     '</terminal_command_result>'
   ).join('\n')
