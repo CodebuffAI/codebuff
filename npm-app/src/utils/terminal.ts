@@ -903,8 +903,7 @@ export const runCommandPtyManager = (
       toProcess = toProcess.slice(0, indexOfPromptIdentifier)
     }
 
-    // For manager mode, don't write to stdout
-    // process.stdout.write(toProcess)
+    process.stdout.write(toProcess)
     commandOutput += toProcess
 
     // Reset settle timer whenever we get new output
