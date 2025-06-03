@@ -59,7 +59,7 @@ import {
 
 import { type CodebuffMessage } from 'common/types/message'
 import { CONFIG_DIR } from './credentials'
-import { loadCodebuffConfig } from './json-config-parser'
+import { loadCodebuffConfig } from './json-config/parser'
 import { logAndHandleStartup } from './startup-process-handler'
 import { logger } from './utils/logger'
 

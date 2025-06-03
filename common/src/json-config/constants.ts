@@ -39,6 +39,30 @@ export const StartupProcessSchema = z
   })
   .describe('Defines a single startup process.')
 
+export const FileChangeHook = z
+  .object({
+    name: z
+      .string()
+      .min(1, 'Hook name is required')
+      .describe(
+        'A user-friendly name for the hook. Should be one word and unique.'
+      ),
+    command: z
+      .string()
+      .min(1, 'Command is required')
+      .describe('The actual shell command to execute.'),
+    cwd: z
+      .string()
+      .optional()
+      .describe('The working directory from which to run the command.'),
+    enabled: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('Whether this command should be run'),
+  })
+  .describe('Defines a single file change hook.')
+
 export const CodebuffConfigSchema = z
   .object({
     description: z
@@ -49,6 +73,9 @@ export const CodebuffConfigSchema = z
       .array(StartupProcessSchema)
       .optional()
       .describe('An array of startup processes.'),
+    fileChangeHooks: z
+      .array(FileChangeHook)
+      .describe('An array of commands to run on file changes.'),
     maxAgentSteps: z
       .number()
       .default(12)

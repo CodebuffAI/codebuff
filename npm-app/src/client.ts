@@ -63,7 +63,8 @@ import { CLI } from './cli'
 import { backendUrl, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { calculateFingerprint } from './fingerprint'
-import { loadCodebuffConfig } from './json-config-parser'
+import { runFileChangeHooks } from './json-config/hooks'
+import { loadCodebuffConfig } from './json-config/parser'
 import { displayGreeting } from './menu'
 import {
   getFiles,
@@ -1133,6 +1134,13 @@ export class Client {
         // If we had any file changes, update the project context
         if (this.hadFileChanges) {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
+
+          // Run file change hooks
+          const hookResults = await runFileChangeHooks()
+          toolResults.push(...hookResults)
+          if (hookResults.length > 0) {
+            isComplete = false
+          }
         }
 
         if (!isComplete) {

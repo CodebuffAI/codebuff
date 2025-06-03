@@ -381,7 +381,7 @@ export const runTerminalCommand = async (
   cwd?: string,
   stdoutFile?: string,
   stderrFile?: string
-): Promise<{ result: string; stdout: string }> => {
+): Promise<{ result: string; stdout: string; exitCode: number | null }> => {
   const maybeTimeoutSeconds = timeoutSeconds < 0 ? null : timeoutSeconds
   cwd = cwd || (mode === 'assistant' ? getProjectRoot() : getWorkingDirectory())
   return new Promise((resolve) => {

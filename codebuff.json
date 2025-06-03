@@ -10,10 +10,12 @@
       "name": "web-server",
       "command": "bun start-web",
       "stdoutFile": "debug/web.log"
-    },
+    }
+  ],
+  "fileChangeHooks": [
     {
       "name": "typechecker",
-      "command": "bun tsc -b -w --preserveWatchOutput",
+      "command": "bun run typecheck",
       "stdoutFile": "debug/typecheck.log"
     }
   ],
