@@ -1150,6 +1150,57 @@ Go to https://www.codebuff.com/config for more information.`) +
     }
   }
 
+  public async getOrganizationUsage() {
+    try {
+      const response = await fetch(`${backendUrl}/api/usage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fingerprintId: await this.fingerprintId,
+          authToken: this.user?.authToken,
+        }),
+      })
+
+      const data = await response.json()
+
+      // Use zod schema to validate response
+      const parsedResponse = UsageReponseSchema.parse(data)
+
+      if (data.type === 'action-error') {
+        console.error(red(data.message))
+        return
+      }
+
+      this.setUsage(parsedResponse)
+
+      const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
+        .flat()
+        .reduce((sum, credits) => sum + credits, 0)
+
+      const orgName = this.repoBillingStatus?.orgName || 'Unknown Organization'
+
+      console.log(`\n🏢 ${orgName}: ${totalCreditsUsedThisSession.toLocaleString()} session credits, ${parsedResponse.remainingBalance?.toLocaleString() || 'unknown'} remaining, ${parsedResponse.usage?.toLocaleString() || 'unknown'} cycle usage`)
+
+      this.showUsageWarning()
+    } catch (error) {
+      console.error(
+        red(
+          `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
+        )
+      )
+      // Check if it's a ZodError for more specific feedback
+      if (error instanceof z.ZodError) {
+        console.error(red('Data validation failed:'), error.errors)
+      } else {
+        console.error(error)
+      }
+    } finally {
+      this.freshPrompt()
+    }
+  }
+
   public async getUsage() {
     try {
       const response = await fetch(`${backendUrl}/api/usage`, {

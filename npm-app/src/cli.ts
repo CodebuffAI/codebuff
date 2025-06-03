@@ -640,7 +640,13 @@ export class CLI {
     }
 
     if (cleanInput === 'usage' || cleanInput === 'credits') {
-      await Client.getInstance().getUsage()
+      // Determine if we should show personal or organization usage
+      const client = Client.getInstance()
+      if (client.repoBillingStatus?.isOrgCovered) {
+        await client.getOrganizationUsage()
+      } else {
+        await client.getUsage()
+      }
       return null
     }
     if (cleanInput === 'quit' || cleanInput === 'exit' || cleanInput === 'q') {
@@ -924,9 +930,7 @@ export class CLI {
       client.repoBillingStatus.orgName
     ) {
       logMessages.push(
-        green(
-          `Your organization ${client.repoBillingStatus.orgName} covered your credits usage.`
-        )
+        `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session (billed to ${client.repoBillingStatus.orgName}).`
       )
     }
 
