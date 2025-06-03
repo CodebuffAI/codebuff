@@ -142,7 +142,7 @@ export const mainPrompt = async (
   const isFlash =
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
-  const toolsInstructions = getFilteredToolsInstructions(costMode, false) // false for regular mode
+  const toolsInstructions = getFilteredToolsInstructions(costMode)
   const userInstructions = buildArray(
     isAskMode &&
       'You are a coding agent in "ASK" mode so the user can ask questions, which means you do not have access to tools that can modify files or run terminal commands. You should instead answer the user\'s questions and come up with brilliant plans which can later be implemented.',

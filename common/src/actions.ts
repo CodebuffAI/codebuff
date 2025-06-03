@@ -41,6 +41,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('manager-prompt'),
+    promptId: z.string(),
     prompt: z.string().optional(), // Optional for tool result responses
     agentState: AgentStateSchema,
     toolResults: z.array(ToolResultSchema),
@@ -129,6 +130,15 @@ export const PromptResponseSchema = z.object({
 })
 export type PromptResponse = z.infer<typeof PromptResponseSchema>
 
+export const ManagerPromptResponseSchema = z.object({
+  type: z.literal('manager-prompt-response'),
+  promptId: z.string(),
+  agentState: AgentStateSchema,
+  toolCalls: z.array(NewToolCallSchema),
+  toolResults: z.array(ToolResultSchema),
+})
+export type ManagerPromptResponse = z.infer<typeof ManagerPromptResponseSchema>
+
 export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('response-chunk'),
@@ -137,11 +147,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   }),
   ResponseCompleteSchema,
   PromptResponseSchema,
-  z.object({
-    type: z.literal('manager-prompt-response'),
-    toolCalls: z.array(NewToolCallSchema),
-    agentState: AgentStateSchema,
-  }),
+  ManagerPromptResponseSchema,
   z.object({
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),

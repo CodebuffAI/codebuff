@@ -237,6 +237,7 @@ const onManagerPrompt = async (
     fingerprintId,
     authToken,
     prompt,
+    promptId,
     agentState,
     toolResults,
     costMode,
@@ -251,44 +252,46 @@ const onManagerPrompt = async (
         throw new Error('User not found')
       }
 
-      logger.info(`MANAGER PROMPT: ${prompt}`)
+      logger.info({ userId, fingerprintId }, `MANAGER PROMPT: ${prompt}`)
       trackEvent(AnalyticsEvent.USER_INPUT, userId, {
         prompt,
-        promptId: 'manager-' + Date.now(),
+        promptId,
         isAgentMode: true,
       })
 
       try {
-        const { toolCalls, agentState: updatedAgentState } =
-          await handleManagerPrompt(
-            ws,
-            {
-              type: 'manager-prompt',
-              prompt,
-              agentState,
-              toolResults,
-              fingerprintId,
-              authToken,
-              costMode,
-              model,
-            },
-            userId,
-            clientSessionId,
-            (chunk) =>
-              sendAction(ws, {
-                type: 'response-chunk',
-                userInputId: 'manager-' + Date.now(),
-                chunk,
-              }),
-            agentState.fileContext
-          )
+        const {
+          toolCalls,
+          toolResults: serverToolResults,
+          agentState: updatedAgentState,
+        } = await handleManagerPrompt(
+          ws,
+          {
+            type: 'manager-prompt',
+            prompt,
+            agentState,
+            toolResults,
+            fingerprintId,
+            authToken,
+            costMode,
+            model,
+          },
+          userId,
+          clientSessionId,
+          (chunk) => {
+            sendAction(ws, {
+              type: 'response-chunk',
+              userInputId: promptId,
+              chunk,
+            })
+          },
+          agentState.fileContext
+        )
         sendAction(ws, {
           type: 'manager-prompt-response',
-          toolCalls: toolCalls.map((tc) => ({
-            name: tc.name,
-            parameters: tc.parameters,
-            id: tc.name + '-' + Date.now(), // Generate ID since RawToolCall doesn't have one
-          })),
+          promptId,
+          toolCalls: toolCalls as any[],
+          toolResults: serverToolResults,
           agentState: updatedAgentState,
         })
       } catch (e) {
@@ -298,7 +301,7 @@ const onManagerPrompt = async (
 
         sendAction(ws, {
           type: 'response-chunk',
-          userInputId: 'manager-' + Date.now(),
+          userInputId: promptId,
           chunk: response,
         })
 
@@ -319,8 +322,10 @@ const onManagerPrompt = async (
         setTimeout(() => {
           sendAction(ws, {
             type: 'manager-prompt-response',
+            promptId,
             toolCalls: [],
             agentState: updatedAgentState,
+            toolResults: [],
           })
         }, 100)
       } finally {

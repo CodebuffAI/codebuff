@@ -715,6 +715,12 @@ const tools = toolConfigsList.map((config) => ({
   ),
 })) as { name: GlobalToolNameImport; description: string }[]
 
+const managerTools = tools.filter((tool) =>
+  ['run_terminal_command', 'kill_terminal', 'sleep', 'end_turn'].includes(
+    tool.name
+  )
+)
+
 const toolSchemas = Object.fromEntries(
   toolConfigsList.map((tool) => [tool.name, tool.schema])
 ) as {
@@ -1201,9 +1207,15 @@ function renderSubgoalUpdate(subgoal: {
   return getToolCallString('add_subgoal', params)
 }
 
+export function getManagerToolsInstructions() {
+  return getToolsInstructions(managerTools.map((tool) => tool.description))
+}
+
 // Function to get filtered tools based on cost mode and agent mode
-export function getFilteredToolsInstructions(costMode: string, isAgentMode: boolean = false) {
-  let allowedTools = tools
+export function getFilteredToolsInstructions(costMode: string) {
+  let allowedTools = tools.filter(
+    (tool) => !['kill_terminal', 'sleep'].includes(tool.name)
+  )
 
   // Filter based on cost mode
   if (costMode === 'ask') {
@@ -1216,14 +1228,6 @@ export function getFilteredToolsInstructions(costMode: string, isAgentMode: bool
           'create_plan',
           'run_terminal_command',
         ].includes(tool.name)
-    )
-  }
-
-  // Filter based on agent mode
-  if (!isAgentMode) {
-    // In regular mode, exclude agent-only tools
-    allowedTools = allowedTools.filter(
-      (tool) => !['kill_terminal', 'sleep'].includes(tool.name)
     )
   }
 

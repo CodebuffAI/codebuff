@@ -3,12 +3,22 @@ import { CoreMessage } from 'ai'
 
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { ProjectFileContext } from 'common/util/file'
-import { parseToolCalls, RawToolCall } from './tools'
+import {
+  ClientToolCall,
+  getManagerToolsInstructions,
+  parseRawToolCall,
+  TOOL_LIST,
+  ToolName,
+  ToolCall,
+} from './tools'
 import { getAgentStream } from './prompt-agent-stream'
-import { getFilteredToolsInstructions } from './tools'
+import { logger } from './util/logger'
+import { generateCompactId } from 'common/util/string'
+import { processStreamWithTags } from './xml-stream-parser'
+import { toolSchema } from 'common/constants/tools'
 
 function getManagerSystemPrompt() {
-  const toolsInstructions = getFilteredToolsInstructions('normal', true)
+  const toolsInstructions = getManagerToolsInstructions()
 
   return `You are Codebuff operating in Manager Mode. Your goal is to accomplish the user's multi-step task autonomously through conversation.
 
@@ -18,11 +28,7 @@ Terminal commands in agent mode will automatically wait for output to settle (0.
 
 Use \`sleep\` to pause execution for a specified number of seconds when needed.
 
-Use \`add_subgoal\` and \`update_subgoal\` to create a plan and track your progress for complex tasks.
-
 Explain your plan, actions, and results clearly in your response before calling tools.
-
-Use \`end_turn\` when you have completed the current request or need user input to proceed.
 
 Focus on achieving the user's task. Be methodical. If a step fails, try to understand why and correct it.
 
@@ -51,27 +57,25 @@ export async function handleManagerPrompt(
   clientSessionId: string,
   onResponseChunk: (chunk: string) => void,
   fileContext: ProjectFileContext
-): Promise<{ toolCalls: RawToolCall[]; agentState: AgentState }> {
-  let currentMessageHistory: CoreMessage[]
+): Promise<{
+  toolCalls: ClientToolCall[]
+  toolResults: ToolResult[]
+  agentState: AgentState
+}> {
+  const messages: CoreMessage[] = [...action.agentState.messageHistory]
 
   // Check if this is the first message in agent mode, a new user prompt, or tool results
-  if (action.agentState.messageHistory.length === 0 && action.prompt) {
+  if (messages.length === 0) {
+    logger.debug(
+      { userId },
+      'First time entering manager mode - initializing with system prompt'
+    )
     // First time entering agent mode - initialize with system prompt
-    currentMessageHistory = [
-      { role: 'system', content: getManagerSystemPrompt() },
-      { role: 'user', content: action.prompt },
-    ]
-  } else if (action.prompt) {
-    // New user message in existing conversation
-    currentMessageHistory = [
-      ...action.agentState.messageHistory,
-      { role: 'user', content: action.prompt },
-    ]
-  } else {
-    // Tool results only - continue from existing history
-    currentMessageHistory = [...action.agentState.messageHistory]
+    messages.push({
+      role: 'system',
+      content: getManagerSystemPrompt(),
+    })
   }
-
   // If we have tool results, add them as system message
   if (action.toolResults.length > 0) {
     const toolResultsXml = action.toolResults
@@ -81,15 +85,21 @@ export async function handleManagerPrompt(
       )
       .join('\n')
 
-    currentMessageHistory.push({
+    messages.push({
       role: 'user',
       content: `<system>${toolResultsXml}</system>`,
     })
   }
 
+  if (action.prompt) {
+    messages.push({ role: 'user', content: action.prompt })
+  }
+
   // Get manager stream
   const costMode = action.costMode || 'normal'
   const model = action.model
+
+  logger.debug({ model, messages }, 'Manager prompt')
 
   const { getStream } = getAgentStream({
     costMode: costMode as any,
@@ -101,25 +111,89 @@ export async function handleManagerPrompt(
     userId,
   })
 
-  let fullResponse = ''
-  const toolCalls: RawToolCall[] = []
+  const stream = getStream(messages)
 
-  const stream = getStream(currentMessageHistory)
+  const allToolCalls: ToolCall[] = []
+  const clientToolCalls: ClientToolCall[] = []
+  const serverToolResults: ToolResult[] = []
 
-  for await (const chunk of stream) {
-    fullResponse += chunk
-    onResponseChunk(chunk)
+  function toolCallback<T extends ToolName>(
+    tool: T,
+    after: (toolCall: Extract<ToolCall, { name: T }>) => void
+  ): {
+    params: (string | RegExp)[]
+    onTagStart: () => void
+    onTagEnd: (
+      name: string,
+      parameters: Record<string, string>
+    ) => Promise<void>
+  } {
+    return {
+      params: toolSchema[tool],
+      onTagStart: () => {},
+      onTagEnd: async (_: string, parameters: Record<string, string>) => {
+        const toolCall = parseRawToolCall({
+          name: tool,
+          parameters,
+        })
+        if ('error' in toolCall) {
+          serverToolResults.push({
+            name: tool,
+            id: generateCompactId(),
+            result: toolCall.error,
+          })
+          return
+        }
+        allToolCalls.push(toolCall as Extract<ToolCall, { name: T }>)
 
-    // Parse for complete tool calls
-    const newToolCalls = parseToolCalls(fullResponse)
-    if (newToolCalls.length > toolCalls.length) {
-      // Add new tool calls
-      toolCalls.push(...newToolCalls.slice(toolCalls.length))
+        after(toolCall as Extract<ToolCall, { name: T }>)
+      },
     }
   }
+  const streamWithTags = processStreamWithTags(
+    stream,
+    {
+      ...Object.fromEntries(
+        TOOL_LIST.map((tool) => [tool, toolCallback(tool, () => {})])
+      ),
+      ...Object.fromEntries(
+        (['sleep', 'kill_terminal'] as const).map((tool) => [
+          tool,
+          toolCallback(tool, (toolCall) => {
+            clientToolCalls.push({
+              ...toolCall,
+              id: generateCompactId(),
+            } as ClientToolCall)
+          }),
+        ])
+      ),
+      run_terminal_command: toolCallback('run_terminal_command', (toolCall) => {
+        const clientToolCall = {
+          ...{
+            ...toolCall,
+            parameters: {
+              ...toolCall.parameters,
+              mode: 'manager' as const,
+            },
+          },
+          id: generateCompactId(),
+        }
+        clientToolCalls.push(clientToolCall)
+      }),
+    },
+    (name, error) => {
+      serverToolResults.push({ id: generateCompactId(), name, result: error })
+    }
+  )
 
-  // Append assistant message to history
-  currentMessageHistory.push({
+  let fullResponse = ''
+
+  for await (const chunk of streamWithTags) {
+    fullResponse += chunk
+    onResponseChunk(chunk)
+  }
+
+  messages.push({
     role: 'assistant',
     content: fullResponse,
   })
@@ -127,8 +201,23 @@ export async function handleManagerPrompt(
   // Update agent state
   const updatedAgentState: AgentState = {
     ...action.agentState,
-    messageHistory: currentMessageHistory,
+    messageHistory: messages,
   }
+  logger.debug(
+    {
+      prompt,
+      messages,
+      toolCalls: allToolCalls,
+      serverToolResults,
+      clientToolCalls,
+      model,
+    },
+    'Manager prompt response'
+  )
 
-  return { toolCalls, agentState: updatedAgentState }
+  return {
+    agentState: updatedAgentState,
+    toolCalls: clientToolCalls,
+    toolResults: [],
+  }
 }
