@@ -18,6 +18,7 @@
     "start-max": "nx build npm-app > /dev/null && bun run with-env -- sh -c 'TS_NODE_PROJECT=./tsconfig.json ts-node -r tsconfig-paths/register src/index.ts .. --max'",
     "start-lite": "nx build npm-app > /dev/null && bun run with-env -- sh -c 'TS_NODE_PROJECT=./tsconfig.json ts-node -r tsconfig-paths/register src/index.ts .. --lite'",
     "start-ask": "nx build npm-app > /dev/null && bun run with-env -- sh -c 'TS_NODE_PROJECT=./tsconfig.json ts-node -r tsconfig-paths/register src/index.ts .. --ask'",
+    "start-manager": "nx build npm-app > /dev/null && bun run with-env -- sh -c 'TS_NODE_PROJECT=./tsconfig.json ts-node -r tsconfig-paths/register src/index.ts .. --manager'",
     "start-dir": "bun run with-env -- ts-node -r tsconfig-paths/register src/index.ts",
     "start-experimental": "nx build npm-app > /dev/null && bun run with-env -- sh -c 'TS_NODE_PROJECT=./tsconfig.json ts-node -r tsconfig-paths/register src/index.ts .. --experimental'",
     "with-env": "env-cmd -f ./loadEnv.js",

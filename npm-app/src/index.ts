@@ -25,7 +25,7 @@ import { recreateShell } from './utils/terminal'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, git, costMode, runInitFlow, model }: CliOptions
+  { initialInput, git, costMode, runInitFlow, model, isManager }: CliOptions
 ) {
   enableSquashNewlines()
 
@@ -56,7 +56,7 @@ async function codebuff(
   ])
 
   // Initialize the CLI singleton
-  CLI.initialize(readyPromise, { git, costMode, model })
+  CLI.initialize(readyPromise, { git, costMode, model, isManager })
   const cli = CLI.getInstance()
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })
@@ -133,6 +133,11 @@ For all commands and options, run 'codebuff' and then type 'help'.
     costMode = 'ask'
   }
 
+  let isManager = false
+  if (options.manager) {
+    isManager = true
+  }
+
   // Handle git integration
   const git = options.git === 'stage' ? ('stage' as const) : undefined
 
@@ -144,6 +149,7 @@ For all commands and options, run 'codebuff' and then type 'help'.
     initialInput,
     git,
     costMode,
+    isManager,
     runInitFlow: options.init,
     model: options.model,
   })

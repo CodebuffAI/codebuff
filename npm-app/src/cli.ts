@@ -82,16 +82,17 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
-  public isManagerMode: boolean = false // Track if we're in manager mode - make public so client can access
+  public isManagerMode: boolean
 
   public rl!: readline.Interface
 
   private constructor(
     readyPromise: Promise<[ProjectFileContext, void, void]>,
-    { git, costMode, model }: CliOptions
+    { git, costMode, model, isManager }: CliOptions
   ) {
     this.git = git
     this.costMode = costMode
+    this.isManagerMode = isManager ?? false
 
     this.setupSignalHandlers()
     this.initReadlineInterface()
