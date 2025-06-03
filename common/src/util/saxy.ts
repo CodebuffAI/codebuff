@@ -311,6 +311,7 @@ export class Saxy extends Transform {
   private _waiting: { token: string; data: unknown } | null
   private _schema: TagSchema | null
   private _textBuffer: string // NEW: Text buffer as class member
+  private _shouldParseEntities: boolean
 
   /**
    * Parse a string of XML attributes to a map of attribute names
@@ -336,7 +337,7 @@ export class Saxy extends Transform {
    * Create a new parser instance.
    * @param schema Optional schema defining allowed top-level tags and their children
    */
-  constructor(schema?: TagSchema) {
+  constructor(schema?: TagSchema, shouldParseEntities: boolean = true) {
     super({ decodeStrings: false, defaultEncoding: 'utf8' })
 
     this._decoder = new StringDecoder('utf8')
@@ -352,6 +353,8 @@ export class Saxy extends Transform {
 
     // Initialize text buffer
     this._textBuffer = ''
+
+    this._shouldParseEntities = shouldParseEntities
   }
 
   /**
@@ -390,7 +393,9 @@ export class Saxy extends Transform {
 
       // Handle any remaining text buffer
       if (this._textBuffer.length > 0) {
-        const parsedText = parseEntities(this._textBuffer)
+        const parsedText = this._shouldParseEntities
+          ? parseEntities(this._textBuffer)
+          : this._textBuffer
         this.emit(Node.text, { contents: parsedText })
         this._textBuffer = ''
       }
@@ -558,7 +563,11 @@ export class Saxy extends Transform {
 
           // Check for incomplete entity at end
           const lastAmp = chunk.lastIndexOf('&')
-          if (lastAmp !== -1 && chunk.indexOf(';', lastAmp) === -1) {
+          if (
+            this._shouldParseEntities &&
+            lastAmp !== -1 &&
+            chunk.indexOf(';', lastAmp) === -1
+          ) {
             // Only consider it a pending entity if it looks like the start of one
             const postAmp = chunk.slice(lastAmp + 1)
             const isPotentialEntity =
@@ -594,7 +603,9 @@ export class Saxy extends Transform {
 
         // We've reached a tag boundary, emit any buffered text
         if (this._textBuffer.length > 0) {
-          const parsedText = parseEntities(this._textBuffer)
+          const parsedText = this._shouldParseEntities
+            ? parseEntities(this._textBuffer)
+            : this._textBuffer
           this.emit(Node.text, { contents: parsedText })
           this._textBuffer = ''
         }
@@ -706,7 +717,9 @@ export class Saxy extends Transform {
 
     // Emit any buffered text at the end of the chunk if there's no pending entity
     if (this._textBuffer.length > 0) {
-      const parsedText = parseEntities(this._textBuffer)
+      const parsedText = this._shouldParseEntities
+        ? parseEntities(this._textBuffer)
+        : this._textBuffer
       this.emit(Node.text, { contents: parsedText })
       this._textBuffer = ''
     }
