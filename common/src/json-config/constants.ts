@@ -85,7 +85,7 @@ export const CodebuffConfigSchema = z
       ),
   })
   .describe(
-    `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration.`
+    `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration. This schema can be found at https://www.codebuff.com/config`
   )
 
 /**
