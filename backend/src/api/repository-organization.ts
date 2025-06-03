@@ -9,7 +9,7 @@ import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 
 import { checkAuth } from '../util/check-auth'
-import { findOrganizationForRepository } from 'common/credit-delegation'
+import { findOrganizationForRepository } from '@codebuff/billing'
 import { logger } from '@/util/logger'
 
 const repositoryOrganizationRequestSchema = z.object({

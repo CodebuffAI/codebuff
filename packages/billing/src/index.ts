@@ -19,5 +19,8 @@ export * from './org-monitoring'
 // Usage service
 export * from './usage-service'
 
+// Credit delegation
+export * from './credit-delegation'
+
 // Utilities
 export * from './utils'

@@ -27,7 +27,7 @@ This package contains code shared between the `web` (Next.js frontend/backend) a
 ## Credit Grant Management
 
 When granting credits to users (monthly reset, referrals, etc.):
-- Use the shared `processAndGrantCredit` helper in `common/src/billing/grant-credits.ts`
+- Use the shared `processAndGrantCredit` helper in `@codebuff/billing` package
 - Helper handles:
   - User validation
   - Cost per credit calculation
@@ -65,3 +65,7 @@ When granting credits to users (monthly reset, referrals, etc.):
    - Updates next_quota_reset
 2. Create new free/referral grants with expiration
 3. Create Stripe grants if needed
+
+## Credit Delegation
+
+Credit delegation functionality (finding organizations for repositories and consuming organization credits) has been moved to the `@codebuff/billing` package to avoid circular dependencies.

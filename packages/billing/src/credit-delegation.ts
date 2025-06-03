@@ -1,12 +1,12 @@
-import db from './db'
-import * as schema from './db/schema'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
-import { logger } from './util/logger'
+import { logger } from 'common/util/logger'
 import { 
   consumeOrganizationCredits, 
   normalizeRepositoryUrl,
   extractOwnerAndRepo
-} from '@codebuff/billing'
+} from './org-billing'
 
 export interface OrganizationLookupResult {
   found: boolean
