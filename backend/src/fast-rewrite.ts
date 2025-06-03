@@ -108,21 +108,19 @@ Important:
 
 Please output just the complete updated file content with the edit applied and no additional text.`
 
-  const response = await promptAiSdk(
-    [
+  const response = await promptAiSdk({
+    messages: [
       { role: 'user', content: prompt },
       { role: 'assistant', content: '```\n' },
     ],
-    {
-      model: openaiModels.o3mini,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      orgId: orgId ?? null,
-      repoUrl: repoUrl ?? null,
-    }
-  )
+    model: openaiModels.o3mini,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    orgId: orgId ?? null,
+    repoUrl: repoUrl ?? null,
+  })
 
   return parseMarkdownCodeBlock(response) + '\n'
 }

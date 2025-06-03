@@ -16,5 +16,6 @@
       "command": "bun tsc -b -w --preserveWatchOutput",
       "stdoutFile": "debug/typecheck.log"
     }
-  ]
+  ],
+  "maxAgentSteps": 20
 }

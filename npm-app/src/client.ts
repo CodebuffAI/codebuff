@@ -63,6 +63,7 @@ import { CLI } from './cli'
 import { backendUrl, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { calculateFingerprint } from './fingerprint'
+import { loadCodebuffConfig } from './json-config-parser'
 import { displayGreeting } from './menu'
 import {
   getFiles,
@@ -409,6 +410,14 @@ export class Client {
     } catch (e) {
       Spinner.get().stop()
       const error = e as Error
+      logger.error(
+        {
+          errorMessage: error.message,
+          errorStack: error.stack,
+          keyType,
+        },
+        'Error adding API key'
+      )
       console.error(red('Error adding API key: ' + error.message))
     } finally {
       this.freshPrompt()
@@ -448,6 +457,14 @@ export class Client {
         }
       } catch (e) {
         const error = e as Error
+        logger.error(
+          {
+            errorMessage: error.message,
+            errorStack: error.stack,
+            referralCode,
+          },
+          'Error redeeming referral code'
+        )
         console.error(red('Error: ' + error.message))
         this.freshPrompt()
       }
@@ -473,6 +490,12 @@ export class Client {
         if (!response.ok) {
           const error = await response.text()
           console.error(red('Failed to log out: ' + error))
+          logger.error(
+            {
+              errorMessage: 'Failed to log out: ' + error,
+            },
+            'Failed to log out'
+          )
         }
 
         try {
@@ -490,9 +513,25 @@ export class Client {
             ONE_TIME_LABELS.map((tag) => [tag, false])
           ) as Record<(typeof ONE_TIME_LABELS)[number], boolean>
         } catch (error) {
+          logger.error(
+            {
+              errorMessage:
+                error instanceof Error ? error.message : String(error),
+              errorStack: error instanceof Error ? error.stack : undefined,
+            },
+            'Error removing credentials file'
+          )
           console.error('Error removing credentials file:', error)
         }
       } catch (error) {
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Error during logout'
+        )
         console.error('Error during logout:', error)
       }
     }
@@ -520,6 +559,12 @@ export class Client {
       if (!response.ok) {
         const error = await response.text()
         console.error(red('Login code request failed: ' + error))
+        logger.error(
+          {
+            errorMessage: 'Login code request failed: ' + error,
+          },
+          'Login code request failed'
+        )
         this.freshPrompt()
         return
       }
@@ -578,6 +623,14 @@ export class Client {
                   errorStatus: statusResponse.status,
                   errorStatusText: statusResponse.statusText,
                   msg: 'Error checking login status',
+                },
+                'Error checking login status'
+              )
+              logger.error(
+                {
+                  errorMessage: 'Error checking login status: ' + text,
+                  errorStatus: statusResponse.status,
+                  errorStatusText: statusResponse.statusText,
                 },
                 'Error checking login status'
               )
@@ -676,11 +729,23 @@ export class Client {
     this.webSocket.subscribe('action-error', (action) => {
       if (action.error === 'Insufficient credits') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
+        logger.info(
+          {
+            errorMessage: action.message,
+          },
+          'Action error insufficient credits'
+        )
         console.error(
           `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`
         )
       } else if (action.error === 'Auto top-up disabled') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
+        logger.info(
+          {
+            errorMessage: action.message,
+          },
+          'Auto top-up disabled error'
+        )
         console.error(
           yellow(
             `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to update your payment settings.`
@@ -688,6 +753,12 @@ export class Client {
         )
       } else {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
+        logger.error(
+          {
+            errorMessage: action.message,
+          },
+          'Unknown action error'
+        )
       }
       this.freshPrompt()
       return
@@ -733,6 +804,13 @@ export class Client {
         console.error(
           red('Received invalid usage data from server:'),
           parsedAction.error.errors
+        )
+        logger.error(
+          {
+            errorMessage: 'Received invalid usage data from server',
+            errors: parsedAction.error.errors,
+          },
+          'Invalid usage data from server'
         )
         return
       }
@@ -816,6 +894,9 @@ export class Client {
     if (!this.agentState) {
       throw new Error('Agent state not initialized')
     }
+
+    this.agentState.agentStepsRemaining = loadCodebuffConfig()?.maxAgentSteps
+
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
     loggerContext.clientRequestId = userInputId
@@ -969,7 +1050,14 @@ export class Client {
       try {
         xmlStreamParser.write(chunk, 'utf8')
       } catch (e) {
-        // console.error('Error writing chunk', e)
+        logger.error(
+          {
+            errorMessage: e instanceof Error ? e.message : String(e),
+            errorStack: e instanceof Error ? e.stack : undefined,
+            chunk,
+          },
+          'Error writing chunk to XML stream parser'
+        )
       }
     })
 
@@ -986,9 +1074,13 @@ export class Client {
             'If this issues persists, please contact support@codebuff.com',
           ].join('\n')
           console.error(message)
-          logger.error(message, {
-            eventId: AnalyticsEvent.MALFORMED_PROMPT_RESPONSE,
-          })
+          logger.error(
+            {
+              errorMessage: message,
+              eventId: AnalyticsEvent.MALFORMED_PROMPT_RESPONSE,
+            },
+            'Malformed prompt response'
+          )
           return
         }
         if (action.promptId !== userInputId) return
@@ -1030,6 +1122,16 @@ export class Client {
             const toolResult = await handleToolCall(toolCall)
             toolResults.push(toolResult)
           } catch (error) {
+            logger.error(
+              {
+                errorMessage:
+                  error instanceof Error ? error.message : String(error),
+                errorStack: error instanceof Error ? error.stack : undefined,
+                toolCallName: toolCall.name,
+                toolCallId: toolCall.id,
+              },
+              'Error parsing tool call'
+            )
             console.error(
               '\n\n' +
                 red(`Error parsing tool call ${toolCall.name}:\n${error}`) +
@@ -1120,6 +1222,14 @@ Go to https://www.codebuff.com/config for more information.`) +
             checkpointAddendum = ` or "checkpoint ${checkpointManager.getLatestCheckpoint().id}" to revert`
           } catch (error) {
             // No latest checkpoint, don't show addendum
+            logger.info(
+              {
+                errorMessage:
+                  error instanceof Error ? error.message : String(error),
+                errorStack: error instanceof Error ? error.stack : undefined,
+              },
+              'No latest checkpoint for addendum'
+            )
           }
           console.log(
             `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n`
@@ -1221,6 +1331,12 @@ Go to https://www.codebuff.com/config for more information.`) +
 
       if (data.type === 'action-error') {
         console.error(red(data.message))
+        logger.error(
+          {
+            errorMessage: data.message,
+          },
+          'Action error'
+        )
         return
       }
 
@@ -1274,6 +1390,13 @@ Go to https://www.codebuff.com/config for more information.`) +
 
       this.showUsageWarning()
     } catch (error) {
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        'Error checking usage'
+      )
       console.error(
         red(
           `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
@@ -1282,8 +1405,23 @@ Go to https://www.codebuff.com/config for more information.`) +
       // Check if it's a ZodError for more specific feedback
       if (error instanceof z.ZodError) {
         console.error(red('Data validation failed:'), error.errors)
+        logger.error(
+          {
+            errorMessage: 'Data validation failed',
+            errors: error.errors,
+          },
+          'Data validation failed'
+        )
       } else {
         console.error(error)
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Error checking usage'
+        )
       }
     } finally {
       this.freshPrompt()

@@ -4,6 +4,7 @@ import { transformJsonInString } from 'common/util/string'
 import * as fs from 'fs'
 import * as path from 'path'
 import { getCurrentChatDir, getCurrentChatId } from './project-files'
+import { logger } from './utils/logger'
 
 export function setMessages(messages: CodebuffMessage[]) {
   // Clean up any screenshots and logs in previous messages
@@ -82,5 +83,21 @@ export function setMessages(messages: CodebuffMessage[]) {
     fs.writeFileSync(messagesPath, JSON.stringify(messagesData, null, 2))
   } catch (error) {
     console.error('Failed to save messages to file:', error)
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        messagesCount: messages.length,
+      },
+      'Failed to save messages to file'
+    )
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        messagesCount: messages.length,
+      },
+      'Failed to save messages to file'
+    )
   }
 }

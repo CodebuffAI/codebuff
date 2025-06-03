@@ -34,23 +34,21 @@ Assistant: npm test
 User: can you write a function to do foo?
 Assistant: NOT_A_COMMAND`
 
-  const response = await promptAiSdk(
-    [
+  const response = await promptAiSdk({
+    messages: [
       { role: 'system', content: system },
       { role: 'user', content: prompt },
     ],
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: models.haiku,
-      userId,
-      temperature: 0,
-      maxTokens: 200,
-      orgId: orgId ?? null,
-      repoUrl: repoUrl ?? null,
-    }
-  )
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model: models.haiku,
+    userId,
+    temperature: 0,
+    maxTokens: 200,
+    orgId: orgId ?? null,
+    repoUrl: repoUrl ?? null,
+  })
 
   if (response.includes('NOT_A_COMMAND')) {
     return null
@@ -82,10 +80,9 @@ ${JSON.stringify(prompt)}`,
   try {
     // Race between OpenAI and Gemini with timeouts
     const response = await withTimeout(
-      promptAiSdk(messages, {
-        model: models.gpt4omini,
-        ...options,
-      }).then((response) => response.toLowerCase().includes('y')),
+      promptAiSdk({ messages, model: models.gpt4omini, ...options }).then(
+        (response) => response.toLowerCase().includes('y')
+      ),
       30000,
       'OpenAI API request timed out'
     )

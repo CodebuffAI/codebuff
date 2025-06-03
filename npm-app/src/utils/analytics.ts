@@ -1,6 +1,8 @@
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { PostHog } from 'posthog-node'
 
+import { logger } from './logger'
+
 // Prints the events to console
 // It's very noisy, so recommended you set this to true
 // only when you're actively adding new analytics
@@ -24,7 +26,8 @@ export function initAnalytics() {
 
   client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY, {
     host: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
-    enableExceptionAutocapture: true,
+    enableExceptionAutocapture:
+      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production',
   })
 }
 export async function flushAnalytics() {
@@ -38,6 +41,13 @@ export async function flushAnalytics() {
     if (DEBUG_DEV_EVENTS) {
       console.error('PostHog error:', error)
     }
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+      'PostHog error'
+    )
   }
 }
 
@@ -103,7 +113,8 @@ export function logError(
   properties?: Record<string, any>
 ) {
   if (!client) {
-    throw new Error('Analytics client not initialized')
+    logger.info('Skipping error logging: Analytics client not initialized')
+    return
   }
 
   client.captureException(

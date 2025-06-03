@@ -49,6 +49,12 @@ export const CodebuffConfigSchema = z
       .array(StartupProcessSchema)
       .optional()
       .describe('An array of startup processes.'),
+    maxAgentSteps: z
+      .number()
+      .default(12)
+      .describe(
+        'Maximum number of turns agent will take before being forced to end'
+      ),
   })
   .describe(
     `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration.`

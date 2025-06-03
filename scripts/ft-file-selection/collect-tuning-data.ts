@@ -20,14 +20,6 @@ const SAVE_TOP_FEW_DATA = true
 const ADD_DASHES_TO_TOP_FEW_DATA = true
 const BLOBBIFY_MESSAGE_HISTORY = true
 
-if (!model) {
-  console.log('Missing model argument')
-  console.log(
-    'Usage: bun run scripts/ft-file-selection/collect-tuning-data.ts <model> [--prod]'
-  )
-  process.exit(1)
-}
-
 // Utility function to get next available filename with auto-incrementing number
 function getNextAvailableFilename(
   baseFilename: string,
@@ -64,6 +56,10 @@ function getDeterministicSample(traceId: string): number {
   // Convert the first 8 characters of the hash to a number between 0 and 1
   const numericalValue = parseInt(hash.substring(0, 8), 16)
   return numericalValue / 0xffffffff
+}
+
+export function isValidationSample(traceId: string): boolean {
+  return getDeterministicSample(traceId) <= VALIDATION_SAMPLING_RATE
 }
 
 interface SystemMessage {
@@ -203,6 +199,20 @@ function convertToGeminiFormat(
     })
     .filter((msg): msg is GeminiMessage => msg !== null)
 
+  if (BLOBBIFY_MESSAGE_HISTORY) {
+    // Replace all "model" messages, except the last message, with
+    // a "user" message with   `<previous_assistant_message>\${message.content}</previous_assistant_message>\`,
+
+    geminiMessages.forEach((msg, i) => {
+      if (msg.role === 'model' && i !== geminiMessages.length - 1) {
+        msg.role = 'user'
+        msg.parts = msg.parts.map((part) => ({
+          text: `<previous_assistant_message>${part.text}</previous_assistant_message>`,
+        }))
+      }
+    })
+  }
+
   // If there are multiple messages in a row with the same role, we need to combine them into a single message with multiple parts
   const combinedMessages: GeminiMessage[] = []
   for (const msg of geminiMessages) {
@@ -213,19 +223,6 @@ function convertToGeminiFormat(
       combinedMessages[combinedMessages.length - 1].parts.push(...msg.parts)
     } else {
       combinedMessages.push(msg)
-    }
-  }
-
-  if (BLOBBIFY_MESSAGE_HISTORY) {
-    // Append all except the last message to the system message
-    // Then return only the last message as contents
-    systemMessage.parts.push({
-      text: compressMessagesToHistory(combinedMessages.slice(0, -1)),
-    })
-
-    return {
-      systemInstruction: systemMessage,
-      contents: [combinedMessages[combinedMessages.length - 1]],
     }
   }
 
@@ -412,11 +409,19 @@ function writeTracesAsGeminiData(
 
 async function main() {
   try {
+    if (!model) {
+      console.log('Missing model argument')
+      console.log(
+        'Usage: bun run scripts/ft-file-selection/collect-tuning-data.ts <model> [--prod]'
+      )
+      process.exit(1)
+    }
+
     await setupBigQuery(DATASET)
     console.log(`Using dataset: ${DATASET}`)
 
     // Get traces for the specified model from BigQuery
-    const traces = await getTracesWithRelabels(model, 100, DATASET)
+    const traces = await getTracesWithRelabels(model, 3000, DATASET)
     console.log(`Found ${traces.length} traces for model ${model}`)
 
     // Process traces and convert to Gemini format
@@ -430,4 +435,6 @@ async function main() {
   }
 }
 
-main()
+if (require.main === module) {
+  main()
+}

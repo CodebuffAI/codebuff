@@ -126,21 +126,19 @@ Important:
 
 Please output just the complete updated file content with no other text.`
 
-    const content = await promptAiSdk(
-      [
+    const content = await promptAiSdk({
+      messages: [
         { role: 'user', content: prompt },
         { role: 'assistant', content: '```\n' },
       ],
-      {
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        model: models.o3mini,
-        userId,
-        orgId: orgId ?? null,
-        repoUrl: repoUrl ?? null,
-      }
-    )
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.o3mini,
+      userId,
+      orgId: orgId ?? null,
+      repoUrl: repoUrl ?? null,
+    })
 
     return parseMarkdownCodeBlock(content) + '\n'
   }
@@ -323,8 +321,11 @@ export async function toolFormatter(
           model: 'Tool-Formatter',
           messages,
           temperature: 0,
-          max_tokens: 32_000,
-          response_format: { type: 'json_schema', json_schema: outputSchema },
+          max_tokens: 8192,
+          response_format: {
+            type: 'json_schema',
+            json_schema: JSON.stringify(outputSchema),
+          },
           'relace-metadata': {
             'codebuff-id': messageId,
           },
@@ -343,6 +344,7 @@ export async function toolFormatter(
           statusText: response.statusText,
           errorText,
           assistantMessageLength: assistantMessage.length,
+          messageId,
         },
         'Relace Tool Formatter API error'
       )

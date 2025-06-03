@@ -23,6 +23,7 @@ import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { CoreMessage } from 'ai'
+import { codebuffConfigFile } from 'common/json-config/constants'
 import { CodebuffMessage } from 'common/types/message'
 import { checkTerminalCommand } from './check-terminal-command'
 import {
@@ -298,11 +299,14 @@ export const mainPrompt = async (
   }
 
   // Check number of assistant messages since last user message with prompt
-  const consecutiveAssistantMessages =
-    agentState.consecutiveAssistantMessages ?? 0
-  if (consecutiveAssistantMessages >= MAX_CONSECUTIVE_ASSISTANT_MESSAGES) {
+  const remainingAssistantMessages =
+    agentState.agentStepsRemaining !== undefined
+      ? agentState.agentStepsRemaining - 1
+      : MAX_CONSECUTIVE_ASSISTANT_MESSAGES -
+        (agentState.consecutiveAssistantMessages ?? 0)
+  if (remainingAssistantMessages < 0) {
     logger.warn(
-      `Detected ${consecutiveAssistantMessages} consecutive assistant messages without user prompt`
+      `Detected too many consecutive assistant messages without user prompt`
     )
 
     const warningString = [
@@ -317,8 +321,13 @@ export const mainPrompt = async (
       agentState: {
         ...agentState,
         messageHistory: [
-          ...expireMessages(messageHistory, 'userPrompt'),
-          { role: 'assistant', content: warningString },
+          ...expireMessages(messagesWithToolResultsAndUser, 'userPrompt'),
+          {
+            role: 'user',
+            content: asSystemMessage(
+              `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in ${codebuffConfigFile}.`
+            ),
+          },
         ],
       },
       toolCalls: [],
@@ -506,6 +515,17 @@ export const mainPrompt = async (
         content: asSystemInstruction(userInstructions),
         timeToLive: 'userPrompt',
       },
+    ],
+
+    {
+      role: 'user',
+      content: asSystemMessage(
+        `You have ${remainingAssistantMessages + 1} more response(s) before you will be cut off and the turn will be ended automatically.${remainingAssistantMessages === 0 ? ' (This will be the last response.)' : ''}`
+      ),
+      timeToLive: 'agentStep',
+    },
+
+    prompt &&
       cwd && {
         role: 'user' as const,
         content: asSystemMessage(
@@ -513,8 +533,6 @@ export const mainPrompt = async (
         ),
         timeToLive: 'agentStep',
       },
-    ],
-
     !prompt &&
       toolInstructions && {
         role: 'user' as const,
@@ -814,6 +832,7 @@ export const mainPrompt = async (
       }),
     },
     (name, error) => {
+      foundParsingError = true
       serverToolResults.push({ id: generateCompactId(), name, result: error })
     }
   )
@@ -1090,6 +1109,10 @@ export const mainPrompt = async (
     consecutiveAssistantMessages: prompt
       ? 1
       : (agentState.consecutiveAssistantMessages ?? 0) + 1,
+    agentStepsRemaining:
+      agentState.agentStepsRemaining === undefined
+        ? undefined
+        : agentState.agentStepsRemaining - 1,
   }
 
   logger.debug(
