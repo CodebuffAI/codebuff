@@ -37,7 +37,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     toolResults: z.array(ToolResultSchema),
     model: z.string().optional(),
     cwd: z.string().optional(),
-    repoName: z.string().optional(),
+    repoUrl: z.string().optional(),
   }),
   z.object({
     type: z.literal('read-files-response'),
@@ -49,6 +49,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fingerprintId: z.string(),
     authToken: z.string().optional(),
     fileContext: ProjectFileContextSchema,
+    repoUrl: z.string().optional(),
   }),
   z.object({
     type: z.literal('generate-commit-message'),

@@ -15,6 +15,10 @@ import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { pluralize } from 'common/util/string'
 import { env } from '@/env.mjs'
+import { extractOwnerAndRepo } from '@codebuff/billing/src/org-billing'
+import { findOrganizationForRepository, OrganizationLookupResult } from '@codebuff/billing/src/credit-delegation'
+import { LRUCache } from 'common/util/lru-cache'
+import { updateRequestContext } from './request-context'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -212,3 +216,87 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
 
   return undefined
 })
+
+// Organization repository coverage detection middleware
+protec.use(async (action, clientSessionId, ws, userInfo) => {
+  const userId = userInfo?.id
+
+  // Only process actions that have repoUrl as a valid string
+  if (!('repoUrl' in action) || typeof action.repoUrl !== 'string' || !action.repoUrl || !userId) {
+    return undefined
+  }
+
+  const repoUrl = action.repoUrl
+
+  try {
+    // Extract owner and repo from URL
+    const ownerRepo = extractOwnerAndRepo(repoUrl)
+    if (!ownerRepo) {
+      logger.debug(
+        { userId, repoUrl },
+        'Could not extract owner/repo from repository URL'
+      )
+      return undefined
+    }
+
+    const { owner, repo } = ownerRepo
+
+    // Check cache first
+    const cacheKey = `${userId}:${repoUrl}`
+    let orgLookup = orgCoverageCache.get(cacheKey)
+
+    if (!orgLookup) {
+      // Cache miss - perform lookup
+      orgLookup = await findOrganizationForRepository(userId, repoUrl)
+      
+      // Cache the result for 5 minutes (300 seconds)
+      orgCoverageCache.set(cacheKey, orgLookup)
+      
+      logger.debug(
+        { userId, repoUrl, orgLookup, cacheKey },
+        'Organization coverage lookup performed and cached'
+      )
+    } else {
+      logger.debug(
+        { userId, repoUrl, orgLookup, cacheKey },
+        'Organization coverage lookup retrieved from cache'
+      )
+    }
+
+    // Update request context with the results
+    updateRequestContext({
+      currentUserId: userId,
+      approvedOrgIdForRepo: orgLookup.found ? orgLookup.organizationId : undefined,
+      processedRepoUrl: repoUrl,
+      processedRepoOwner: owner,
+      processedRepoName: repo,
+      processedRepoId: `${owner}/${repo}`,
+      isRepoApprovedForUserInOrg: orgLookup.found,
+    })
+
+    logger.debug(
+      {
+        userId,
+        repoUrl,
+        owner,
+        repo,
+        isApproved: orgLookup.found,
+        organizationId: orgLookup.organizationId,
+        organizationName: orgLookup.organizationName,
+      },
+      'Organization repository coverage processed'
+    )
+  } catch (error) {
+    logger.error(
+      { userId, repoUrl, error },
+      'Error processing organization repository coverage'
+    )
+    // Don't fail the request, just continue without organization context
+  }
+
+  return undefined
+})
+
+// Cache for organization repository coverage checks
+// Key: userId:repoUrl, Value: OrganizationLookupResult
+const orgCoverageCache = new LRUCache<string, OrganizationLookupResult>(1000)

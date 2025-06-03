@@ -1,4 +1,5 @@
 import { consumeCredits, getUserCostPerCredit } from '@codebuff/billing'
+import { consumeOrganizationCredits } from '@codebuff/billing/src/org-billing'
 import { CoreMessage } from 'ai'
 import { trackEvent } from 'common/analytics'
 import { models, TEST_USER_ID } from 'common/constants'
@@ -13,6 +14,7 @@ import Stripe from 'stripe'
 import { WebSocket } from 'ws'
 
 import { stripNullCharsFromObject } from '../util/object'
+import { getRequestContext } from '../websockets/request-context'
 
 import { OpenAIMessage } from '@/llm-apis/openai-api'
 import { logger, withLoggerContext } from '@/util/logger'
@@ -324,6 +326,11 @@ async function insertMessageRecord(
     latencyMs,
   } = params
 
+  // Get organization context from request
+  const requestContext = getRequestContext()
+  const orgId = requestContext?.approvedOrgIdForRepo
+  const repoUrl = requestContext?.processedRepoUrl
+
   try {
     const insertResult = await db
       .insert(schema.message)
@@ -346,6 +353,8 @@ async function insertMessageRecord(
         credits: creditsUsed,
         finished_at: finishedAt,
         latency_ms: latencyMs,
+        org_id: orgId || null,
+        repo_url: repoUrl || null,
       })
       .returning()
 
@@ -424,25 +433,50 @@ async function updateUserCycleUsage(
     }
     return { consumed: 0, fromPurchased: 0 }
   }
+
+  // Check if this should be billed to an organization
+  const requestContext = getRequestContext()
+  const orgId = requestContext?.approvedOrgIdForRepo
+
   try {
-    // Consume from grants in priority order and track purchased credit usage
-    const result = await consumeCredits(userId, creditsUsed)
+    if (orgId) {
+      // Consume from organization credits
+      const result = await consumeOrganizationCredits(orgId, creditsUsed)
+      
+      if (VERBOSE) {
+        logger.debug(
+          { userId, orgId, creditsUsed, ...result },
+          `Consumed organization credits (${creditsUsed})`
+        )
+      }
 
-    if (VERBOSE) {
-      logger.debug(
-        { userId, creditsUsed, ...result },
-        `Consumed credits (${creditsUsed})`
-      )
+      trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
+        creditsUsed,
+        fromPurchased: result.fromPurchased,
+        organizationId: orgId,
+      })
+
+      return result
+    } else {
+      // Consume from personal credits
+      const result = await consumeCredits(userId, creditsUsed)
+
+      if (VERBOSE) {
+        logger.debug(
+          { userId, creditsUsed, ...result },
+          `Consumed personal credits (${creditsUsed})`
+        )
+      }
+
+      trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
+        creditsUsed,
+        fromPurchased: result.fromPurchased,
+      })
+
+      return result
     }
-
-    trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
-      creditsUsed,
-      fromPurchased: result.fromPurchased,
-    })
-
-    return result
   } catch (error) {
-    logger.error({ userId, creditsUsed, error }, 'Error consuming credits.')
+    logger.error({ userId, orgId, creditsUsed, error }, 'Error consuming credits.')
     throw error
   }
 }

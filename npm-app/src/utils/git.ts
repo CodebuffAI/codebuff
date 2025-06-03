@@ -57,11 +57,14 @@ function parseRepoName(remoteUrl: string | undefined): string | undefined {
 }
 
 // Always uses isomorphic-git since it can more easily run asynchronously
-export async function getRepoMetrics(): Promise<{
+export async function getRepoMetrics(providedRemoteUrl?: string): Promise<{
   ageDays?: number
   trackedFiles?: number
   commits?: number
   repoName?: string
+  repoUrl?: string
+  owner?: string
+  repo?: string
   commitsLast30Days?: number
   authorsLast30Days?: number
 }> {
@@ -81,11 +84,30 @@ export async function getRepoMetrics(): Promise<{
 
   const tracked = await listFiles({ fs, dir: root, gitdir: gitDir })
 
-  const remoteUrl = await getConfig({
-    fs,
-    gitdir: gitDir,
-    path: 'remote.origin.url',
-  })
+  // Use provided remote URL or fetch from git config
+  let remoteUrl: string | undefined
+  if (providedRemoteUrl) {
+    remoteUrl = providedRemoteUrl
+  } else {
+    remoteUrl = await getConfig({
+      fs,
+      gitdir: gitDir,
+      path: 'remote.origin.url',
+    })
+  }
+
+  // Parse owner and repo from the remote URL
+  let owner: string | undefined
+  let repo: string | undefined
+  if (remoteUrl) {
+    try {
+      const parsed = gitUrlParse(remoteUrl)
+      owner = parsed.owner
+      repo = parsed.name
+    } catch (error) {
+      // If parsing fails, owner and repo will remain undefined
+    }
+  }
 
   const nowSec = Math.floor(Date.now() / 1000)
   const THIRTY_DAYS = 30 * 24 * 60 * 60
@@ -107,6 +129,9 @@ export async function getRepoMetrics(): Promise<{
     trackedFiles: tracked.length,
     commits: commitsArr.length,
     repoName: parseRepoName(remoteUrl ?? undefined),
+    repoUrl: remoteUrl ?? undefined,
+    owner,
+    repo,
     commitsLast30Days: recent.length,
     authorsLast30Days: authors.size,
   }

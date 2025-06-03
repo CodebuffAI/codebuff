@@ -1,4 +1,3 @@
-import { spawn } from 'child_process'
 import {
   existsSync,
   mkdirSync,
@@ -7,7 +6,7 @@ import {
   writeFileSync,
 } from 'fs'
 import os from 'os'
-
+import { spawn } from 'child_process'
 import {
   FileChanges,
   FileChangeSchema,
@@ -17,7 +16,9 @@ import {
   ServerAction,
   UsageReponseSchema,
   UsageResponse,
+  ClientAction,
 } from 'common/actions'
+
 import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
 import {
   ASKED_CONFIG,
@@ -52,6 +53,8 @@ import {
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
+import gitUrlParse from 'git-url-parse'
+import path from 'path'
 
 import packageJson from '../package.json'
 import { getBackgroundProcessUpdates } from './background-process-manager'
@@ -80,11 +83,6 @@ import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import { getConfig } from 'isomorphic-git'
-import fs from 'fs'
-import path from 'path'
-import { findGitRoot } from './utils/git'
-import gitUrlParse from 'git-url-parse'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -262,7 +260,7 @@ export class Client {
 
   private async setRepoContext() {
     const repoMetrics = await getRepoMetrics()
-
+    loggerContext.repoUrl = repoMetrics.repoUrl
     loggerContext.repoName = repoMetrics.repoName
     loggerContext.repoAgeDays = repoMetrics.ageDays
     loggerContext.repoTrackedFiles = repoMetrics.trackedFiles
@@ -316,42 +314,6 @@ export class Client {
     if (!this.user || !this.user.authToken) {
       return
     }
-
-    // const TIMEOUT_MS = 5_000
-    //   try {
-    //     const timeoutPromise = new Promise<Response>((_, reject) => {
-    //       setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS)
-    //     })
-
-    //     const fetchPromise = fetch(
-    //       `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
-    //       {
-    //         method: 'GET',
-    //         headers: {
-    //           'Content-Type': 'application/json',
-    //           Cookie: `next-auth.session-token=${this.user.authToken}`,
-    //           Authorization: `Bearer ${this.user.authToken}`,
-    //         },
-    //       }
-    //     )
-
-    //     const response = await Promise.race([fetchPromise, timeoutPromise])
-
-    //     if (response.ok) {
-    //       const { keyTypes } = await response.json()
-    //       this.storedApiKeyTypes = keyTypes as ApiKeyType[]
-    //     } else {
-    //       this.storedApiKeyTypes = []
-    //     }
-    //   } catch (error) {
-    //     if (process.env.NODE_ENV !== 'production') {
-    //       console.error(
-    //         'Error fetching stored API key types (is there something else on port 3000?):',
-    //         error
-    //       )
-    //     }
-    //     this.storedApiKeyTypes = []
-    //   }
 
     this.storedApiKeyTypes = []
   }
@@ -611,14 +573,6 @@ export class Client {
                   errorStatus: statusResponse.status,
                   errorStatusText: statusResponse.statusText,
                   msg: 'Error checking login status',
-                },
-                'Error checking login status'
-              )
-              logger.error(
-                {
-                  errorMessage: 'Error checking login status: ' + text,
-                  errorStatus: statusResponse.status,
-                  errorStatusText: statusResponse.statusText,
                 },
                 'Error checking login status'
               )
@@ -921,7 +875,7 @@ export class Client {
     )
 
     Spinner.get().start()
-    this.webSocket.sendAction({
+    const promptAction: ClientAction = {
       type: 'prompt',
       promptId: userInputId,
       prompt,
@@ -932,8 +886,9 @@ export class Client {
       costMode: this.costMode,
       model: this.model,
       cwd: getWorkingDirectory(),
-      repoName: loggerContext.repoName,
-    })
+      repoUrl: loggerContext.repoUrl,
+    }
+    this.webSocket.sendAction(promptAction)
 
     return {
       responsePromise,
@@ -1145,7 +1100,7 @@ export class Client {
           toolResults.push(...getBackgroundProcessUpdates())
           // Continue the prompt with the tool results.
           Spinner.get().start()
-          this.webSocket.sendAction({
+          const continuePromptAction: ClientAction = {
             type: 'prompt',
             promptId: userInputId,
             prompt: undefined,
@@ -1155,8 +1110,10 @@ export class Client {
             authToken: this.user?.authToken,
             costMode: this.costMode,
             model: this.model,
-            repoName: loggerContext.repoName,
-          })
+            cwd: getWorkingDirectory(),
+            repoUrl: loggerContext.repoUrl,
+          }
+          this.webSocket.sendAction(continuePromptAction)
           return
         }
 
@@ -1361,12 +1318,14 @@ Go to https://www.codebuff.com/config for more information.`) +
       this.setUsage(parsedAction.data)
     })
 
-    this.webSocket.sendAction({
+    const initAction: ClientAction = {
       type: 'init',
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       fileContext,
-    })
+      repoUrl: loggerContext.repoUrl,
+    }
+    this.webSocket.sendAction(initAction)
 
     await this.fetchStoredApiKeyTypes()
   }
@@ -1382,48 +1341,24 @@ Go to https://www.codebuff.com/config for more information.`) +
     error?: string
   }> {
     try {
-      let repoUrl = remoteUrl
-
-      // If no remoteUrl provided, try to get it from git config
-      if (!repoUrl) {
-        const cwd = getWorkingDirectory()
-        const root = findGitRoot(cwd)
-
-        if (!root) {
-          return { isCovered: false, error: 'Not in a git repository' }
-        }
-
-        const gitDir = path.join(root, '.git')
-        try {
-          repoUrl = await getConfig({
-            fs,
-            gitdir: gitDir,
-            path: 'remote.origin.url',
-          })
-        } catch (error) {
-          return {
-            isCovered: false,
-            error: 'Could not get remote URL from git config',
-          }
+      // Always use getRepoMetrics to get repo info, passing remoteUrl if provided
+      let repoMetrics: Awaited<ReturnType<typeof getRepoMetrics>>
+      try {
+        repoMetrics = await getRepoMetrics(remoteUrl)
+      } catch (error) {
+        return {
+          isCovered: false,
+          error: 'Could not get repository information',
         }
       }
+
+      const { repoUrl, owner, repo } = repoMetrics
 
       if (!repoUrl) {
         return { isCovered: false, error: 'No remote URL found' }
       }
 
-      // Extract owner and repo from URL using git-url-parse
-      let owner: string
-      let repo: string
-      try {
-        const parsed = gitUrlParse(repoUrl)
-        owner = parsed.owner
-        repo = parsed.name
-
-        if (!owner || !repo) {
-          return { isCovered: false, error: 'Could not parse repository URL' }
-        }
-      } catch (error) {
+      if (!owner || !repo) {
         return { isCovered: false, error: 'Could not parse repository URL' }
       }
 

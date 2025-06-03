@@ -46,7 +46,7 @@ export async function requestRelevantFiles(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName: string | undefined
+  repoId: string | undefined
 ) {
   const countPerRequest = {
     lite: 8,
@@ -102,7 +102,7 @@ export async function requestRelevantFiles(
     userInputId,
     userId,
     costMode,
-    repoName
+    repoId
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
@@ -159,7 +159,7 @@ export async function requestRelevantFilesForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName: string | undefined
+  repoId: string | undefined
 ) {
   const COUNT = 50
 
@@ -199,7 +199,7 @@ export async function requestRelevantFilesForTraining(
     userInputId,
     userId,
     costMode,
-    repoName
+    repoId
   )
 
   const nonObviousFiles = await getRelevantFilesForTraining(
@@ -215,7 +215,7 @@ export async function requestRelevantFilesForTraining(
     userInputId,
     userId,
     costMode,
-    repoName
+    repoId
   )
 
   const candidateFiles = [...keyFiles.files, ...nonObviousFiles.files]
@@ -243,7 +243,7 @@ async function getRelevantFiles(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName: string | undefined
+  repoId: string | undefined
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -290,7 +290,7 @@ async function getRelevantFiles(
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
       model: models.ft_filepicker_005,
-      repo_name: repoName,
+      repo_name: repoId,
     },
   }
 
@@ -317,7 +317,7 @@ async function getRelevantFilesForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName: string | undefined
+  repoId: string | undefined
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -362,7 +362,7 @@ async function getRelevantFilesForTraining(
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
       model: models.ft_filepicker_005,
-      repo_name: repoName,
+      repo_name: repoId,
     },
   }
 
@@ -647,3 +647,5 @@ const validateFilePaths = (filePaths: string[]) => {
     })
     .map((p) => (p.startsWith('/') ? p.slice(1) : p))
 }
+
+import { getRequestContext } from '../websockets/request-context'
