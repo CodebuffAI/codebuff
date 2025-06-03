@@ -818,6 +818,7 @@ export const mainPrompt = async (
       }),
     },
     (name, error) => {
+      foundParsingError = true
       serverToolResults.push({ id: generateCompactId(), name, result: error })
     }
   )
