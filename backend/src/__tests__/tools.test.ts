@@ -1,5 +1,5 @@
-import { getFilteredToolsInstructions } from '@/tools'
 import { describe, expect, it } from 'bun:test'
+import { getFilteredToolsInstructions } from '../tools'
 
 describe('getFilteredToolsInstructions', () => {
   it('should match snapshot for ask mode', () => {
