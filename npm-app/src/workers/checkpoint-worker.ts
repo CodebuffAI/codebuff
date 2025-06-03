@@ -1,6 +1,7 @@
 import { parentPort as maybeParentPort } from 'worker_threads'
 
 import { restoreFileState, storeFileState } from '../checkpoints/file-manager'
+import { setProjectRoot } from '../project-files'
 
 /**
  * Message format for worker operations
@@ -37,6 +38,7 @@ if (maybeParentPort) {
       message: commitMessage,
       relativeFilepaths,
     } = message
+    setProjectRoot(projectDir)
     try {
       let result: string | boolean
       if (type === 'store') {
