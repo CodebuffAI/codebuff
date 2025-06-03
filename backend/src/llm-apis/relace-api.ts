@@ -312,7 +312,10 @@ export async function toolFormatter(
           max_tokens: 8192,
           response_format: {
             type: 'json_schema',
-            json_schema: JSON.stringify(outputSchema),
+            json_schema: {
+              name: 'tool_calls',
+              schema: outputSchema,
+            },
           },
           'relace-metadata': {
             'codebuff-id': messageId,
@@ -339,8 +342,8 @@ export async function toolFormatter(
       return
     }
 
-    const toolCalls = (await response.json()).choices[0].message.content
-      .tool_calls
+    const json = await response.json()
+    const toolCalls = JSON.parse(json.choices[0].message.content)
 
     saveMessage({
       messageId,
