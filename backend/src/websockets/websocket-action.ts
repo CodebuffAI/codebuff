@@ -252,11 +252,14 @@ const onManagerPrompt = async (
         throw new Error('User not found')
       }
 
-      logger.info({ userId, fingerprintId }, `MANAGER PROMPT: ${prompt}`)
+      if (prompt) {
+        logger.info({ userId, fingerprintId }, `MANAGER PROMPT: ${prompt}`)
+      }
+
       trackEvent(AnalyticsEvent.USER_INPUT, userId, {
         prompt,
         promptId,
-        isAgentMode: true,
+        isManagerMode: true,
       })
 
       try {

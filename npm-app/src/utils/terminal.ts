@@ -784,8 +784,7 @@ export const runCommandPtyManager = (
   const projectRoot = getProjectRoot()
   const isWindows = os.platform() === 'win32'
 
-  // For manager mode, don't show the command in console
-  // console.log(green(`${displayDirectory} > ${command}`))
+  console.log(green(`${cwd} > ${command}`))
 
   let commandOutput = ''
   let buffer = promptIdentifier
