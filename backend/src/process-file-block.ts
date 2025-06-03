@@ -15,16 +15,18 @@ import { countTokens } from './util/token-counter'
 
 export async function processFileBlock(
   path: string,
-  initialContentPromise: Promise<string | null>,
+  latestContentPromise: Promise<string | null>,
   newContent: string,
   messages: CoreMessage[],
   fullResponse: string,
-  lastUserPrompt: string | undefined,
+  userPrompt: string | null,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode
+  costMode: CostMode,
+  orgId?: string | null, // Add orgId
+  repoUrl?: string | null // Add repoUrl
 ): Promise<
   | {
       tool: 'write_file'
@@ -38,9 +40,9 @@ export async function processFileBlock(
       error: string // Error message if the file could not be updated
     }
 > {
-  const initialContent = await initialContentPromise
+  const fileContent = await latestContentPromise
 
-  if (initialContent === null) {
+  if (fileContent === null) {
     let cleanContent = cleanMarkdownCodeBlock(newContent)
 
     if (hasLazyEdit(cleanContent) && !path.endsWith('.md')) {
@@ -68,7 +70,7 @@ export async function processFileBlock(
     }
   }
 
-  if (newContent === initialContent) {
+  if (newContent === fileContent) {
     logger.info(
       { newContent },
       `processFileBlock: New was same as old, skipping ${path}`
@@ -80,25 +82,27 @@ export async function processFileBlock(
     }
   }
 
-  const lineEnding = initialContent.includes('\r\n') ? '\r\n' : '\n'
+  const lineEnding = fileContent.includes('\r\n') ? '\r\n' : '\n'
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
-  const normalizedInitialContent = normalizeLineEndings(initialContent)
+  const normalizedFileContent = normalizeLineEndings(fileContent)
   const normalizedEditSnippet = normalizeLineEndings(newContent)
 
   let updatedContent: string
   const tokenCount =
-    countTokens(normalizedInitialContent) + countTokens(normalizedEditSnippet)
+    countTokens(normalizedFileContent) + countTokens(normalizedEditSnippet)
 
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
     const largeFileContent = await handleLargeFile(
-      normalizedInitialContent,
+      normalizedFileContent,
       normalizedEditSnippet,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
       path,
-      costMode
+      costMode,
+      orgId,
+      repoUrl
     )
 
     if (!largeFileContent) {
@@ -113,18 +117,20 @@ export async function processFileBlock(
     updatedContent = largeFileContent
   } else {
     updatedContent = await fastRewrite(
-      normalizedInitialContent,
+      normalizedFileContent,
       normalizedEditSnippet,
       path,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
-      lastUserPrompt
+      userPrompt ?? undefined, // Convert null to undefined
+      orgId,
+      repoUrl
     )
     const shouldAddPlaceholders = await shouldAddFilePlaceholders(
       path,
-      normalizedInitialContent,
+      normalizedFileContent,
       updatedContent,
       messages,
       fullResponse,
@@ -138,19 +144,21 @@ export async function processFileBlock(
       const placeholderComment = `... existing code ...`
       const updatedEditSnippet = `${placeholderComment}\n${updatedContent}\n${placeholderComment}`
       updatedContent = await fastRewrite(
-        normalizedInitialContent,
+        normalizedFileContent,
         updatedEditSnippet,
         path,
         clientSessionId,
         fingerprintId,
         userInputId,
         userId,
-        lastUserPrompt
+        userPrompt ?? undefined, // Convert null to undefined
+        orgId,
+        repoUrl
       )
     }
   }
 
-  let patch = createPatch(path, normalizedInitialContent, updatedContent)
+  let patch = createPatch(path, normalizedFileContent, updatedContent)
   const lines = patch.split('\n')
   const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
   if (hunkStartIndex !== -1) {
@@ -159,7 +167,7 @@ export async function processFileBlock(
     logger.debug(
       {
         path,
-        initialContent,
+        initialContent: fileContent,
         changes: newContent,
         patch,
       },
@@ -205,7 +213,9 @@ export async function handleLargeFile(
   userInputId: string,
   userId: string | undefined,
   filePath: string,
-  costMode: CostMode
+  costMode: CostMode,
+  orgId?: string | null, // Add orgId
+  repoUrl?: string | null // Add repoUrl
 ): Promise<string | null> {
   const startTime = Date.now()
 
@@ -250,6 +260,10 @@ Please output just the SEARCH/REPLACE blocks like this:
     fingerprintId,
     userInputId,
     userId,
+    maxTokens: 4000,
+    temperature: 0,
+    orgId: orgId ?? null, // Pass orgId
+    repoUrl: repoUrl ?? null, // Pass repoUrl
   })
 
   const { diffBlocks, diffBlocksThatDidntMatch } =

@@ -17,6 +17,8 @@ const DELIMITER = `\n\n----------------------------------------\n\n`
  * @param options.clientSessionId Unique ID for the client session
  * @param options.fingerprintId Unique ID for the user's device/fingerprint
  * @param options.userId The ID of the user making the request
+ * @param options.orgId The ID of the organization
+ * @param options.repoUrl The URL of the repository
  * @returns The documentation text chunks or null if no relevant docs found
  */
 export async function getDocumentationForQuery(
@@ -27,8 +29,19 @@ export async function getDocumentationForQuery(
     userInputId: string
     fingerprintId: string
     userId?: string
+    orgId?: string | null
+    repoUrl?: string | null
   }
 ): Promise<string | null> {
+  const {
+    tokens,
+    clientSessionId,
+    userInputId,
+    fingerprintId,
+    userId,
+    orgId,
+    repoUrl,
+  } = options
   const startTime = Date.now()
 
   // 1. Search for relevant libraries
@@ -143,6 +156,8 @@ const suggestLibraries = async (
     userInputId: string
     fingerprintId: string
     userId?: string
+    orgId?: string | null
+    repoUrl?: string | null
   }
 ) => {
   const prompt =
@@ -179,6 +194,8 @@ ${query}
           ),
         }),
         timeout: 5_000,
+        orgId: options.orgId ?? null, // Pass orgId
+        repoUrl: options.repoUrl ?? null, // Pass repoUrl
       }
     )
     return {
@@ -209,6 +226,8 @@ async function filterRelevantChunks(
     userInputId: string
     fingerprintId: string
     userId?: string
+    orgId?: string | null
+    repoUrl?: string | null
   }
 ): Promise<{ relevantChunks: string[]; geminiDuration: number } | null> {
   const prompt = `You are an expert at analyzing documentation queries. Given a user's query and a list of documentation chunks, determine which chunks are relevant to the query. Choose as few chunks as possible, likely none. Only include chunks if they are relevant to the user query.
@@ -237,6 +256,8 @@ ${allChunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(DELIMITE
           relevant_chunks: z.array(z.number()),
         }),
         timeout: 20_000,
+        orgId: options.orgId ?? null, // Pass orgId
+        repoUrl: options.repoUrl ?? null, // Pass repoUrl
       }
     )
     const geminiDuration = Date.now() - geminiStartTime

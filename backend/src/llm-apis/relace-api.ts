@@ -27,6 +27,8 @@ export async function promptRelaceAI(
     userId: string | undefined
     messageId: string
     userMessage?: string
+    orgId?: string | null
+    repoUrl?: string | null
   }
 ) {
   const {
@@ -36,6 +38,8 @@ export async function promptRelaceAI(
     userId,
     userMessage,
     messageId,
+    orgId,
+    repoUrl,
   } = options
   const startTime = Date.now()
 
@@ -60,36 +64,36 @@ export async function promptRelaceAI(
       timeoutPromise(100_000),
     ])) as Response
 
-    if (!response.ok) {
+    if (response.ok) {
+      const data = await response.json()
+      const finishedAt = new Date()
+      const latencyMs = finishedAt.getTime() - startTime
+      // Construct a representation of the request for logging
+      const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
+      saveMessage({
+        messageId,
+        userId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        model: 'relace-fast-apply',
+        request: [{ role: 'user', content: fakeRequestContent }],
+        response: JSON.stringify(data),
+        inputTokens: 0, // Relace doesn't provide token counts
+        outputTokens: 0,
+        finishedAt,
+        latencyMs,
+        usesUserApiKey: false,
+        chargeUser: true,
+        orgId: orgId ?? null,
+        repoUrl: repoUrl ?? null,
+      }).catch((e) => logger.error(e, 'Error saving message from relace-api'))
+      return data
+    } else {
       throw new Error(
         `Relace API error: ${response.status} ${response.statusText}`
       )
     }
-
-    const data = (await response.json()) as { mergedCode: string }
-    const content = data.mergedCode
-
-    const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
-    saveMessage({
-      messageId,
-      userId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: 'relace-fast-apply',
-      request: [
-        {
-          role: 'user',
-          content: fakeRequestContent,
-        },
-      ],
-      response: content,
-      inputTokens: countTokens(initialCode + editSnippet),
-      outputTokens: countTokens(content),
-      finishedAt: new Date(),
-      latencyMs: Date.now() - startTime,
-    })
-    return content + '\n'
   } catch (error) {
     logger.error(
       {
@@ -133,6 +137,8 @@ Please output just the complete updated file content with no other text.`
         userInputId,
         model: models.o3mini,
         userId,
+        orgId: orgId ?? null,
+        repoUrl: repoUrl ?? null,
       }
     )
 
@@ -159,9 +165,11 @@ export async function rerank(
     userInputId: string
     userId: string | undefined
     messageId: string
+    orgId?: string | null
+    repoUrl?: string | null
   }
 ) {
-  const { clientSessionId, fingerprintId, userInputId, userId, messageId } =
+  const { clientSessionId, fingerprintId, userInputId, userId, messageId, orgId, repoUrl } = // Destructure
     options
   const startTime = Date.now()
 
@@ -227,6 +235,8 @@ export async function rerank(
       outputTokens: countTokens(JSON.stringify(rankings)),
       finishedAt: new Date(),
       latencyMs: Date.now() - startTime,
+      orgId: orgId ?? null,
+      repoUrl: repoUrl ?? null,
     })
 
     return rankings
@@ -288,9 +298,11 @@ export async function toolFormatter(
     userInputId: string
     userId: string | undefined
     messageId: string
+    orgId?: string | null
+    repoUrl?: string | null
   }
 ) {
-  const { clientSessionId, fingerprintId, userInputId, userId, messageId } =
+  const { clientSessionId, fingerprintId, userInputId, userId, messageId, orgId, repoUrl } = // Destructure
     options
   const startTime = Date.now()
 
@@ -348,12 +360,14 @@ export async function toolFormatter(
       userInputId,
       model: 'relace-tool-formatter',
       request: messages,
-      response: toolCalls,
+      response: toolCalls, // This was 'response: toolCalls,' before, assuming toolCalls is the stringified JSON
       inputTokens: countTokens(systemInstructions + assistantMessage),
-      outputTokens: countTokens(JSON.stringify(toolCalls)),
+      outputTokens: countTokens(JSON.stringify(toolCalls)), // Ensure this is what's intended for output token count
       finishedAt: new Date(),
       latencyMs: Date.now() - startTime,
       chargeUser: false,
+      orgId: orgId ?? null,
+      repoUrl: repoUrl ?? null,
     })
 
     logger.info({ toolCalls }, 'Relace Tool Formatter')

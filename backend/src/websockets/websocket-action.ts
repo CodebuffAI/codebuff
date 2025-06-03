@@ -1,4 +1,5 @@
 import { calculateUsageAndBalance } from '@codebuff/billing'
+import { extractOrgAndRepoFromUrl } from '@codebuff/billing'
 import { ClientAction, ServerAction, UsageResponse } from 'common/actions'
 import { toOptionalFile } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
@@ -6,11 +7,13 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { trackEvent } from 'common/src/analytics'
 import { ensureEndsWithNewline } from 'common/src/util/file'
+import { AgentState, ToolResult } from 'common/types/agent-state'
 import { buildArray } from 'common/util/array'
 import { generateCompactId } from 'common/util/string'
 import { ClientMessage } from 'common/websockets/websocket-schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql, and, inArray } from 'drizzle-orm'
 import { WebSocket } from 'ws'
+import { getUserInfoFromAuthToken, type UserInfo } from '../websockets/auth'
 
 import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
@@ -123,15 +126,85 @@ const onPrompt = async (
   clientSessionId: string,
   ws: WebSocket
 ) => {
-  const { fingerprintId, authToken, promptId, prompt, toolResults, model, costMode } =
-    action
+  const {
+    fingerprintId,
+    authToken,
+    promptId,
+    prompt,
+    toolResults,
+    model,
+    costMode,
+    repoName,
+  } = action
 
   await withLoggerContext(
     { fingerprintId, clientRequestId: promptId, costMode },
     async () => {
-      const userId = await getUserIdFromAuthToken(authToken)
+      if (!authToken) {
+        throw new Error('No auth token provided')
+      }
+
+      const userInfo = await getUserInfoFromAuthToken(authToken)
+      const userId = userInfo?.id
+
       if (!userId) {
         throw new Error('User not found')
+      }
+
+      // Determine orgId based on user's organization memberships and repoName
+      let resolvedOrgId: string | null = null
+      let repoUrl: string | null = repoName ?? null
+
+      if (repoName && userId) {
+        try {
+          // First, get all organizations the user belongs to
+          const userOrgs = await db
+            .select({ orgId: schema.orgMember.org_id })
+            .from(schema.orgMember)
+            .where(eq(schema.orgMember.user_id, userId))
+
+          if (userOrgs.length > 0) {
+            const userOrgIds = userOrgs.map(org => org.orgId)
+            
+            // Get all repositories for the user's organizations
+            const orgRepos = await db
+              .select({ 
+                orgId: schema.orgRepo.org_id,
+                repoUrl: schema.orgRepo.repo_url
+              })
+              .from(schema.orgRepo)
+              .where(
+                and(
+                  inArray(schema.orgRepo.org_id, userOrgIds),
+                  eq(schema.orgRepo.is_active, true)
+                )
+              )
+
+            // Parse the client's repoName using extractOrgAndRepoFromUrl
+            const clientRepoInfo = extractOrgAndRepoFromUrl(repoName)
+            
+            if (clientRepoInfo.isValid) {
+              // Find matching repository by comparing parsed components
+              for (const orgRepo of orgRepos) {
+                const dbRepoInfo = extractOrgAndRepoFromUrl(orgRepo.repoUrl)
+                
+                if (dbRepoInfo.isValid && 
+                    clientRepoInfo.host === dbRepoInfo.host &&
+                    clientRepoInfo.owner === dbRepoInfo.owner &&
+                    clientRepoInfo.repo === dbRepoInfo.repo) {
+                  resolvedOrgId = orgRepo.orgId
+                  break
+                }
+              }
+            }
+          }
+        } catch (error) {
+          logger.warn(
+            { error, userId, repoName },
+            'Error determining orgId from repoName'
+          )
+          // Continue with resolvedOrgId = null
+        }
       }
 
       if (prompt) {
@@ -154,7 +227,9 @@ const onPrompt = async (
               userInputId: promptId,
               chunk,
             }),
-          model
+          model,
+          resolvedOrgId, // Use resolved orgId from database lookup
+          repoUrl // Pass repoName as repoUrl
         )
 
         // Send prompt data back
@@ -340,7 +415,9 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
     const requestId = generateCompactId()
     const unsubscribe = subscribeToAction('read-files-response', (action) => {
       for (const [filename, contents] of Object.entries(action.files)) {
-        action.files[filename] = ensureEndsWithNewline(contents)
+        action.files[filename] = ensureEndsWithNewline(
+          contents as string | null
+        )
       }
       if (action.requestId === requestId) {
         unsubscribe()

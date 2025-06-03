@@ -66,6 +66,8 @@ export const promptAiSdkStream = async function* (
     temperature?: number
     stopSequences?: string[]
     chargeUser?: boolean
+    orgId?: string | null // Add orgId
+    repoUrl?: string | null // Add repoUrl
   }
 ) {
   const startTime = Date.now()
@@ -115,6 +117,8 @@ export const promptAiSdkStream = async function* (
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
+    orgId: options.orgId ?? null, // Use passed orgId
+    repoUrl: options.repoUrl ?? null, // Use passed repoUrl
   })
 }
 
@@ -131,6 +135,8 @@ export const promptAiSdk = async function (
     temperature?: number
     stopSequences?: string[]
     chargeUser?: boolean
+    orgId?: string | null // Add orgId
+    repoUrl?: string | null // Add repoUrl
   }
 ): Promise<string> {
   const startTime = Date.now()
@@ -162,6 +168,8 @@ export const promptAiSdk = async function (
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
+    orgId: options.orgId ?? null, // Use passed orgId
+    repoUrl: options.repoUrl ?? null, // Use passed repoUrl
   })
 
   return content
@@ -181,6 +189,8 @@ export const promptAiSdkStructured = async function <T>(
     temperature?: number
     timeout?: number
     chargeUser?: boolean
+    orgId?: string | null // Add orgId
+    repoUrl?: string | null // Add repoUrl
   }
 ): Promise<T> {
   const startTime = Date.now()
@@ -216,6 +226,8 @@ export const promptAiSdkStructured = async function <T>(
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
+    orgId: options.orgId ?? null, // Use passed orgId
+    repoUrl: options.repoUrl ?? null, // Use passed repoUrl
   })
 
   return content

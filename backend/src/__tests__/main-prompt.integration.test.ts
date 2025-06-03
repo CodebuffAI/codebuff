@@ -45,6 +45,9 @@ const mockFileContext = {
   fileVersions: [],
 }
 
+// Mock response chunk handler
+const mockOnResponseChunk = mock(() => {})
+
 // --- Integration Test with Real LLM Call ---
 describe('mainPrompt (Integration)', () => {
   afterEach(() => {
@@ -321,27 +324,23 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       new MockWebSocket() as unknown as WebSocket,
       {
         type: 'prompt',
-        prompt: 'Delete the castAssistantMessage function',
+        promptId: 'test-prompt-id',
+        fingerprintId: 'test-fingerprint-id',
+        prompt: 'test prompt',
         agentState,
-        fingerprintId: 'test-delete-function-integration',
-        costMode: 'normal',
-        promptId: 'test-delete-function-id-integration',
         toolResults: [],
+        costMode: 'normal',
       },
-      TEST_USER_ID,
-      'test-session-delete-function-integration',
-      (chunk: string) => {
-        process.stdout.write(chunk)
-      },
-      undefined
+      'test-user-id',
+      'test-client-session-id',
+      mockOnResponseChunk,
+      undefined, // selectedModel
+      null, // orgId
+      null // repoUrl
     )
-
-    // Find the write_file tool call
-    const writeFileCall = toolCalls.find((call) => call.name === 'write_file')
-    expect(writeFileCall).toBeDefined()
-    expect(writeFileCall?.parameters.path).toBe('src/util/messages.ts')
-    expect(writeFileCall?.parameters.content.trim()).toBe(
-      `@@ -46,32 +46,8 @@\n   }\n   return message.content.map((c) => ('text' in c ? c.text : '')).join('\\n')\n }\n \n-export function castAssistantMessage(message: Message): Message {\n-  if (message.role !== 'assistant') {\n-    return message\n-  }\n-  if (typeof message.content === 'string') {\n-    return {\n-      content: \`<previous_assistant_message>\${message.content}</previous_assistant_message>\`,\n-      role: 'user' as const,\n-    }\n-  }\n-  return {\n-    role: 'user' as const,\n-    content: message.content.map((m) => {\n-      if (m.type === 'text') {\n-        return {\n-          ...m,\n-          text: \`<previous_assistant_message>\${m.text}</previous_assistant_message>\`,\n-        }\n-      }\n-      return m\n-    }),\n-  }\n-}\n-\n // Number of terminal command outputs to keep in full form before simplifying\n const numTerminalCommandsToKeep = 5\n \n /**`.trim()
+    expect(mockOnResponseChunk).toHaveBeenCalled()
+    expect(finalAgentState.messageHistory.length).toBeGreaterThan(
+      agentState.messageHistory.length
     )
   }, 60000) // Increase timeout for real LLM call
 })

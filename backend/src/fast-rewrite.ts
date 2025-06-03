@@ -16,7 +16,9 @@ export async function fastRewrite(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  userMessage: string | undefined
+  userMessage: string | undefined,
+  orgId?: string | null,
+  repoUrl?: string | null
 ) {
   const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
@@ -27,6 +29,8 @@ export async function fastRewrite(
     userId,
     userMessage,
     messageId,
+    orgId,
+    repoUrl,
   })
   const relaceDuration = Date.now() - relaceStartTime
 
@@ -45,7 +49,9 @@ export async function fastRewrite(
       fingerprintId,
       userInputId,
       userId,
-      userMessage
+      userMessage,
+      orgId,
+      repoUrl
     )
     logger.debug(
       { filePath, relaceResponse, openaiResponse: response, messageId },
@@ -77,7 +83,9 @@ export async function rewriteWithOpenAI(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  userMessage: string | undefined
+  userMessage: string | undefined,
+  orgId?: string | null,
+  repoUrl?: string | null
 ): Promise<string> {
   const prompt = `You are an expert programmer tasked with implementing changes to a file. Please rewrite the file to implement the changes shown in the edit snippet, while preserving the original formatting and behavior of unchanged parts.
 
@@ -111,6 +119,8 @@ Please output just the complete updated file content with the edit applied and n
       fingerprintId,
       userInputId,
       userId,
+      orgId: orgId ?? null,
+      repoUrl: repoUrl ?? null,
     }
   )
 

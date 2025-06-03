@@ -2,21 +2,27 @@ import {
   AnthropicModel,
   CostMode,
   getModelForMode,
+  Model, // Import Model type
   providerModelNames,
   shortModelNames,
 } from 'common/constants'
 import { CoreMessage } from 'ai'
 
-import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
+import {
+  promptAiSdkStream,
+  transformMessages,
+} from './llm-apis/vercel-ai-sdk/ai-sdk'
 
-export const getAgentStream = (params: {
+export const getAgentStream = (options: {
   costMode: CostMode
   selectedModel: string | undefined
-  stopSequences?: string[]
+  stopSequences: string[]
   clientSessionId: string
   fingerprintId: string
   userInputId: string
   userId: string | undefined
+  orgId?: string | null // Add orgId
+  repoUrl?: string | null // Add repoUrl
 }) => {
   const {
     costMode,
@@ -26,7 +32,10 @@ export const getAgentStream = (params: {
     fingerprintId,
     userInputId,
     userId,
-  } = params
+    orgId, 
+    repoUrl, 
+  } = options
+  let chargeUser = true // Moved chargeUser initialization up
 
   if (selectedModel && !(selectedModel in shortModelNames)) {
     throw new Error(
@@ -40,7 +49,7 @@ export const getAgentStream = (params: {
     ? shortModelNames[selectedModel as keyof typeof shortModelNames]
     : undefined
 
-  const model: string = fullSelectedModel ?? getModelForMode(costMode, 'agent')
+  const model: Model = fullSelectedModel ?? getModelForMode(costMode, 'agent') // Ensure model is of type Model
 
   const provider = providerModelNames[model as keyof typeof providerModelNames]
 
@@ -49,13 +58,17 @@ export const getAgentStream = (params: {
       provider === 'openai' ||
       provider === 'gemini'
       ? promptAiSdkStream(messages, {
-          model: model as AnthropicModel,
-          stopSequences,
+          model: model as Model, // Cast to Model
           clientSessionId,
           fingerprintId,
           userInputId,
           userId,
-          maxTokens: 32_000,
+          maxTokens: 4096,
+          temperature: 0,
+          stopSequences, // Keep this one
+          chargeUser,
+          orgId: orgId ?? null, 
+          repoUrl: repoUrl ?? null, 
         })
       : (() => {
           throw new Error(
@@ -64,8 +77,5 @@ export const getAgentStream = (params: {
         })()
   }
 
-  return {
-    model: model,
-    getStream,
-  }
+  return { getStream, model }
 }

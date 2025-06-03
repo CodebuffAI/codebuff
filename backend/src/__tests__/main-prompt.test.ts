@@ -174,7 +174,9 @@ describe('mainPrompt', () => {
       TEST_USER_ID,
       'test-session',
       () => {},
-      undefined // Mock model
+      undefined, // Mock model
+      null,
+      null
     )
 
     // 1. First, find the tool results message
@@ -244,7 +246,9 @@ describe('mainPrompt', () => {
       TEST_USER_ID,
       'test-session',
       () => {},
-      undefined // Mock model
+      undefined, // Mock model
+      null,
+      null
     )
 
     // Find the user message containing tool results added *during* the mainPrompt execution
@@ -292,7 +296,9 @@ describe('mainPrompt', () => {
       TEST_USER_ID,
       'test-session',
       () => {},
-      undefined // Mock model
+      undefined, // Mock model
+      null,
+      null
     )
 
     expect(toolCalls).toHaveLength(1)
@@ -322,7 +328,9 @@ describe('mainPrompt', () => {
       TEST_USER_ID,
       'test-session',
       () => {},
-      undefined // Mock model
+      undefined, // Mock model
+      null,
+      null
     )
 
     expect(toolCalls).toHaveLength(1) // This assertion should now pass
@@ -361,7 +369,9 @@ describe('mainPrompt', () => {
       TEST_USER_ID,
       'test-session',
       () => {},
-      undefined // Mock model
+      undefined, // Mock model
+      null,
+      null
     )
 
     expect(toolCalls).toHaveLength(0) // No tool calls expected
@@ -385,7 +395,9 @@ describe('mainPrompt', () => {
       TEST_USER_ID,
       'test-session',
       () => {},
-      undefined // Mock model
+      undefined, // Mock model
+      null,
+      null
     )
 
     // When there's a new prompt, consecutiveAssistantMessages should be set to 1
@@ -411,7 +423,9 @@ describe('mainPrompt', () => {
       TEST_USER_ID,
       'test-session',
       () => {},
-      undefined // Mock model
+      undefined, // Mock model
+      null,
+      null
     )
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
@@ -437,7 +451,9 @@ describe('mainPrompt', () => {
       TEST_USER_ID,
       'test-session',
       () => {},
-      undefined // Mock model
+      undefined, // Mock model
+      null,
+      null
     )
 
     expect(toolCalls).toHaveLength(0) // No tool calls expected for empty response
@@ -470,7 +486,9 @@ describe('mainPrompt', () => {
       TEST_USER_ID,
       'test-session',
       () => {},
-      undefined // Mock model
+      undefined, // Mock model
+      null,
+      null
     )
 
     expect(toolCalls).toHaveLength(1)

@@ -89,7 +89,9 @@ export const mainPrompt = async (
   userId: string | undefined,
   clientSessionId: string,
   onResponseChunk: (chunk: string) => void,
-  selectedModel: string | undefined
+  selectedModel: string | undefined,
+  orgId: string | null, // Parameter
+  repoUrl: string | null // Parameter
 ): Promise<{
   agentState: AgentState
   toolCalls: Array<ClientToolCall>
@@ -103,7 +105,7 @@ export const mainPrompt = async (
     promptId,
     toolResults,
     cwd,
-    repoName,
+    repoName, // repoName from action can be used if needed for other logic
   } = action
   const { fileContext, agentContext } = agentState
   let messageHistory = agentState.messageHistory
@@ -116,6 +118,8 @@ export const mainPrompt = async (
     fingerprintId,
     userInputId: promptId,
     userId,
+    orgId: orgId ?? undefined, // Convert null to undefined
+    repoUrl: repoUrl ?? undefined, // Convert null to undefined
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
@@ -127,7 +131,9 @@ export const mainPrompt = async (
     fingerprintId,
     userInputId: promptId,
     userId,
-    repoName,
+    repoName, // repoName from action
+    orgId, // orgId parameter
+    repoUrl, // repoUrl parameter
   })
 
   const hasKnowledgeFiles =
@@ -144,7 +150,7 @@ export const mainPrompt = async (
   const isGeminiPro = model === models.gemini2_5_pro_preview
   const isGPT4_1 = model === models.gpt4_1
   const isFlash =
-    model === 'gemini-2.5-flash-preview-04-17:thinking' ||
+    model === 'gemini-2.5-flash-preview-05-20' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
   const userInstructions = buildArray(
     isAskMode &&
@@ -252,6 +258,8 @@ export const mainPrompt = async (
       fingerprintId,
       userInputId: promptId,
       userId,
+      orgId: orgId ?? undefined, // Convert null to undefined
+      repoUrl: repoUrl ?? undefined, // Convert null to undefined
     })
     const duration = Date.now() - startTime
 
@@ -325,6 +333,8 @@ export const mainPrompt = async (
         userInputId: promptId,
         fingerprintId,
         userId,
+        orgId: orgId ?? undefined, // Convert null to undefined
+        repoUrl: repoUrl ?? undefined, // Convert null to undefined
       })
     : Promise.resolve(null)
 
@@ -364,7 +374,9 @@ export const mainPrompt = async (
       userInputId: promptId,
       userId,
       costMode,
-      repoName,
+      repoName, // repoName from action
+      orgId: orgId ?? undefined, // Convert null to undefined
+      repoUrl: repoUrl ?? undefined, // Convert null to undefined
     }
   )
   const [updatedFiles, newFiles] = partition(addedFiles, (f) =>
@@ -741,12 +753,14 @@ export const mainPrompt = async (
           fileContentWithoutStartNewline,
           messagesWithUserMessage,
           fullResponse,
-          prompt,
+          prompt ?? null, // Convert undefined to null
           clientSessionId,
           fingerprintId,
           promptId,
           userId,
-          costMode
+          costMode,
+          orgId, // Use orgId parameter
+          repoUrl // Use repoUrl parameter
         ).catch((error) => {
           logger.error(error, 'Error processing write_file block')
           return {
@@ -823,6 +837,8 @@ export const mainPrompt = async (
       fingerprintId,
       userInputId: promptId,
       userId,
+      orgId: orgId ?? undefined, // Convert null to undefined
+      repoUrl: repoUrl ?? undefined, // Convert null to undefined
     })
   }
 
@@ -910,7 +926,9 @@ export const mainPrompt = async (
           userInputId: promptId,
           userId,
           costMode,
-          repoName,
+          repoName, // repoName from action
+          orgId: orgId ?? undefined, // Convert null to undefined
+          repoUrl: repoUrl ?? undefined, // Convert null to undefined
         }
       )
       logger.debug(
@@ -960,7 +978,9 @@ export const mainPrompt = async (
             userInputId: promptId,
             userId,
             costMode,
-            repoName,
+            repoName, // repoName from action
+            orgId: orgId ?? undefined, // Convert null to undefined
+            repoUrl: repoUrl ?? undefined, // Convert null to undefined
           }
         )
       logger.debug(
@@ -1129,6 +1149,8 @@ async function getFileReadingUpdates(
     userId: string | undefined
     costMode: CostMode
     repoName: string | undefined
+    orgId: string | undefined
+    repoUrl: string | undefined
   }
 ) {
   const FILE_TOKEN_BUDGET = 100_000
@@ -1141,6 +1163,8 @@ async function getFileReadingUpdates(
     userId,
     costMode,
     repoName,
+    orgId,
+    repoUrl,
   } = options
 
   const toolResults = messages
@@ -1175,7 +1199,7 @@ async function getFileReadingUpdates(
         userInputId,
         userId,
         costMode,
-        repoName
+        repoName // repoName from action
       )) ??
       []
 
@@ -1193,6 +1217,8 @@ async function getFileReadingUpdates(
       userId,
       costMode,
       repoName
+      // orgId,    // REMOVE: Not expected by uploadExpandedFileContextForTraining
+      // repoUrl   // REMOVE: Not expected by uploadExpandedFileContextForTraining
     ).catch((error) => {
       logger.error(
         { error },
@@ -1342,6 +1368,8 @@ async function uploadExpandedFileContextForTraining(
   userId: string | undefined,
   costMode: CostMode,
   repoName: string | undefined
+  // orgId: string | undefined, // REMOVE: Not expected by uploadExpandedFileContextForTraining
+  // repoUrl: string | undefined // REMOVE: Not expected by uploadExpandedFileContextForTraining
 ) {
   const files = await requestRelevantFilesForTraining(
     { messages, system },
@@ -1354,6 +1382,8 @@ async function uploadExpandedFileContextForTraining(
     userId,
     costMode,
     repoName
+    // orgId,    // REMOVE: Not expected by requestRelevantFilesForTraining
+    // repoUrl   // REMOVE: Not expected by requestRelevantFilesForTraining
   )
 
   const loadedFiles = await requestFiles(ws, files)

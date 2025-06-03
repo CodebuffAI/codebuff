@@ -15,21 +15,44 @@ export async function checkTerminalCommand(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
+    orgId?: string | null
+    repoUrl?: string | null
   }
 ): Promise<string | null> {
-  if (!prompt?.trim()) {
-    return null
-  }
-  if (prompt.startsWith('!')) {
-    return prompt.slice(1)
-  }
-  if (prompt.startsWith('/run ')) {
-    return prompt.slice('/run '.length)
-  }
-  if (isWhitelistedTerminalCommand(prompt)) {
-    return prompt
-  }
-  if (isBlacklistedTerminalCommand(prompt)) {
+  const { clientSessionId, fingerprintId, userInputId, userId, orgId, repoUrl } = options
+  const system = `You are a command line utility. The user will provide a natural language command. If the command is a valid terminal command, output only the command itself. If it is not a valid terminal command, output "NOT_A_COMMAND".
+
+Examples:
+User: list all files
+Assistant: ls -la
+User: what is the meaning of life?
+Assistant: NOT_A_COMMAND
+User: delete the node_modules folder
+Assistant: rm -rf node_modules
+User: run the tests
+Assistant: npm test
+User: can you write a function to do foo?
+Assistant: NOT_A_COMMAND`
+
+  const response = await promptAiSdk(
+    [
+      { role: 'system', content: system },
+      { role: 'user', content: prompt },
+    ],
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.haiku,
+      userId,
+      temperature: 0,
+      maxTokens: 200,
+      orgId: orgId ?? null,
+      repoUrl: repoUrl ?? null,
+    }
+  )
+
+  if (response.includes('NOT_A_COMMAND')) {
     return null
   }
 

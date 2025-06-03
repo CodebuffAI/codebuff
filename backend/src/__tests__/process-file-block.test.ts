@@ -4,6 +4,7 @@ import { cleanMarkdownCodeBlock } from 'common/util/file'
 import { applyPatch } from 'common/util/patch'
 
 import { processFileBlock } from '../process-file-block'
+import * as originalModule from '../process-file-block'
 
 // Mock logger
 mock.module('../util/logger', () => ({
@@ -34,6 +35,14 @@ mock.module('pg-pool', () => ({
 // Mock message saving
 mock.module('backend/llm-apis/message-cost-tracker', () => ({
   saveMessage: () => Promise.resolve(),
+}))
+
+// Mock handleLargeFile
+const mockHandleLargeFile = mock(() => Promise.resolve('mocked large file content'))
+
+mock.module('../process-file-block', () => ({
+  ...originalModule,
+  handleLargeFile: mockHandleLargeFile,
 }))
 
 describe('cleanMarkdownCodeBlock', () => {
@@ -70,12 +79,14 @@ describe('processFileBlock', () => {
       newContent,
       [],
       '',
-      undefined,
+      null, // userPrompt
       'clientSessionId',
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      'normal'
+      'normal',
+      null, // orgId
+      null // repoUrl
     )
 
     expect(result).not.toBeNull()
@@ -106,12 +117,14 @@ describe('processFileBlock', () => {
       newContent,
       [],
       '',
-      undefined,
+      null, // userPrompt
       'clientSessionId',
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      'normal'
+      'normal',
+      null, // orgId
+      null // repoUrl
     )
 
     expect(result).not.toBeNull()
@@ -138,12 +151,14 @@ describe('processFileBlock', () => {
       newContent,
       [],
       '',
-      undefined,
+      null, // userPrompt
       'clientSessionId',
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      'normal'
+      'normal',
+      null, // orgId
+      null // repoUrl
     )
 
     expect(result).not.toBeNull()
@@ -207,12 +222,14 @@ function divide(a: number, b: number) {
       newContent,
       [],
       '',
-      undefined,
+      null, // userPrompt
       'clientSessionId',
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      'normal'
+      'normal',
+      null, // orgId
+      null // repoUrl
     )
 
     expect(result).not.toBeNull()
@@ -244,12 +261,14 @@ function divide(a: number, b: number) {
       newContent,
       [],
       '',
-      undefined,
+      null, // userPrompt
       'clientSessionId',
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      'normal'
+      'normal',
+      null, // orgId
+      null // repoUrl
     )
 
     expect(result).not.toBeNull()
@@ -285,12 +304,14 @@ function divide(a: number, b: number) {
       newContent,
       [],
       '',
-      undefined,
+      null, // userPrompt
       'clientSessionId',
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      'normal'
+      'normal',
+      null, // orgId
+      null // repoUrl
     )
 
     expect(result).not.toBeNull()
@@ -298,6 +319,179 @@ function divide(a: number, b: number) {
     if ('error' in result) {
       expect(result.error).toContain('placeholder comment')
       expect(result.error).toContain('meant to modify an existing file')
+    }
+  })
+
+  it('should handle new file creation with initial content', async () => {
+    const result = await processFileBlock(
+      'test.txt',
+      Promise.resolve('initial content'),
+      'new content',
+      [], // messages
+      '', // fullResponse
+      null, // userPrompt
+      'test-client-session-id',
+      'test-fingerprint-id',
+      'test-user-input-id',
+      'test-user-id',
+      'normal', // costMode
+      null, // orgId
+      null // repoUrl
+    )
+    expect(result.tool).toBe('write_file')
+    if (result.tool === 'write_file' && 'content' in result) {
+      expect(result.content).toBe('new content')
+    }
+  })
+
+  it('should handle new file creation with no initial content', async () => {
+    const result = await processFileBlock(
+      'test.txt',
+      Promise.resolve(null), // No initial content (new file)
+      'new file content',
+      [], // messages
+      '', // fullResponse
+      null, // userPrompt
+      'test-client-session-id',
+      'test-fingerprint-id',
+      'test-user-input-id',
+      'test-user-id',
+      'normal', // costMode
+      null, // orgId
+      null // repoUrl
+    )
+    expect(result.tool).toBe('write_file')
+    if (result.tool === 'write_file' && 'content' in result) {
+      expect(result.content).toBe('new file content')
+    }
+  })
+
+  it('should handle new file creation with same content', async () => {
+    const result = await processFileBlock(
+      'test.txt',
+      Promise.resolve('initial content'),
+      'initial content', // Same content
+      [], // messages
+      '', // fullResponse
+      null, // userPrompt
+      'test-client-session-id',
+      'test-fingerprint-id',
+      'test-user-input-id',
+      'test-user-id',
+      'normal', // costMode
+      null, // orgId
+      null // repoUrl
+    )
+    expect(result.tool).toBe('write_file')
+    expect(result).toHaveProperty('error')
+  })
+
+  it('should handle large file creation with initial content', async () => {
+    const largeInitialContent = 'large initial content'
+    const largeEditSnippet = 'large edit snippet'
+
+    const result = await processFileBlock(
+      'large-file.txt',
+      Promise.resolve(largeInitialContent),
+      largeEditSnippet,
+      [], // messages
+      '', // fullResponse
+      null, // userPrompt
+      'test-client-session-id',
+      'test-fingerprint-id',
+      'test-user-input-id',
+      'test-user-id',
+      'normal', // costMode
+      null, // orgId
+      null // repoUrl
+    )
+
+    expect(mockHandleLargeFile).toHaveBeenCalledWith(
+      largeInitialContent,
+      largeEditSnippet,
+      'test-client-session-id',
+      'test-fingerprint-id',
+      'test-user-input-id',
+      'test-user-id',
+      'large-file.txt', // filePath
+      'normal', // costMode
+      null, // orgId
+      null // repoUrl
+    )
+  })
+
+  it('should handle large file creation with no initial content', async () => {
+    const largeEditSnippet = 'large edit snippet'
+
+    const result = await processFileBlock(
+      'large-file.txt',
+      Promise.resolve(null), // No initial content (new file)
+      largeEditSnippet,
+      [], // messages
+      '', // fullResponse
+      null, // userPrompt
+      'test-client-session-id',
+      'test-fingerprint-id',
+      'test-user-input-id',
+      'test-user-id',
+      'normal', // costMode
+      null, // orgId
+      null // repoUrl
+    )
+
+    expect(mockHandleLargeFile).toHaveBeenCalledWith(
+      null,
+      largeEditSnippet,
+      'test-client-session-id',
+      'test-fingerprint-id',
+      'test-user-input-id',
+      'test-user-id',
+      'large-file.txt', // filePath
+      'normal', // costMode
+      null, // orgId
+      null // repoUrl
+    )
+  })
+
+  it('should handle lazy edit in new file', async () => {
+    const result = await processFileBlock(
+      'lazy-edit-new-file.txt',
+      Promise.resolve(null), // New file
+      '// ... existing code ...\nnew stuff', // Lazy edit
+      [], // messages
+      '', // fullResponse
+      null, // userPrompt
+      'test-client-session-id',
+      'test-fingerprint-id',
+      'test-user-input-id',
+      'test-user-id',
+      'normal', // costMode
+      null, // orgId
+      null // repoUrl
+    )
+    expect(result.tool).toBe('write_file')
+    expect(result).toHaveProperty('error')
+  })
+
+  it('should handle lazy edit in markdown file', async () => {
+    const result = await processFileBlock(
+      'test.md', // Markdown file
+      Promise.resolve(null), // New file
+      '# Title\n// ... existing code ...', // Lazy edit in MD
+      [], // messages
+      '', // fullResponse
+      null, // userPrompt
+      'test-client-session-id',
+      'test-fingerprint-id',
+      'test-user-input-id',
+      'test-user-id',
+      'normal', // costMode
+      null, // orgId
+      null // repoUrl
+    )
+    expect(result.tool).toBe('write_file')
+    if (result.tool === 'write_file' && 'content' in result) {
+      expect(result.content).toBe('# Title\nnew stuff')
     }
   })
 })
