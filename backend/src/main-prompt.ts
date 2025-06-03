@@ -110,7 +110,7 @@ export const mainPrompt = async (
   let messageHistory = agentState.messageHistory
 
   const { getStream, model } = getAgentStream({
-    costMode: 'max',
+    costMode,
     selectedModel,
     clientSessionId,
     fingerprintId,

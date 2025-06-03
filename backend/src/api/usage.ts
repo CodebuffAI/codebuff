@@ -6,12 +6,12 @@ import {
 import { z } from 'zod'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 import { checkAuth } from '../util/check-auth'
 import { genUsageResponse } from '../websockets/websocket-action'
 import { logger } from '@/util/logger'
-import { calculateOrganizationUsageAndBalance, syncOrganizationBillingCycle } from '@codebuff/billing'
+import { getOrganizationUsageResponse } from '@codebuff/billing'
 
 const usageRequestSchema = z.object({
   fingerprintId: z.string(),
@@ -29,55 +29,6 @@ async function getUserIdFromAuthToken(
     .where(eq(schema.session.sessionToken, token))
     .then((users) => users[0]?.userId)
   return user
-}
-
-async function genOrganizationUsageResponse(
-  organizationId: string,
-  userId: string
-): Promise<any> {
-  // Check if user is a member of this organization
-  const membership = await db
-    .select({ role: schema.orgMember.role })
-    .from(schema.orgMember)
-    .where(
-      and(
-        eq(schema.orgMember.org_id, organizationId),
-        eq(schema.orgMember.user_id, userId)
-      )
-    )
-    .limit(1)
-
-  if (membership.length === 0) {
-    throw new Error('User is not a member of this organization')
-  }
-
-  // Sync organization billing cycle with Stripe and get current cycle start
-  const startOfCurrentCycle = await syncOrganizationBillingCycle(organizationId)
-  
-  let currentBalance = 0
-  let usageThisCycle = 0
-  
-  try {
-    const now = new Date()
-    const { balance, usageThisCycle: usage } = await calculateOrganizationUsageAndBalance(
-      organizationId,
-      startOfCurrentCycle,
-      now
-    )
-    currentBalance = balance.netBalance
-    usageThisCycle = usage
-  } catch (error) {
-    // If no credits exist yet, that's fine
-    logger.debug('No organization credits found:', error)
-  }
-
-  return {
-    type: 'usage-response' as const,
-    usage: usageThisCycle,
-    remainingBalance: currentBalance,
-    balanceBreakdown: {},
-    next_quota_reset: null,
-  }
 }
 
 async function usageHandler(
@@ -113,9 +64,9 @@ async function usageHandler(
     let usageResponse
 
     if (organizationId) {
-      // Fetch organization usage
+      // Fetch organization usage using the new service
       try {
-        usageResponse = await genOrganizationUsageResponse(organizationId, userId)
+        usageResponse = await getOrganizationUsageResponse(organizationId, userId)
       } catch (error) {
         logger.error({ error, organizationId, userId }, 'Error generating organization usage response')
         return res.status(403).json({ message: error instanceof Error ? error.message : 'Access denied' })

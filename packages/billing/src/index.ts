@@ -16,5 +16,8 @@ export * from './org-billing'
 // Organization monitoring
 export * from './org-monitoring'
 
+// Usage service
+export * from './usage-service'
+
 // Utilities
 export * from './utils'

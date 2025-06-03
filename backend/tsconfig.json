@@ -18,7 +18,8 @@
     "paths": {
       "common/*": ["./src/common/*", "../common/src/*"],
       "@/*": ["./src/*"],
-      "@codebuff/bigquery": ["../packages/bigquery/src"]
+      "@codebuff/bigquery": ["../packages/bigquery/src"],
+      "@codebuff/billing": ["../packages/billing/src"]
     },
     "typeRoots": [
       "./node_modules/@types",
