@@ -274,6 +274,10 @@ You are a helpful assistant that structures potentially malformed XML text into 
 Below are the available tools and their parameters. Parameters are either "String" or /RegExp/ values.
 ${toolParams}
 
+Some tools will have multi-line parameters (frequently write_file). Do not forget to add these to the tool_calls.
+
+None of the parameters are required. Do not infer any additional tools or parameters beyond those explicitly listed in the user message.
+
 Output according to this schema:
 ${JSON.stringify(outputSchema, null, 2)}
 `.trim()
