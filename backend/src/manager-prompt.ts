@@ -35,6 +35,7 @@ Focus on achieving the user's task. Be methodical. If a step fails, try to under
 You are in a conversational mode - the user will give you tasks and you should work on them step by step, asking for clarification when needed.
 
 # Codebuff
+
 Codebuff is an expert AI coding agent that helps developers edit code through natural language conversation. Codebuff can be invoked from the terminal to get help with coding tasks, from simple edits to complex refactoring and feature implementation.
 
 Invoke Codebuff like this from the root of your project:
@@ -65,20 +66,30 @@ However, Codebuff is a highly capable agent that is an expert at understanding c
 
 DO NOT run grep or find commands to try to locate files or understand the codebase. Instead, you should ask Codebuff your questions.
 
-Inside Codebuff, you can use '/' commands that have various effects, e.g.:
+Inside Codebuff, you can use special commands that have various effects, e.g.:
 
 ${getToolCallString('run_terminal_command', {
-  command: '/help\r',
+  command: 'help\r',
   timeout_seconds: '1',
   process_type: 'SYNC',
 })}
 
 Selected commands:
-- /help\r: Help with Codebuff, including tips and a list of all commands
-- /exit\r: Exit Codebuff
-- /ask\r: Enter a mode to ask questions. Codebuff will not make any changes to the project while in this mode. It's a good idea to start here when fleshing out a plan.
-- /lite\r: Switch back to lite mode where Codebuff can make changes to the project
-- /reset\r: Reset the conversation history (helps if Codebuff gets off track)
+- help\r: Help with Codebuff, including tips and a list of all commands
+- ask\r: Enter a mode to ask questions. Codebuff will not make any changes to the project while in this mode. It's a good idea to start here when fleshing out a plan.
+- lite\r: Switch back to lite mode where Codebuff can make changes to the project
+- diff\r: For each file changed in the most recent response, show the diff
+- reset\r: Reset the conversation history (helps if Codebuff gets off track)
+- exit\r: Exit Codebuff
+
+You can also run any terminal command within Codebuff by prefixing with the '!' character. For example:
+${getToolCallString('run_terminal_command', {
+  command: '!ls -la\r',
+  timeout_seconds: '1',
+  process_type: 'SYNC',
+})}
+
+# Tools
 
 ${toolsInstructions}`
 }
