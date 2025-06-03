@@ -7,7 +7,6 @@ import {
   writeFileSync,
 } from 'fs'
 import os from 'os'
-import path from 'path'
 
 import {
   FileChanges,
@@ -81,6 +80,11 @@ import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+import { getConfig } from 'isomorphic-git'
+import fs from 'fs'
+import path from 'path'
+import { findGitRoot } from './utils/git'
+import gitUrlParse from 'git-url-parse'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -512,6 +516,7 @@ export class Client {
             errorMessage:
               error instanceof Error ? error.message : String(error),
             errorStack: error instanceof Error ? error.stack : undefined,
+            msg: 'Error during logout',
           },
           'Error during logout'
         )
@@ -1364,5 +1369,111 @@ Go to https://www.codebuff.com/config for more information.`) +
     })
 
     await this.fetchStoredApiKeyTypes()
+  }
+
+  /**
+   * Checks if the current repository is covered by an organization.
+   * @param remoteUrl Optional remote URL. If not provided, will try to get from git config.
+   * @returns Promise<{ isCovered: boolean; organizationName?: string; error?: string }>
+   */
+  public async checkRepositoryCoverage(remoteUrl?: string): Promise<{
+    isCovered: boolean
+    organizationName?: string
+    error?: string
+  }> {
+    try {
+      let repoUrl = remoteUrl
+
+      // If no remoteUrl provided, try to get it from git config
+      if (!repoUrl) {
+        const cwd = getWorkingDirectory()
+        const root = findGitRoot(cwd)
+
+        if (!root) {
+          return { isCovered: false, error: 'Not in a git repository' }
+        }
+
+        const gitDir = path.join(root, '.git')
+        try {
+          repoUrl = await getConfig({
+            fs,
+            gitdir: gitDir,
+            path: 'remote.origin.url',
+          })
+        } catch (error) {
+          return {
+            isCovered: false,
+            error: 'Could not get remote URL from git config',
+          }
+        }
+      }
+
+      if (!repoUrl) {
+        return { isCovered: false, error: 'No remote URL found' }
+      }
+
+      // Extract owner and repo from URL using git-url-parse
+      let owner: string
+      let repo: string
+      try {
+        const parsed = gitUrlParse(repoUrl)
+        owner = parsed.owner
+        repo = parsed.name
+
+        if (!owner || !repo) {
+          return { isCovered: false, error: 'Could not parse repository URL' }
+        }
+      } catch (error) {
+        return { isCovered: false, error: 'Could not parse repository URL' }
+      }
+
+      // Check if user is authenticated
+      if (!this.user || !this.user.authToken) {
+        return { isCovered: false, error: 'User not authenticated' }
+      }
+
+      // Call backend API to check if repo is covered by organization
+      const response = await fetch(`${backendUrl}/api/orgs/is-repo-covered`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.user.authToken}`,
+        },
+        body: JSON.stringify({
+          owner: owner.toLowerCase(),
+          repo: repo.toLowerCase(),
+          remoteUrl: repoUrl,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        return {
+          isCovered: false,
+          error:
+            errorData.error ||
+            `HTTP ${response.status}: ${response.statusText}`,
+        }
+      }
+
+      const data = await response.json()
+      return {
+        isCovered: data.isCovered || false,
+        organizationName: data.organizationName,
+      }
+    } catch (error) {
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          remoteUrl,
+        },
+        'Error checking repository coverage'
+      )
+      return {
+        isCovered: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+    }
   }
 }

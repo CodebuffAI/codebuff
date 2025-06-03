@@ -129,8 +129,14 @@ export function RepositoryManagement({
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false)
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false)
-  const [repoToRemove, setRepoToRemove] = useState<{ id: string; name: string } | null>(null)
-  const [repoToDeactivate, setRepoToDeactivate] = useState<{ id: string; name: string } | null>(null)
+  const [repoToRemove, setRepoToRemove] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+  const [repoToDeactivate, setRepoToDeactivate] = useState<{
+    id: string
+    name: string
+  } | null>(null)
   const [removing, setRemoving] = useState(false)
   const [deactivating, setDeactivating] = useState(false)
   const [activating, setActivating] = useState<string | null>(null) // Track which repo is being activated
@@ -145,12 +151,12 @@ export function RepositoryManagement({
 
   // Create a debounced version of the auto-fill logic using use-debounce
   const debouncedAutoFill = useDebouncedCallback((url: string) => {
-    setAddForm(prev => {
+    setAddForm((prev) => {
       // If URL is empty, clear the repository name
       if (!url.trim()) {
         return { ...prev, repository_name: '' }
       }
-      
+
       // Always auto-fill when URL changes (removed the empty name check)
       if (url.trim()) {
         const extractedName = extractRepoNameFromUrl(url)
@@ -609,20 +615,6 @@ export function RepositoryManagement({
                   className="text-sm"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="repository_name" className="text-sm">
-                  Repository Name
-                </Label>
-                <Input
-                  id="repository_name"
-                  placeholder="My Project"
-                  value={addForm.repository_name}
-                  onChange={(e) =>
-                    setAddForm({ ...addForm, repository_name: e.target.value })
-                  }
-                  className="text-sm"
-                />
-              </div>
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button
@@ -648,7 +640,10 @@ export function RepositoryManagement({
       )}
 
       {/* Deactivate Repository Confirmation Dialog */}
-      <Dialog open={deactivateConfirmOpen} onOpenChange={setDeactivateConfirmOpen}>
+      <Dialog
+        open={deactivateConfirmOpen}
+        onOpenChange={setDeactivateConfirmOpen}
+      >
         <DialogContent className="w-[95vw] max-w-md mx-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center text-orange-600">
@@ -665,7 +660,10 @@ export function RepositoryManagement({
                 <strong>Repository:</strong> {repoToDeactivate?.name}
               </p>
               <p className="text-sm text-orange-700 mt-2">
-                This action will disable credit delegation for this repository. The repository will remain in your organization but will be marked as inactive. You can reactivate it later using the toggle switch.
+                This action will disable credit delegation for this repository.
+                The repository will remain in your organization but will be
+                marked as inactive. You can reactivate it later using the toggle
+                switch.
               </p>
             </div>
           </div>
@@ -704,7 +702,8 @@ export function RepositoryManagement({
               Remove Repository
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently remove this repository from the organization?
+              Are you sure you want to permanently remove this repository from
+              the organization?
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -713,7 +712,9 @@ export function RepositoryManagement({
                 <strong>Repository:</strong> {repoToRemove?.name}
               </p>
               <p className="text-sm text-red-700 mt-2">
-                This action will permanently delete the repository from the organization. All associated data and credit delegation history will be lost. This action cannot be undone.
+                This action will permanently delete the repository from the
+                organization. All associated data and credit delegation history
+                will be lost. This action cannot be undone.
               </p>
             </div>
           </div>
