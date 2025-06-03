@@ -14,14 +14,14 @@
   ],
   "fileChangeHooks": [
     {
-      "name": "typecheck-backend",
-      "command": "bun run typecheck",
+      "name": "backend-unit-tests",
+      "command": "bun test $(find src -name *.test.ts ! -name *.integration.test.ts)",
       "cwd": "backend",
       "filePattern": "backend/**/*.ts"
     },
     {
-      "name": "typecheck-npm-app",
-      "command": "bun run typecheck-this-package",
+      "name": "npm-app-unit-tests",
+      "command": "bun test $(find src -name *.test.ts ! -name *.integration.test.ts)",
       "cwd": "npm-app",
       "filePattern": "npm-app/**/*.ts"
     },
@@ -30,6 +30,12 @@
       "command": "bun run typecheck",
       "cwd": "web",
       "filePattern": "web/**/*.ts"
+    },
+    {
+      "name": "common-unit-tests",
+      "command": "bun test $(find src -name *.test.ts ! -name *.integration.test.ts)",
+      "cwd": "common",
+      "filePattern": "common/**/*.ts"
     }
   ],
   "maxAgentSteps": 20
