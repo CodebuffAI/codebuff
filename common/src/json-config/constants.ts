@@ -76,6 +76,7 @@ export const CodebuffConfigSchema = z
       .describe('An array of startup processes.'),
     fileChangeHooks: z
       .array(FileChangeHook)
+      .optional()
       .describe('An array of commands to run on file changes.'),
     maxAgentSteps: z
       .number()

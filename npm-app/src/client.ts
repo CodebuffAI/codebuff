@@ -1137,11 +1137,14 @@ export class Client {
         // If we had any file changes, update the project context
         if (this.hadFileChanges) {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
+        }
 
+        if (changedFiles.length > 0) {
           // Run file change hooks with the actual changed files
-          const hookResults = await runFileChangeHooks(changedFiles)
-          toolResults.push(...hookResults)
-          if (hookResults.length > 0) {
+          const { toolResults: hookToolResults, someHooksFailed } =
+            await runFileChangeHooks(changedFiles)
+          toolResults.push(...hookToolResults)
+          if (someHooksFailed) {
             isComplete = false
           }
         }

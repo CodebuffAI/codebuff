@@ -13,12 +13,13 @@ import { loadCodebuffConfig } from './parser'
  */
 export async function runFileChangeHooks(
   filesChanged: string[]
-): Promise<ToolResult[]> {
+): Promise<{ toolResults: ToolResult[]; someHooksFailed: boolean }> {
   const config = loadCodebuffConfig()
   const toolResults: ToolResult[] = []
+  let someHooksFailed = false
 
   if (!config?.fileChangeHooks) {
-    return toolResults
+    return { toolResults, someHooksFailed }
   }
 
   for (const hook of config.fileChangeHooks) {
@@ -49,12 +50,13 @@ export async function runFileChangeHooks(
         undefined
       )
       if (result.exitCode !== 0) {
-        toolResults.push({
-          name: hookName,
-          id: hookId,
-          result: result.result,
-        })
+        someHooksFailed = true
       }
+      toolResults.push({
+        name: hookName,
+        id: hookId,
+        result: result.result,
+      })
     } catch (error) {
       logger.error(
         {
@@ -68,5 +70,5 @@ export async function runFileChangeHooks(
     }
   }
 
-  return toolResults
+  return { toolResults, someHooksFailed }
 }
