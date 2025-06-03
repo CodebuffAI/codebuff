@@ -118,6 +118,7 @@ describe('Usage Calculation System', () => {
       purchase: 0,
       referral: 0,
       admin: 0,
+      organization: 0,
     })
     expect(usageThisCycle).toBe(200) // 500 - 300 = 200 used
   })
@@ -163,6 +164,7 @@ describe('Usage Calculation System', () => {
       purchase: 0,
       referral: 0,
       admin: 0,
+      organization: 0,
     }) // No positive balances
   })
 
@@ -220,6 +222,7 @@ describe('Usage Calculation System', () => {
       purchase: 0, // No positive balance for purchase grant
       referral: 0,
       admin: 0,
+      organization: 0,
     })
 
     // Principals show original grant amounts
@@ -228,6 +231,7 @@ describe('Usage Calculation System', () => {
       purchase: 100,
       referral: 0,
       admin: 0,
+      organization: 0,
     })
 
     // Usage calculation: (200-100) + (100-(-50)) = 100 + 150 = 250
