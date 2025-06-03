@@ -5,7 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { AddRepositoryRequest } from 'common/types/organization'
-import { validateAndNormalizeRepositoryUrl } from '@codebuff/billing'
+import { validateAndNormalizeRepositoryUrl, extractOwnerAndRepo } from '@codebuff/billing'
 
 interface RouteParams {
   params: { orgId: string }
@@ -45,6 +45,7 @@ export async function GET(
         id: schema.orgRepo.id,
         repository_url: schema.orgRepo.repo_url,
         repository_name: schema.orgRepo.repo_name,
+        repo_owner: schema.orgRepo.repo_owner,
         approved_by: schema.orgRepo.approved_by,
         approved_at: schema.orgRepo.approved_at,
         is_active: schema.orgRepo.is_active,
@@ -112,6 +113,10 @@ export async function POST(
 
     const normalizedUrl = validation.normalizedUrl!
 
+    // Extract repository owner from URL
+    const ownerAndRepo = extractOwnerAndRepo(normalizedUrl)
+    const repoOwner = ownerAndRepo?.owner || null
+
     // Check if repository already exists for this organization
     const existingRepo = await db
       .select()
@@ -131,13 +136,14 @@ export async function POST(
       )
     }
 
-    // Add repository
+    // Add repository with repo_owner field populated
     const [newRepo] = await db
       .insert(schema.orgRepo)
       .values({
         org_id: orgId,
         repo_url: normalizedUrl,
         repo_name: body.repository_name,
+        repo_owner: repoOwner,
         approved_by: session.user.id,
       })
       .returning()

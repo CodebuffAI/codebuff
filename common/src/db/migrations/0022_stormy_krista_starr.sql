@@ -1,0 +1,1 @@
+ALTER TABLE "org_repo" ADD COLUMN "repo_owner" text;

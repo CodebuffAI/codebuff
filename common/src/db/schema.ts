@@ -310,6 +310,7 @@ export const orgRepo = pgTable(
       .references(() => org.id, { onDelete: 'cascade' }),
     repo_url: text('repo_url').notNull(),
     repo_name: text('repo_name').notNull(),
+    repo_owner: text('repo_owner'),
     approved_by: text('approved_by')
       .notNull()
       .references(() => user.id),

@@ -5,6 +5,7 @@ import {
   sendOrganizationAlert,
   monitorOrganizationCredits,
   checkAndTriggerOrgAutoTopup,
+  extractOwnerAndRepo,
 } from '@codebuff/billing'
 import { logger } from './util/logger'
 import db from 'common/db'
@@ -42,6 +43,7 @@ export async function findOrganizationForRepository(
       .select({
         organizationId: schema.orgRepo.org_id,
         organizationName: schema.org.name,
+        repoOwner: schema.orgRepo.repo_owner,
       })
       .from(schema.orgRepo)
       .innerJoin(
@@ -59,10 +61,52 @@ export async function findOrganizationForRepository(
       .limit(1) // Use first matching organization
 
     if (approvedOrgs.length === 0) {
+      // If no exact URL match, try to match by repo_owner
+      const ownerAndRepo = extractOwnerAndRepo(repositoryUrl)
+      if (ownerAndRepo?.owner) {
+        const ownerBasedOrgs = await db
+          .select({
+            organizationId: schema.orgRepo.org_id,
+            organizationName: schema.org.name,
+            repoOwner: schema.orgRepo.repo_owner,
+          })
+          .from(schema.orgRepo)
+          .innerJoin(
+            schema.orgMember,
+            eq(schema.orgRepo.org_id, schema.orgMember.org_id)
+          )
+          .innerJoin(schema.org, eq(schema.orgRepo.org_id, schema.org.id))
+          .where(
+            and(
+              eq(schema.orgMember.user_id, userId),
+              eq(schema.orgRepo.repo_owner, ownerAndRepo.owner),
+              eq(schema.orgRepo.is_active, true)
+            )
+          )
+          .limit(1)
+
+        if (ownerBasedOrgs.length > 0) {
+          const { organizationId, organizationName } = ownerBasedOrgs[0]
+          logger.info(
+            { userId, repositoryUrl, organizationId, repoOwner: ownerAndRepo.owner },
+            'Found organization match by repo_owner'
+          )
+          return {
+            organizationId,
+            organizationName,
+            found: true,
+          }
+        }
+      }
+
       return { found: false }
     }
 
     const { organizationId, organizationName } = approvedOrgs[0]
+    logger.info(
+      { userId, repositoryUrl, organizationId },
+      'Found organization match by exact repository URL'
+    )
     return {
       organizationId,
       organizationName,
@@ -140,10 +184,12 @@ export async function consumeCreditsWithDelegation(
     const { organizationName } = membership[0]
 
     // If repository URL is provided, validate that the organization has approved it
+    // This now includes both exact URL matches and repo_owner matches
     if (repositoryUrl) {
       const normalizedUrl = normalizeRepositoryUrl(repositoryUrl)
 
-      const approvedRepo = await db
+      // First try exact URL match
+      let approvedRepo = await db
         .select()
         .from(schema.orgRepo)
         .where(
@@ -154,6 +200,31 @@ export async function consumeCreditsWithDelegation(
           )
         )
         .limit(1)
+
+      // If no exact match, try repo_owner match
+      if (approvedRepo.length === 0) {
+        const ownerAndRepo = extractOwnerAndRepo(repositoryUrl)
+        if (ownerAndRepo?.owner) {
+          approvedRepo = await db
+            .select()
+            .from(schema.orgRepo)
+            .where(
+              and(
+                eq(schema.orgRepo.org_id, organizationId),
+                eq(schema.orgRepo.repo_owner, ownerAndRepo.owner),
+                eq(schema.orgRepo.is_active, true)
+              )
+            )
+            .limit(1)
+
+          if (approvedRepo.length > 0) {
+            logger.info(
+              { userId, organizationId, repositoryUrl: normalizedUrl, repoOwner: ownerAndRepo.owner },
+              'Repository approved for organization via repo_owner match'
+            )
+          }
+        }
+      }
 
       if (approvedRepo.length === 0) {
         logger.warn(
