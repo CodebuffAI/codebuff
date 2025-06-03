@@ -310,7 +310,6 @@ export async function toolFormatter(
           messages,
           temperature: 0,
           max_tokens: 32_000,
-          response_format: { type: 'json_schema', json_schema: outputSchema },
           'relace-metadata': {
             'codebuff-id': messageId,
           },
