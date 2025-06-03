@@ -21,6 +21,10 @@ import { filterObject } from 'common/util/object'
 import { createPatch } from 'diff'
 import { green } from 'picocolors'
 
+import {
+  codebuffConfigFile,
+  codebuffConfigFileBackup,
+} from 'common/json-config/constants'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
 import { logger } from './utils/logger'
@@ -235,7 +239,9 @@ export const getProjectFileContext = async (
       const lowercaseFilePath = filePath.toLowerCase()
       return (
         lowercaseFilePath.endsWith('knowledge.md') ||
-        lowercaseFilePath.endsWith('claude.md')
+        lowercaseFilePath.endsWith('claude.md') ||
+        lowercaseFilePath === codebuffConfigFile ||
+        lowercaseFilePath === codebuffConfigFileBackup
       )
     })
     const knowledgeFiles = getExistingFiles(knowledgeFilePaths)

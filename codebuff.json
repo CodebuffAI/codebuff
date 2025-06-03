@@ -10,11 +10,26 @@
       "name": "web-server",
       "command": "bun start-web",
       "stdoutFile": "debug/web.log"
+    }
+  ],
+  "fileChangeHooks": [
+    {
+      "name": "typecheck-backend",
+      "command": "bun run typecheck",
+      "cwd": "backend",
+      "filePattern": "backend/**/*.ts"
     },
     {
-      "name": "typechecker",
-      "command": "bun tsc -b -w --preserveWatchOutput",
-      "stdoutFile": "debug/typecheck.log"
+      "name": "typecheck-npm-app",
+      "command": "bun run typecheck-this-package",
+      "cwd": "npm-app",
+      "filePattern": "npm-app/**/*.ts"
+    },
+    {
+      "name": "typecheck-web",
+      "command": "bun run typecheck",
+      "cwd": "web",
+      "filePattern": "web/**/*.ts"
     }
   ],
   "maxAgentSteps": 20
