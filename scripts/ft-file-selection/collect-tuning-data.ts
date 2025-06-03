@@ -199,6 +199,20 @@ function convertToGeminiFormat(
     })
     .filter((msg): msg is GeminiMessage => msg !== null)
 
+  if (BLOBBIFY_MESSAGE_HISTORY) {
+    // Replace all "model" messages, except the last message, with
+    // a "user" message with   `<previous_assistant_message>\${message.content}</previous_assistant_message>\`,
+
+    geminiMessages.forEach((msg, i) => {
+      if (msg.role === 'model' && i !== geminiMessages.length - 1) {
+        msg.role = 'user'
+        msg.parts = msg.parts.map((part) => ({
+          text: `<previous_assistant_message>${part.text}</previous_assistant_message>`,
+        }))
+      }
+    })
+  }
+
   // If there are multiple messages in a row with the same role, we need to combine them into a single message with multiple parts
   const combinedMessages: GeminiMessage[] = []
   for (const msg of geminiMessages) {
@@ -210,20 +224,6 @@ function convertToGeminiFormat(
     } else {
       combinedMessages.push(msg)
     }
-  }
-
-  if (BLOBBIFY_MESSAGE_HISTORY) {
-    // Replace all "model" messages, except the last message, with
-    // a "user" message with   `<previous_assistant_message>\${message.content}</previous_assistant_message>\`,
-
-    combinedMessages.forEach((msg, i) => {
-      if (msg.role === 'model' && i !== combinedMessages.length - 1) {
-        msg.role = 'user'
-        msg.parts = msg.parts.map((part) => ({
-          text: `<previous_assistant_message>${part.text}</previous_assistant_message>`,
-        }))
-      }
-    })
   }
 
   return {
@@ -421,7 +421,7 @@ async function main() {
     console.log(`Using dataset: ${DATASET}`)
 
     // Get traces for the specified model from BigQuery
-    const traces = await getTracesWithRelabels(model, 100, DATASET)
+    const traces = await getTracesWithRelabels(model, 3000, DATASET)
     console.log(`Found ${traces.length} traces for model ${model}`)
 
     // Process traces and convert to Gemini format
