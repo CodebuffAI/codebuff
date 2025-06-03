@@ -1,5 +1,5 @@
 {
-  "id": "6b76d200-9dc6-4842-bda2-6592679cb3fc",
+  "id": "e862a5b8-bf4d-41e1-b771-a30f6394122c",
   "prevId": "1915287c-0093-4056-938e-03aae8ddf72e",
   "version": "7",
   "dialect": "postgresql",
@@ -1046,6 +1046,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "repo_owner": {
+          "name": "repo_owner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "approved_by": {
           "name": "approved_by",
           "type": "text",
@@ -1607,7 +1613,8 @@
         "free",
         "referral",
         "purchase",
-        "admin"
+        "admin",
+        "organization"
       ]
     },
     "public.org_role": {

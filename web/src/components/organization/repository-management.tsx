@@ -41,6 +41,7 @@ interface Repository {
   id: string
   repository_url: string
   repository_name: string
+  repo_owner?: string // Repository owner name from URL
   approved_by: string
   approved_at: string
   is_active: boolean

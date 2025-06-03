@@ -1,4 +1,5 @@
 CREATE TYPE "public"."org_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
+ALTER TYPE "public"."grant_type" ADD VALUE 'organization';--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "org" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS "org_repo" (
 	"org_id" text NOT NULL,
 	"repo_url" text NOT NULL,
 	"repo_name" text NOT NULL,
+	"repo_owner" text,
 	"approved_by" text NOT NULL,
 	"approved_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL

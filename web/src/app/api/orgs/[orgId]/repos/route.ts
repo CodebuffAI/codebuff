@@ -5,6 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { AddRepositoryRequest } from 'common/types/organization'
+import { extractOrgAndRepoFromUrl } from '@codebuff/billing'
 
 interface RouteParams {
   params: { orgId: string }
@@ -101,6 +102,7 @@ export async function GET(
         id: schema.orgRepo.id,
         repository_url: schema.orgRepo.repo_url,
         repository_name: schema.orgRepo.repo_name,
+        repo_owner: schema.orgRepo.repo_owner,
         approved_by: schema.orgRepo.approved_by,
         approved_at: schema.orgRepo.approved_at,
         is_active: schema.orgRepo.is_active,
@@ -157,7 +159,16 @@ export async function POST(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
-    // Validate and normalize repository URL
+    // Extract organization and repository info from URL
+    const urlParseResult = extractOrgAndRepoFromUrl(body.repository_url)
+    if (!urlParseResult.isValid) {
+      return NextResponse.json(
+        { error: urlParseResult.error || 'Invalid repository URL' },
+        { status: 400 }
+      )
+    }
+
+    // Validate and normalize repository URL using the existing function
     const validation = validateAndNormalizeRepositoryUrl(body.repository_url)
     if (!validation.isValid) {
       return NextResponse.json(
@@ -167,6 +178,7 @@ export async function POST(
     }
 
     const normalizedUrl = validation.normalizedUrl!
+    const repoOwner = urlParseResult.owner // The owner from the URL
 
     // Check if repository already exists for this organization
     const existingRepo = await db
@@ -187,13 +199,14 @@ export async function POST(
       )
     }
 
-    // Add repository
+    // Add repository with repo_owner
     const [newRepo] = await db
       .insert(schema.orgRepo)
       .values({
         org_id: orgId,
         repo_url: normalizedUrl,
         repo_name: body.repository_name,
+        repo_owner: repoOwner,
         approved_by: session.user.id,
       })
       .returning()

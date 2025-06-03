@@ -1,1 +1,0 @@
-ALTER TYPE "public"."grant_type" ADD VALUE 'organization';
