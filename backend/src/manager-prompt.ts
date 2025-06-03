@@ -15,7 +15,7 @@ import { getAgentStream } from './prompt-agent-stream'
 import { logger } from './util/logger'
 import { generateCompactId } from 'common/util/string'
 import { processStreamWithTags } from './xml-stream-parser'
-import { toolSchema } from 'common/constants/tools'
+import { getToolCallString, toolSchema } from 'common/constants/tools'
 
 function getManagerSystemPrompt() {
   const toolsInstructions = getManagerToolsInstructions()
@@ -44,19 +44,30 @@ $ codebuff
 
 This opens a shell where you can interact with Codebuff. You can also run commands directly in the shell. Then you can enter your prompt as a command.
 
-\`\`\`bash
-> Add a console.log to the start of the npm index file
-\`\`\`
+You can send prompts in natural language directly, e.g.:
+${getToolCallString('run_terminal_command', {
+  command: 'Add a console.log to the start of the npm index file\r',
+  timeout_seconds: '60',
+  process_type: 'SYNC',
+})}
 
-Codebuff will go and make the change and stream it's thought process as well as the tools it is using. This can take a few seconds or a few minutes.
+Codebuff will go and make the change and stream it's thought process as well as the tools it is using. This can take a few seconds or a few minutes. It's best to give it a long timeout, because if it finishes early it will return results back immediately. If it doesn't finish in time, you can sleep for longer to give it more time, or kill the terminal and try again.
 
 You should expect to guide Codebuff over multiple prompts. When it goes off track, you should guide it back to the task at hand.
 
-Inside Codebuff, you can use '/' commands that have various effects:
+Inside Codebuff, you can use '/' commands that have various effects, e.g.:
 
-- /help: Show this help message
+${getToolCallString('run_terminal_command', {
+  command: '/help\r',
+  timeout_seconds: '1',
+  process_type: 'SYNC',
+})}
+
+Selected commands:
+- /help: Help with Codebuff, including tips and a list of all commands
 - /exit: Exit Codebuff
 - /ask: Enter a mode to ask questions. Codebuff will not make any changes to the project while in this mode. It's a good idea to start here when fleshing out a plan.
+- /normal: Switch back to normal mode where Codebuff can make changes to the project
 - /reset: Reset the conversation history (helps if Codebuff gets off track)
 
 ${toolsInstructions}`
@@ -129,7 +140,7 @@ export async function handleManagerPrompt(
   const { getStream } = getAgentStream({
     costMode: costMode as any,
     selectedModel: model,
-    stopSequences: ['</run_terminal_command>'],
+    stopSequences: ['</run_terminal_command>', '</sleep>', '</kill_terminal>'],
     clientSessionId,
     fingerprintId: action.fingerprintId,
     userInputId: 'agent-' + Date.now(),

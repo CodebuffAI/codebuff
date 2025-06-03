@@ -340,10 +340,8 @@ ${getToolCallString('code_search', { pattern: 'import.*foo' })}
     name: 'run_terminal_command',
     schema: z
       .object({
-        command: z
-          .string()
-          .min(1, 'Command cannot be empty')
-          .describe(`CLI command valid for user's OS.`),
+        // Can be empty to use it for a timeout.
+        command: z.string().describe(`CLI command valid for user's OS.`),
         process_type: z
           .enum(['SYNC', 'BACKGROUND'])
           .default('SYNC')
