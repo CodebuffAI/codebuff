@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.311",
+  "version": "1.0.312",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
