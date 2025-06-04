@@ -4,7 +4,10 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
-import { CreateOrganizationRequest, ListOrganizationsResponse } from 'common/types/organization'
+import {
+  CreateOrganizationRequest,
+  ListOrganizationsResponse,
+} from 'common/types/organization'
 import { stripeServer } from 'common/util/stripe'
 import { env } from 'common/src/env.mjs'
 import { logger } from '@/util/logger'
@@ -13,27 +16,29 @@ function validateOrganizationName(name: string): string | null {
   if (!name || !name.trim()) {
     return 'Organization name is required'
   }
-  
+
   const trimmedName = name.trim()
-  
+
   if (trimmedName.length < 3) {
     return 'Organization name must be at least 3 characters long'
   }
-  
+
   if (trimmedName.length > 50) {
     return 'Organization name must be no more than 50 characters long'
   }
-  
+
   // Allow alphanumeric characters, spaces, hyphens, underscores, and periods
   const validNameRegex = /^[a-zA-Z0-9\s\-_.]+$/
   if (!validNameRegex.test(trimmedName)) {
     return 'Organization name can only contain letters, numbers, spaces, hyphens, underscores, and periods'
   }
-  
+
   return null
 }
 
-export async function GET(): Promise<NextResponse<ListOrganizationsResponse | { error: string }>> {
+export async function GET(): Promise<
+  NextResponse<ListOrganizationsResponse | { error: string }>
+> {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -47,10 +52,7 @@ export async function GET(): Promise<NextResponse<ListOrganizationsResponse | { 
         role: schema.orgMember.role,
       })
       .from(schema.orgMember)
-      .innerJoin(
-        schema.org,
-        eq(schema.orgMember.org_id, schema.org.id)
-      )
+      .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
       .where(eq(schema.orgMember.user_id, session.user.id))
 
     // Get member and repository counts for each organization
@@ -61,7 +63,7 @@ export async function GET(): Promise<NextResponse<ListOrganizationsResponse | { 
             .select({ count: schema.orgMember.user_id })
             .from(schema.orgMember)
             .where(eq(schema.orgMember.org_id, organization.id))
-            .then(result => result.length),
+            .then((result) => result.length),
           db
             .select({ count: schema.orgRepo.id })
             .from(schema.orgRepo)
@@ -71,7 +73,7 @@ export async function GET(): Promise<NextResponse<ListOrganizationsResponse | { 
                 eq(schema.orgRepo.is_active, true)
               )
             )
-            .then(result => result.length),
+            .then((result) => result.length),
         ])
 
         return {
@@ -108,10 +110,7 @@ export async function POST(request: NextRequest) {
     // Validate organization name
     const nameValidationError = validateOrganizationName(name)
     if (nameValidationError) {
-      return NextResponse.json(
-        { error: nameValidationError },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: nameValidationError }, { status: 400 })
     }
 
     const trimmedName = name.trim()
@@ -127,7 +126,7 @@ export async function POST(request: NextRequest) {
     // Ensure slug is unique by appending number if needed
     let slug = baseSlug
     let counter = 1
-    
+
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const existingOrg = await db
@@ -139,7 +138,7 @@ export async function POST(request: NextRequest) {
       if (existingOrg.length === 0) {
         break // Slug is unique
       }
-      
+
       slug = `${baseSlug}-${counter}`
       counter++
     }
@@ -152,6 +151,9 @@ export async function POST(request: NextRequest) {
         slug,
         description: description?.trim() || null,
         owner_id: session.user.id,
+        auto_topup_enabled: true,
+        auto_topup_amount: 20000,
+        auto_topup_threshold: 5000,
       })
       .returning()
 
@@ -179,17 +181,17 @@ export async function POST(request: NextRequest) {
         // Update organization with Stripe customer ID
         await db
           .update(schema.org)
-          .set({ 
+          .set({
             stripe_customer_id: stripeCustomerId,
             updated_at: new Date(),
           })
           .where(eq(schema.org.id, newOrg.id))
 
         logger.info(
-          { 
-            organizationId: newOrg.id, 
+          {
+            organizationId: newOrg.id,
             stripeCustomerId,
-            customerEmail: session.user.email
+            customerEmail: session.user.email,
           },
           'Created Stripe customer for new organization'
         )
