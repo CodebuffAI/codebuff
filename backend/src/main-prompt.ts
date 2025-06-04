@@ -31,10 +31,10 @@ import {
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
 import { getDocumentationForQuery } from './get-documentation-for-query'
-import { toolFormatter } from './llm-apis/relace-api'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStream } from './prompt-agent-stream'
+import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
@@ -72,13 +72,12 @@ import {
   simplifyReadFileToolResult,
 } from './util/simplify-tool-results'
 import { countTokens, countTokensJson } from './util/token-counter'
+import { getRequestContext } from './websockets/request-context'
 import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
-import { getRequestContext } from './websockets/request-context'
-import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
@@ -144,7 +143,9 @@ export const mainPrompt = async (
     (t) => t.name === 'run_terminal_command'
   )
   const isAskMode = costMode === 'ask'
-  const isExporting = prompt && (prompt.toLowerCase() === '/export' || prompt.toLowerCase() === 'export')
+  const isExporting =
+    prompt &&
+    (prompt.toLowerCase() === '/export' || prompt.toLowerCase() === 'export')
   const geminiThinkingEnabled = costMode === 'max'
   const isLiteMode = costMode === 'lite'
   const isGeminiPro = model === models.gemini2_5_pro_preview
@@ -664,7 +665,16 @@ export const mainPrompt = async (
         }
 
         // Filter out restricted tools in ask mode unless exporting summary
-        if (isAskMode && !isExporting && ['write_file', 'str_replace', 'create_plan', 'run_terminal_command'].includes(tool)) {
+        if (
+          isAskMode &&
+          !isExporting &&
+          [
+            'write_file',
+            'str_replace',
+            'create_plan',
+            'run_terminal_command',
+          ].includes(tool)
+        ) {
           serverToolResults.push({
             name: tool,
             id: generateCompactId(),
@@ -851,16 +861,6 @@ export const mainPrompt = async (
       fullResponse += chunk
     }
     onResponseChunk(chunk)
-  }
-
-  if (foundParsingError && process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local') {
-    toolFormatter(fullResponse, {
-      messageId: generateCompactId('cb-tf-'),
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
-    })
   }
 
   const agentResponseTrace: AgentResponseTrace = {
