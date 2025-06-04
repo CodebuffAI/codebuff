@@ -42,6 +42,8 @@ async function isRepoCoveredHandler(
     return res.status(200).json({
       isCovered: orgLookup.found,
       organizationName: orgLookup.organizationName,
+      organizationId: orgLookup.organizationId, // Keep organizationId for now, might be used elsewhere
+      organizationSlug: orgLookup.organizationSlug, // Add organizationSlug
     })
   } catch (error) {
     logger.error({ error }, 'Error handling /api/orgs/is-repo-covered request')

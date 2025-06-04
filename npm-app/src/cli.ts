@@ -9,7 +9,15 @@ import type { CostMode } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { blueBright, cyan, gray, green, magenta, yellow } from 'picocolors'
+import {
+  blueBright,
+  bold,
+  cyan,
+  gray,
+  green,
+  magenta,
+  yellow,
+} from 'picocolors'
 
 import {
   killAllBackgroundProcesses,
@@ -932,15 +940,23 @@ export class CLI {
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
 
-    logMessages.push(
-      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session${
-        client.usageData.remainingBalance !== null
-          ? `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`
-          : '.'
-      }`
-    )
+    let exitUsageMessage = `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session`
+    if (client.usageData.remainingBalance !== null) {
+      exitUsageMessage += `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`
+    } else {
+      exitUsageMessage += '.'
+    }
+    logMessages.push(exitUsageMessage)
 
-    if (client.usageData.next_quota_reset) {
+    // Check for organization coverage
+    const coverage = await client.checkRepositoryCoverage()
+    if (coverage.isCovered && coverage.organizationName) {
+      logMessages.push(
+        green(
+          `\nYour usage in this repository was covered by the ${bold(coverage.organizationName)} organization.`
+        )
+      )
+    } else if (client.usageData.next_quota_reset) {
       const daysUntilReset = Math.ceil(
         (new Date(client.usageData.next_quota_reset).getTime() - Date.now()) /
           (1000 * 60 * 60 * 24)

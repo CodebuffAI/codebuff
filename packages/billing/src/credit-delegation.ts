@@ -2,16 +2,17 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { logger } from 'common/util/logger'
-import { 
-  consumeOrganizationCredits, 
+import {
+  consumeOrganizationCredits,
   normalizeRepositoryUrl,
-  extractOwnerAndRepo
+  extractOwnerAndRepo,
 } from './org-billing'
 
 export interface OrganizationLookupResult {
   found: boolean
   organizationId?: string
   organizationName?: string
+  organizationSlug?: string
 }
 
 export interface CreditDelegationResult {
@@ -19,6 +20,7 @@ export interface CreditDelegationResult {
   organizationId?: string
   organizationName?: string
   error?: string
+  organizationSlug?: string
 }
 
 /**
@@ -32,7 +34,7 @@ export async function findOrganizationForRepository(
   try {
     const normalizedUrl = normalizeRepositoryUrl(repositoryUrl)
     const ownerRepo = extractOwnerAndRepo(normalizedUrl)
-    
+
     if (!ownerRepo) {
       logger.debug(
         { userId, repositoryUrl, normalizedUrl },
@@ -46,6 +48,7 @@ export async function findOrganizationForRepository(
       .select({
         orgId: schema.orgMember.org_id,
         orgName: schema.org.name,
+        orgSlug: schema.org.slug, // Select the slug
       })
       .from(schema.orgMember)
       .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
@@ -78,36 +81,45 @@ export async function findOrganizationForRepository(
       // Check if any repository in this organization matches
       for (const orgRepo of orgRepos) {
         const orgOwnerRepo = extractOwnerAndRepo(orgRepo.repoUrl)
-        
-        if (orgOwnerRepo && 
-            orgOwnerRepo.owner === ownerRepo.owner && 
-            orgOwnerRepo.repo === ownerRepo.repo) {
+
+        if (
+          orgOwnerRepo &&
+          orgOwnerRepo.owner === ownerRepo.owner &&
+          orgOwnerRepo.repo === ownerRepo.repo
+        ) {
           logger.info(
-            { 
-              userId, 
-              repositoryUrl, 
+            {
+              userId,
+              repositoryUrl,
               organizationId: userOrg.orgId,
               organizationName: userOrg.orgName,
+              organizationSlug: userOrg.orgSlug, // Return the slug
               matchedRepoUrl: orgRepo.repoUrl,
-              ownerRepo: ownerRepo
+              ownerRepo: ownerRepo,
             },
             'Found organization for repository using owner/repo matching'
           )
-          
+
           return {
             found: true,
             organizationId: userOrg.orgId,
             organizationName: userOrg.orgName,
+            organizationSlug: userOrg.orgSlug, // Return the slug
           }
         }
       }
     }
 
     logger.debug(
-      { userId, repositoryUrl, ownerRepo, userOrganizations: userOrganizations.length },
+      {
+        userId,
+        repositoryUrl,
+        ownerRepo,
+        userOrganizations: userOrganizations.length,
+      },
       'No organization found for repository'
     )
-    
+
     return { found: false }
   } catch (error) {
     logger.error(
@@ -138,7 +150,7 @@ export async function consumeCreditsWithDelegation(
 
     // Find organization for this repository
     const orgLookup = await findOrganizationForRepository(userId, repositoryUrl)
-    
+
     if (!orgLookup.found || !orgLookup.organizationId) {
       logger.debug(
         { userId, repositoryUrl, creditsToConsume },
@@ -149,41 +161,47 @@ export async function consumeCreditsWithDelegation(
 
     // Consume credits from organization
     try {
-      await consumeOrganizationCredits(orgLookup.organizationId, creditsToConsume)
-      
+      await consumeOrganizationCredits(
+        orgLookup.organizationId,
+        creditsToConsume
+      )
+
       logger.info(
-        { 
-          userId, 
-          repositoryUrl, 
+        {
+          userId,
+          repositoryUrl,
           organizationId: orgLookup.organizationId,
           organizationName: orgLookup.organizationName,
-          creditsToConsume 
+          organizationSlug: orgLookup.organizationSlug, // Return the slug
+          creditsToConsume,
         },
         'Successfully consumed credits from organization'
       )
-      
+
       return {
         success: true,
         organizationId: orgLookup.organizationId,
         organizationName: orgLookup.organizationName,
+        organizationSlug: orgLookup.organizationSlug, // Return the slug
       }
     } catch (consumeError) {
       logger.error(
-        { 
-          userId, 
-          repositoryUrl, 
+        {
+          userId,
+          repositoryUrl,
           organizationId: orgLookup.organizationId,
           creditsToConsume,
-          error: consumeError 
+          error: consumeError,
         },
         'Failed to consume credits from organization'
       )
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: 'Failed to consume organization credits',
         organizationId: orgLookup.organizationId,
         organizationName: orgLookup.organizationName,
+        organizationSlug: orgLookup.organizationSlug, // Return the slug
       }
     }
   } catch (error) {
@@ -191,7 +209,7 @@ export async function consumeCreditsWithDelegation(
       { userId, repositoryUrl, creditsToConsume, error },
       'Error in credit delegation process'
     )
-    
+
     return { success: false, error: 'Credit delegation process failed' }
   }
 }

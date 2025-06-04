@@ -1243,7 +1243,7 @@ Go to https://www.codebuff.com/config for more information.`) +
 
       this.setUsage(parsedResponse)
 
-      const usageLink = `${websiteUrl}/usage`
+      const usageLink = `${websiteUrl}/usage` // Personal usage link
       const remainingColor =
         this.usageData.remainingBalance === null
           ? yellow
@@ -1256,26 +1256,47 @@ Go to https://www.codebuff.com/config for more information.`) +
       const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
         .flat()
         .reduce((sum, credits) => sum + credits, 0)
-      console.log(
-        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}${
-          this.usageData.remainingBalance !== null
-            ? `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
-            : '.'
-        }`
-      )
 
-      if (this.usageData.next_quota_reset) {
-        const resetDate = new Date(this.usageData.next_quota_reset)
-        const today = new Date()
-        const isToday = resetDate.toDateString() === today.toDateString()
+      // Consolidate personal usage log
+      let personalUsageMessage = `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}`
+      if (this.usageData.remainingBalance !== null) {
+        personalUsageMessage += `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
+      } else {
+        personalUsageMessage += '.'
+      }
+      console.log(personalUsageMessage)
 
-        const dateDisplay = isToday
-          ? resetDate.toLocaleString() // Show full date and time for today
-          : resetDate.toLocaleDateString() // Just show date otherwise
+      // Check for organization coverage
+      const coverage = await this.checkRepositoryCoverage()
 
+      if (coverage.isCovered && coverage.organizationName) {
         console.log(
-          `Free credits will renew on ${dateDisplay}. Details: ${underline(blue(usageLink))}`
+          green(
+            `🏢 Your usage in this repository is covered by ${bold(coverage.organizationName)}.`
+          )
         )
+        // Try to use organizationSlug from the coverage response
+        if (coverage.organizationSlug) {
+          const orgUsageLink = `${websiteUrl}/orgs/${coverage.organizationSlug}`
+          console.log(
+            `View your organization's usage details: ${underline(blue(orgUsageLink))}`
+          )
+        }
+      } else {
+        // Only show personal credit renewal if not covered by an organization
+        if (this.usageData.next_quota_reset) {
+          const resetDate = new Date(this.usageData.next_quota_reset)
+          const today = new Date()
+          const isToday = resetDate.toDateString() === today.toDateString()
+
+          const dateDisplay = isToday
+            ? resetDate.toLocaleString() // Show full date and time for today
+            : resetDate.toLocaleDateString() // Just show date otherwise
+
+          console.log(
+            `Free credits will renew on ${dateDisplay}. Details: ${underline(blue(usageLink))}`
+          )
+        }
       }
 
       this.showUsageWarning()
@@ -1337,6 +1358,7 @@ Go to https://www.codebuff.com/config for more information.`) +
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       fileContext,
+      // Add repoUrl here as per the diff for client.ts
       repoUrl: loggerContext.repoUrl,
     }
     this.webSocket.sendAction(initAction)
@@ -1347,11 +1369,13 @@ Go to https://www.codebuff.com/config for more information.`) +
   /**
    * Checks if the current repository is covered by an organization.
    * @param remoteUrl Optional remote URL. If not provided, will try to get from git config.
-   * @returns Promise<{ isCovered: boolean; organizationName?: string; error?: string }>
+   * @returns Promise<{ isCovered: boolean; organizationName?: string; organizationId?: string; organizationSlug?: string; error?: string }>
    */
   public async checkRepositoryCoverage(remoteUrl?: string): Promise<{
     isCovered: boolean
     organizationName?: string
+    organizationId?: string
+    organizationSlug?: string
     error?: string
   }> {
     try {
@@ -1409,6 +1433,8 @@ Go to https://www.codebuff.com/config for more information.`) +
       return {
         isCovered: data.isCovered || false,
         organizationName: data.organizationName,
+        organizationId: data.organizationId,
+        organizationSlug: data.organizationSlug,
       }
     } catch (error) {
       logger.error(
