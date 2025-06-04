@@ -1214,6 +1214,9 @@ Go to https://www.codebuff.com/config for more information.`) +
 
   public async getUsage() {
     try {
+      // Check for organization coverage first
+      const coverage = await this.checkRepositoryCoverage()
+
       const response = await fetch(`${backendUrl}/api/usage`, {
         method: 'POST',
         headers: {
@@ -1222,6 +1225,7 @@ Go to https://www.codebuff.com/config for more information.`) +
         body: JSON.stringify({
           fingerprintId: await this.fingerprintId,
           authToken: this.user?.authToken,
+          ...(coverage.isCovered && coverage.organizationId && { orgId: coverage.organizationId }),
         }),
       })
 
@@ -1243,33 +1247,29 @@ Go to https://www.codebuff.com/config for more information.`) +
 
       this.setUsage(parsedResponse)
 
-      const usageLink = `${websiteUrl}/usage` // Personal usage link
-      const remainingColor =
-        this.usageData.remainingBalance === null
-          ? yellow
-          : this.usageData.remainingBalance <= 0
-            ? red
-            : this.usageData.remainingBalance <= LOW_BALANCE_THRESHOLD
-              ? red
-              : green
-
+      // Calculate session usage and total for display
       const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
         .flat()
         .reduce((sum, credits) => sum + credits, 0)
 
-      // Consolidate personal usage log
-      let personalUsageMessage = `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}`
+      let sessionUsageMessage = `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}`
       if (this.usageData.remainingBalance !== null) {
-        personalUsageMessage += `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
+        const remainingColor =
+          this.usageData.remainingBalance === null
+            ? yellow
+            : this.usageData.remainingBalance <= 0
+              ? red
+              : this.usageData.remainingBalance <= LOW_BALANCE_THRESHOLD
+                ? red
+                : green
+        sessionUsageMessage += `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
       } else {
-        personalUsageMessage += '.'
+        sessionUsageMessage += '.'
       }
-      console.log(personalUsageMessage)
-
-      // Check for organization coverage
-      const coverage = await this.checkRepositoryCoverage()
+      console.log(sessionUsageMessage)
 
       if (coverage.isCovered && coverage.organizationName) {
+        // When covered by an organization, show organization information
         console.log(
           green(
             `🏢 Your usage in this repository is covered by ${bold(coverage.organizationName)}.`
@@ -1283,6 +1283,9 @@ Go to https://www.codebuff.com/config for more information.`) +
           )
         }
       } else {
+        // Only show personal usage details when not covered by an organization
+        const usageLink = `${websiteUrl}/usage` // Personal usage link
+
         // Only show personal credit renewal if not covered by an organization
         if (this.usageData.next_quota_reset) {
           const resetDate = new Date(this.usageData.next_quota_reset)
@@ -1297,9 +1300,9 @@ Go to https://www.codebuff.com/config for more information.`) +
             `Free credits will renew on ${dateDisplay}. Details: ${underline(blue(usageLink))}`
           )
         }
-      }
 
-      this.showUsageWarning()
+        this.showUsageWarning()
+      }
     } catch (error) {
       logger.error(
         {

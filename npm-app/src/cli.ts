@@ -935,7 +935,11 @@ export class CLI {
     Client.getInstance().close() // Close WebSocket
 
     const client = Client.getInstance()
-    const logMessages = []
+    
+    // Check for organization coverage first
+    const coverage = await client.checkRepositoryCoverage()
+    
+    // Calculate session usage and total for display
     const totalCreditsUsedThisSession = Object.values(client.creditsByPromptId)
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
@@ -946,27 +950,28 @@ export class CLI {
     } else {
       exitUsageMessage += '.'
     }
-    logMessages.push(exitUsageMessage)
-
-    // Check for organization coverage
-    const coverage = await client.checkRepositoryCoverage()
+    console.log(exitUsageMessage)
+    
     if (coverage.isCovered && coverage.organizationName) {
-      logMessages.push(
+      // When covered by an organization, show organization information
+      console.log(
         green(
-          `\nYour usage in this repository was covered by the ${bold(coverage.organizationName)} organization.`
+          `Your usage in this repository was covered by the ${bold(coverage.organizationName)} organization.`
         )
       )
-    } else if (client.usageData.next_quota_reset) {
-      const daysUntilReset = Math.ceil(
-        (new Date(client.usageData.next_quota_reset).getTime() - Date.now()) /
-          (1000 * 60 * 60 * 24)
-      )
-      logMessages.push(
-        `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`
-      )
+    } else {
+      // Only show personal credit renewal when not covered by an organization
+      if (client.usageData.next_quota_reset) {
+        const daysUntilReset = Math.ceil(
+          (new Date(client.usageData.next_quota_reset).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24)
+        )
+        console.log(
+          `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`
+        )
+      }
     }
 
-    console.log(logMessages.join(' '))
     await flushAnalytics()
 
     process.exit(0)
