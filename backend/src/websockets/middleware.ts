@@ -9,6 +9,7 @@ import {
   calculateUsageAndBalance,
   triggerMonthlyResetAndGrant,
   checkAndTriggerAutoTopup,
+  checkAndTriggerOrgAutoTopup,
 } from '@codebuff/billing'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -170,6 +171,17 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
 
     // If an organization covers this repository, check its balance
     if (orgLookup.found && orgLookup.organizationId) {
+      // Check and trigger organization auto top-up if needed
+      try {
+        await checkAndTriggerOrgAutoTopup(orgLookup.organizationId)
+      } catch (error) {
+        logger.error(
+          { error, organizationId: orgLookup.organizationId, userId },
+          'Error during organization auto top-up check in middleware'
+        )
+        // Continue execution to check remaining balance
+      }
+
       const now = new Date()
       // For balance checking, precise quotaResetDate isn't as critical as for usageThisCycle.
       // Using a far past date ensures all grants are considered for current balance.
