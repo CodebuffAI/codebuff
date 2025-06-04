@@ -17,6 +17,7 @@ export function handleInitializationFlowLocally(): void {
       description:
         'Template configuration for this project. See https://www.codebuff.com/config for all options.',
       startupProcesses: [],
+      fileChangeHooks: [],
     }
     writeFileSync(configPath, JSON.stringify(configContent, null, 2))
   }
