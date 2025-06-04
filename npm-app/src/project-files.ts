@@ -79,7 +79,7 @@ let projectRoot: string
 
 export function setProjectRoot(dir: string, setCwd: boolean = false) {
   if (existsSync(dir)) {
-    if (projectRoot) {
+    if (projectRoot && projectRoot !== dir) {
       checkpointManager.clearCheckpoints(true)
 
       console.log(
