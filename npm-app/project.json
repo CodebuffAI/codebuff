@@ -16,7 +16,6 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "nx clean npm-app",
           "eslint src/index.ts",
           "tsc",
           "tsc-alias -p tsconfig.json",
