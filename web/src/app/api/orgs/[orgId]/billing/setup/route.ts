@@ -69,9 +69,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           stripeServer.paymentMethods.list({
             customer: organization.stripe_customer_id,
             type: 'link',
-          })
+          }),
         ])
-        isSetup = cardPaymentMethods.data.length > 0 || linkPaymentMethods.data.length > 0
+        isSetup =
+          cardPaymentMethods.data.length > 0 ||
+          linkPaymentMethods.data.length > 0
       } catch (error) {
         logger.warn(
           { orgId, error },
@@ -183,6 +185,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           quantity: 1,
         },
       ],
+      allow_promotion_codes: true,
       success_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}/billing/purchase?subscription_success=true`,
       cancel_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}?subscription_canceled=true`,
       metadata: {
