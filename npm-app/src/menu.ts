@@ -89,7 +89,8 @@ export const interactiveCommandDetails: CommandInfo[] = [
   },
   {
     baseCommand: 'compact',
-    description: 'Replace the conversation history with a summary and free up context',
+    description:
+      'Replace the conversation history with a summary and free up context',
     isSlashCommand: true,
     commandText: '"compact"',
   },

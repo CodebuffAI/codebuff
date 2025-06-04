@@ -87,7 +87,7 @@ export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
 export const handleRunTerminalCommand = async (
   parameters: {
     command: string
-    mode?: 'user' | 'assistant'
+    mode?: 'user' | 'assistant' | 'manager'
     process_type?: 'SYNC' | 'BACKGROUND'
     cwd?: string
     timeout_seconds?: string
@@ -213,6 +213,35 @@ function formatResult(
   return result
 }
 
+export const handleKillTerminal: ToolHandler<{}> = async (parameters, _id) => {
+  const { resetShell } = await import('./utils/terminal')
+  const { getProjectRoot } = await import('./project-files')
+  
+  resetShell(getProjectRoot())
+  
+  return 'Terminal killed and restarted successfully.'
+}
+
+export const handleSleep: ToolHandler<{ seconds: string }> = async (parameters, _id) => {
+  const { seconds } = parameters
+  let secondsNum: number
+  
+  try {
+    secondsNum = parseInt(seconds)
+    if (secondsNum <= 0) {
+      return 'Error: Sleep duration must be a positive number'
+    }
+  } catch (error) {
+    return `Error: Could not parse seconds: ${error instanceof Error ? error.message : error}`
+  }
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(`Slept for ${secondsNum} second${secondsNum === 1 ? '' : 's'}.`)
+    }, secondsNum * 1000)
+  })
+}
+
 export const toolHandlers: Record<string, ToolHandler<any>> = {
   write_file: handleUpdateFile,
   str_replace: handleUpdateFile,
@@ -226,6 +255,8 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
     process_type: 'SYNC' | 'BACKGROUND'
   }>,
   code_search: handleCodeSearch,
+  kill_terminal: handleKillTerminal,
+  sleep: handleSleep,
   end_turn: async () => '',
   browser_logs: async (params, _id): Promise<string> => {
     Spinner.get().start()
