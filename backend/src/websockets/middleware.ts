@@ -15,9 +15,14 @@ import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { pluralize } from 'common/util/string'
 import { env } from '@/env.mjs'
-import { extractOwnerAndRepo } from '@codebuff/billing/src/org-billing'
-import { findOrganizationForRepository, OrganizationLookupResult } from '@codebuff/billing/src/credit-delegation'
-import { LRUCache } from 'common/util/lru-cache'
+import {
+  calculateOrganizationUsageAndBalance,
+  extractOwnerAndRepo,
+} from '@codebuff/billing/src/org-billing'
+import {
+  findOrganizationForRepository,
+  OrganizationLookupResult,
+} from '@codebuff/billing/src/credit-delegation'
 import { updateRequestContext } from './request-context'
 import { withAppContext } from '../context/app-context'
 
@@ -131,6 +136,112 @@ protec.use(async (action, clientSessionId, ws, userInfo) =>
   })
 )
 
+// Organization repository coverage detection middleware
+protec.use(async (action, clientSessionId, ws, userInfo) => {
+  const userId = userInfo?.id
+
+  // Only process actions that have repoUrl as a valid string
+  if (
+    !('repoUrl' in action) ||
+    typeof action.repoUrl !== 'string' ||
+    !action.repoUrl ||
+    !userId
+  ) {
+    return undefined
+  }
+
+  const repoUrl = action.repoUrl
+
+  try {
+    // Extract owner and repo from URL
+    const ownerRepo = extractOwnerAndRepo(repoUrl)
+    if (!ownerRepo) {
+      logger.debug(
+        { userId, repoUrl },
+        'Could not extract owner/repo from repository URL'
+      )
+      return undefined
+    }
+
+    const { owner, repo } = ownerRepo
+
+    // Perform lookup (cache removed)
+    const orgLookup = await findOrganizationForRepository(userId, repoUrl)
+
+    // If an organization covers this repository, check its balance
+    if (orgLookup.found && orgLookup.organizationId) {
+      const now = new Date()
+      // For balance checking, precise quotaResetDate isn't as critical as for usageThisCycle.
+      // Using a far past date ensures all grants are considered for current balance.
+      const orgQuotaResetDate = new Date(0)
+      const { balance: orgBalance } =
+        await calculateOrganizationUsageAndBalance(
+          orgLookup.organizationId,
+          orgQuotaResetDate,
+          now
+        )
+
+      if (orgBalance.totalRemaining <= 0) {
+        const orgName = orgLookup.organizationName || 'Your organization'
+        const message =
+          orgBalance.totalDebt > 0
+            ? `The organization '${orgName}' has a balance of negative ${pluralize(Math.abs(orgBalance.totalDebt), 'credit')}. Please contact your organization administrator.`
+            : `The organization '${orgName}' does not have enough credits for this action. Please contact your organization administrator.`
+
+        logger.warn(
+          {
+            userId,
+            repoUrl,
+            organizationId: orgLookup.organizationId,
+            organizationName: orgName,
+            orgBalance: orgBalance.netBalance,
+          },
+          'Organization has insufficient credits, gating request.'
+        )
+        return {
+          type: 'action-error',
+          error: 'Insufficient organization credits',
+          message,
+          remainingBalance: orgBalance.netBalance, // Send org balance here
+        }
+      }
+    }
+
+    // Update request context with the results
+    updateRequestContext({
+      currentUserId: userId,
+      approvedOrgIdForRepo: orgLookup.found
+        ? orgLookup.organizationId
+        : undefined,
+      processedRepoUrl: repoUrl,
+      processedRepoOwner: owner,
+      processedRepoName: repo,
+      processedRepoId: `${owner}/${repo}`,
+      isRepoApprovedForUserInOrg: orgLookup.found,
+    })
+
+    logger.debug(
+      {
+        userId,
+        repoUrl,
+        owner,
+        repo,
+        isApproved: orgLookup.found,
+        organizationId: orgLookup.organizationId,
+        organizationName: orgLookup.organizationName,
+      },
+      'Organization repository coverage processed'
+    )
+  } catch (error) {
+    logger.error(
+      { userId, repoUrl, error },
+      'Error processing organization repository coverage'
+    )
+  }
+
+  return undefined
+})
+
 protec.use(async (action, clientSessionId, ws, userInfo) => {
   const userId = userInfo?.id
   const fingerprintId =
@@ -209,87 +320,3 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
 
   return undefined
 })
-
-// Organization repository coverage detection middleware
-protec.use(async (action, clientSessionId, ws, userInfo) => {
-  const userId = userInfo?.id
-
-  // Only process actions that have repoUrl as a valid string
-  if (!('repoUrl' in action) || typeof action.repoUrl !== 'string' || !action.repoUrl || !userId) {
-    return undefined
-  }
-
-  const repoUrl = action.repoUrl
-
-  try {
-    // Extract owner and repo from URL
-    const ownerRepo = extractOwnerAndRepo(repoUrl)
-    if (!ownerRepo) {
-      logger.debug(
-        { userId, repoUrl },
-        'Could not extract owner/repo from repository URL'
-      )
-      return undefined
-    }
-
-    const { owner, repo } = ownerRepo
-
-    // Check cache first
-    const cacheKey = `${userId}:${repoUrl}`
-    let orgLookup = orgCoverageCache.get(cacheKey)
-
-    if (!orgLookup) {
-      // Cache miss - perform lookup
-      orgLookup = await findOrganizationForRepository(userId, repoUrl)
-      
-      // Cache the result for 5 minutes (300 seconds)
-      orgCoverageCache.set(cacheKey, orgLookup)
-      
-      logger.debug(
-        { userId, repoUrl, orgLookup, cacheKey },
-        'Organization coverage lookup performed and cached'
-      )
-    } else {
-      logger.debug(
-        { userId, repoUrl, orgLookup, cacheKey },
-        'Organization coverage lookup retrieved from cache'
-      )
-    }
-
-    // Update request context with the results
-    updateRequestContext({
-      currentUserId: userId,
-      approvedOrgIdForRepo: orgLookup.found ? orgLookup.organizationId : undefined,
-      processedRepoUrl: repoUrl,
-      processedRepoOwner: owner,
-      processedRepoName: repo,
-      processedRepoId: `${owner}/${repo}`,
-      isRepoApprovedForUserInOrg: orgLookup.found,
-    })
-
-    logger.debug(
-      {
-        userId,
-        repoUrl,
-        owner,
-        repo,
-        isApproved: orgLookup.found,
-        organizationId: orgLookup.organizationId,
-        organizationName: orgLookup.organizationName,
-      },
-      'Organization repository coverage processed'
-    )
-  } catch (error) {
-    logger.error(
-      { userId, repoUrl, error },
-      'Error processing organization repository coverage'
-    )
-    // Don't fail the request, just continue without organization context
-  }
-
-  return undefined
-})
-
-// Cache for organization repository coverage checks
-// Key: userId:repoUrl, Value: OrganizationLookupResult
-const orgCoverageCache = new LRUCache<string, OrganizationLookupResult>(1000)

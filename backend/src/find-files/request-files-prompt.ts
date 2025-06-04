@@ -50,7 +50,7 @@ export async function requestRelevantFiles(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoId: string | undefined // Parameter is repoId
+  repoId: string | undefined
 ) {
   const countPerRequest = {
     lite: 8,
@@ -106,7 +106,7 @@ export async function requestRelevantFiles(
     userInputId,
     userId,
     costMode,
-    repoId // Pass repoId
+    repoId
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
@@ -163,7 +163,7 @@ export async function requestRelevantFilesForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoId: string | undefined // Parameter is repoId
+  repoId: string | undefined
 ) {
   const COUNT = 50
 
@@ -203,7 +203,7 @@ export async function requestRelevantFilesForTraining(
     userInputId,
     userId,
     costMode,
-    repoId // Pass repoId
+    repoId
   )
 
   const nonObviousFiles = await getRelevantFilesForTraining(
@@ -219,7 +219,7 @@ export async function requestRelevantFilesForTraining(
     userInputId,
     userId,
     costMode,
-    repoId // Pass repoId
+    repoId
   )
 
   const candidateFiles = [...keyFiles.files, ...nonObviousFiles.files]
@@ -247,7 +247,7 @@ async function getRelevantFiles(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoId: string | undefined // Parameter is repoId
+  repoId: string | undefined
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -282,12 +282,12 @@ async function getRelevantFiles(
 
   let response = await promptFlashWithFallbacks(coreMessages, {
     clientSessionId,
-    fingerprintId,
     userInputId,
     model: models.gemini2flash,
     userId,
     costMode,
     useFinetunedModel: finetunedModel,
+    fingerprintId,
   })
   const end = performance.now()
   const duration = end - start
@@ -309,8 +309,8 @@ async function getRelevantFiles(
       user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
-      model: models.ft_filepicker_005, // Ensure this uses the static model for the trace
-      repo_name: repoId,             // Use repoId parameter for trace
+      model: finetunedModel,
+      repo_name: repoId, // Use repoId parameter for trace
     },
   }
 
@@ -337,7 +337,7 @@ async function getRelevantFilesForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoId: string | undefined // Parameter is repoId
+  repoId: string | undefined
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -382,7 +382,7 @@ async function getRelevantFilesForTraining(
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
       model: models.ft_filepicker_005, // Use specific model for trace
-      repo_name: repoId,             // Use repoId parameter for trace
+      repo_name: repoId, // Use repoId parameter for trace
     },
   }
 
