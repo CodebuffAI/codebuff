@@ -1,76 +1,65 @@
 import type { CreditBalance } from '@codebuff/billing'
 import { checkAndTriggerAutoTopup } from '@codebuff/billing'
 import * as billing from '@codebuff/billing'
-import { beforeEach, describe, expect, it, mock, afterEach, spyOn } from 'bun:test'
+import {
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  afterEach,
+  spyOn,
+} from 'bun:test'
 
 describe('Auto Top-up System', () => {
   describe('checkAndTriggerAutoTopup', () => {
     // Create fresh mocks for each test
     let dbMock: ReturnType<typeof mock>
     let balanceMock: ReturnType<typeof mock>
-    let paymentMethodsMock: ReturnType<typeof mock>
-    let paymentIntentMock: ReturnType<typeof mock>
+    let validateAutoTopupMock: ReturnType<typeof mock>
     let grantCreditsMock: ReturnType<typeof mock>
 
     beforeEach(() => {
-      // Clear previous mocks and set up logger again
-      mock.restore()
-
-      mock.module('../util/logger', () => ({
-        logger: {
-          debug: () => {},
-          error: () => {},
-          info: () => {},
-          warn: () => {},
-        },
-        withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-      }))
-
-      dbMock = mock(() => ({
-        id: 'test-user',
-        stripe_customer_id: 'cus_123',
-        auto_topup_enabled: true,
-        auto_topup_threshold: 100,
-        auto_topup_amount: 500,
-        next_quota_reset: new Date(),
-      }))
+      // Set up default mocks
+      dbMock = mock(() =>
+        Promise.resolve({
+          auto_topup_enabled: true,
+          auto_topup_threshold: 100,
+          auto_topup_amount: 500,
+          stripe_customer_id: 'cus_123',
+          next_quota_reset: new Date(),
+        })
+      )
 
       balanceMock = mock(() =>
         Promise.resolve({
           usageThisCycle: 0,
           balance: {
-            totalRemaining: 50, // Below threshold by default
+            totalRemaining: 50, // Below threshold
             totalDebt: 0,
             netBalance: 50,
             breakdown: {},
-          } as CreditBalance,
+          },
         })
       )
 
-      paymentMethodsMock = mock(() =>
+      validateAutoTopupMock = mock(() =>
         Promise.resolve({
-          data: [
-            {
-              id: 'pm_123',
-              card: {
-                exp_year: 2025,
-                exp_month: 12,
-              },
+          blockedReason: null,
+          validPaymentMethod: {
+            id: 'pm_123',
+            type: 'card',
+            card: {
+              exp_year: 2030,
+              exp_month: 12,
             },
-          ],
-        })
-      )
-
-      paymentIntentMock = mock(() =>
-        Promise.resolve({
-          status: 'succeeded',
-          id: 'pi_123',
+          },
         })
       )
 
       grantCreditsMock = mock(() => Promise.resolve())
 
-      // Set up module mocks with fresh mocks
+      // Mock the database
       mock.module('common/db', () => ({
         default: {
           query: {
@@ -87,15 +76,23 @@ describe('Auto Top-up System', () => {
       }))
 
       spyOn(billing, 'calculateUsageAndBalance').mockImplementation(balanceMock)
-      spyOn(billing, 'processAndGrantCredit').mockImplementation(grantCreditsMock)
+      spyOn(billing, 'validateAutoTopupStatus').mockImplementation(
+        validateAutoTopupMock
+      )
+      spyOn(billing, 'processAndGrantCredit').mockImplementation(
+        grantCreditsMock
+      )
 
+      // Mock Stripe payment intent creation
       mock.module('common/src/util/stripe', () => ({
         stripeServer: {
-          paymentMethods: {
-            list: paymentMethodsMock,
-          },
           paymentIntents: {
-            create: paymentIntentMock,
+            create: mock(() =>
+              Promise.resolve({
+                status: 'succeeded',
+                id: 'pi_123',
+              })
+            ),
           },
         },
       }))
@@ -110,8 +107,8 @@ describe('Auto Top-up System', () => {
       // Should check balance
       expect(balanceMock).toHaveBeenCalled()
 
-      // Should create payment intent
-      expect(paymentIntentMock).toHaveBeenCalled()
+      // Should validate auto top-up status
+      expect(validateAutoTopupMock).toHaveBeenCalled()
 
       // Should grant credits
       expect(grantCreditsMock).toHaveBeenCalled()
@@ -133,7 +130,12 @@ describe('Auto Top-up System', () => {
 
       // Update the spies with the new mock implementations
       spyOn(billing, 'calculateUsageAndBalance').mockImplementation(balanceMock)
-      spyOn(billing, 'processAndGrantCredit').mockImplementation(grantCreditsMock)
+      spyOn(billing, 'validateAutoTopupStatus').mockImplementation(
+        validateAutoTopupMock
+      )
+      spyOn(billing, 'processAndGrantCredit').mockImplementation(
+        grantCreditsMock
+      )
 
       await checkAndTriggerAutoTopup('test-user')
 
@@ -141,8 +143,10 @@ describe('Auto Top-up System', () => {
       expect(dbMock).toHaveBeenCalled()
       expect(balanceMock).toHaveBeenCalled()
 
-      // But should not create payment or grant credits
-      expect(paymentIntentMock.mock.calls.length).toBe(0)
+      // Should still validate auto top-up (this happens before balance check)
+      expect(validateAutoTopupMock.mock.calls.length).toBe(0)
+
+      // But should not grant credits
       expect(grantCreditsMock.mock.calls.length).toBe(0)
     })
 
@@ -162,7 +166,12 @@ describe('Auto Top-up System', () => {
 
       // Update the spies with the new mock implementations
       spyOn(billing, 'calculateUsageAndBalance').mockImplementation(balanceMock)
-      spyOn(billing, 'processAndGrantCredit').mockImplementation(grantCreditsMock)
+      spyOn(billing, 'validateAutoTopupStatus').mockImplementation(
+        validateAutoTopupMock
+      )
+      spyOn(billing, 'processAndGrantCredit').mockImplementation(
+        grantCreditsMock
+      )
 
       await checkAndTriggerAutoTopup('test-user')
 
@@ -172,27 +181,29 @@ describe('Auto Top-up System', () => {
       expect(grantCreditsMock.mock.calls[0]?.[1]).toBe(600)
     })
 
-    it('should disable auto-topup when payment fails', async () => {
-      // Set up payment failure mock
-      paymentIntentMock = mock(() =>
+    it('should disable auto-topup when validation fails', async () => {
+      // Set up validation failure mock
+      validateAutoTopupMock = mock(() =>
         Promise.resolve({
-          status: 'requires_payment_method',
+          blockedReason: 'No valid payment method found',
+          validPaymentMethod: null,
         })
       )
 
-      // Update the module mock
-      mock.module('common/src/util/stripe', () => ({
-        stripeServer: {
-          paymentMethods: {
-            list: paymentMethodsMock,
-          },
-          paymentIntents: {
-            create: paymentIntentMock,
-          },
-        },
-      }))
+      // Update the spy with the new mock implementation
+      spyOn(billing, 'validateAutoTopupStatus').mockImplementation(
+        validateAutoTopupMock
+      )
 
-      await expect(checkAndTriggerAutoTopup('test-user')).rejects.toThrow()
+      await expect(checkAndTriggerAutoTopup('test-user')).rejects.toThrow(
+        'No valid payment method found'
+      )
+
+      // Should have called validation
+      expect(validateAutoTopupMock).toHaveBeenCalled()
+
+      // Should not grant credits
+      expect(grantCreditsMock.mock.calls.length).toBe(0)
     })
 
     afterEach(() => {

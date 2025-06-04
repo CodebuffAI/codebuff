@@ -216,14 +216,6 @@ export async function checkAndTriggerAutoTopup(
       return undefined
     }
 
-    // Validate payment method
-    const { blockedReason, validPaymentMethod } =
-      await validateAutoTopupStatus(userId)
-
-    if (blockedReason || !validPaymentMethod) {
-      throw new Error(blockedReason || 'Auto top-up is not available.')
-    }
-
     // Calculate balance
     const { balance } = await calculateUsageAndBalance(
       userId,
@@ -269,6 +261,14 @@ export async function checkAndTriggerAutoTopup(
       },
       `Auto-top-up needed for user ${userId}. Will attempt to purchase ${amountToTopUp} credits.`
     )
+
+    // Validate payment method
+    const { blockedReason, validPaymentMethod } =
+      await validateAutoTopupStatus(userId)
+
+    if (blockedReason || !validPaymentMethod) {
+      throw new Error(blockedReason || 'Auto top-up is not available.')
+    }
 
     try {
       await processAutoTopupPayment(
