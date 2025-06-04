@@ -388,7 +388,7 @@ export class CLI {
   private getModeIndicator(): string {
     const costModeIndicator =
       this.costMode !== 'normal' ? ` (${this.costMode})` : ''
-    const managerModeIndicator = this.isManagerMode ? ' (manager)' : ''
+    const managerModeIndicator = this.isManagerMode ? ' (superagent)' : ''
     return costModeIndicator + managerModeIndicator
   }
 
@@ -564,10 +564,10 @@ export class CLI {
         command: mode,
       })
 
-      // Exit manager mode if currently in it
+      // Exit superagent mode if currently in it
       if (this.isManagerMode) {
         this.isManagerMode = false
-        console.log(green('🔄 Exiting manager mode...'))
+        console.log(green('🔄 Exiting superagent mode...'))
       }
 
       this.costMode = mode
@@ -612,12 +612,12 @@ export class CLI {
       return userInput // Let it be processed as a prompt
     }
 
-    // Handle /manager command - enter manager mode
-    if (cleanInput === 'manager') {
+    // Handle /superagent command - enter superagent mode
+    if (cleanInput === 'superagent') {
       this.isManagerMode = true
-      console.log(magenta('🤖 Entering Manager Mode...'))
+      console.log(magenta('🤖 Entering Superagent Mode...'))
       console.log(
-        cyan('You are now chatting with Codebuff in autonomous manager mode.')
+        cyan('You are now chatting with Codebuff in autonomous superagent mode.')
       )
       console.log(gray('Type "/normal" to return to normal mode.'))
       this.freshPrompt()

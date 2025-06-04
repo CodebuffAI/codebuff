@@ -160,8 +160,8 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
-    baseCommand: 'manager',
-    description: 'Enter autonomous manager mode for multi-step tasks',
+    baseCommand: 'superagent',
+    description: 'Enter autonomous superagent mode for multi-step tasks',
     isSlashCommand: true,
     commandText: '',
   },

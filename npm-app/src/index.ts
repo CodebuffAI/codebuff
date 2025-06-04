@@ -137,7 +137,7 @@ For all commands and options, run 'codebuff' and then type 'help'.
   }
 
   let isManager = false
-  if (options.manager) {
+  if (options.superagent) {
     isManager = true
   }
 

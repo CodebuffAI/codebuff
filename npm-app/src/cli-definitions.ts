@@ -67,9 +67,9 @@ export const cliOptions: CliParam[] = [
     hidden: true,
   },
   {
-    flags: '--manager',
-    description: 'Start in manager mode (autonomously use codebuff)',
-    menuDescription: 'Start in manager mode (autonomously use codebuff)',
+    flags: '--superagent',
+    description: 'Start in superagent mode (autonomously use codebuff)',
+    menuDescription: 'Start in superagent mode (autonomously use codebuff)',
     hidden: true,
   },
 ]
