@@ -1,5 +1,6 @@
 import assert from 'assert'
 import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
+import * as fs from 'fs'
 import { createWriteStream, mkdirSync, WriteStream } from 'fs'
 import * as os from 'os'
 import path, { dirname } from 'path'
@@ -147,6 +148,16 @@ const createPersistantProcess = (
       persistentPty.write(
         `PS1=${promptIdentifier} && PS2=${promptIdentifier}\n`
       )
+    }
+
+    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local') {
+      persistentPty.onData((data: string) => {
+        mkdirSync('debug', { recursive: true })
+        fs.appendFileSync(
+          'debug/terminal.log',
+          `${Date.now()}: ${JSON.stringify({ data })} temporary debug log for pty data\n`
+        )
+      })
     }
 
     return { type: 'pty', shell: 'pty', pty: persistentPty, timerId: null }
