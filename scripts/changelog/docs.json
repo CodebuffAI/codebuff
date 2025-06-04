@@ -1,0 +1,19 @@
+{
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Changelog",
+        "groups": [
+          {
+            "group": "Q2 2025",
+            "pages": [
+              "changelog/2025-06-01-version-10305-release-enhanced-ai-models-new-commands-and-performance-improvements",
+              "changelog/2025-05-25-version-10295-enhanced-ai-models-and-user-experience-improvements",
+              "changelog/2025-05-18-version-10283-release-enhanced-assistant-experience-system-stability"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

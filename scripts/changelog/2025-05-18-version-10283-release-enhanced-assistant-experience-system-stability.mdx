@@ -1,0 +1,69 @@
+---
+title: "Version 1.0.283 Release - Enhanced Assistant Experience & System Stability"
+description: "Week 20, 2025 — May 12 to May 18"
+---
+
+### 🚀 New Features
+
+- **Self-Review Capability**: Added self-review feature to improve response quality
+- **Enhanced Help Menu**: Implemented better help menu with improved user guidance
+- **Deterministic Sampling**: Introduced seedrandom package and deterministic sampling with `sampleSizeWithSeed` for more consistent behavior
+
+### 🔧 Improvements
+
+- **Assistant Message Decoupling**: Each assistant message is now decoupled from previous messages for better context management
+- **Enhanced User Guidance**:
+  - Added clearer current working directory (cwd) prompting and parameter support
+  - Improved instructions for tool results
+  - Enhanced prompting about using the end_turn tool
+- **Client Architecture**: Made client singleton for better resource management
+- **Terminal Command Security**: Terminal commands now only allowed from project root directory
+- **File Processing**: Added file path information in error messages to assistant for better debugging
+- **Training Data Optimization**:
+  - Request key files for training and merge with non-obvious files
+  - Only record file training data when files are requested
+  - Users no longer charged for filepicker training data
+
+### 🐛 Bug Fixes
+
+- **XML Processing**:
+  - Fixed saxy undefined defaultEncoding issue by always using UTF-8
+  - Added safeguards for agent-provided XML
+  - Improved warnings for invalid XML
+- **File Operations**:
+  - Made regex for parseReadFilesResult more lenient with whitespaces
+  - Fixed out-of-order chunks issue
+  - Added carriage returns to all newlines
+- **History Management**: Fixed bug with deleting history
+- **Balance System**:
+  - Initialize balance breakdown with all grant types (#144)
+  - Always itemize principals
+  - Removed invoice.created event (all invoices charged at zero dollars)
+- **Testing**:
+  - Fixed failing saxy tests
+  - Added referenced_by tag to simplify-tool-results tests
+  - Resolved type errors in web and backend related to GrantType
+
+### 🔄 System Changes
+
+- **Database Optimization**:
+  - Added index on message for finished_at
+  - Changed index to be on finished_at AND id for better query performance
+- **Tool Management**:
+  - Removed end_turn + await_tool_results tools
+  - Added back end_turn tool with simplified reprompting for pending tool results
+- **Agent Behavior**:
+  - Reduced maximum consecutive assistant messages
+  - Less agentic behavior in lite mode
+  - Decreased chunk limit for better performance
+  - Enhanced prompt history with non-unique prompts moved to end
+
+### 🛠️ Technical Improvements
+
+- **Error Handling**: Improved error message passing from processFileBlock and processStrReplace
+- **Logging**:
+  - Added user_input tracking (distinct from agent_step)
+  - Removed prompt_sent logging
+  - Turned off credit log spam
+  - Added agent_step event tracking in main prompt
+- **CI/CD**: Multiple GitHub Actions fixes and improvements for better build reliability

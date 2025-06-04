@@ -1,0 +1,74 @@
+---
+title: "Version 1.0.295 - Enhanced AI Models and User Experience Improvements"
+description: "Week 21, 2025 — May 19 to May 25"
+---
+
+### 🚀 New Features
+
+- **Claude Opus Model Support**: Added support for the new Claude Opus model with improved labeling (Opus + Sonnet)
+- **Slash Menu System**: Introduced interactive slash command menu with enhanced formatting and descriptions
+- **Project Setup Command**: Added `/init` command to help users initialize their project configuration
+- **File Picker Grading**: Added groundwork for file-picker grading functionality with new relabel options in UI
+
+### 🔧 Model & AI Improvements
+
+- **Upgraded to Claude Sonnet 4**: Switched from Sonnet 3.6 to the more powerful Sonnet 4 model
+- **Updated Flash Model**: Updated to Flash 2.5 (May 20th preview version)
+- **O4-Mini Integration**: Now using O4-Mini for large file search and replace operations
+- **Enhanced Prompting**: Added Anthropic-recommended prompts and improved instruction following
+- **Reduced Verbosity**: Streamlined Gemini thinking output now that Claude 4 provides stronger performance
+
+### 🛡️ Security & Safety
+
+- **Stronger Script Protection**: Enhanced prompting to prevent unauthorized script execution
+- **Background Process Warnings**: Added prompting alerts for background processes
+- **Improved Safety Instructions**: Added better instructions for escaping and handling dangerous operations
+
+### 🐛 Bug Fixes
+
+- **Code Search Fix**: Resolved code search functionality and added proper spacing before periods
+- **Quote Preservation**: Fixed issue where quotes were incorrectly removed from code search patterns
+- **XML Entity Parsing**: Corrected XML entity parsing issues
+- **Command/Ctrl Click**: Fixed broken command/ctrl click functionality
+- **Windows Terminal Fix**: Resolved terminal command hanging issues on Windows
+- **Newline Handling**: Fixed bugs related to newline processing
+
+### ⚡ Performance & UX Enhancements
+
+- **Larger File Support**: Enabled relace functionality for larger files with configurable limits
+- **Improved Context Handling**: Enhanced Context 7 functionality with increased timeout
+- **Better Directory Management**:
+  - Added `isSubdir` function for better directory handling
+  - Improved startup behavior when launched from home or root directories
+  - Enhanced current working directory prompting
+- **Readline Improvements**: Made readline functionality public for better accessibility
+- **Enhanced Analytics**:
+  - Added user input completion tracking with latency metrics
+  - Improved analytics for help menu usage
+  - Added failure tracking for update processes
+
+### 🎨 Interface Improvements
+
+- **Restored Classic Coloring**: Brought back randomized coloring system (selects 3 colors first)
+- **Better Help System**:
+  - Improved help command table spacing and formatting
+  - Renamed "Diagnostics Check" to "Project Setup" for clarity
+  - Enhanced startup menu for home directory scenarios
+- **Slash Command Enhancements**:
+  - Simplified command processing with filter + sort chains
+  - Added dedicated methods for command cleaning and validation
+  - Improved error handling for unknown commands
+
+### 🔧 Technical Improvements
+
+- **Dependency Updates**: Switched from `readable-stream` to `node:stream` for better Node.js compatibility
+- **Parameter Handling**: Improved parsing to ignore new parameters while processing existing ones
+- **Event Tracking**: Enhanced event tracking system with better failure handling
+- **Content Management**:
+  - Improved pasted content consideration for slash menu
+  - Better handling of fresh prompts and content clearing
+  - Enhanced user message tagging system
+
+---
+
+_This release focuses on significantly improving AI model capabilities, user safety, and overall experience while maintaining backward compatibility._

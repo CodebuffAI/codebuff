@@ -1,0 +1,61 @@
+---
+title: "Version 1.0.305 Release - Enhanced AI Models, New Commands, and Performance Improvements"
+description: "Week 22, 2025 — May 26 to June 1"
+---
+
+### 🚀 New Features
+
+- **New AI Models**: Added support for multiple new fine-tuned models including `top-2-tuned` and `ft-file-picker 007` for improved performance
+- **Export Command**: Introduced `/export` command to summarize conversations and save them to files for easy sharing and documentation
+- **Ask Mode**: Implemented new `/ask` mode for streamlined interactions (mode switching now supports optional "/" prefix)
+- **Reset Command**: Added `/reset` command to clear conversation history and reset project file context cache
+- **Experimental Commands**: New experimental command framework for testing upcoming features
+
+### 🔧 Improvements
+
+- **AI SDK Migration**: Major refactoring to use unified AI SDK approach, consolidating provider-specific implementations and reducing code duplication
+- **Prompt Caching**: Reorganized agent messages and instructions for better prompt caching performance
+- **Message Management**:
+  - Added time-to-live (TTL) functionality for messages with automatic expiration
+  - Improved message schema migration to CoreMessage format
+  - Enhanced tool message handling with better error handling
+- **Performance Optimizations**:
+  - Increased output token budget for main agent
+  - Switched to Promise.allSettled for relabel operations
+  - More modular tools.ts refactoring
+  - Improved monthly usage calculations to use current month data
+
+### 🐛 Bug Fixes
+
+- **UI Fixes**:
+  - Fixed scrolling issues in file picker table
+  - Prevented unwanted navigation in admin file picker
+- **Message Handling**:
+  - Fixed duplicate "previous assistant" instructions appearing multiple times
+  - Resolved cache control issues with previous messages
+  - Fixed tool call ID extraction for different message formats
+- **System Stability**:
+  - Improved WebSocket connection handling with proper cleanup on exit
+  - Better error handling for PostHog analytics
+  - Fixed npm-app build issues
+
+### 🔄 Technical Changes
+
+- **Code Organization**:
+  - Removed legacy API files (deepseek-api.ts, openai-api.ts, gemini-api.ts)
+  - Consolidated LLM streaming implementations
+  - Improved eval system with better file organization
+- **Search Improvements**:
+  - Added '@' symbol for matching file paths and tokens
+  - Limited search matches to 20 results for better performance
+  - Added `code_search` as stop sequence
+- **Analytics**: Enhanced tracking with git repository statistics and improved user data collection
+
+### 📚 Documentation
+
+- Updated README with new fine-tuned model information
+- Improved npm package documentation
+
+---
+
+_This release focuses on consolidating our AI infrastructure while adding powerful new features for better user experience and performance._
