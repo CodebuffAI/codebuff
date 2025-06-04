@@ -173,43 +173,25 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     if (orgLookup.found && orgLookup.organizationId) {
       // Check and trigger organization auto top-up if needed
       try {
-        logger.info(
-          { 
-            organizationId: orgLookup.organizationId, 
-            organizationName: orgLookup.organizationName,
-            userId, 
-            repoUrl,
-            action: 'starting_org_auto_topup_check'
-          },
-          'Starting organization auto top-up check in middleware'
-        )
-        
         await checkAndTriggerOrgAutoTopup(orgLookup.organizationId, userId)
-        
-        logger.debug(
-          { 
-            organizationId: orgLookup.organizationId, 
-            organizationName: orgLookup.organizationName,
-            userId, 
-            repoUrl,
-            action: 'completed_org_auto_topup_check'
-          },
-          'Successfully completed organization auto top-up check in middleware'
-        )
       } catch (error) {
         logger.error(
-          { 
-            error: error instanceof Error ? {
-              name: error.name,
-              message: error.message,
-              stack: error.stack
-            } : error,
-            organizationId: orgLookup.organizationId, 
+          {
+            error:
+              error instanceof Error
+                ? {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                  }
+                : error,
+            organizationId: orgLookup.organizationId,
             organizationName: orgLookup.organizationName,
-            userId, 
+            userId,
             repoUrl,
             action: 'failed_org_auto_topup_check',
-            errorType: error instanceof Error ? error.constructor.name : typeof error
+            errorType:
+              error instanceof Error ? error.constructor.name : typeof error,
           },
           'Error during organization auto top-up check in middleware'
         )
@@ -324,38 +306,23 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   // Check if we need to trigger auto top-up and get the amount added (if any)
   let autoTopupAdded: number | undefined = undefined
   try {
-    logger.debug(
-      { 
-        userId, 
-        clientSessionId,
-        action: 'starting_user_auto_topup_check'
-      },
-      'Starting user auto top-up check in middleware'
-    )
-    
     autoTopupAdded = await checkAndTriggerAutoTopup(userId)
-    
-    logger.debug(
-      { 
-        userId, 
-        clientSessionId,
-        autoTopupAdded,
-        action: 'completed_user_auto_topup_check'
-      },
-      'Successfully completed user auto top-up check in middleware'
-    )
   } catch (error) {
     logger.error(
-      { 
-        error: error instanceof Error ? {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        } : error,
-        userId, 
+      {
+        error:
+          error instanceof Error
+            ? {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+              }
+            : error,
+        userId,
         clientSessionId,
         action: 'failed_user_auto_topup_check',
-        errorType: error instanceof Error ? error.constructor.name : typeof error
+        errorType:
+          error instanceof Error ? error.constructor.name : typeof error,
       },
       'Error during auto top-up check in middleware'
     )
