@@ -9,7 +9,15 @@ import type { CostMode } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
-import { blueBright, cyan, gray, green, magenta, yellow } from 'picocolors'
+import {
+  blueBright,
+  bold,
+  cyan,
+  gray,
+  green,
+  magenta,
+  yellow,
+} from 'picocolors'
 
 import {
   killAllBackgroundProcesses,
@@ -933,30 +941,43 @@ export class CLI {
     Client.getInstance().close() // Close WebSocket
 
     const client = Client.getInstance()
-    const logMessages = []
+    
+    // Check for organization coverage first
+    const coverage = await client.checkRepositoryCoverage()
+    
+    // Calculate session usage and total for display
     const totalCreditsUsedThisSession = Object.values(client.creditsByPromptId)
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
 
-    logMessages.push(
-      `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session${
-        client.usageData.remainingBalance !== null
-          ? `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`
-          : '.'
-      }`
-    )
-
-    if (client.usageData.next_quota_reset) {
-      const daysUntilReset = Math.ceil(
-        (new Date(client.usageData.next_quota_reset).getTime() - Date.now()) /
-          (1000 * 60 * 60 * 24)
+    let exitUsageMessage = `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session`
+    if (client.usageData.remainingBalance !== null) {
+      exitUsageMessage += `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`
+    } else {
+      exitUsageMessage += '.'
+    }
+    console.log(exitUsageMessage)
+    
+    if (coverage.isCovered && coverage.organizationName) {
+      // When covered by an organization, show organization information
+      console.log(
+        green(
+          `Your usage in this repository was covered by the ${bold(coverage.organizationName)} organization.`
+        )
       )
-      logMessages.push(
-        `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`
-      )
+    } else {
+      // Only show personal credit renewal when not covered by an organization
+      if (client.usageData.next_quota_reset) {
+        const daysUntilReset = Math.ceil(
+          (new Date(client.usageData.next_quota_reset).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24)
+        )
+        console.log(
+          `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`
+        )
+      }
     }
 
-    console.log(logMessages.join(' '))
     await flushAnalytics()
 
     process.exit(0)

@@ -67,6 +67,7 @@ export const SignInButton = ({
       <img
         src={`https://s2.googleusercontent.com/s2/favicons?domain=${providerDomain}`}
         className="rounded-full"
+        alt={`${providerName} logo`}
       />
       Continue with{' '}
       {providerName === 'github'

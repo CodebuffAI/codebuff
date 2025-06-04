@@ -63,7 +63,7 @@ export async function getOrderedActiveGrants(
 /**
  * Updates a single grant's balance and logs the change.
  */
-async function updateGrantBalance(
+export async function updateGrantBalance(
   userId: string,
   grant: typeof schema.creditLedger.$inferSelect,
   consumed: number,
@@ -91,7 +91,7 @@ async function updateGrantBalance(
 /**
  * Consumes credits from a list of ordered grants.
  */
-async function consumeFromOrderedGrants(
+export async function consumeFromOrderedGrants(
   userId: string,
   creditsToConsume: number,
   grants: (typeof schema.creditLedger.$inferSelect)[],
@@ -182,7 +182,8 @@ export async function calculateUsageAndBalance(
   userId: string,
   quotaResetDate: Date,
   now: Date = new Date(),
-  conn: DbConn = db // Add optional conn parameter to pass transaction
+  conn: DbConn = db, // Add optional conn parameter to pass transaction
+  isPersonalContext: boolean = false // Add flag to exclude organization credits for personal usage
 ): Promise<CreditUsageAndBalance> {
   // Get all relevant grants in one query, using the provided connection
   const grants = await getOrderedActiveGrants(userId, now, conn)
@@ -219,6 +220,11 @@ export async function calculateUsageAndBalance(
   // First pass: calculate initial totals and usage
   for (const grant of grants) {
     const grantType = grant.type as GrantType
+
+    // Skip organization credits for personal context
+    if (isPersonalContext && grantType === 'organization') {
+      continue
+    }
 
     // Calculate usage if grant was active in this cycle
     if (
@@ -260,7 +266,7 @@ export async function calculateUsageAndBalance(
   balance.netBalance = totalPositiveBalance - totalDebt
 
   logger.debug(
-    { userId, balance, usageThisCycle, grantsCount: grants.length },
+    { userId, balance, usageThisCycle, grantsCount: grants.length, isPersonalContext },
     'Calculated usage and settled balance'
   )
 

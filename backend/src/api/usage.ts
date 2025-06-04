@@ -10,11 +10,13 @@ import { eq } from 'drizzle-orm'
 
 import { checkAuth } from '../util/check-auth'
 import { genUsageResponse } from '../websockets/websocket-action'
+import { getOrganizationUsageResponse } from '@codebuff/billing'
 import { logger } from '@/util/logger'
 
 const usageRequestSchema = z.object({
   fingerprintId: z.string(),
   authToken: z.string().optional(),
+  orgId: z.string().optional(),
 })
 
 async function getUserIdFromAuthToken(
@@ -35,7 +37,7 @@ async function usageHandler(
   next: NextFunction
 ): Promise<void | ExpressResponse> {
   try {
-    const { fingerprintId, authToken } = usageRequestSchema.parse(req.body)
+    const { fingerprintId, authToken, orgId } = usageRequestSchema.parse(req.body)
     const clientSessionId = `api-${fingerprintId}-${Date.now()}`
 
     const authResult = await checkAuth({
@@ -59,6 +61,19 @@ async function usageHandler(
       return res.status(401).json({ message: 'Authentication failed' })
     }
 
+    // If orgId is provided, return organization usage data
+    if (orgId) {
+      try {
+        const orgUsageResponse = await getOrganizationUsageResponse(orgId, userId)
+        return res.status(200).json(orgUsageResponse)
+      } catch (error) {
+        logger.error({ error, orgId, userId }, 'Error fetching organization usage')
+        // If organization usage fails, fall back to personal usage
+        logger.info({ orgId, userId }, 'Falling back to personal usage due to organization error')
+      }
+    }
+
+    // Return personal usage data (default behavior)
     const usageResponse = await genUsageResponse(
       fingerprintId,
       userId,

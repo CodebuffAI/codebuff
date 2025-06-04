@@ -28,8 +28,10 @@ interface UsageDisplayProps {
   nextQuotaReset: Date | null
 }
 
+type FilteredGrantType = Exclude<GrantType, 'organization'>
+
 const grantTypeInfo: Record<
-  GrantType,
+  FilteredGrantType,
   {
     bg: string
     text: string
@@ -74,7 +76,7 @@ const grantTypeInfo: Record<
 }
 
 interface CreditLeafProps {
-  type: GrantType
+  type: FilteredGrantType
   amount: number
   used: number
   renewalDate?: Date | null
@@ -212,8 +214,8 @@ export const UsageDisplay = ({
   const { totalRemaining, breakdown, totalDebt, netBalance, principals } =
     balance
 
-  // Calculate used credits per type
-  const usedCredits: Record<GrantType, number> = {
+  // Calculate used credits per type (excluding organization)
+  const usedCredits: Record<FilteredGrantType, number> = {
     free: 0,
     referral: 0,
     purchase: 0,
@@ -222,14 +224,16 @@ export const UsageDisplay = ({
 
   Object.entries(GRANT_PRIORITIES).forEach(([type]) => {
     const typeKey = type as GrantType
-    const currentBalanceVal = breakdown[typeKey] || 0
-    const principalVal = principals[typeKey] || currentBalanceVal
-    usedCredits[typeKey] = Math.max(0, principalVal - currentBalanceVal)
+    if (typeKey !== 'organization') {
+      const currentBalanceVal = breakdown[typeKey] || 0
+      const principalVal = principals[typeKey] || currentBalanceVal
+      usedCredits[typeKey as FilteredGrantType] = Math.max(0, principalVal - currentBalanceVal)
+    }
   })
 
-  // Group credits by expiration type
-  const expiringTypes: GrantType[] = ['free', 'referral']
-  const nonExpiringTypes: GrantType[] = ['admin', 'purchase']
+  // Group credits by expiration type (excluding organization)
+  const expiringTypes: FilteredGrantType[] = ['free', 'referral']
+  const nonExpiringTypes: FilteredGrantType[] = ['admin', 'purchase']
 
   const expiringTotal = expiringTypes.reduce(
     (acc, type) => acc + (principals?.[type] || breakdown[type] || 0),
@@ -250,14 +254,6 @@ export const UsageDisplay = ({
     (acc, type) => acc + (usedCredits[type] || 0),
     0
   )
-
-  // Format date for display
-  const formattedRenewalDate = nextQuotaReset
-    ? nextQuotaReset.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-      })
-    : null
 
   return (
     <Card className="w-full max-w-2xl mx-auto -mt-8">

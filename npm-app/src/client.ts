@@ -1,4 +1,3 @@
-import { spawn } from 'child_process'
 import {
   existsSync,
   mkdirSync,
@@ -7,8 +6,7 @@ import {
   writeFileSync,
 } from 'fs'
 import os from 'os'
-import path from 'path'
-
+import { spawn } from 'child_process'
 import {
   FileChanges,
   FileChangeSchema,
@@ -19,7 +17,9 @@ import {
   ServerAction,
   UsageReponseSchema,
   UsageResponse,
+  ClientAction,
 } from 'common/actions'
+
 import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
 import {
   ASKED_CONFIG,
@@ -54,6 +54,8 @@ import {
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
+import gitUrlParse from 'git-url-parse'
+import path from 'path'
 
 import packageJson from '../package.json'
 import { getBackgroundProcessUpdates } from './background-process-manager'
@@ -261,7 +263,7 @@ export class Client {
 
   private async setRepoContext() {
     const repoMetrics = await getRepoMetrics()
-
+    loggerContext.repoUrl = repoMetrics.repoUrl
     loggerContext.repoName = repoMetrics.repoName
     loggerContext.repoAgeDays = repoMetrics.ageDays
     loggerContext.repoTrackedFiles = repoMetrics.trackedFiles
@@ -315,42 +317,6 @@ export class Client {
     if (!this.user || !this.user.authToken) {
       return
     }
-
-    // const TIMEOUT_MS = 5_000
-    //   try {
-    //     const timeoutPromise = new Promise<Response>((_, reject) => {
-    //       setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS)
-    //     })
-
-    //     const fetchPromise = fetch(
-    //       `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
-    //       {
-    //         method: 'GET',
-    //         headers: {
-    //           'Content-Type': 'application/json',
-    //           Cookie: `next-auth.session-token=${this.user.authToken}`,
-    //           Authorization: `Bearer ${this.user.authToken}`,
-    //         },
-    //       }
-    //     )
-
-    //     const response = await Promise.race([fetchPromise, timeoutPromise])
-
-    //     if (response.ok) {
-    //       const { keyTypes } = await response.json()
-    //       this.storedApiKeyTypes = keyTypes as ApiKeyType[]
-    //     } else {
-    //       this.storedApiKeyTypes = []
-    //     }
-    //   } catch (error) {
-    //     if (process.env.NODE_ENV !== 'production') {
-    //       console.error(
-    //         'Error fetching stored API key types (is there something else on port 3000?):',
-    //         error
-    //       )
-    //     }
-    //     this.storedApiKeyTypes = []
-    //   }
 
     this.storedApiKeyTypes = []
   }
@@ -515,6 +481,7 @@ export class Client {
             errorMessage:
               error instanceof Error ? error.message : String(error),
             errorStack: error instanceof Error ? error.stack : undefined,
+            msg: 'Error during logout',
           },
           'Error during logout'
         )
@@ -609,14 +576,6 @@ export class Client {
                   errorStatus: statusResponse.status,
                   errorStatusText: statusResponse.statusText,
                   msg: 'Error checking login status',
-                },
-                'Error checking login status'
-              )
-              logger.error(
-                {
-                  errorMessage: 'Error checking login status: ' + text,
-                  errorStatus: statusResponse.status,
-                  errorStatusText: statusResponse.statusText,
                 },
                 'Error checking login status'
               )
@@ -944,6 +903,7 @@ export class Client {
       costMode: this.costMode,
       model: this.model,
       cwd: getWorkingDirectory(),
+      repoUrl: loggerContext.repoUrl,
       repoName: loggerContext.repoName,
     }
     if (cli.isManagerMode) {
@@ -1181,7 +1141,7 @@ export class Client {
           toolResults.push(...getBackgroundProcessUpdates())
           // Continue the prompt with the tool results.
           Spinner.get().start()
-          this.webSocket.sendAction({
+          const continuePromptAction: ClientAction = {
             type: 'prompt',
             promptId: userInputId,
             prompt: undefined,
@@ -1191,8 +1151,10 @@ export class Client {
             authToken: this.user?.authToken,
             costMode: this.costMode,
             model: this.model,
-            repoName: loggerContext.repoName,
-          })
+            cwd: getWorkingDirectory(),
+            repoUrl: loggerContext.repoUrl,
+          }
+          this.webSocket.sendAction(continuePromptAction)
           return
         }
 
@@ -1279,6 +1241,9 @@ Go to https://www.codebuff.com/config for more information.`) +
 
   public async getUsage() {
     try {
+      // Check for organization coverage first
+      const coverage = await this.checkRepositoryCoverage()
+
       const response = await fetch(`${backendUrl}/api/usage`, {
         method: 'POST',
         headers: {
@@ -1287,6 +1252,8 @@ Go to https://www.codebuff.com/config for more information.`) +
         body: JSON.stringify({
           fingerprintId: await this.fingerprintId,
           authToken: this.user?.authToken,
+          ...(coverage.isCovered &&
+            coverage.organizationId && { orgId: coverage.organizationId }),
         }),
       })
 
@@ -1308,42 +1275,62 @@ Go to https://www.codebuff.com/config for more information.`) +
 
       this.setUsage(parsedResponse)
 
-      const usageLink = `${websiteUrl}/usage`
-      const remainingColor =
-        this.usageData.remainingBalance === null
-          ? yellow
-          : this.usageData.remainingBalance <= 0
-            ? red
-            : this.usageData.remainingBalance <= LOW_BALANCE_THRESHOLD
-              ? red
-              : green
-
+      // Calculate session usage and total for display
       const totalCreditsUsedThisSession = Object.values(this.creditsByPromptId)
         .flat()
         .reduce((sum, credits) => sum + credits, 0)
-      console.log(
-        `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}${
-          this.usageData.remainingBalance !== null
-            ? `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
-            : '.'
-        }`
-      )
 
-      if (this.usageData.next_quota_reset) {
-        const resetDate = new Date(this.usageData.next_quota_reset)
-        const today = new Date()
-        const isToday = resetDate.toDateString() === today.toDateString()
-
-        const dateDisplay = isToday
-          ? resetDate.toLocaleString() // Show full date and time for today
-          : resetDate.toLocaleDateString() // Just show date otherwise
-
-        console.log(
-          `Free credits will renew on ${dateDisplay}. Details: ${underline(blue(usageLink))}`
-        )
+      let sessionUsageMessage = `Session usage: ${totalCreditsUsedThisSession.toLocaleString()}`
+      if (this.usageData.remainingBalance !== null) {
+        const remainingColor =
+          this.usageData.remainingBalance === null
+            ? yellow
+            : this.usageData.remainingBalance <= 0
+              ? red
+              : this.usageData.remainingBalance <= LOW_BALANCE_THRESHOLD
+                ? red
+                : green
+        sessionUsageMessage += `. Credits Remaining: ${remainingColor(this.usageData.remainingBalance.toLocaleString())}`
+      } else {
+        sessionUsageMessage += '.'
       }
+      console.log(sessionUsageMessage)
 
-      this.showUsageWarning()
+      if (coverage.isCovered && coverage.organizationName) {
+        // When covered by an organization, show organization information
+        console.log(
+          green(
+            `🏢 Your usage in this repository is covered by ${bold(coverage.organizationName)}.`
+          )
+        )
+        // Try to use organizationSlug from the coverage response
+        if (coverage.organizationSlug) {
+          const orgUsageLink = `${websiteUrl}/orgs/${coverage.organizationSlug}`
+          console.log(
+            `View your organization's usage details: ${underline(blue(orgUsageLink))}`
+          )
+        }
+      } else {
+        // Only show personal usage details when not covered by an organization
+        const usageLink = `${websiteUrl}/usage` // Personal usage link
+
+        // Only show personal credit renewal if not covered by an organization
+        if (this.usageData.next_quota_reset) {
+          const resetDate = new Date(this.usageData.next_quota_reset)
+          const today = new Date()
+          const isToday = resetDate.toDateString() === today.toDateString()
+
+          const dateDisplay = isToday
+            ? resetDate.toLocaleString() // Show full date and time for today
+            : resetDate.toLocaleDateString() // Just show date otherwise
+
+          console.log(
+            `Free credits will renew on ${dateDisplay}. Details: ${underline(blue(usageLink))}`
+          )
+        }
+
+        this.showUsageWarning()
+      }
     } catch (error) {
       logger.error(
         {
@@ -1397,14 +1384,103 @@ Go to https://www.codebuff.com/config for more information.`) +
       this.setUsage(parsedAction.data)
     })
 
-    this.webSocket.sendAction({
+    const initAction: ClientAction = {
       type: 'init',
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       fileContext,
-    })
+      // Add repoUrl here as per the diff for client.ts
+      repoUrl: loggerContext.repoUrl,
+    }
+    this.webSocket.sendAction(initAction)
 
     await this.fetchStoredApiKeyTypes()
+  }
+
+  /**
+   * Checks if the current repository is covered by an organization.
+   * @param remoteUrl Optional remote URL. If not provided, will try to get from git config.
+   * @returns Promise<{ isCovered: boolean; organizationName?: string; organizationId?: string; organizationSlug?: string; error?: string }>
+   */
+  public async checkRepositoryCoverage(remoteUrl?: string): Promise<{
+    isCovered: boolean
+    organizationName?: string
+    organizationId?: string
+    organizationSlug?: string
+    error?: string
+  }> {
+    try {
+      // Always use getRepoMetrics to get repo info, passing remoteUrl if provided
+      let repoMetrics: Awaited<ReturnType<typeof getRepoMetrics>>
+      try {
+        repoMetrics = await getRepoMetrics(remoteUrl)
+      } catch (error) {
+        return {
+          isCovered: false,
+          error: 'Could not get repository information',
+        }
+      }
+
+      const { repoUrl, owner, repo } = repoMetrics
+
+      if (!repoUrl) {
+        return { isCovered: false, error: 'No remote URL found' }
+      }
+
+      if (!owner || !repo) {
+        return { isCovered: false, error: 'Could not parse repository URL' }
+      }
+
+      // Check if user is authenticated
+      if (!this.user || !this.user.authToken) {
+        return { isCovered: false, error: 'User not authenticated' }
+      }
+
+      // Call backend API to check if repo is covered by organization
+      const response = await fetch(`${backendUrl}/api/orgs/is-repo-covered`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.user.authToken}`,
+        },
+        body: JSON.stringify({
+          owner: owner.toLowerCase(),
+          repo: repo.toLowerCase(),
+          remoteUrl: repoUrl,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        return {
+          isCovered: false,
+          error:
+            errorData.error ||
+            `HTTP ${response.status}: ${response.statusText}`,
+        }
+      }
+
+      const data = await response.json()
+      return {
+        isCovered: data.isCovered || false,
+        organizationName: data.organizationName,
+        organizationId: data.organizationId,
+        organizationSlug: data.organizationSlug,
+      }
+    } catch (error) {
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          remoteUrl,
+        },
+        'Error checking repository coverage'
+      )
+      return {
+        isCovered: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+    }
   }
 
   private subscribeToManagerResponse(

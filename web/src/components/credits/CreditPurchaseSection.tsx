@@ -9,10 +9,16 @@ import { convertCreditsToUsdCents } from 'common/util/currency'
 import { toast } from '@/components/ui/use-toast'
 import { formatDollars } from '@/lib/currency'
 
+// Individual user credit options (starting from $10)
 export const CREDIT_OPTIONS = [1000, 2500, 5000, 10000] as const
 export const CENTS_PER_CREDIT = 1
 const MIN_CREDITS = 500
 const MAX_CREDITS = 100000
+
+// Organization credit options (starting from $100)
+export const ORG_CREDIT_OPTIONS = [10000, 25000, 50000, 100000] as const
+const MIN_CREDITS_ORG = 5000
+const MAX_CREDITS_ORG = 1000000
 
 export interface CreditPurchaseSectionProps {
   onPurchase: (credits: number) => void
@@ -21,6 +27,7 @@ export interface CreditPurchaseSectionProps {
   isAutoTopupPending?: boolean
   isPending?: boolean
   isPurchasePending: boolean
+  isOrganization?: boolean
 }
 
 export function CreditPurchaseSection({
@@ -30,12 +37,18 @@ export function CreditPurchaseSection({
   isAutoTopupPending,
   isPending,
   isPurchasePending,
+  isOrganization = false,
 }: CreditPurchaseSectionProps) {
   const [selectedCredits, setSelectedCredits] = useState<number | null>(null)
   const [customCredits, setCustomCredits] = useState<string>('')
   const [customError, setCustomError] = useState<string>('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [cooldownActive, setCooldownActive] = useState(false)
+
+  // Use organization-specific options if isOrganization is true
+  const creditOptions = isOrganization ? ORG_CREDIT_OPTIONS : CREDIT_OPTIONS
+  const minCredits = isOrganization ? MIN_CREDITS_ORG : MIN_CREDITS
+  const maxCredits = isOrganization ? MAX_CREDITS_ORG : MAX_CREDITS
 
   const handlePurchaseClick = async () => {
     const credits = selectedCredits || parseInt(customCredits)
@@ -73,10 +86,10 @@ export function CreditPurchaseSection({
     const numCredits = parseInt(value)
     if (isNaN(numCredits)) {
       setCustomError('Please enter a valid number')
-    } else if (numCredits < MIN_CREDITS) {
-      setCustomError(`Minimum ${MIN_CREDITS.toLocaleString()} credits`)
-    } else if (numCredits > MAX_CREDITS) {
-      setCustomError(`Maximum ${MAX_CREDITS.toLocaleString()} credits`)
+    } else if (numCredits < minCredits) {
+      setCustomError(`Minimum ${minCredits.toLocaleString()} credits`)
+    } else if (numCredits > maxCredits) {
+      setCustomError(`Maximum ${maxCredits.toLocaleString()} credits`)
     } else {
       setCustomError('')
     }
@@ -95,7 +108,7 @@ export function CreditPurchaseSection({
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {CREDIT_OPTIONS.map((credits) => {
+        {creditOptions.map((credits) => {
           const optionCostInCents = convertCreditsToUsdCents(
             credits,
             CENTS_PER_CREDIT
@@ -135,11 +148,11 @@ export function CreditPurchaseSection({
                 <Input
                   id="custom-credits"
                   type="number"
-                  min={MIN_CREDITS}
-                  max={MAX_CREDITS}
+                  min={minCredits}
+                  max={maxCredits}
                   value={customCredits}
                   onChange={(e) => handleCustomCreditsChange(e.target.value)}
-                  placeholder={`${MIN_CREDITS.toLocaleString()} - ${MAX_CREDITS.toLocaleString()} credits`}
+                  placeholder={`${minCredits.toLocaleString()} - ${maxCredits.toLocaleString()} credits`}
                   className={cn(customError && 'border-destructive')}
                   disabled={isProcessing || cooldownActive}
                 />

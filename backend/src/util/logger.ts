@@ -7,22 +7,11 @@ import pino from 'pino'
 
 import { env } from '../env.mjs'
 import { splitData } from './split-data'
+import { getLoggerContext, withAppContext, type LoggerContext } from '../context/app-context'
 
 // --- Constants ---
 const MAX_LENGTH = 65535 // Max total log size is sometimes 100k (sometimes 65535?)
 const BUFFER = 1000 // Buffer for context, etc.
-
-export interface LoggerContext {
-  userId?: string
-  userEmail?: string
-  clientSessionId?: string
-  fingerprintId?: string
-  clientRequestId?: string
-  messageId?: string
-  discordId?: string
-  costMode?: string
-  [key: string]: any // Allow for future extensions
-}
 
 const loggerAsyncStorage = new AsyncLocalStorage<LoggerContext>()
 
@@ -30,8 +19,8 @@ export const withLoggerContext = <T>(
   additionalContext: Partial<LoggerContext>,
   fn: () => Promise<T>
 ) => {
-  const store = loggerAsyncStorage.getStore() ?? {}
-  return loggerAsyncStorage.run({ ...store, ...additionalContext }, fn)
+  // Use the new combined context, preserving any existing request context
+  return withAppContext(additionalContext, {}, fn)
 }
 
 // Ensure debug directory exists for local environment
@@ -51,7 +40,8 @@ const pinoLogger = pino(
   {
     level: 'debug',
     mixin() {
-      return { logTrace: loggerAsyncStorage.getStore() }
+      // Use the new combined context
+      return { logTrace: getLoggerContext() }
     },
     formatters: {
       level: (label) => {

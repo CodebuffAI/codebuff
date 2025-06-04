@@ -24,6 +24,9 @@ export const env = createEnv({
     DATABASE_URL: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_USAGE_PRICE_ID: z.string().min(1).startsWith('price_'),
+    // STRIPE_TEAM_USAGE_PRICE_ID: z.string().min(1).startsWith('price_'),
+    STRIPE_TEAM_FEE_PRICE_ID: z.string().min(1).startsWith('price_'),
+    STRIPE_WEBHOOK_SECRET_KEY: z.string(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().min(1),
     API_KEY_ENCRYPTION_SECRET: z
       .string()

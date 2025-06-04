@@ -1,6 +1,7 @@
 import { useAutoTopup } from '@/hooks/use-auto-topup'
 import { AutoTopupSwitch } from './AutoTopupSwitch'
 import { AutoTopupSettingsForm } from './AutoTopupSettingsForm'
+import { BaseAutoTopupSettings } from './BaseAutoTopupSettings'
 
 export function AutoTopupSettings() {
   const {
@@ -15,13 +16,10 @@ export function AutoTopupSettings() {
     handleTopUpAmountChange,
   } = useAutoTopup()
 
-  if (isLoadingProfile) {
-    return null
-  }
-
   return (
-    <>
-      <div className="flex items-center justify-between">
+    <BaseAutoTopupSettings
+      isLoading={isLoadingProfile}
+      switchComponent={
         <AutoTopupSwitch
           isEnabled={isEnabled}
           onToggle={handleToggleAutoTopup}
@@ -30,15 +28,17 @@ export function AutoTopupSettings() {
             userProfile?.auto_topup_blocked_reason ?? null
           }
         />
-      </div>
-      <AutoTopupSettingsForm
-        isEnabled={isEnabled}
-        threshold={threshold}
-        topUpAmountDollars={topUpAmountDollars}
-        onThresholdChange={handleThresholdChange}
-        onTopUpAmountChange={handleTopUpAmountChange}
-        isPending={isPending}
-      />
-    </>
+      }
+      formComponent={
+        <AutoTopupSettingsForm
+          isEnabled={isEnabled}
+          threshold={threshold}
+          topUpAmountDollars={topUpAmountDollars}
+          onThresholdChange={handleThresholdChange}
+          onTopUpAmountChange={handleTopUpAmountChange}
+          isPending={isPending}
+        />
+      }
+    />
   )
 }

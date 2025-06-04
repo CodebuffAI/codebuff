@@ -77,6 +77,7 @@ import {
   requestOptionalFile,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
+import { getRequestContext } from './websockets/request-context'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
@@ -104,10 +105,13 @@ export const mainPrompt = async (
     promptId,
     toolResults,
     cwd,
-    repoName,
   } = action
   const { fileContext, agentContext } = agentState
   let messageHistory = agentState.messageHistory
+
+  // Get the extracted repo ID from request context
+  const requestContext = getRequestContext()
+  const repoId = requestContext?.processedRepoId
 
   const { getStream, model } = getAgentStream({
     costMode,
@@ -128,7 +132,7 @@ export const mainPrompt = async (
     fingerprintId,
     userInputId: promptId,
     userId,
-    repoName,
+    repoName: repoId,
   })
 
   const hasKnowledgeFiles =
@@ -376,7 +380,7 @@ export const mainPrompt = async (
       userInputId: promptId,
       userId,
       costMode,
-      repoName,
+      repoId,
     }
   )
   const [updatedFiles, newFiles] = partition(addedFiles, (f) =>
@@ -943,7 +947,7 @@ export const mainPrompt = async (
           userInputId: promptId,
           userId,
           costMode,
-          repoName,
+          repoId,
         }
       )
       logger.debug(
@@ -993,7 +997,7 @@ export const mainPrompt = async (
             userInputId: promptId,
             userId,
             costMode,
-            repoName,
+            repoId,
           }
         )
       logger.debug(
@@ -1165,7 +1169,7 @@ async function getFileReadingUpdates(
     userInputId: string
     userId: string | undefined
     costMode: CostMode
-    repoName: string | undefined
+    repoId: string | undefined
   }
 ) {
   const FILE_TOKEN_BUDGET = 100_000
@@ -1177,7 +1181,7 @@ async function getFileReadingUpdates(
     userInputId,
     userId,
     costMode,
-    repoName,
+    repoId,
   } = options
 
   const toolResults = messages
@@ -1212,7 +1216,7 @@ async function getFileReadingUpdates(
         userInputId,
         userId,
         costMode,
-        repoName
+        repoId
       )) ??
       []
 
@@ -1229,7 +1233,7 @@ async function getFileReadingUpdates(
       userInputId,
       userId,
       costMode,
-      repoName
+      repoId
     ).catch((error) => {
       logger.error(
         { error },
@@ -1378,7 +1382,7 @@ async function uploadExpandedFileContextForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName: string | undefined
+  repoId: string | undefined
 ) {
   const files = await requestRelevantFilesForTraining(
     { messages, system },
@@ -1390,7 +1394,7 @@ async function uploadExpandedFileContextForTraining(
     userInputId,
     userId,
     costMode,
-    repoName
+    repoId
   )
 
   const loadedFiles = await requestFiles(ws, files)

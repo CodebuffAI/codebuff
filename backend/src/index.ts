@@ -10,6 +10,7 @@ import {
   relabelForUserHandler,
 } from './admin/relabelRuns'
 import usageHandler from './api/usage'
+import { isRepoCoveredHandler } from './api/org'
 import { env } from './env.mjs'
 import { checkAdmin } from './util/check-auth'
 import { logger } from './util/logger'
@@ -33,6 +34,7 @@ app.get('/healthz', (req, res) => {
 })
 
 app.post('/api/usage', usageHandler)
+app.post('/api/orgs/is-repo-covered', isRepoCoveredHandler)
 
 // Enable CORS for preflight requests to the admin relabel endpoint
 app.options('/api/admin/relabel-for-user', cors())

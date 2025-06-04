@@ -50,7 +50,7 @@ export async function requestRelevantFiles(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName: string | undefined
+  repoId: string | undefined
 ) {
   const countPerRequest = {
     lite: 8,
@@ -106,7 +106,7 @@ export async function requestRelevantFiles(
     userInputId,
     userId,
     costMode,
-    repoName
+    repoId
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
@@ -163,7 +163,7 @@ export async function requestRelevantFilesForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName: string | undefined
+  repoId: string | undefined
 ) {
   const COUNT = 50
 
@@ -203,7 +203,7 @@ export async function requestRelevantFilesForTraining(
     userInputId,
     userId,
     costMode,
-    repoName
+    repoId
   )
 
   const nonObviousFiles = await getRelevantFilesForTraining(
@@ -219,7 +219,7 @@ export async function requestRelevantFilesForTraining(
     userInputId,
     userId,
     costMode,
-    repoName
+    repoId
   )
 
   const candidateFiles = [...keyFiles.files, ...nonObviousFiles.files]
@@ -247,7 +247,7 @@ async function getRelevantFiles(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName: string | undefined
+  repoId: string | undefined
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -274,6 +274,7 @@ async function getRelevantFiles(
       })
       .filter((msg) => msg !== null)
   }
+  // This finetunedModel is used for the promptFlashWithFallbacks call
   const finetunedModel =
     costMode === 'experimental'
       ? finetunedVertexModels.ft_filepicker_010
@@ -281,12 +282,12 @@ async function getRelevantFiles(
 
   let response = await promptFlashWithFallbacks(coreMessages, {
     clientSessionId,
-    fingerprintId,
     userInputId,
     model: models.gemini2flash,
     userId,
     costMode,
     useFinetunedModel: finetunedModel,
+    fingerprintId,
   })
   const end = performance.now()
   const duration = end - start
@@ -309,7 +310,7 @@ async function getRelevantFiles(
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
       model: finetunedModel,
-      repo_name: repoName,
+      repo_name: repoId, // Use repoId parameter for trace
     },
   }
 
@@ -336,7 +337,7 @@ async function getRelevantFilesForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoName: string | undefined
+  repoId: string | undefined
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -380,8 +381,8 @@ async function getRelevantFilesForTraining(
       user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
-      model: models.ft_filepicker_005,
-      repo_name: repoName,
+      model: models.ft_filepicker_005, // Use specific model for trace
+      repo_name: repoId, // Use repoId parameter for trace
     },
   }
 
@@ -666,3 +667,5 @@ const validateFilePaths = (filePaths: string[]) => {
     })
     .map((p) => (p.startsWith('/') ? p.slice(1) : p))
 }
+
+// Removed unused import: import { getRequestContext } from '../websockets/request-context'
