@@ -13,9 +13,9 @@ import { eq } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 
 import { mainPrompt } from '../main-prompt'
+import { managerPrompt } from '../manager-prompt'
 import { protec } from './middleware'
 import { sendMessage } from './server'
-import { handleManagerPrompt } from '../manager-prompt'
 
 import { logger, withLoggerContext } from '@/util/logger'
 import { renderToolResults } from '@/util/parse-tool-call-xml'
@@ -267,7 +267,7 @@ const onManagerPrompt = async (
           toolCalls,
           toolResults: serverToolResults,
           agentState: updatedAgentState,
-        } = await handleManagerPrompt(
+        } = await managerPrompt(
           ws,
           {
             type: 'manager-prompt',

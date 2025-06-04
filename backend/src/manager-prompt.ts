@@ -1,21 +1,21 @@
-import { WebSocket } from 'ws'
 import { CoreMessage } from 'ai'
+import { WebSocket } from 'ws'
 
+import { toolSchema } from 'common/constants/tools'
 import { AgentState, ToolResult } from 'common/types/agent-state'
 import { ProjectFileContext } from 'common/util/file'
+import { generateCompactId } from 'common/util/string'
+import { getAgentStream } from './prompt-agent-stream'
+import { getManagerSystemPrompt } from './system-prompt/manager-system-prompt'
 import {
   ClientToolCall,
   parseRawToolCall,
   TOOL_LIST,
-  ToolName,
   ToolCall,
+  ToolName,
 } from './tools'
-import { getAgentStream } from './prompt-agent-stream'
 import { logger } from './util/logger'
-import { generateCompactId } from 'common/util/string'
 import { processStreamWithTags } from './xml-stream-parser'
-import { toolSchema } from 'common/constants/tools'
-import { getManagerSystemPrompt } from './system-prompt/manager-system-prompt'
 
 interface ManagerPromptAction {
   type: 'manager-prompt'
@@ -30,7 +30,7 @@ interface ManagerPromptAction {
   repoName?: string
 }
 
-export async function handleManagerPrompt(
+export async function managerPrompt(
   ws: WebSocket,
   action: ManagerPromptAction,
   userId: string | undefined,

@@ -11,7 +11,7 @@ export const toolSchema = {
 
   // Search and terminal
   code_search: ['pattern'],
-  run_terminal_command: ['command', 'process_type', 'cwd', 'timeout_seconds', 'mode'],
+  run_terminal_command: ['command', 'process_type', 'cwd', 'timeout_seconds'],
 
   // Planning tools
   think_deeply: ['thought'],
