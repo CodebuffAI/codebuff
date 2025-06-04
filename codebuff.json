@@ -20,8 +20,20 @@
       "filePattern": "backend/**/*.ts"
     },
     {
+      "name": "backend-typecheck",
+      "command": "bun run typecheck-only",
+      "cwd": "backend",
+      "filePattern": "backend/**/*.ts"
+    },
+    {
       "name": "npm-app-unit-tests",
       "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev $'\\x1b\\[[0-9;]*m' | grep -Ev '^s*[0-9]+s+(pass|skip)|(pass)|(skip)'",
+      "cwd": "npm-app",
+      "filePattern": "npm-app/**/*.ts"
+    },
+    {
+      "name": "npm-typecheck",
+      "command": "bun run typecheck-only",
       "cwd": "npm-app",
       "filePattern": "npm-app/**/*.ts"
     },
@@ -34,6 +46,12 @@
     {
       "name": "common-unit-tests",
       "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev $'\\x1b\\[[0-9;]*m' | grep -Ev '^s*[0-9]+s+(pass|skip)|(pass)|(skip)'",
+      "cwd": "common",
+      "filePattern": "common/**/*.ts"
+    },
+    {
+      "name": "common-typecheck",
+      "command": "bun run typecheck-only",
       "cwd": "common",
       "filePattern": "common/**/*.ts"
     }

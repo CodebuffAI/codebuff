@@ -91,15 +91,17 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
+  public isManagerMode: boolean
 
   public rl!: readline.Interface
 
   private constructor(
     readyPromise: Promise<[ProjectFileContext, void, void]>,
-    { git, costMode, model }: CliOptions
+    { git, costMode, model, isManager }: CliOptions
   ) {
     this.git = git
     this.costMode = costMode
+    this.isManagerMode = isManager ?? false
 
     this.setupSignalHandlers()
     this.initReadlineInterface()
@@ -392,7 +394,10 @@ export class CLI {
   }
 
   private getModeIndicator(): string {
-    return this.costMode !== 'normal' ? ` (${this.costMode})` : ''
+    const costModeIndicator =
+      this.costMode !== 'normal' ? ` (${this.costMode})` : ''
+    const managerModeIndicator = this.isManagerMode ? ' (superagent)' : ''
+    return costModeIndicator + managerModeIndicator
   }
 
   private setPrompt() {
@@ -807,6 +812,7 @@ export class CLI {
     }
 
     this.isReceivingResponse = true
+
     const { responsePromise, stopResponse } =
       await Client.getInstance().sendUserInput(cleanedInput)
 

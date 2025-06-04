@@ -340,10 +340,8 @@ ${getToolCallString('code_search', { pattern: 'import.*foo' })}
     name: 'run_terminal_command',
     schema: z
       .object({
-        command: z
-          .string()
-          .min(1, 'Command cannot be empty')
-          .describe(`CLI command valid for user's OS.`),
+        // Can be empty to use it for a timeout.
+        command: z.string().describe(`CLI command valid for user's OS.`),
         process_type: z
           .enum(['SYNC', 'BACKGROUND'])
           .default('SYNC')
@@ -575,6 +573,44 @@ ${getToolCallString('browser_logs', {
     `.trim(),
   },
   {
+    name: 'kill_terminal',
+    schema: z
+      .object({})
+      .transform(() => ({}))
+      .describe(
+        `Kill the current terminal process and restart it. Only available in agent mode.`
+      ),
+    additionalInfo: `
+Purpose: Use this tool to forcefully terminate the current terminal session and start fresh. This is useful when a command is stuck or the terminal is in an unresponsive state.
+
+This tool is only available in agent mode and will not work in regular Codebuff.
+
+Example:
+${getToolCallString('kill_terminal', {})}
+    `.trim(),
+  },
+  {
+    name: 'sleep',
+    schema: z
+      .object({
+        seconds: z
+          .string()
+          .min(1, 'Seconds cannot be empty')
+          .describe(`Number of seconds to sleep (as string)`),
+      })
+      .describe(
+        `Sleep for a specified number of seconds. Only available in agent mode.`
+      ),
+    additionalInfo: `
+Purpose: Use this tool to pause execution for a specified amount of time. This can be useful when waiting for processes to complete, giving time for services to start up, or adding delays between operations.
+
+This tool is only available in agent mode and will not work in regular Codebuff.
+
+Example:
+${getToolCallString('sleep', { seconds: '5' })}
+    `.trim(),
+  },
+  {
     name: 'end_turn',
     schema: z
       .object({})
@@ -679,6 +715,12 @@ const tools = toolConfigsList.map((config) => ({
     config.additionalInfo
   ),
 })) as { name: GlobalToolNameImport; description: string }[]
+
+const managerTools = tools.filter((tool) =>
+  ['run_terminal_command', 'kill_terminal', 'sleep', 'end_turn'].includes(
+    tool.name
+  )
+)
 
 const toolSchemas = Object.fromEntries(
   toolConfigsList.map((tool) => [tool.name, tool.schema])
@@ -1166,20 +1208,29 @@ function renderSubgoalUpdate(subgoal: {
   return getToolCallString('add_subgoal', params)
 }
 
-// Function to get filtered tools based on cost mode
+export function getManagerToolsInstructions() {
+  return getToolsInstructions(managerTools.map((tool) => tool.description))
+}
+
+// Function to get filtered tools based on cost mode and agent mode
 export function getFilteredToolsInstructions(costMode: string) {
-  const allowedTools =
-    costMode === 'ask'
-      ? // For ask mode, exclude write_file, str_replace, create_plan, and run_terminal_command
-        tools.filter(
-          (tool) =>
-            ![
-              'write_file',
-              'str_replace',
-              'create_plan',
-              'run_terminal_command',
-            ].includes(tool.name)
-        )
-      : tools
+  let allowedTools = tools.filter(
+    (tool) => !['kill_terminal', 'sleep'].includes(tool.name)
+  )
+
+  // Filter based on cost mode
+  if (costMode === 'ask') {
+    // For ask mode, exclude write_file, str_replace, create_plan, and run_terminal_command
+    allowedTools = allowedTools.filter(
+      (tool) =>
+        ![
+          'write_file',
+          'str_replace',
+          'create_plan',
+          'run_terminal_command',
+        ].includes(tool.name)
+    )
+  }
+
   return getToolsInstructions(allowedTools.map((tool) => tool.description))
 }

@@ -56,13 +56,20 @@ export const cliOptions: CliParam[] = [
   },
   {
     flags: '--ask',
-    description: 'Start in ask mode (questions & planning only, no code changes)',
+    description:
+      'Start in ask mode (questions & planning only, no code changes)',
     menuDescription: 'Start in ask mode (questions & planning only)',
     hidden: false,
   },
   {
     flags: '--experimental',
     description: 'Use cutting-edge experimental features and models',
+    hidden: true,
+  },
+  {
+    flags: '--superagent',
+    description: 'Start in superagent mode (autonomously use codebuff)',
+    menuDescription: 'Start in superagent mode (autonomously use codebuff)',
     hidden: true,
   },
 ]

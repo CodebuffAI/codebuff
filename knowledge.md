@@ -120,16 +120,6 @@ A Python package for Codebuff has been created as a skeleton in python-app. Key 
 
 - It's currently a placeholder that prints a message about the package coming soon and suggests installing the npm version.
 
-# Verifying changes
-
-Use judgment when verifying changes. For complex changes that could affect types or dependencies, run the type checker with `bun run typecheck-only` and then fix any type errors that resulted from your change. For simple changes like adding console.logs or text updates, type checking is unnecessary. However, if editing the evals package, only run bun run typecheck from the evals directory and skip the other type checks.
-
-Only run type checking when:
-
-1. Specifically requested by the user
-2. Making non-trivial changes that could affect types
-3. Changing code that is imported by other files
-
 ## Build System Notes
 
 The project uses Nx for build management and caching. Some important notes:

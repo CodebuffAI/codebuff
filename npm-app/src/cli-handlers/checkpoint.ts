@@ -8,8 +8,8 @@ import {
   checkpointManager,
 } from '../checkpoints/checkpoint-manager'
 import type { Client } from '../client'
-import { Spinner } from '../utils/spinner'
 import { logger } from '../utils/logger'
+import { Spinner } from '../utils/spinner'
 
 export const checkpointCommands = {
   save: [['checkpoint'], 'Save current state as a new checkpoint'],
@@ -255,14 +255,7 @@ export async function saveCheckpoint(
     // Make sure the previous checkpoint is done
     await checkpointManager.getLatestCheckpoint().fileStateIdPromise
   } catch (error) {
-    // No latest checkpoint available, no need to wait
-    logger.error(
-      {
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
-      'Failed to wait for previous checkpoint completion'
-    )
+    // No latest checkpoint available, previous checkpoint is guaranteed to be done.
   }
 
   // Save the current agent state

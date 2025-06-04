@@ -35,7 +35,6 @@ import { toolFormatter } from './llm-apis/relace-api'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStream } from './prompt-agent-stream'
-import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
@@ -79,6 +78,7 @@ import {
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
 import { getRequestContext } from './websockets/request-context'
+import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
@@ -152,7 +152,7 @@ export const mainPrompt = async (
   const isFlash =
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
-
+  const toolsInstructions = getFilteredToolsInstructions(costMode)
   const userInstructions = buildArray(
     isAskMode &&
       'You are a coding agent in "ASK" mode so the user can ask questions, which means you do not have access to tools that can modify files or run terminal commands. You should instead answer the user\'s questions and come up with brilliant plans which can later be implemented.',
@@ -171,7 +171,7 @@ export const mainPrompt = async (
     'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ...", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
 
     isGeminiPro
-      ? getFilteredToolsInstructions(costMode)
+      ? toolsInstructions
       : `Any tool calls will be run from the project root (${agentState.fileContext.currentWorkingDirectory}) unless otherwise specified`,
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
@@ -215,8 +215,9 @@ export const mainPrompt = async (
 
     'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
 
-    !isLiteMode &&
-      `Before finishing your response, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
+    // Disable for now. You can use codebuff.json triggers to ensure this.
+    // !isLiteMode &&
+    //   `Before finishing your response, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
     !isLiteMode &&
       "If you are still working on the user's request, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
     isGPT4_1 &&
