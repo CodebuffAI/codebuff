@@ -40,6 +40,7 @@
   },
   "dependencies": {
     "@types/diff": "5.2.1",
+    "@types/micromatch": "^4.0.9",
     "@vscode/ripgrep": "1.15.9",
     "ai": "^4.3.16",
     "axios": "1.7.4",
