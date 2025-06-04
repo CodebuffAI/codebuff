@@ -470,7 +470,7 @@ export default function OrganizationPage() {
                 <CollapsibleContent>
                   <CardContent className="px-4 pb-4 pt-0 sm:px-6">
                     {organization.hasStripeSubscription ? (
-                      <CreditMonitor organizationId={organization.id} noCardWrapper={true} />
+                      <CreditMonitor organizationId={organization.id} orgSlug={orgSlug} noCardWrapper={true} />
                     ) : (
                       <div className="text-center py-4 text-muted-foreground">
                         <CreditCard className="mx-auto h-6 w-6 sm:h-8 sm:w-8 mb-2 opacity-50" />
@@ -516,7 +516,7 @@ export default function OrganizationPage() {
             {activeSection === 'creditBalance' && (
               <div className="space-y-6">
                 {organization.hasStripeSubscription ? (
-                  <CreditMonitor organizationId={organization.id} />
+                  <CreditMonitor organizationId={organization.id} orgSlug={orgSlug} />
                 ) : (
                   <Card>
                     <CardHeader>

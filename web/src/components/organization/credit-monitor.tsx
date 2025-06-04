@@ -14,6 +14,7 @@ import {
   Settings,
   Power,
   Loader2,
+  BarChart3,
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -51,6 +52,7 @@ interface OrganizationSettings {
 
 interface CreditMonitorProps {
   organizationId: string
+  orgSlug: string // Added orgSlug prop
   noCardWrapper?: boolean
 }
 
@@ -89,6 +91,7 @@ async function fetchOrganizationSettings(
 
 export function CreditMonitor({
   organizationId,
+  orgSlug, // Destructure orgSlug
   noCardWrapper = false,
 }: CreditMonitorProps) {
   const isMobile = useIsMobile()
@@ -240,15 +243,24 @@ export function CreditMonitor({
             <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
             <span className="truncate">Credit Monitor</span>
           </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isFetching}
-            className="h-8 w-8 p-0"
-          >
-            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
-          </Button>
+          <div className="flex items-center space-x-2"> {/* Group for buttons */}
+            <Link href={`/orgs/${orgSlug}/usage`}>
+              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3"> {/* Adjusted size for consistency */}
+                <BarChart3 className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" /> {/* Icon for usage button */}
+                <span className="hidden sm:inline">Usage Details</span>
+                <span className="sm:hidden">Details</span>
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isFetching}
+              className="h-8 w-8 p-0"
+            >
+              <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent

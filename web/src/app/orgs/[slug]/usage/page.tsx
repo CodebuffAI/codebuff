@@ -373,25 +373,36 @@ export default function UsagePage() {
             <CardContent>
               <div className="space-y-4">
                 {usageData?.recentUsage?.length ? (
-                  usageData.recentUsage.slice(0, 10).map((usage, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="font-medium">{usage.user_name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {new URL(usage.repository_url).pathname.slice(1)}
+                  usageData.recentUsage.slice(0, 10).map((usage, index) => {
+                    let repoPath = 'N/A'
+                    if (usage.repository_url) {
+                      try {
+                        repoPath = new URL(usage.repository_url).pathname.slice(1)
+                      } catch (e) {
+                        // If URL is invalid, repoPath remains 'N/A'
+                        console.warn(`Invalid repository_url: ${usage.repository_url}`, e)
+                      }
+                    }
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="font-medium">{usage.user_name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {repoPath}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(usage.date).toLocaleDateString()}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(usage.date).toLocaleDateString()}
-                        </div>
+                        <Badge variant="outline">
+                          {usage.credits_used.toLocaleString()}
+                        </Badge>
                       </div>
-                      <Badge variant="outline">
-                        {usage.credits_used.toLocaleString()}
-                      </Badge>
-                    </div>
-                  ))
+                    )
+                  })
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <GitBranch className="mx-auto h-12 w-12 mb-4 opacity-50" />
