@@ -18,7 +18,8 @@ import { env } from '@/env.mjs'
 import { extractOwnerAndRepo } from '@codebuff/billing/src/org-billing'
 import { findOrganizationForRepository, OrganizationLookupResult } from '@codebuff/billing/src/credit-delegation'
 import { LRUCache } from 'common/util/lru-cache'
-import { updateRequestContext, withRequestContext } from './request-context'
+import { updateRequestContext } from './request-context'
+import { withAppContext } from '../context/app-context'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -52,39 +53,29 @@ export class WebSocketMiddleware {
         ? await getUserInfoFromAuthToken(action.authToken)
         : undefined
 
-    return await withLoggerContext(
-      {
+    for (const middleware of this.middlewares) {
+      const actionOrContinue = await middleware(
+        action,
         clientSessionId,
-        userId: userInfo?.id,
-        userEmail: userInfo?.email,
-        discordId: userInfo?.discord_id ?? undefined,
-      },
-      async () => {
-        for (const middleware of this.middlewares) {
-          const actionOrContinue = await middleware(
-            action,
+        ws,
+        userInfo
+      )
+      if (actionOrContinue) {
+        logger.warn(
+          {
+            actionType: action.type,
+            middlewareResp: actionOrContinue.type,
             clientSessionId,
-            ws,
-            userInfo
-          )
-          if (actionOrContinue) {
-            logger.warn(
-              {
-                actionType: action.type,
-                middlewareResp: actionOrContinue.type,
-                clientSessionId,
-              },
-              'Middleware execution halted.'
-            )
-            if (!options.silent) {
-              sendAction(ws, actionOrContinue)
-            }
-            return false
-          }
+          },
+          'Middleware execution halted.'
+        )
+        if (!options.silent) {
+          sendAction(ws, actionOrContinue)
         }
-        return true
+        return false
       }
-    )
+    }
+    return true
   }
 
   run<T extends ClientAction['type']>(
@@ -105,26 +96,25 @@ export class WebSocketMiddleware {
           ? await getUserInfoFromAuthToken(action.authToken!)
           : undefined
 
-      return withLoggerContext(
+      // Use the new combined context - much cleaner!
+      return withAppContext(
         {
           clientSessionId,
           userId: userInfo?.id,
           userEmail: userInfo?.email,
           discordId: userInfo?.discord_id ?? undefined,
         },
+        {}, // request context starts empty
         async () => {
-          // Establish request context for the entire middleware and action execution
-          return withRequestContext({}, async () => {
-            const shouldContinue = await this.execute(
-              action,
-              clientSessionId,
-              ws,
-              options
-            )
-            if (shouldContinue) {
-              baseAction(action, clientSessionId, ws)
-            }
-          })
+          const shouldContinue = await this.execute(
+            action,
+            clientSessionId,
+            ws,
+            options
+          )
+          if (shouldContinue) {
+            baseAction(action, clientSessionId, ws)
+          }
         }
       )
     }

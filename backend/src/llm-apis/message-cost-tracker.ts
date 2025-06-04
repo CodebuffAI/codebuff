@@ -14,7 +14,7 @@ import Stripe from 'stripe'
 import { WebSocket } from 'ws'
 
 import { stripNullCharsFromObject } from '../util/object'
-import { getRequestContext } from '../websockets/request-context'
+import { getRequestContext } from '../context/app-context'
 
 import { OpenAIMessage } from '@/llm-apis/openai-api'
 import { logger, withLoggerContext } from '@/util/logger'
