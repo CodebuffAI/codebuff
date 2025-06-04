@@ -18,7 +18,7 @@ import { env } from '@/env.mjs'
 import { extractOwnerAndRepo } from '@codebuff/billing/src/org-billing'
 import { findOrganizationForRepository, OrganizationLookupResult } from '@codebuff/billing/src/credit-delegation'
 import { LRUCache } from 'common/util/lru-cache'
-import { updateRequestContext } from './request-context'
+import { updateRequestContext, withRequestContext } from './request-context'
 
 type MiddlewareCallback = (
   action: ClientAction,
@@ -113,15 +113,18 @@ export class WebSocketMiddleware {
           discordId: userInfo?.discord_id ?? undefined,
         },
         async () => {
-          const shouldContinue = await this.execute(
-            action,
-            clientSessionId,
-            ws,
-            options
-          )
-          if (shouldContinue) {
-            baseAction(action, clientSessionId, ws)
-          }
+          // Establish request context for the entire middleware and action execution
+          return withRequestContext({}, async () => {
+            const shouldContinue = await this.execute(
+              action,
+              clientSessionId,
+              ws,
+              options
+            )
+            if (shouldContinue) {
+              baseAction(action, clientSessionId, ws)
+            }
+          })
         }
       )
     }

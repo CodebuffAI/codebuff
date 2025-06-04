@@ -442,7 +442,7 @@ async function updateUserCycleUsage(
     if (orgId) {
       // Consume from organization credits
       const result = await consumeOrganizationCredits(orgId, creditsUsed)
-      
+
       if (VERBOSE) {
         logger.debug(
           { userId, orgId, creditsUsed, ...result },
@@ -476,7 +476,10 @@ async function updateUserCycleUsage(
       return result
     }
   } catch (error) {
-    logger.error({ userId, orgId, creditsUsed, error }, 'Error consuming credits.')
+    logger.error(
+      { userId, orgId, creditsUsed, error },
+      'Error consuming credits.'
+    )
     throw error
   }
 }
