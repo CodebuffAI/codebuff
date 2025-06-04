@@ -235,11 +235,16 @@ export const resetShell = (cwd: string) => {
   }
 }
 
-function formatResult(command: string, stdout: string, status: string): string {
+function formatResult(
+  command: string,
+  stdout: string | undefined,
+  status: string
+): string {
   return buildArray(
     `<command>${command}</command>`,
     '<terminal_command_result>',
-    `<output>${truncateStringWithMessage({ str: stdout, maxLength: COMMAND_OUTPUT_LIMIT, remove: 'MIDDLE' })}</output>`,
+    stdout &&
+      `<output>${truncateStringWithMessage({ str: stdout, maxLength: COMMAND_OUTPUT_LIMIT, remove: 'MIDDLE' })}</output>`,
     `<status>${status}</status>`,
     '</terminal_command_result>'
   ).join('\n')
@@ -867,14 +872,16 @@ export const runCommandPtyManager = (
     dataDisposable.dispose()
 
     const statusMessage =
-      exitCode === 0 || exitCode === null
+      exitCode === 0
         ? 'Complete'
-        : `Failed with exit code: ${exitCode}`
+        : exitCode === null
+          ? 'Comand started'
+          : `Failed with exit code: ${exitCode}`
 
     resolve({
       result: formatResult(
         command,
-        commandOutput,
+        undefined,
         `cwd: ${path.resolve(projectRoot, cwd)}\n\n${statusMessage}`
       ),
       stdout: commandOutput,
@@ -911,7 +918,7 @@ export const runCommandPtyManager = (
       clearTimeout(settleTimer)
     }
 
-    // Set settle timer for 1000ms - if no new output comes, finish the command
+    // Set settle timer for 3000ms - if no new output comes, finish the command
     settleTimer = setTimeout(() => {
       finishCommand()
     }, 3000)
@@ -938,7 +945,11 @@ export const runCommandPtyManager = (
 }
 
 // Add a function to get new terminal output since last read
-export const readNewTerminalOutput = (): string => {
+export const readNewTerminalOutput = (
+  options: {
+    maxLength: number
+  } = { maxLength: COMMAND_OUTPUT_LIMIT }
+): string => {
   if (!persistentProcess) {
     return ''
   }
@@ -951,5 +962,9 @@ export const readNewTerminalOutput = (): string => {
   // Update the last read position
   persistentProcess.globalOutputLastReadLength = currentLength
 
-  return newOutput
+  return truncateStringWithMessage({
+    str: newOutput,
+    maxLength: options.maxLength,
+    remove: 'MIDDLE',
+  })
 }
