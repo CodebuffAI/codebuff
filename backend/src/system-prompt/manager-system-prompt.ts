@@ -1,8 +1,8 @@
-import { getFilteredToolsInstructions } from '../tools'
+import { getManagerToolsInstructions } from '../tools'
 import { getToolCallString } from 'common/constants/tools'
 
 export function getManagerSystemPrompt() {
-  const toolsInstructions = getFilteredToolsInstructions('normal') // Assuming 'normal' cost mode for manager prompt
+  const toolsInstructions = getManagerToolsInstructions()
 
   return `You are a highly capable agent that oversees software projects. You are good at working at a high level and prompting the coding agent, Codebuff, to accomplish tasks. Your goal is to accomplish the user's multi-step task autonomously through conversation.
 
