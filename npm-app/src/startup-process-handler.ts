@@ -2,7 +2,7 @@ import { gray } from 'picocolors'
 
 import { cleanupStoredProcesses } from './background-process-manager'
 import { startDevProcesses } from './dev-process-manager'
-import { loadCodebuffConfig } from './json-config-parser'
+import { loadCodebuffConfig } from './json-config/parser'
 import { getProjectRoot } from './project-files'
 
 export function logAndHandleStartup(): Promise<any> {

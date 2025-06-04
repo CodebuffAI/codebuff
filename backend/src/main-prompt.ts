@@ -144,6 +144,7 @@ export const mainPrompt = async (
     (t) => t.name === 'run_terminal_command'
   )
   const isAskMode = costMode === 'ask'
+  const isExporting = prompt && (prompt.toLowerCase() === '/export' || prompt.toLowerCase() === 'export')
   const geminiThinkingEnabled = costMode === 'max'
   const isLiteMode = costMode === 'lite'
   const isGeminiPro = model === models.gemini2_5_pro_preview
@@ -151,6 +152,7 @@ export const mainPrompt = async (
   const isFlash =
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
+
   const userInstructions = buildArray(
     isAskMode &&
       'You are a coding agent in "ASK" mode so the user can ask questions, which means you do not have access to tools that can modify files or run terminal commands. You should instead answer the user\'s questions and come up with brilliant plans which can later be implemented.',
@@ -659,6 +661,17 @@ export const mainPrompt = async (
           foundParsingError = true
           return
         }
+
+        // Filter out restricted tools in ask mode unless exporting summary
+        if (isAskMode && !isExporting && ['write_file', 'str_replace', 'create_plan', 'run_terminal_command'].includes(tool)) {
+          serverToolResults.push({
+            name: tool,
+            id: generateCompactId(),
+            result: `Tool ${tool} is not available in ask mode. You can only use tools that read information or provide analysis.`,
+          })
+          return
+        }
+
         allToolCalls.push(toolCall as Extract<ToolCall, { name: T }>)
 
         after(toolCall as Extract<ToolCall, { name: T }>)

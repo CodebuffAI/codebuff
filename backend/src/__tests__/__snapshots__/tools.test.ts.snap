@@ -440,9 +440,9 @@ Params:
 
 Format the \`content\` parameter as an edit snippet that describes how you would like to modify the provided existing code.
 
-Edit snippets will be parsed by a less intelligent "fast-apply" model, so you must follow this format, otherwise the smaller model will not understand what to change.
+Edit snippets will be parsed by a less intelligent "fast-apply" model, so you MUST follow this format, otherwise the finetuned smaller model will not understand what to change. For example, do not include detailed instructions on how to apply code changes for the fast-apply model.
 
-Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... rest of headers/sections/code ...". Be descriptive in the comment. You MUST to use these in order to **MINIMIZE** the number of characters in the \`content\` parameter.
+Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... existing code ...". Be descriptive in the comment. You MUST to use these in order to **MINIMIZE** the number of characters in the \`content\` parameter.
 
 Make sure that you are abbreviating exactly where you believe the existing code will remain the same.
 Indicate the location and nature of the modifications (additions and deletions) with comments and ellipses.
@@ -623,7 +623,10 @@ Stick to these use cases:
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\`/\`move\` or \`rm\`/\`del\`.
 
-Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags.
+Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags and *do not* use the tool call format, e.g.:
+\`\`\`bash
+git branch -D foo
+\`\`\`
 
 When using this tool, please adhere to the following rules:
 
@@ -985,9 +988,9 @@ Params:
 
 Format the \`content\` parameter as an edit snippet that describes how you would like to modify the provided existing code.
 
-Edit snippets will be parsed by a less intelligent "fast-apply" model, so you must follow this format, otherwise the smaller model will not understand what to change.
+Edit snippets will be parsed by a less intelligent "fast-apply" model, so you MUST follow this format, otherwise the finetuned smaller model will not understand what to change. For example, do not include detailed instructions on how to apply code changes for the fast-apply model.
 
-Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... rest of headers/sections/code ...". Be descriptive in the comment. You MUST to use these in order to **MINIMIZE** the number of characters in the \`content\` parameter.
+Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... existing code ...". Be descriptive in the comment. You MUST to use these in order to **MINIMIZE** the number of characters in the \`content\` parameter.
 
 Make sure that you are abbreviating exactly where you believe the existing code will remain the same.
 Indicate the location and nature of the modifications (additions and deletions) with comments and ellipses.
@@ -1168,7 +1171,10 @@ Stick to these use cases:
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\`/\`move\` or \`rm\`/\`del\`.
 
-Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags.
+Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags and *do not* use the tool call format, e.g.:
+\`\`\`bash
+git branch -D foo
+\`\`\`
 
 When using this tool, please adhere to the following rules:
 
@@ -1530,9 +1536,9 @@ Params:
 
 Format the \`content\` parameter as an edit snippet that describes how you would like to modify the provided existing code.
 
-Edit snippets will be parsed by a less intelligent "fast-apply" model, so you must follow this format, otherwise the smaller model will not understand what to change.
+Edit snippets will be parsed by a less intelligent "fast-apply" model, so you MUST follow this format, otherwise the finetuned smaller model will not understand what to change. For example, do not include detailed instructions on how to apply code changes for the fast-apply model.
 
-Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... rest of headers/sections/code ...". Be descriptive in the comment. You MUST to use these in order to **MINIMIZE** the number of characters in the \`content\` parameter.
+Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... existing code ...". Be descriptive in the comment. You MUST to use these in order to **MINIMIZE** the number of characters in the \`content\` parameter.
 
 Make sure that you are abbreviating exactly where you believe the existing code will remain the same.
 Indicate the location and nature of the modifications (additions and deletions) with comments and ellipses.
@@ -1713,7 +1719,10 @@ Stick to these use cases:
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\`/\`move\` or \`rm\`/\`del\`.
 
-Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags.
+Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags and *do not* use the tool call format, e.g.:
+\`\`\`bash
+git branch -D foo
+\`\`\`
 
 When using this tool, please adhere to the following rules:
 
@@ -2075,9 +2084,9 @@ Params:
 
 Format the \`content\` parameter as an edit snippet that describes how you would like to modify the provided existing code.
 
-Edit snippets will be parsed by a less intelligent "fast-apply" model, so you must follow this format, otherwise the smaller model will not understand what to change.
+Edit snippets will be parsed by a less intelligent "fast-apply" model, so you MUST follow this format, otherwise the finetuned smaller model will not understand what to change. For example, do not include detailed instructions on how to apply code changes for the fast-apply model.
 
-Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... rest of headers/sections/code ...". Be descriptive in the comment. You MUST to use these in order to **MINIMIZE** the number of characters in the \`content\` parameter.
+Abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... existing code ...". Be descriptive in the comment. You MUST to use these in order to **MINIMIZE** the number of characters in the \`content\` parameter.
 
 Make sure that you are abbreviating exactly where you believe the existing code will remain the same.
 Indicate the location and nature of the modifications (additions and deletions) with comments and ellipses.
@@ -2258,7 +2267,10 @@ Stick to these use cases:
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\`/\`move\` or \`rm\`/\`del\`.
 
-Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags.
+Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags and *do not* use the tool call format, e.g.:
+\`\`\`bash
+git branch -D foo
+\`\`\`
 
 When using this tool, please adhere to the following rules:
 

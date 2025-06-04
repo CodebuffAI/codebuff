@@ -1,5 +1,6 @@
 import assert from 'assert'
 import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
+import * as fs from 'fs'
 import { createWriteStream, mkdirSync, WriteStream } from 'fs'
 import * as os from 'os'
 import path, { dirname } from 'path'
@@ -149,6 +150,16 @@ const createPersistantProcess = (
       )
     }
 
+    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local') {
+      persistentPty.onData((data: string) => {
+        mkdirSync('debug', { recursive: true })
+        fs.appendFileSync(
+          'debug/terminal.log',
+          `${Date.now()}: ${JSON.stringify({ data })} temporary debug log for pty data\n`
+        )
+      })
+    }
+
     return { type: 'pty', shell: 'pty', pty: persistentPty, timerId: null }
   } else {
     // Fallback to child_process
@@ -215,7 +226,7 @@ function formatResult(command: string, stdout: string, status: string): string {
   return buildArray(
     `<command>${command}</command>`,
     '<terminal_command_result>',
-    `<output>${truncateStringWithMessage({ str: stdout, maxLength: COMMAND_OUTPUT_LIMIT, remove: 'MIDDLE' })}</output>`,
+    `<output>${truncateStringWithMessage({ str: stripColors(stdout), maxLength: COMMAND_OUTPUT_LIMIT, remove: 'MIDDLE' })}</output>`,
     `<status>${status}</status>`,
     '</terminal_command_result>'
   ).join('\n')
@@ -381,7 +392,7 @@ export const runTerminalCommand = async (
   cwd?: string,
   stdoutFile?: string,
   stderrFile?: string
-): Promise<{ result: string; stdout: string }> => {
+): Promise<{ result: string; stdout: string; exitCode: number | null }> => {
   const maybeTimeoutSeconds = timeoutSeconds < 0 ? null : timeoutSeconds
   cwd = cwd || (mode === 'assistant' ? getProjectRoot() : getWorkingDirectory())
   return new Promise((resolve) => {

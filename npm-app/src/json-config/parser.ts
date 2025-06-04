@@ -10,7 +10,7 @@ import {
   codebuffConfigFileBackup,
   CodebuffConfigSchema,
 } from 'common/json-config/constants'
-import { getProjectRoot } from './project-files'
+import { getProjectRoot } from '../project-files'
 
 /**
  * Loads and validates the configuration file from the project directory.

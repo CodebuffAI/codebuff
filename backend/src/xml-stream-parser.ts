@@ -279,10 +279,6 @@ export async function* processStreamWithTags<T extends string>(
     }
     if (state.currentTool !== null) {
       const closeTool = `</${state.currentTool}>\n`
-      onError(
-        state.currentTool,
-        'INFO: Found end of stream while parsing tool. End of tool appended to response. The stop sequence may have been omitted. Make sure to end tools in the future!'
-      )
       parser.write(closeTool)
       yield closeTool
     }

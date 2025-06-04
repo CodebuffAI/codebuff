@@ -65,7 +65,8 @@ import { CLI } from './cli'
 import { backendUrl, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { calculateFingerprint } from './fingerprint'
-import { loadCodebuffConfig } from './json-config-parser'
+import { runFileChangeHooks } from './json-config/hooks'
+import { loadCodebuffConfig } from './json-config/parser'
 import { displayGreeting } from './menu'
 import {
   getFiles,
@@ -1034,6 +1035,7 @@ export class Client {
 
         this.agentState = a.agentState
         const toolResults: ToolResult[] = [...a.toolResults]
+        const changedFiles: string[] = []
 
         for (const toolCall of a.toolCalls) {
           try {
@@ -1046,6 +1048,8 @@ export class Client {
               // Save lastChanges for `diff` command
               this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
               this.hadFileChanges = true
+              // Track the changed file path
+              changedFiles.push(toolCall.parameters.path)
             }
             if (
               toolCall.name === 'run_terminal_command' &&
@@ -1093,6 +1097,16 @@ export class Client {
         // If we had any file changes, update the project context
         if (this.hadFileChanges) {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
+        }
+
+        if (changedFiles.length > 0) {
+          // Run file change hooks with the actual changed files
+          const { toolResults: hookToolResults, someHooksFailed } =
+            await runFileChangeHooks(changedFiles)
+          toolResults.push(...hookToolResults)
+          if (someHooksFailed) {
+            isComplete = false
+          }
         }
 
         if (!isComplete) {

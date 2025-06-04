@@ -10,11 +10,32 @@
       "name": "web-server",
       "command": "bun start-web",
       "stdoutFile": "debug/web.log"
+    }
+  ],
+  "fileChangeHooks": [
+    {
+      "name": "backend-unit-tests",
+      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev $'\\x1b\\[[0-9;]*m' | grep -Ev '^s*[0-9]+s+(pass|skip)|(pass)|(skip)'",
+      "cwd": "backend",
+      "filePattern": "backend/**/*.ts"
     },
     {
-      "name": "typechecker",
-      "command": "bun tsc -b -w --preserveWatchOutput",
-      "stdoutFile": "debug/typecheck.log"
+      "name": "npm-app-unit-tests",
+      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev $'\\x1b\\[[0-9;]*m' | grep -Ev '^s*[0-9]+s+(pass|skip)|(pass)|(skip)'",
+      "cwd": "npm-app",
+      "filePattern": "npm-app/**/*.ts"
+    },
+    {
+      "name": "typecheck-web",
+      "command": "bun run typecheck",
+      "cwd": "web",
+      "filePattern": "web/**/*.ts"
+    },
+    {
+      "name": "common-unit-tests",
+      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev $'\\x1b\\[[0-9;]*m' | grep -Ev '^s*[0-9]+s+(pass|skip)|(pass)|(skip)'",
+      "cwd": "common",
+      "filePattern": "common/**/*.ts"
     }
   ],
   "maxAgentSteps": 20

@@ -6,7 +6,7 @@ import {
   GetRelevantFilesTrace,
   insertTrace,
 } from '@codebuff/bigquery'
-import { models, type CostMode } from 'common/constants'
+import { finetunedVertexModels, models, type CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import {
   cleanMarkdownCodeBlock,
@@ -24,7 +24,11 @@ import { checkNewFilesNecessary } from './check-new-files-necessary'
 
 import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
 import { promptAiSdk } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
-import { coreMessagesWithSystem, getCoreMessagesSubset } from '@/util/messages'
+import {
+  castAssistantMessage,
+  coreMessagesWithSystem,
+  getCoreMessagesSubset,
+} from '@/util/messages'
 import { CoreMessage } from 'ai'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
@@ -46,7 +50,7 @@ export async function requestRelevantFiles(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoId: string | undefined
+  repoId: string | undefined // Parameter is repoId
 ) {
   const countPerRequest = {
     lite: 8,
@@ -102,7 +106,7 @@ export async function requestRelevantFiles(
     userInputId,
     userId,
     costMode,
-    repoId
+    repoId // Pass repoId
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
@@ -159,7 +163,7 @@ export async function requestRelevantFilesForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoId: string | undefined
+  repoId: string | undefined // Parameter is repoId
 ) {
   const COUNT = 50
 
@@ -199,7 +203,7 @@ export async function requestRelevantFilesForTraining(
     userInputId,
     userId,
     costMode,
-    repoId
+    repoId // Pass repoId
   )
 
   const nonObviousFiles = await getRelevantFilesForTraining(
@@ -215,7 +219,7 @@ export async function requestRelevantFilesForTraining(
     userInputId,
     userId,
     costMode,
-    repoId
+    repoId // Pass repoId
   )
 
   const candidateFiles = [...keyFiles.files, ...nonObviousFiles.files]
@@ -243,7 +247,7 @@ async function getRelevantFiles(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoId: string | undefined
+  repoId: string | undefined // Parameter is repoId
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -257,18 +261,34 @@ async function getRelevantFiles(
     bufferTokens
   )
   const start = performance.now()
-  let response = await promptFlashWithFallbacks(
-    coreMessagesWithSystem(messagesWithPrompt, system),
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: models.gemini2flash,
-      userId,
-      costMode,
-      useFinetunedModel: true,
-    }
-  )
+  let coreMessages = coreMessagesWithSystem(messagesWithPrompt, system)
+
+  if (costMode === 'experimental') {
+    coreMessages = coreMessages
+      .map((msg, i) => {
+        if (msg.role === 'assistant' && i !== coreMessages.length - 1) {
+          return castAssistantMessage(msg)
+        } else {
+          return msg
+        }
+      })
+      .filter((msg) => msg !== null)
+  }
+  // This finetunedModel is used for the promptFlashWithFallbacks call
+  const finetunedModel =
+    costMode === 'experimental'
+      ? finetunedVertexModels.ft_filepicker_010
+      : finetunedVertexModels.ft_filepicker_005
+
+  let response = await promptFlashWithFallbacks(coreMessages, {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    model: models.gemini2flash,
+    userId,
+    costMode,
+    useFinetunedModel: finetunedModel,
+  })
   const end = performance.now()
   const duration = end - start
 
@@ -289,8 +309,8 @@ async function getRelevantFiles(
       user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
-      model: models.ft_filepicker_005,
-      repo_name: repoId,
+      model: models.ft_filepicker_005, // Ensure this uses the static model for the trace
+      repo_name: repoId,             // Use repoId parameter for trace
     },
   }
 
@@ -317,7 +337,7 @@ async function getRelevantFilesForTraining(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoId: string | undefined
+  repoId: string | undefined // Parameter is repoId
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -361,8 +381,8 @@ async function getRelevantFilesForTraining(
       user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
-      model: models.ft_filepicker_005,
-      repo_name: repoId,
+      model: models.ft_filepicker_005, // Use specific model for trace
+      repo_name: repoId,             // Use repoId parameter for trace
     },
   }
 
@@ -648,4 +668,4 @@ const validateFilePaths = (filePaths: string[]) => {
     .map((p) => (p.startsWith('/') ? p.slice(1) : p))
 }
 
-import { getRequestContext } from '../websockets/request-context'
+// Removed unused import: import { getRequestContext } from '../websockets/request-context'
