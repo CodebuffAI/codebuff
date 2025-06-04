@@ -1,5 +1,5 @@
 import { anthropic } from '@ai-sdk/anthropic'
-import { google } from '@ai-sdk/google'
+import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import {
   CoreAssistantMessage,
@@ -71,13 +71,35 @@ export const promptAiSdkStream = async function* (
   const response = streamText({
     ...options,
     model: aiSDKModel,
+    providerOptions: {
+      google: {
+        thinkingConfig: {
+          includeThoughts: true,
+        },
+      } satisfies GoogleGenerativeAIProviderOptions,
+    },
   })
 
   let content = ''
+  let hasReasoning = false
+  let finishedReasoning = false
 
-  for await (const chunk of response.textStream) {
-    content += chunk
-    yield chunk
+  for await (const chunk of response.fullStream) {
+    if (chunk.type === 'reasoning') {
+      if (!hasReasoning) {
+        hasReasoning = true
+        yield '<think_deeply>\n<thought>'
+      }
+      yield chunk.textDelta
+    }
+    if (chunk.type === 'text-delta') {
+      if (hasReasoning && !finishedReasoning) {
+        finishedReasoning = true
+        yield '</thought>\n</think_deeply>'
+      }
+      content += chunk.textDelta
+      yield chunk.textDelta
+    }
   }
 
   const usage = await response.usage
