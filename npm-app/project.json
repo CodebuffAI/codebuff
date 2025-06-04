@@ -4,11 +4,19 @@
   "sourceRoot": "src",
   "projectType": "application",
   "targets": {
+    "clean": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
+        "cwd": "npm-app"
+      }
+    },
     "build": {
       "outputs": ["{projectRoot}/dist"],
       "executor": "nx:run-commands",
       "options": {
         "commands": [
+          "nx clean npm-app",
           "eslint src/index.ts",
           "tsc",
           "tsc-alias -p tsconfig.json",
@@ -21,13 +29,6 @@
         ],
         "cwd": "npm-app",
         "parallel": false
-      }
-    },
-    "clean": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
-        "cwd": "npm-app"
       }
     },
     "lint": {
