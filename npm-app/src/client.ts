@@ -1,13 +1,6 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  unlinkSync,
-  writeFileSync,
-} from 'fs'
-import os from 'os'
 import { spawn } from 'child_process'
 import {
+  ClientAction,
   FileChanges,
   FileChangeSchema,
   InitResponseSchema,
@@ -17,8 +10,15 @@ import {
   ServerAction,
   UsageReponseSchema,
   UsageResponse,
-  ClientAction,
 } from 'common/actions'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
+import os from 'os'
 
 import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
 import {
@@ -43,6 +43,7 @@ import { User } from 'common/util/credentials'
 import { ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
+import path from 'path'
 import {
   blue,
   blueBright,
@@ -54,8 +55,6 @@ import {
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
-import gitUrlParse from 'git-url-parse'
-import path from 'path'
 
 import packageJson from '../package.json'
 import { getBackgroundProcessUpdates } from './background-process-manager'
@@ -82,10 +81,10 @@ import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
+import { readNewTerminalOutput } from './utils/terminal'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import { readNewTerminalOutput } from './utils/terminal'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -164,6 +163,7 @@ export class Client {
   public pendingTopUpMessageAmount: number = 0
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
+  public filesChangedForHook: string[] = []
   public agentState: AgentState | undefined
   public originalFileVersions: Record<string, string | null> = {}
   public creditsByPromptId: Record<string, number[]> = {}
@@ -842,7 +842,17 @@ export class Client {
       throw new Error('Agent state not initialized')
     }
 
+    setMessages([
+      ...this.agentState.messageHistory,
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ])
+
     this.agentState.agentStepsRemaining = loadCodebuffConfig()?.maxAgentSteps
+    this.lastChanges = []
+    this.filesChangedForHook = []
 
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
@@ -1062,7 +1072,6 @@ export class Client {
 
         this.agentState = a.agentState
         const toolResults: ToolResult[] = [...a.toolResults]
-        const changedFiles: string[] = []
 
         for (const toolCall of a.toolCalls) {
           try {
@@ -1071,12 +1080,16 @@ export class Client {
               isComplete = true
               continue
             }
-            if (toolCall.name === 'write_file') {
+            if (
+              toolCall.name === 'write_file' ||
+              toolCall.name === 'str_replace' ||
+              toolCall.name === 'create_plan'
+            ) {
               // Save lastChanges for `diff` command
               this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
               this.hadFileChanges = true
               // Track the changed file path
-              changedFiles.push(toolCall.parameters.path)
+              this.filesChangedForHook.push(toolCall.parameters.path)
             }
             if (
               toolCall.name === 'run_terminal_command' &&
@@ -1126,14 +1139,15 @@ export class Client {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
         }
 
-        if (changedFiles.length > 0) {
+        if (this.filesChangedForHook.length > 0 && isComplete) {
           // Run file change hooks with the actual changed files
           const { toolResults: hookToolResults, someHooksFailed } =
-            await runFileChangeHooks(changedFiles)
+            await runFileChangeHooks(this.filesChangedForHook)
           toolResults.push(...hookToolResults)
           if (someHooksFailed) {
             isComplete = false
           }
+          this.filesChangedForHook = []
         }
 
         if (!isComplete) {

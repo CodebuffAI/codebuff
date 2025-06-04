@@ -23,7 +23,6 @@ import {
   killAllBackgroundProcesses,
   sendKillSignalToAllBackgroundProcesses,
 } from './background-process-manager'
-import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { detectApiKey, handleApiKeyInput } from './cli-handlers/api-key'
 import {
@@ -65,7 +64,6 @@ import {
   resetShell,
 } from './utils/terminal'
 
-import { type CodebuffMessage } from 'common/types/message'
 import { CONFIG_DIR } from './credentials'
 import { loadCodebuffConfig } from './json-config/parser'
 import { logAndHandleStartup } from './startup-process-handler'
@@ -799,18 +797,6 @@ export class CLI {
     await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
     Spinner.get().start()
 
-    Client.getInstance().lastChanges = []
-
-    const newMessage: CodebuffMessage = {
-      role: 'user',
-      content: cleanedInput,
-    }
-
-    const client = Client.getInstance()
-    if (client.agentState) {
-      setMessages([...client.agentState.messageHistory, newMessage])
-    }
-
     this.isReceivingResponse = true
 
     const { responsePromise, stopResponse } =
@@ -941,10 +927,10 @@ export class CLI {
     Client.getInstance().close() // Close WebSocket
 
     const client = Client.getInstance()
-    
+
     // Check for organization coverage first
     const coverage = await client.checkRepositoryCoverage()
-    
+
     // Calculate session usage and total for display
     const totalCreditsUsedThisSession = Object.values(client.creditsByPromptId)
       .flat()
@@ -957,7 +943,7 @@ export class CLI {
       exitUsageMessage += '.'
     }
     console.log(exitUsageMessage)
-    
+
     if (coverage.isCovered && coverage.organizationName) {
       // When covered by an organization, show organization information
       console.log(
