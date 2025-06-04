@@ -28,8 +28,10 @@ interface UsageDisplayProps {
   nextQuotaReset: Date | null
 }
 
+type FilteredGrantType = Exclude<GrantType, 'organization'>
+
 const grantTypeInfo: Record<
-  GrantType,
+  FilteredGrantType,
   {
     bg: string
     text: string
@@ -71,18 +73,10 @@ const grantTypeInfo: Record<
     label: 'Special Grant',
     description: 'Special credits from Codebuff',
   },
-  organization: {
-    bg: 'bg-purple-500',
-    text: 'text-purple-600 dark:text-purple-400',
-    gradient: 'from-purple-500/70 to-purple-600/70',
-    icon: <Users className="h-4 w-4" />,
-    label: 'Organization',
-    description: 'Credits from your organization',
-  },
 }
 
 interface CreditLeafProps {
-  type: GrantType
+  type: FilteredGrantType
   amount: number
   used: number
   renewalDate?: Date | null
@@ -220,25 +214,26 @@ export const UsageDisplay = ({
   const { totalRemaining, breakdown, totalDebt, netBalance, principals } =
     balance
 
-  // Calculate used credits per type
-  const usedCredits: Record<GrantType, number> = {
+  // Calculate used credits per type (excluding organization)
+  const usedCredits: Record<FilteredGrantType, number> = {
     free: 0,
     referral: 0,
     purchase: 0,
     admin: 0,
-    organization: 0,
   }
 
   Object.entries(GRANT_PRIORITIES).forEach(([type]) => {
     const typeKey = type as GrantType
-    const currentBalanceVal = breakdown[typeKey] || 0
-    const principalVal = principals[typeKey] || currentBalanceVal
-    usedCredits[typeKey] = Math.max(0, principalVal - currentBalanceVal)
+    if (typeKey !== 'organization') {
+      const currentBalanceVal = breakdown[typeKey] || 0
+      const principalVal = principals[typeKey] || currentBalanceVal
+      usedCredits[typeKey as FilteredGrantType] = Math.max(0, principalVal - currentBalanceVal)
+    }
   })
 
-  // Group credits by expiration type
-  const expiringTypes: GrantType[] = ['free', 'referral']
-  const nonExpiringTypes: GrantType[] = ['admin', 'purchase', 'organization']
+  // Group credits by expiration type (excluding organization)
+  const expiringTypes: FilteredGrantType[] = ['free', 'referral']
+  const nonExpiringTypes: FilteredGrantType[] = ['admin', 'purchase']
 
   const expiringTotal = expiringTypes.reduce(
     (acc, type) => acc + (principals?.[type] || breakdown[type] || 0),
