@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.315",
+  "version": "1.0.316",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -59,7 +59,7 @@
     "onetime": "5.1.2",
     "picocolors": "1.1.0",
     "pino": "9.4.0",
-    "posthog-node": "^4.14.0",
+    "posthog-node": "4.17.2",
     "puppeteer-core": "^24.2.0",
     "systeminformation": "5.23.4",
     "tree-sitter": "0.21.1",
