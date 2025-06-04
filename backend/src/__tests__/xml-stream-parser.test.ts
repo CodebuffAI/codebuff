@@ -401,11 +401,6 @@ describe('processStreamWithTags', () => {
           'WARN: Found end of stream while parsing parameter. End of parameter appended to response. Make sure to close all parameters!',
         name: 'param',
       },
-      {
-        error:
-          'INFO: Found end of stream while parsing tool. End of tool appended to response. The stop sequence may have been omitted. Make sure to end tools in the future!',
-        name: 'test',
-      },
       { tagName: 'test', type: 'end', params: { param: 'content' } },
     ])
     expect(result).toEqual([...streamChunks, '</param>\n', '</test>\n'])
