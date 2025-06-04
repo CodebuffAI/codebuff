@@ -155,13 +155,13 @@ const createPersistantProcess = (
       )
     }
 
-    const persistentProcessInfo: PersistentProcess = { 
-      type: 'pty', 
-      shell: 'pty', 
-      pty: persistentPty, 
+    const persistentProcessInfo: PersistentProcess = {
+      type: 'pty',
+      shell: 'pty',
+      pty: persistentPty,
       timerId: null,
       globalOutputBuffer: '',
-      globalOutputLastReadLength: 0
+      globalOutputLastReadLength: 0,
     }
 
     // Add a persistent listener to capture all output for manager mode
@@ -188,7 +188,7 @@ const createPersistantProcess = (
       childProcess,
       timerId: null,
       globalOutputBuffer: '',
-      globalOutputLastReadLength: 0
+      globalOutputLastReadLength: 0,
     }
   }
 }
@@ -931,7 +931,10 @@ export const runCommandPtyManager = (
     }
   })
 
-  ptyProcess.write(`${command}\r`)
+  ptyProcess.write(`${command}`)
+  setTimeout(() => {
+    ptyProcess.write('\r')
+  }, 50)
 }
 
 // Add a function to get new terminal output since last read
@@ -944,9 +947,9 @@ export const readNewTerminalOutput = (): string => {
   const newOutput = persistentProcess.globalOutputBuffer.slice(
     persistentProcess.globalOutputLastReadLength
   )
-  
+
   // Update the last read position
   persistentProcess.globalOutputLastReadLength = currentLength
-  
+
   return newOutput
 }
