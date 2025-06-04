@@ -211,8 +211,9 @@ export const mainPrompt = async (
 
     'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
 
-    !isLiteMode &&
-      `Before finishing your response, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
+    // Disable for now. You can use codebuff.json triggers to ensure this.
+    // !isLiteMode &&
+    //   `Before finishing your response, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
     !isLiteMode &&
       "If you are still working on the user's request, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
     isGPT4_1 &&
