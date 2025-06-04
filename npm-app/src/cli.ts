@@ -564,12 +564,6 @@ export class CLI {
         command: mode,
       })
 
-      // Exit superagent mode if currently in it
-      if (this.isManagerMode) {
-        this.isManagerMode = false
-        console.log(green('🔄 Exiting superagent mode...'))
-      }
-
       this.costMode = mode
       Client.getInstance().setCostMode(mode)
 
@@ -610,18 +604,6 @@ export class CLI {
     // Handle empty slash command
     if (userInput === '/') {
       return userInput // Let it be processed as a prompt
-    }
-
-    // Handle /superagent command - enter superagent mode
-    if (cleanInput === 'superagent') {
-      this.isManagerMode = true
-      console.log(magenta('🤖 Entering Superagent Mode...'))
-      console.log(
-        cyan('You are now chatting with Codebuff in autonomous superagent mode.')
-      )
-      console.log(gray('Type "/normal" to return to normal mode.'))
-      this.freshPrompt()
-      return null
     }
 
     // Track slash command usage if it starts with '/'

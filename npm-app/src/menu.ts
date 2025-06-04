@@ -160,12 +160,6 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
   },
   {
-    baseCommand: 'superagent',
-    description: 'Enter autonomous superagent mode for multi-step tasks',
-    isSlashCommand: true,
-    commandText: '',
-  },
-  {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
     description: 'Quit Codebuff',
