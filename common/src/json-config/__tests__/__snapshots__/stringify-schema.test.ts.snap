@@ -54,7 +54,7 @@ exports[`stringifySchema should correctly stringify CodebuffConfigSchema 1`] = `
     }
   ] | undefined,
 
-  // An array of commands to run on file changes.
+  // (optional): An array of commands to run on file changes.
   "fileChangeHooks": [
 
     // Defines a single file change hook.
@@ -74,7 +74,7 @@ exports[`stringifySchema should correctly stringify CodebuffConfigSchema 1`] = `
       // (optional): Whether this command should be run, default: true
       "enabled": boolean | undefined
     }
-  ],
+  ] | undefined,
 
   // (optional): Maximum number of turns agent will take before being forced to end, default: 12
   "maxAgentSteps": number
