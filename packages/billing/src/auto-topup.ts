@@ -11,7 +11,10 @@ import { calculateUsageAndBalance } from './balance-calculator'
 import { generateOperationIdTimestamp } from './utils'
 import { env } from 'common/src/env.mjs'
 import { CREDIT_PRICING } from 'common/src/constants'
-import { grantOrganizationCredits, calculateOrganizationUsageAndBalance } from './org-billing'
+import {
+  grantOrganizationCredits,
+  calculateOrganizationUsageAndBalance,
+} from './org-billing'
 import { getNextQuotaReset } from 'common/util/dates'
 
 const MINIMUM_PURCHASE_CREDITS = 500
@@ -54,17 +57,37 @@ export async function validateAutoTopupStatus(
       )
     }
 
-    const paymentMethods = await stripeServer.paymentMethods.list({
-      customer: user.stripe_customer_id,
-      type: 'card',
-    })
+    const [cardPaymentMethods, linkPaymentMethods] = await Promise.all([
+      stripeServer.paymentMethods.list({
+        customer: user.stripe_customer_id,
+        type: 'card',
+      }),
+      stripeServer.paymentMethods.list({
+        customer: user.stripe_customer_id,
+        type: 'link',
+      }),
+    ])
 
-    const validPaymentMethod = paymentMethods.data.find(
-      (pm) =>
-        pm.card?.exp_year &&
-        pm.card.exp_month &&
-        new Date(pm.card.exp_year, pm.card.exp_month - 1) > new Date()
-    )
+    const allPaymentMethods = [
+      ...cardPaymentMethods.data,
+      ...linkPaymentMethods.data,
+    ]
+
+    const validPaymentMethod = allPaymentMethods.find((pm) => {
+      // For card payment methods, check expiration
+      if (pm.type === 'card') {
+        return (
+          pm.card?.exp_year &&
+          pm.card.exp_month &&
+          new Date(pm.card.exp_year, pm.card.exp_month - 1) > new Date()
+        )
+      }
+      // For link payment methods, they're always valid if they exist
+      if (pm.type === 'link') {
+        return true
+      }
+      return false
+    })
 
     if (!validPaymentMethod) {
       throw new AutoTopupValidationError(
@@ -291,12 +314,116 @@ async function getOrganizationSettings(organizationId: string) {
   return organization
 }
 
+/**
+ * Gets and selects the appropriate payment method for an organization.
+ * Handles both card and link payment methods, with preference for existing default.
+ */
+async function getOrganizationPaymentMethod(
+  organizationId: string,
+  stripeCustomerId: string
+): Promise<string> {
+  const logContext = { organizationId, stripeCustomerId }
+
+  // Get payment methods for the organization - include both card and link types
+  const [cardPaymentMethods, linkPaymentMethods] = await Promise.all([
+    stripeServer.paymentMethods.list({
+      customer: stripeCustomerId,
+      type: 'card',
+    }),
+    stripeServer.paymentMethods.list({
+      customer: stripeCustomerId,
+      type: 'link',
+    }),
+  ])
+
+  const allPaymentMethods = [
+    ...cardPaymentMethods.data,
+    ...linkPaymentMethods.data,
+  ]
+
+  logger.debug(
+    {
+      ...logContext,
+      cardPaymentMethodCount: cardPaymentMethods.data.length,
+      linkPaymentMethodCount: linkPaymentMethods.data.length,
+      totalPaymentMethodCount: allPaymentMethods.length,
+      paymentMethodIds: allPaymentMethods.map((pm) => pm.id),
+      paymentMethodTypes: allPaymentMethods.map((pm) => pm.type),
+    },
+    'Retrieved payment methods for organization (cards and link)'
+  )
+
+  if (allPaymentMethods.length === 0) {
+    throw new AutoTopupPaymentError(
+      'No payment methods available for organization'
+    )
+  }
+
+  // Get the customer to check for default payment method
+  const customer = await stripeServer.customers.retrieve(stripeCustomerId)
+
+  let paymentMethodToUse: string | null = null
+
+  // Check if there's already a default payment method
+  if (
+    customer &&
+    !customer.deleted &&
+    customer.invoice_settings?.default_payment_method
+  ) {
+    const defaultPaymentMethodId =
+      typeof customer.invoice_settings.default_payment_method === 'string'
+        ? customer.invoice_settings.default_payment_method
+        : customer.invoice_settings.default_payment_method.id
+
+    // Verify the default payment method is still valid and available
+    const isDefaultValid = allPaymentMethods.some(
+      (pm) => pm.id === defaultPaymentMethodId
+    )
+
+    if (isDefaultValid) {
+      paymentMethodToUse = defaultPaymentMethodId
+      logger.debug(
+        { ...logContext, paymentMethodId: paymentMethodToUse },
+        'Using existing default payment method for organization auto top-up'
+      )
+    }
+  }
+
+  // If no valid default payment method, use the first available and set it as default
+  if (!paymentMethodToUse) {
+    const firstPaymentMethod = allPaymentMethods[0]
+    paymentMethodToUse = firstPaymentMethod.id
+
+    // Set this payment method as the default for future use
+    try {
+      await stripeServer.customers.update(stripeCustomerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodToUse,
+        },
+      })
+
+      logger.info(
+        { ...logContext, paymentMethodId: paymentMethodToUse },
+        'Set first available payment method as default for organization'
+      )
+    } catch (error) {
+      logger.warn(
+        { ...logContext, paymentMethodId: paymentMethodToUse, error },
+        'Failed to set default payment method, but will proceed with payment'
+      )
+    }
+  }
+
+  return paymentMethodToUse
+}
+
 async function processOrgAutoTopupPayment(
   organizationId: string,
+  userId: string,
   amountToTopUp: number,
   stripeCustomerId: string
 ): Promise<void> {
-  const logContext = { organizationId, amountToTopUp }
+  const logContext = { organizationId, userId, amountToTopUp, stripeCustomerId }
 
   // Generate a deterministic operation ID based on organizationId and current time to minute precision
   const timestamp = generateOperationIdTimestamp(new Date())
@@ -310,11 +437,18 @@ async function processOrgAutoTopupPayment(
     throw new AutoTopupPaymentError('Invalid payment amount calculated')
   }
 
+  // Get the payment method to use for this organization
+  const paymentMethodToUse = await getOrganizationPaymentMethod(
+    organizationId,
+    stripeCustomerId
+  )
+
   const paymentIntent = await stripeServer.paymentIntents.create(
     {
       amount: amountInCents,
       currency: 'usd',
       customer: stripeCustomerId,
+      payment_method: paymentMethodToUse,
       off_session: true,
       confirm: true,
       description: `Organization auto top-up: ${amountToTopUp.toLocaleString()} credits`,
@@ -334,12 +468,9 @@ async function processOrgAutoTopupPayment(
     throw new AutoTopupPaymentError('Payment failed or requires action')
   }
 
-  // Use a system user ID for auto-topup since there's no specific user initiating this
-  const systemUserId = 'system-auto-topup'
-  
   await grantOrganizationCredits(
     organizationId,
-    systemUserId,
+    userId,
     amountToTopUp,
     operationId,
     `Organization auto top-up of ${amountToTopUp.toLocaleString()} credits`,
@@ -351,15 +482,17 @@ async function processOrgAutoTopupPayment(
       ...logContext,
       operationId,
       paymentIntentId: paymentIntent.id,
+      paymentMethodId: paymentMethodToUse,
     },
     'Organization auto top-up payment succeeded and credits granted'
   )
 }
 
 export async function checkAndTriggerOrgAutoTopup(
-  organizationId: string
+  organizationId: string,
+  userId: string
 ): Promise<void> {
-  const logContext = { organizationId }
+  const logContext = { organizationId, userId }
 
   try {
     const org = await getOrganizationSettings(organizationId)
@@ -408,6 +541,7 @@ export async function checkAndTriggerOrgAutoTopup(
     try {
       await processOrgAutoTopupPayment(
         organizationId,
+        userId,
         amountToTopUp,
         org.stripe_customer_id
       )

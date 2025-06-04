@@ -61,11 +61,17 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     let isSetup = false
     if (organization.stripe_customer_id) {
       try {
-        const paymentMethods = await stripeServer.paymentMethods.list({
-          customer: organization.stripe_customer_id,
-          type: 'card',
-        })
-        isSetup = paymentMethods.data.length > 0
+        const [cardPaymentMethods, linkPaymentMethods] = await Promise.all([
+          stripeServer.paymentMethods.list({
+            customer: organization.stripe_customer_id,
+            type: 'card',
+          }),
+          stripeServer.paymentMethods.list({
+            customer: organization.stripe_customer_id,
+            type: 'link',
+          })
+        ])
+        isSetup = cardPaymentMethods.data.length > 0 || linkPaymentMethods.data.length > 0
       } catch (error) {
         logger.warn(
           { orgId, error },

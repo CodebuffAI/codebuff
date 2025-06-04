@@ -8,13 +8,13 @@ import { withSerializableTransaction } from 'common/db/transaction'
 import { GrantTypeValues } from 'common/types/grant'
 import { stripeServer } from 'common/util/stripe'
 import { getNextQuotaReset } from 'common/util/dates'
-import { 
-  CreditBalance, 
-  CreditUsageAndBalance, 
+import {
+  CreditBalance,
+  CreditUsageAndBalance,
   CreditConsumptionResult,
   getOrderedActiveGrants,
   updateGrantBalance,
-  consumeFromOrderedGrants
+  consumeFromOrderedGrants,
 } from './balance-calculator'
 
 // Add a minimal structural type that both `db` and `tx` satisfy
@@ -24,7 +24,9 @@ type DbConn = Pick<typeof db, 'select' | 'update'>
  * Syncs organization billing cycle with Stripe subscription and returns the current cycle start date.
  * All organizations are expected to have Stripe subscriptions.
  */
-export async function syncOrganizationBillingCycle(organizationId: string): Promise<Date> {
+export async function syncOrganizationBillingCycle(
+  organizationId: string
+): Promise<Date> {
   const organization = await db.query.org.findFirst({
     where: eq(schema.org.id, organizationId),
     columns: {
@@ -39,7 +41,9 @@ export async function syncOrganizationBillingCycle(organizationId: string): Prom
   }
 
   if (!organization.stripe_customer_id) {
-    throw new Error(`Organization ${organizationId} does not have a Stripe customer ID`)
+    throw new Error(
+      `Organization ${organizationId} does not have a Stripe customer ID`
+    )
   }
 
   const now = new Date()
@@ -52,24 +56,35 @@ export async function syncOrganizationBillingCycle(organizationId: string): Prom
     })
 
     if (subscriptions.data.length === 0) {
-      throw new Error(`No active Stripe subscription found for organization ${organizationId}`)
+      throw new Error(
+        `No active Stripe subscription found for organization ${organizationId}`
+      )
     }
 
     const subscription = subscriptions.data[0]
-    const stripeCurrentStart = new Date(subscription.current_period_start * 1000)
+    const stripeCurrentStart = new Date(
+      subscription.current_period_start * 1000
+    )
     const stripeCurrentEnd = new Date(subscription.current_period_end * 1000)
-    
+
     // Check if we need to update the stored billing cycle dates
-    const needsUpdate = 
+    const needsUpdate =
       !organization.current_period_start ||
       !organization.current_period_end ||
-      Math.abs(stripeCurrentStart.getTime() - organization.current_period_start.getTime()) > 60 * 1000 ||
-      Math.abs(stripeCurrentEnd.getTime() - organization.current_period_end.getTime()) > 60 * 1000
+      Math.abs(
+        stripeCurrentStart.getTime() -
+          organization.current_period_start.getTime()
+      ) >
+        60 * 1000 ||
+      Math.abs(
+        stripeCurrentEnd.getTime() - organization.current_period_end.getTime()
+      ) >
+        60 * 1000
 
     if (needsUpdate) {
       await db
         .update(schema.org)
-        .set({ 
+        .set({
           current_period_start: stripeCurrentStart,
           current_period_end: stripeCurrentEnd,
           updated_at: now,
@@ -77,24 +92,24 @@ export async function syncOrganizationBillingCycle(organizationId: string): Prom
         .where(eq(schema.org.id, organizationId))
 
       logger.info(
-        { 
-          organizationId, 
+        {
+          organizationId,
           currentPeriodStart: stripeCurrentStart.toISOString(),
-          currentPeriodEnd: stripeCurrentEnd.toISOString()
+          currentPeriodEnd: stripeCurrentEnd.toISOString(),
         },
         'Synced organization billing cycle with Stripe subscription'
       )
     }
 
     logger.debug(
-      { 
-        organizationId, 
+      {
+        organizationId,
         stripeCurrentStart: stripeCurrentStart.toISOString(),
-        stripeCurrentEnd: stripeCurrentEnd.toISOString()
+        stripeCurrentEnd: stripeCurrentEnd.toISOString(),
       },
       'Using Stripe subscription period for organization billing cycle'
     )
-    
+
     return stripeCurrentStart
   } catch (error) {
     logger.error(
@@ -142,11 +157,21 @@ export async function calculateOrganizationUsageAndBalance(
   conn: DbConn = db
 ): Promise<CreditUsageAndBalance> {
   // Get all relevant grants for the organization
-  const grants = await getOrderedActiveOrganizationGrants(organizationId, now, conn)
+  const grants = await getOrderedActiveOrganizationGrants(
+    organizationId,
+    now,
+    conn
+  )
 
   // Initialize breakdown and principals with all grant types set to 0
-  const initialBreakdown: Record<GrantType, number> = {} as Record<GrantType, number>
-  const initialPrincipals: Record<GrantType, number> = {} as Record<GrantType, number>
+  const initialBreakdown: Record<GrantType, number> = {} as Record<
+    GrantType,
+    number
+  >
+  const initialPrincipals: Record<GrantType, number> = {} as Record<
+    GrantType,
+    number
+  >
 
   for (const type of GrantTypeValues) {
     initialBreakdown[type] = 0
@@ -228,7 +253,11 @@ export async function consumeOrganizationCredits(
   return await withSerializableTransaction(
     async (tx) => {
       const now = new Date()
-      const activeGrants = await getOrderedActiveOrganizationGrants(organizationId, now, tx)
+      const activeGrants = await getOrderedActiveOrganizationGrants(
+        organizationId,
+        now,
+        tx
+      )
 
       if (activeGrants.length === 0) {
         logger.error(
@@ -267,7 +296,7 @@ export async function grantOrganizationCredits(
   try {
     await db.insert(schema.creditLedger).values({
       operation_id: operationId,
-      user_id: userId, // The user who initiated the purchase
+      user_id: userId,
       org_id: organizationId,
       principal: amount,
       balance: amount,
@@ -299,7 +328,9 @@ export async function grantOrganizationCredits(
  * Extracts owner and repository name from a repository URL.
  * Returns null if the URL format is not recognized.
  */
-export function extractOwnerAndRepo(url: string): { owner: string; repo: string } | null {
+export function extractOwnerAndRepo(
+  url: string
+): { owner: string; repo: string } | null {
   try {
     // Handle empty or invalid URLs
     if (!url.trim()) return null
@@ -349,27 +380,29 @@ export function extractOwnerAndRepo(url: string): { owner: string; repo: string 
  */
 export function normalizeRepositoryUrl(url: string): string {
   let normalized = url.toLowerCase().trim()
-  
+
   // Remove .git suffix
   if (normalized.endsWith('.git')) {
     normalized = normalized.slice(0, -4)
   }
-  
+
   // Convert SSH to HTTPS
   if (normalized.startsWith('git@github.com:')) {
     normalized = normalized.replace('git@github.com:', 'https://github.com/')
   }
-  
+
   // Ensure https:// prefix for github URLs
   if (!normalized.startsWith('http') && normalized.includes('github.com')) {
     normalized = 'https://' + normalized
   }
-  
+
   // Parse URL to extract base repository URL (strip extra paths like /pull/123/files)
   try {
     const urlObj = new URL(normalized)
-    const pathSegments = urlObj.pathname.split('/').filter(segment => segment.length > 0)
-    
+    const pathSegments = urlObj.pathname
+      .split('/')
+      .filter((segment) => segment.length > 0)
+
     // For known Git hosting providers, only keep the first two path segments (owner/repo)
     const knownHosts = ['github.com', 'gitlab.com', 'bitbucket.org']
     if (knownHosts.includes(urlObj.hostname) && pathSegments.length >= 2) {
@@ -381,22 +414,22 @@ export function normalizeRepositoryUrl(url: string): string {
     // If URL parsing fails, return the normalized string as-is
     // This maintains backward compatibility
   }
-  
+
   return normalized
 }
 
 /**
  * Validates and normalizes a repository URL.
  */
-export function validateAndNormalizeRepositoryUrl(url: string): { 
-  isValid: boolean, 
-  normalizedUrl?: string, 
-  error?: string 
+export function validateAndNormalizeRepositoryUrl(url: string): {
+  isValid: boolean
+  normalizedUrl?: string
+  error?: string
 } {
   try {
     // Basic URL validation
     const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
-    
+
     // Whitelist allowed domains
     const allowedDomains = ['github.com', 'gitlab.com', 'bitbucket.org']
     if (!allowedDomains.includes(urlObj.hostname)) {
