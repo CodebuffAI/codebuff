@@ -6,6 +6,7 @@ import {
   Relabel,
   setupBigQuery,
 } from '@codebuff/bigquery'
+import { castAssistantMessage } from 'backend/util/messages'
 import {
   finetunedVertexModelNames,
   finetunedVertexModels,
@@ -34,6 +35,8 @@ const MODELS = [
   finetunedVertexModels.ft_filepicker_005,
   finetunedVertexModels.ft_filepicker_007,
   finetunedVertexModels.ft_filepicker_008,
+  finetunedVertexModels.ft_filepicker_010,
+  finetunedVertexModels.ft_filepicker_010_epoch_2,
 ] as const
 
 const modelDescriptions = {
@@ -45,6 +48,10 @@ const modelDescriptions = {
     'ft_filepicker_007: 44.7M tokens, 1 epoch, trained on Claude 4 Opus outputs with full file context',
   [finetunedVertexModels.ft_filepicker_008]:
     'ft_filepicker_008: 108M tokens, 2 epochs, trained on Claude 4 Opus outputs with full file context',
+  [finetunedVertexModels.ft_filepicker_010]:
+    'ft_filepicker_010: 109M tokens, 3 epochs, same as ft_filepicker_008 but with assistant messages converted to user messages',
+  [finetunedVertexModels.ft_filepicker_010_epoch_2]:
+    'ft_filepicker_010_epoch_2: 109M tokens, 2 epochs, same as ft_filepicker_008 but with assistant messages converted to user messages',
 }
 
 async function getFilteredValidationBundles(): Promise<
@@ -155,7 +162,21 @@ async function relabelTraceForModel(
   const messages = payload.messages as Message[]
   const system = payload.system as System
 
-  const output = await promptAiSdk(transformMessages(messages, system), {
+  let transformedMessages = transformMessages(messages, system)
+  if (modelToTest === finetunedVertexModels.ft_filepicker_010) {
+    transformedMessages = transformedMessages
+      .map((msg, i) => {
+        if (msg.role === 'assistant' && i !== messages.length - 1) {
+          return castAssistantMessage(msg)
+        } else {
+          return msg
+        }
+      })
+      .filter((msg) => msg !== null)
+  }
+
+  const output = await promptAiSdk({
+    messages: transformedMessages,
     model:
       modelToTest as (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels],
     clientSessionId: 'relabel-offline-scoring',

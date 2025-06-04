@@ -1,7 +1,7 @@
 import {
   claudeModels,
   CostMode,
-  finetunedVertexModels,
+  FinetunedVertexModel,
   GeminiModel,
   openaiModels,
 } from 'common/constants'
@@ -48,7 +48,7 @@ export async function promptFlashWithFallbacks(
     costMode?: CostMode
     useGPT4oInsteadOfClaude?: boolean
     thinkingBudget?: number
-    useFinetunedModel?: boolean
+    useFinetunedModel?: FinetunedVertexModel | undefined
   }
 ): Promise<string> {
   const {
@@ -62,13 +62,13 @@ export async function promptFlashWithFallbacks(
   if (useFinetunedModel) {
     try {
       logger.info(
-        { model: finetunedVertexModels.ft_filepicker_005 },
+        { model: useFinetunedModel },
         'Using finetuned model for file-picker!'
       )
       return await promptAiSdk({
         ...geminiOptions,
         messages,
-        model: finetunedVertexModels.ft_filepicker_005,
+        model: useFinetunedModel,
       })
     } catch (error) {
       logger.warn(

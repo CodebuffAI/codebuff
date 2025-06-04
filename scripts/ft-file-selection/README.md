@@ -85,7 +85,7 @@
   - about $3K for generating relabel inputs (at $15.00/1M input Claude tokens + some additional file context tokens) (about lot of this reused from ft_filepicker_007 though)
 
 `ft_filepicker_topk_002`
-- Gemini Endpoint ID: 
+- Gemini Endpoint ID: 1694861989844615168
 - Finetune date: May 31, 2025
 - Finetune file: gemini-tune-data-045-top2.jsonl, available in the GCS bucket
 - Validation file: gemini-tune-data-045-top2-validation.jsonl, available in the GCS bucket
@@ -102,6 +102,24 @@
   - TBD for finetuning ($3.00/1M tokens * 1 epoch * 44.7M tokens)
   - Mostly reuses relabel inputs from other Claude runs - no additional cost anticipated.
 
+`ft_filepicker_010`
+- Gemini Endpoint ID: 3808739064941641728
+- Finetune date: June 2, 2025
+- Finetune file: ??? TODO
+- Finetune samples: 2648 messages
+- Tokens: 109M
+- Epochs: 3
+- Base model: gemini-2.0-flash-001
+- Distilled model: claude-opus-4-20250514 
+- Notes: 
+  - Same training data as `ft_filepicker_008` but with assistant messages converted to user messages
+  - This preprocessing change aims to improve the model's ability to handle conversation context
+  - Uses the BLOBBIFY_MESSAGE_HISTORY approach where assistant messages are wrapped in `<previous_assistant_message>` tags and converted to user messages
+  - 3 epochs instead of 2 to improve results
+  - Also try `ft_filepicker_010_epoch_2` if you wanna compare what one less epoch does.
+- Est costs:
+  - ~$980 for finetuning ($3.00/1M tokens * 3 epochs * 109M tokens)
+  - Reuses relabel inputs from ft_filepicker_008 - no additional labeling cost
 
 ## Scripts
 
@@ -117,3 +135,4 @@ Contains a variety of scripts for inspecting and processing finetuning data from
 
 `collect-tuning-data.ts <model> [--prod]` - Downloads tuning data from BigQuery, using real inputs + relabeled outputs. The `model` parameter controls which relabeler model is used. 
 
+`relabel-for-offline-scoring.ts [--relabel|--score] [--prod]` - Relabels validation traces for offline evaluation or scores existing relabels using metrics like Jaccard similarity and MRR.

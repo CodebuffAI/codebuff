@@ -1,5 +1,6 @@
 import assert from 'assert'
 import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
+import * as fs from 'fs'
 import { createWriteStream, mkdirSync, WriteStream } from 'fs'
 import * as os from 'os'
 import path, { dirname } from 'path'
@@ -170,6 +171,16 @@ const createPersistantProcess = (
         persistentProcessInfo.globalOutputBuffer += data.toString() // Should we use stripColors(...)?
       }
     })
+
+    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local') {
+      persistentPty.onData((data: string) => {
+        mkdirSync('debug', { recursive: true })
+        fs.appendFileSync(
+          'debug/terminal.log',
+          `${Date.now()}: ${JSON.stringify({ data })} temporary debug log for pty data\n`
+        )
+      })
+    }
 
     return persistentProcessInfo
   } else {
