@@ -9,14 +9,16 @@ import {
   codebuffConfigFile,
   codebuffConfigFileBackup,
   CodebuffConfigSchema,
-} from './constants'
+} from 'common/json-config/constants'
+import { getProjectRoot } from '../project-files'
 
 /**
  * Loads and validates the configuration file from the project directory.
  * @param projectPath - The root directory of the project
  * @returns The parsed and validated configuration, or null if no valid config exists
  */
-export function loadCodebuffConfig(projectPath: string): CodebuffConfig | null {
+export function loadCodebuffConfig(): CodebuffConfig | null {
+  const projectPath = getProjectRoot()
   const configPathPrimary = path.join(projectPath, codebuffConfigFile)
   const configPathBackup = path.join(projectPath, codebuffConfigFileBackup)
   const configPath = existsSync(configPathBackup)

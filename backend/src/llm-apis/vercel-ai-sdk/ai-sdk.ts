@@ -55,28 +55,22 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
 // also take an array of form [{model: Model, retries: number}, {model: Model, retries: number}...]
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
 export const promptAiSdkStream = async function* (
-  messages: CoreMessage[],
   options: {
+    messages: CoreMessage[]
     clientSessionId: string
     fingerprintId: string
     userInputId: string
     model: Model
     userId: string | undefined
-    maxTokens?: number
-    temperature?: number
-    stopSequences?: string[]
     chargeUser?: boolean
-  }
+  } & Omit<Parameters<typeof streamText>[0], 'model'>
 ) {
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
   const response = streamText({
+    ...options,
     model: aiSDKModel,
-    messages,
-    maxTokens: options.maxTokens,
-    temperature: options.temperature,
-    stopSequences: options.stopSequences,
   })
 
   let content = ''
@@ -106,7 +100,7 @@ export const promptAiSdkStream = async function* (
     fingerprintId: options.fingerprintId,
     userInputId: options.userInputId,
     model: options.model,
-    request: messages,
+    request: options.messages,
     response: content,
     inputTokens,
     outputTokens,
@@ -120,28 +114,22 @@ export const promptAiSdkStream = async function* (
 
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
 export const promptAiSdk = async function (
-  messages: CoreMessage[],
   options: {
+    messages: CoreMessage[]
     clientSessionId: string
     fingerprintId: string
     userInputId: string
     model: Model
     userId: string | undefined
-    maxTokens?: number
-    temperature?: number
-    stopSequences?: string[]
     chargeUser?: boolean
-  }
+  } & Omit<Parameters<typeof generateText>[0], 'model'>
 ): Promise<string> {
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
   const response = await generateText({
+    ...options,
     model: aiSDKModel,
-    messages,
-    maxTokens: options.maxTokens,
-    temperature: options.temperature,
-    stopSequences: options.stopSequences,
   })
 
   const content = response.text
@@ -155,7 +143,7 @@ export const promptAiSdk = async function (
     fingerprintId: options.fingerprintId,
     userInputId: options.userInputId,
     model: options.model,
-    request: messages,
+    request: options.messages,
     response: content,
     inputTokens,
     outputTokens,
@@ -168,30 +156,25 @@ export const promptAiSdk = async function (
 }
 
 // Copied over exactly from promptAiSdk but with a schema
-export const promptAiSdkStructured = async function <T>(
-  messages: CoreMessage[],
-  options: {
-    schema: z.ZodType<T>
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: Model
-    userId: string | undefined
-    maxTokens?: number
-    temperature?: number
-    timeout?: number
-    chargeUser?: boolean
-  }
-): Promise<T> {
+export const promptAiSdkStructured = async function <T>(options: {
+  messages: CoreMessage[]
+  schema: z.ZodType<T>
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  model: Model
+  userId: string | undefined
+  maxTokens?: number
+  temperature?: number
+  timeout?: number
+  chargeUser?: boolean
+}): Promise<T> {
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
   const responsePromise = generateObject({
+    ...options,
     model: aiSDKModel,
-    schema: options.schema,
-    messages,
-    maxTokens: options.maxTokens,
-    temperature: options.temperature,
   })
 
   const response = await (options.timeout === undefined
@@ -209,7 +192,7 @@ export const promptAiSdkStructured = async function <T>(
     fingerprintId: options.fingerprintId,
     userInputId: options.userInputId,
     model: options.model,
-    request: messages,
+    request: options.messages,
     response: JSON.stringify(content),
     inputTokens,
     outputTokens,

@@ -244,7 +244,7 @@ function formatResult(
     `<command>${command}</command>`,
     '<terminal_command_result>',
     stdout &&
-      `<output>${truncateStringWithMessage({ str: stdout, maxLength: COMMAND_OUTPUT_LIMIT, remove: 'MIDDLE' })}</output>`,
+      `<output>${truncateStringWithMessage({ str: stripColors(stdout), maxLength: COMMAND_OUTPUT_LIMIT, remove: 'MIDDLE' })}</output>`,
     `<status>${status}</status>`,
     '</terminal_command_result>'
   ).join('\n')
@@ -410,7 +410,7 @@ export const runTerminalCommand = async (
   cwd?: string,
   stdoutFile?: string,
   stderrFile?: string
-): Promise<{ result: string; stdout: string }> => {
+): Promise<{ result: string; stdout: string; exitCode: number | null }> => {
   const maybeTimeoutSeconds = timeoutSeconds < 0 ? null : timeoutSeconds
   cwd = cwd || (mode === 'assistant' ? getProjectRoot() : getWorkingDirectory())
   return new Promise((resolve) => {

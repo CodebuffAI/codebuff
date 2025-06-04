@@ -3,6 +3,7 @@ import { join } from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
 import { green } from 'picocolors'
+import { logger } from './utils/logger'
 
 export async function createTemplateProject(
   template: string,
@@ -18,6 +19,13 @@ export async function createTemplateProject(
     console.error(
       'Template name can only contain letters, numbers, dash and underscore'
     )
+    logger.error(
+      {
+        errorMessage: 'Template name can only contain letters, numbers, dash and underscore',
+        template,
+      },
+      'Invalid template name'
+    )
     process.exit(1)
   }
 
@@ -25,6 +33,13 @@ export async function createTemplateProject(
   if (!/^[a-zA-Z0-9-_]+$/.test(projectName)) {
     console.error(
       'Project name can only contain letters, numbers, dash and underscore'
+    )
+    logger.error(
+      {
+        errorMessage: 'Project name can only contain letters, numbers, dash and underscore',
+        projectName,
+      },
+      'Invalid project name'
     )
     process.exit(1)
   }
@@ -34,6 +49,13 @@ export async function createTemplateProject(
   // Check if directory already exists
   if (fs.existsSync(projectPath)) {
     console.error(`Directory ${projectPath} already exists`)
+    logger.error(
+      {
+        errorMessage: `Directory ${projectPath} already exists`,
+        projectPath,
+      },
+      'Directory already exists'
+    )
     process.exit(1)
   }
 
@@ -61,6 +83,13 @@ export async function createTemplateProject(
     } else {
       console.error(
         `Template ${template} not found in starter-templates/ or showcase/`
+      )
+      logger.error(
+        {
+          errorMessage: `Template ${template} not found in starter-templates/ or showcase/`,
+          template,
+        },
+        'Template not found'
       )
       fs.rmSync(tempDir, { recursive: true, force: true })
       process.exit(1)
@@ -102,6 +131,16 @@ export async function createTemplateProject(
     console.log('--------------------------------\n')
     execSync('codebuff', { stdio: 'inherit' })
   } catch (error) {
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        template,
+        projectDir,
+        projectName,
+      },
+      'Failed to initialize project'
+    )
     console.error('Failed to initialize project:', error)
     process.exit(1)
   }

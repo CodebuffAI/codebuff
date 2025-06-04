@@ -18,6 +18,7 @@ async function gradeTraces() {
     const unfilteredTracesAndRelabels = await getTracesAndRelabelsForUser(
       undefined,
       1000,
+      undefined,
       DATASET,
       'INNER'
     )

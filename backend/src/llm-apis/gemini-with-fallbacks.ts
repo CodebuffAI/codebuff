@@ -65,8 +65,9 @@ export async function promptFlashWithFallbacks(
         { model: finetunedVertexModels.ft_filepicker_005 },
         'Using finetuned model for file-picker!'
       )
-      return await promptAiSdk(messages, {
+      return await promptAiSdk({
         ...geminiOptions,
+        messages,
         model: finetunedVertexModels.ft_filepicker_005,
       })
     } catch (error) {
@@ -79,14 +80,15 @@ export async function promptFlashWithFallbacks(
 
   try {
     // First try Gemini
-    return await promptAiSdk(messages, geminiOptions)
+    return await promptAiSdk({ ...geminiOptions, messages })
   } catch (error) {
     logger.warn(
       { error },
       `Error calling Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`
     )
-    return await promptAiSdk(messages, {
+    return await promptAiSdk({
       ...geminiOptions,
+      messages,
       model: useGPT4oInsteadOfClaude
         ? openaiModels.gpt4o
         : {

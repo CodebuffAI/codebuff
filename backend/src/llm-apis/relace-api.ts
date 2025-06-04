@@ -4,6 +4,8 @@ import {
   parseMarkdownCodeBlock,
 } from 'common/util/file'
 
+import { CoreMessage } from 'ai'
+import { toolSchema } from 'common/constants/tools'
 import { env } from '../env.mjs'
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { logger } from '../util/logger'
@@ -14,108 +16,6 @@ const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
     setTimeout(() => reject(new Error('Relace API request timed out')), ms)
   )
-
-export async function sendToRelaceLongContext(
-  initialCode: string,
-  editSnippet: string,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
-    messageId: string
-    userMessage?: string
-  }
-) {
-  const {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    messageId,
-    userMessage,
-  } = options
-  const startTime = Date.now()
-
-  try {
-    const response = (await Promise.race([
-      fetch(
-        'https://instantapplylongcontext.dev-endpoint.relace.run/v1/code/apply',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${env.RELACE_API_KEY}`,
-          },
-          body: JSON.stringify({
-            initialCode,
-            editSnippet,
-            stream: false,
-            'relace-metadata': {
-              'codebuff-id': messageId,
-              'codebuff-user-prompt': userMessage,
-            },
-          }),
-        }
-      ),
-      timeoutPromise(100_000),
-    ])) as Response
-
-    if (!response.ok) {
-      const errorText = await response
-        .text()
-        .catch(() => 'No error text available')
-      logger.error(
-        {
-          status: response.status,
-          statusText: response.statusText,
-          errorText,
-          initialCodeLength: initialCode.length,
-          editSnippetLength: editSnippet.length,
-        },
-        'Relace Long Context API error'
-      )
-      return
-    }
-
-    const data = (await response.json()) as { mergedCode: string }
-
-    const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
-    saveMessage({
-      messageId,
-      userId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: 'relace-long-context-test',
-      request: [
-        {
-          role: 'user',
-          content: fakeRequestContent,
-        },
-      ],
-      response: data.mergedCode,
-      inputTokens: countTokens(initialCode + editSnippet),
-      outputTokens: countTokens(data.mergedCode),
-      finishedAt: new Date(),
-      latencyMs: Date.now() - startTime,
-    })
-
-    logger.info({ mergedCode: data.mergedCode }, 'Relace Long Context')
-  } catch (error) {
-    logger.error(
-      {
-        error:
-          error && typeof error === 'object' && 'message' in error
-            ? error.message
-            : 'Unknown error',
-      },
-      'Error calling Relace Long Context API'
-    )
-    // Silent failure as specified - no fallback needed
-    return
-  }
-}
 
 export async function promptRelaceAI(
   initialCode: string,
@@ -222,19 +122,17 @@ Important:
 
 Please output just the complete updated file content with no other text.`
 
-    const content = await promptAiSdk(
-      [
+    const content = await promptAiSdk({
+      messages: [
         { role: 'user', content: prompt },
         { role: 'assistant', content: '```\n' },
       ],
-      {
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        model: models.o3mini,
-        userId,
-      }
-    )
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: models.o3mini,
+      userId,
+    })
 
     return parseMarkdownCodeBlock(content) + '\n'
   }
@@ -342,5 +240,143 @@ export async function rerank(
     )
     // Return original files order on error instead of throwing
     return files.map((f) => f.path)
+  }
+}
+
+const toolParams = Object.entries(toolSchema)
+  .map(([name, params]) => {
+    return `\`${name}\`: [${params
+      .map((p) => (typeof p === 'string' ? JSON.stringify(p) : `${p}`))
+      .join(', ')}]`
+  })
+  .join('\n')
+
+const outputSchema = {
+  type: 'object',
+  properties: {
+    tool_calls: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          args: { type: 'object' },
+        },
+        required: ['name', 'args'],
+      },
+    },
+  },
+}
+
+const systemInstructions = `
+You are a helpful assistant that structures potentially malformed XML text into tool calls.
+
+Below are the available tools and their parameters. Parameters are either "String" or /RegExp/ values.
+${toolParams}
+
+Some tools will have multi-line parameters (frequently write_file). Do not forget to add these to the tool_calls.
+
+None of the parameters are required. Do not infer any additional tools or parameters beyond those explicitly listed in the user message.
+
+Output according to this schema:
+${JSON.stringify(outputSchema, null, 2)}
+`.trim()
+
+export async function toolFormatter(
+  assistantMessage: string,
+  options: {
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    messageId: string
+  }
+) {
+  const { clientSessionId, fingerprintId, userInputId, userId, messageId } =
+    options
+  const startTime = Date.now()
+
+  const messages: CoreMessage[] = [
+    { role: 'system', content: systemInstructions },
+    { role: 'user', content: assistantMessage },
+  ]
+
+  try {
+    const response = (await Promise.race([
+      fetch('https://tool-formatter.endpoint.relace.run/v1/code/format', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${env.RELACE_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'Tool-Formatter',
+          messages,
+          temperature: 0,
+          max_tokens: 8192,
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: 'tool_calls',
+              schema: outputSchema,
+            },
+          },
+          'relace-metadata': {
+            'codebuff-id': messageId,
+          },
+        }),
+      }),
+      timeoutPromise(100_000),
+    ])) as Response
+
+    if (!response.ok) {
+      const errorText = await response
+        .text()
+        .catch(() => 'No error text available')
+      logger.error(
+        {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+          assistantMessageLength: assistantMessage.length,
+          messageId,
+        },
+        'Relace Tool Formatter API error'
+      )
+      return
+    }
+
+    const json = await response.json()
+    const toolCalls = JSON.parse(json.choices[0].message.content)
+
+    saveMessage({
+      messageId,
+      userId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      model: 'relace-tool-formatter',
+      request: messages,
+      response: toolCalls,
+      inputTokens: countTokens(systemInstructions + assistantMessage),
+      outputTokens: countTokens(JSON.stringify(toolCalls)),
+      finishedAt: new Date(),
+      latencyMs: Date.now() - startTime,
+      chargeUser: false,
+    })
+
+    logger.info({ toolCalls }, 'Relace Tool Formatter')
+  } catch (error) {
+    logger.error(
+      {
+        error:
+          error && typeof error === 'object' && 'message' in error
+            ? error.message
+            : 'Unknown error',
+      },
+      'Error calling Relace Tool Formatter API'
+    )
+    // Silent failure as specified - no fallback needed
+    return
   }
 }

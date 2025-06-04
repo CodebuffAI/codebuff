@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
-import { Argument, Command, Option } from 'commander'
+import { Command, Option } from 'commander'
 import { type CostMode } from 'common/constants'
-import { loadCodebuffConfig } from 'common/json-config/parser'
 import { red } from 'picocolors'
 
 import packageJson from '../package.json'
@@ -21,6 +20,7 @@ import { CliOptions } from './types'
 import { updateCodebuff } from './update-codebuff'
 import { initAnalytics } from './utils/analytics'
 import { findGitRoot } from './utils/git'
+import { logger } from './utils/logger'
 import { recreateShell } from './utils/terminal'
 
 async function codebuff(
@@ -37,11 +37,8 @@ async function codebuff(
 
   recreateShell(cwd)
 
-  // Load config file if it exists
-  const config = loadCodebuffConfig(projectRoot)
-
   // Kill all processes we failed to kill before
-  const processCleanupPromise = logAndHandleStartup(projectRoot, config)
+  const processCleanupPromise = logAndHandleStartup()
 
   initAnalytics()
 
@@ -117,6 +114,12 @@ For all commands and options, run 'codebuff' and then type 'help'.
       red(
         'Warning: The --pro flag is deprecated. Please restart codebuff and use the --max option instead.'
       )
+    )
+    logger.error(
+      {
+        errorMessage: 'The --pro flag is deprecated. Please restart codebuff and use the --max option instead.',
+      },
+      'Deprecated --pro flag used'
     )
     process.exit(1)
   }

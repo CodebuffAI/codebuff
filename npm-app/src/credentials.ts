@@ -1,7 +1,8 @@
 import { User, userSchema } from 'common/util/credentials'
-import { z } from 'zod'
-import os from 'os'
 import path from 'node:path'
+import os from 'os'
+import { z } from 'zod'
+import { logger } from './utils/logger'
 
 const credentialsSchema = z
   .object({
@@ -19,6 +20,14 @@ export const userFromJson = (
     return profile
   } catch (error) {
     console.error('Error parsing user JSON:', error)
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        profileName,
+      },
+      'Error parsing user JSON'
+    )
     return
   }
 }

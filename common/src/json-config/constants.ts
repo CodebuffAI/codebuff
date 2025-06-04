@@ -39,6 +39,31 @@ export const StartupProcessSchema = z
   })
   .describe('Defines a single startup process.')
 
+export const FileChangeHook = z
+  .object({
+    name: z
+      .string()
+      .min(1, 'Hook name is required')
+      .describe(
+        'A user-friendly name for the hook. Should be one word and unique.'
+      ),
+    command: z
+      .string()
+      .min(1, 'Command is required')
+      .describe('The actual shell command to execute.'),
+    cwd: z
+      .string()
+      .optional()
+      .describe('The working directory from which to run the command.'),
+    filePattern: z.string().optional().describe('Glob pattern to match files.'),
+    enabled: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('Whether this command should be run'),
+  })
+  .describe('Defines a single file change hook.')
+
 export const CodebuffConfigSchema = z
   .object({
     description: z
@@ -49,9 +74,19 @@ export const CodebuffConfigSchema = z
       .array(StartupProcessSchema)
       .optional()
       .describe('An array of startup processes.'),
+    fileChangeHooks: z
+      .array(FileChangeHook)
+      .optional()
+      .describe('An array of commands to run on file changes.'),
+    maxAgentSteps: z
+      .number()
+      .default(12)
+      .describe(
+        'Maximum number of turns agent will take before being forced to end'
+      ),
   })
   .describe(
-    `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration.`
+    `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration. This schema can be found at https://www.codebuff.com/config`
   )
 
 /**

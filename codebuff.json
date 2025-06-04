@@ -10,11 +10,33 @@
       "name": "web-server",
       "command": "bun start-web",
       "stdoutFile": "debug/web.log"
+    }
+  ],
+  "fileChangeHooks": [
+    {
+      "name": "backend-unit-tests",
+      "command": "bun test $(find src -name *.test.ts ! -name *.integration.test.ts)",
+      "cwd": "backend",
+      "filePattern": "backend/**/*.ts"
     },
     {
-      "name": "typechecker",
-      "command": "bun tsc -b -w --preserveWatchOutput",
-      "stdoutFile": "debug/typecheck.log"
+      "name": "npm-app-unit-tests",
+      "command": "bun test $(find src -name *.test.ts ! -name *.integration.test.ts)",
+      "cwd": "npm-app",
+      "filePattern": "npm-app/**/*.ts"
+    },
+    {
+      "name": "typecheck-web",
+      "command": "bun run typecheck",
+      "cwd": "web",
+      "filePattern": "web/**/*.ts"
+    },
+    {
+      "name": "common-unit-tests",
+      "command": "bun test $(find src -name *.test.ts ! -name *.integration.test.ts)",
+      "cwd": "common",
+      "filePattern": "common/**/*.ts"
     }
-  ]
+  ],
+  "maxAgentSteps": 20
 }

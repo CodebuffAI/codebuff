@@ -9,6 +9,7 @@ import {
 } from '../checkpoints/checkpoint-manager'
 import type { Client } from '../client'
 import { Spinner } from '../utils/spinner'
+import { logger } from '../utils/logger'
 
 export const checkpointCommands = {
   save: [['checkpoint'], 'Save current state as a new checkpoint'],
@@ -89,6 +90,13 @@ export async function handleUndo(
       console.log(red(`Checkpoints not enabled: ${error.message}`))
     } else {
       console.log(red(`Unable to undo: ${error.message}`))
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        'Failed to restore undo checkpoint'
+      )
     }
   }
 
@@ -126,6 +134,13 @@ export async function handleRedo(
       console.log(red(`Checkpoints not enabled: ${error.message}`))
     } else {
       console.log(red(`Unable to redo: ${error.message}`))
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        'Failed to restore redo checkpoint'
+      )
     }
   }
 
@@ -175,6 +190,13 @@ export async function handleRestoreCheckpoint(
     await latestCheckpoint?.fileStateIdPromise
   } catch (error) {
     // Should never happen
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+      'Failed to wait for latest checkpoint file state'
+    )
   }
 
   // Restore the agentState
@@ -192,6 +214,13 @@ export async function handleRestoreCheckpoint(
     failed = true
     Spinner.get().stop()
     console.log(red(`Unable to restore checkpoint: ${error.message}`))
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+      'Failed to restore checkpoint file state'
+    )
   }
 
   if (!failed) {
@@ -227,6 +256,13 @@ export async function saveCheckpoint(
     await checkpointManager.getLatestCheckpoint().fileStateIdPromise
   } catch (error) {
     // No latest checkpoint available, no need to wait
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+      'Failed to wait for previous checkpoint completion'
+    )
   }
 
   // Save the current agent state
@@ -243,5 +279,12 @@ export async function saveCheckpoint(
     }
   } catch (error) {
     // Unable to add checkpoint, do not display anything to user
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+      'Failed to add checkpoint'
+    )
   }
 }

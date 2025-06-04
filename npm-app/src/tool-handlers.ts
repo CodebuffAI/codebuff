@@ -8,6 +8,7 @@ import { RawToolCall } from 'common/types/tools'
 import { applyChanges } from 'common/util/changes'
 import { truncateStringWithMessage } from 'common/util/string'
 import { cyan, green, red, yellow } from 'picocolors'
+import { logger } from './utils/logger'
 
 import { handleBrowserInstruction } from './browser-runner'
 import { getProjectRoot } from './project-files'
@@ -104,6 +105,14 @@ export const handleRunTerminalCommand = async (
   try {
     timeout_seconds_num = parseInt(timeout_seconds)
   } catch (error) {
+    logger.error(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        timeout_seconds,
+      },
+      'Failed to parse timeout_seconds'
+    )
     return {
       result: `Could not parse timeout_seconds: ${error instanceof Error ? error.message : error}`,
       stdout: '',
@@ -259,6 +268,14 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
       console.log('Small hiccup, one sec...')
+      logger.error(
+        {
+          errorMessage,
+          errorStack: error instanceof Error ? error.stack : undefined,
+          params,
+        },
+        'Browser action validation failed'
+      )
       return JSON.stringify({
         success: false,
         error: `Browser action validation failed: ${errorMessage}`,
@@ -278,6 +295,12 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
     // Log any browser errors
     if (!response.success && response.error) {
       console.error(red(`Browser action failed: ${response.error}`))
+      logger.error(
+        {
+          errorMessage: response.error,
+        },
+        'Browser action failed'
+      )
     }
     if (response.logs) {
       response.logs.forEach((log) => {
@@ -285,6 +308,12 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
           switch (log.type) {
             case 'error':
               console.error(red(log.message))
+              logger.error(
+                {
+                  errorMessage: log.message,
+                },
+                'Browser tool error'
+              )
               break
             case 'warning':
               console.warn(yellow(log.message))
