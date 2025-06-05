@@ -22,8 +22,6 @@ env:
   PORT: 3001
   # Backend URL for the CLI started by the E2E script
   CODEBUFF_BACKEND_URL: http://localhost:3001
-  # NEXTAUTH_SECRET for the seeding script
-  NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET_E2E_TEST }} # Use a dedicated secret for this
 
 jobs:
   e2e-test:
@@ -89,7 +87,6 @@ jobs:
         run: bun evals/e2e/seed-test-user.ts
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
-          NEXTAUTH_SECRET: ${{ env.NEXTAUTH_SECRET }}
 
       - name: Run E2E Cat App Test Script
         run: bun evals/e2e/e2e-cat-app-script.ts
