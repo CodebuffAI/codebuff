@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   finetunedVertexModels,
+  finetunedVertexModelNames, // Added import
   costModes,
   type CostMode,
   type FinetunedVertexModel,
@@ -17,8 +18,10 @@ const customFileCountsShape = costModes.reduce(
 
 // Simplified Zod schema for custom file picker configuration
 export const CustomFilePickerConfigSchema = z.object({
-  // Model to use for file picking - programmatically generated from finetunedVertexModels
-  model: z.enum(Object.values(finetunedVertexModels) as [string, ...string[]]),
+  // Model to use for file picking - programmatically generated from finetunedVertexModelNames
+  modelName: z.enum(
+    Object.values(finetunedVertexModelNames) as [string, ...string[]]
+  ),
 
   // Maximum number of files to request per call
   maxFilesPerRequest: z.number().int().positive().optional(),

@@ -6,7 +6,13 @@ import {
   GetRelevantFilesTrace,
   insertTrace,
 } from '@codebuff/bigquery'
-import { finetunedVertexModels, models, type CostMode, type FinetunedVertexModel } from 'common/constants'
+import {
+  finetunedVertexModels,
+  finetunedVertexModelNames,
+  models,
+  type CostMode,
+  type FinetunedVertexModel,
+} from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import {
   cleanMarkdownCodeBlock,
@@ -84,7 +90,7 @@ export async function requestRelevantFiles(
         if (parseResult.success) {
           customFilePickerConfig = parseResult.data
           logger.info(
-            { orgId, model: customFilePickerConfig.model },
+            { orgId, modelName: customFilePickerConfig.modelName },
             'Using custom file picker configuration for organization'
           )
         } else {
@@ -150,6 +156,21 @@ export async function requestRelevantFiles(
     countPerRequest
   )
 
+  let modelIdForRequest: FinetunedVertexModel | undefined = undefined
+  if (customFilePickerConfig?.modelName) {
+    const entry = Object.entries(finetunedVertexModelNames).find(
+      ([_, name]) => name === customFilePickerConfig.modelName
+    )
+    if (entry) {
+      modelIdForRequest = entry[0] as FinetunedVertexModel
+    } else {
+      logger.warn(
+        { modelName: customFilePickerConfig.modelName },
+        'Custom file picker modelName not found in finetunedVertexModelNames, using default'
+      )
+    }
+  }
+
   const keyPromise = getRelevantFiles(
     {
       messages: messagesExcludingLastIfByUser,
@@ -164,7 +185,7 @@ export async function requestRelevantFiles(
     userId,
     costMode,
     repoId,
-    customFilePickerConfig?.model
+    modelIdForRequest // Pass the resolved model ID
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
@@ -199,7 +220,7 @@ export async function requestRelevantFiles(
       newFilesNecessaryResponse,
       newFilesNecessaryDuration,
       customFilePickerConfig: customFilePickerConfig ? 'enabled' : 'disabled',
-      model: customFilePickerConfig?.model,
+      modelName: customFilePickerConfig?.modelName,
       orgId,
     },
     'requestRelevantFiles: results'
