@@ -97,8 +97,12 @@ export function TeamManagement({
     new Set()
   )
   const [refreshing, setRefreshing] = useState(false)
-  const [confirmResendDialogOpen, setConfirmResendDialogOpen] = useState(false);
-  const [currentInvitationToResend, setCurrentInvitationToResend] = useState<Invitation | null>(null);
+  const [confirmResendDialogOpen, setConfirmResendDialogOpen] = useState(false)
+  const [currentInvitationToResend, setCurrentInvitationToResend] =
+    useState<Invitation | null>(null)
+  const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false)
+  const [currentInvitationToCancel, setCurrentInvitationToCancel] =
+    useState<Invitation | null>(null)
 
   const canManageTeam = userRole === 'owner' || userRole === 'admin'
   const isMobile = useIsMobile()
@@ -155,10 +159,6 @@ export function TeamManagement({
         setRefreshing(false)
       }
     }
-  }
-
-  const handleRefresh = () => {
-    fetchTeamData(false)
   }
 
   const handleInviteMember = async () => {
@@ -346,16 +346,16 @@ export function TeamManagement({
   }
 
   const handleInitiateResend = (invitation: Invitation) => {
-    setCurrentInvitationToResend(invitation);
-    setConfirmResendDialogOpen(true);
-  };
+    setCurrentInvitationToResend(invitation)
+    setConfirmResendDialogOpen(true)
+  }
 
   const handleConfirmResend = async () => {
-    if (!currentInvitationToResend) return;
+    if (!currentInvitationToResend) return
 
-    const email = currentInvitationToResend.email;
-    setResendingInvites((prev) => new Set(prev).add(email));
-    setConfirmResendDialogOpen(false); // Close dialog
+    const email = currentInvitationToResend.email
+    setResendingInvites((prev) => new Set(prev).add(email))
+    setConfirmResendDialogOpen(false) // Close dialog
 
     try {
       const response = await fetch(
@@ -392,18 +392,48 @@ export function TeamManagement({
         newSet.delete(email)
         return newSet
       })
-      setCurrentInvitationToResend(null);
+      setCurrentInvitationToResend(null)
     }
   }
 
   const handleCancelInvitation = async (email: string) => {
-    if (
-      !confirm(
-        `Are you sure you want to remove ${email} from the organization?`
+    try {
+      const response = await fetch(
+        `/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}`,
+        {
+          method: 'DELETE',
+        }
       )
-    ) {
-      return
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to cancel invitation')
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Invitation cancelled',
+      })
+
+      fetchTeamData(false) // Refresh without showing skeleton
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to cancel invitation',
+        variant: 'destructive',
+      })
     }
+  }
+
+  const handleConfirmCancel = async () => {
+    if (!currentInvitationToCancel) return
+
+    const email = currentInvitationToCancel.email
+    // We can add a loading state for cancelling if needed, similar to resending
+    setConfirmCancelDialogOpen(false) // Close dialog
 
     try {
       const response = await fetch(
@@ -433,6 +463,8 @@ export function TeamManagement({
             : 'Failed to cancel invitation',
         variant: 'destructive',
       })
+    } finally {
+      setCurrentInvitationToCancel(null)
     }
   }
 
@@ -969,7 +1001,10 @@ export function TeamManagement({
       )}
 
       {/* Confirmation Dialog for Resend */}
-      <Dialog open={confirmResendDialogOpen} onOpenChange={setConfirmResendDialogOpen}>
+      <Dialog
+        open={confirmResendDialogOpen}
+        onOpenChange={setConfirmResendDialogOpen}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Resend Invitation</DialogTitle>
@@ -980,12 +1015,52 @@ export function TeamManagement({
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <DialogClose asChild>
-              <Button variant="destructive" onClick={() => setCurrentInvitationToResend(null)}>
+              <Button
+                variant="destructive"
+                onClick={() => setCurrentInvitationToResend(null)}
+              >
                 Cancel
               </Button>
             </DialogClose>
-            <Button onClick={handleConfirmResend} disabled={resendingInvites.has(currentInvitationToResend?.email || '')}>
-              {resendingInvites.has(currentInvitationToResend?.email || '') ? 'Resending...' : 'Confirm Resend'}
+            <Button
+              onClick={handleConfirmResend}
+              disabled={resendingInvites.has(
+                currentInvitationToResend?.email || ''
+              )}
+            >
+              {resendingInvites.has(currentInvitationToResend?.email || '')
+                ? 'Resending...'
+                : 'Confirm Resend'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog for Cancel Invitation */}
+      <Dialog
+        open={confirmCancelDialogOpen}
+        onOpenChange={setConfirmCancelDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Cancel Invitation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel the invitation for{' '}
+              <strong>{currentInvitationToCancel?.email}</strong>? This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose asChild>
+              <Button
+                variant="outline"
+                onClick={() => setCurrentInvitationToCancel(null)}
+              >
+                Back
+              </Button>
+            </DialogClose>
+            <Button variant="destructive" onClick={handleConfirmCancel}>
+              Confirm Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -4,7 +4,13 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CheckCircle, XCircle, Clock, Users } from 'lucide-react'
 
@@ -54,7 +60,9 @@ export default function InvitationPage({ params }: PageProps) {
 
   const acceptInvitation = async () => {
     if (!session) {
-      router.push(`/login?callbackUrl=${encodeURIComponent(window.location.href)}`)
+      router.push(
+        `/login?callbackUrl=${encodeURIComponent(window.location.href)}`
+      )
       return
     }
 
@@ -85,7 +93,7 @@ export default function InvitationPage({ params }: PageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+      <div className="flex items-center justify-center bg-black text-white">
         <Card className="w-full max-w-md bg-gray-900 border border-gray-700 shadow-xl">
           <CardHeader>
             <Skeleton className="h-6 w-3/4 bg-gray-700" />
@@ -101,7 +109,7 @@ export default function InvitationPage({ params }: PageProps) {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+      <div className="flex items-center justify-center bg-black text-white">
         <Card className="w-full max-w-md bg-gray-900 border border-red-500 shadow-xl">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -111,9 +119,9 @@ export default function InvitationPage({ params }: PageProps) {
             <CardDescription className="text-gray-400">{error}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button 
-              onClick={() => router.push('/')} 
-              variant="outline" 
+            <Button
+              onClick={() => router.push('/')}
+              variant="outline"
               className="w-full border-gray-600 hover:bg-gray-700 text-white"
             >
               Go to Homepage
@@ -126,12 +134,14 @@ export default function InvitationPage({ params }: PageProps) {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+      <div className="flex items-center justify-center bg-black text-white">
         <Card className="w-full max-w-md bg-gray-900 border border-green-500 shadow-xl">
           <CardHeader>
             <div className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-400" />
-              <CardTitle className="text-green-400">Welcome to {invitation?.organization_name}!</CardTitle>
+              <CardTitle className="text-green-400">
+                Welcome to {invitation?.organization_name}!
+              </CardTitle>
             </div>
             <CardDescription className="text-gray-400">
               You've successfully joined the organization. Redirecting...
@@ -149,7 +159,7 @@ export default function InvitationPage({ params }: PageProps) {
   const isExpired = new Date(invitation.expires_at) < new Date()
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black text-white relative overflow-hidden">
+    <div className="flex items-center justify-center bg-black text-white relative overflow-hidden py-12">
       <Card className="w-full max-w-md bg-gray-900 border border-gray-700 shadow-xl z-10">
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -157,7 +167,8 @@ export default function InvitationPage({ params }: PageProps) {
             <CardTitle>Organization Invitation</CardTitle>
           </div>
           <CardDescription className="text-gray-400">
-            {invitation.inviter_name} has invited you to join {invitation.organization_name}
+            {invitation.inviter_name} has invited you to join{' '}
+            {invitation.organization_name}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -182,9 +193,9 @@ export default function InvitationPage({ params }: PageProps) {
           {isExpired ? (
             <div className="text-center">
               <p className="text-red-400 mb-4">This invitation has expired.</p>
-              <Button 
-                onClick={() => router.push('/')} 
-                variant="outline" 
+              <Button
+                onClick={() => router.push('/')}
+                variant="outline"
                 className="w-full border-gray-600 hover:bg-gray-700 text-white"
               >
                 Go to Homepage
@@ -199,28 +210,33 @@ export default function InvitationPage({ params }: PageProps) {
                   <p className="text-gray-400 mb-4">
                     Please sign in to accept this invitation.
                   </p>
-                  <Button 
-                    onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(window.location.href)}`)}
+                  <Button
+                    onClick={() =>
+                      router.push(
+                        `/login?callbackUrl=${encodeURIComponent(window.location.href)}`
+                      )
+                    }
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     Sign In to Accept
                   </Button>
                 </div>
               ) : session.user?.email !== invitation.email ? (
-                <div className="text-center">
+                <div className="text-left">
                   <p className="text-red-400 mb-4">
-                    This invitation is for {invitation.email}, but you're signed in as {session.user?.email}.
+                    This invitation is for {invitation.email}, but you're signed
+                    in as {session.user?.email}.
                   </p>
-                  <Button 
+                  <Button
                     onClick={() => router.push('/login')}
-                    variant="outline" 
+                    variant="outline"
                     className="w-full border-gray-600 hover:bg-gray-700 text-white"
                   >
                     Sign in with correct account
                   </Button>
                 </div>
               ) : (
-                <Button 
+                <Button
                   onClick={acceptInvitation}
                   disabled={accepting}
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
