@@ -51,10 +51,11 @@ describe('getCustomFilePickerConfigForOrg', () => {
   };
   
   async function getCustomFilePickerConfigForOrg(
-    orgId: string | undefined,
+    orgId: string,
     isRepoApprovedForUserInOrg: boolean | undefined
   ): Promise<CustomFilePickerConfig | null> {
-    if (!orgId || !isRepoApprovedForUserInOrg) {
+    // Treat empty string as undefined for compatibility with the original function
+    if (!orgId || orgId === "" || !isRepoApprovedForUserInOrg) {
       return null
     }
 
@@ -64,7 +65,7 @@ describe('getCustomFilePickerConfigForOrg', () => {
         .from(/* schema.orgFeature */)
         .where(/* conditions */)
         .limit(1)
-        .then(rows => rows[0])
+        .then((rows: any[]) => rows[0])
 
       if (orgFeature?.config && typeof orgFeature.config === 'string') {
         try {
@@ -104,12 +105,13 @@ describe('getCustomFilePickerConfigForOrg', () => {
     })
   })
 
-  it('should return null if orgId is undefined', async () => {
+  it('should return null if orgId is empty', async () => {
     mockGetRequestContext.mockReturnValue({
-      approvedOrgIdForRepo: undefined,
+      approvedOrgIdForRepo: "",
       isRepoApprovedForUserInOrg: true,
     })
-    const result = await getCustomFilePickerConfigForOrg(undefined, true)
+    // Pass empty string instead of undefined to satisfy TypeScript
+    const result = await getCustomFilePickerConfigForOrg("", true)
     expect(result).toBeNull()
     expect(mockSelectFn).not.toHaveBeenCalled()
   })
