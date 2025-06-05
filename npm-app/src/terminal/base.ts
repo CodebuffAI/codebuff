@@ -2,7 +2,6 @@ import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
 import * as os from 'os'
 import path from 'path'
 
-import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { buildArray } from 'common/util/array'
 import {
@@ -39,7 +38,7 @@ type PersistentProcess =
   | {
       type: 'pty'
       shell: 'pty'
-      pty: IPty
+      pty: any
       timerId: NodeJS.Timeout | null
       // Add persistent output buffer for manager mode
       globalOutputBuffer: string
