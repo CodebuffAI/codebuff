@@ -62,15 +62,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-deps-
 
+      - name: Set Environment Variables
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Build all workspaces
         run: bun run build
-
-      - name: Set Environment Variables
-        run: |
-          echo "${{ secrets.ENV_LOCAL }}" > .env.local
 
       - name: Wait for PostgreSQL to be ready
         run: |
