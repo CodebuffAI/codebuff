@@ -35,5 +35,5 @@
     }
   },
   "tags": [],
-  "implicitDependencies": ["@codebuff/integrations"]
+  "implicitDependencies": ["@codebuff/integrations", "codebuff"]
 }

@@ -101,6 +101,7 @@
       "dependencies": {
         "@codebuff/integrations": "workspace:*",
         "async": "^3.2.6",
+        "codebuff": "workspace:*",
         "lodash": "^4.17.21",
       },
       "devDependencies": {
