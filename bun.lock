@@ -100,6 +100,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@codebuff/integrations": "workspace:*",
+        "@homebridge/node-pty-prebuilt-multiarch": "0.12.0-beta.5",
         "async": "^3.2.6",
         "codebuff": "workspace:*",
         "lodash": "^4.17.21",
