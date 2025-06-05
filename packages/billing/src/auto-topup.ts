@@ -1,21 +1,21 @@
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { eq } from 'drizzle-orm'
-import { stripeServer } from 'common/util/stripe'
-import { logger } from 'common/util/logger'
-import { convertCreditsToUsdCents } from 'common/util/currency'
-import { getUserCostPerCredit } from './conversion'
-import type Stripe from 'stripe'
-import { processAndGrantCredit } from './grant-credits'
-import { calculateUsageAndBalance } from './balance-calculator'
-import { generateOperationIdTimestamp } from './utils'
-import { env } from 'common/src/env.mjs'
 import { CREDIT_PRICING } from 'common/src/constants'
-import {
-  grantOrganizationCredits,
-  calculateOrganizationUsageAndBalance,
-} from './org-billing'
+import { env } from 'common/src/env.mjs'
+import { convertCreditsToUsdCents } from 'common/util/currency'
 import { getNextQuotaReset } from 'common/util/dates'
+import { logger } from 'common/util/logger'
+import { stripeServer } from 'common/util/stripe'
+import { eq } from 'drizzle-orm'
+import type Stripe from 'stripe'
+import { calculateUsageAndBalance } from './balance-calculator'
+import { getUserCostPerCredit } from './conversion'
+import { processAndGrantCredit } from './grant-credits'
+import {
+  calculateOrganizationUsageAndBalance,
+  grantOrganizationCredits,
+} from './org-billing'
+import { generateOperationIdTimestamp } from './utils'
 
 const MINIMUM_PURCHASE_CREDITS = 500
 
@@ -100,6 +100,8 @@ export async function validateAutoTopupStatus(
       validPaymentMethod,
     }
   } catch (error) {
+    logger.error({ error }, 'Failed to validate auto top-up status')
+
     const blockedReason =
       error instanceof AutoTopupValidationError
         ? error.message
