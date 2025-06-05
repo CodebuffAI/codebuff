@@ -67,6 +67,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Set Environment Variables
+        run: |
+          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+
       - name: Wait for PostgreSQL to be ready
         run: |
           echo "Waiting for PostgreSQL to start..."
@@ -91,3 +95,9 @@ jobs:
         run: bun evals/e2e/e2e-cat-app-script.ts
         # The script has its own timeouts, but we can add a general timeout for the step
         timeout-minutes: 5 # Adjust as needed, the script itself has a 2-minute task timeout + setup time
+
+
+      - name: Open interactive debug shell
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 30 # optional guard
