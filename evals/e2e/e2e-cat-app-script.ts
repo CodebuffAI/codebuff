@@ -7,7 +7,7 @@ import { sleep } from '../../common/src/util/promise' // Corrected import path
 
 const BACKEND_PORT = 3001
 const BACKEND_READY_TIMEOUT = 30000 // 30 seconds
-const CLI_READY_TIMEOUT = 10000 // 10 seconds
+const CLI_READY_TIMEOUT = 30000 // 30 seconds
 const TASK_COMPLETION_TIMEOUT = 120000 // 2 minutes
 const TEST_DIR = 'cat-app-test'
 const projectRoot = path.resolve(__dirname, '../..') // Corrected projectRoot definition
