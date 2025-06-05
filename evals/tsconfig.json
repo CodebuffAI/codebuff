@@ -5,14 +5,16 @@
     "paths": {
       "common/*": ["../common/src/*"],
       "backend/*": ["../backend/src/*"],
-      "npm-app/*": ["../npm-app/src/*"]
+      "npm-app/*": ["../npm-app/src/*"],
+      "@codebuff/integrations/*": ["../packages/integrations/src/*"]
     },
     "typeRoots": ["./node_modules/@types", "../node_modules/@types"]
   },
   "references": [
     { "path": "../common" },
     { "path": "../backend" },
-    { "path": "../npm-app" }
+    { "path": "../npm-app" },
+    { "path": "../packages/integrations" }
   ],
   "exclude": ["test-repos"]
 }
