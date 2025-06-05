@@ -30,9 +30,11 @@ User request: ${JSON.stringify(userPrompt)}
 
 We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
 
+IMPORTANT: Certain 'NO' conditions take precedence. Specifically, if the user's request is a simple greeting, a question about Codebuff itself, or a straightforward terminal command that doesn't require file context (like "run npm install", "ls", "git status", "npm run build"), you should answer NO even if other 'YES' conditions (like it being the first message from the user) might apply.
+
 You should read new files (YES) if:
-- There are not yet any <read_files></read_files> tool calls or tool results in the conversation history
-- There's only one message from the user.
+- There are not yet any <read_files></read_files> tool calls or tool results in the conversation history AND the user's request is not a simple greeting or a straightforward terminal command.
+- There's only one message from the user AND the request is not a simple greeting or a straightforward terminal command.
 - The user is asking something new that would benefit from new files being read.
 - The user moved on to a different topic.
 - The user followed up mentioning new files or functions where reading new files would be helpful.
@@ -44,7 +46,7 @@ You should not read new files (NO) if:
 - The user is following up on a previous request and no new files are needed
 - The user wants to modify a specific file that is already loaded (check if the file path is mentioned)
 - The user says something like "hi" or "hello" with no specific request
-- The user just wants to run a straight-forward terminal command (e.g. "run npm install")
+- The user just wants to run a straight-forward terminal command (e.g. "run npm install", "npm run build", "ls", "git status")
 - The request is purely about executing commands without needing file context
 - The request is about the Codebuff application itself: which LLM model is being used, how many credits have been used, asking to revert to a checkpoint or undo a change, etc.
 
