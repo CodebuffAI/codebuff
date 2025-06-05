@@ -7,7 +7,7 @@ import {
 import { generateCompactId } from 'common/util/string'
 import { yellow } from 'picocolors'
 
-import { runBackgroundCommand } from './utils/terminal'
+import { runBackgroundCommand } from './terminal/background'
 
 /**
  * Starts background development processes defined in the config file.
