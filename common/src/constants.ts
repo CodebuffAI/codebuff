@@ -168,13 +168,11 @@ export const geminiModels = {
   gemini2_5_flash: 'gemini-2.5-flash-preview-05-20',
   gemini2_5_flash_thinking: 'gemini-2.5-flash-preview-05-20:thinking',
   gemini2flash: 'gemini-2.0-flash-001',
-  gemini2_5_pro_exp: 'gemini-2.5-pro-exp-03-25',
   gemini2_5_pro_preview: 'gemini-2.5-pro-preview-06-05',
 } as const
 export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
 
 export const openrouterModels = {
-  openrouter_gemini2_5_pro_exp: 'google/gemini-2.5-pro-exp-03-25:free',
   openrouter_gemini2_5_pro_preview: 'google/gemini-2.5-pro-preview-03-25',
   openrouter_gemini2_5_flash: 'google/gemini-2.5-flash-preview',
   openrouter_gemini2_5_flash_thinking:
@@ -236,7 +234,6 @@ export const shortModelNames = {
 
 export const providerModelNames = {
   [models.gemini2_5_pro_preview]: 'gemini',
-  [models.gemini2_5_pro_exp]: 'gemini',
   [models.gemini2flash]: 'gemini',
   [models.gemini2_5_flash]: 'gemini',
   [models.gemini2_5_flash_thinking]: 'gemini',
