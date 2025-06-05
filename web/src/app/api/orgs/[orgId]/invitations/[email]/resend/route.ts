@@ -73,7 +73,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(eq(schema.user.id, session.user.id))
       .limit(1)
 
-    // Resend invitation email
+    // Send invitation email
     const invitationUrl = `${request.nextUrl.origin}/invites/${inviteRecord.token}`
     const emailResult = await sendOrganizationInvitationEmail({
       email: inviteRecord.email,

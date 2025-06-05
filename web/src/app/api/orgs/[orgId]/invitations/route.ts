@@ -5,7 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 import { checkOrganizationPermission } from '@/lib/organization-permissions'
-import { sendOrganizationInvitationEmail } from '@codebuff/integrations' // Updated import
+import { sendOrganizationInvitationEmail } from '@codebuff/integrations'
 import { logger } from '@/util/logger'
 import crypto from 'crypto'
 
@@ -16,6 +16,7 @@ interface RouteParams {
 interface InviteRequest {
   email: string
   role: 'admin' | 'member'
+  // Removed firstName, as we will fetch it from the DB or default it
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
