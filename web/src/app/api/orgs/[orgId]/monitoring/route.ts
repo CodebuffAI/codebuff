@@ -5,6 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, gte, sql } from 'drizzle-orm'
 import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
+import { env } from '@/env.mjs';
 
 interface RouteParams {
   params: { orgId: string }
@@ -127,7 +128,7 @@ export async function GET(
     const daysRemaining = dailyBurnRate > 0 ? Math.floor(currentBalance / dailyBurnRate) : 999
 
     // Get alerts count
-    const alertsResponse = await fetch(`${request.nextUrl.origin}/api/orgs/${orgId}/alerts`, {
+    const alertsResponse = await fetch(`${env.NEXT_PUBLIC_APP_URL}/api/orgs/${orgId}/alerts`, {
       headers: {
         'Cookie': request.headers.get('Cookie') || ''
       }

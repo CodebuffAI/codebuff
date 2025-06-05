@@ -8,6 +8,7 @@ import { checkOrganizationPermission } from '@/lib/organization-permissions'
 import { sendOrganizationInvitationEmail } from '@codebuff/integrations' // Updated import
 import { logger } from '@/util/logger'
 import crypto from 'crypto'
+import { env } from '@/env.mjs'; // Added import
 
 interface RouteParams {
   params: { orgId: string }
@@ -183,10 +184,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           })
           .returning()
 
-
-
         // Send invitation email
-        const invitationUrl = `${request.nextUrl.origin}/invites/${token}`
+        const invitationUrl = `${env.NEXT_PUBLIC_APP_URL}/invites/${token}` // Replaced request.nextUrl.origin
         const emailResult = await sendOrganizationInvitationEmail({
           email: invitation.email,
           organizationName: organization!.name,
