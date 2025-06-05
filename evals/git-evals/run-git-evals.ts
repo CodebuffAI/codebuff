@@ -88,8 +88,8 @@ async function runSingleEval(
       // Get next prompt from Sonnet agent with timeout
       let agentResponse: any
       try {
-        agentResponse = await promptAiSdkStructured(
-          [
+        agentResponse = await promptAiSdkStructured({
+          messages: [
             {
               role: 'user',
               content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to prompt CodeBuff to implement the spec correctly. You are in a conversation with this coding agent.
@@ -109,16 +109,14 @@ If deciding to continue, include a clear, focused prompt for Codebuff in next_pr
 Explain your reasoning in detail.`,
             },
           ],
-          {
-            schema: AgentDecisionSchema,
-            model: claudeModels.sonnet,
-            clientSessionId,
-            fingerprintId,
-            userInputId: generateCompactId(),
-            userId: undefined,
-            timeout: 5 * 60_000, // 5 minute timeout
-          }
-        )
+          schema: AgentDecisionSchema,
+          model: claudeModels.sonnet,
+          clientSessionId,
+          fingerprintId,
+          userInputId: generateCompactId(),
+          userId: undefined,
+          timeout: 5 * 60_000, // 5 minute timeout
+        })
       } catch (agentError) {
         throw new Error(
           `Agent decision failed: ${agentError instanceof Error ? agentError.message : String(agentError)}`

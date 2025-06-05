@@ -9,6 +9,7 @@
     "test:swe-bench": "bun test swe-bench.test.ts",
     "test:e2e-cat-app": "bun run e2e-cat-app-script.ts",
     "typecheck": "tsc --noEmit",
+    "build": "tsc",
     "gen-git-evals": "bun run git-evals/gen-evals.ts",
     "run-git-evals": "bun run git-evals/run-git-evals.ts",
     "run-eval-set": "bun run run-eval-set.ts",

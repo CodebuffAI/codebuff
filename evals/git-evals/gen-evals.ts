@@ -125,17 +125,15 @@ async function selectSubstantialCommits(
 
   const prompt = `${COMMIT_SELECTION_PROMPT}\n\nCommits to evaluate:\n\n${commitsInfo}`
 
-  const response = await promptAiSdkStructured(
-    [{ role: 'user', content: prompt }],
-    {
-      schema: CommitSelectionSchema,
-      model: claudeModels.sonnet,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId: undefined,
-    }
-  )
+  const response = await promptAiSdkStructured({
+    messages: [{ role: 'user', content: prompt }],
+    schema: CommitSelectionSchema,
+    model: claudeModels.sonnet,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId: undefined,
+  })
 
   try {
     return commits
@@ -237,17 +235,15 @@ Commit Message: ${commit.message}
 Changes Made:
 ${diff}`
 
-  const { spec } = await promptAiSdkStructured(
-    [{ role: 'user', content: prompt }],
-    {
-      schema: z.object({ spec: z.string() }),
-      model: geminiModels.gemini2_5_pro_preview,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId: undefined,
-    }
-  )
+  const { spec } = await promptAiSdkStructured({
+    messages: [{ role: 'user', content: prompt }],
+    schema: z.object({ spec: z.string() }),
+    model: geminiModels.gemini2_5_pro_preview,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId: undefined,
+  })
   return { spec, fileStates }
 }
 
