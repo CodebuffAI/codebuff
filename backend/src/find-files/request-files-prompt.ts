@@ -50,18 +50,11 @@ export async function getCustomFilePickerConfigForOrg(
   orgId: string | undefined,
   isRepoApprovedForUserInOrg: boolean | undefined
 ): Promise<CustomFilePickerConfig | null> {
-  // Buffy: Added temporary debug logging
-  console.log(`[DEBUG_BUFFY] getCustomFilePickerConfigForOrg called with orgId: ${orgId}, isRepoApprovedForUserInOrg: ${isRepoApprovedForUserInOrg}`);
-
   if (!orgId || !isRepoApprovedForUserInOrg) {
-    // Buffy: Added temporary debug logging
-    console.log('[DEBUG_BUFFY] Early return from getCustomFilePickerConfigForOrg due to !orgId or !isRepoApprovedForUserInOrg');
     return null
   }
 
   try {
-    // Buffy: Added temporary debug logging
-    console.log('[DEBUG_BUFFY] Attempting db.select() in getCustomFilePickerConfigForOrg');
     const orgFeature = await db
       .select()
       .from(schema.orgFeature)
