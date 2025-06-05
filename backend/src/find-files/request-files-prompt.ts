@@ -6,7 +6,7 @@ import {
   GetRelevantFilesTrace,
   insertTrace,
 } from '@codebuff/bigquery'
-import { finetunedVertexModels, models, type CostMode } from 'common/constants'
+import { finetunedVertexModels, models, type CostMode, type FinetunedVertexModel } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import {
   cleanMarkdownCodeBlock,
@@ -31,6 +31,12 @@ import {
 } from '@/util/messages'
 import { CoreMessage } from 'ai'
 
+import { getRequestContext } from '../websockets/request-context'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { eq, and } from 'drizzle-orm'
+import { CustomFilePickerConfig, CustomFilePickerConfigSchema } from './custom-file-picker-config'
+
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
 
@@ -52,13 +58,64 @@ export async function requestRelevantFiles(
   costMode: CostMode,
   repoId: string | undefined
 ) {
-  const countPerRequest = {
+  // Check for organization custom file picker feature
+  const requestContext = getRequestContext()
+  const orgId = requestContext?.approvedOrgIdForRepo
+  let customFilePickerConfig: CustomFilePickerConfig | null = null
+
+  if (orgId && requestContext?.isRepoApprovedForUserInOrg) {
+    try {
+      const orgFeature = await db
+        .select()
+        .from(schema.orgFeature)
+        .where(
+          and(
+            eq(schema.orgFeature.org_id, orgId),
+            eq(schema.orgFeature.feature, 'custom-file-picker'),
+            eq(schema.orgFeature.is_active, true)
+          )
+        )
+        .limit(1)
+        .then(rows => rows[0])
+
+      if (orgFeature?.config) {
+        // Validate the config using Zod schema
+        const parseResult = CustomFilePickerConfigSchema.safeParse(orgFeature.config)
+        if (parseResult.success) {
+          customFilePickerConfig = parseResult.data
+          logger.info(
+            { orgId, model: customFilePickerConfig.model },
+            'Using custom file picker configuration for organization'
+          )
+        } else {
+          logger.error(
+            { error: parseResult.error, orgId, config: orgFeature.config },
+            'Invalid custom file picker configuration, using defaults'
+          )
+        }
+      }
+    } catch (error) {
+      logger.error(
+        { error, orgId },
+        'Error fetching custom file picker configuration'
+      )
+    }
+  }
+
+  const defaultCountPerRequest = {
     lite: 8,
     normal: 12,
     max: 14,
     experimental: 14,
     ask: 12,
-  }[costMode]
+  }
+
+  // Use custom file counts if available, otherwise use defaults
+  const countPerRequest = customFilePickerConfig?.customFileCounts?.[costMode] ?? 
+                          defaultCountPerRequest[costMode]
+
+  // Use custom max files per request if specified, otherwise default to 30
+  const maxFilesPerRequest = customFilePickerConfig?.maxFilesPerRequest ?? MAX_FILES_PER_REQUEST
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -106,7 +163,8 @@ export async function requestRelevantFiles(
     userInputId,
     userId,
     costMode,
-    repoId
+    repoId,
+    customFilePickerConfig?.model
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
@@ -140,11 +198,14 @@ export async function requestRelevantFiles(
       newFilesNecessary,
       newFilesNecessaryResponse,
       newFilesNecessaryDuration,
+      customFilePickerConfig: customFilePickerConfig ? 'enabled' : 'disabled',
+      model: customFilePickerConfig?.model,
+      orgId,
     },
     'requestRelevantFiles: results'
   )
 
-  return candidateFiles.slice(0, MAX_FILES_PER_REQUEST)
+  return candidateFiles.slice(0, maxFilesPerRequest)
 }
 
 export async function requestRelevantFilesForTraining(
@@ -247,7 +308,8 @@ async function getRelevantFiles(
   userInputId: string,
   userId: string | undefined,
   costMode: CostMode,
-  repoId: string | undefined
+  repoId: string | undefined,
+  configModelName?: FinetunedVertexModel
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -274,11 +336,13 @@ async function getRelevantFiles(
       })
       .filter((msg) => msg !== null)
   }
-  // This finetunedModel is used for the promptFlashWithFallbacks call
-  const finetunedModel =
+  
+  // Use custom model if provided, otherwise use default based on costMode
+  const finetunedModel = configModelName || (
     costMode === 'experimental'
       ? finetunedVertexModels.ft_filepicker_010
       : finetunedVertexModels.ft_filepicker_005
+  )
 
   let response = await promptFlashWithFallbacks(coreMessages, {
     clientSessionId,
@@ -484,6 +548,7 @@ function generateKeyRequestFilesPrompt(
   count: number
 ): string {
   const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
+  
   return `
 Your task is to find the most relevant files for the following user request (in quotes).
 
