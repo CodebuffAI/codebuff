@@ -2,7 +2,6 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "types": ["node", "bun"],
-    "outDir": "./dist",
     "rootDir": ".",
     "paths": {
       "common/*": ["../common/src/*"],
@@ -18,6 +17,6 @@
     { "path": "../npm-app" },
     { "path": "../packages/integrations" }
   ],
-  "exclude": ["test-repos", "dist"],
+  "exclude": ["test-repos"],
   "include": ["**/*.ts"]
 }

@@ -9,11 +9,10 @@
     "test:swe-bench": "bun test swe-bench.test.ts",
     "test:e2e-cat-app": "bun run e2e-cat-app-script.ts",
     "typecheck": "tsc --noEmit",
-    "build": "tsc",
-    "gen-git-evals": "bun run dist/git-evals/gen-evals.js",
-    "run-git-evals": "bun run dist/git-evals/run-git-evals.js",
-    "run-eval-set": "bun run dist/run-eval-set.js",
-    "setup-codebuff-repo": "bun run dist/setup-codebuff-repo.js"
+    "gen-git-evals": "bun run git-evals/gen-evals.ts",
+    "run-git-evals": "bun run git-evals/run-git-evals.ts",
+    "run-eval-set": "bun run git-evals/run-eval-set.ts",
+    "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
   },
   "dependencies": {
     "@codebuff/integrations": "workspace:*",
