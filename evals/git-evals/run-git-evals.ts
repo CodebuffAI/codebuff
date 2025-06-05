@@ -1,14 +1,24 @@
+import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { execSync } from 'child_process'
 
 import { promptAiSdkStructured } from 'backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 import { claudeModels } from 'common/src/constants'
+import { withTimeout } from 'common/util/promise'
 import { generateCompactId } from 'common/util/string'
 import { setProjectRoot, setWorkingDirectory } from 'npm-app/project-files'
-import { recreateShell } from 'npm-app/utils/terminal'
+import { recreateShell } from 'npm-app/terminal/base'
+import {
+  createFileReadingMock,
+  loopMainPrompt,
+  resetRepoToCommit,
+} from '../scaffolding'
+import {
+  createInitialAgentState,
+  setupTestEnvironmentVariables,
+} from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
-import { setupTestRepo, extractRepoNameFromUrl } from './setup-test-repo'
+import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import {
   AgentDecision,
   AgentDecisionSchema,
@@ -20,16 +30,6 @@ import {
   FullEvalLog,
   GitRepoEvalData,
 } from './types'
-import {
-  createFileReadingMock,
-  loopMainPrompt,
-  resetRepoToCommit,
-} from '../scaffolding'
-import {
-  createInitialAgentState,
-  setupTestEnvironmentVariables,
-} from '../test-setup'
-import { withTimeout } from 'common/util/promise'
 
 async function runSingleEval(
   evalCommit: EvalCommit,
@@ -289,14 +289,14 @@ export async function runGitEvals(
   ) as GitRepoEvalData
 
   const { repoUrl } = evalData
-  
+
   // Extract repo name from URL or use provided testRepoName as fallback
   const testRepoName = evalData.testRepoName || extractRepoNameFromUrl(repoUrl)
-  
+
   // Setup the test repository using the generic function
   console.log(`Setting up test repository from: ${repoUrl}`)
   const actualRepoName = await setupTestRepo(repoUrl, testRepoName)
-  
+
   const projectPath = path.join(__dirname, '../test-repos', actualRepoName)
   setupTestEnvironmentVariables()
   createFileReadingMock(projectPath)
