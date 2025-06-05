@@ -1,4 +1,4 @@
-import { sendLoopsEmail } from 'backend/src/util/loops'
+import { sendBasicEmail } from '@codebuff/integrations'
 import { FullEvalLog } from './types'
 import { PostEvalAnalysis } from './post-eval-analysis'
 
@@ -131,5 +131,6 @@ export async function sendEvalResultsEmail(
   const emailContent = formatEvalSummaryForEmail(evalResults, analyses)
 
   console.log(`📧 Sending eval results email to ${recipientEmail}...`)
-  return await sendLoopsEmail(recipientEmail, emailContent)
+  const result = await sendBasicEmail(recipientEmail, emailContent)
+  return result.success
 }

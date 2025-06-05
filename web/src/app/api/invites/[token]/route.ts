@@ -4,7 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, gt, isNull } from 'drizzle-orm'
-import { sendOrganizationWelcomeEmail } from '@/lib/loops-email'
+// import { sendOrganizationWelcomeEmail } from '@codebuff/integrations'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
@@ -157,13 +157,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .where(eq(schema.orgInvite.id, inv.id))
     })
 
-    // Send welcome email
-    await sendOrganizationWelcomeEmail({
-      email: session.user.email!,
-      firstName: session.user.name?.split(' ')[0],
-      organizationName: org.name,
-      role: inv.role,
-    })
+    // // Send welcome email
+    // await sendOrganizationWelcomeEmail({
+    //   email: session.user.email!,
+    //   firstName: session.user.name?.split(' ')[0],
+    //   organizationName: org.name,
+    //   role: inv.role,
+    // })
 
     logger.info(
       {

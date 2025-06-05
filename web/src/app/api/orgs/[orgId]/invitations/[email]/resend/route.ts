@@ -5,7 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 import { checkOrganizationPermission } from '@/lib/organization-permissions'
-import { sendOrganizationInvitationEmail } from '@/lib/loops-email'
+import { sendOrganizationInvitationEmail } from '@codebuff/integrations' // Updated import
 import { logger } from '@/util/logger'
 
 interface RouteParams {
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const emailResult = await sendOrganizationInvitationEmail({
       email: inviteRecord.email,
       organizationName: organization!.name,
-      inviterName: inviter[0]?.name || 'Someone',
+      inviterName: inviter[0]?.name || 'A teammate',
       invitationUrl,
       role: inviteRecord.role,
     })

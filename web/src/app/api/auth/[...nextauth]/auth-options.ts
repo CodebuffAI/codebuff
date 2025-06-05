@@ -13,6 +13,7 @@ import { eq } from 'drizzle-orm'
 import type { NextAuthOptions } from 'next-auth'
 import { Adapter } from 'next-auth/adapters'
 import GitHubProvider from 'next-auth/providers/github'
+import { sendSignupEventToLoops } from '@codebuff/integrations'
 
 import { env } from '@/env.mjs'
 import { logger } from '@/util/logger'
@@ -110,38 +111,6 @@ async function createInitialCreditGrant(
   }
 }
 
-async function sendSignupEventToLoops(
-  userId: string,
-  email: string | null,
-  name: string | null
-): Promise<void> {
-  if (!email) {
-    logger.warn({ userId }, 'User email missing, cannot send Loops event.')
-    return
-  }
-  try {
-    await fetch('https://app.loops.so/api/v1/events/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${env.LOOPS_API_KEY}`,
-      },
-      body: JSON.stringify({
-        email,
-        userId,
-        eventName: 'signup',
-        firstName: name?.split(' ')[0] ?? '',
-      }),
-    })
-    logger.info({ email, userId }, 'Sent signup event to Loops')
-  } catch (loopsError) {
-    logger.error(
-      { error: loopsError, email, userId },
-      'Failed to send Loops event'
-    )
-  }
-}
-
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
     usersTable: schema.user,
@@ -235,6 +204,7 @@ export const authOptions: NextAuthOptions = {
         await createInitialCreditGrant(userData.id, userData.next_quota_reset)
       }
 
+      // Call the imported function
       await sendSignupEventToLoops(userData.id, userData.email, userData.name)
 
       trackEvent(AnalyticsEvent.SIGNUP, userData.id)
