@@ -46,6 +46,79 @@ import { CustomFilePickerConfig, CustomFilePickerConfigSchema } from './custom-f
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
 
+export async function getCustomFilePickerConfigForOrg(
+  orgId: string | undefined,
+  isRepoApprovedForUserInOrg: boolean | undefined
+): Promise<CustomFilePickerConfig | null> {
+  if (!orgId || !isRepoApprovedForUserInOrg) {
+    return null
+  }
+
+  try {
+    const orgFeature = await db
+      .select()
+      .from(schema.orgFeature)
+      .where(
+        and(
+          eq(schema.orgFeature.org_id, orgId),
+          eq(schema.orgFeature.feature, 'custom-file-picker'),
+          eq(schema.orgFeature.is_active, true)
+        )
+      )
+      .limit(1)
+      .then(rows => rows[0])
+
+    if (orgFeature?.config && typeof orgFeature.config === 'string') { // Check if config is a string
+      let parsedConfigObject;
+      try {
+        parsedConfigObject = JSON.parse(orgFeature.config);
+      } catch (jsonParseError) {
+        logger.error(
+          { error: jsonParseError, orgId, configString: orgFeature.config },
+          'Failed to parse customFilePickerConfig JSON string'
+        );
+        return null; // Parsing the string itself failed
+      }
+
+      const parseResult = CustomFilePickerConfigSchema.safeParse(parsedConfigObject); // Parse the object
+      if (parseResult.success) {
+        logger.info(
+          { orgId, modelName: parseResult.data.modelName },
+          'Using custom file picker configuration for organization'
+        );
+        return parseResult.data;
+      } else {
+        logger.error(
+          { error: parseResult.error, orgId, configObject: parsedConfigObject }, // Log the object that failed parsing
+          'Invalid custom file picker configuration, using defaults'
+        );
+      }
+    } else if (orgFeature?.config) {
+      // If config is not a string but exists, it might be an object already (e.g. from a direct mock)
+      // or an unexpected type. Let's try to parse it directly, assuming it might be an object.
+      const parseResult = CustomFilePickerConfigSchema.safeParse(orgFeature.config);
+      if (parseResult.success) {
+        logger.info(
+          { orgId, modelName: parseResult.data.modelName },
+          'Using custom file picker configuration for organization (pre-parsed config object)'
+        );
+        return parseResult.data;
+      } else {
+         logger.error(
+          { error: parseResult.error, orgId, configValue: orgFeature.config },
+          'Invalid custom file picker configuration (non-string config value), using defaults'
+        );
+      }
+    }
+  } catch (error) {
+    logger.error(
+      { error, orgId },
+      'Error fetching custom file picker configuration'
+    );
+  }
+  return null;
+}
+
 export async function requestRelevantFiles(
   {
     messages,
@@ -67,46 +140,10 @@ export async function requestRelevantFiles(
   // Check for organization custom file picker feature
   const requestContext = getRequestContext()
   const orgId = requestContext?.approvedOrgIdForRepo
-  let customFilePickerConfig: CustomFilePickerConfig | null = null
-
-  if (orgId && requestContext?.isRepoApprovedForUserInOrg) {
-    try {
-      const orgFeature = await db
-        .select()
-        .from(schema.orgFeature)
-        .where(
-          and(
-            eq(schema.orgFeature.org_id, orgId),
-            eq(schema.orgFeature.feature, 'custom-file-picker'),
-            eq(schema.orgFeature.is_active, true)
-          )
-        )
-        .limit(1)
-        .then(rows => rows[0])
-
-      if (orgFeature?.config) {
-        // Validate the config using Zod schema
-        const parseResult = CustomFilePickerConfigSchema.safeParse(orgFeature.config)
-        if (parseResult.success) {
-          customFilePickerConfig = parseResult.data
-          logger.info(
-            { orgId, modelName: customFilePickerConfig.modelName },
-            'Using custom file picker configuration for organization'
-          )
-        } else {
-          logger.error(
-            { error: parseResult.error, orgId, config: orgFeature.config },
-            'Invalid custom file picker configuration, using defaults'
-          )
-        }
-      }
-    } catch (error) {
-      logger.error(
-        { error, orgId },
-        'Error fetching custom file picker configuration'
-      )
-    }
-  }
+  const customFilePickerConfig = await getCustomFilePickerConfigForOrg(
+    orgId,
+    requestContext?.isRepoApprovedForUserInOrg
+  )
 
   const defaultCountPerRequest = {
     lite: 8,
@@ -149,6 +186,27 @@ export async function requestRelevantFiles(
         return { newFilesNecessary: true, response: 'N/A', duration: 0 }
       })
 
+  // Await newFilesNecessaryPromise first
+  const newFilesNecessaryResult = await newFilesNecessaryPromise
+  const {
+    newFilesNecessary,
+    response: newFilesNecessaryResponse,
+    duration: newFilesNecessaryDuration,
+  } = newFilesNecessaryResult
+
+  if (!newFilesNecessary) {
+    logger.info(
+      {
+        newFilesNecessary,
+        response: newFilesNecessaryResponse,
+        duration: newFilesNecessaryDuration,
+      },
+      'requestRelevantFiles: No new files necessary, keeping current files'
+    )
+    return null // Early return if no new files are necessary
+  }
+
+  // Only proceed to get key files if new files are necessary
   const keyPrompt = generateKeyRequestFilesPrompt(
     userPrompt,
     assistantPrompt,
@@ -185,29 +243,11 @@ export async function requestRelevantFiles(
     userId,
     costMode,
     repoId,
-    modelIdForRequest // Pass the resolved model ID
+    modelIdForRequest 
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
   })
-
-  const newFilesNecessaryResult = await newFilesNecessaryPromise
-  const {
-    newFilesNecessary,
-    response: newFilesNecessaryResponse,
-    duration: newFilesNecessaryDuration,
-  } = newFilesNecessaryResult
-  if (!newFilesNecessary) {
-    logger.info(
-      {
-        newFilesNecessary,
-        response: newFilesNecessaryResponse,
-        duration: newFilesNecessaryDuration,
-      },
-      'requestRelevantFiles: No new files necessary, keeping current files'
-    )
-    return null
-  }
 
   const candidateFiles = (await keyPromise).files
 
