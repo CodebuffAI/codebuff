@@ -34,6 +34,7 @@ try {
 
 const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
+const cwdIdentifier = '@76593@'
 
 type PersistentProcess =
   | {
@@ -339,8 +340,122 @@ export const runTerminalCommand = async (
 
 const echoLinePattern = new RegExp(`${promptIdentifier}[^\n]*\n`, 'g')
 const commandDonePattern = new RegExp(
-  `^${promptIdentifier}(.*)${promptIdentifier}[\\s\\S]*${promptIdentifier}`
+  `^${cwdIdentifier}(.*)${cwdIdentifier}[\\s\\S]*${promptIdentifier}`
 )
+/**
+ * Executes a single command in a PTY process and returns the result when complete.
+ *
+ * This function handles the low-level details of running a command in a pseudo-terminal,
+ * including parsing the output to separate command echoes from actual output, detecting
+ * command completion, and extracting the exit code and final working directory.
+ *
+ * @param ptyProcess - The IPty instance to execute the command in
+ * @param command - The shell command to execute
+ * @param cwd - The working directory to change to before executing the command (relative to project root)
+ * @param onChunk - Callback function called for each chunk of output as it's received
+ *
+ * @returns Promise that resolves with:
+ *   - `commandOutput`: The complete output from the command (excluding echo lines)
+ *   - `finalCwd`: The working directory after command execution
+ *   - `exitCode`: The command's exit code (0 for success, non-zero for failure, null if os is Windows)
+ *
+ * @example
+ * ```typescript
+ * const result = await runSinglePtyCommand(
+ *   ptyProcess,
+ *   'ls -la',
+ *   '.',
+ *   (chunk) => console.log('Output chunk:', chunk)
+ * );
+ * console.log('Exit code:', result.exitCode);
+ * console.log('Final directory:', result.finalCwd);
+ * ```
+ *
+ * @internal This is a low-level utility function used by other terminal command runners.
+ * It handles platform-specific differences between Windows and Unix-like systems.
+ *
+ * The function works by:
+ * 1. Setting up a data listener on the PTY process
+ * 2. Filtering out command echo lines (the command being typed)
+ * 3. Detecting command completion markers (cwdIdentifier and promptIdentifier)
+ * 4. Parsing exit codes from the shell's status messages
+ * 5. Extracting the final working directory from the output
+ */
+function runSinglePtyCommand(
+  ptyProcess: IPty,
+  command: string,
+  cwd: string,
+  onChunk: (data: string) => void
+): Promise<{
+  commandOutput: string
+  finalCwd: string
+  exitCode: number | null
+}> {
+  const isWindows = os.platform() === 'win32'
+  let commandOutput = ''
+  let buffer = promptIdentifier
+  let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
+
+  const resultPromise = new Promise<{
+    commandOutput: string
+    finalCwd: string
+    exitCode: number | null
+  }>((resolve) => {
+    const dataDisposable = ptyProcess.onData((data: string) => {
+      buffer += data
+      const suffix = suffixPrefixOverlap(buffer, promptIdentifier)
+      let toProcess = buffer.slice(0, buffer.length - suffix.length)
+      buffer = suffix
+
+      const matches = toProcess.match(echoLinePattern)
+      if (matches) {
+        for (let i = 0; i < matches.length && echoLinesRemaining > 0; i++) {
+          echoLinesRemaining = Math.max(echoLinesRemaining - 1, 0)
+          // Process normal output line
+          toProcess = toProcess.replace(echoLinePattern, '')
+        }
+      }
+
+      const indexOfPromptIdentifier = toProcess.indexOf(cwdIdentifier)
+      if (indexOfPromptIdentifier !== -1) {
+        buffer = toProcess.slice(indexOfPromptIdentifier) + buffer
+        toProcess = toProcess.slice(0, indexOfPromptIdentifier)
+      }
+
+      onChunk(toProcess)
+      commandOutput += toProcess
+
+      const commandDone = buffer.match(commandDonePattern)
+      if (commandDone && echoLinesRemaining === 0) {
+        // Command is done
+        dataDisposable.dispose()
+
+        const exitCode = buffer.includes('Command completed')
+          ? 0
+          : (() => {
+              const match = buffer.match(
+                /Command failed with exit code (\d+)\./
+              )
+              return match ? parseInt(match[1]) : null
+            })()
+
+        const newWorkingDirectory = commandDone[1]
+
+        resolve({ commandOutput, finalCwd: newWorkingDirectory, exitCode })
+      }
+    })
+  })
+
+  // Write the command
+  const cdCommand = `cd ${path.resolve(getProjectRoot(), cwd)}`
+  const commandWithCheck = isWindows
+    ? `${cdCommand} & ${command} & echo ${cwdIdentifier}%cd%${cwdIdentifier}`
+    : `${cdCommand}; ${command}; ec=$?; printf "${cwdIdentifier}$(pwd)${cwdIdentifier}"; if [ $ec -eq 0 ]; then printf "Command completed."; else printf "Command failed with exit code $ec."; fi`
+  ptyProcess.write(`${commandWithCheck}\r\n`)
+
+  return resultPromise
+}
+
 export const runCommandPty = (
   persistentProcess: PersistentProcess & {
     type: 'pty'
@@ -404,114 +519,82 @@ export const runCommandPty = (
 
   persistentProcess.timerId = timer
 
-  const dataDisposable = ptyProcess.onData((data: string) => {
-    buffer += data
-    const suffix = suffixPrefixOverlap(buffer, promptIdentifier)
-    let toProcess = buffer.slice(0, buffer.length - suffix.length)
-    buffer = suffix
+  runSinglePtyCommand(ptyProcess, command, cwd, (data: string) => {
+    commandOutput += data
+    process.stdout.write(data)
+  }).then(async ({ finalCwd: newWorkingDirectory, exitCode }) => {
+    const statusMessage =
+      exitCode === null
+        ? ''
+        : exitCode === 0
+          ? 'Complete'
+          : `Failed with exit code: ${exitCode}`
 
-    const matches = toProcess.match(echoLinePattern)
-    if (matches) {
-      for (let i = 0; i < matches.length && echoLinesRemaining > 0; i++) {
-        echoLinesRemaining = Math.max(echoLinesRemaining - 1, 0)
-        // Process normal output line
-        toProcess = toProcess.replace(echoLinePattern, '')
-      }
+    if (timer) {
+      clearTimeout(timer)
     }
-
-    const indexOfPromptIdentifier = toProcess.indexOf(promptIdentifier)
-    if (indexOfPromptIdentifier !== -1) {
-      buffer = toProcess.slice(indexOfPromptIdentifier) + buffer
-      toProcess = toProcess.slice(0, indexOfPromptIdentifier)
+    if (mode === 'assistant') {
+      resolve({
+        result: formatResult(
+          command,
+          commandOutput,
+          buildArray([
+            `cwd: ${path.resolve(projectRoot, cwd)}`,
+            statusMessage,
+          ]).join('\n\n')
+        ),
+        stdout: commandOutput,
+        exitCode,
+      })
     }
-
-    process.stdout.write(toProcess)
-    commandOutput += toProcess
-
-    const commandDone = buffer.match(commandDonePattern)
-    if (commandDone && echoLinesRemaining === 0) {
-      // Command is done
-      if (timer) {
-        clearTimeout(timer)
-      }
-      dataDisposable.dispose()
-
-      const exitCode = buffer.includes('Command completed')
-        ? 0
-        : (() => {
-            const match = buffer.match(/Command failed with exit code (\d+)\./)
-            return match ? parseInt(match[1]) : null
-          })()
-      const statusMessage = buffer.includes('Command completed')
-        ? 'Complete'
-        : `Failed with exit code: ${exitCode}`
-
-      const newWorkingDirectory = commandDone[1]
-      if (mode === 'assistant') {
-        ptyProcess.write(`cd ${getWorkingDirectory()}\r\n`)
-
-        resolve({
-          result: formatResult(
-            command,
-            commandOutput,
-            `cwd: ${path.resolve(projectRoot, cwd)}\n\n${statusMessage}`
-          ),
-          stdout: commandOutput,
-          exitCode,
-        })
-        return
-      }
-
-      let outsideProject = false
-      const currentWorkingDirectory = getWorkingDirectory()
-      let finalCwd = currentWorkingDirectory
-      if (newWorkingDirectory !== currentWorkingDirectory) {
-        trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
-          from: currentWorkingDirectory,
-          to: newWorkingDirectory,
-          isSubdir: isSubdir(currentWorkingDirectory, newWorkingDirectory),
-        })
-        if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
-          outsideProject = true
-          console.log(`
+    let outsideProject = false
+    const currentWorkingDirectory = getWorkingDirectory()
+    let finalCwd = currentWorkingDirectory
+    if (newWorkingDirectory !== currentWorkingDirectory) {
+      trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
+        from: currentWorkingDirectory,
+        to: newWorkingDirectory,
+        isSubdir: isSubdir(currentWorkingDirectory, newWorkingDirectory),
+      })
+      if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
+        outsideProject = true
+        console.log(`
 Unable to cd outside of the project root (${projectRoot})
       
 If you want to change the project root:
 1. Exit Codebuff (type "exit")
 2. Navigate into the target directory (type "cd ${newWorkingDirectory}")
 3. Restart Codebuff`)
-          ptyProcess.write(`cd ${currentWorkingDirectory}\r\n`)
-        } else {
-          setWorkingDirectory(newWorkingDirectory)
-          finalCwd = newWorkingDirectory
-        }
+        await runSinglePtyCommand(
+          ptyProcess,
+          `cd ${currentWorkingDirectory}`,
+          '.',
+          () => {}
+        )
+      } else {
+        setWorkingDirectory(newWorkingDirectory)
+        finalCwd = newWorkingDirectory
       }
-
-      resolve({
-        result: formatResult(
-          command,
-          commandOutput,
-          buildArray([
-            `cwd: ${currentWorkingDirectory}`,
-            `${statusMessage}\n`,
-            outsideProject &&
-              `Detected final cwd outside project root. Reset cwd to ${currentWorkingDirectory}`,
-            `Final **user** cwd: ${finalCwd} (Assistant's cwd is still project root)`,
-          ]).join('\n')
-        ),
-        stdout: commandOutput,
-        exitCode,
-      })
-      return
     }
+
+    resolve({
+      result: formatResult(
+        command,
+        commandOutput,
+        buildArray([
+          `cwd: ${currentWorkingDirectory}`,
+          `${statusMessage}\n`,
+          outsideProject &&
+            `Detected final cwd outside project root. Reset cwd to ${currentWorkingDirectory}`,
+          `Final **user** cwd: ${finalCwd} (Assistant's cwd is still project root)`,
+        ]).join('\n')
+      ),
+      stdout: commandOutput,
+      exitCode,
+    })
   })
 
-  // Write the command
-  const cdCommand = `cd ${path.resolve(projectRoot, cwd)}`
-  const commandWithCheck = isWindows
-    ? `${cdCommand} & ${command} & echo ${promptIdentifier}%cd%${promptIdentifier}`
-    : `${cdCommand}; ${command}; ec=$?; printf "${promptIdentifier}$(pwd)${promptIdentifier}"; if [ $ec -eq 0 ]; then printf "Command completed."; else printf "Command failed with exit code $ec."; fi`
-  ptyProcess.write(`${commandWithCheck}\r`)
+  return
 }
 
 const runCommandChildProcess = (
