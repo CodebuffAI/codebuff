@@ -65,6 +65,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Build all workspaces
+        run: bun run build
+
       - name: Set Environment Variables
         run: |
           echo "${{ secrets.ENV_LOCAL }}" > .env.local
