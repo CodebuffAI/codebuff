@@ -8,9 +8,8 @@ import {
   afterEach,
   Mock,
 } from 'bun:test'
-import { getCustomFilePickerConfigForOrg } from '../find-files/request-files-prompt'
-import * as requestContextModule from '../websockets/request-context'
 
+// Define mock functions that will be used by the module mock
 const mockLimitFn = bunMockFn().mockResolvedValue([])
 const mockWhereFn = bunMockFn(() => ({ limit: mockLimitFn }))
 const mockFromFn = bunMockFn(() => ({ where: mockWhereFn }))
@@ -20,6 +19,7 @@ const mockDbObject = {
   select: mockSelectFn,
 }
 
+// Module mocks should be at the top
 bunMockFn.module('common/db', () => ({
   default: mockDbObject,
 }))
@@ -33,10 +33,26 @@ bunMockFn.module('../util/logger', () => ({
   },
 }))
 
+// Mock common/constants to provide stable finetunedVertexModelNames
+bunMockFn.module('common/constants', () => ({
+  finetunedVertexModelNames: {
+    FT_FILEPICKER_005: 'ft_filepicker_005', // Ensure the model name used in tests is present
+    // Add any other models if other tests might rely on them, or keep it minimal
+  },
+  costModes: ['lite', 'normal', 'max', 'experimental', 'ask'], // Provide all cost modes
+  // Add other constants if they are essential for module loading, otherwise keep minimal
+  models: {}, // Placeholder if needed
+  // ... any other exports from common/constants that might be needed for schema validation
+}))
+
+// Now import the module under test and other dependencies
+import { getCustomFilePickerConfigForOrg } from '../find-files/request-files-prompt'
+import * as requestContextModule from '../websockets/request-context'
+
 let getRequestContextSpy: any // Explicitly typed as any
 
 const validConfigString = JSON.stringify({
-  modelName: 'ft_filepicker_005',
+  modelName: 'ft_filepicker_005', // This model name should exist in actual common/constants
   maxFilesPerRequest: 20,
   customFileCounts: { normal: 10 },
 })
