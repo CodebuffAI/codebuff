@@ -12,7 +12,8 @@
       },
       "outputs": ["{projectRoot}/dist"],
       "dependsOn": [
-        "^build"
+        "^build",
+        "clean"
       ]
     },
     "run-eval-set": {
