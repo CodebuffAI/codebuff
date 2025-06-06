@@ -13,7 +13,7 @@ import { eq } from 'drizzle-orm'
 import type { NextAuthOptions } from 'next-auth'
 import { Adapter } from 'next-auth/adapters'
 import GitHubProvider from 'next-auth/providers/github'
-import { sendSignupEventToLoops } from '@codebuff/integrations'
+import { sendSignupEventToLoops } from '@codebuff/internal'
 
 import { env } from '@/env.mjs'
 import { logger } from '@/util/logger'

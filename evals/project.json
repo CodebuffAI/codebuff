@@ -13,5 +13,5 @@
     }
   },
   "tags": [],
-  "implicitDependencies": ["@codebuff/integrations", "codebuff"]
+  "implicitDependencies": ["@codebuff/internal", "codebuff"]
 }

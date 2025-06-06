@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { checkAdminAuth } from '@/lib/admin-auth'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, sql, desc } from 'drizzle-orm'
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Check admin authentication
+    const authResult = await checkAdminAuth()
+    if (authResult instanceof NextResponse) {
+      return authResult
     }
-
-    // Check if user is admin (implement proper admin check)
-    // For now, we'll assume any authenticated user can access this
 
     // Get all organizations with detailed information
     const organizations = await db

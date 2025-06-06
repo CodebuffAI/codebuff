@@ -57,7 +57,7 @@ export default function AdminOrganizationsPage() {
   const fetchOrganizations = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/admin/organizations')
+      const response = await fetch('/api/admin/orgs')
 
       if (!response.ok) {
         if (response.status === 403) {

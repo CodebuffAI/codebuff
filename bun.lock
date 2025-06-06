@@ -32,10 +32,10 @@
         "@ai-sdk/openai": "1.3.22",
         "@anthropic-ai/sdk": "^0.39.0",
         "@codebuff/billing": "workspace:*",
+        "@codebuff/internal": "workspace:*",
         "@google-cloud/vertexai": "1.10.0",
         "@google/generative-ai": "0.24.1",
         "@t3-oss/env-core": "0.11.1",
-        "@types/cors": "^2.8.17",
         "ai": "4.3.16",
         "common": "workspace:*",
         "cors": "^2.8.5",
@@ -208,11 +208,12 @@
         "@types/node": "22",
       },
     },
-    "packages/integrations": {
-      "name": "@codebuff/integrations",
+    "packages/internal": {
+      "name": "@codebuff/internal",
       "version": "1.0.0",
       "dependencies": {
         "common": "workspace:*",
+        "drizzle-orm": "*",
         "loops": "^5.0.1",
       },
       "devDependencies": {
@@ -252,7 +253,7 @@
       "dependencies": {
         "@auth/drizzle-adapter": "^1.8.0",
         "@codebuff/billing": "workspace:*",
-        "@codebuff/integrations": "workspace:*",
+        "@codebuff/internal": "workspace:*",
         "@emotion/is-prop-valid": "^1.3.1",
         "@hookform/resolvers": "^3.9.0",
         "@mdx-js/loader": "^3.1.0",
@@ -486,7 +487,7 @@
 
     "@codebuff/billing": ["@codebuff/billing@workspace:packages/billing"],
 
-    "@codebuff/integrations": ["@codebuff/integrations@workspace:packages/integrations"],
+    "@codebuff/internal": ["@codebuff/internal@workspace:packages/internal"],
 
     "@commitlint/cli": ["@commitlint/cli@19.8.0", "", { "dependencies": { "@commitlint/format": "^19.8.0", "@commitlint/lint": "^19.8.0", "@commitlint/load": "^19.8.0", "@commitlint/read": "^19.8.0", "@commitlint/types": "^19.8.0", "tinyexec": "^0.3.0", "yargs": "^17.0.0" }, "bin": { "commitlint": "./cli.js" } }, "sha512-t/fCrLVu+Ru01h0DtlgHZXbHV2Y8gKocTR5elDOqIRUzQd0/6hpt2VIWOj9b3NDo7y4/gfxeR2zRtXq/qO6iUg=="],
 

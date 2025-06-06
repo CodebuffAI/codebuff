@@ -1,4 +1,4 @@
-import { sendBasicEmail } from '../../packages/integrations/src'
+import { sendBasicEmail } from '../../packages/internal/src/loops'
 import { FullEvalLog } from './types'
 import { PostEvalAnalysis } from './post-eval-analysis'
 

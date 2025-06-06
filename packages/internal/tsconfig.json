@@ -6,7 +6,8 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "common/*": ["../../common/src/*"]
+      "common/*": ["../../common/src/*"],
+      "@codebuff/common/*": ["../../common/src/*"]
     }
   },
   "include": ["src/**/*"],

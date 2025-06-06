@@ -1,6 +1,5 @@
-import { getServerSession } from 'next-auth'
 import { NextRequest, NextResponse } from 'next/server'
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { checkAdminAuth } from '@/lib/admin-auth'
 import { logger } from '@/util/logger'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -79,10 +78,10 @@ async function handleBackendResponse(response: Response) {
 
 // GET handler for fetching traces
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Check admin authentication
+  const authResult = await checkAdminAuth()
+  if (authResult instanceof NextResponse) {
+    return authResult
   }
 
   const userId = req.nextUrl.searchParams.get('userId')
@@ -94,11 +93,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const sessionToken = await getActiveSessionToken(session.user.id)
+    const sessionToken = await getActiveSessionToken(authResult.id)
     if (!sessionToken) {
       logger.error(
-        { userId: session.user.id },
-        'No active session token found for user'
+        { userId: authResult.id },
+        'No active session token found for admin user'
       )
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -117,10 +116,10 @@ export async function GET(req: NextRequest) {
 
 // POST handler for running relabelling
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Check admin authentication
+  const authResult = await checkAdminAuth()
+  if (authResult instanceof NextResponse) {
+    return authResult
   }
 
   const userId = req.nextUrl.searchParams.get('userId')
@@ -132,11 +131,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const sessionToken = await getActiveSessionToken(session.user.id)
+    const sessionToken = await getActiveSessionToken(authResult.id)
     if (!sessionToken) {
       logger.error(
-        { userId: session.user.id },
-        'No active session token found for user'
+        { userId: authResult.id },
+        'No active session token found for admin user'
       )
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

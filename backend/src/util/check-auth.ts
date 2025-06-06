@@ -7,13 +7,7 @@ import { ServerAction } from 'common/actions'
 import { logger } from '@/util/logger'
 import { triggerMonthlyResetAndGrant } from '@codebuff/billing'
 
-// List of admin user emails
-const ADMIN_USER_EMAILS = [
-  'venkateshrameshkumar+1@gmail.com',
-  'brandonchenjiacheng@gmail.com',
-  'jahooma@gmail.com',
-  'charleslien97@gmail.com',
-]
+import * as internal from '@codebuff/internal'
 
 export const checkAuth = async ({
   fingerprintId,
@@ -24,42 +18,29 @@ export const checkAuth = async ({
   authToken?: string
   clientSessionId: string
 }): Promise<void | ServerAction> => {
-  if (!authToken) {
-    if (!fingerprintId) {
-      logger.error(
-        { clientSessionId },
-        'Auth token and fingerprint ID are missing'
-      )
-      return {
-        type: 'action-error',
-        message: 'Auth token and fingerprint ID are missing',
-      }
-    }
-    return
-  }
+  // Use shared auth check functionality
+  const authResult = await internal.utils.checkAuthToken({
+    fingerprintId,
+    authToken,
+  })
 
-  const user = await db
-    .select({
-      id: schema.user.id,
-      email: schema.user.email,
-      discord_id: schema.user.discord_id,
-    })
-    .from(schema.user)
-    .innerJoin(schema.session, eq(schema.user.id, schema.session.userId))
-    .where(eq(schema.session.sessionToken, authToken))
-    .then((users) => {
-      if (users.length === 1) {
-        return users[0]
-      }
-      return undefined
-    })
-
-  if (!user) {
-    logger.warn({ clientSessionId }, 'Invalid auth token')
+  if (!authResult.success) {
+    logger.error(
+      { clientSessionId, error: authResult.error },
+      authResult.error?.message || 'Authentication failed'
+    )
     return {
       type: 'action-error',
-      message: 'Invalid auth token',
+      message: authResult.error?.message || 'Authentication failed',
     }
+  }
+
+  if (authResult.user) {
+    // Log successful authentication if we have a user
+    logger.debug(
+      { clientSessionId, userId: authResult.user.id },
+      'Authentication successful'
+    )
   }
 
   return
@@ -98,7 +79,7 @@ export const checkAdmin = async (
     return res.status(401).json({ error: errorMessage })
   }
 
-  // Get the user email associated with this session token
+  // Get the user ID associated with this session token
   const user = await db
     .select({
       id: schema.user.id,
@@ -109,17 +90,22 @@ export const checkAdmin = async (
     .where(eq(schema.session.sessionToken, authToken))
     .then((users) => users[0])
 
-  // Check if user has admin access
-  if (!user?.email || !ADMIN_USER_EMAILS.includes(user.email)) {
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid session' })
+  }
+
+  // Check if user has admin access using shared utility
+  const adminUser = await internal.utils.checkUserIsCodebuffAdmin(user.id)
+  if (!adminUser) {
     logger.warn(
-      { userId: user?.id, email: user?.email, clientSessionId },
+      { userId: user.id, email: user.email, clientSessionId },
       'Unauthorized access attempt to admin endpoint'
     )
     return res.status(403).json({ error: 'Forbidden' })
   }
 
   // Store user info in request for handlers to use if needed
-  // req.user = user // TODO: ensure type check passes
+  // req.user = adminUser // TODO: ensure type check passes
 
   // Auth passed and user is admin, proceed to next middleware
   next()

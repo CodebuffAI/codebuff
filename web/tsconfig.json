@@ -24,13 +24,13 @@
       "@/*": ["./src/*"],
       "common/*": ["../common/src/*"],
       "@codebuff/billing": ["../packages/billing/src"],
-      "@codebuff/integrations": ["../packages/integrations/src"]
+      "@codebuff/internal": ["../packages/internal/src"]
     }
   },
   "references": [
     { "path": "../common" },
     { "path": "../packages/billing" },
-    { "path": "../packages/integrations" }
+    { "path": "../packages/internal" }
   ],
   "include": [
     "next-env.d.ts",
