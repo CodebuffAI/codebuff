@@ -105,7 +105,7 @@
 `ft_filepicker_010`
 - Gemini Endpoint ID: 3808739064941641728
 - Finetune date: June 2, 2025
-- Finetune file: ??? TODO
+- Finetune file: gemini-tune-data-048.jsonl
 - Finetune samples: 2648 messages
 - Tokens: 109M
 - Epochs: 3
@@ -120,6 +120,21 @@
 - Est costs:
   - ~$980 for finetuning ($3.00/1M tokens * 3 epochs * 109M tokens)
   - Reuses relabel inputs from ft_filepicker_008 - no additional labeling cost
+
+`ft_filepicker_topk_003`
+- Gemini Endpoint ID: 1502192368286171136
+- Finetune date: Jun 5, 2025
+- Finetune file: gemini-tune-data-048-top2.jsonl, available in the GCS bucket
+- Finetune samples: 2648 messages
+- Tokens: 109M
+- Epochs: 2
+- Base model: gemini-2.0-flash-001
+- Distilled model: claude-opus-4-20250514 
+- Notes: 
+  - Combines characteristics of `ft_filepicker_topk_002` and `ft_filepicker_010`, ie: uses top-2, with 3 lines of dashes at the end, but also blobbifies message history.
+- Est costs:
+  - ~$660 for finetuning ($3.00/1M tokens * 2 epochs * 109M tokens)
+  - Mostly reuses relabel inputs from other Claude runs - no additional cost anticipated.
 
 ## Scripts
 
