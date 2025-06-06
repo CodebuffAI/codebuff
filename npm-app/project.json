@@ -24,8 +24,7 @@
           "mkdir -p dist/code-map",
           "cp -r ../packages/code-map/dist/* dist/code-map",
           "mkdir -p dist/utils/__tests__",
-          "cp -r src/utils/__tests__/*.txt dist/utils/__tests__",
-          "sed -i '' 's|require(\"common/project-file-tree\")|require(\"../common/project-file-tree\")|g' dist/project-context.js"
+          "cp -r src/utils/__tests__/*.txt dist/utils/__tests__"
         ],
         "cwd": "npm-app",
         "parallel": false
