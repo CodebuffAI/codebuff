@@ -362,3 +362,25 @@ export const orgInvite = pgTable(
     ),
   })
 )
+
+export const orgFeature = pgTable(
+  'org_feature',
+  {
+    org_id: text('org_id')
+      .notNull()
+      .references(() => org.id, { onDelete: 'cascade' }),
+    feature: text('feature').notNull(),
+    config: jsonb('config'),
+    is_active: boolean('is_active').notNull().default(true),
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.org_id, table.feature] }),
+    index('idx_org_feature_active').on(table.org_id, table.is_active),
+  ]
+)
