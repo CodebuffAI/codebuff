@@ -216,15 +216,11 @@ export async function requestRelevantFiles(
 
   let modelIdForRequest: FinetunedVertexModel | undefined = undefined
   if (customFilePickerConfig?.modelName) {
-    const entry = Object.entries(finetunedVertexModelNames).find(
-      ([_, name]) => name === customFilePickerConfig.modelName
-    )
-    if (entry) {
-      modelIdForRequest = entry[0] as FinetunedVertexModel
-    } else {
+    modelIdForRequest = finetunedVertexModels[customFilePickerConfig.modelName]
+    if (!modelIdForRequest) {
       logger.warn(
         { modelName: customFilePickerConfig.modelName },
-        'Custom file picker modelName not found in finetunedVertexModelNames, using default'
+        'Custom file picker modelName not found in finetunedVertexModel, using default'
       )
     }
   }
@@ -259,7 +255,7 @@ export async function requestRelevantFiles(
       newFilesNecessary,
       newFilesNecessaryResponse,
       newFilesNecessaryDuration,
-      customFilePickerConfig: customFilePickerConfig ? 'enabled' : 'disabled',
+      customFilePickerConfig: customFilePickerConfig,
       modelName: customFilePickerConfig?.modelName,
       orgId,
     },
