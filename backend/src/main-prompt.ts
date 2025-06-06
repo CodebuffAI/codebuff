@@ -523,7 +523,15 @@ export const mainPrompt = async (
         role: 'user' as const,
         content: asSystemInstruction(toolInstructions),
         timeToLive: 'agentStep' as const,
-      }
+      },
+
+    isAskMode && {
+      role: 'user',
+      content: asSystemMessage(
+        `You have been switched to ASK mode. As such, you can no longer use the write_file tool or run_terminal_command tool. Do not attempt to use them because they will not work!`
+      ),
+      timeToLive: 'agentStep',
+    }
   )
 
   const iterationNum = messagesWithUserMessage.length
@@ -657,11 +665,7 @@ export const mainPrompt = async (
         if (
           isAskMode &&
           !isExporting &&
-          [
-            'write_file',
-            'str_replace',
-            'run_terminal_command',
-          ].includes(tool)
+          ['write_file', 'str_replace', 'run_terminal_command'].includes(tool)
         ) {
           serverToolResults.push({
             name: tool,
