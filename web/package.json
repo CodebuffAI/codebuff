@@ -13,7 +13,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,mdx}\" --cache",
     "typecheck-this-package": "bun run contentlayer && tsc --noEmit",
-    "typecheck-only": "bun run contentlayer && tsc --noEmit",
+    "typecheck": "bun run build",
     "test": "jest",
     "test:watch": "jest --watchAll",
     "e2e": "playwright test",

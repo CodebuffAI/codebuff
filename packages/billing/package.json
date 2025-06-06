@@ -7,8 +7,7 @@
   "scripts": {
     "build": "tsc --build",
     "typecheck": "tsc --noEmit",
-    "build-and-typecheck": "bun run build && bun run typecheck",
-    "typecheck-only": "tsc --noEmit"
+    "typecheck-this-package": "tsc --noEmit"
   },
   "dependencies": {
     "common": "workspace:*",
