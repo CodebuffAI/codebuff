@@ -41,7 +41,10 @@ import { getRequestContext } from '../websockets/request-context'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
-import { CustomFilePickerConfig, CustomFilePickerConfigSchema } from './custom-file-picker-config'
+import {
+  CustomFilePickerConfig,
+  CustomFilePickerConfigSchema,
+} from './custom-file-picker-config'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
@@ -66,57 +69,67 @@ export async function getCustomFilePickerConfigForOrg(
         )
       )
       .limit(1)
-      .then(rows => rows[0])
+      .then((rows) => rows[0])
 
-    if (orgFeature?.config && typeof orgFeature.config === 'string') { // Check if config is a string
-      let parsedConfigObject;
+    if (orgFeature?.config && typeof orgFeature.config === 'string') {
+      // Check if config is a string
+      let parsedConfigObject
       try {
-        parsedConfigObject = JSON.parse(orgFeature.config);
+        parsedConfigObject = JSON.parse(orgFeature.config)
       } catch (jsonParseError) {
         logger.error(
           { error: jsonParseError, orgId, configString: orgFeature.config },
           'Failed to parse customFilePickerConfig JSON string'
-        );
-        return null; // Parsing the string itself failed
+        )
+        return null // Parsing the string itself failed
       }
 
-      const parseResult = CustomFilePickerConfigSchema.safeParse(parsedConfigObject); // Parse the object
+      const parseResult =
+        CustomFilePickerConfigSchema.safeParse(parsedConfigObject) // Parse the object
       if (parseResult.success) {
         logger.info(
           { orgId, modelName: parseResult.data.modelName },
           'Using custom file picker configuration for organization'
-        );
-        return parseResult.data;
+        )
+        return parseResult.data
       } else {
         logger.error(
           { error: parseResult.error, orgId, configObject: parsedConfigObject }, // Log the object that failed parsing
           'Invalid custom file picker configuration, using defaults'
-        );
+        )
       }
     } else if (orgFeature?.config) {
       // If config is not a string but exists, it might be an object already (e.g. from a direct mock)
       // or an unexpected type. Let's try to parse it directly, assuming it might be an object.
-      const parseResult = CustomFilePickerConfigSchema.safeParse(orgFeature.config);
+      const parseResult = CustomFilePickerConfigSchema.safeParse(
+        orgFeature.config
+      )
       if (parseResult.success) {
         logger.info(
           { orgId, modelName: parseResult.data.modelName },
           'Using custom file picker configuration for organization (pre-parsed config object)'
-        );
-        return parseResult.data;
+        )
+        return parseResult.data
       } else {
-         logger.error(
+        logger.error(
           { error: parseResult.error, orgId, configValue: orgFeature.config },
           'Invalid custom file picker configuration (non-string config value), using defaults'
-        );
+        )
       }
     }
   } catch (error) {
     logger.error(
       { error, orgId },
       'Error fetching custom file picker configuration'
-    );
+    )
   }
-  return null;
+  return null
+}
+
+function isValidFilePickerModelName(
+  modelName: string
+): modelName is keyof typeof finetunedVertexModels {
+  return Object.keys(finetunedVertexModels).includes(modelName)
 }
 
 export async function requestRelevantFiles(
@@ -154,11 +167,13 @@ export async function requestRelevantFiles(
   }
 
   // Use custom file counts if available, otherwise use defaults
-  const countPerRequest = customFilePickerConfig?.customFileCounts?.[costMode] ?? 
-                          defaultCountPerRequest[costMode]
+  const countPerRequest =
+    customFilePickerConfig?.customFileCounts?.[costMode] ??
+    defaultCountPerRequest[costMode]
 
   // Use custom max files per request if specified, otherwise default to 30
-  const maxFilesPerRequest = customFilePickerConfig?.maxFilesPerRequest ?? MAX_FILES_PER_REQUEST
+  const maxFilesPerRequest =
+    customFilePickerConfig?.maxFilesPerRequest ?? MAX_FILES_PER_REQUEST
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -215,9 +230,11 @@ export async function requestRelevantFiles(
   )
 
   let modelIdForRequest: FinetunedVertexModel | undefined = undefined
-  if (customFilePickerConfig?.modelName) {
-    modelIdForRequest = finetunedVertexModels[customFilePickerConfig.modelName]
-    if (!modelIdForRequest) {
+  const modelName = customFilePickerConfig?.modelName
+  if (modelName) {
+    if (isValidFilePickerModelName(modelName)) {
+      modelIdForRequest = finetunedVertexModels[modelName]
+    } else {
       logger.warn(
         { modelName: customFilePickerConfig.modelName },
         'Custom file picker modelName not found in finetunedVertexModel, using default'
@@ -239,7 +256,7 @@ export async function requestRelevantFiles(
     userId,
     costMode,
     repoId,
-    modelIdForRequest 
+    modelIdForRequest
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
@@ -366,7 +383,7 @@ async function getRelevantFiles(
   userId: string | undefined,
   costMode: CostMode,
   repoId: string | undefined,
-  configModelName?: FinetunedVertexModel
+  modelId?: FinetunedVertexModel
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -392,7 +409,7 @@ async function getRelevantFiles(
       }
     })
     .filter((msg) => msg !== null)
-  const finetunedModel = configModelName ?? finetunedVertexModels.ft_filepicker_010
+  const finetunedModel = modelId ?? finetunedVertexModels.ft_filepicker_010
 
   let response = await promptFlashWithFallbacks(coreMessages, {
     clientSessionId,
@@ -598,7 +615,7 @@ function generateKeyRequestFilesPrompt(
   count: number
 ): string {
   const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
-  
+
   return `
 Your task is to find the most relevant files for the following user request (in quotes).
 

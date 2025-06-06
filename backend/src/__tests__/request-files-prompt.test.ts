@@ -1,4 +1,12 @@
-import { describe, expect, it, mock as bunMockFn, spyOn as bunSpyOn, beforeEach, Mock } from 'bun:test' 
+import {
+  describe,
+  expect,
+  it,
+  mock as bunMockFn,
+  spyOn as bunSpyOn,
+  beforeEach,
+  Mock,
+} from 'bun:test'
 
 // Import the entire module to spy on its exports
 import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
@@ -10,11 +18,15 @@ import { CostMode, finetunedVertexModels } from 'common/constants'
 
 // Restore module-level mocks using bunMockFn for the mock implementations
 bunMockFn.module('../find-files/check-new-files-necessary', () => ({
-  checkNewFilesNecessary: bunMockFn(() => Promise.resolve({ newFilesNecessary: true, response: 'YES', duration: 100 })),
+  checkNewFilesNecessary: bunMockFn(() =>
+    Promise.resolve({ newFilesNecessary: true, response: 'YES', duration: 100 })
+  ),
 }))
 
 bunMockFn.module('../llm-apis/gemini-with-fallbacks', () => ({
-  promptFlashWithFallbacks: bunMockFn(() => Promise.resolve('file1.ts\nfile2.ts')),
+  promptFlashWithFallbacks: bunMockFn(() =>
+    Promise.resolve('file1.ts\nfile2.ts')
+  ),
 }))
 
 bunMockFn.module('../websockets/request-context', () => ({
@@ -45,7 +57,6 @@ bunMockFn.module('common/db', () => ({
 bunMockFn.module('@codebuff/bigquery', () => ({
   insertTrace: bunMockFn(() => Promise.resolve()),
 }))
-
 
 describe('requestRelevantFiles', () => {
   const mockMessages: CoreMessage[] = [{ role: 'user', content: 'test prompt' }]
@@ -81,14 +92,16 @@ describe('requestRelevantFiles', () => {
   const mockCostMode: CostMode = 'normal'
   const mockRepoId = 'owner/repo'
 
-  let getCustomFilePickerConfigForOrgSpy: any; // Explicitly typed as any
-
+  let getCustomFilePickerConfigForOrgSpy: any // Explicitly typed as any
 
   beforeEach(() => {
     // If the spy was created in a previous test, restore it
-    if (getCustomFilePickerConfigForOrgSpy && typeof getCustomFilePickerConfigForOrgSpy.mockRestore === 'function') {
-      getCustomFilePickerConfigForOrgSpy.mockRestore();
-      getCustomFilePickerConfigForOrgSpy = undefined;
+    if (
+      getCustomFilePickerConfigForOrgSpy &&
+      typeof getCustomFilePickerConfigForOrgSpy.mockRestore === 'function'
+    ) {
+      getCustomFilePickerConfigForOrgSpy.mockRestore()
+      getCustomFilePickerConfigForOrgSpy = undefined
     }
 
     // Use the directly imported bunSpyOn
@@ -96,15 +109,25 @@ describe('requestRelevantFiles', () => {
       OriginalRequestFilesPromptModule,
       'getCustomFilePickerConfigForOrg'
     ).mockResolvedValue(null)
-    
-    // Reset behavior and clear call history for module mocks
-    const checkNewFilesNecessaryMock = checkNewFilesNecessaryModule.checkNewFilesNecessary as Mock<typeof checkNewFilesNecessaryModule.checkNewFilesNecessary>; 
-    checkNewFilesNecessaryMock.mockResolvedValue({ newFilesNecessary: true, response: 'YES', duration: 100 });
-    checkNewFilesNecessaryMock.mockClear(); 
 
-    const promptFlashWithFallbacksMock = geminiWithFallbacksModule.promptFlashWithFallbacks as Mock<typeof geminiWithFallbacksModule.promptFlashWithFallbacks>; 
-    promptFlashWithFallbacksMock.mockResolvedValue('file1.ts\nfile2.ts');
-    promptFlashWithFallbacksMock.mockClear(); 
+    // Reset behavior and clear call history for module mocks
+    const checkNewFilesNecessaryMock =
+      checkNewFilesNecessaryModule.checkNewFilesNecessary as Mock<
+        typeof checkNewFilesNecessaryModule.checkNewFilesNecessary
+      >
+    checkNewFilesNecessaryMock.mockResolvedValue({
+      newFilesNecessary: true,
+      response: 'YES',
+      duration: 100,
+    })
+    checkNewFilesNecessaryMock.mockClear()
+
+    const promptFlashWithFallbacksMock =
+      geminiWithFallbacksModule.promptFlashWithFallbacks as Mock<
+        typeof geminiWithFallbacksModule.promptFlashWithFallbacks
+      >
+    promptFlashWithFallbacksMock.mockResolvedValue('file1.ts\nfile2.ts')
+    promptFlashWithFallbacksMock.mockClear()
   })
 
   it('should use default file counts and maxFiles when no custom config', async () => {
@@ -120,7 +143,9 @@ describe('requestRelevantFiles', () => {
       mockCostMode,
       mockRepoId
     )
-    expect(geminiWithFallbacksModule.promptFlashWithFallbacks).toHaveBeenCalled()
+    expect(
+      geminiWithFallbacksModule.promptFlashWithFallbacks
+    ).toHaveBeenCalled()
     expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
 
@@ -144,7 +169,9 @@ describe('requestRelevantFiles', () => {
       'normal',
       mockRepoId
     )
-    expect(geminiWithFallbacksModule.promptFlashWithFallbacks).toHaveBeenCalled()
+    expect(
+      geminiWithFallbacksModule.promptFlashWithFallbacks
+    ).toHaveBeenCalled()
     expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
 
@@ -169,7 +196,7 @@ describe('requestRelevantFiles', () => {
     )
     expect(result).toBeArray()
     if (result) {
-        expect(result.length).toBeLessThanOrEqual(3)
+      expect(result.length).toBeLessThanOrEqual(3)
     }
     expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
@@ -192,7 +219,9 @@ describe('requestRelevantFiles', () => {
       mockCostMode,
       mockRepoId
     )
-    expect(geminiWithFallbacksModule.promptFlashWithFallbacks).toHaveBeenCalledWith(
+    expect(
+      geminiWithFallbacksModule.promptFlashWithFallbacks
+    ).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         useFinetunedModel: finetunedVertexModels.ft_filepicker_010,
@@ -219,9 +248,10 @@ describe('requestRelevantFiles', () => {
       mockCostMode, // This is 'normal'
       mockRepoId
     )
-    // Since mockCostMode is 'normal' for this test, the expected model is ft_filepicker_005
-    const expectedModel = finetunedVertexModels.ft_filepicker_005; 
-    expect(geminiWithFallbacksModule.promptFlashWithFallbacks).toHaveBeenCalledWith(
+    const expectedModel = finetunedVertexModels.ft_filepicker_010
+    expect(
+      geminiWithFallbacksModule.promptFlashWithFallbacks
+    ).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         useFinetunedModel: expectedModel,
@@ -229,12 +259,18 @@ describe('requestRelevantFiles', () => {
     )
     expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
-  
+
   it('should return null if checkNewFilesNecessary returns false', async () => {
     // Override the module mock for this specific test case
-    (checkNewFilesNecessaryModule.checkNewFilesNecessary as Mock<typeof checkNewFilesNecessaryModule.checkNewFilesNecessary>) 
-        .mockResolvedValue({ newFilesNecessary: false, response: 'NO', duration: 50 });
-
+    ;(
+      checkNewFilesNecessaryModule.checkNewFilesNecessary as Mock<
+        typeof checkNewFilesNecessaryModule.checkNewFilesNecessary
+      >
+    ).mockResolvedValue({
+      newFilesNecessary: false,
+      response: 'NO',
+      duration: 50,
+    })
 
     const result = await OriginalRequestFilesPromptModule.requestRelevantFiles(
       { messages: mockMessages, system: mockSystem },
@@ -247,10 +283,12 @@ describe('requestRelevantFiles', () => {
       mockUserId,
       mockCostMode,
       mockRepoId
-    );
+    )
 
-    expect(result).toBeNull();
-    expect(geminiWithFallbacksModule.promptFlashWithFallbacks).not.toHaveBeenCalled();
-    expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled(); 
-  });
+    expect(result).toBeNull()
+    expect(
+      geminiWithFallbacksModule.promptFlashWithFallbacks
+    ).not.toHaveBeenCalled()
+    expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
+  })
 })
