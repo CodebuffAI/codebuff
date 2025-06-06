@@ -21,7 +21,7 @@
     },
     {
       "name": "backend-typecheck",
-      "command": "bun run typecheck-only",
+      "command": "bun run typecheck",
       "cwd": "backend",
       "filePattern": "backend/**/*.ts"
     },
@@ -34,14 +34,14 @@
     },
     {
       "name": "npm-typecheck",
-      "command": "bun run typecheck-only",
+      "command": "bun run typecheck",
       "cwd": "npm-app",
       "filePattern": "npm-app/**/*.ts"
     },
 
     {
       "name": "web-typecheck",
-      "command": "bun run typecheck-only",
+      "command": "bun run typecheck",
       "cwd": "web",
       "filePattern": "web/**/*.ts"
     },
@@ -54,7 +54,7 @@
     },
     {
       "name": "common-typecheck",
-      "command": "bun run typecheck-only",
+      "command": "bun run typecheck",
       "cwd": "common",
       "filePattern": "common/**/*.ts"
     }

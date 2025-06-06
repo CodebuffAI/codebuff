@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth } from '../admin-auth'
+import { withAdminAuth } from '@/lib/admin-auth'
 import { utils } from '@codebuff/internal'
 import db from 'common/db'
 import * as schema from 'common/db/schema'

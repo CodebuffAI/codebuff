@@ -149,7 +149,6 @@ export const mainPrompt = async (
   const geminiThinkingEnabled = costMode === 'max'
   const isLiteMode = costMode === 'lite'
   const isGeminiPro = model === models.gemini2_5_pro_preview
-  const isGPT4_1 = model === models.gpt4_1
   const isFlash =
     model === 'gemini-2.5-flash-preview-04-17:thinking' ||
     (model as any) === 'gemini-2.5-flash-preview-04-17'
@@ -157,15 +156,15 @@ export const mainPrompt = async (
   const userInstructions = buildArray(
     isAskMode &&
       'You are a coding agent in "ASK" mode so the user can ask questions, which means you do not have access to tools that can modify files or run terminal commands. You should instead answer the user\'s questions and come up with brilliant plans which can later be implemented.',
-    isLiteMode
-      ? 'Please proceed toward the user request and any subgoals. Please complete the entire user request. You must finally use the end_turn tool at the end of your response.'
-      : 'Proceed toward the user request and any subgoals. Please complete the entire user request, then verify changes by running the type checker/linter (only if knowledge files specify a command to run with with the <run_terminal_command> tool). You must finally use the end_turn tool at the end of your response.',
+    'Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. You must finally use the end_turn tool at the end of your response.',
 
     'If the user asks a question, simply answer the question rather than making changes to the code.',
 
-    'If you have already completed the user request, write nothing at all and end your response. Err on the side of ending your reponse early, do not keep making further refinements to code you just wrote. Write it once and stop.',
+    'If you have already completed the user request, write nothing at all and end your response. If you have already made 1 attempt at fixing an error, you should stop and end_turn to wait for user feedback. Err on the side of ending your response early!',
 
     "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
+
+    'Be extremely concise in your replies. Example: If asked what 2+2 equals, respond simply: "4". No need to even write a full sentence.',
 
     "The tool results will be provided by the user's *system* (and **NEVER** by the assistant).",
 
@@ -175,7 +174,7 @@ export const mainPrompt = async (
       ? toolsInstructions
       : `Any tool calls will be run from the project root (${agentState.fileContext.currentWorkingDirectory}) unless otherwise specified`,
 
-    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it.',
+    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it if you have not already!',
 
     (isFlash || isGeminiPro) &&
       'Important: When mentioning a file path, for example for <write_file> or <read_files>, make sure to include all the directories in the path to the file from the project root. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts! Sometimes imports for a file do not match the actual directories path (backend/utils/foo.ts for example).',
@@ -190,7 +189,7 @@ export const mainPrompt = async (
     !isLiteMode &&
       `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
 
-    isFlash &&
+    (isFlash || isGeminiPro) &&
       "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
 
     (isFlash || isGeminiPro) &&
@@ -215,14 +214,6 @@ export const mainPrompt = async (
     'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
     'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
-
-    // Disable for now. You can use codebuff.json triggers to ensure this.
-    // !isLiteMode &&
-    //   `Before finishing your response, you should check that you left the project in a good state using any tools you have available, make sure all relevant tests are passing and there are no type or lint errors (if applicable) or errors in the browser_logs tool (if applicable). You must do these checks every time you make a change to the project.`,
-    !isLiteMode &&
-      "If you are still working on the user's request, do not stop. If the user's request requires multiple steps, please complete ALL the steps before ending turn.",
-    isGPT4_1 &&
-      `**Do NOT end your response if you have not *completely* finished the user's entire request—continue until every part is 100% done, no early hand-off, no matter what.**`,
 
     'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.'
   ).join('\n\n')
@@ -534,7 +525,15 @@ export const mainPrompt = async (
         role: 'user' as const,
         content: asSystemInstruction(toolInstructions),
         timeToLive: 'agentStep' as const,
-      }
+      },
+
+    isAskMode && {
+      role: 'user',
+      content: asSystemMessage(
+        `You have been switched to ASK mode. As such, you can no longer use the write_file tool or run_terminal_command tool. Do not attempt to use them because they will not work!`
+      ),
+      timeToLive: 'agentStep',
+    }
   )
 
   const iterationNum = messagesWithUserMessage.length
@@ -668,12 +667,7 @@ export const mainPrompt = async (
         if (
           isAskMode &&
           !isExporting &&
-          [
-            'write_file',
-            'str_replace',
-            'create_plan',
-            'run_terminal_command',
-          ].includes(tool)
+          ['write_file', 'str_replace', 'run_terminal_command'].includes(tool)
         ) {
           serverToolResults.push({
             name: tool,

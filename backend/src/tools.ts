@@ -456,7 +456,7 @@ ${getToolCallString('think_deeply', {
 Use when:  
 - User explicitly requests a detailed plan.  
 - Task involves significant architectural or multi-file changes.
-- Only use this tool to create new plans. Do not modify existing plans using this tool—use the \`write_file\` tool instead for modifications.
+- Use this tool to overwrite a previous plan by using the exact same file name.
 
 Don't include:
 - Goals, timelines, benefits, next steps.  
@@ -469,7 +469,7 @@ For a technical plan, act as an expert architect engineer and provide direction 
 - Just show the changes needed.
 
 What to include in the plan:
-- Include code, but not full files of it. Write out key snippets of code and use lots of psuedo code. For example, interfaces between modules, function signatures, and other code that is not immediately obvious should be written out explicitly. Function and method bodies could be written out in psuedo code.
+- Include key snippets of code -- not full files of it. Use psuedo code. For example, include interfaces between modules, function signatures, and other code that is not immediately obvious should be written out explicitly. Function and method bodies could be written out in psuedo code.
 - Do not waste time on much background information, focus on the exact steps of the implementation.
 - Do not wrap the path content in markdown code blocks, e.g. \`\`\`.
 
@@ -481,7 +481,7 @@ Do not include any of the following sections in the plan:
 
 After creating than plan, you should end turn to let the user review the plan.
 
-Important: Use this tool sparingly. Do not use this tool more than once in a conversation, if a plan was already created, or for similar user requests.
+Important: Use this tool sparingly. Do not use this tool more than once in a conversation, unless in ask mode.
 
 Examples:
 ${getToolCallString('create_plan', {
@@ -816,6 +816,7 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'find_files',
   'run_terminal_command',
   'code_search',
+  'end_turn',
 ]
 
 export const getToolsInstructions = (toolDescriptions: string[]) => `
@@ -1223,12 +1224,9 @@ export function getFilteredToolsInstructions(costMode: string) {
     // For ask mode, exclude write_file, str_replace, create_plan, and run_terminal_command
     allowedTools = allowedTools.filter(
       (tool) =>
-        ![
-          'write_file',
-          'str_replace',
-          'create_plan',
-          'run_terminal_command',
-        ].includes(tool.name)
+        !['write_file', 'str_replace', 'run_terminal_command'].includes(
+          tool.name
+        )
     )
   }
 

@@ -4,9 +4,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "tsc && cp -R tree-sitter-queries ./dist/",
+    "typecheck-this-package": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "build-and-typecheck": "bun run build && bun run typecheck",
-    "typecheck-only": "tsc --noEmit",
     "test": "bun test"
   },
   "dependencies": {

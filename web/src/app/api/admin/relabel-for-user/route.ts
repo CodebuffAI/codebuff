@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth } from '../admin-auth'
+import { withAdminAuth } from '@/lib/admin-auth'
 import { utils } from '@codebuff/internal'
 import { logger } from '@/util/logger'
 import db from 'common/db'

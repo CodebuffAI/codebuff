@@ -35,10 +35,9 @@
     "bump": "bun run scripts/bump-version.ts",
     "deploy:npm-app": "bun run bump && cd npm-app && npm publish",
     "test:patch": "bun test test/__src__/patch.test.ts",
-    "build": "nx reset && nx run-many --target=build --all",
     "clean": "nx run-many --target=clean --all",
-    "typecheck-only": "nx run-many --target=typecheck-only --all",
-    "typecheck": "bun run build && bun run typecheck-only"
+    "build": "nx reset && nx run-many --target=build --all",
+    "typecheck": "bun run build"
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.59.16",
