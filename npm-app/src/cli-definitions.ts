@@ -56,9 +56,8 @@ export const cliOptions: CliParam[] = [
   },
   {
     flags: '--ask',
-    description:
-      'Start in ask mode (questions & planning only, no code changes)',
-    menuDescription: 'Start in ask mode (questions & planning only)',
+    description: "Start in ask mode (won't change code)",
+    menuDescription: "Start in ask mode (won't change code)",
     hidden: false,
   },
   {
