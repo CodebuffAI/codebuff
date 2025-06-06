@@ -660,7 +660,6 @@ export const mainPrompt = async (
           [
             'write_file',
             'str_replace',
-            'create_plan',
             'run_terminal_command',
           ].includes(tool)
         ) {
