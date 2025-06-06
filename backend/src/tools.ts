@@ -157,7 +157,7 @@ Block 3
 // rest of code
 \`\`\`
 
-**YOU MUST ALWAYS INCLUDE DELETION COMMENTS** when removing code blocks, functions, variables, or any other code elements. The fast-apply model cannot understand deletions without these explicit comments.
+**YOU MUST ALWAYS INCLUDE DELETION COMMENTS** when removing code blocks, functions, variables, or any other code elements. The fast-apply model cannot understand deletions without these explicit comments. This applies to every type of file: source files, config files, markdown files, css files, json files, etc, etc.
 
 #### Additional Info
 

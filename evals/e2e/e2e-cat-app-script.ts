@@ -3,14 +3,14 @@
 import { spawn, ChildProcess } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { sleep } from 'common/util/promise'
+import { sleep } from '../../common/src/util/promise' // Corrected import path
 
 const BACKEND_PORT = 3001
 const BACKEND_READY_TIMEOUT = 30000 // 30 seconds
-const CLI_READY_TIMEOUT = 10000 // 10 seconds
+const CLI_READY_TIMEOUT = 30000 // 30 seconds
 const TASK_COMPLETION_TIMEOUT = 120000 // 2 minutes
 const TEST_DIR = 'cat-app-test'
-const projectRoot = path.resolve(__dirname, '..')
+const projectRoot = path.resolve(__dirname, '../..') // Corrected projectRoot definition
 
 interface ProcessInfo {
   process: ChildProcess
@@ -176,7 +176,7 @@ export class E2ETestRunner {
     console.log('🚀 Starting backend server using package.json script...')
 
     const backendProcess = spawn('bun', ['run', 'start-server'], {
-      cwd: projectRoot, // Run from project root, not evals directory
+      cwd: projectRoot, // Run from actual project root, not evals directory
       detached: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
@@ -228,7 +228,7 @@ export class E2ETestRunner {
     console.log('🤖 Starting CLI using package.json script...')
 
     const cliProcess = spawn('bun', ['run', 'start-client'], {
-      cwd: path.join(process.cwd(), '..'), // Run from project root, not evals directory
+      cwd: projectRoot, // Corrected: Run from actual project root
       detached: true,
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
