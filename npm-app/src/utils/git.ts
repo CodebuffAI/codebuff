@@ -73,7 +73,6 @@ export async function getRepoMetrics(providedRemoteUrl?: string): Promise<{
   const root = findGitRoot(cwd)
 
   if (!root) {
-    console.log('No git root found')
     return {}
   }
 
