@@ -159,7 +159,7 @@
         "typescript-eslint": "^8.32.0",
       },
       "optionalDependencies": {
-        "@homebridge/node-pty-prebuilt-multiarch": "0.12.0-beta.5",
+        "@homebridge/node-pty-prebuilt-multiarch": "0.12.0",
       },
     },
     "packages/bigquery": {
@@ -662,7 +662,7 @@
 
     "@grpc/proto-loader": ["@grpc/proto-loader@0.7.15", "", { "dependencies": { "lodash.camelcase": "^4.3.0", "long": "^5.0.0", "protobufjs": "^7.2.5", "yargs": "^17.7.2" }, "bin": { "proto-loader-gen-types": "build/bin/proto-loader-gen-types.js" } }, "sha512-tMXdRCfYVixjuFK+Hk0Q1s38gV9zDiDJfWL3h1rv4Qc39oILCu1TRTDt7+fGUI8K4G1Fj125Hx/ru3azECWTyQ=="],
 
-    "@homebridge/node-pty-prebuilt-multiarch": ["@homebridge/node-pty-prebuilt-multiarch@0.12.0-beta.5", "", { "dependencies": { "node-addon-api": "^7.1.0", "prebuild-install": "^7.1.2", "semver": "^7.6.3" } }, "sha512-i6J1ryzzDE0XY6caawiq5tymY6wbqoO6cBag31Hu6omDWSG0d93YapYab6uP2GJyelYvTJyxJcapOUI9MxYnEg=="],
+    "@homebridge/node-pty-prebuilt-multiarch": ["@homebridge/node-pty-prebuilt-multiarch@0.12.0", "", { "dependencies": { "node-addon-api": "^7.1.0", "prebuild-install": "^7.1.2" } }, "sha512-hJCGcfOnMeRh2KUdWPlVN/1egnfqI4yxgpDhqHSkF2DLn5fiJNdjEHHlcM1K2w9+QBmRE2D/wfmM4zUOb8aMyQ=="],
 
     "@hookform/resolvers": ["@hookform/resolvers@3.10.0", "", { "peerDependencies": { "react-hook-form": "^7.0.0" } }, "sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag=="],
 

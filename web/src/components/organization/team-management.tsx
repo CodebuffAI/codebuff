@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog'
 import {
   DropdownMenu,
@@ -96,6 +97,12 @@ export function TeamManagement({
     new Set()
   )
   const [refreshing, setRefreshing] = useState(false)
+  const [confirmResendDialogOpen, setConfirmResendDialogOpen] = useState(false)
+  const [currentInvitationToResend, setCurrentInvitationToResend] =
+    useState<Invitation | null>(null)
+  const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false)
+  const [currentInvitationToCancel, setCurrentInvitationToCancel] =
+    useState<Invitation | null>(null)
 
   const canManageTeam = userRole === 'owner' || userRole === 'admin'
   const isMobile = useIsMobile()
@@ -152,10 +159,6 @@ export function TeamManagement({
         setRefreshing(false)
       }
     }
-  }
-
-  const handleRefresh = () => {
-    fetchTeamData(false)
   }
 
   const handleInviteMember = async () => {
@@ -342,6 +345,57 @@ export function TeamManagement({
     }
   }
 
+  const handleInitiateResend = (invitation: Invitation) => {
+    setCurrentInvitationToResend(invitation)
+    setConfirmResendDialogOpen(true)
+  }
+
+  const handleConfirmResend = async () => {
+    if (!currentInvitationToResend) return
+
+    const email = currentInvitationToResend.email
+    setResendingInvites((prev) => new Set(prev).add(email))
+    setConfirmResendDialogOpen(false) // Close dialog
+
+    try {
+      const response = await fetch(
+        `/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}/resend`,
+        {
+          method: 'POST',
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to resend invitation')
+      }
+
+      toast({
+        title: 'Success',
+        description: `Invitation resent to ${email}`,
+      })
+
+      fetchTeamData(false) // Refresh without showing skeleton
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to resend invitation',
+        variant: 'destructive',
+      })
+    } finally {
+      setResendingInvites((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(email)
+        return newSet
+      })
+      setCurrentInvitationToResend(null)
+    }
+  }
+
   const handleCancelInvitation = async (email: string) => {
     try {
       const response = await fetch(
@@ -371,6 +425,46 @@ export function TeamManagement({
             : 'Failed to cancel invitation',
         variant: 'destructive',
       })
+    }
+  }
+
+  const handleConfirmCancel = async () => {
+    if (!currentInvitationToCancel) return
+
+    const email = currentInvitationToCancel.email
+    // We can add a loading state for cancelling if needed, similar to resending
+    setConfirmCancelDialogOpen(false) // Close dialog
+
+    try {
+      const response = await fetch(
+        `/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}`,
+        {
+          method: 'DELETE',
+        }
+      )
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to cancel invitation')
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Invitation cancelled',
+      })
+
+      fetchTeamData(false) // Refresh without showing skeleton
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to cancel invitation',
+        variant: 'destructive',
+      })
+    } finally {
+      setCurrentInvitationToCancel(null)
     }
   }
 
@@ -864,20 +958,23 @@ export function TeamManagement({
                       {canManageTeam && (
                         <div className="flex items-center space-x-1">
                           <Button
-                            variant="ghost"
+                            variant="outline" // Changed variant for better visibility
                             size="sm"
-                            onClick={() =>
-                              handleResendInvitation(invitation.email)
-                            }
-                            disabled={isResending}
+                            onClick={() => handleInitiateResend(invitation)} // Changed to initiate dialog
+                            disabled={isResending || isExpired} // Disable if expired
                             title="Resend invitation"
-                            className={
-                              isMobile ? 'h-10 w-10 p-0' : 'h-8 w-8 p-0'
-                            }
+                            className={cn(
+                              isMobile ? 'px-2 py-1 text-xs' : 'text-xs', // Adjusted padding/text for mobile
+                              isExpired && 'opacity-50 cursor-not-allowed'
+                            )}
                           >
                             <RefreshCw
-                              className={`h-4 w-4 ${isResending ? 'animate-spin' : ''}`}
+                              className={cn(
+                                'mr-1 h-3 w-3 sm:h-4 sm:w-4', // Adjusted icon size and margin
+                                isResending ? 'animate-spin' : ''
+                              )}
                             />
+                            {isResending ? 'Resending...' : 'Resend Invite'}
                           </Button>
                           <Button
                             variant="ghost"
@@ -902,6 +999,72 @@ export function TeamManagement({
           </CardContent>
         </Card>
       )}
+
+      {/* Confirmation Dialog for Resend */}
+      <Dialog
+        open={confirmResendDialogOpen}
+        onOpenChange={setConfirmResendDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Resend Invitation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to resend the invitation to{' '}
+              <strong>{currentInvitationToResend?.email}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose asChild>
+              <Button
+                variant="destructive"
+                onClick={() => setCurrentInvitationToResend(null)}
+              >
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              onClick={handleConfirmResend}
+              disabled={resendingInvites.has(
+                currentInvitationToResend?.email || ''
+              )}
+            >
+              {resendingInvites.has(currentInvitationToResend?.email || '')
+                ? 'Resending...'
+                : 'Confirm Resend'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog for Cancel Invitation */}
+      <Dialog
+        open={confirmCancelDialogOpen}
+        onOpenChange={setConfirmCancelDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Cancel Invitation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel the invitation for{' '}
+              <strong>{currentInvitationToCancel?.email}</strong>? This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose asChild>
+              <Button
+                variant="outline"
+                onClick={() => setCurrentInvitationToCancel(null)}
+              >
+                Back
+              </Button>
+            </DialogClose>
+            <Button variant="destructive" onClick={handleConfirmCancel}>
+              Confirm Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

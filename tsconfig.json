@@ -5,6 +5,7 @@
     { "path": "backend" },
     { "path": "npm-app" },
     { "path": "web" },
+    { "path": "evals" },
     { "path": "packages/code-map" },
     { "path": "packages/bigquery" },
     { "path": "packages/billing" },

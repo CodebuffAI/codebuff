@@ -382,24 +382,17 @@ async function getRelevantFiles(
   const start = performance.now()
   let coreMessages = coreMessagesWithSystem(messagesWithPrompt, system)
 
-  if (costMode === 'experimental') {
-    coreMessages = coreMessages
-      .map((msg, i) => {
-        if (msg.role === 'assistant' && i !== coreMessages.length - 1) {
-          return castAssistantMessage(msg)
-        } else {
-          return msg
-        }
-      })
-      .filter((msg) => msg !== null)
-  }
-  
-  // Use custom model if provided, otherwise use default based on costMode
-  const finetunedModel = configModelName || (
-    costMode === 'experimental'
-      ? finetunedVertexModels.ft_filepicker_010
-      : finetunedVertexModels.ft_filepicker_005
-  )
+  // Converts assistant messages to user messages for finetuned model
+  coreMessages = coreMessages
+    .map((msg, i) => {
+      if (msg.role === 'assistant' && i !== coreMessages.length - 1) {
+        return castAssistantMessage(msg)
+      } else {
+        return msg
+      }
+    })
+    .filter((msg) => msg !== null)
+  const finetunedModel = configModelName ?? finetunedVertexModels.ft_filepicker_010
 
   let response = await promptFlashWithFallbacks(coreMessages, {
     clientSessionId,

@@ -1,4 +1,4 @@
-import { sendBasicEmail } from '@codebuff/integrations'
+import { sendBasicEmail } from '../../packages/integrations/src'
 import { FullEvalLog } from './types'
 import { PostEvalAnalysis } from './post-eval-analysis'
 

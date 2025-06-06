@@ -4,7 +4,13 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CheckCircle, XCircle, Clock, Users } from 'lucide-react'
 
@@ -54,7 +60,9 @@ export default function InvitationPage({ params }: PageProps) {
 
   const acceptInvitation = async () => {
     if (!session) {
-      router.push(`/login?callbackUrl=${encodeURIComponent(window.location.href)}`)
+      router.push(
+        `/login?callbackUrl=${encodeURIComponent(window.location.href)}`
+      )
       return
     }
 
@@ -74,7 +82,7 @@ export default function InvitationPage({ params }: PageProps) {
 
       setSuccess(true)
       setTimeout(() => {
-        router.push(`/organizations/${data.organization.slug}`)
+        router.push(`/orgs/${data.organization.slug}`)
       }, 2000)
     } catch (error) {
       setError('Failed to accept invitation')
@@ -85,14 +93,14 @@ export default function InvitationPage({ params }: PageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
+      <div className="flex items-center justify-center bg-black text-white">
+        <Card className="w-full max-w-md bg-gray-900 border border-gray-700 shadow-xl">
           <CardHeader>
-            <Skeleton className="h-6 w-3/4" />
-            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-6 w-3/4 bg-gray-700" />
+            <Skeleton className="h-4 w-full bg-gray-700" />
           </CardHeader>
           <CardContent>
-            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full bg-gray-700" />
           </CardContent>
         </Card>
       </div>
@@ -101,20 +109,20 @@ export default function InvitationPage({ params }: PageProps) {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
+      <div className="flex items-center justify-center bg-black text-white">
+        <Card className="w-full max-w-md bg-gray-900 border border-red-500 shadow-xl">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <XCircle className="h-5 w-5 text-red-500" />
-              <CardTitle>Invalid Invitation</CardTitle>
+              <XCircle className="h-5 w-5 text-red-400" />
+              <CardTitle className="text-red-400">Invalid Invitation</CardTitle>
             </div>
-            <CardDescription>{error}</CardDescription>
+            <CardDescription className="text-gray-400">{error}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button 
-              onClick={() => router.push('/')} 
-              variant="outline" 
-              className="w-full"
+            <Button
+              onClick={() => router.push('/')}
+              variant="outline"
+              className="w-full border-gray-600 hover:bg-gray-700 text-white"
             >
               Go to Homepage
             </Button>
@@ -126,14 +134,16 @@ export default function InvitationPage({ params }: PageProps) {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
+      <div className="flex items-center justify-center bg-black text-white">
+        <Card className="w-full max-w-md bg-gray-900 border border-green-500 shadow-xl">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <CardTitle>Welcome to {invitation?.organization_name}!</CardTitle>
+              <CheckCircle className="h-5 w-5 text-green-400" />
+              <CardTitle className="text-green-400">
+                Welcome to {invitation?.organization_name}!
+              </CardTitle>
             </div>
-            <CardDescription>
+            <CardDescription className="text-gray-400">
               You've successfully joined the organization. Redirecting...
             </CardDescription>
           </CardHeader>
@@ -149,29 +159,30 @@ export default function InvitationPage({ params }: PageProps) {
   const isExpired = new Date(invitation.expires_at) < new Date()
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md">
+    <div className="flex items-center justify-center bg-black text-white relative overflow-hidden py-12">
+      <Card className="w-full max-w-md bg-gray-900 border border-gray-700 shadow-xl z-10">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-blue-500" />
+            <Users className="h-5 w-5 text-blue-400" />
             <CardTitle>Organization Invitation</CardTitle>
           </div>
-          <CardDescription>
-            {invitation.inviter_name} has invited you to join {invitation.organization_name}
+          <CardDescription className="text-gray-400">
+            {invitation.inviter_name} has invited you to join{' '}
+            {invitation.organization_name}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-300">
               <strong>Organization:</strong> {invitation.organization_name}
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-300">
               <strong>Role:</strong> {invitation.role}
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-300">
               <strong>Email:</strong> {invitation.email}
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 text-sm text-gray-300">
               <Clock className="h-4 w-4" />
               <span>
                 Expires: {new Date(invitation.expires_at).toLocaleDateString()}
@@ -181,11 +192,11 @@ export default function InvitationPage({ params }: PageProps) {
 
           {isExpired ? (
             <div className="text-center">
-              <p className="text-red-600 mb-4">This invitation has expired.</p>
-              <Button 
-                onClick={() => router.push('/')} 
-                variant="outline" 
-                className="w-full"
+              <p className="text-red-400 mb-4">This invitation has expired.</p>
+              <Button
+                onClick={() => router.push('/')}
+                variant="outline"
+                className="w-full border-gray-600 hover:bg-gray-700 text-white"
               >
                 Go to Homepage
               </Button>
@@ -193,37 +204,42 @@ export default function InvitationPage({ params }: PageProps) {
           ) : (
             <div className="space-y-3">
               {status === 'loading' ? (
-                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full bg-gray-700" />
               ) : !session ? (
                 <div className="text-center">
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-gray-400 mb-4">
                     Please sign in to accept this invitation.
                   </p>
-                  <Button 
-                    onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(window.location.href)}`)}
-                    className="w-full"
+                  <Button
+                    onClick={() =>
+                      router.push(
+                        `/login?callbackUrl=${encodeURIComponent(window.location.href)}`
+                      )
+                    }
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     Sign In to Accept
                   </Button>
                 </div>
               ) : session.user?.email !== invitation.email ? (
-                <div className="text-center">
-                  <p className="text-red-600 mb-4">
-                    This invitation is for {invitation.email}, but you're signed in as {session.user?.email}.
+                <div className="text-left">
+                  <p className="text-red-400 mb-4">
+                    This invitation is for {invitation.email}, but you're signed
+                    in as {session.user?.email}.
                   </p>
-                  <Button 
+                  <Button
                     onClick={() => router.push('/login')}
-                    variant="outline" 
-                    className="w-full"
+                    variant="outline"
+                    className="w-full border-gray-600 hover:bg-gray-700 text-white"
                   >
                     Sign in with correct account
                   </Button>
                 </div>
               ) : (
-                <Button 
+                <Button
                   onClick={acceptInvitation}
                   disabled={accepting}
-                  className="w-full"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
                 >
                   {accepting ? 'Accepting...' : 'Accept Invitation'}
                 </Button>

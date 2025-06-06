@@ -16,12 +16,12 @@ import {
   setWorkingDirectory,
 } from './project-files'
 import { logAndHandleStartup } from './startup-process-handler'
+import { recreateShell } from './terminal/base'
 import { CliOptions } from './types'
 import { updateCodebuff } from './update-codebuff'
 import { initAnalytics } from './utils/analytics'
 import { findGitRoot } from './utils/git'
 import { logger } from './utils/logger'
-import { recreateShell } from './utils/terminal'
 
 async function codebuff(
   projectDir: string | undefined,
@@ -117,7 +117,8 @@ For all commands and options, run 'codebuff' and then type 'help'.
     )
     logger.error(
       {
-        errorMessage: 'The --pro flag is deprecated. Please restart codebuff and use the --max option instead.',
+        errorMessage:
+          'The --pro flag is deprecated. Please restart codebuff and use the --max option instead.',
       },
       'Deprecated --pro flag used'
     )

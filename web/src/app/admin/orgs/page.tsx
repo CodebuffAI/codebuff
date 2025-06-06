@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { 
+import {
   Search,
   Users,
   CreditCard,
@@ -18,7 +18,7 @@ import {
   Eye,
   Filter,
   Download,
-  GitBranch
+  GitBranch,
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
@@ -40,11 +40,13 @@ interface OrganizationSummary {
 export default function AdminOrganizationsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  
+
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'healthy' | 'warning' | 'critical'>('all')
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'healthy' | 'warning' | 'critical'
+  >('all')
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -56,7 +58,7 @@ export default function AdminOrganizationsPage() {
     try {
       setLoading(true)
       const response = await fetch('/api/admin/organizations')
-      
+
       if (!response.ok) {
         if (response.status === 403) {
           toast({
@@ -86,8 +88,8 @@ export default function AdminOrganizationsPage() {
 
   const exportData = async () => {
     try {
-      const response = await fetch('/api/admin/organizations/export')
-      
+      const response = await fetch('/api/admin/orgs/export')
+
       if (!response.ok) {
         throw new Error('Failed to export data')
       }
@@ -115,24 +117,38 @@ export default function AdminOrganizationsPage() {
     }
   }
 
-  const filteredOrganizations = organizations.filter(org => {
-    const matchesSearch = org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         org.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         org.owner_name.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = statusFilter === 'all' || org.health_status === statusFilter
-    
+  const filteredOrganizations = organizations.filter((org) => {
+    const matchesSearch =
+      org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      org.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      org.owner_name.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesStatus =
+      statusFilter === 'all' || org.health_status === statusFilter
+
     return matchesSearch && matchesStatus
   })
 
   const getHealthStatusBadge = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Healthy</Badge>
+        return (
+          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            Healthy
+          </Badge>
+        )
       case 'warning':
-        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Warning</Badge>
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+            Warning
+          </Badge>
+        )
       case 'critical':
-        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Critical</Badge>
+        return (
+          <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+            Critical
+          </Badge>
+        )
       default:
         return <Badge variant="secondary">Unknown</Badge>
     }
@@ -174,7 +190,9 @@ export default function AdminOrganizationsPage() {
               <CardTitle>Sign in Required</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">Please sign in to access the admin dashboard.</p>
+              <p className="mb-4">
+                Please sign in to access the admin dashboard.
+              </p>
               <Link href="/login">
                 <Button>Sign In</Button>
               </Link>
@@ -232,7 +250,9 @@ export default function AdminOrganizationsPage() {
         <div className="grid gap-6 md:grid-cols-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Organizations
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -247,7 +267,10 @@ export default function AdminOrganizationsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {organizations.filter(org => org.health_status === 'healthy').length}
+                {
+                  organizations.filter((org) => org.health_status === 'healthy')
+                    .length
+                }
               </div>
             </CardContent>
           </Card>
@@ -259,7 +282,10 @@ export default function AdminOrganizationsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-yellow-600">
-                {organizations.filter(org => org.health_status === 'warning').length}
+                {
+                  organizations.filter((org) => org.health_status === 'warning')
+                    .length
+                }
               </div>
             </CardContent>
           </Card>
@@ -271,7 +297,11 @@ export default function AdminOrganizationsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {organizations.filter(org => org.health_status === 'critical').length}
+                {
+                  organizations.filter(
+                    (org) => org.health_status === 'critical'
+                  ).length
+                }
               </div>
             </CardContent>
           </Card>
@@ -291,7 +321,8 @@ export default function AdminOrganizationsPage() {
                         {getHealthStatusBadge(org.health_status)}
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Owner: {org.owner_name} • Created: {new Date(org.created_at).toLocaleDateString()}
+                        Owner: {org.owner_name} • Created:{' '}
+                        {new Date(org.created_at).toLocaleDateString()}
                       </p>
                       <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
                         <span className="flex items-center">
@@ -310,7 +341,7 @@ export default function AdminOrganizationsPage() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Link href={`/orgs/${org.id}`}>
+                    <Link href={`/orgs/${org.slug}`}>
                       <Button variant="outline" size="sm">
                         <Eye className="mr-2 h-4 w-4" />
                         View

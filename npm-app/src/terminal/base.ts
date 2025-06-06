@@ -1,28 +1,27 @@
-import assert from 'assert'
 import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
-import { createWriteStream, mkdirSync, WriteStream } from 'fs'
 import * as os from 'os'
-import path, { dirname } from 'path'
+import path from 'path'
 
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { buildArray } from 'common/util/array'
-import { stripColors, truncateStringWithMessage } from 'common/util/string'
+import {
+  stripColors,
+  suffixPrefixOverlap,
+  truncateStringWithMessage,
+} from 'common/util/string'
 import { green } from 'picocolors'
 
-import {
-  backgroundProcesses,
-  BackgroundProcessInfo,
-  spawnAndTrack,
-} from '../background-process-manager'
 import {
   getProjectRoot,
   getWorkingDirectory,
   isSubdir,
   setWorkingDirectory,
 } from '../project-files'
-import { trackEvent } from './analytics'
-import { detectShell } from './detect-shell'
+import { trackEvent } from '../utils/analytics'
+import { detectShell } from '../utils/detect-shell'
+import { logger } from '../utils/logger'
+import { runBackgroundCommand } from './background'
 
 let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
 const tempConsoleError = console.error
@@ -36,11 +35,12 @@ try {
 
 const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
+const needleIdentifier = '@76593@'
 
 type PersistentProcess =
   | {
       type: 'pty'
-      shell: 'pty'
+      shell: 'cmd.exe' | 'powershell.exe' | 'bash'
       pty: IPty
       timerId: NodeJS.Timeout | null
       // Add persistent output buffer for manager mode
@@ -157,7 +157,7 @@ const createPersistantProcess = (
 
     const persistentProcessInfo: PersistentProcess = {
       type: 'pty',
-      shell: 'pty',
+      shell,
       pty: persistentPty,
       timerId: null,
       globalOutputBuffer: '',
@@ -250,157 +250,6 @@ function formatResult(
   ).join('\n')
 }
 
-const MAX_EXECUTION_TIME = 30_000
-
-export function runBackgroundCommand(
-  options: {
-    toolCallId: string
-    command: string
-    mode: 'user' | 'assistant' | 'manager'
-    cwd: string
-    stdoutFile?: string
-    stderrFile?: string
-  },
-  resolveCommand: (value: {
-    result: string
-    stdout: string
-    exitCode: number | null
-  }) => void
-): void {
-  const { toolCallId, command, mode, cwd, stdoutFile, stderrFile } = options
-  const isWindows = os.platform() === 'win32'
-  const shell = isWindows ? 'cmd.exe' : 'bash'
-  const shellArgs = isWindows ? ['/c'] : ['-c']
-
-  if (mode === 'assistant') {
-    console.log(green(`Running background process...\n> ${command}`))
-  }
-
-  const initialStdout = ''
-  const initialStderr = ''
-
-  try {
-    const childProcess = spawnAndTrack(shell, [...shellArgs, command], {
-      cwd,
-      env: { ...process.env, FORCE_COLOR: '1' },
-      // Ensure detached is always false to link child lifetime to parent
-      detached: false,
-      stdio: 'pipe',
-    })
-
-    // An error should have been thrown when we called `spawn`
-    assert(
-      childProcess.pid !== undefined,
-      'Failed to spawn process: no PID assigned.'
-    )
-
-    const processId = childProcess.pid
-    const processInfo: BackgroundProcessInfo = {
-      pid: processId,
-      toolCallId,
-      command,
-      process: childProcess,
-      stdoutBuffer: [],
-      stderrBuffer: [],
-      status: 'running',
-      startTime: Date.now(),
-      endTime: null,
-      lastReportedStdoutLength: 0,
-      lastReportedStderrLength: 0,
-      lastReportedStatus: null,
-      stdoutFile,
-      stderrFile,
-    }
-    backgroundProcesses.set(processId, processInfo)
-
-    // Set up file streams if paths are provided
-    let stdoutStream: WriteStream | undefined
-    let stderrStream: WriteStream | undefined
-
-    if (stdoutFile) {
-      const stdoutAbs = path.isAbsolute(stdoutFile)
-        ? stdoutFile
-        : path.join(cwd, stdoutFile)
-      mkdirSync(dirname(stdoutAbs), { recursive: true })
-      stdoutStream = createWriteStream(stdoutAbs)
-    }
-
-    const realStderrFile = stderrFile || stdoutFile
-    if (realStderrFile) {
-      const stderrAbs = path.isAbsolute(realStderrFile)
-        ? realStderrFile
-        : path.join(cwd, realStderrFile)
-      mkdirSync(dirname(stderrAbs), { recursive: true })
-      stderrStream = createWriteStream(stderrAbs)
-    }
-
-    childProcess.stdout.on('data', (data: Buffer) => {
-      const output = stripColors(data.toString())
-      processInfo.stdoutBuffer.push(output)
-
-      // Write to file if stream exists
-      if (stdoutStream) {
-        stdoutStream.write(output)
-      }
-    })
-
-    childProcess.stderr.on('data', (data: Buffer) => {
-      const output = stripColors(data.toString())
-      processInfo.stderrBuffer.push(output)
-
-      // Write to file if stream exists
-      if (stderrStream) {
-        stderrStream.write(output)
-      }
-    })
-
-    childProcess.on('error', (error) => {
-      processInfo.status = 'error'
-      processInfo.stderrBuffer.push(
-        `\nError spawning command: ${error.message}`
-      )
-      processInfo.endTime = Date.now()
-
-      // Close file streams
-      stdoutStream?.end()
-      stderrStream?.end()
-    })
-
-    let exitCode = null
-
-    childProcess.on('close', (code) => {
-      exitCode = code
-      processInfo.status = code === 0 ? 'completed' : 'error'
-      processInfo.endTime = Date.now()
-
-      // Close file streams
-      stdoutStream?.end()
-      stderrStream?.end()
-    })
-
-    // Unreference the process so the parent can exit independently IF the child is the only thing keeping it alive.
-    childProcess.unref()
-
-    const resultMessage = `<background_process>
-<process_id>${processId}</process_id>
-<command>${command}</command>
-<status>${processInfo.status}</status>
-</background_process>`
-    resolveCommand({
-      result: resultMessage,
-      stdout: initialStdout + initialStderr,
-      exitCode,
-    })
-  } catch (error: any) {
-    const errorMessage = `<background_process>\n<command>${command}</command>\n<error>${error.message}</error>\n</background_process>`
-    resolveCommand({
-      result: errorMessage,
-      stdout: error.message,
-      exitCode: null,
-    })
-  }
-}
-
 export const runTerminalCommand = async (
   toolCallId: string,
   command: string,
@@ -491,9 +340,100 @@ export const runTerminalCommand = async (
 }
 
 const echoLinePattern = new RegExp(`${promptIdentifier}[^\n]*\n`, 'g')
-const commandDonePattern = new RegExp(
-  `^${promptIdentifier}(.*)${promptIdentifier}[\\s\\S]*${promptIdentifier}`
-)
+const getNeedlePatternCache: Record<string, RegExp> = {}
+function getNeedlePattern(middlePattern: string = '.*'): RegExp {
+  if (!(middlePattern in getNeedlePatternCache)) {
+    getNeedlePatternCache[middlePattern] = new RegExp(
+      `${needleIdentifier}(${middlePattern})${needleIdentifier}`
+    )
+  }
+  return getNeedlePatternCache[middlePattern]
+}
+/**
+ * Executes a single command in a PTY process and returns the result when complete.
+ *
+ * This function handles the low-level details of running a command in a pseudo-terminal,
+ * including parsing the output to separate command echoes from actual output, detecting
+ * command completion
+ *
+ * @param ptyProcess - The IPty instance to execute the command in
+ * @param command - The shell command to execute
+ * @param onChunk - Callback function called for each chunk of output as it's received
+ *
+ * @returns Promise that resolves with:
+ *   - The complete output from the command (excluding echo lines)
+ *
+ * @example
+ * ```typescript
+ * const result = await runSinglePtyCommand(
+ *   ptyProcess,
+ *   'ls -la',
+ *   process.stdout.write
+ * );
+ * ```
+ *
+ * @internal This is a low-level utility function used by other terminal command runners.
+ * It handles platform-specific differences between Windows and Unix-like systems.
+ *
+ * The function works by:
+ * 1. Setting up a data listener on the PTY process
+ * 2. Filtering out command echo lines (the command being typed)
+ * 3. Detecting command completion markers (promptIdentifier)
+ */
+function runSinglePtyCommand(
+  ptyProcess: IPty,
+  command: string,
+  onChunk: (data: string) => void
+): Promise<string> {
+  const isWindows = os.platform() === 'win32'
+  let commandOutput = ''
+  let buffer = promptIdentifier
+  let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
+
+  const resultPromise = new Promise<string>((resolve) => {
+    const dataDisposable = ptyProcess.onData((data: string) => {
+      buffer += data
+
+      // Wait for pending promptIdentifier
+      const suffix = suffixPrefixOverlap(buffer, promptIdentifier)
+      let toProcess = buffer.slice(0, buffer.length - suffix.length)
+      buffer = suffix
+
+      // Remove echo lines from the output
+      const matches = toProcess.match(echoLinePattern)
+      if (matches) {
+        for (let i = 0; i < matches.length && echoLinesRemaining > 0; i++) {
+          echoLinesRemaining = Math.max(echoLinesRemaining - 1, 0)
+          toProcess = toProcess.replace(echoLinePattern, '')
+        }
+      }
+
+      // Do not process anything after a promptIdentifier (pending line)
+      const promptIdentifierIndex = toProcess.indexOf(promptIdentifier)
+      if (promptIdentifierIndex !== -1) {
+        buffer = toProcess.slice(promptIdentifierIndex) + buffer
+        toProcess = toProcess.slice(0, promptIdentifierIndex)
+      }
+
+      onChunk(toProcess)
+      commandOutput += toProcess
+
+      const commandDone = buffer.startsWith(promptIdentifier)
+      if (commandDone && echoLinesRemaining === 0) {
+        // Command is done
+        dataDisposable.dispose()
+
+        resolve(commandOutput)
+      }
+    })
+  })
+
+  // Write the command
+  ptyProcess.write(`${command}\r`)
+
+  return resultPromise
+}
+
 export const runCommandPty = (
   persistentProcess: PersistentProcess & {
     type: 'pty'
@@ -532,8 +472,6 @@ export const runCommandPty = (
   }
 
   let commandOutput = ''
-  let buffer = promptIdentifier
-  let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
 
   let timer: NodeJS.Timeout | null = null
   if (maybeTimeoutSeconds !== null) {
@@ -557,125 +495,122 @@ export const runCommandPty = (
 
   persistentProcess.timerId = timer
 
-  const longestSuffixThatsPrefixOf = (str: string, target: string): string => {
-    for (let len = target.length; len > 0; len--) {
-      const prefix = target.slice(0, len)
-      if (str.endsWith(prefix)) {
-        return prefix
-      }
+  new Promise(async () => {
+    await runSinglePtyCommand(ptyProcess, `cd ${cwd}`, () => {})
+
+    await runSinglePtyCommand(ptyProcess, command, (data: string) => {
+      commandOutput += data
+      process.stdout.write(data)
+    })
+
+    const exitCodeHaystack = await runSinglePtyCommand(
+      ptyProcess,
+      persistentProcess.shell === 'cmd.exe'
+        ? `echo ${needleIdentifier}%ERRORLEVEL%${needleIdentifier}`
+        : `echo ${needleIdentifier}$?${needleIdentifier}`,
+      () => {}
+    )
+    let exitCode: number | null = null
+    const exitCodeMatch = exitCodeHaystack.match(getNeedlePattern('\\d+'))
+    if (exitCodeMatch) {
+      exitCode = parseInt(exitCodeMatch[1].trim())
+    } else {
+      logger.error({ exitCodeHaystack }, 'Could not find exitCode in output')
     }
 
-    return ''
-  }
-
-  const dataDisposable = ptyProcess.onData((data: string) => {
-    buffer += data
-    const suffix = longestSuffixThatsPrefixOf(buffer, promptIdentifier)
-    let toProcess = buffer.slice(0, buffer.length - suffix.length)
-    buffer = suffix
-
-    const matches = toProcess.match(echoLinePattern)
-    if (matches) {
-      for (let i = 0; i < matches.length && echoLinesRemaining > 0; i++) {
-        echoLinesRemaining = Math.max(echoLinesRemaining - 1, 0)
-        // Process normal output line
-        toProcess = toProcess.replace(echoLinePattern, '')
-      }
+    const cwdHaystack = await runSinglePtyCommand(
+      ptyProcess,
+      isWindows
+        ? `echo ${needleIdentifier}%cd%${needleIdentifier}`
+        : `echo ${needleIdentifier}$(pwd)${needleIdentifier}`,
+      () => {}
+    )
+    const m = cwdHaystack.match(getNeedlePattern())
+    let newWorkingDirectory
+    if (m) {
+      newWorkingDirectory = m[1].trim()
+    } else {
+      logger.error({ cwdHaystack }, 'Could not find cwd in output')
+      newWorkingDirectory = cwd
     }
 
-    const indexOfPromptIdentifier = toProcess.indexOf(promptIdentifier)
-    if (indexOfPromptIdentifier !== -1) {
-      buffer = toProcess.slice(indexOfPromptIdentifier) + buffer
-      toProcess = toProcess.slice(0, indexOfPromptIdentifier)
+    const statusMessage =
+      exitCode === null
+        ? ''
+        : exitCode === 0
+          ? 'Complete'
+          : `Failed with exit code: ${exitCode}`
+
+    if (timer) {
+      clearTimeout(timer)
     }
 
-    process.stdout.write(toProcess)
-    commandOutput += toProcess
-
-    const commandDone = buffer.match(commandDonePattern)
-    if (commandDone && echoLinesRemaining === 0) {
-      // Command is done
-      if (timer) {
-        clearTimeout(timer)
-      }
-      dataDisposable.dispose()
-
-      const exitCode = buffer.includes('Command completed')
-        ? 0
-        : (() => {
-            const match = buffer.match(/Command failed with exit code (\d+)\./)
-            return match ? parseInt(match[1]) : null
-          })()
-      const statusMessage = buffer.includes('Command completed')
-        ? 'Complete'
-        : `Failed with exit code: ${exitCode}`
-
-      const newWorkingDirectory = commandDone[1]
-      if (mode === 'assistant') {
-        ptyProcess.write(`cd ${getWorkingDirectory()}\r\n`)
-
-        resolve({
-          result: formatResult(
-            command,
-            commandOutput,
-            `cwd: ${path.resolve(projectRoot, cwd)}\n\n${statusMessage}`
-          ),
-          stdout: commandOutput,
-          exitCode,
-        })
-        return
-      }
-
-      let outsideProject = false
-      const currentWorkingDirectory = getWorkingDirectory()
-      let finalCwd = currentWorkingDirectory
-      if (newWorkingDirectory !== currentWorkingDirectory) {
-        trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
-          from: currentWorkingDirectory,
-          to: newWorkingDirectory,
-          isSubdir: isSubdir(currentWorkingDirectory, newWorkingDirectory),
-        })
-        if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
-          outsideProject = true
-          console.log(`
-Unable to cd outside of the project root (${projectRoot})
-      
-If you want to change the project root:
-1. Exit Codebuff (type "exit")
-2. Navigate into the target directory (type "cd ${newWorkingDirectory}")
-3. Restart Codebuff`)
-          ptyProcess.write(`cd ${currentWorkingDirectory}\r\n`)
-        } else {
-          setWorkingDirectory(newWorkingDirectory)
-          finalCwd = newWorkingDirectory
-        }
-      }
+    if (mode === 'assistant') {
+      await runSinglePtyCommand(
+        ptyProcess,
+        `cd ${getWorkingDirectory()}`,
+        () => {}
+      )
 
       resolve({
         result: formatResult(
           command,
           commandOutput,
           buildArray([
-            `cwd: ${currentWorkingDirectory}`,
-            `${statusMessage}\n`,
-            outsideProject &&
-              `Detected final cwd outside project root. Reset cwd to ${currentWorkingDirectory}`,
-            `Final **user** cwd: ${finalCwd} (Assistant's cwd is still project root)`,
-          ]).join('\n')
+            `cwd: ${path.resolve(projectRoot, cwd)}`,
+            statusMessage,
+          ]).join('\n\n')
         ),
         stdout: commandOutput,
         exitCode,
       })
       return
     }
-  })
+    let outsideProject = false
+    const currentWorkingDirectory = getWorkingDirectory()
+    let finalCwd = currentWorkingDirectory
+    if (newWorkingDirectory !== currentWorkingDirectory) {
+      trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
+        from: currentWorkingDirectory,
+        to: newWorkingDirectory,
+        isSubdir: isSubdir(currentWorkingDirectory, newWorkingDirectory),
+      })
+      if (path.relative(projectRoot, newWorkingDirectory).startsWith('..')) {
+        outsideProject = true
+        console.log(`
+Unable to cd outside of the project root (${projectRoot})
+      
+If you want to change the project root:
+1. Exit Codebuff (type "exit")
+2. Navigate into the target directory (type "cd ${newWorkingDirectory}")
+3. Restart Codebuff`)
+        await runSinglePtyCommand(
+          ptyProcess,
+          `cd ${currentWorkingDirectory}`,
+          () => {}
+        )
+      } else {
+        setWorkingDirectory(newWorkingDirectory)
+        finalCwd = newWorkingDirectory
+      }
+    }
 
-  // Write the command
-  const cdCommand = `cd ${path.resolve(projectRoot, cwd)}`
-  const commandWithCheck = isWindows
-    ? `${cdCommand} & ${command} & echo ${promptIdentifier}%cd%${promptIdentifier}`
-    : `${cdCommand}; ${command}; ec=$?; printf "${promptIdentifier}$(pwd)${promptIdentifier}"; if [ $ec -eq 0 ]; then printf "Command completed."; else printf "Command failed with exit code $ec."; fi`
-  ptyProcess.write(`${commandWithCheck}\r`)
+    resolve({
+      result: formatResult(
+        command,
+        commandOutput,
+        buildArray([
+          `cwd: ${currentWorkingDirectory}`,
+          `${statusMessage}\n`,
+          outsideProject &&
+            `Detected final cwd outside project root. Reset cwd to ${currentWorkingDirectory}`,
+          `Final **user** cwd: ${finalCwd} (Assistant's cwd is still project root)`,
+        ]).join('\n')
+      ),
+      stdout: commandOutput,
+      exitCode,
+    })
+  })
 }
 
 const runCommandChildProcess = (
@@ -851,17 +786,6 @@ export const runCommandPtyManager = (
 
   persistentProcess.timerId = timer
 
-  const longestSuffixThatsPrefixOf = (str: string, target: string): string => {
-    for (let len = target.length; len > 0; len--) {
-      const prefix = target.slice(0, len)
-      if (str.endsWith(prefix)) {
-        return prefix
-      }
-    }
-
-    return ''
-  }
-
   const finishCommand = (exitCode: number | null = null) => {
     if (timer) {
       clearTimeout(timer)
@@ -891,7 +815,7 @@ export const runCommandPtyManager = (
 
   const dataDisposable = ptyProcess.onData((data: string) => {
     buffer += data
-    const suffix = longestSuffixThatsPrefixOf(buffer, promptIdentifier)
+    const suffix = suffixPrefixOverlap(buffer, promptIdentifier)
     let toProcess = buffer.slice(0, buffer.length - suffix.length)
     buffer = suffix
 
@@ -923,7 +847,7 @@ export const runCommandPtyManager = (
       finishCommand()
     }, 3000)
 
-    const commandDone = buffer.match(commandDonePattern)
+    const commandDone = buffer.startsWith(promptIdentifier)
     if (commandDone && echoLinesRemaining === 0) {
       // Command is done
       const exitCode = buffer.includes('Command completed')

@@ -29,7 +29,7 @@
     "start-nushell": "bun run with-env -- ts-node -r tsconfig-paths/register src/index.ts ../test/__mock-projects__/nushell",
     "start-prod": "bun run with-env -- ts-node -r tsconfig-paths/register src/index.ts",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
-    "typecheck-only": "tsc --noEmit && tsc-alias",
+    "typecheck": "npm run build",
     "build": "nx build npm-app"
   },
   "files": [
@@ -79,7 +79,7 @@
     "zod": "3.23.8"
   },
   "optionalDependencies": {
-    "@homebridge/node-pty-prebuilt-multiarch": "0.12.0-beta.5"
+    "@homebridge/node-pty-prebuilt-multiarch": "0.12.0"
   },
   "trustedDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",

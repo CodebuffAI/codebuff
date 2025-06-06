@@ -24,35 +24,13 @@ To add a new integration (e.g., for a service like Stripe, or another email prov
 ## Current Integrations
 
 ### Loops
--   **Purpose**: Handles sending transactional emails via the Loops.so API.
+-   **Purpose**: Handles sending transactional emails (e.g., invitations, welcome messages) via the Loops.so API.
 -   **Location**: `packages/integrations/src/loops/`
--   **Key Functions**:
-    -   `sendOrganizationInvitationEmail(data: LoopsEmailData)`
-    -   `sendOrganizationWelcomeEmail(data: LoopsEmailData)`
-    -   `sendBasicEmail(email: string, data: { subject: string, message: string })`
+-   **Key Functions**: Provides functions for sending various types of pre-defined and basic emails.
 -   **Environment Variables Required**:
     -   `LOOPS_API_KEY`: Your API key for Loops.so.
 
-## Usage Examples
-
-To use an integration in another package (e.g., `backend` or `web`):
-
-1.  Ensure the `packages/integrations` package is listed as a dependency in the `package.json` of the consuming package (using `workspace:*`).
-2.  Import the required functions or types:
-
-    ```typescript
-    import { sendOrganizationInvitationEmail, LoopsEmailData } from '@codebuff/integrations';
-
-    // ... later in your code
-    const emailData: LoopsEmailData = {
-      email: 'user@example.com',
-      organizationName: 'Awesome Org',
-      // ... other data
-    };
-    await sendOrganizationInvitationEmail(emailData);
-    ```
-
 ## Best Practices
--   Keep integration logic focused solely on interacting with the third-party service.
--   Avoid including business logic specific to `backend` or `web` within this package.
+-   Keep external integration logic focused solely on interacting with the third-party service.
+-   Avoid including business logic specific to `backend` or `web` within this package when dealing with external services.
 -   Use the shared `logger` from the `common` package for logging.

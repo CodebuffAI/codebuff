@@ -7,10 +7,12 @@
     "test:manifold": "bun test manifold.test.ts",
     "test:pglite": "bun test pglite-demo.test.ts",
     "test:swe-bench": "bun test swe-bench.test.ts",
+    "test:e2e-cat-app": "bun run e2e-cat-app-script.ts",
+    "typecheck-this-package": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "gen-git-evals": "bun run git-evals/gen-evals.ts",
     "run-git-evals": "bun run git-evals/run-git-evals.ts",
-    "run-eval-set": "bun run run-eval-set.ts",
+    "run-eval-set": "bun run git-evals/run-eval-set.ts",
     "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
   },
   "dependencies": {

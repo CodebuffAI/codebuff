@@ -15,19 +15,46 @@
   "fileChangeHooks": [
     {
       "name": "backend-unit-tests",
-      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev $'\\x1b\\[[0-9;]*m' | grep -Ev '^s*[0-9]+s+(pass|skip)|(pass)|(skip)' && bun run typecheck-only",
+      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
       "cwd": "backend",
       "filePattern": "backend/**/*.ts"
     },
     {
+      "name": "backend-typecheck",
+      "command": "bun run typecheck",
+      "cwd": "backend",
+      "filePattern": "backend/**/*.ts"
+    },
+
+    {
       "name": "npm-app-unit-tests",
-      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev $'\\x1b\\[[0-9;]*m' | grep -Ev '^s*[0-9]+s+(pass|skip)|(pass)|(skip)' && bun run typecheck-only",
+      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
       "cwd": "npm-app",
       "filePattern": "npm-app/**/*.ts"
     },
     {
+      "name": "npm-typecheck",
+      "command": "bun run typecheck",
+      "cwd": "npm-app",
+      "filePattern": "npm-app/**/*.ts"
+    },
+
+    {
+      "name": "web-typecheck",
+      "command": "bun run typecheck",
+      "cwd": "web",
+      "filePattern": "web/**/*.ts"
+    },
+
+    {
       "name": "common-unit-tests",
-      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev $'\\x1b\\[[0-9;]*m' | grep -Ev '^s*[0-9]+s+(pass|skip)|(pass)|(skip)' && bun run typecheck-only",
+      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
+      "cwd": "common",
+      "filePattern": "common/**/*.ts"
+    },
+    {
+      "name": "common-typecheck",
+      "command": "bun run typecheck",
       "cwd": "common",
       "filePattern": "common/**/*.ts"
     }

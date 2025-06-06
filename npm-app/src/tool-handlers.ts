@@ -12,8 +12,8 @@ import { logger } from './utils/logger'
 
 import { handleBrowserInstruction } from './browser-runner'
 import { getProjectRoot } from './project-files'
+import { runTerminalCommand } from './terminal/base'
 import { Spinner } from './utils/spinner'
-import { runTerminalCommand } from './utils/terminal'
 import { scrapeWebPage } from './web-scraper'
 
 export type ToolHandler<T extends Record<string, any>> = (
@@ -214,18 +214,21 @@ function formatResult(
 }
 
 export const handleKillTerminal: ToolHandler<{}> = async (parameters, _id) => {
-  const { resetShell } = await import('./utils/terminal')
+  const { resetShell } = await import('./terminal/base')
   const { getProjectRoot } = await import('./project-files')
-  
+
   resetShell(getProjectRoot())
-  
+
   return 'Terminal killed and restarted successfully.'
 }
 
-export const handleSleep: ToolHandler<{ seconds: string }> = async (parameters, _id) => {
+export const handleSleep: ToolHandler<{ seconds: string }> = async (
+  parameters,
+  _id
+) => {
   const { seconds } = parameters
   let secondsNum: number
-  
+
   try {
     secondsNum = parseInt(seconds)
     if (secondsNum <= 0) {

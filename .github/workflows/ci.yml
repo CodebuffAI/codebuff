@@ -51,7 +51,6 @@ jobs:
       - name: Build and typecheck
         run: |
           bun run build
-          bun run typecheck-only
 
   # Template for test jobs
   test:

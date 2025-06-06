@@ -62,6 +62,7 @@ import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CLI } from './cli'
+import { waitForPreviousCheckpoint } from './cli-handlers/checkpoint'
 import { backendUrl, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { calculateFingerprint } from './fingerprint'
@@ -75,13 +76,13 @@ import {
   getWorkingDirectory,
   startNewChat,
 } from './project-files'
+import { readNewTerminalOutput } from './terminal/base'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
-import { readNewTerminalOutput } from './utils/terminal'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
@@ -1085,26 +1086,26 @@ export class Client {
               toolCall.name === 'str_replace' ||
               toolCall.name === 'create_plan'
             ) {
+              await waitForPreviousCheckpoint()
               // Save lastChanges for `diff` command
               this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
               this.hadFileChanges = true
               // Track the changed file path
               this.filesChangedForHook.push(toolCall.parameters.path)
             }
-            if (
-              toolCall.name === 'run_terminal_command' &&
-              toolCall.parameters.mode === 'user'
-            ) {
-              // Special case: when terminal command is run as a user command, then no need to reprompt assistant.
-              this.responseComplete = true
-              isComplete = true
-            }
-            if (
-              toolCall.name === 'run_terminal_command' &&
-              toolCall.parameters.mode === 'assistant' &&
-              toolCall.parameters.process_type === 'BACKGROUND'
-            ) {
-              this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
+            if (toolCall.name === 'run_terminal_command') {
+              await waitForPreviousCheckpoint()
+              if (toolCall.parameters.mode === 'user') {
+                // Special case: when terminal command is run as a user command, then no need to reprompt assistant.
+                this.responseComplete = true
+                isComplete = true
+              }
+              if (
+                toolCall.parameters.mode === 'assistant' &&
+                toolCall.parameters.process_type === 'BACKGROUND'
+              ) {
+                this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
+              }
             }
             const toolResult = await handleToolCall(toolCall)
             toolResults.push(toolResult)

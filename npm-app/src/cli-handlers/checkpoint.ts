@@ -237,6 +237,15 @@ export function handleClearCheckpoints(): void {
   console.log('Cleared all checkpoints.')
 }
 
+export async function waitForPreviousCheckpoint(): Promise<void> {
+  try {
+    // Make sure the previous checkpoint is done
+    await checkpointManager.getLatestCheckpoint().fileStateIdPromise
+  } catch (error) {
+    // No latest checkpoint available, previous checkpoint is guaranteed to be done.
+  }
+}
+
 export async function saveCheckpoint(
   userInput: string,
   client: Client,
@@ -251,12 +260,7 @@ export async function saveCheckpoint(
   await readyPromise
   Spinner.get().stop()
 
-  try {
-    // Make sure the previous checkpoint is done
-    await checkpointManager.getLatestCheckpoint().fileStateIdPromise
-  } catch (error) {
-    // No latest checkpoint available, previous checkpoint is guaranteed to be done.
-  }
+  await waitForPreviousCheckpoint()
 
   // Save the current agent state
   try {

@@ -180,7 +180,8 @@ export async function analyzeEvalResults(
   const tokenCount = countTokens(finalPrompt)
   console.log(`Post-eval analysis prompt: ${tokenCount} tokens`)
 
-  return promptAiSdkStructured([{ role: 'user', content: finalPrompt }], {
+  return promptAiSdkStructured({
+    messages: [{ role: 'user', content: finalPrompt }],
     schema: PostEvalAnalysisSchema,
     model: geminiModels.gemini2_5_pro_preview,
     clientSessionId: generateCompactId(),
