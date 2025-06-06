@@ -37,6 +37,7 @@
     "test:patch": "bun test test/__src__/patch.test.ts",
     "clean": "nx run-many --target=clean --all",
     "build": "nx reset && nx run-many --target=build --all",
+    "test": "nx run-many --target=test --projects=npm-app,backend,common --output-style=stream --skip-nx-cache",
     "typecheck": "bun run build"
   },
   "devDependencies": {

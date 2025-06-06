@@ -36,6 +36,13 @@
         "command": "eslint src/**/*.ts",
         "cwd": "npm-app"
       }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun test $(find src -name *.test.ts)",
+        "cwd": "npm-app"
+      }
     }
   },
   "implicitDependencies": ["common", "code-map"]
