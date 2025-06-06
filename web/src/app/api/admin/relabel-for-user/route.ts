@@ -1,6 +1,6 @@
-import { getServerSession } from 'next-auth'
 import { NextRequest, NextResponse } from 'next/server'
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { withAdminAuth } from '../admin-auth'
+import { utils } from '@codebuff/internal'
 import { logger } from '@/util/logger'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -61,11 +61,9 @@ async function getActiveSessionToken(userId: string): Promise<string | null> {
 async function handleBackendResponse(response: Response) {
   if (!response.ok) {
     try {
-      // Try to parse error response as JSON
       const errorData = await response.json()
       return NextResponse.json(errorData, { status: response.status })
     } catch {
-      // If JSON parsing fails, return status text
       return NextResponse.json(
         { error: response.statusText || 'Request failed' },
         { status: response.status }
@@ -78,13 +76,10 @@ async function handleBackendResponse(response: Response) {
 }
 
 // GET handler for fetching traces
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+async function getRelabelData(
+  adminUser: utils.AdminUser,
+  req: NextRequest
+): Promise<NextResponse> {
   const userId = req.nextUrl.searchParams.get('userId')
   if (!userId) {
     return NextResponse.json(
@@ -94,11 +89,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const sessionToken = await getActiveSessionToken(session.user.id)
+    const sessionToken = await getActiveSessionToken(adminUser.id)
     if (!sessionToken) {
       logger.error(
-        { userId: session.user.id },
-        'No active session token found for user'
+        { userId: adminUser.id },
+        'No active session token found for admin user'
       )
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -106,7 +101,6 @@ export async function GET(req: NextRequest) {
     const response = await forwardToBackend(userId, 'GET', sessionToken)
     return handleBackendResponse(response)
   } catch (error) {
-    // Only use this for network/fetch errors, not backend errors
     logger.error({ error }, 'Error proxying request to backend')
     return NextResponse.json(
       { error: 'Failed to connect to backend service' },
@@ -116,13 +110,10 @@ export async function GET(req: NextRequest) {
 }
 
 // POST handler for running relabelling
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+async function runRelabeling(
+  adminUser: utils.AdminUser,
+  req: NextRequest
+): Promise<NextResponse> {
   const userId = req.nextUrl.searchParams.get('userId')
   if (!userId) {
     return NextResponse.json(
@@ -132,11 +123,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const sessionToken = await getActiveSessionToken(session.user.id)
+    const sessionToken = await getActiveSessionToken(adminUser.id)
     if (!sessionToken) {
       logger.error(
-        { userId: session.user.id },
-        'No active session token found for user'
+        { userId: adminUser.id },
+        'No active session token found for admin user'
       )
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -145,7 +136,6 @@ export async function POST(req: NextRequest) {
     const response = await forwardToBackend(userId, 'POST', sessionToken, body)
     return handleBackendResponse(response)
   } catch (error) {
-    // Only use this for network/fetch errors, not backend errors
     logger.error({ error }, 'Error proxying request to backend')
     return NextResponse.json(
       { error: 'Failed to connect to backend service' },
@@ -153,3 +143,6 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+
+export const GET = withAdminAuth(getRelabelData)
+export const POST = withAdminAuth(runRelabeling)

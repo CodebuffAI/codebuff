@@ -9,6 +9,6 @@
     { "path": "packages/code-map" },
     { "path": "packages/bigquery" },
     { "path": "packages/billing" },
-    { "path": "packages/integrations" }
+    { "path": "packages/internal" }
   ]
 }

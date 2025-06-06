@@ -19,7 +19,8 @@
       "common/*": ["./src/common/*", "../common/src/*"],
       "@/*": ["./src/*"],
       "@codebuff/billing": ["../packages/billing/src"],
-      "@codebuff/bigquery": ["../packages/bigquery/src"]
+      "@codebuff/bigquery": ["../packages/bigquery/src"],
+      "@codebuff/internal": ["../packages/internal/src"]
     },
     "typeRoots": [
       "./node_modules/@types",
@@ -33,7 +34,8 @@
   "references": [
     { "path": "../common" },
     { "path": "../packages/billing" },
-    { "path": "../packages/bigquery" }
+    { "path": "../packages/bigquery" },
+    { "path": "../packages/internal" }
   ],
   "ts-node": {
     "require": ["tsconfig-paths/register"]

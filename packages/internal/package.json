@@ -1,5 +1,5 @@
 {
-  "name": "@codebuff/integrations",
+  "name": "@codebuff/internal",
   "version": "1.0.0",
   "license": "UNLICENSED",
   "main": "dist/index.js",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "common": "workspace:*",
+    "drizzle-orm": "*",
     "loops": "^5.0.1"
   },
   "devDependencies": {

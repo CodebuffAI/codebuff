@@ -7,7 +7,7 @@
       "common/*": ["../common/src/*"],
       "backend/*": ["../backend/src/*"],
       "npm-app/*": ["../npm-app/src/*"],
-      "@codebuff/integrations/*": ["../packages/integrations/src/*"]
+      "@codebuff/internal/*": ["../packages/internal/src/*"]
     },
     "typeRoots": ["./node_modules/@types", "../node_modules/@types"]
   },
@@ -15,7 +15,7 @@
     { "path": "../common" },
     { "path": "../backend" },
     { "path": "../npm-app" },
-    { "path": "../packages/integrations" }
+    { "path": "../packages/internal" }
   ],
   "exclude": ["test-repos"],
   "include": ["**/*.ts"]
