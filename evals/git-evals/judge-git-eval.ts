@@ -181,15 +181,13 @@ export function judgeEvalRun(evalRun: EvalRunLog) {
     console.log(`Using truncated prompt with ${finalTokenCount} tokens (trace truncated, base: ${baseTokens}, max trace: ${maxTraceTokens})`)
   }
 
-  return promptAiSdkStructured(
-    [{ role: 'user', content: finalPrompt }],
-    {
-      schema: JudgingAnalysisSchema,
-      model: geminiModels.gemini2_5_pro_preview,
-      clientSessionId: generateCompactId(),
-      fingerprintId: generateCompactId(),
-      userInputId: generateCompactId(),
-      userId: undefined,
-    }
-  )
+  return promptAiSdkStructured({
+    messages: [{ role: 'user', content: finalPrompt }],
+    schema: JudgingAnalysisSchema,
+    model: geminiModels.gemini2_5_pro_preview,
+    clientSessionId: generateCompactId(),
+    fingerprintId: generateCompactId(),
+    userInputId: generateCompactId(),
+    userId: undefined,
+  })
 }

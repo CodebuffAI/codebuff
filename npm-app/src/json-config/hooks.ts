@@ -3,8 +3,8 @@ import { generateCompactId } from 'common/util/string'
 import micromatch from 'micromatch'
 
 import { getProjectRoot } from '../project-files'
+import { runTerminalCommand } from '../terminal/base'
 import { logger } from '../utils/logger'
-import { runTerminalCommand } from '../utils/terminal'
 import { loadCodebuffConfig } from './parser'
 
 /**

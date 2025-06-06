@@ -25,7 +25,7 @@ import { isValidationSample } from './collect-tuning-data'
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
 const MAX_PARALLEL = 5 // Maximum number of traces to process in parallel for relabeling
-const LIMIT = 4000 // Total limit of traces to process
+const LIMIT = 400 // Total limit of traces to process
 const START_CURSOR = '2025-05-31T00:00:00.000Z' // User-provided start cursor or default
 
 const GROUND_TRUTH_MODEL = 'claude-opus-4-20250514-with-full-file-context-new'
@@ -37,6 +37,7 @@ const MODELS = [
   finetunedVertexModels.ft_filepicker_008,
   finetunedVertexModels.ft_filepicker_010,
   finetunedVertexModels.ft_filepicker_010_epoch_2,
+  finetunedVertexModels.ft_filepicker_topk_003,
 ] as const
 
 const modelDescriptions = {
@@ -52,6 +53,8 @@ const modelDescriptions = {
     'ft_filepicker_010: 109M tokens, 3 epochs, same as ft_filepicker_008 but with assistant messages converted to user messages',
   [finetunedVertexModels.ft_filepicker_010_epoch_2]:
     'ft_filepicker_010_epoch_2: 109M tokens, 2 epochs, same as ft_filepicker_008 but with assistant messages converted to user messages',
+  [finetunedVertexModels.ft_filepicker_topk_003]:
+    'ft_filepicker_topk_003: 109M tokens, 2 epochs, only uses top-2 files with 3 lines of dashes at the end',
 }
 
 async function getFilteredValidationBundles(): Promise<

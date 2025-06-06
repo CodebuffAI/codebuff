@@ -53,16 +53,16 @@ import {
   initProjectFileContextWithWorker,
   isDir,
 } from './project-files'
-import { CliOptions, GitCommand } from './types'
-import { flushAnalytics, trackEvent } from './utils/analytics'
-import { Spinner } from './utils/spinner'
 import {
   clearScreen,
   isCommandRunning,
   killAndResetPersistentProcess,
   persistentProcess,
   resetShell,
-} from './utils/terminal'
+} from './terminal/base'
+import { CliOptions, GitCommand } from './types'
+import { flushAnalytics, trackEvent } from './utils/analytics'
+import { Spinner } from './utils/spinner'
 
 import { CONFIG_DIR } from './credentials'
 import { loadCodebuffConfig } from './json-config/parser'

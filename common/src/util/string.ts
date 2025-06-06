@@ -268,8 +268,13 @@ export const stripNullChars = (str: string): string => {
   return str.replace(/\u0000/g, '')
 }
 
-const ansiRegex = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g
+const ansiColorsRegex = /\x1B\[[0-9;]*m/g
 export function stripColors(str: string): string {
+  return str.replace(ansiColorsRegex, '')
+}
+
+const ansiRegex = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\x1B]*\x1B\\?)/g
+export function stripAnsi(str: string): string {
   return str.replace(ansiRegex, '')
 }
 
@@ -283,4 +288,30 @@ export function includesMatch(
     }
     return p.test(value)
   })
+}
+
+/**
+ * Finds the longest substring that is **both** a suffix of `source`
+ * **and** a prefix of `next`.
+ * Useful when concatenating strings while avoiding duplicate overlap.
+ *
+ * @example
+ * ```ts
+ * suffixPrefixOverlap('foobar', 'barbaz'); // ➜ 'bar'
+ * suffixPrefixOverlap('abc', 'def');       // ➜ ''
+ * ```
+ *
+ * @param source  The string whose **suffix** is inspected.
+ * @param next    The string whose **prefix** is inspected.
+ * @returns       The longest overlapping edge, or an empty string if none exists.
+ */
+export function suffixPrefixOverlap(source: string, next: string): string {
+  for (let len = next.length; len > 0; len--) {
+    const prefix = next.slice(0, len)
+    if (source.endsWith(prefix)) {
+      return prefix
+    }
+  }
+
+  return ''
 }

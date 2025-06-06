@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 
-import { sendEvalResultsEmail } from './git-evals/email-eval-results'
+import { sendEvalResultsEmail } from './email-eval-results'
 import {
   analyzeEvalResults,
   PostEvalAnalysis,
-} from './git-evals/post-eval-analysis'
-import { runGitEvals } from './git-evals/run-git-evals'
-import { FullEvalLog } from './git-evals/types'
+} from './post-eval-analysis'
+import { runGitEvals } from './run-git-evals'
+import { FullEvalLog } from './types'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
 

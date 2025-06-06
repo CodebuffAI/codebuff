@@ -75,13 +75,13 @@ import {
   getWorkingDirectory,
   startNewChat,
 } from './project-files'
+import { readNewTerminalOutput } from './terminal/base'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
-import { readNewTerminalOutput } from './utils/terminal'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'

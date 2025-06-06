@@ -79,7 +79,7 @@
     "zod": "3.23.8"
   },
   "optionalDependencies": {
-    "@homebridge/node-pty-prebuilt-multiarch": "0.12.0-beta.5"
+    "@homebridge/node-pty-prebuilt-multiarch": "0.12.0"
   },
   "trustedDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",

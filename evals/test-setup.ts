@@ -4,7 +4,7 @@ import path from 'path'
 
 import { getInitialAgentState } from 'common/types/agent-state'
 import { setProjectRoot, setWorkingDirectory } from 'npm-app/project-files'
-import { recreateShell } from 'npm-app/utils/terminal'
+import { recreateShell } from 'npm-app/terminal/base'
 
 import {
   createFileReadingMock,

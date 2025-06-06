@@ -8,6 +8,7 @@ import { checkOrganizationPermission } from '@/lib/organization-permissions'
 import { sendOrganizationInvitationEmail } from '@codebuff/integrations' // Updated import
 import { logger } from '@/util/logger'
 import crypto from 'crypto'
+import { env } from '@/env.mjs'; // Added import
 
 interface RouteParams {
   params: { orgId: string }
@@ -46,7 +47,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body: BulkInviteRequest = await request.json()
 
     // Validate input
-    if (!body.invitations || !Array.isArray(body.invitations) || body.invitations.length === 0) {
+    if (
+      !body.invitations ||
+      !Array.isArray(body.invitations) ||
+      body.invitations.length === 0
+    ) {
       return NextResponse.json(
         { error: 'Invitations array is required and must not be empty' },
         { status: 400 }
@@ -92,7 +97,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { organization } = permissionResult
 
     // Get all emails to check for existing members and invitations
-    const emails = body.invitations.map(inv => inv.email)
+    const emails = body.invitations.map((inv) => inv.email)
 
     // Check for existing members
     const existingMembers = await db
@@ -106,7 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         )
       )
 
-    const existingMemberEmails = new Set(existingMembers.map(m => m.email))
+    const existingMemberEmails = new Set(existingMembers.map((m) => m.email))
 
     // Check for existing pending invitations
     const existingInvitations = await db
@@ -120,7 +125,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         )
       )
 
-    const existingInvitationEmails = new Set(existingInvitations.map(i => i.email))
+    const existingInvitationEmails = new Set(
+      existingInvitations.map((i) => i.email)
+    )
 
     // Get inviter information
     const inviter = await db
@@ -143,7 +150,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           results.push({
             email: invitation.email,
             success: false,
-            error: 'User is already a member of this organization'
+            error: 'User is already a member of this organization',
           })
           failed++
           continue
@@ -154,7 +161,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           results.push({
             email: invitation.email,
             success: false,
-            error: 'Invitation already sent to this email'
+            error: 'Invitation already sent to this email',
           })
           failed++
           continue
@@ -178,7 +185,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           .returning()
 
         // Send invitation email
-        const invitationUrl = `${request.nextUrl.origin}/invites/${token}`
+        const invitationUrl = `${env.NEXT_PUBLIC_APP_URL}/invites/${token}` // Replaced request.nextUrl.origin
         const emailResult = await sendOrganizationInvitationEmail({
           email: invitation.email,
           organizationName: organization!.name,
@@ -196,7 +203,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           results.push({
             email: invitation.email,
             success: false,
-            error: 'Failed to send invitation email'
+            error: 'Failed to send invitation email',
           })
           failed++
           continue
@@ -205,20 +212,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         results.push({
           email: invitation.email,
           success: true,
-          invitationId: inviteRecord.id
+          invitationId: inviteRecord.id,
         })
         successful++
-
       } catch (error) {
         logger.error(
           { organizationId: orgId, email: invitation.email, error },
           'Error processing bulk invitation'
         )
-        
+
         results.push({
           email: invitation.email,
           success: false,
-          error: 'Internal error processing invitation'
+          error: 'Internal error processing invitation',
         })
         failed++
       }
@@ -242,7 +248,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         total: body.invitations.length,
         successful,
         failed,
-      }
+      },
     }
 
     return NextResponse.json(response)

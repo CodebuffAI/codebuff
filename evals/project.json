@@ -1,0 +1,17 @@
+{
+  "name": "evals",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": ".",
+  "projectType": "application",
+  "targets": {
+    "run-eval-set": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run git-evals/run-eval-set.ts",
+        "cwd": "evals"
+      }
+    }
+  },
+  "tags": [],
+  "implicitDependencies": ["@codebuff/integrations", "codebuff"]
+}

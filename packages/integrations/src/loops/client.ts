@@ -1,5 +1,8 @@
 import { logger } from 'common/src/util/logger'
-import { LoopsClient, APIError } from 'loops' // Import LoopsClient and APIError
+import { LoopsClient, APIError } from 'loops'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { eq } from 'drizzle-orm'
 
 import type { LoopsEmailData, SendEmailResult } from './types'
 
@@ -114,17 +117,40 @@ export async function sendSignupEventToLoops(
 }
 
 export async function sendOrganizationInvitationEmail(
-  data: LoopsEmailData
+  data: LoopsEmailData // data no longer contains firstName
 ): Promise<SendEmailResult> {
+  let lookedUpFirstName: string = 'there' // Default to 'there'
+  try {
+    const inviteeUserRecord = await db
+      .select({ name: schema.user.name })
+      .from(schema.user)
+      .where(eq(schema.user.email, data.email.toLowerCase())) // Compare email case-insensitively
+      .limit(1)
+
+    if (inviteeUserRecord.length > 0 && inviteeUserRecord[0].name) {
+      lookedUpFirstName = inviteeUserRecord[0].name.split(' ')[0] || 'there'
+    }
+  } catch (error) {
+    logger.error(
+      {
+        email: data.email,
+        error,
+        source: 'sendOrganizationInvitationEmail-lookup',
+      },
+      'Error fetching user by email for invitation, using default name.'
+    )
+    // Continue with default name 'there'
+  }
+
   return sendTransactionalEmail(
     ORGANIZATION_INVITATION_TRANSACTIONAL_ID,
     data.email,
     {
-      firstName: data.firstName || '',
-      organizationName: data.organizationName || '',
-      inviterName: data.inviterName || '',
-      invitationUrl: data.invitationUrl || '',
-      role: data.role || 'member',
+      firstName: lookedUpFirstName, // Use the looked-up or default name
+      organizationName: data.organizationName || '', // data.organizationName is still expected
+      inviterName: data.inviterName || '', // data.inviterName is still expected
+      invitationUrl: data.invitationUrl || '', // data.invitationUrl is still expected
+      role: data.role || 'member', // data.role is still expected
     }
   )
 }

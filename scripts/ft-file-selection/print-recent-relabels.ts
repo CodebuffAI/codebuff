@@ -22,6 +22,8 @@ User ID: ${relabel.user_id}
 Agent Step ID: ${relabel.agent_step_id}
 Created at: ${JSON.stringify(relabel.created_at)}
 Payload: ${JSON.stringify(relabel.payload).slice(0, 100)}...
+Model: ${relabel.model}
+Output: ${JSON.stringify(relabel.payload.output)}
 --------------------------------`)
     })
   } catch (error) {
