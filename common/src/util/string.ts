@@ -268,8 +268,13 @@ export const stripNullChars = (str: string): string => {
   return str.replace(/\u0000/g, '')
 }
 
-const ansiRegex = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g
+const ansiColorsRegex = /\x1B\[[0-9;]*m/g
 export function stripColors(str: string): string {
+  return str.replace(ansiColorsRegex, '')
+}
+
+const ansiRegex = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\x1B]*\x1B\\?)/g
+export function stripAnsi(str: string): string {
   return str.replace(ansiRegex, '')
 }
 
