@@ -816,6 +816,7 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'find_files',
   'run_terminal_command',
   'code_search',
+  'end_turn',
 ]
 
 export const getToolsInstructions = (toolDescriptions: string[]) => `
