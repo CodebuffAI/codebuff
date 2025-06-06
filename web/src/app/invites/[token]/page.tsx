@@ -82,7 +82,7 @@ export default function InvitationPage({ params }: PageProps) {
 
       setSuccess(true)
       setTimeout(() => {
-        router.push(`/organizations/${data.organization.slug}`)
+        router.push(`/orgs/${data.organization.slug}`)
       }, 2000)
     } catch (error) {
       setError('Failed to accept invitation')
