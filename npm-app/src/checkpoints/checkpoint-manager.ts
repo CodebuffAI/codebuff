@@ -8,12 +8,13 @@ import { AgentState, ToolResult } from 'common/types/agent-state'
 import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
+import { gitCommandIsAvailable } from '../utils/git'
+import { logger } from '../utils/logger'
 import {
   getBareRepoPath,
   getLatestCommit,
   hasUnsavedChanges,
 } from './file-manager'
-import { logger } from '../utils/logger'
 
 export class CheckpointsDisabledError extends Error {
   constructor(message?: string, options?: ErrorOptions) {
@@ -164,6 +165,11 @@ export class CheckpointManager {
     saveWithNoChanges: boolean = false
   ): Promise<{ checkpoint: Checkpoint; created: boolean }> {
     if (this.disabledReason !== null) {
+      throw new CheckpointsDisabledError(this.disabledReason)
+    }
+
+    if (!gitCommandIsAvailable()) {
+      this.disabledReason = 'Git required for checkpoints'
       throw new CheckpointsDisabledError(this.disabledReason)
     }
 

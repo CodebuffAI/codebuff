@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process'
 import { createHash } from 'crypto'
 import fs from 'fs'
 import os from 'os'
-import { join } from 'path'
+import path, { join } from 'path'
 
 import {
   add,
@@ -15,6 +15,7 @@ import {
   statusMatrix,
 } from 'isomorphic-git'
 
+import { buildArray } from 'common/util/array'
 import { getProjectDataDir } from '../project-files'
 import { gitCommandIsAvailable } from '../utils/git'
 import { logger } from '../utils/logger'
@@ -61,12 +62,14 @@ export async function hasUnsavedChanges({
         ],
         { stdio: ['ignore', 'pipe', 'ignore'] }
       ).toString()
-      return output.trim().length > 0
+      return (
+        buildArray(output.split('\n').filter((line) => !line.startsWith(' M ')))
+          .length > 0
+      )
     } catch (error) {
       logger.error(
         {
-          errorMessage: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
+          error,
           projectDir,
           bareRepoPath,
         },
@@ -200,6 +203,8 @@ async function gitAddAll({
           projectDir,
           'add',
           '.',
+          ':!**/*.codebuffbackup',
+          ':!**/*.codebuffbackup/**',
         ],
         { stdio: 'ignore' }
       )
@@ -265,6 +270,113 @@ async function gitAddAll({
             bareRepoPath,
           },
           'Error removing file from git'
+        )
+      }
+    }
+  }
+}
+
+async function gitAddAllIgnoringNestedRepos({
+  projectDir,
+  bareRepoPath,
+  relativeFilepaths,
+}: {
+  projectDir: string
+  bareRepoPath: string
+  relativeFilepaths: Array<string>
+}): Promise<void> {
+  const allNestedRepos: string[] = []
+  try {
+    while (true) {
+      let output: string
+      try {
+        output = execFileSync(
+          'git',
+          [
+            '--git-dir',
+            bareRepoPath,
+            '--work-tree',
+            projectDir,
+            'status',
+            '--porcelain',
+          ],
+          { stdio: ['ignore', 'pipe', 'ignore'] }
+        ).toString()
+      } catch (error) {
+        logger.error(
+          { error, projectDir, bareRepoPath },
+          'Failed to get git status while finding nested git repos'
+        )
+        return
+      }
+
+      if (!output) {
+        break
+      }
+
+      const nestedRepos = buildArray(output.split('\n'))
+        .filter((line) => line[1] === 'M')
+        .map((line) => line.slice(3).trim())
+
+      await gitAddAll({ projectDir, bareRepoPath, relativeFilepaths })
+
+      if (nestedRepos.length === 0) {
+        break
+      }
+
+      for (const nestedRepo of nestedRepos) {
+        try {
+          fs.renameSync(
+            path.join(projectDir, nestedRepo, '.git'),
+            path.join(projectDir, nestedRepo, '.git.codebuffbackup')
+          )
+          allNestedRepos.push(nestedRepo)
+        } catch (error) {
+          logger.error(
+            {
+              error,
+              nestedRepo,
+            },
+            'Failed to backup .git directory for nested repo'
+          )
+        }
+      }
+
+      execFileSync('git', [
+        '--git-dir',
+        bareRepoPath,
+        '--work-tree',
+        projectDir,
+        '-C',
+        projectDir,
+        'rm',
+        '--cached',
+        '-rf',
+        ...nestedRepos,
+      ])
+    }
+  } finally {
+    for (const nestedRepo of allNestedRepos) {
+      const codebuffBackup = path.join(
+        projectDir,
+        nestedRepo,
+        '.git.codebuffbackup'
+      )
+      const gitDir = path.join(projectDir, nestedRepo, '.git')
+      try {
+        fs.renameSync(codebuffBackup, gitDir)
+      } catch (error) {
+        console.error(
+          `Failed to restore .git directory for nested repo. Please rename ${codebuffBackup} to ${gitDir}\n${{ error }}`
+        )
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+            nestedRepo,
+          },
+          'Failed to restore .git directory for nested repo'
         )
       }
     }
@@ -337,8 +449,7 @@ async function gitCommit({
     } catch (error) {
       logger.error(
         {
-          errorMessage: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
+          error,
           projectDir,
           bareRepoPath,
         },
@@ -372,7 +483,7 @@ export async function storeFileState({
   message: string
   relativeFilepaths: Array<string>
 }): Promise<string> {
-  await gitAddAll({
+  await gitAddAllIgnoringNestedRepos({
     projectDir,
     bareRepoPath,
     relativeFilepaths,
