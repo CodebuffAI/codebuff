@@ -13,8 +13,8 @@ import {
   type CostMode,
   type FinetunedVertexModel,
 } from 'common/constants'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { getAllFilePaths } from 'common/project-file-tree'
 import {
   cleanMarkdownCodeBlock,
@@ -67,7 +67,7 @@ export async function getCustomFilePickerConfigForOrg(
         )
       )
       .limit(1)
-      .then((rows) => rows[0])
+      .then((rows: (typeof schema.orgFeature.$inferSelect)[]) => rows[0])
 
     if (orgFeature?.config && typeof orgFeature.config === 'string') {
       // Check if config is a string

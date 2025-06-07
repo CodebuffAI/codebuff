@@ -1,14 +1,14 @@
-import { trackEvent } from 'common/analytics'
-import { DEFAULT_FREE_CREDITS_GRANT } from 'common/constants'
-import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
-import { GrantType } from 'common/db/schema'
-import { getNextQuotaReset } from 'common/util/dates'
-import { logger } from 'common/util/logger'
-import { withRetry } from 'common/util/promise'
-import { logSyncFailure } from 'common/util/sync-failure'
+import { trackEvent } from '../../../common/src/analytics'
+import { DEFAULT_FREE_CREDITS_GRANT } from '../../../common/src/constants'
+import { AnalyticsEvent } from '../../../common/src/constants/analytics-events'
+import { GRANT_PRIORITIES } from '@codebuff/internal/constants/grant-priorities'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
+import { GrantType } from '@codebuff/internal/db/schema'
+import { getNextQuotaReset } from '../../../common/src/util/dates'
+import { logger } from '../../../common/src/util/logger'
+import { withRetry } from '../../../common/src/util/promise'
+import { logSyncFailure } from '@codebuff/internal/util/sync-failure'
 import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
 
 import { generateOperationIdTimestamp } from './utils'
@@ -240,7 +240,7 @@ export async function processAndGrantCredit(
       {
         maxRetries: 3,
         retryIf: () => true,
-        onRetry: (error, attempt) => {
+        onRetry: (error: any, attempt: number) => {
           logger.warn(
             { operationId, attempt, error },
             `processAndGrantCredit retry ${attempt}`

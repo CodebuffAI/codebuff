@@ -7,16 +7,26 @@
   "scripts": {
     "build": "tsc --build",
     "typecheck": "tsc --noEmit",
-    "typecheck-this-package": "tsc --noEmit"
+    "typecheck-this-package": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate --config=./db/drizzle.config.ts",
+    "db:migrate": "drizzle-kit push --config=./db/drizzle.config.ts",
+    "db:start": "docker compose -f ./db/docker-compose.yml up --wait && bun run db:generate && (timeout 1 || sleep 1) && bun run db:migrate",
+    "db:studio": "drizzle-kit studio --config=./db/drizzle.config.ts"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.4",
     "common": "workspace:*",
-    "drizzle-orm": "*",
+    "drizzle-orm": "0.36.4",
+    "pg": "^8.14.1",
+    "@t3-oss/env-core": "*",
+    "zod": "3.23.8",
+    "dotenv": "^16.4.5",
     "loops": "^5.0.1"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
-    "@types/node": "*"
+    "@types/node": "*",
+    "drizzle-kit": "0.28.1",
+    "@types/pg": "^8.11.10"
   }
 }

@@ -1,13 +1,13 @@
 import { eq } from 'drizzle-orm'
 import { Request, Response, NextFunction } from 'express'
 
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { ServerAction } from 'common/actions'
 import { logger } from '@/util/logger'
 import { triggerMonthlyResetAndGrant } from '@codebuff/billing'
 
-import { checkAuthToken, checkUserIsCodebuffAdmin } from '@codebuff/internal/utils'
+import { checkAuthToken, checkUserIsCodebuffAdmin } from '@codebuff/internal/utils/auth'
 
 export const checkAuth = async ({
   fingerprintId,
@@ -19,19 +19,27 @@ export const checkAuth = async ({
   clientSessionId: string
 }): Promise<void | ServerAction> => {
   // Use shared auth check functionality
-  const authResult = await checkAuthToken({
-    fingerprintId,
-    authToken,
-  })
+  if (!authToken) {
+    logger.error(
+      { clientSessionId },
+      'Authentication failed: No auth token provided'
+    )
+    return {
+      type: 'action-error',
+      message: 'Authentication failed',
+    }
+  }
+
+  const authResult = await checkAuthToken(authToken)
 
   if (!authResult.success) {
     logger.error(
       { clientSessionId, error: authResult.error },
-      authResult.error?.message || 'Authentication failed'
+      authResult.error || 'Authentication failed'
     )
     return {
       type: 'action-error',
-      message: authResult.error?.message || 'Authentication failed',
+      message: authResult.error || 'Authentication failed',
     }
   }
 

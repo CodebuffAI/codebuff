@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Users, CreditCard, Settings, Building2 } from 'lucide-react'
 import Link from 'next/link'
-import { pluralize } from 'common/src/util/string'
+import { pluralize } from '@codebuff/common/util/string'
 
 interface Organization {
   id: string

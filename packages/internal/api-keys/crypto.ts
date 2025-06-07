@@ -12,8 +12,8 @@ import {
   type ApiKeyType,
 } from './constants'
 import * as schema from '../db/schema'
-import { env } from '../env.mjs'
-import { logger } from '../util/logger'
+import { env } from '../../../common/src/env.mjs'
+import { logger } from '../../../common/src/util/logger'
 
 /**
  * Encrypts an API key using the secret from environment variables.

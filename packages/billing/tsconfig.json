@@ -4,14 +4,12 @@
     "composite": true,
     "rootDir": "./src",
     "outDir": "./dist",
-    "baseUrl": ".",
-    "skipLibCheck": true,
-    "paths": {
-      "common/*": ["../../common/src/*"]
-    }
+    "baseUrl": "../../",
+    "skipLibCheck": true
   },
   "include": ["src/**/*"],
   "references": [
-    { "path": "../../common" }
+    { "path": "../../common" },
+    { "path": "../internal" }
   ]
 }

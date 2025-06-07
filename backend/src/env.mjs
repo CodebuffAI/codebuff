@@ -40,6 +40,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().min(1),
     NEXT_PUBLIC_POSTHOG_API_KEY: z.string().min(1),
     NEXT_PUBLIC_POSTHOG_HOST_URL: z.string().min(1),
+    LOOPS_API_KEY: z.string().optional(),
   },
   runtimeEnv: process.env,
 })

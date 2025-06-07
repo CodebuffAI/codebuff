@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 
 async function calculateWeeklyUsage() {
   console.log('Calculating credit usage in the last 7 days (active subscribers only)...\n')

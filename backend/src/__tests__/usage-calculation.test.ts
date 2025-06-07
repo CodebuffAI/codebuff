@@ -1,7 +1,7 @@
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import { GrantType } from 'common/db/schema'
-import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
+import { GrantType } from '@codebuff/internal/db/schema'
+import { GRANT_PRIORITIES } from '@codebuff/internal/constants/grant-priorities'
 
 // Mock logger - this is needed because @codebuff/billing likely uses the logger
 mock.module('common/util/logger', () => ({
@@ -56,7 +56,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module
-    mock.module('common/db', () => ({
+    mock.module('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -92,7 +92,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module
-    mock.module('common/db', () => ({
+    mock.module('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -138,7 +138,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module
-    mock.module('common/db', () => ({
+    mock.module('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -193,7 +193,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module
-    mock.module('common/db', () => ({
+    mock.module('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({

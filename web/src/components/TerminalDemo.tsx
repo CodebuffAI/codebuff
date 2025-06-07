@@ -27,10 +27,10 @@ const POSSIBLE_FILES = [
   'web/src/components/providers/theme-provider.tsx',
   'web/src/hooks/use-mobile.tsx',
   'web/src/hooks/use-theme.tsx',
-  'common/src/util/string.ts',
-  'common/src/util/array.ts',
-  'common/src/util/file.ts',
-  'common/src/constants.ts',
+  '@codebuff/common/util/string.ts',
+  '@codebuff/common/util/array.ts',
+  '@codebuff/common/util/file.ts',
+  '@codebuff/common/constants.ts',
 ]
 
 const getRandomFiles = (min: number = 2, max: number = 5) => {
@@ -309,6 +309,7 @@ const TypingEffect = ({ text, delay = 25, onComplete }: { text: string, delay?: 
     } else if (onComplete) {
       onComplete();
     }
+    return
   }, [currentIndex, delay, text, onComplete]);
   
   return (
@@ -447,6 +448,7 @@ const TerminalDemo = () => {
       
       return () => clearInterval(interval);
     }
+    return
   }, [isAutoTyping]);
   
   // Reset auto typing after completion
@@ -906,6 +908,7 @@ const TerminalDemo = () => {
         return () => clearInterval(typeInterval);
       }
     }
+    return
   }, [isAutoTyping, autoTypeIndex]);
   
   return (

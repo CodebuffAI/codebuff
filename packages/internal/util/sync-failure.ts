@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import db from '../db'
 import * as schema from '../db/schema'
-import { logger } from './logger'
+import { logger } from '../../../common/src/util/logger'
 
 export async function logSyncFailure(
   id: string,

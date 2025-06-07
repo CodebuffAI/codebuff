@@ -45,7 +45,7 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
-import { pluralize } from 'common/src/util/string'
+import { pluralize } from '@codebuff/common/util/string'
 
 interface Member {
   user: {

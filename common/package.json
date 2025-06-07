@@ -10,28 +10,18 @@
     "build": "tsc",
     "typecheck-this-package": "tsc --noEmit",
     "typecheck": "bun run typecheck-this-package",
-    "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
-    "db:generate": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
-    "db:migrate": "drizzle-kit push --config=./src/db/drizzle.config.ts",
-    "db:start": "docker compose -f ./src/db/docker-compose.yml up --wait && bun run db:generate && (timeout 1 || sleep 1) && bun run db:migrate",
-    "db:studio": "drizzle-kit studio --config=./src/db/drizzle.config.ts"
+    "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.5.0",
-    "@types/pg": "^8.11.10",
     "@types/readable-stream": "^4.0.18",
     "@types/seedrandom": "^3.0.8",
-    "dotenv": "^16.4.5",
-    "drizzle-kit": "0.28.1",
-    "drizzle-orm": "0.36.4",
     "ignore": "5.3.2",
     "lodash": "*",
     "next-auth": "^4.24.7",
-    "pg": "^8.14.1",
     "readable-stream": "^4.7.0",
     "seedrandom": "^3.0.5",
-    "stripe": "^16.11.0",
-    "zod": "3.23.8"
+    "stripe": "^16.11.0"
   },
   "peerDependencies": {
     "@types/node": "*",

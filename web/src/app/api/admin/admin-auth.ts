@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { checkSessionIsAdmin, AdminUser } from '@codebuff/internal/utils'
+import { checkUserIsCodebuffAdmin, AdminUser } from '@codebuff/internal/utils'
 import { logger } from '@/util/logger'
 
 /**
@@ -12,8 +12,12 @@ export async function checkAdminAuth(): Promise<AdminUser | NextResponse> {
   const session = await getServerSession(authOptions)
 
   // Use shared admin check utility
-  const adminUser = await checkSessionIsAdmin(session)
-  if (!adminUser) {
+  if (!session || !session.user?.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  
+  const isAdmin = await checkUserIsCodebuffAdmin(session.user.id)
+  if (!isAdmin) {
     if (session?.user?.id) {
       logger.warn(
         { userId: session.user.id },
@@ -23,7 +27,11 @@ export async function checkAdminAuth(): Promise<AdminUser | NextResponse> {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  return adminUser
+  return {
+    id: session.user.id,
+    email: session.user.email || '',
+    name: session.user.name || null,
+  }
 }
 
 /**

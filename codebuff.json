@@ -47,16 +47,16 @@
     },
 
     {
-      "name": "common-unit-tests",
+      "name": "internal-unit-tests",
       "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
-      "cwd": "common",
-      "filePattern": "common/**/*.ts"
+      "cwd": "packages/internal",
+      "filePattern": "packages/internal/**/*.ts"
     },
     {
-      "name": "common-typecheck",
+      "name": "internal-typecheck",
       "command": "bun run typecheck",
-      "cwd": "common",
-      "filePattern": "common/**/*.ts"
+      "cwd": "packages/internal",
+      "filePattern": "packages/internal/**/*.ts"
     }
   ],
   "maxAgentSteps": 20

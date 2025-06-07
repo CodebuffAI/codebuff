@@ -10,8 +10,8 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { CreditBalance } from '@codebuff/billing'
-import { GrantType } from 'common/db/schema'
-import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
+import { GrantType } from '@codebuff/internal/db/schema'
+import { GRANT_PRIORITIES } from '@codebuff/internal/constants/grant-priorities'
 import { pluralize } from 'common/util/string'
 import {
   ChevronDown,

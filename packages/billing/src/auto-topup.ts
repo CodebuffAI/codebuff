@@ -1,11 +1,11 @@
-import db from 'common/db'
-import * as schema from 'common/db/schema'
-import { CREDIT_PRICING } from 'common/src/constants'
-import { env } from 'common/src/env.mjs'
-import { convertCreditsToUsdCents } from 'common/util/currency'
-import { getNextQuotaReset } from 'common/util/dates'
-import { logger } from 'common/util/logger'
-import { stripeServer } from 'common/util/stripe'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
+import { CREDIT_PRICING } from '../../../common/src/constants'
+import { env } from '../../../common/src/env.mjs'
+import { convertCreditsToUsdCents } from '../../../common/src/util/currency'
+import { getNextQuotaReset } from '../../../common/src/util/dates'
+import { logger } from '../../../common/src/util/logger'
+import { stripeServer } from '../../../common/src/util/stripe'
 import { eq } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { calculateUsageAndBalance } from './balance-calculator'
@@ -416,7 +416,7 @@ async function getOrganizationPaymentMethod(
     }
   }
 
-  return paymentMethodToUse
+  return paymentMethodToUse!
 }
 
 async function processOrgAutoTopupPayment(

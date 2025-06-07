@@ -1,8 +1,8 @@
-import { stripeServer, getCurrentSubscription } from 'common/src/util/stripe'
+import { stripeServer, getCurrentSubscription } from '@codebuff/common/util/stripe'
 import { env } from '@/env.mjs'
 import type Stripe from 'stripe'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { sql } from 'drizzle-orm'
 import { or, eq } from 'drizzle-orm'
 
@@ -34,6 +34,8 @@ export async function checkForUnpaidInvoices(customerId: string) {
       status: 400,
     }
   }
+  
+  return null
 }
 
 export async function getTotalReferralCreditsForCustomer(

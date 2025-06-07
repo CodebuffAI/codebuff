@@ -1,8 +1,8 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
 import CardWithBeams from '@/components/card-with-beams'
 import { env } from '@/env.mjs'

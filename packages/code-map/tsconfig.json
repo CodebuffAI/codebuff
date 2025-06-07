@@ -1,9 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "composite": true,
+    "rootDir": ".",
+    "outDir": "./dist",
+    "baseUrl": "../../",
     "types": ["node", "bun"],
     "typeRoots": ["node_modules/@types", "../../node_modules/@types"],
-    "outDir": "./dist",
     "esModuleInterop": true
   },
   "exclude": [

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/use-toast'
 import { clamp } from '@/lib/utils'
 import debounce from 'lodash/debounce'
-import { CREDIT_PRICING } from 'common/src/constants'
+import { CREDIT_PRICING } from '@codebuff/common/constants'
 
 // Organization-specific constants based on the plan
 const ORG_AUTO_TOPUP_CONSTANTS = {

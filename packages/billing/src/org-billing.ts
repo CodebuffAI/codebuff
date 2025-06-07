@@ -1,19 +1,17 @@
-import db from 'common/db'
-import * as schema from 'common/db/schema'
-import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
-import { GrantType } from 'common/db/schema'
-import { logger } from 'common/util/logger'
-import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
-import { withSerializableTransaction } from 'common/db/transaction'
-import { GrantTypeValues } from 'common/types/grant'
-import { stripeServer } from 'common/util/stripe'
-import { getNextQuotaReset } from 'common/util/dates'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
+import { and, asc, desc, eq, gt, isNull, or, sql } from 'drizzle-orm'
+import { GrantType } from '@codebuff/internal/db/schema'
+import { logger } from '../../../common/src/util/logger'
+import { GRANT_PRIORITIES } from '@codebuff/internal/constants/grant-priorities'
+import { withSerializableTransaction } from '@codebuff/internal/db/transaction'
+import { GrantTypeValues } from '../../../common/src/types/grant'
+import { stripeServer } from '../../../common/src/util/stripe'
+import { getNextQuotaReset } from '../../../common/src/util/dates'
 import {
   CreditBalance,
   CreditUsageAndBalance,
   CreditConsumptionResult,
-  getOrderedActiveGrants,
-  updateGrantBalance,
   consumeFromOrderedGrants,
 } from './balance-calculator'
 
@@ -174,8 +172,8 @@ export async function calculateOrganizationUsageAndBalance(
   >
 
   for (const type of GrantTypeValues) {
-    initialBreakdown[type] = 0
-    initialPrincipals[type] = 0
+    initialBreakdown[type as GrantType] = 0
+    initialPrincipals[type as GrantType] = 0
   }
 
   // Initialize balance structure

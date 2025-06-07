@@ -1,6 +1,6 @@
-import db from '../common/src/db/index'
+import db from '@codebuff/internal/db'
 import fs from 'fs'
-import * as schema from '../common/src/db/schema'
+import * as schema from '@codebuff/internal/db/schema'
 
 async function applyCreditMigration() {
   try {

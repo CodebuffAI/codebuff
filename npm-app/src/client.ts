@@ -20,7 +20,7 @@ import {
 } from 'fs'
 import os from 'os'
 
-import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
+import { ApiKeyType, READABLE_NAME } from '@codebuff/internal/api-keys/constants'
 import {
   ASKED_CONFIG,
   CostMode,

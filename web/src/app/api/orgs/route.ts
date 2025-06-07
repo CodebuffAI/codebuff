@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { eq, and } from 'drizzle-orm'
 import {
   CreateOrganizationRequest,
   ListOrganizationsResponse,
 } from 'common/types/organization'
 import { stripeServer } from 'common/util/stripe'
-import { env } from 'common/src/env.mjs'
+import { env } from '@codebuff/common/env.mjs'
 import { logger } from '@/util/logger'
 
 function validateOrganizationName(name: string): string | null {

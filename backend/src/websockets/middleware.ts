@@ -11,8 +11,8 @@ import {
   checkAndTriggerAutoTopup,
   checkAndTriggerOrgAutoTopup,
 } from '@codebuff/billing'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
 import { pluralize } from 'common/util/string'
 import { env } from '@/env.mjs'

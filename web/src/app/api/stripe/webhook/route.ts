@@ -3,9 +3,9 @@ import Stripe from 'stripe'
 import { eq } from 'drizzle-orm'
 
 import { env } from '@/env.mjs'
-import { stripeServer } from 'common/src/util/stripe'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import { stripeServer } from '@codebuff/common/util/stripe'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { logger } from '@/util/logger'
 import { convertStripeGrantAmountToCredits } from 'common/util/currency'
 import {

@@ -4,11 +4,8 @@
     "outDir": "./dist",
     "rootDir": ".",
     "composite": true,
-    "baseUrl": ".",
-    "paths": {
-      "common/*": ["../../common/src/*"],
-      "@codebuff/common/*": ["../../common/src/*"]
-    }
+    "baseUrl": "../../",
+    "skipLibCheck": true
   },
   "include": ["./**/*", "!dist/**/*", "!node_modules/**/*"],
   "references": [{ "path": "../../common" }]

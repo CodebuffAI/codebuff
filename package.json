@@ -15,7 +15,7 @@
     "evals"
   ],
   "scripts": {
-    "start-db": "bun --cwd common db:start",
+    "start-db": "bun --cwd packages/internal db:start",
     "start-client": "bun --cwd npm-app start",
     "start-experimental": "bun --cwd npm-app start-experimental",
     "start-max": "bun --cwd npm-app start-max",
@@ -23,7 +23,7 @@
     "start-ask": "bun --cwd npm-app start-ask",
     "start-superagent": "bun --cwd npm-app start-superagent",
     "start-web": "bun run start-db && bun --cwd web dev",
-    "start-studio": "bun --cwd common db:studio",
+    "start-studio": "bun --cwd packages/internal db:studio",
     "start-server": "bun --cwd backend dev",
     "start-manifold": "bun --cwd npm-app start-manifold",
     "start-codebuff-test": "bun --cwd npm-app start-dir ../../codebuff-test",

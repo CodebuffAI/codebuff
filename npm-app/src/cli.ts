@@ -4,7 +4,7 @@ import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
-import { type ApiKeyType } from 'common/api-keys/constants'
+import { type ApiKeyType } from '@codebuff/internal/api-keys/constants'
 import type { CostMode } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { ProjectFileContext } from 'common/util/file'

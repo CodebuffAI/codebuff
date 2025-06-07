@@ -33,6 +33,7 @@ export const env = createEnv({
       .length(32, 'API_KEY_ENCRYPTION_SECRET must be 32 characters long'),
     NEXT_PUBLIC_POSTHOG_API_KEY: z.string().min(1),
     NEXT_PUBLIC_POSTHOG_HOST_URL: z.string().url().optional(),
+    LOOPS_API_KEY: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),

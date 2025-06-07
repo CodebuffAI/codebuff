@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAdminAuth } from '../../admin-auth'
 import { AdminUser } from '@codebuff/internal/utils'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { eq, sql, desc } from 'drizzle-orm'
 
 async function exportOrganizations(

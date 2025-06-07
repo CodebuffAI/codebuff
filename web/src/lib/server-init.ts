@@ -1,4 +1,4 @@
-import { initAnalytics } from 'common/src/analytics'
+import { initAnalytics } from '@codebuff/common/analytics'
 // Errors if this file is included in client bundles
 import 'server-only'
 

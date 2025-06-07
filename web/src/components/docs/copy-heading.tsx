@@ -14,6 +14,7 @@ export function CopyHeading({
       const t = setTimeout(() => setCopied(false), 2000)
       return () => clearTimeout(t)
     }
+    return
   }, [copied])
 
   const title = children?.toString()

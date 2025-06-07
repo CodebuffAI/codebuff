@@ -1,6 +1,6 @@
 import { eq, desc } from 'drizzle-orm'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { fileRegex } from 'common/util/file'
 import fs from 'fs'
 import path from 'path'

@@ -13,6 +13,12 @@
     "incremental": true,
     "skipLibCheck": true,
     "declaration": true,
-    "declarationMap": true
+    "declarationMap": true,
+    "paths": {
+      "@codebuff/common/*": ["common/src/*"],
+      "@codebuff/internal/*": ["packages/internal/*"],
+      "@codebuff/billing/*": ["packages/billing/src/*"],
+      "@codebuff/code-map/*": ["packages/code-map/*"]
+    }
   }
 }

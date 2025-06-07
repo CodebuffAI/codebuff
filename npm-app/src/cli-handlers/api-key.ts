@@ -1,4 +1,4 @@
-import { API_KEY_TYPES, ApiKeyType, KEY_LENGTHS, KEY_PREFIXES } from 'common/api-keys/constants'
+import { API_KEY_TYPES, ApiKeyType, KEY_LENGTHS, KEY_PREFIXES } from '@codebuff/internal/api-keys/constants'
 import { yellow } from 'picocolors'
 
 import { Client } from '../client'

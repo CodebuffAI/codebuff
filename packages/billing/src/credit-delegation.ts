@@ -1,7 +1,7 @@
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { eq, and } from 'drizzle-orm'
-import { logger } from 'common/util/logger'
+import { logger } from '../../../common/src/util/logger'
 import {
   consumeOrganizationCredits,
   normalizeRepositoryUrl,

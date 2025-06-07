@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm'
-import * as schema from 'common/db/schema'
-import db from 'common/db'
+import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/internal/db'
 import { getReferralLink } from 'common/util/referral'
 import { env } from '@/env.mjs'
 

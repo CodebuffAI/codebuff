@@ -4,8 +4,8 @@ import {
   NextFunction,
 } from 'express'
 import { z } from 'zod'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
 
 import { checkAuth } from '../util/check-auth'
@@ -27,7 +27,7 @@ async function getUserIdFromAuthToken(
     .from(schema.user)
     .innerJoin(schema.session, eq(schema.user.id, schema.session.userId))
     .where(eq(schema.session.sessionToken, token))
-    .then((users) => users[0]?.userId)
+    .then((users: { userId: string }[]) => users[0]?.userId)
   return user
 }
 

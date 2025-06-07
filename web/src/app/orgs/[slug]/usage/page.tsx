@@ -20,7 +20,7 @@ import {
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
-import { pluralize } from 'common/src/util/string'
+import { pluralize } from '@codebuff/common/util/string'
 
 interface UsageData {
   currentBalance: number

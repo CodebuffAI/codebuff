@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { pluralize } from 'common/src/util/string'
+import { pluralize } from '@codebuff/common/util/string'
 
 interface Repository {
   id: string

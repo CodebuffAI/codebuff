@@ -1,5 +1,5 @@
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
 import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'

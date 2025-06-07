@@ -3,10 +3,10 @@ import { getServerSession } from 'next-auth'
 import { eq, and } from 'drizzle-orm'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { logger } from '@/util/logger'
-import { stripeServer } from 'common/src/util/stripe'
+import { stripeServer } from '@codebuff/common/util/stripe'
 import { env } from '@/env.mjs'
 
 interface RouteParams {
