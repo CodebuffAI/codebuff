@@ -8,7 +8,7 @@ import {
   insertRelabel,
   Relabel,
   setupBigQuery,
-} from '@codebuff/bigquery'
+} from '@codebuff/internal/bigquery'
 import {
   AnthropicModel,
   claudeModels,

@@ -1,4 +1,4 @@
-import * as bigquery from '@codebuff/bigquery'
+import * as bigquery from '@codebuff/internal/bigquery'
 import {
   afterEach,
   beforeEach,

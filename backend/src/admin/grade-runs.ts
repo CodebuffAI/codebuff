@@ -1,7 +1,5 @@
 import { promptAiSdk } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
-import { Relabel } from '@codebuff/bigquery'
-
-import { GetRelevantFilesTrace } from '@codebuff/bigquery'
+import { Relabel, GetRelevantFilesTrace } from '@codebuff/internal/bigquery'
 import { claudeModels, TEST_USER_ID } from 'common/constants'
 
 const PROMPT = `

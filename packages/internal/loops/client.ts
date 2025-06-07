@@ -1,5 +1,4 @@
 import { logger } from 'common/src/util/logger'
-import { LoopsClient, APIError } from 'loops'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
@@ -9,10 +8,30 @@ import type { LoopsEmailData, SendEmailResult } from './types'
 const ORGANIZATION_INVITATION_TRANSACTIONAL_ID = 'cmbikixxm15xo4a0iiemzkzw1'
 const BASIC_TRANSACTIONAL_ID = 'cmb8pafk92r820w0i7lkplkt2'
 
-// Initialize Loops client
-let loopsClient: LoopsClient | null = null
-if (process.env.LOOPS_API_KEY) {
-  loopsClient = new LoopsClient(process.env.LOOPS_API_KEY)
+// Lazy initialization of Loops client
+let loopsClient: any | null = null
+let LoopsClient: any = null
+let APIError: any = null
+
+function initializeLoopsClient() {
+  if (loopsClient !== null) return loopsClient
+
+  try {
+    const loops = require('loops')
+    LoopsClient = loops.LoopsClient
+    APIError = loops.APIError
+    
+    if (process.env.LOOPS_API_KEY && LoopsClient) {
+      loopsClient = new LoopsClient(process.env.LOOPS_API_KEY)
+    } else {
+      loopsClient = false // Mark as attempted but failed
+    }
+  } catch (error) {
+    // Silently fail in test environments or when loops package is not available
+    loopsClient = false
+  }
+  
+  return loopsClient
 }
 
 async function sendTransactionalEmail(
@@ -20,7 +39,8 @@ async function sendTransactionalEmail(
   email: string,
   dataVariables: Record<string, any> = {}
 ): Promise<SendEmailResult> {
-  if (!loopsClient) {
+  const client = initializeLoopsClient()
+  if (!client) {
     return {
       success: false,
       error:
@@ -29,7 +49,7 @@ async function sendTransactionalEmail(
   }
 
   try {
-    const response = await loopsClient.sendTransactionalEmail({
+    const response = await client.sendTransactionalEmail({
       transactionalId,
       email,
       dataVariables,
@@ -40,12 +60,13 @@ async function sendTransactionalEmail(
       'Loops transactional email sent successfully via SDK'
     )
     return { success: true, loopsId: (response as any)?.id }
-  } catch (error) {
+  } catch (error: any) {
     let errorMessage = 'Unknown SDK error during transactional email'
     if (error instanceof APIError) {
       logger.error(
         {
-          ...error,
+          message: error.message,
+          statusCode: error.statusCode,
           email,
           transactionalId,
           errorType: 'APIError',
@@ -68,7 +89,8 @@ export async function sendSignupEventToLoops(
   email: string | null,
   name: string | null
 ): Promise<void> {
-  if (!loopsClient) {
+  const client = initializeLoopsClient()
+  if (!client) {
     logger.warn({ userId }, 'Loops SDK not initialized. Skipping signup event.')
     return
   }
@@ -81,7 +103,7 @@ export async function sendSignupEventToLoops(
   }
 
   try {
-    const response = await loopsClient.sendEvent({
+    const response = await client.sendEvent({
       eventName: 'signup',
       email,
       userId,
@@ -94,11 +116,12 @@ export async function sendSignupEventToLoops(
       { email, userId, eventName: 'signup', loopsId: (response as any)?.id },
       'Sent signup event to Loops via SDK'
     )
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof APIError) {
       logger.error(
         {
-          ...error,
+          message: error.message,
+          statusCode: error.statusCode,
           email,
           userId,
           eventName: 'signup',

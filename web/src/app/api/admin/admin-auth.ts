@@ -1,18 +1,18 @@
 import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { utils } from '@codebuff/internal'
+import { checkSessionIsAdmin, AdminUser } from '@codebuff/internal/utils'
 import { logger } from '@/util/logger'
 
 /**
  * Check if the current user is a Codebuff admin
  * Returns the admin user if authorized, or a NextResponse error if not
  */
-export async function checkAdminAuth(): Promise<utils.AdminUser | NextResponse> {
+export async function checkAdminAuth(): Promise<AdminUser | NextResponse> {
   const session = await getServerSession(authOptions)
 
   // Use shared admin check utility
-  const adminUser = await utils.checkSessionIsAdmin(session)
+  const adminUser = await checkSessionIsAdmin(session)
   if (!adminUser) {
     if (session?.user?.id) {
       logger.warn(
@@ -30,7 +30,7 @@ export async function checkAdminAuth(): Promise<utils.AdminUser | NextResponse> 
  * Higher-order function to wrap admin API routes with authentication
  */
 export function withAdminAuth<T extends any[]>(
-  handler: (adminUser: utils.AdminUser, ...args: T) => Promise<NextResponse>
+  handler: (adminUser: AdminUser, ...args: T) => Promise<NextResponse>
 ) {
   return async (...args: T): Promise<NextResponse> => {
     const authResult = await checkAdminAuth()

@@ -5,7 +5,7 @@ import {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesTrace,
   insertTrace,
-} from '@codebuff/bigquery'
+} from '@codebuff/internal/bigquery'
 import { finetunedVertexModels, models, type CostMode } from 'common/constants'
 import { getAllFilePaths } from 'common/project-file-tree'
 import {

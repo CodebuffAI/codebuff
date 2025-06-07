@@ -5,7 +5,7 @@ import {
   insertRelabel,
   Relabel,
   setupBigQuery,
-} from '@codebuff/bigquery'
+} from '@codebuff/internal/bigquery'
 import { castAssistantMessage } from 'backend/util/messages'
 import {
   finetunedVertexModelNames,

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth } from '@/lib/admin-auth'
-import { utils } from '@codebuff/internal'
+import { withAdminAuth } from '../admin-auth'
+import { AdminUser } from '@codebuff/internal/utils'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, sql, desc } from 'drizzle-orm'
 import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
 
 async function getOrganizations(
-  adminUser: utils.AdminUser,
+  adminUser: AdminUser,
   request: NextRequest
 ): Promise<NextResponse> {
   try {
@@ -50,8 +50,10 @@ async function getOrganizations(
 
     const organizationSummaries = await Promise.all(
       organizations.map(async (org) => {
-        const memberCount = memberCounts.find(m => m.org_id === org.id)?.count || 0
-        const repositoryCount = repoCounts.find(r => r.org_id === org.id)?.count || 0
+        const memberCount =
+          memberCounts.find((m) => m.org_id === org.id)?.count || 0
+        const repositoryCount =
+          repoCounts.find((r) => r.org_id === org.id)?.count || 0
 
         // Get credit balance and usage
         let creditBalance = 0
@@ -59,11 +61,12 @@ async function getOrganizations(
         let healthStatus: 'healthy' | 'warning' | 'critical' = 'healthy'
 
         try {
-          const { balance, usageThisCycle: usage } = await calculateOrganizationUsageAndBalance(
-            org.id,
-            currentMonthStart,
-            now
-          )
+          const { balance, usageThisCycle: usage } =
+            await calculateOrganizationUsageAndBalance(
+              org.id,
+              currentMonthStart,
+              now
+            )
           creditBalance = balance.netBalance
           usageThisCycle = usage
 
@@ -96,7 +99,9 @@ async function getOrganizations(
           usage_this_cycle: usageThisCycle,
           health_status: healthStatus,
           created_at: org.created_at.toISOString(),
-          last_activity: lastActivity[0]?.finished_at.toISOString() || org.created_at.toISOString(),
+          last_activity:
+            lastActivity[0]?.finished_at.toISOString() ||
+            org.created_at.toISOString(),
         }
       })
     )

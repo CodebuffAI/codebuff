@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth } from '@/lib/admin-auth'
-import { utils } from '@codebuff/internal'
+import { withAdminAuth } from '../admin-auth'
+import { AdminUser } from '@codebuff/internal/utils'
 import { logger } from '@/util/logger'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
@@ -77,7 +77,7 @@ async function handleBackendResponse(response: Response) {
 
 // GET handler for fetching traces
 async function getRelabelData(
-  adminUser: utils.AdminUser,
+  adminUser: AdminUser,
   req: NextRequest
 ): Promise<NextResponse> {
   const userId = req.nextUrl.searchParams.get('userId')
@@ -111,7 +111,7 @@ async function getRelabelData(
 
 // POST handler for running relabelling
 async function runRelabeling(
-  adminUser: utils.AdminUser,
+  adminUser: AdminUser,
   req: NextRequest
 ): Promise<NextResponse> {
   const userId = req.nextUrl.searchParams.get('userId')

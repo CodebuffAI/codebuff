@@ -5,7 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, isNull, inArray } from 'drizzle-orm'
 import { checkOrganizationPermission } from '@/lib/organization-permissions'
-import { sendOrganizationInvitationEmail } from '@codebuff/internal'
+import { sendOrganizationInvitationEmail } from '@codebuff/internal/loops'
 import { logger } from '@/util/logger'
 import crypto from 'crypto'
 import { env } from '@/env.mjs'; // Added import

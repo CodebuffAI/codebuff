@@ -2,7 +2,7 @@ import {
   GetRelevantFilesPayload,
   getTracesWithoutRelabels,
   insertRelabel,
-} from '@codebuff/bigquery'
+} from '@codebuff/internal/bigquery'
 import { promptFlashWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
 import { claudeModels, models, TEST_USER_ID } from 'common/constants'
 import { Message } from 'common/types/message'

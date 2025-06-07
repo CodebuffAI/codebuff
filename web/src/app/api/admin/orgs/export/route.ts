@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth } from '@/lib/admin-auth'
-import { utils } from '@codebuff/internal'
+import { withAdminAuth } from '../../admin-auth'
+import { AdminUser } from '@codebuff/internal/utils'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, sql, desc } from 'drizzle-orm'
 
 async function exportOrganizations(
-  adminUser: utils.AdminUser,
+  adminUser: AdminUser,
   request: NextRequest
 ): Promise<NextResponse> {
   try {
@@ -49,10 +49,10 @@ async function exportOrganizations(
       'Auto Topup Amount',
       'Credit Limit',
       'Billing Alerts',
-      'Usage Alerts'
+      'Usage Alerts',
     ]
 
-    const csvRows = organizations.map(org => [
+    const csvRows = organizations.map((org) => [
       org.id,
       org.name,
       org.slug,
@@ -67,20 +67,22 @@ async function exportOrganizations(
       org.auto_topup_amount?.toString() || '',
       org.credit_limit?.toString() || '',
       org.billing_alerts ? 'Yes' : 'No',
-      org.usage_alerts ? 'Yes' : 'No'
+      org.usage_alerts ? 'Yes' : 'No',
     ])
 
     const csvContent = [
       csvHeaders.join(','),
-      ...csvRows.map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+      ...csvRows.map((row) =>
+        row.map((field) => `"${String(field).replace(/"/g, '""')}"`).join(',')
+      ),
     ].join('\n')
 
     const now = new Date()
     return new NextResponse(csvContent, {
       headers: {
         'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="organizations-export-${now.toISOString().split('T')[0]}.csv"`
-      }
+        'Content-Disposition': `attachment; filename="organizations-export-${now.toISOString().split('T')[0]}.csv"`,
+      },
     })
   } catch (error) {
     console.error('Error exporting organizations:', error)

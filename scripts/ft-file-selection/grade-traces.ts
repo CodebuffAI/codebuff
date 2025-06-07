@@ -1,4 +1,4 @@
-import { getTracesAndRelabelsForUser, setupBigQuery } from '@codebuff/bigquery'
+import { getTracesAndRelabelsForUser, setupBigQuery } from '@codebuff/internal/bigquery'
 import { logger } from 'common/src/util/logger'
 import { gradeRun } from '../../backend/src/admin/grade-runs'
 

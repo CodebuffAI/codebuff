@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "composite": true,
     "baseUrl": ".",
     "paths": {
@@ -10,6 +10,6 @@
       "@codebuff/common/*": ["../../common/src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["./**/*", "!dist/**/*", "!node_modules/**/*"],
   "references": [{ "path": "../../common" }]
 }

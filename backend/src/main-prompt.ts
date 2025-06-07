@@ -3,7 +3,7 @@ import {
   AgentResponseTrace,
   GetExpandedFileContextForTrainingBlobTrace,
   insertTrace,
-} from '@codebuff/bigquery'
+} from '@codebuff/internal/bigquery'
 import { ClientAction } from 'common/actions'
 import {
   HIDDEN_FILE_READ_STATUS,

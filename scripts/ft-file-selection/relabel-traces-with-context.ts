@@ -3,7 +3,7 @@ import {
   GetRelevantFilesPayload,
   getTracesAndAllDataForUser,
   setupBigQuery,
-} from '@codebuff/bigquery'
+} from '@codebuff/internal/bigquery'
 import { claudeModels } from 'common/constants'
 import { relabelWithClaudeWithFullFileContext } from '../../backend/src/admin/relabelRuns'
 

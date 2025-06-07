@@ -10,11 +10,16 @@
     "baseUrl": ".",
     "paths": {
       "backend/*": ["../backend/src/*"],
-      "common/*": ["../common/src/*"]
+      "common/*": ["../common/src/*"],
+      "@codebuff/internal": ["../packages/internal/src"]
     },
     "types": ["bun"]
   },
   "include": ["**/*"],
   "exclude": ["node_modules"],
-  "references": [{ "path": "../backend" }, { "path": "../common" }]
+  "references": [
+    { "path": "../backend" }, 
+    { "path": "../common" },
+    { "path": "../packages/internal" }
+  ]
 }

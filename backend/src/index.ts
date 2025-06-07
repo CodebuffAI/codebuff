@@ -1,6 +1,6 @@
 import http from 'http'
 
-import { setupBigQuery } from '@codebuff/bigquery'
+import { setupBigQuery } from '@codebuff/internal/bigquery'
 import { flushAnalytics, initAnalytics } from 'common/src/analytics'
 import cors from 'cors'
 import express from 'express'

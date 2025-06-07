@@ -6,7 +6,7 @@ import {
   getTracesWithRelabels,
   Relabel,
   setupBigQuery,
-} from '@codebuff/bigquery'
+} from '@codebuff/internal/bigquery'
 import { Message } from 'common/types/message'
 
 // Get model from command line args

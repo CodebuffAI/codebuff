@@ -7,7 +7,7 @@ import { ServerAction } from 'common/actions'
 import { logger } from '@/util/logger'
 import { triggerMonthlyResetAndGrant } from '@codebuff/billing'
 
-import * as internal from '@codebuff/internal'
+import { checkAuthToken, checkUserIsCodebuffAdmin } from '@codebuff/internal/utils'
 
 export const checkAuth = async ({
   fingerprintId,
@@ -19,7 +19,7 @@ export const checkAuth = async ({
   clientSessionId: string
 }): Promise<void | ServerAction> => {
   // Use shared auth check functionality
-  const authResult = await internal.utils.checkAuthToken({
+  const authResult = await checkAuthToken({
     fingerprintId,
     authToken,
   })
@@ -95,7 +95,7 @@ export const checkAdmin = async (
   }
 
   // Check if user has admin access using shared utility
-  const adminUser = await internal.utils.checkUserIsCodebuffAdmin(user.id)
+  const adminUser = await checkUserIsCodebuffAdmin(user.id)
   if (!adminUser) {
     logger.warn(
       { userId: user.id, email: user.email, clientSessionId },

@@ -10,6 +10,7 @@
     "typecheck-this-package": "tsc --noEmit"
   },
   "dependencies": {
+    "@google-cloud/bigquery": "^7.9.4",
     "common": "workspace:*",
     "drizzle-orm": "*",
     "loops": "^5.0.1"
