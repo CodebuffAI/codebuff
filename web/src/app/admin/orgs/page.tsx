@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +22,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
+import { ModelConfigSheet } from '@/components/organization/model-config-sheet'
 
 interface OrganizationSummary {
   id: string
@@ -44,9 +46,11 @@ export default function AdminOrganizationsPage() {
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<
-    'all' | 'healthy' | 'warning' | 'critical'
-  >('all')
+  const [sortOrder, setSortOrder] = useState('desc')
+  const [selectedOrg, setSelectedOrg] = useState<OrganizationSummary | null>(
+    null
+  )
+  const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -309,55 +313,65 @@ export default function AdminOrganizationsPage() {
 
         {/* Organizations List */}
         <div className="space-y-4">
-          {filteredOrganizations.map((org) => (
-            <Card key={org.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
+          <Table>
+            <TableBody>
+              {filteredOrganizations.map((org) => (
+                <TableRow key={org.id}>
+                  <TableCell>
                     {getHealthStatusIcon(org.health_status)}
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="text-lg font-semibold">{org.name}</h3>
-                        {getHealthStatusBadge(org.health_status)}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Owner: {org.owner_name} • Created:{' '}
-                        {new Date(org.created_at).toLocaleDateString()}
-                      </p>
-                      <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
-                        <span className="flex items-center">
-                          <Users className="h-4 w-4 mr-1" />
-                          {org.member_count} members
-                        </span>
-                        <span className="flex items-center">
-                          <GitBranch className="h-4 w-4 mr-1" />
-                          {org.repository_count} repos
-                        </span>
-                        <span className="flex items-center">
-                          <CreditCard className="h-4 w-4 mr-1" />
-                          {org.credit_balance.toLocaleString()} credits
-                        </span>
-                      </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-lg font-semibold">{org.name}</h3>
+                      {getHealthStatusBadge(org.health_status)}
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Link href={`/orgs/${org.slug}`}>
+                    <p className="text-sm text-muted-foreground">
+                      Owner: {org.owner_name} • Created:{' '}
+                      {new Date(org.created_at).toLocaleDateString()}
+                    </p>
+                    <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
+                      <span className="flex items-center">
+                        <Users className="h-4 w-4 mr-1" />
+                        {org.member_count} members
+                      </span>
+                      <span className="flex items-center">
+                        <GitBranch className="h-4 w-4 mr-1" />
+                        {org.repository_count} repos
+                      </span>
+                      <span className="flex items-center">
+                        <CreditCard className="h-4 w-4 mr-1" />
+                        {org.credit_balance.toLocaleString()} credits
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Link href={`/admin/orgs/${org.id}`}>
                       <Button variant="outline" size="sm">
-                        <Eye className="mr-2 h-4 w-4" />
                         View
                       </Button>
                     </Link>
-                    <Button variant="outline" size="sm">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedOrg(org)}
+                    >
                       <Settings className="mr-2 h-4 w-4" />
                       Manage
                     </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </div>
+      {selectedOrg && (
+        <ModelConfigSheet
+          organization={selectedOrg}
+          isOpen={!!selectedOrg}
+          onClose={() => setSelectedOrg(null)}
+        />
+      )}
     </div>
   )
 }

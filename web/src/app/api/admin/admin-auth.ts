@@ -34,11 +34,11 @@ export function withAdminAuth<T extends any[]>(
 ) {
   return async (...args: T): Promise<NextResponse> => {
     const authResult = await checkAdminAuth()
-    
+
     if (authResult instanceof NextResponse) {
       return authResult // Return the error response
     }
-    
+
     return handler(authResult, ...args)
   }
 }

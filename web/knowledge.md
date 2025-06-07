@@ -118,6 +118,10 @@ When creating interactive demos:
     - Set z-50 to ensure card appears above other content
     - Use transition-opacity for smooth fade effects
 
+### Data Fetching
+
+- **Prefer `useQuery` and `useMutation`**: For all data fetching and mutations, use `@tanstack/react-query`'s `useQuery` and `useMutation` hooks instead of `useEffect` with `fetch`. This provides better caching, state management, and a more declarative API.
+
 ### Code Style
 
 - Use ts-pattern's match syntax instead of complex if/else chains
@@ -352,3 +356,7 @@ Important: When modifying or using code from common:
 - Always build common package first before running web type checking
 - Changes to common won't be reflected in web until common is rebuilt
 - This applies to new exports, type changes, and utility functions
+
+## File Naming Conventions
+
+- **Components and Hooks**: Use kebab-case for filenames (e.g., `model-config-sheet.tsx`, `use-model-config.ts`). This ensures consistency across the project.
