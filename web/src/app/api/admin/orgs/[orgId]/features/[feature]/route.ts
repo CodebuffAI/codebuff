@@ -69,13 +69,11 @@ export async function POST(
         org_id: orgId,
         feature: feature,
         config: body,
-        updated_by: authResult.id,
       })
       .onConflictDoUpdate({
         target: [schema.orgFeature.org_id, schema.orgFeature.feature],
         set: {
           config: body,
-          updated_by: authResult.id,
           updated_at: new Date(),
         },
       })
