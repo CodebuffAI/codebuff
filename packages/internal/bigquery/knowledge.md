@@ -36,7 +36,7 @@ Stores relabeling data with fields:
 ## Usage
 
 ```typescript
-import { setupBigQuery, insertTrace } from '@codebuff/bigquery';
+import { setupBigQuery, insertTrace } from '@codebuff/internal/bigquery';
 
 // Initialize BigQuery client
 await setupBigQuery();
