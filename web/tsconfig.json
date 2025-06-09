@@ -26,7 +26,7 @@
       "common/*": ["../common/src/*"],
       "@codebuff/common/*": ["../common/src/*"],
       "@codebuff/billing/*": ["../packages/billing/src/*"],
-      "@codebuff/internal/*": ["../packages/internal/*"]
+      "@codebuff/internal/*": ["../packages/internal/src/*"]
     }
   },
   "include": [
@@ -37,6 +37,11 @@
     ".contentlayer/generated"
   ],
   "exclude": ["node_modules"],
+  "references": [
+    { "path": "../common" },
+    { "path": "../packages/billing" },
+    { "path": "../packages/internal" }
+  ],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }

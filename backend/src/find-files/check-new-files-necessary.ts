@@ -1,4 +1,4 @@
-import { CostMode, models } from 'common/constants'
+import { CostMode, models } from '@codebuff/common/constants'
 
 import { System } from '@/llm-apis/claude'
 import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'

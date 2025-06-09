@@ -10,7 +10,8 @@
     "typecheck-this-package": "tsc --noEmit"
   },
   "dependencies": {
-    "common": "workspace:*",
+    "@codebuff/internal": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "zod": "3.23.8"
   },
   "devDependencies": {

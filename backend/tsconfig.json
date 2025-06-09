@@ -18,6 +18,7 @@
     "paths": {
       "common/*": ["./src/common/*", "../common/src/*"],
       "@/*": ["./src/*"],
+      "@codebuff/common/*": ["../common/src/*"],
       "@codebuff/billing": ["../packages/billing/src"],
       "@codebuff/internal": ["../packages/internal/src"]
     },

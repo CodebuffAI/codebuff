@@ -1,4 +1,4 @@
-import { CostMode } from 'common/constants'
+import { CostMode } from '@codebuff/common/constants'
 
 import { CoreMessage } from 'ai'
 import { getAgentStream } from './prompt-agent-stream'

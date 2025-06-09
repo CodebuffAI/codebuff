@@ -14,6 +14,7 @@
     "skipLibCheck": true,
     "declaration": true,
     "declarationMap": true,
+    "baseUrl": ".",
     "paths": {
       "@codebuff/common/*": ["common/src/*"],
       "@codebuff/internal/*": ["packages/internal/*"],

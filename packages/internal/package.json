@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.4",
-    "common": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "drizzle-orm": "0.36.4",
     "pg": "^8.14.1",
     "@t3-oss/env-core": "*",

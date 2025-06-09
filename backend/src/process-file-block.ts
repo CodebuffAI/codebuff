@@ -1,6 +1,6 @@
-import { CostMode, models } from 'common/constants'
-import { cleanMarkdownCodeBlock } from 'common/util/file'
-import { hasLazyEdit } from 'common/util/string'
+import { CostMode, models } from '@codebuff/common/constants'
+import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
+import { hasLazyEdit } from '@codebuff/common/util/string'
 import { createPatch } from 'diff'
 
 import { CoreMessage } from 'ai'
