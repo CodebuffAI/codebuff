@@ -115,9 +115,9 @@ export const getModelForMode = (
   if (operation === 'agent') {
     return {
       lite: models.gemini2_5_flash,
-      normal: models.sonnet,
-      max: models.sonnet,
-      experimental: models.gemini2_5_pro_preview,
+      normal: models.gemini2_5_pro_preview,
+      max: models.gemini2_5_pro_preview,
+      experimental: models.sonnet,
       ask: models.gemini2_5_pro_preview,
     }[costMode]
   }
