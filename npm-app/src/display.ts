@@ -5,9 +5,11 @@
  * renders as four newline characters. Because there is an ANSI escape
  * character between the first two and the last two newline characters.
  */
+import stringWidth from 'string-width'
 
+const PREFIX = '.\r\n'
 let squashingEnabled = false
-let previous = ' '
+let previous = PREFIX
 
 export function getPrevious(): string {
   return previous
@@ -25,12 +27,66 @@ export function disableSquashNewlines(): void {
   squashingEnabled = false
 }
 
+/** OSC  …  BEL | ST   (titles, hyperlinks, cwd hints, etc.) */
+const OSC = /\u001B\][^\u0007\u001B]*(?:\u0007|\u001B\\)/g
+
+/** CSI  …  final-byte   (cursor moves, ?2004h, colours if stripAnsi missed them) */
+const CSI = /\u001B\[[0-?]*[ -/]*[@-~]/g
+
+/** Zero-width Unicode code-points (format, combining, enclosing) */
+const ZW = /[\p{Cf}\p{Mn}\p{Me}]/gu
+
+/**
+ * `true` → after stripping VT controls and whitespace the string has zero width
+ */
+export function onlyWhitespace(raw: string): boolean {
+  const visible = raw
+    .replace(OSC, '') // remove OSC 0/7/8/133/697/…
+    .replace(CSI, '') // remove CSI H, A, ?2004h, …
+    .replace(/\s+/g, '') // remove spaces, tabs, CR, LF
+    .replace(ZW, '') // remove ZWJ, ZWNJ, VS16, etc.
+
+  return stringWidth(visible) === 0
+}
+
 function addCarriageReturn(str: string): string {
   // Do not copy over \n from previous
-  const base = (previous[previous.length - 1] === '\r' ? '\r' : ' ') + str
+  const base = (previous[previous.length - 1] === '\r' ? '\r' : '.') + str
   // Replace twice, because of no overlap '\n\n'
   const withCarriageReturns = base.replace(/(?<!\r)\n/g, '\r\n')
   return withCarriageReturns.slice(1)
+}
+
+function getLastTwoLines(str: string): string {
+  return PREFIX + str.split('\r\n').slice(-2).join('\r\n')
+}
+
+export function squashNewlines(str: string): string {
+  if (!str.startsWith(PREFIX)) {
+    throw new Error(`Expected string to start with ${JSON.stringify(PREFIX)}`)
+  }
+
+  const lines = str
+    .split('\r\n')
+    .map((line) => ({ line, empty: onlyWhitespace(line) }))
+
+  const agg: string[] = []
+  let consecutiveEmptyLines = 0
+  for (const { line, empty } of lines) {
+    if (consecutiveEmptyLines > 1) {
+      agg[agg.length - 1] += line
+    } else {
+      agg.push(line)
+    }
+
+    if (empty) {
+      consecutiveEmptyLines++
+    } else {
+      consecutiveEmptyLines = 0
+    }
+  }
+
+  return agg.join('\r\n')
 }
 
 const originalWrite = process.stdout.write.bind(process.stdout)
@@ -47,7 +103,7 @@ process.stdout.write = function (
 
   if (!squashingEnabled) {
     previous += chunkString
-    previous = previous.slice(previous.length - 4)
+    previous = getLastTwoLines(previous)
 
     if (typeof encodingOrCallback === 'function') {
       // Called like write(chunk, callback)
@@ -58,9 +114,9 @@ process.stdout.write = function (
   }
 
   const combinedContent = previous + chunkString
-  const processedContent = combinedContent.replace(/(\r\n){3,}/g, '\r\n\r\n')
+  const processedContent = squashNewlines(combinedContent)
   const processedChunk = processedContent.slice(previous.length)
-  previous = processedContent.slice(processedContent.length - 4)
+  previous = getLastTwoLines(processedContent)
 
   if (typeof encodingOrCallback === 'function') {
     // Called like write(chunk, callback)
@@ -84,7 +140,7 @@ process.stderr.write = function (
 
   if (!squashingEnabled) {
     previous += chunkString
-    previous = previous.slice(previous.length - 4)
+    previous = getLastTwoLines(previous)
 
     if (typeof encodingOrCallback === 'function') {
       // Called like write(chunk, callback)
@@ -95,9 +151,9 @@ process.stderr.write = function (
   }
 
   const combinedContent = previous + chunkString
-  const processedContent = combinedContent.replace(/\r\n{3,}/g, '\r\n\r\n')
+  const processedContent = squashNewlines(combinedContent)
   const processedChunk = processedContent.slice(previous.length)
-  previous = processedContent.slice(processedContent.length - 4)
+  previous = getLastTwoLines(processedContent)
 
   if (typeof encodingOrCallback === 'function') {
     // Called like write(chunk, callback)
