@@ -1,7 +1,7 @@
 import { execFileSync } from 'child_process'
 import fs, { existsSync, statSync } from 'fs'
 import gitUrlParse from 'git-url-parse'
-import { getConfig, listFiles, log } from 'isomorphic-git'
+import { getConfig, listFiles, log, ReadCommitResult } from 'isomorphic-git'
 import path from 'path'
 import { getWorkingDirectory } from '../project-files'
 import { logger } from './logger'
@@ -78,7 +78,15 @@ export async function getRepoMetrics(providedRemoteUrl?: string): Promise<{
 
   const gitDir = path.join(root, '.git')
 
-  const commitsArr = await log({ fs, dir: root, gitdir: gitDir })
+  const commitsArr = await log({ fs, dir: root, gitdir: gitDir }).catch(
+    (error) => {
+      logger.error(
+        { error },
+        'Error fetching git log. Is this an empty git repo?'
+      )
+      return [] as ReadCommitResult[]
+    }
+  )
   const firstCommit = commitsArr.at(-1) // earliest
 
   const tracked = await listFiles({ fs, dir: root, gitdir: gitDir })
