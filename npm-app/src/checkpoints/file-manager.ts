@@ -62,10 +62,7 @@ export async function hasUnsavedChanges({
         ],
         { stdio: ['ignore', 'pipe', 'ignore'] }
       ).toString()
-      return (
-        buildArray(output.split('\n').filter((line) => !line.startsWith(' M ')))
-          .length > 0
-      )
+      return !!output
     } catch (error) {
       logger.error(
         {
@@ -288,6 +285,8 @@ async function gitAddAllIgnoringNestedRepos({
   const allNestedRepos: string[] = []
   try {
     while (true) {
+      await gitAddAll({ projectDir, bareRepoPath, relativeFilepaths })
+
       let output: string
       try {
         output = execFileSync(
@@ -317,8 +316,6 @@ async function gitAddAllIgnoringNestedRepos({
       const nestedRepos = buildArray(output.split('\n'))
         .filter((line) => line[1] === 'M')
         .map((line) => line.slice(3).trim())
-
-      await gitAddAll({ projectDir, bareRepoPath, relativeFilepaths })
 
       if (nestedRepos.length === 0) {
         break
