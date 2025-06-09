@@ -31,6 +31,9 @@ import {
   GitRepoEvalData,
 } from './types'
 
+// Try Gemini!
+const COST_MODE = 'experimental' as const
+
 async function runSingleEval(
   evalCommit: EvalCommit,
   projectPath: string,
@@ -142,7 +145,7 @@ Explain your reasoning in detail.`,
             projectPath,
             maxIterations: 20,
             options: {
-              costMode: 'normal',
+              costMode: COST_MODE,
             },
           }),
           // Timeout after 30 minutes
