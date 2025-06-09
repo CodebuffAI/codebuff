@@ -207,7 +207,7 @@ export const mainPrompt = async (
       'If the knowledge files (or CLAUDE.md) say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
 
     isNotFirstUserMessage &&
-      "If you have learned something useful for the future that is not derivable from the code (this is a high bar and most of the time you won't have), consider updating a knowledge file at the end of your response to add this condensed information.",
+      'If you have learned something useful for the future that is not derivable from the code, consider updating a knowledge file at the end of your response to add this condensed information.',
 
     'Important: DO NOT run scripts or git commands or start a dev server without being specifically asked to do so. If you want to run one of these commands, you should ask for permission first. This can prevent costly accidents!',
 
