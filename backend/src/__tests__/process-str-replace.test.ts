@@ -1,4 +1,10 @@
-import { describe, expect, it } from 'bun:test'
+import { describe, expect, it, mock } from 'bun:test'
+
+// Mock the circular dependency before importing
+mock.module('../generate-diffs-prompt', () => ({
+  tryToDoStringReplacementWithExtraIndentation: mock(() => null),
+}))
+
 import { processStrReplace } from '../process-str-replace'
 
 describe('processStrReplace', () => {

@@ -17,6 +17,7 @@ import {
 } from './org-billing'
 import { generateOperationIdTimestamp } from './utils'
 
+// Define the constant here to avoid circular dependency issues
 const MINIMUM_PURCHASE_CREDITS = 500
 
 export interface AutoTopupValidationResult {

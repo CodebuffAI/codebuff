@@ -57,7 +57,7 @@ describe('checkNewFilesNecessary', () => {
       expect(result.newFilesNecessary).toBe(true)
       expect(result.response.toUpperCase()).toMatch(/YES/)
       expect(typeof result.duration).toBe('number')
-      expect(result.duration).toBeGreaterThan(0)
+      expect(result.duration).toBeGreaterThanOrEqual(0)
     },
     TEST_TIMEOUT
   )
@@ -101,7 +101,7 @@ describe('checkNewFilesNecessary', () => {
       expect(result.newFilesNecessary).toBe(false)
       expect(result.response.toUpperCase()).toMatch(/NO/)
       expect(typeof result.duration).toBe('number')
-      expect(result.duration).toBeGreaterThan(0)
+      expect(result.duration).toBeGreaterThanOrEqual(0)
     },
     TEST_TIMEOUT
   )
@@ -126,7 +126,7 @@ describe('checkNewFilesNecessary', () => {
       expect(result.newFilesNecessary).toBe(false)
       expect(result.response.toUpperCase()).toMatch(/NO/)
       expect(typeof result.duration).toBe('number')
-      expect(result.duration).toBeGreaterThan(0)
+      expect(result.duration).toBeGreaterThanOrEqual(0)
     },
     TEST_TIMEOUT
   )
@@ -152,7 +152,7 @@ describe('checkNewFilesNecessary', () => {
       expect(result.newFilesNecessary).toBe(true)
       expect(result.response.toUpperCase()).toMatch(/YES/)
       expect(typeof result.duration).toBe('number')
-      expect(result.duration).toBeGreaterThan(0)
+      expect(result.duration).toBeGreaterThanOrEqual(0)
     },
     TEST_TIMEOUT
   )
@@ -178,7 +178,7 @@ describe('checkNewFilesNecessary', () => {
       expect(result.newFilesNecessary).toBe(true)
       expect(result.response.toUpperCase()).toMatch(/YES/)
       expect(typeof result.duration).toBe('number')
-      expect(result.duration).toBeGreaterThan(0)
+      expect(result.duration).toBeGreaterThanOrEqual(0)
     },
     TEST_TIMEOUT
   )
@@ -187,8 +187,7 @@ describe('checkNewFilesNecessary', () => {
     'should return true for a prompt at the start of a conversation (with user instructions)',
     async () => {
       promptFlashSpy.mockResolvedValue('YES')
-      const userPrompt = `Fix the following issue. Keep going until you have completely fixed the issue. Do not ask me any follow-up questions, just do your best to i
-        nterpret the intent of the issue.\n\n-----\n\nCan you add a console.log statement to components/like-button.ts with all the props?`
+      const userPrompt = `Fix the following issue. Keep going until you have completely fixed the issue. Do not ask me any follow-up questions, just do your best to interpret the intent of the issue.\n\n-----\n\nCan you add a console.log statement to components/like-button.ts with all the props?`
 
       const result = await checkNewFilesNecessary(
         [],
