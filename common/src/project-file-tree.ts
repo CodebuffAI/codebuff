@@ -5,7 +5,7 @@ import path from 'path'
 import * as ignore from 'ignore'
 import { sortBy } from 'lodash'
 
-import { DEFAULT_IGNORED_FILES } from './constants'
+import { DEFAULT_IGNORED_PATHS } from './constants'
 import { DirectoryNode, FileTreeNode } from './util/file'
 
 export const DEFAULT_MAX_FILES = 10_000
@@ -15,7 +15,7 @@ export function getProjectFileTree(
   { maxFiles = DEFAULT_MAX_FILES }: { maxFiles?: number } = {}
 ): FileTreeNode[] {
   const defaultIgnore = ignore.default()
-  for (const pattern of DEFAULT_IGNORED_FILES) {
+  for (const pattern of DEFAULT_IGNORED_PATHS) {
     defaultIgnore.add(pattern)
   }
 
@@ -194,7 +194,7 @@ export function getLastReadFilePaths(
 
 export function isFileIgnored(filePath: string, projectRoot: string): boolean {
   const defaultIgnore = ignore.default()
-  for (const pattern of DEFAULT_IGNORED_FILES) {
+  for (const pattern of DEFAULT_IGNORED_PATHS) {
     defaultIgnore.add(pattern)
   }
 

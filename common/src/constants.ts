@@ -2,12 +2,10 @@ export const STOP_MARKER = '[' + 'END]'
 export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
 export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 
-export const DEFAULT_IGNORED_FILES = [
+export const DEFAULT_IGNORED_PATHS = [
   '.git',
   '.env',
   '.env.*',
-  'env',
-  'ENV',
   '*.min.*',
   'node_modules',
   'venv',
