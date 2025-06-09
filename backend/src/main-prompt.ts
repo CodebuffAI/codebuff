@@ -106,6 +106,7 @@ export const mainPrompt = async (
     cwd,
   } = action
   const { fileContext, agentContext } = agentState
+  const startTime = Date.now()
   let messageHistory = agentState.messageHistory
 
   // Get the extracted repo ID from request context
@@ -565,6 +566,7 @@ export const mainPrompt = async (
       toolResults,
       systemTokens,
       model,
+      duration: Date.now() - startTime,
     },
     `Main prompt ${iterationNum}`
   )
@@ -1118,6 +1120,7 @@ export const mainPrompt = async (
       agentContext: newAgentContext,
       messagesWithResponse,
       model,
+      duration: Date.now() - startTime,
     },
     `Main prompt response ${iterationNum}`
   )
