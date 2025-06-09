@@ -3,7 +3,7 @@ import fs, { existsSync, statSync } from 'fs'
 import gitUrlParse from 'git-url-parse'
 import { getConfig, listFiles, log, ReadCommitResult } from 'isomorphic-git'
 import path from 'path'
-import { getWorkingDirectory } from '../project-files'
+import { getWorkingDirectory, isValidProjectRoot } from '../project-files'
 import { logger } from './logger'
 
 /**
@@ -38,7 +38,7 @@ export function findGitRoot(startDir: string): string | null {
   while (currentDir !== path.parse(currentDir).root) {
     const gitDir = path.join(currentDir, '.git')
     if (existsSync(gitDir) && statSync(gitDir).isDirectory()) {
-      return currentDir
+      return isValidProjectRoot(currentDir) ? currentDir : null
     }
     currentDir = path.dirname(currentDir)
   }

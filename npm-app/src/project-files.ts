@@ -73,6 +73,10 @@ export function getCurrentChatDir(): string {
   return dir
 }
 
+export function isValidProjectRoot(dir: string): boolean {
+  return !isSubdir(dir, os.homedir())
+}
+
 const execAsync = promisify(exec)
 
 let projectRoot: string
@@ -155,6 +159,9 @@ export function toAbsolutePath(filepath: string, projectRoot: string): string {
   return path.normalize(path.resolve(projectRoot, filepath))
 }
 
+/**
+ * Returns true if the `toPath` is a subdirectory of `fromPath`.
+ */
 export function isSubdir(fromPath: string, toPath: string) {
   const resolvedFrom = path.resolve(fromPath)
   const resolvedTo = path.resolve(toPath)
