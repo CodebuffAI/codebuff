@@ -534,7 +534,7 @@ export class Client {
       let shouldRequestLogin = true
       CLI.getInstance().rl.once('line', () => {
         if (shouldRequestLogin) {
-          spawn(`open ${loginUrl}`, { shell: true })
+          spawn(process.platform === 'win32' ? 'start' : 'open', [loginUrl])
           console.log(
             "Opened a browser window to log you in! If it doesn't open automatically, you can click this link:"
           )
