@@ -35,8 +35,8 @@ export const env = createEnv({
     // Web/Database variables
     DATABASE_URL: z.string().min(1),
     GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
-    GITHUB_ID: z.string().min(1),
-    GITHUB_SECRET: z.string().min(1),
+    CODEBUFF_GITHUB_ID: z.string().min(1),
+    CODEBUFF_GITHUB_SECRET: z.string().min(1),
     NEXTAUTH_URL: z.string().url().optional(),
     NEXTAUTH_SECRET: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
@@ -78,8 +78,8 @@ export const env = createEnv({
     // Web/Database variables
     DATABASE_URL: process.env.DATABASE_URL,
     GOOGLE_SITE_VERIFICATION_ID: process.env.GOOGLE_SITE_VERIFICATION_ID,
-    GITHUB_ID: process.env.GITHUB_ID,
-    GITHUB_SECRET: process.env.GITHUB_SECRET,
+    CODEBUFF_GITHUB_ID: process.env.CODEBUFF_GITHUB_ID,
+    CODEBUFF_GITHUB_SECRET: process.env.CODEBUFF_GITHUB_SECRET,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,

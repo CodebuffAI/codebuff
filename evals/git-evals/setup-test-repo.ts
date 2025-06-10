@@ -57,7 +57,7 @@ export async function setupTestRepo(repoUrl: string, customRepoName?: string) {
       process.env.RENDER === 'true' || process.env.IS_PULL_REQUEST === 'false'
 
     // Always try authenticated approach first if we have a token, regardless of environment
-    const githubToken = process.env.GITHUB_TOKEN
+    const githubToken = process.env.CODEBUFF_GITHUB_TOKEN
     const shouldUseAuth = githubToken && repoUrl.includes('github.com')
 
     if (shouldUseAuth) {
@@ -172,7 +172,9 @@ export async function setupTestRepo(repoUrl: string, customRepoName?: string) {
         error.message.includes('authentication'))
     ) {
       console.error('\nAuthentication troubleshooting:')
-      console.error('1. Verify GITHUB_TOKEN environment variable is set')
+      console.error(
+        '1. Verify CODEBUFF_GITHUB_TOKEN environment variable is set'
+      )
       console.error(
         '2. Ensure token has appropriate repository access permissions'
       )
@@ -183,13 +185,13 @@ export async function setupTestRepo(repoUrl: string, customRepoName?: string) {
         '4. For private repos, ensure token owner has access to the repository'
       )
 
-      const token = process.env.GITHUB_TOKEN
+      const token = process.env.CODEBUFF_GITHUB_TOKEN
       if (token) {
         console.error(
           `Token format: ${token.substring(0, 10)}... (length: ${token.length})`
         )
       } else {
-        console.error('GITHUB_TOKEN environment variable is not set')
+        console.error('CODEBUFF_GITHUB_TOKEN environment variable is not set')
       }
     }
 
