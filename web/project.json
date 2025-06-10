@@ -10,24 +10,25 @@
         "command": "contentlayer build",
         "cwd": "web"
       },
-      "outputs": ["{projectRoot}/.contentlayer", "{projectRoot}/.contentlayer/generated"]
+      "outputs": [
+        "{projectRoot}/.contentlayer",
+        "{projectRoot}/.contentlayer/generated"
+      ]
     },
     "build": {
       "executor": "nx:run-commands",
       "outputs": ["{projectRoot}/.next"],
       "options": {
-        "commands": [
-          "next build"
-        ],
+        "commands": ["infisical run --log-level=warn -- bun run contentlayer && next build"],
         "cwd": "web",
         "parallel": false
       },
-      "dependsOn": ["contentlayer", "^build"]
+      "dependsOn": ["^build"]
     },
     "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "next dev",
+        "command": "infisical run --log-level=warn -- next dev -p 3000",
         "cwd": "web"
       },
       "dependsOn": ["contentlayer"]
