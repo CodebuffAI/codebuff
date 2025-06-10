@@ -307,38 +307,51 @@ export const getProjectFileContext = async (
  *          - lastCommitMessages: Recent commit messages, formatted as a newline-separated string
  */
 async function getGitChanges() {
-  try {
-    const { stdout: status } = await execAsync('git status', {
-      cwd: projectRoot,
+  const status = execAsync('git status', { cwd: projectRoot })
+    .then(({ stdout }) => stdout)
+    .catch((error) => {
+      logger.error({ error }, 'Failed to get git status')
+      return ''
     })
-    const { stdout: diff } = await execAsync('git diff', { cwd: projectRoot })
-    const { stdout: diffCached } = await execAsync('git diff --cached', {
-      cwd: projectRoot,
-    })
-    const { stdout: shortLogOutput } = await execAsync(
-      'git shortlog HEAD~10..HEAD',
-      {
-        cwd: projectRoot,
-      }
-    )
-    const shortLogLines = shortLogOutput.trim().split('\n')
-    const lastCommitMessages = shortLogLines
-      .slice(1)
-      .reverse()
-      .map((line) => line.trim())
-      .join('\n')
 
-    return { status, diff, diffCached, lastCommitMessages }
-  } catch (error) {
-    logger.error(
-      {
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-        projectRoot,
-      },
-      'Failed to get git changes'
+  const diff = execAsync('git diff', { cwd: projectRoot })
+    .then(({ stdout }) => stdout)
+    .catch((error) => {
+      logger.error({ error }, 'Failed to get git diff')
+      return ''
+    })
+
+  const diffCached = execAsync('git diff --cached', {
+    cwd: projectRoot,
+  })
+    .then(({ stdout }) => stdout)
+    .catch((error) => {
+      logger.error({ error }, 'Failed to get git diff --cached')
+      return ''
+    })
+
+  const lastCommitMessages = execAsync('git shortlog HEAD~10..HEAD', {
+    cwd: projectRoot,
+  })
+    .then(({ stdout }) =>
+      stdout
+        .trim()
+        .split('\n')
+        .slice(1)
+        .reverse()
+        .map((line) => line.trim())
+        .join('\n')
     )
-    return { status: '', diff: '', diffCached: '', lastCommitMessages: '' }
+    .catch((error) => {
+      logger.error({ error }, 'Failed to get lastCommitMessages')
+      return ''
+    })
+
+  return {
+    status: await status,
+    diff: await diff,
+    diffCached: await diffCached,
+    lastCommitMessages: await lastCommitMessages,
   }
 }
 
