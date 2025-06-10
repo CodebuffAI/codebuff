@@ -1,24 +1,26 @@
 import { createEnv } from '@t3-oss/env-nextjs'
-import { z } from 'zod'
-
-// The Guard Rail: This check runs once when the module is imported.
-// It ensures the application was started with the Infisical CLI wrapper.
-if (
-  !process.env.NEXT_PUBLIC_INFISICAL_UP &&
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
-) {
-  console.error(
-    "ERROR: Environment variables not loaded. Please run commands using the project's runner (e.g., 'infisical run -- <your-command>')."
-  )
-  process.exit(1)
-}
+import { z, ZodError } from 'zod'
 
 // Only log environment in non-production
 if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
   console.log('Using environment:', process.env.NEXT_PUBLIC_CB_ENVIRONMENT)
 }
 
-export const env = createEnv({
+function createValidatedEnv(opts: Parameters<typeof createEnv>[0]) {
+  try {
+    return createEnv(opts)
+  } catch (error) {
+    if (error instanceof ZodError) {
+      console.error(
+        "\nERROR: Environment variables not loaded. It looks like you're missing some required environment variables.\nPlease run commands using the project's runner (e.g., 'infisical run -- <your-command>') to load them automatically."
+      )
+      process.exit(1)
+    }
+    throw error
+  }
+}
+
+export const env = createValidatedEnv({
   server: {
     // Backend variables
     ANTHROPIC_API_KEY: z.string().min(1),

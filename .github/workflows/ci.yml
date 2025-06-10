@@ -11,12 +11,6 @@ on:
   pull_request:
     branches: ['main']
 
-env:
-  CODEBUFF_GITHUB_ACTIONS: 'true'
-  NEXT_PUBLIC_CB_ENVIRONMENT: test
-  NEXT_PUBLIC_INFISICAL_UP: 'true'
-  CODEBUFF_GITHUB_TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
-
 # Define reusable job template
 jobs:
   build:
@@ -52,6 +46,10 @@ jobs:
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
           ' >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Build and typecheck
         run: |
@@ -105,6 +103,10 @@ jobs:
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
           ' >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Run ${{ matrix.package }} tests
         uses: nick-fields/retry@v3
