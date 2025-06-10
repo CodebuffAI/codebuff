@@ -374,26 +374,28 @@ async function getGitChanges() {
  */
 export function getChangesSinceLastFileVersion(
   lastFileVersion: Record<string, string>
-) {
+): Record<string, string> {
   const changes = Object.entries(lastFileVersion)
-    .map(([filePath, file]) => {
+    .map(([filePath, lastContents]) => {
       const fullFilePath = path.join(getProjectRoot(), filePath)
       try {
         const currentContent = fs.readFileSync(fullFilePath, 'utf8')
-        if (currentContent === file) {
+        if (currentContent === lastContents) {
           return [filePath, null] as const
         }
-        return [filePath, createPatch(filePath, file, currentContent)] as const
+        return [
+          filePath,
+          createPatch(filePath, lastContents, currentContent),
+        ] as const
       } catch (error) {
-        logger.error(
-          {
-            errorMessage:
-              error instanceof Error ? error.message : String(error),
-            errorStack: error instanceof Error ? error.stack : undefined,
-            filePath: fullFilePath,
-          },
-          'Error reading file for changes comparison'
-        )
+        if (
+          error instanceof Object &&
+          'code' in error &&
+          error.code === 'ENOENT'
+        ) {
+          return [filePath, createPatch(filePath, lastContents, '')]
+        }
+        logger.error({ error }, 'Error reading file while getting file changes')
         return [filePath, null] as const
       }
     })
