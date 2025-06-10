@@ -42,11 +42,25 @@ function extractEnvVarsFromEnvTs() {
 function generateGitHubEnvScript() {
   const envVars = extractEnvVarsFromEnvTs();
   
-  console.log('# Pull all secrets and set as environment variables');
-  envVars.forEach(varName => {
-    console.log(`echo "${varName}=\${{ secrets.${varName} }}" >> $GITHUB_ENV`);
-  });
+  // Check if we're in GitHub Actions
+  const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
+  
+  if (isGitHubActions) {
+    console.log('# Pull all secrets and set as environment variables');
+    envVars.forEach(varName => {
+      console.log(`echo "${varName}=\${{ secrets.${varName} }}" >> $GITHUB_ENV`);
+    });
+  } else {
+    // For local testing, just echo the variable names
+    console.log('# Environment variables that would be set in GitHub Actions:');
+    envVars.forEach(varName => {
+      console.log(`# ${varName}`);
+    });
+    console.log('echo "This script is designed to run in GitHub Actions"');
+  }
 }
 
 // Run the script
 generateGitHubEnvScript();
+
+```

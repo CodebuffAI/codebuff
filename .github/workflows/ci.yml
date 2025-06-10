@@ -17,6 +17,40 @@ env:
   NEXT_PUBLIC_CB_ENVIRONMENT: 'test'
   NEXT_PUBLIC_INFISICAL_UP: 'true'
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Dynamically set all environment variables from secrets
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  ANTHROPIC_API_KEY2: ${{ secrets.ANTHROPIC_API_KEY2 }}
+  API_KEY_ENCRYPTION_SECRET: ${{ secrets.API_KEY_ENCRYPTION_SECRET }}
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+  DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
+  DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+  DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  GITHUB_ID: ${{ secrets.GITHUB_ID }}
+  GITHUB_SECRET: ${{ secrets.GITHUB_SECRET }}
+  GOOGLE_CLOUD_PROJECT_ID: ${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}
+  GOOGLE_SITE_VERIFICATION_ID: ${{ secrets.GOOGLE_SITE_VERIFICATION_ID }}
+  HELICONE_API_KEY: ${{ secrets.HELICONE_API_KEY }}
+  LOOPS_API_KEY: ${{ secrets.LOOPS_API_KEY }}
+  NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+  NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+  NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID }}
+  NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${{ secrets.NEXT_PUBLIC_LINKEDIN_PARTNER_ID }}
+  NEXT_PUBLIC_POSTHOG_API_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_API_KEY }}
+  NEXT_PUBLIC_POSTHOG_HOST_URL: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST_URL }}
+  NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: ${{ secrets.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL }}
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+  NEXT_PUBLIC_SUPPORT_EMAIL: ${{ secrets.NEXT_PUBLIC_SUPPORT_EMAIL }}
+  OPEN_AI_KEY: ${{ secrets.OPEN_AI_KEY }}
+  OPEN_ROUTER_API_KEY: ${{ secrets.OPEN_ROUTER_API_KEY }}
+  PORT: ${{ secrets.PORT }}
+  RELACE_API_KEY: ${{ secrets.RELACE_API_KEY }}
+  STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+  STRIPE_TEAM_FEE_PRICE_ID: ${{ secrets.STRIPE_TEAM_FEE_PRICE_ID }}
+  STRIPE_USAGE_PRICE_ID: ${{ secrets.STRIPE_USAGE_PRICE_ID }}
+  STRIPE_WEBHOOK_SECRET_KEY: ${{ secrets.STRIPE_WEBHOOK_SECRET_KEY }}
 
 # Define reusable job template
 jobs:
@@ -45,9 +79,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Set Environment Variables from Secrets
+      - name: Debug - Print all environment variables
         run: |
-          node scripts/set-ci-env-vars.js | bash
+          echo "=== All Environment Variables ==="
+          env | sort
+          echo "=== End Environment Variables ==="
 
       - name: Build and typecheck
         run: |
@@ -92,10 +128,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
-      - name: Set Environment Variables from Secrets
-        run: |
-          node scripts/set-ci-env-vars.js | bash
 
       - name: Run ${{ matrix.package }} tests
         uses: nick-fields/retry@v3
