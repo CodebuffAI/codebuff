@@ -14,7 +14,7 @@ on:
 
 env:
   CODEBUFF_GITHUB_ACTIONS: 'true'
-  NEXT_PUBLIC_CB_ENVIRONMENT: 'dev'
+  NEXT_PUBLIC_CB_ENVIRONMENT: 'test'
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 # Define reusable job template
@@ -98,7 +98,7 @@ jobs:
           max_attempts: 5
           command: cd ${{ matrix.package }} && bun test $(find src -name *.test.ts)
 
-      # - name: Open interactive debug shell
-      #   if: ${{ failure() }}
-      #   uses: mxschmitt/action-tmate@v3
-      #   timeout-minutes: 15 # optional guard
+      - name: Open interactive debug shell
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15 # optional guard

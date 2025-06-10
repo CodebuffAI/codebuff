@@ -19,7 +19,7 @@
       "executor": "nx:run-commands",
       "outputs": ["{projectRoot}/.next"],
       "options": {
-        "commands": ["infisical run --log-level=warn -- bun run contentlayer && next build"],
+        "commands": ["bun run contentlayer && next build"],
         "cwd": "web",
         "parallel": false
       },
