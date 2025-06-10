@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "infisical run -- next dev -p 3000",
+    "dev": "infisical run --log-level=warn -- next dev -p 3000",
     "build": "bun run contentlayer && next build",
     "start": "next start",
     "preview": "next build && next start",
@@ -18,8 +18,8 @@
     "test:watch": "jest --watchAll",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "discord:start": "infisical run -- bun run scripts/discord/index.ts",
-    "discord:register": "infisical run -- bun run scripts/discord/register-commands.ts"
+    "discord:start": "infisical run --log-level=warn -- bun run scripts/discord/index.ts",
+    "discord:register": "infisical run --log-level=warn -- bun run scripts/discord/register-commands.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.8.0",

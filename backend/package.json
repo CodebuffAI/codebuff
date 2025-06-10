@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "license": "UNLICENSED",
   "scripts": {
-    "start": "infisical run -- bun src/index.ts",
-    "dev": "infisical run -- bun src/index.ts",
+    "start": "infisical run --log-level=warn -- bun src/index.ts",
+    "dev": "infisical run --log-level=warn -- bun src/index.ts",
     "build": "tsc --build",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
     "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package",
