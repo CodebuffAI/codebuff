@@ -1062,6 +1062,28 @@ export const mainPrompt = async (
     })
   }
 
+  if (
+    clientToolCalls.every((tool) => tool.name !== 'end_turn') &&
+    (agentState.consecutiveAssistantMessages ?? 0) > 2
+  ) {
+    const isLoop = await checkForUnproductiveLoop(messagesWithResponse, {
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+    })
+    if (isLoop) {
+      logger.warn('Detected unproductive loop, ending turn.')
+      onResponseChunk('\n\nHow would you like to proceed from here?\n\n')
+      fullResponse += getToolCallString('end_turn', {})
+      clientToolCalls.push({
+        name: 'end_turn',
+        parameters: {},
+        id: generateCompactId(),
+      })
+    }
+  }
+
   if (fileChanges.length === 0 && fileProcessingPromises.length > 0) {
     onResponseChunk('No changes to existing files.\n')
   }
@@ -1088,28 +1110,6 @@ export const mainPrompt = async (
   clientToolCalls.unshift(...changeToolCalls)
 
   const newAgentContext = await agentContextPromise
-
-  if (
-    clientToolCalls.every((tool) => tool.name !== 'end_turn') &&
-    (agentState.consecutiveAssistantMessages ?? 0) > 2
-  ) {
-    const isLoop = await checkForUnproductiveLoop(messagesWithResponse, {
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
-    })
-    if (isLoop) {
-      logger.warn('Detected unproductive loop, ending turn.')
-      onResponseChunk('\n\nHow would you like to proceed from here?\n\n')
-      fullResponse += getToolCallString('end_turn', {})
-      clientToolCalls.push({
-        name: 'end_turn',
-        parameters: {},
-        id: generateCompactId(),
-      })
-    }
-  }
 
   let finalMessageHistory = expireMessages(messagesWithResponse, 'agentStep')
 
