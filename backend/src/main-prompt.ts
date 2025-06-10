@@ -31,6 +31,7 @@ import {
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
 import { getDocumentationForQuery } from './get-documentation-for-query'
+import { checkForUnproductiveLoop } from './llm-apis/check-for-loop'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStream } from './prompt-agent-stream'
@@ -1077,6 +1078,28 @@ export const mainPrompt = async (
   clientToolCalls.unshift(...changeToolCalls)
 
   const newAgentContext = await agentContextPromise
+
+  if (
+    clientToolCalls.every((tool) => tool.name !== 'end_turn') &&
+    (agentState.consecutiveAssistantMessages ?? 0) > 2
+  ) {
+    const isLoop = await checkForUnproductiveLoop(messagesWithResponse, {
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+    })
+    if (isLoop) {
+      logger.warn('Detected unproductive loop, ending turn.')
+      onResponseChunk("\n\nHow would you like to proceed from here?\n\n")
+      fullResponse += getToolCallString('end_turn', {})
+      clientToolCalls.push({
+        name: 'end_turn',
+        parameters: {},
+        id: generateCompactId(),
+      })
+    }
+  }
 
   let finalMessageHistory = expireMessages(messagesWithResponse, 'agentStep')
 
