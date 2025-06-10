@@ -113,7 +113,67 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: cd ${{ matrix.package }} && bun test $(find src -name *.test.ts)
+          command: cd ${{ matrix.package }} && bun test $(find src -name '*.test.ts' ! -name '*.integration.test.ts')
+
+      # - name: Open interactive debug shell
+      #   if: ${{ failure() }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15 # optional guard
+
+  # Template for test jobs
+  test-integration:
+    needs: build
+    strategy:
+      matrix:
+        package: [npm-app, backend, common]
+        include:
+          - package: npm-app
+          - package: backend
+          - package: common
+    name: test-integration-${{ matrix.package }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.2.12'
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            */node_modules
+            packages/*/node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Set environment variables
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+        run: |
+          VAR_NAMES=$(node scripts/generate-ci-env.js)
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+
+      - name: Run ${{ matrix.package }} tests
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 5
+          command: cd ${{ matrix.package }} && bun test $(find src -name '*.integration.test.ts')
 
       # - name: Open interactive debug shell
       #   if: ${{ failure() }}
