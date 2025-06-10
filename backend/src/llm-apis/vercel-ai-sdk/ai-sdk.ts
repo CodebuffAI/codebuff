@@ -63,6 +63,7 @@ export const promptAiSdkStream = async function* (
     model: Model
     userId: string | undefined
     chargeUser?: boolean
+    thinkingBudget?: number
   } & Omit<Parameters<typeof streamText>[0], 'model'>
 ) {
   const startTime = Date.now()
@@ -75,6 +76,7 @@ export const promptAiSdkStream = async function* (
       google: {
         thinkingConfig: {
           includeThoughts: true,
+          thinkingBudget: options.thinkingBudget ?? 128,
         },
       } satisfies GoogleGenerativeAIProviderOptions,
     },

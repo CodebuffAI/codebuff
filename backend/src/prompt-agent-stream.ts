@@ -17,11 +17,13 @@ export const getAgentStream = (params: {
   fingerprintId: string
   userInputId: string
   userId: string | undefined
+  thinkingBudget?: number
 }) => {
   const {
     costMode,
     selectedModel,
     stopSequences,
+    thinkingBudget,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -65,7 +67,7 @@ export const getAgentStream = (params: {
       }
       if (!options.providerOptions.gemini.thinkingConfig) {
         options.providerOptions.gemini.thinkingConfig = {
-          thinkingBudget: 0,
+          thinkingBudget: thinkingBudget ?? 128,
         }
       }
     }
