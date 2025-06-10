@@ -44,9 +44,11 @@ You should not read new files (NO) if:
 - The user is following up on a previous request and no new files are needed
 - The user wants to modify a specific file that is already loaded (check if the file path is mentioned)
 - The user says something like "hi" or "hello" with no specific request
-- The user just wants to run a straight-forward terminal command (e.g. "run npm install")
+- The user just wants to run a straight-forward terminal command (e.g. "run npm install", "npm build", "Run npm test") - these are purely operational commands that don't require code understanding
 - The request is purely about executing commands without needing file context
 - The request is about the Codebuff application itself: which LLM model is being used, how many credits have been used, asking to revert to a checkpoint or undo a change, etc.
+
+IMPORTANT: For terminal commands like "Run npm build" or "npm test", answer NO unless the user specifically asks to understand or fix errors from the command output.
 
 Answer with just 'YES' if reading new files is helpful, or 'NO' if the current files are sufficient to answer the user's request. Do not write anything else.
 `.trim()
