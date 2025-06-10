@@ -1,5 +1,4 @@
-export const isProduction =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
+export const isProduction = process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'
 
 export const websocketUrl = isProduction
   ? `wss://${process.env.NEXT_PUBLIC_BACKEND_URL}/ws`

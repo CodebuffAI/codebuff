@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 
 // Set production environment for the build
-process.env.NEXT_PUBLIC_CB_ENVIRONMENT = 'production'
+process.env.NEXT_PUBLIC_CB_ENVIRONMENT = 'prod'
 
 const packageJsonPath = path.join(__dirname, 'package.json')
 const tempPackageJsonPath = path.join(__dirname, 'temp.package.json')
@@ -46,8 +46,8 @@ if (fs.existsSync(indexJsPath)) {
 
   // Get all environment variables that start with NEXT_PUBLIC_ or are needed for the npm package
   const envVarsToInject = Object.entries(process.env)
-    .filter(([key, value]) => 
-      key.startsWith('NEXT_PUBLIC_') && value !== undefined
+    .filter(
+      ([key, value]) => key.startsWith('NEXT_PUBLIC_') && value !== undefined
     )
     .map(([key, value]) => `process.env.${key} = '${value}';`)
 
@@ -56,7 +56,9 @@ if (fs.existsSync(indexJsPath)) {
   lines.splice(1, 0, ...envVarsToInject)
   indexJsContent = lines.join('\n')
   fs.writeFileSync(indexJsPath, indexJsContent)
-  console.log(`Injected ${envVarsToInject.length} environment variables into index.js`)
+  console.log(
+    `Injected ${envVarsToInject.length} environment variables into index.js`
+  )
 } else {
   console.error('index.js not found in the dist directory')
 }

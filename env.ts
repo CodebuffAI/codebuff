@@ -10,12 +10,10 @@ function createValidatedEnv(opts: Parameters<typeof createEnv>[0]) {
   try {
     return createEnv(opts)
   } catch (error) {
-    if (error instanceof ZodError) {
-      console.error(
-        "\nERROR: Environment variables not loaded. It looks like you're missing some required environment variables.\nPlease run commands using the project's runner (e.g., 'infisical run -- <your-command>') to load them automatically."
-      )
-      process.exit(1)
-    }
+    console.error(
+      "\nERROR: Environment variables not loaded. It looks like you're missing some required environment variables.\nPlease run commands using the project's runner (e.g., 'infisical run -- <your-command>') to load them automatically."
+    )
+
     throw error
   }
 }

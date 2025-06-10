@@ -35,7 +35,7 @@ export function trackEvent(
   userId: string,
   properties?: Record<string, any>
 ) {
-  if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+  if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
     logger.info({ payload: { event, properties } }, 'Analytics event tracked')
     return
   }

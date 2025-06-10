@@ -11,7 +11,7 @@ import {
 } from './schema'
 
 const DATASET =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production'
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'
     ? 'codebuff_data'
     : 'codebuff_data_dev'
 
@@ -211,7 +211,7 @@ export async function getTracesWithRelabels(
 ) {
   // Get traces that DO have matching relabels for the specified model
   const query = `
-  SELECT 
+  SELECT
     ANY_VALUE(t) as trace,
     ARRAY_AGG(r ORDER BY r.created_at DESC LIMIT 1)[OFFSET(0)] as relabel
   FROM \`${dataset}.${TRACES_TABLE}\` t
@@ -355,7 +355,7 @@ export async function getTracesAndAllDataForUser(
   /*──────────────── base (latest N get-relevant-files rows) ─────────────*/
   WITH base AS (
     SELECT id, agent_step_id, user_id, created_at, type, payload
-    FROM   \`${dataset}.${TRACES_TABLE}\` 
+    FROM   \`${dataset}.${TRACES_TABLE}\`
     WHERE  ${userId ? 'user_id = @userId AND' : ''} type = 'get-relevant-files' AND JSON_EXTRACT_SCALAR(payload, '$.request_type') = 'Key'
            ${pageCursor ? 'AND created_at < @pageCursor' : ''}
     ORDER  BY created_at DESC
