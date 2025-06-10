@@ -145,6 +145,7 @@ export const getModelForMode = (
 export const claudeModels = {
   sonnet: 'claude-sonnet-4-20250514',
   sonnet3_7: 'claude-3-7-sonnet-20250219',
+  sonnet3_5: 'claude-3-5-sonnet-20241022',
   opus4: 'claude-opus-4-20250514',
   haiku: 'claude-3-5-haiku-20241022',
 } as const
@@ -156,6 +157,7 @@ export const openaiModels = {
   gpt4omini: 'gpt-4o-mini-2024-07-18',
   o3mini: 'o3-mini-2025-01-31',
   o3: 'o3-2025-04-16',
+  o3pro: 'o3-pro-2025-06-10',
   o4mini: 'o4-mini-2025-04-16',
   generatePatch:
     'ft:gpt-4o-2024-08-06:manifold-markets:generate-patch-batch2:AKYtDIhk',
@@ -223,29 +225,36 @@ export const models = {
 
 export const shortModelNames = {
   'gemini-2.5-pro': models.gemini2_5_pro_preview,
+  'sonnet-4': models.sonnet,
   'sonnet-3.7': models.sonnet3_7,
-  'sonnet-3.5': models.sonnet,
-  'sonnet-3.6': models.sonnet,
+  'sonnet-3.6': models.sonnet3_5,
+  'sonnet-3.5': models.sonnet3_5,
   'gpt-4.1': models.gpt4_1,
   'o3-mini': models.o3mini,
   o3: models.o3,
   'o4-mini': models.o4mini,
+  'o3-pro': models.o3pro,
 }
 
 export const providerModelNames = {
-  [models.gemini2_5_pro_preview]: 'gemini',
-  [models.gemini2flash]: 'gemini',
-  [models.gemini2_5_flash]: 'gemini',
-  [models.gemini2_5_flash_thinking]: 'gemini',
-  [models.haiku]: 'anthropic',
-  [models.sonnet3_7]: 'anthropic',
-  [models.sonnet]: 'anthropic',
-  [models.gpt4_1]: 'openai',
-  [models.gpt4o]: 'openai',
-  [models.gpt4omini]: 'openai',
-  [models.o3mini]: 'openai',
-  [models.o3]: 'openai',
-  [models.o4mini]: 'openai',
+  ...Object.fromEntries(
+    Object.entries(geminiModels).map(([name, model]) => [
+      model,
+      'gemini' as const,
+    ])
+  ),
+  ...Object.fromEntries(
+    Object.entries(claudeModels).map(([name, model]) => [
+      model,
+      'anthropic' as const,
+    ])
+  ),
+  ...Object.fromEntries(
+    Object.entries(openaiModels).map(([name, model]) => [
+      model,
+      'openai' as const,
+    ])
+  ),
 }
 
 export type Model = (typeof models)[keyof typeof models]
