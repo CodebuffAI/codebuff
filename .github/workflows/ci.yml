@@ -14,7 +14,7 @@ on:
 
 env:
   CODEBUFF_GITHUB_ACTIONS: 'true'
-  NEXT_PUBLIC_CB_ENVIRONMENT: 'local'
+  NEXT_PUBLIC_CB_ENVIRONMENT: 'dev'
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 # Define reusable job template

@@ -12,7 +12,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import CardWithBeams from '@/components/card-with-beams'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
-import { env } from '@/env.mjs'
+import { env } from '@/env'
 import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import { useFormState, useFormStatus } from 'react-dom'

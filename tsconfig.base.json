@@ -2,7 +2,7 @@
   "compilerOptions": {
     "module": "CommonJS",
     "moduleResolution": "node",
-    "target": "esnext",
+    "target": "es2020",
     "composite": true,
     "allowJs": true,
     "esModuleInterop": true,
@@ -13,6 +13,9 @@
     "incremental": true,
     "skipLibCheck": true,
     "declaration": true,
-    "declarationMap": true
+    "declarationMap": true,
+    "paths": {
+      "@/env": ["./env.ts"]
+    }
   }
 }

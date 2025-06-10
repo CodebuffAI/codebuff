@@ -1,4 +1,5 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "target": "es6",
     "lib": ["dom", "dom.iterable", "esnext"],
@@ -21,6 +22,7 @@
       }
     ],
     "paths": {
+      "@/env": ["../env.ts"],
       "@/*": ["./src/*"],
       "common/*": ["../common/src/*"],
       "@codebuff/billing": ["../packages/billing/src"],
@@ -28,6 +30,7 @@
     }
   },
   "references": [
+    { "path": "../tsconfig.env.json" },
     { "path": "../common" },
     { "path": "../packages/billing" },
     { "path": "../packages/internal" }
@@ -36,6 +39,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "**/*.mjs",
     ".next/types/**/*.ts",
     ".contentlayer/generated"
   ],

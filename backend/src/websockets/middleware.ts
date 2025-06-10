@@ -15,7 +15,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { pluralize } from 'common/util/string'
-import { env } from '@/env.mjs'
+import { env } from '@/env'
 import {
   calculateOrganizationUsageAndBalance,
   extractOwnerAndRepo,

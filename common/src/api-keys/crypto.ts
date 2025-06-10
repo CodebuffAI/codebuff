@@ -12,7 +12,7 @@ import {
   type ApiKeyType,
 } from './constants'
 import * as schema from '../db/schema'
-import { env } from '../env.mjs'
+import { env } from '@/env'
 import { logger } from '../util/logger'
 
 /**

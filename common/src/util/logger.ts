@@ -3,7 +3,7 @@ import path from 'path'
 
 import pino from 'pino'
 
-import { env } from '../env.mjs'
+import { env } from '@/env'
 
 let AsyncLocalStorageImpl: typeof import('async_hooks').AsyncLocalStorage | null
 try {

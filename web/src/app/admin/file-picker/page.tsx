@@ -47,7 +47,7 @@ const nameOverrides = {
 
 // Choose user list based on environment
 const suggestedUsers =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
     ? localUsers
     : productionUsers
 
@@ -82,7 +82,9 @@ export default function FilePicker() {
       // Only prevent if it's a strong horizontal scroll that could trigger navigation
       // Allow normal horizontal scrolling within elements
       const target = e.target as Element
-      const isScrollableElement = target.closest('.overflow-auto, .overflow-x-auto, .overflow-scroll, .overflow-x-scroll')
+      const isScrollableElement = target.closest(
+        '.overflow-auto, .overflow-x-auto, .overflow-scroll, .overflow-x-scroll'
+      )
 
       // If we're scrolling within a scrollable element, allow it
       if (isScrollableElement) {
@@ -96,9 +98,15 @@ export default function FilePicker() {
     }
 
     // Add event listeners to prevent swipe navigation
-    document.addEventListener('touchstart', preventSwipeNavigation, { passive: false })
-    document.addEventListener('touchmove', preventSwipeNavigation, { passive: false })
-    document.addEventListener('wheel', preventMouseNavigation, { passive: false })
+    document.addEventListener('touchstart', preventSwipeNavigation, {
+      passive: false,
+    })
+    document.addEventListener('touchmove', preventSwipeNavigation, {
+      passive: false,
+    })
+    document.addEventListener('wheel', preventMouseNavigation, {
+      passive: false,
+    })
 
     // Add CSS to prevent overscroll behavior only on the document level
     document.body.style.overscrollBehaviorX = 'none'
@@ -218,7 +226,7 @@ export default function FilePicker() {
     'base',
     'files-uploaded',
     'relace-ranker',
-    'claude-3-5-sonnet-with-full-file-context'
+    'claude-3-5-sonnet-with-full-file-context',
   ]
 
   // Sort model names according to the desired order
@@ -232,10 +240,12 @@ export default function FilePicker() {
   })
 
   // Filter out hidden columns
-  const visibleModelNames = sortedModelNames.filter(model => !hiddenColumns.has(model))
+  const visibleModelNames = sortedModelNames.filter(
+    (model) => !hiddenColumns.has(model)
+  )
 
   const toggleColumn = (model: string) => {
-    setHiddenColumns(prev => {
+    setHiddenColumns((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(model)) {
         newSet.delete(model)
@@ -320,34 +330,57 @@ export default function FilePicker() {
                               </p>
                             </div>
                             <div>
-                              <h4 className="font-medium mb-1">claude-3.5-sonnet / gemini-2.5-pro</h4>
+                              <h4 className="font-medium mb-1">
+                                claude-3.5-sonnet / gemini-2.5-pro
+                              </h4>
                               <p className="text-sm text-muted-foreground">
-                                Regular relabels using these models, ie: we take the exact same request in prod, but instead send it to this stronger model. Does not use the full-file contents.
+                                Regular relabels using these models, ie: we take
+                                the exact same request in prod, but instead send
+                                it to this stronger model. Does not use the
+                                full-file contents.
                               </p>
                             </div>
                             <div>
-                              <h4 className="font-medium mb-1">files-uploaded</h4>
+                              <h4 className="font-medium mb-1">
+                                files-uploaded
+                              </h4>
                               <p className="text-sm text-muted-foreground">
-                                Files selected for full file-context upload by a claude-3.5-sonnet specifically asked to pick as many relevant files as possible.
+                                Files selected for full file-context upload by a
+                                claude-3.5-sonnet specifically asked to pick as
+                                many relevant files as possible.
                               </p>
                             </div>
                             <div>
-                              <h4 className="font-medium mb-1">relace-ranker</h4>
+                              <h4 className="font-medium mb-1">
+                                relace-ranker
+                              </h4>
                               <p className="text-sm text-muted-foreground">
-                                A re-ordering of files-uploaded using the Relace API. Does use the file list as well as file contents from the full request from claude-3.5-sonnet. (TODO: We're currently only giving it the last user-query - giving it more search context might help its quality!)
+                                A re-ordering of files-uploaded using the Relace
+                                API. Does use the file list as well as file
+                                contents from the full request from
+                                claude-3.5-sonnet. (TODO: We're currently only
+                                giving it the last user-query - giving it more
+                                search context might help its quality!)
                               </p>
                             </div>
                             <div>
-                              <h4 className="font-medium mb-1">claude-3.5-sonnet-with-full-file-context</h4>
+                              <h4 className="font-medium mb-1">
+                                claude-3.5-sonnet-with-full-file-context
+                              </h4>
                               <p className="text-sm text-muted-foreground">
-                                Similar to the regular claude-3.5-sonnet relabel, but we append all full files we have to the system prompt.
+                                Similar to the regular claude-3.5-sonnet
+                                relabel, but we append all full files we have to
+                                the system prompt.
                               </p>
                             </div>
                           </div>
                         </DialogContent>
                       </Dialog>
 
-                      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                      <Dialog
+                        open={isSettingsOpen}
+                        onOpenChange={setIsSettingsOpen}
+                      >
                         <DialogTrigger asChild>
                           <Button variant="outline" size="icon">
                             <Settings className="h-4 w-4" />
@@ -359,10 +392,15 @@ export default function FilePicker() {
                           </DialogHeader>
                           <div className="space-y-6">
                             <div>
-                              <h4 className="font-medium mb-4">Column Visibility</h4>
+                              <h4 className="font-medium mb-4">
+                                Column Visibility
+                              </h4>
                               <div className="space-y-4">
                                 {sortedModelNames.map((model) => (
-                                  <div key={model} className="flex items-center space-x-2">
+                                  <div
+                                    key={model}
+                                    className="flex items-center space-x-2"
+                                  >
                                     <input
                                       type="checkbox"
                                       id={model}
@@ -371,24 +409,32 @@ export default function FilePicker() {
                                       className="h-4 w-4 rounded border-gray-300"
                                     />
                                     <label htmlFor={model} className="text-sm">
-                                      {nameOverrides[model as keyof typeof nameOverrides] || model}
+                                      {nameOverrides[
+                                        model as keyof typeof nameOverrides
+                                      ] || model}
                                     </label>
                                   </div>
                                 ))}
                               </div>
                             </div>
                             <div>
-                              <h4 className="font-medium mb-2">Relabelling Limit</h4>
+                              <h4 className="font-medium mb-2">
+                                Relabelling Limit
+                              </h4>
                               <div className="flex items-center space-x-2">
                                 <Input
                                   type="number"
                                   min={1}
                                   max={100}
                                   value={limit}
-                                  onChange={(e) => setLimit(Number(e.target.value))}
+                                  onChange={(e) =>
+                                    setLimit(Number(e.target.value))
+                                  }
                                   className="w-24"
                                 />
-                                <span className="text-sm text-muted-foreground">items</span>
+                                <span className="text-sm text-muted-foreground">
+                                  items
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -413,8 +459,9 @@ export default function FilePicker() {
                           <TableHead>Query</TableHead>
                           {visibleModelNames.map((model) => (
                             <TableHead key={model}>
-                              {nameOverrides[model as keyof typeof nameOverrides] ||
-                                model}
+                              {nameOverrides[
+                                model as keyof typeof nameOverrides
+                              ] || model}
                             </TableHead>
                           ))}
                         </TableRow>
@@ -434,19 +481,19 @@ export default function FilePicker() {
                                 <div className="max-h-[200px] overflow-y-auto">
                                   {result.outputs[model]
                                     ? result.outputs[model]
-                                      .split('\n')
-                                      .map((file) => file.trim())
-                                      .filter((file) => file.length > 0)
-                                      .map((file, fileIndex) => (
-                                        <div
-                                          key={fileIndex}
-                                          className="block mb-2"
-                                        >
-                                          <span className="px-2 py-1 bg-secondary rounded-full text-xs">
-                                            {file}
-                                          </span>
-                                        </div>
-                                      ))
+                                        .split('\n')
+                                        .map((file) => file.trim())
+                                        .filter((file) => file.length > 0)
+                                        .map((file, fileIndex) => (
+                                          <div
+                                            key={fileIndex}
+                                            className="block mb-2"
+                                          >
+                                            <span className="px-2 py-1 bg-secondary rounded-full text-xs">
+                                              {file}
+                                            </span>
+                                          </div>
+                                        ))
                                     : 'N/A'}
                                 </div>
                               </TableCell>

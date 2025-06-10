@@ -1,8 +1,8 @@
+import { env } from '@/env'
 import { PostHog } from 'posthog-node'
 
 import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 
-import { env } from './env.mjs'
 import { logger } from './util/logger'
 
 let client: PostHog | undefined

@@ -15,6 +15,7 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
+      "@/env": ["../env.ts"],
       "backend/*": ["../backend/src/*"],
       "common/*": ["../common/src/*"],
       "code-map/*": ["../packages/code-map/*"],

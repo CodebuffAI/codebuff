@@ -5,10 +5,10 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, isNull, inArray } from 'drizzle-orm'
 import { checkOrganizationPermission } from '@/lib/organization-permissions'
-import { sendOrganizationInvitationEmail } from '@codebuff/internal'
+import { loops } from '@codebuff/internal'
 import { logger } from '@/util/logger'
 import crypto from 'crypto'
-import { env } from '@/env.mjs'; // Added import
+import { env } from '@/env' // Added import
 
 interface RouteParams {
   params: { orgId: string }
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         // Send invitation email
         const invitationUrl = `${env.NEXT_PUBLIC_APP_URL}/invites/${token}` // Replaced request.nextUrl.origin
-        const emailResult = await sendOrganizationInvitationEmail({
+        const emailResult = await loops.sendOrganizationInvitationEmail({
           email: invitation.email,
           organizationName: organization!.name,
           inviterName,

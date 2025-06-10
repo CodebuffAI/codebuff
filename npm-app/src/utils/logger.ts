@@ -60,7 +60,7 @@ function sendAnalyticsAndLog(
 ): void {
   if (process.env.CODEBUFF_GITHUB_ACTIONS !== 'true') {
     setLogPath(
-      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
+      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
         ? path.join(__dirname, '../../../debug', 'npm-app.log')
         : path.join(getCurrentChatDir(), 'log.jsonl')
     )
@@ -76,7 +76,7 @@ function sendAnalyticsAndLog(
   logAsErrorIfNeeded(toTrack)
 
   logOrStore: if (
-    process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'local' &&
+    process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'dev' &&
     Object.values(AnalyticsEvent).includes(data.eventId)
   ) {
     const analyticsEventId = data.eventId as AnalyticsEvent

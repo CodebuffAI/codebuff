@@ -4,7 +4,7 @@ import {
   parseMarkdownCodeBlock,
 } from 'common/util/file'
 
-import { env } from '../env.mjs'
+import { env } from '@/env'
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { logger } from '../util/logger'
 import { countTokens } from '../util/token-counter'
@@ -178,7 +178,7 @@ export async function rerank(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${env.RELACE_API_KEY}`,
+          Authorization: `Bearer ${env.REPLACE_API_KEY}`,
         },
         body: JSON.stringify({
           query: prompt,

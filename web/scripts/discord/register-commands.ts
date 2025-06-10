@@ -1,5 +1,5 @@
 import { REST, Routes, SlashCommandBuilder } from 'discord.js'
-import { env } from '../../src/env.mjs'
+import { env } from '../../../env.ts'
 import { logger } from '@/util/logger'
 
 const commands = [

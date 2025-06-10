@@ -9,6 +9,7 @@ const config = {
   testEnvironment: 'jest-environment-jsdom',
   testPathIgnorePatterns: ['<rootDir>/src/__tests__/e2e'],
   moduleNameMapper: {
+    '^@/env$': '<rootDir>/../env.ts',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^common/(.*)$': '<rootDir>/../common/src/$1'
   }

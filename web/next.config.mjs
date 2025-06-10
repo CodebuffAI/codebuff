@@ -1,6 +1,6 @@
 import { withContentlayer } from 'next-contentlayer'
 import createMDX from '@next/mdx'
-import { env } from './src/env.mjs'
+import { env } from '../env.ts'
 
 const withMDX = createMDX({
   extension: /\.mdx?$/,
@@ -100,6 +100,7 @@ const nextConfig = {
       },
     ],
   },
+  env,
 }
 
 export default withContentlayer(withMDX(nextConfig))

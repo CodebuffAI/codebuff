@@ -1,24 +1,25 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
     "allowJs": true,
-    "module": "CommonJS",
-    "moduleResolution": "node",
     "esModuleInterop": true,
-    "noImplicitReturns": true,
+    "declaration": true,
+    "declarationMap": true,
     "sourceMap": true,
     "strict": true,
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "target": "esnext",
-    "incremental": true,
-    "isolatedModules": true,
-    "skipLibCheck": true,
-    "types": ["node"],
     "typeRoots": ["./node_modules/@types", "../node_modules/@types", "./src/types"],
     "baseUrl": ".",
     "outDir": "./dist",
-    "rootDir": "./src"
+    "paths": {
+      "@/env": ["../env.ts"]
+    }
   },
   "include": ["src/**/*"],
+  "references": [{ "path": "../tsconfig.env.json" }],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }

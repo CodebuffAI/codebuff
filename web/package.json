@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "infisical run -- next dev -p 3000",
     "build": "bun run contentlayer && next build",
     "start": "next start",
     "preview": "next build && next start",
@@ -13,13 +13,13 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,mdx}\" --cache",
     "typecheck-this-package": "bun run contentlayer && tsc --noEmit",
-    "typecheck": "bun run build",
+    "typecheck": "bun run typecheck-this-package",
     "test": "jest",
     "test:watch": "jest --watchAll",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "discord:start": "bun run scripts/discord/index.ts",
-    "discord:register": "bun run scripts/discord/register-commands.ts"
+    "discord:start": "infisical run -- bun run scripts/discord/index.ts",
+    "discord:register": "infisical run -- bun run scripts/discord/register-commands.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.8.0",
@@ -47,8 +47,7 @@
     "@react-three/drei": "^9.112.0",
     "@react-three/fiber": "^8.17.7",
     "@stripe/stripe-js": "^4.4.0",
-    "@t3-oss/env-core": "^0.7.1",
-    "@t3-oss/env-nextjs": "^0.11.1",
+    "@t3-oss/env-nextjs": "^0.13.8",
     "@tanstack/react-query": "^5.80.6",
     "@tanstack/react-virtual": "^3.13.6",
     "aceternity-ui": "^0.2.2",
@@ -81,7 +80,7 @@
     "three-globe": "^2.42.3",
     "ts-pattern": "^5.7.0",
     "use-debounce": "^10.0.4",
-    "zod": "^3.24.2"
+    "zod": "^3.25.56"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",

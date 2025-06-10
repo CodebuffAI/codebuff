@@ -101,18 +101,15 @@ Important constants and configuration values are centralized in `common/src/cons
 
 Centralizing these constants makes it easier to manage and update project-wide settings.
 
+## Environment Variables
 
-# Code guide
+This project uses [Infisical](https://infisical.com/) for secret management. All secrets are injected at runtime.
 
-- Don't include the 'src' directory in imports
-- Keep transformations simple and pure:
-  - One clear purpose per function
-  - Prefer small, focused functions over complex abstractions
-- Write unit tests often
-- Use const assertions for better type inference
-- Don't specify return types for functions, since Typescript will infer them. Don't write return types for functions!
-- Use bun's import { spyOn } from 'bun:test' to mock functions, not mock.module
-- package.json should have @types/bun as a dev dependency, not bun-types.
+**To run any service locally, you must use the `exec` runner script from the root `package.json`**, which wraps the command with `infisical run --`.
+
+Example: `bun run exec -- bun --cwd backend dev`
+
+All environment variables are defined and validated in the central `env/index.ts` module. This module provides type-safe `env` and `clientEnv` objects for use throughout the monorepo.
 
 ## Python Package
 

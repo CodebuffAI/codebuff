@@ -1,6 +1,7 @@
-import { defineConfig } from 'drizzle-kit'
-import { env } from './env.mjs'
 import path from 'path'
+
+import { env } from '@/env'
+import { defineConfig } from 'drizzle-kit'
 
 export default defineConfig({
   dialect: 'postgresql',

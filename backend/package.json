@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "license": "UNLICENSED",
   "scripts": {
-    "start": "bun run -r tsconfig-paths/register src/index.ts",
-    "dev": "bun --hot run -r tsconfig-paths/register src/index.ts",
+    "start": "infisical run -- bun src/index.ts",
+    "dev": "infisical run -- bun src/index.ts",
     "build": "tsc --build",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
     "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package",
@@ -20,7 +20,6 @@
     "@codebuff/internal": "workspace:*",
     "@google-cloud/vertexai": "1.10.0",
     "@google/generative-ai": "0.24.1",
-    "@t3-oss/env-core": "0.11.1",
     "ai": "4.3.16",
     "common": "workspace:*",
     "cors": "^2.8.5",
@@ -35,8 +34,7 @@
     "postgres": "3.4.4",
     "posthog-node": "^4.14.0",
     "ts-pattern": "5.3.1",
-    "ws": "8.18.0",
-    "zod": "3.23.8"
+    "ws": "8.18.0"
   },
   "devDependencies": {
     "@types/bun": "^1.1.16",

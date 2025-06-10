@@ -12,6 +12,7 @@ module.exports = {
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   moduleNameMapper: {
     '^common(.*)$': '<rootDir>/../common/src$1',
+    '^@/env$': '<rootDir>/../env.ts',
   },
   moduleDirectories: ['node_modules', '../node_modules'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],

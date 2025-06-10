@@ -22,7 +22,7 @@
     "start-lite": "bun --cwd npm-app start-lite",
     "start-ask": "bun --cwd npm-app start-ask",
     "start-superagent": "bun --cwd npm-app start-superagent",
-    "start-web": "bun run start-db && bun --cwd web dev",
+    "start-web": "bun --cwd web dev",
     "start-studio": "bun --cwd common db:studio",
     "start-server": "bun --cwd backend dev",
     "start-manifold": "bun --cwd npm-app start-manifold",
@@ -75,7 +75,9 @@
   ],
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.4",
-    "codebuff": "^1.0.119"
+    "@t3-oss/env-nextjs": "^0.7.3",
+    "codebuff": "^1.0.119",
+    "zod": "3.23.8"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

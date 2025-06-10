@@ -1,7 +1,7 @@
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { CREDIT_PRICING } from 'common/src/constants'
-import { env } from 'common/src/env.mjs'
+import { env } from '@/env'
 import { convertCreditsToUsdCents } from 'common/util/currency'
 import { getNextQuotaReset } from 'common/util/dates'
 import { logger } from 'common/util/logger'
