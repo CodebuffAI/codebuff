@@ -15,6 +15,7 @@ on:
 env:
   CODEBUFF_GITHUB_ACTIONS: 'true'
   NEXT_PUBLIC_CB_ENVIRONMENT: 'test'
+  NEXT_PUBLIC_INFISICAL_UP: 'true'
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 # Define reusable job template
@@ -44,13 +45,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Set Environment Variables
+      - name: Set Environment Variables from Secrets
         run: |
-          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          node scripts/set-ci-env-vars.js | bash
 
       - name: Build and typecheck
         run: |
           bun run build
+
+      - name: Open interactive debug shell
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15 # optional guard
 
   # Template for test jobs
   test:
@@ -87,9 +93,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Set Environment Variables
+      - name: Set Environment Variables from Secrets
         run: |
-          echo "${{ secrets.ENV_LOCAL }}" > .env.local
+          node scripts/set-ci-env-vars.js | bash
 
       - name: Run ${{ matrix.package }} tests
         uses: nick-fields/retry@v3
