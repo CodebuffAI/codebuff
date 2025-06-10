@@ -1,6 +1,6 @@
 import { withContentlayer } from 'next-contentlayer'
 import createMDX from '@next/mdx'
-import { env } from '../env'
+import { env } from '../dist-env/env'
 
 const withMDX = createMDX({
   extension: /\.mdx?$/,
