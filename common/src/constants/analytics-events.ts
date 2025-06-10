@@ -10,6 +10,7 @@ export enum AnalyticsEvent {
   BACKGROUND_PROCESS_START = 'cli.background_process_start',
   CHANGE_DIRECTORY = 'cli.change_directory',
   CHECKPOINT_COMMAND_USED = 'cli.checkpoint_command_used',
+  KNOWLEDGE_FILE_UPDATED = 'cli.knowledge_file_updated',
   LOGIN = 'cli.login',
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
   MALFORMED_PROMPT_RESPONSE = 'cli.malformed_prompt_response',

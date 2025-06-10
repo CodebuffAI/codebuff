@@ -745,6 +745,16 @@ export const mainPrompt = async (
         // Add the plan file to the processing queue
         if (!fileProcessingPromisesByPath[path]) {
           fileProcessingPromisesByPath[path] = []
+          if (path.endsWith('knowledge.md')) {
+            trackEvent(AnalyticsEvent.KNOWLEDGE_FILE_UPDATED, userId ?? '', {
+              agentStepId,
+              clientSessionId,
+              fingerprintId,
+              userInputId: promptId,
+              userId,
+              repoName: repoId,
+            })
+          }
         }
         const change = {
           tool: 'create_plan' as const,
