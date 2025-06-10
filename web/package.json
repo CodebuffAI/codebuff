@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "infisical run --log-level=warn -- next dev -p 3000",
-    "build": "bun run contentlayer && next build",
+    "build": "infisical run --log-level=warn -- bun run contentlayer && next build",
     "start": "next start",
     "preview": "next build && next start",
     "contentlayer": "contentlayer build",
