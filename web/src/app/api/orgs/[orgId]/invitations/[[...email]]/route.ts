@@ -194,7 +194,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .returning()
 
       const invitationUrl = `${env.NEXT_PUBLIC_APP_URL}/invites/${token}` // Replaced request.nextUrl.origin
-      const emailResult = await sendOrganizationInvitationEmail({
+      const emailResult = await loops.sendOrganizationInvitationEmail({
         email: body.email,
         organizationName: organization!.name,
         inviterName, // Using fetched inviterName

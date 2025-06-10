@@ -309,6 +309,7 @@ const TypingEffect = ({ text, delay = 25, onComplete }: { text: string, delay?: 
     } else if (onComplete) {
       onComplete();
     }
+    return undefined;
   }, [currentIndex, delay, text, onComplete]);
   
   return (
@@ -447,8 +448,9 @@ const TerminalDemo = () => {
       
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [isAutoTyping]);
-  
+
   // Reset auto typing after completion
   const resetAutoTyping = () => {
     setTimeout(() => {
@@ -627,7 +629,7 @@ const TerminalDemo = () => {
                 <p>✅ Async state updates protected</p>
               </div>
               <div style="margin-top: 20px; border: 1px dashed #10B981; padding: 12px; border-radius: 6px;">
-                <p style="font-weight: bold;">Memory Usage:</p>
+                <p style="font-style: italic; font-size: 0.9em;">Memory Usage:</p>
                 <div style="height: 24px; width: 100%; background: #374151; border-radius: 4px; overflow: hidden; margin-top: 8px; position: relative;">
                   <div style="position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; color: white; font-size: 14px;">
                     41% Reduction
@@ -906,6 +908,7 @@ const TerminalDemo = () => {
         return () => clearInterval(typeInterval);
       }
     }
+    return undefined;
   }, [isAutoTyping, autoTypeIndex]);
   
   return (

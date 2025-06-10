@@ -1,13 +1,11 @@
+import { utils } from '@codebuff/internal'
+import { ServerAction } from 'common/actions'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import { Request, Response, NextFunction } from 'express'
 
-import db from 'common/db'
-import * as schema from 'common/db/schema'
-import { ServerAction } from 'common/actions'
 import { logger } from '@/util/logger'
-import { triggerMonthlyResetAndGrant } from '@codebuff/billing'
-
-import * as internal from '@codebuff/internal'
 
 export const checkAuth = async ({
   fingerprintId,
@@ -19,19 +17,20 @@ export const checkAuth = async ({
   clientSessionId: string
 }): Promise<void | ServerAction> => {
   // Use shared auth check functionality
-  const authResult = await internal.utils.checkAuthToken({
+  const authResult = await utils.checkAuthToken({
     fingerprintId,
     authToken,
   })
 
   if (!authResult.success) {
+    const errorMessage = authResult.error?.message || 'Authentication failed'
     logger.error(
-      { clientSessionId, error: authResult.error },
-      authResult.error?.message || 'Authentication failed'
+      { clientSessionId, error: errorMessage },
+      errorMessage
     )
     return {
       type: 'action-error',
-      message: authResult.error?.message || 'Authentication failed',
+      message: errorMessage,
     }
   }
 
@@ -95,7 +94,7 @@ export const checkAdmin = async (
   }
 
   // Check if user has admin access using shared utility
-  const adminUser = await internal.utils.checkUserIsCodebuffAdmin(user.id)
+  const adminUser = await utils.checkUserIsCodebuffAdmin(user.id)
   if (!adminUser) {
     logger.warn(
       { userId: user.id, email: user.email, clientSessionId },

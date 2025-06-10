@@ -178,7 +178,7 @@ export async function rerank(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${env.REPLACE_API_KEY}`,
+          Authorization: `Bearer ${env.RELACE_API_KEY}`,
         },
         body: JSON.stringify({
           query: prompt,

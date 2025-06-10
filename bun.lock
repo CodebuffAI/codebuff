@@ -14,6 +14,7 @@
         "@types/lodash": "4.17.7",
         "@types/node": "^22.9.0",
         "@types/node-fetch": "^2.6.12",
+        "@types/parse-path": "^7.1.0",
         "bun-types": "^1.2.2",
         "ignore": "^6.0.2",
         "lodash": "4.17.21",

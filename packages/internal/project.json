@@ -1,0 +1,23 @@
+{
+  "name": "@codebuff/internal",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --build",
+        "cwd": "packages/internal"
+      }
+    },
+    "clean": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
+        "cwd": "packages/internal"
+      }
+    }
+  },
+  "implicitDependencies": ["common"]
+}
