@@ -44,14 +44,6 @@ export function startNewChat() {
   return currentChatId
 }
 
-export function isDir(p: string): boolean {
-  try {
-    return statSync(p).isDirectory()
-  } catch {
-    return false
-  }
-}
-
 // Get the project-specific data directory
 export function getProjectDataDir(): string {
   const root = getProjectRoot()
@@ -71,10 +63,6 @@ export function getCurrentChatDir(): string {
   const dir = path.join(getProjectDataDir(), 'chats', getCurrentChatId())
   ensureDirectoryExists(dir)
   return dir
-}
-
-export function isValidProjectRoot(dir: string): boolean {
-  return !isSubdir(dir, os.homedir())
 }
 
 const execAsync = promisify(exec)
@@ -159,24 +147,6 @@ export function toAbsolutePath(filepath: string, projectRoot: string): string {
   return path.normalize(path.resolve(projectRoot, filepath))
 }
 
-/**
- * Returns true if the `toPath` is a subdirectory of `fromPath`.
- */
-export function isSubdir(fromPath: string, toPath: string) {
-  const resolvedFrom = path.resolve(fromPath)
-  const resolvedTo = path.resolve(toPath)
-
-  if (process.platform === 'win32') {
-    const fromDrive = path.parse(resolvedFrom).root.toLowerCase()
-    const toDrive = path.parse(resolvedTo).root.toLowerCase()
-    if (fromDrive !== toDrive) {
-      return false
-    }
-  }
-
-  return !path.relative(resolvedFrom, resolvedTo).startsWith('..')
-}
-
 let cachedProjectFileContext: ProjectFileContext | undefined
 
 export function initProjectFileContextWithWorker(
@@ -229,7 +199,7 @@ export function initProjectFileContextWithWorker(
 export const getProjectFileContext = async (
   projectRoot: string,
   lastFileVersion: Record<string, string>
-) => {
+): Promise<ProjectFileContext> => {
   const gitChanges = await getGitChanges()
   const changesSinceLastChat = getChangesSinceLastFileVersion(lastFileVersion)
 

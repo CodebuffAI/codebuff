@@ -12,10 +12,10 @@ import {
 } from 'common/util/string'
 import { green } from 'picocolors'
 
+import { isSubdir } from 'common/util/file'
 import {
   getProjectRoot,
   getWorkingDirectory,
-  isSubdir,
   setWorkingDirectory,
 } from '../project-files'
 import { trackEvent } from '../utils/analytics'

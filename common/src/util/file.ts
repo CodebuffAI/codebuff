@@ -1,4 +1,6 @@
 import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 import { z } from 'zod'
 
 export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
@@ -200,4 +202,34 @@ export function isValidFilePath(path: string) {
   if (invalidChars.test(path)) return false
 
   return true
+}
+
+export function isDir(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Returns true if the `toPath` is a subdirectory of `fromPath`.
+ */
+export function isSubdir(fromPath: string, toPath: string) {
+  const resolvedFrom = path.resolve(fromPath)
+  const resolvedTo = path.resolve(toPath)
+
+  if (process.platform === 'win32') {
+    const fromDrive = path.parse(resolvedFrom).root.toLowerCase()
+    const toDrive = path.parse(resolvedTo).root.toLowerCase()
+    if (fromDrive !== toDrive) {
+      return false
+    }
+  }
+
+  return !path.relative(resolvedFrom, resolvedTo).startsWith('..')
+}
+
+export function isValidProjectRoot(dir: string): boolean {
+  return !isSubdir(dir, os.homedir())
 }

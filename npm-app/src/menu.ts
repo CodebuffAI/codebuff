@@ -17,8 +17,9 @@ import {
 } from 'picocolors'
 
 import { codebuffConfigFile } from 'common/json-config/constants'
+import { isValidProjectRoot } from 'common/util/file'
 import { Formatter } from 'picocolors/types'
-import { getProjectRoot, isValidProjectRoot } from './project-files'
+import { getProjectRoot } from './project-files'
 
 export interface CommandInfo {
   commandText: string // e.g., 'type "login"', 'type "diff" or "d"', 'hit ESC key or Ctrl-C'

@@ -1,9 +1,10 @@
 import { execFileSync } from 'child_process'
+import { isValidProjectRoot } from 'common/util/file'
 import fs, { existsSync, statSync } from 'fs'
 import gitUrlParse from 'git-url-parse'
 import { getConfig, listFiles, log, ReadCommitResult } from 'isomorphic-git'
 import path from 'path'
-import { getWorkingDirectory, isValidProjectRoot } from '../project-files'
+import { getWorkingDirectory } from '../project-files'
 import { logger } from './logger'
 
 /**

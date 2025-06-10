@@ -1,12 +1,11 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 
 import * as ignore from 'ignore'
 import { sortBy } from 'lodash'
 
 import { DEFAULT_IGNORED_PATHS } from './constants'
-import { DirectoryNode, FileTreeNode } from './util/file'
+import { DirectoryNode, FileTreeNode, isValidProjectRoot } from './util/file'
 
 export const DEFAULT_MAX_FILES = 10_000
 
@@ -14,13 +13,13 @@ export function getProjectFileTree(
   projectRoot: string,
   { maxFiles = DEFAULT_MAX_FILES }: { maxFiles?: number } = {}
 ): FileTreeNode[] {
+  const start = Date.now()
   const defaultIgnore = ignore.default()
   for (const pattern of DEFAULT_IGNORED_PATHS) {
     defaultIgnore.add(pattern)
   }
 
-  const isHomeDir = projectRoot === os.homedir()
-  if (isHomeDir) {
+  if (!isValidProjectRoot(projectRoot)) {
     defaultIgnore.add('.*')
     maxFiles = 0
   }

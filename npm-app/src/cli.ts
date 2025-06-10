@@ -7,7 +7,7 @@ import * as readline from 'readline'
 import { type ApiKeyType } from 'common/api-keys/constants'
 import type { CostMode } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { ProjectFileContext } from 'common/util/file'
+import { isDir, ProjectFileContext } from 'common/util/file'
 import { pluralize } from 'common/util/string'
 import {
   blueBright,
@@ -51,7 +51,6 @@ import {
   getProjectRoot,
   getWorkingDirectory,
   initProjectFileContextWithWorker,
-  isDir,
 } from './project-files'
 import {
   clearScreen,
