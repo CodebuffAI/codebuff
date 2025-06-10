@@ -1,9 +1,9 @@
-import { CostMode } from 'common/constants'
+import { CostMode, models } from 'common/constants'
 
 import { CoreMessage } from 'ai'
 import { getAgentStream } from './prompt-agent-stream'
-import { TOOL_LIST } from './tools'
 import { logger } from './util/logger'
+import { TOOL_LIST } from './tools'
 
 export async function getThinkingStream(
   messages: CoreMessage[],
@@ -16,9 +16,9 @@ export async function getThinkingStream(
     userId: string | undefined
   }
 ) {
-  const { getStream } = getAgentStream({
+  const { getStream, model } = getAgentStream({
     costMode: options.costMode,
-    selectedModel: 'gemini-2.5-pro',
+    selectedModel: 'o3-pro',
     stopSequences: [
       '</think_deeply>',
       '<think_deeply>',
@@ -31,7 +31,29 @@ export async function getThinkingStream(
     userId: options.userId,
   })
 
-  const thinkingPrompt = `You are an expert programmer. Think deeply about the user request in the message history and how to best approach it. Consider edge cases, potential issues, and alternative approaches. Only think - do not take any actions or make any changes.
+  const isO3 = model === models.o3pro || model === models.o3
+  const thinkingPrompt = isO3
+    ? `You are an expert programmer. Think deeply about the user request in the message history and how to best approach it. Consider edge cases, potential issues, and alternative approaches.
+
+When the next action is clear, you can stop your thinking immediately. For example:
+- If you realize you need to read files, say what files you should read next, and then end your thinking.
+- If you realize you completed the user request, say it is time to end your response and end your thinking.
+- If you already did thinking previously that outlines a plan you are continuing to implement, you can stop your thinking immediately and continue following the plan.
+
+Guidelines:
+- Respond with your analysis inside a think_deeply tool call.
+- Explain clearly and concisely what would be helpful for a junior engineer to know to handle the user request.
+- DO NOT use any tools! You are only thinking, not taking any actions. You should refer to tool calls without angle brackets when talking about them: "I should use the read_files tool" and NOT "I should use <read_files>"
+- Make sure to end your response with "</thought>\n</think_deeply> and don't write anything after that."
+
+Example:
+<think_deeply>
+<thought>
+The next step is to read src/foo.ts and src/bar.ts
+</thought>
+</think_deeply>
+`.trim()
+    : `You are an expert programmer. Think deeply about the user request in the message history and how to best approach it. Consider edge cases, potential issues, and alternative approaches. Only think - do not take any actions or make any changes.
 
 The user cannot see anything you write, this is thinking that will be used to generate the response in the next step.
 
@@ -64,14 +86,18 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
   const stream = getStream(agentMessages)
 
   let response = ''
-  onChunk(thinkDeeplyPrefix)
+  if (!isO3) {
+    onChunk(thinkDeeplyPrefix)
+  }
 
   let wasTruncated = false
+  const toolList = TOOL_LIST.filter((tool) => tool !== 'think_deeply')
   for await (const chunk of stream) {
     response += chunk
+    onChunk(chunk)
 
     // Check for any complete tool tag
-    for (const tool of TOOL_LIST) {
+    for (const tool of toolList) {
       const toolTag = `<${tool}>`
       const tagIndex = response.indexOf(toolTag)
       if (tagIndex !== -1) {
@@ -84,18 +110,20 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
     if (wasTruncated) {
       break
     }
-
-    onChunk(chunk)
   }
 
-  response = thinkDeeplyPrefix + response
+  if (!response.startsWith('<think_deeply>')) {
+    response = thinkDeeplyPrefix + response
+  }
 
   if (!response.includes('</thought>')) {
     onChunk('</thought>\n')
     response += '</thought>\n'
   }
-  onChunk('</think_deeply>')
-  response += '</think_deeply>'
+  if (!response.includes('</think_deeply>')) {
+    onChunk('</think_deeply>')
+    response += '</think_deeply>'
+  }
 
   logger.debug({ response: response }, 'Thinking stream')
   return response

@@ -42,6 +42,9 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
   if (Object.values(geminiModels).includes(model as GeminiModel)) {
     return google.languageModel(model)
   }
+  if (model === openaiModels.o3pro) {
+    return openai.responses(model)
+  }
   if (Object.values(openaiModels).includes(model as OpenAIModel)) {
     return openai.languageModel(model)
   }
