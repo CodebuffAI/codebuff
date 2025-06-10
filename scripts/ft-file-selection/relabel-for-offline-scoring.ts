@@ -25,7 +25,7 @@ import { isValidationSample } from './collect-tuning-data'
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
 const MAX_PARALLEL = 5 // Maximum number of traces to process in parallel for relabeling
-const LIMIT = 400 // Total limit of traces to process
+const LIMIT = 4000 // Total limit of traces to process
 const START_CURSOR = '2025-05-31T00:00:00.000Z' // User-provided start cursor or default
 
 const GROUND_TRUTH_MODEL = 'claude-opus-4-20250514-with-full-file-context-new'
@@ -306,18 +306,18 @@ const scoringFunctions = {
     fn: (teacher: string, student: string) =>
       jaccardSimilarity(teacher, student),
   },
-  jaccardTop3: {
-    name: 'Jaccard Similarity (Top 3) (↑ is better)',
+  jaccardTop2: {
+    name: 'Jaccard Similarity (Top 2) (↑ is better)',
     description:
-      'Filters both the teacher and student outputs to the top 3 files, then calculates Jaccard Similarity',
+      'Filters both the teacher and student outputs to the top 2 files, then calculates Jaccard Similarity',
     fn: (teacher: string, student: string) =>
-      jaccardSimilarity(teacher, student, 3),
+      jaccardSimilarity(teacher, student, 2),
   },
   mrr: {
-    name: 'MRR (Top 3, average) (↑ is better)',
+    name: 'MRR (Top 2, average) (↑ is better)',
     description:
-      'Rewards students (1/rank) for each file that is in the top 3 of the teacher',
-    fn: (teacher: string, student: string) => mrr(teacher, student, 3),
+      'Rewards students (1/rank) for each file that is in the top 2 of the teacher',
+    fn: (teacher: string, student: string) => mrr(teacher, student, 2),
   },
 }
 
