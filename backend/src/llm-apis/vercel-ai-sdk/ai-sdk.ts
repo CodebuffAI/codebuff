@@ -75,7 +75,7 @@ export const promptAiSdkStream = async function* (
     providerOptions: {
       google: {
         thinkingConfig: {
-          includeThoughts: true,
+          includeThoughts: false,
           thinkingBudget: options.thinkingBudget ?? 128,
         },
       } satisfies GoogleGenerativeAIProviderOptions,
