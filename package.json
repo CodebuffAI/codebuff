@@ -33,7 +33,7 @@
     "start-nushell": "bun --cwd npm-app start-nushell",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "bump": "bun run scripts/bump-version.ts",
-    "deploy:npm-app": "bun run bump && cd npm-app && npm publish",
+    "deploy:npm-app": "infisical run --env=prod --log-level=warn -- bun run bump && cd npm-app && npm publish",
     "test:patch": "bun test test/__src__/patch.test.ts",
     "clean": "nx run-many --target=clean --all",
     "build": "nx reset && nx run-many --target=build --all",

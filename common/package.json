@@ -35,5 +35,8 @@
     "@types/node": "*",
     "@types/lodash": "*",
     "typescript": "*"
+  },
+  "devDependencies": {
+    "@types/parse-path": "^7.1.0"
   }
 }

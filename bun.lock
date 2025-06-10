@@ -87,6 +87,9 @@
         "seedrandom": "^3.0.5",
         "stripe": "^16.11.0",
       },
+      "devDependencies": {
+        "@types/parse-path": "^7.1.0",
+      },
       "peerDependencies": {
         "@types/lodash": "*",
         "@types/node": "*",

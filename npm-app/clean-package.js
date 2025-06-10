@@ -1,7 +1,8 @@
 const fs = require('fs')
 const path = require('path')
+
+// Set production environment for the build
 process.env.NEXT_PUBLIC_CB_ENVIRONMENT = 'production'
-const loadedEnv = await require('./loadEnv.js')
 
 const packageJsonPath = path.join(__dirname, 'package.json')
 const tempPackageJsonPath = path.join(__dirname, 'temp.package.json')
@@ -39,22 +40,23 @@ delete packageJson.peerDependencies
 // Write the cleaned package.json
 fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2))
 
-// Add NEXT_PUBLIC_CB_ENVIRONMENT setting to index.js
+// Inject all environment variables into index.js
 if (fs.existsSync(indexJsPath)) {
   let indexJsContent = fs.readFileSync(indexJsPath, 'utf8')
 
-  // const envLine = "process.env.NEXT_PUBLIC_CB_ENVIRONMENT = 'production';"
-  const lines = indexJsContent.split('\n')
-  lines.splice(
-    1,
-    0,
-    ...Object.entries(loadedEnv).map(
-      ([key, value]) => `process.env.${key} = '${value}';`
+  // Get all environment variables that start with NEXT_PUBLIC_ or are needed for the npm package
+  const envVarsToInject = Object.entries(process.env)
+    .filter(([key, value]) => 
+      key.startsWith('NEXT_PUBLIC_') && value !== undefined
     )
-  ) // Insert after the shebang line
+    .map(([key, value]) => `process.env.${key} = '${value}';`)
+
+  const lines = indexJsContent.split('\n')
+  // Insert all environment variables after the shebang line
+  lines.splice(1, 0, ...envVarsToInject)
   indexJsContent = lines.join('\n')
   fs.writeFileSync(indexJsPath, indexJsContent)
-  console.log('NEXT_PUBLIC_CB_ENVIRONMENT setting added to index.js')
+  console.log(`Injected ${envVarsToInject.length} environment variables into index.js`)
 } else {
   console.error('index.js not found in the dist directory')
 }
