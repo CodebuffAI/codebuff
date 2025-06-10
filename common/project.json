@@ -9,7 +9,8 @@
       "options": {
         "command": "tsc",
         "cwd": "common"
-      }
+      },
+      "dependsOn": ["root:build-env"]
     },
     "test": {
       "executor": "nx:run-commands",
