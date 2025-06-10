@@ -2,7 +2,6 @@
 # Tests are parallelized to run faster by splitting them into separate jobs that run concurrently
 #
 # See the workflow visualization in knowledge file
-# ```
 
 name: CI
 
@@ -11,46 +10,6 @@ on:
     branches: ['main']
   pull_request:
     branches: ['main']
-
-env:
-  CODEBUFF_GITHUB_ACTIONS: 'true'
-  NEXT_PUBLIC_CB_ENVIRONMENT: 'test'
-  NEXT_PUBLIC_INFISICAL_UP: 'true'
-  CODEBUFF_GITHUB_TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
-  # Dynamically set all environment variables from secrets
-  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-  ANTHROPIC_API_KEY2: ${{ secrets.ANTHROPIC_API_KEY2 }}
-  API_KEY_ENCRYPTION_SECRET: ${{ secrets.API_KEY_ENCRYPTION_SECRET }}
-  DATABASE_URL: ${{ secrets.DATABASE_URL }}
-  DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-  DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
-  DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-  DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
-  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-  CODEBUFF_GITHUB_ID: ${{ secrets.CODEBUFF_GITHUB_ID }}
-  CODEBUFF_GITHUB_SECRET: ${{ secrets.CODEBUFF_GITHUB_SECRET }}
-  GOOGLE_CLOUD_PROJECT_ID: ${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}
-  GOOGLE_SITE_VERIFICATION_ID: ${{ secrets.GOOGLE_SITE_VERIFICATION_ID }}
-  HELICONE_API_KEY: ${{ secrets.HELICONE_API_KEY }}
-  LOOPS_API_KEY: ${{ secrets.LOOPS_API_KEY }}
-  NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-  NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
-  NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
-  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID }}
-  NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${{ secrets.NEXT_PUBLIC_LINKEDIN_PARTNER_ID }}
-  NEXT_PUBLIC_POSTHOG_API_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_API_KEY }}
-  NEXT_PUBLIC_POSTHOG_HOST_URL: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST_URL }}
-  NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: ${{ secrets.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL }}
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
-  NEXT_PUBLIC_SUPPORT_EMAIL: ${{ secrets.NEXT_PUBLIC_SUPPORT_EMAIL }}
-  OPEN_AI_KEY: ${{ secrets.OPEN_AI_KEY }}
-  OPEN_ROUTER_API_KEY: ${{ secrets.OPEN_ROUTER_API_KEY }}
-  PORT: ${{ secrets.PORT }}
-  RELACE_API_KEY: ${{ secrets.RELACE_API_KEY }}
-  STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-  STRIPE_TEAM_FEE_PRICE_ID: ${{ secrets.STRIPE_TEAM_FEE_PRICE_ID }}
-  STRIPE_USAGE_PRICE_ID: ${{ secrets.STRIPE_USAGE_PRICE_ID }}
-  STRIPE_WEBHOOK_SECRET_KEY: ${{ secrets.STRIPE_WEBHOOK_SECRET_KEY }}
 
 # Define reusable job template
 jobs:
@@ -79,20 +38,27 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Debug - Print all environment variables
+      - name: Set environment variables
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
         run: |
-          echo "=== All Environment Variables ==="
-          env | sort
-          echo "=== End Environment Variables ==="
+          VAR_NAMES=$(node scripts/generate-ci-env.js)
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Build and typecheck
         run: |
           bun run build
 
-      - name: Open interactive debug shell
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15 # optional guard
+      # - name: Open interactive debug shell
+      #   if: ${{ failure() }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15 # optional guard
 
   # Template for test jobs
   test:
@@ -129,6 +95,19 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Set environment variables
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+        run: |
+          VAR_NAMES=$(node scripts/generate-ci-env.js)
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+
       - name: Run ${{ matrix.package }} tests
         uses: nick-fields/retry@v3
         with:
@@ -136,7 +115,7 @@ jobs:
           max_attempts: 5
           command: cd ${{ matrix.package }} && bun test $(find src -name *.test.ts)
 
-      - name: Open interactive debug shell
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15 # optional guard
+      # - name: Open interactive debug shell
+      #   if: ${{ failure() }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15 # optional guard
