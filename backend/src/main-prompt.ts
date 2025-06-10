@@ -195,7 +195,7 @@ export const mainPrompt = async (
       "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
 
     (isFlash || isGeminiPro) &&
-      'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
+      'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area. Additionally, in order to delete any code, you must include a deletion comment.',
 
     geminiThinkingEnabled
       ? 'Start your response with the think_deeply tool call to decide how to proceed.'
@@ -1101,7 +1101,7 @@ export const mainPrompt = async (
     })
     if (isLoop) {
       logger.warn('Detected unproductive loop, ending turn.')
-      onResponseChunk("\n\nHow would you like to proceed from here?\n\n")
+      onResponseChunk('\n\nHow would you like to proceed from here?\n\n')
       fullResponse += getToolCallString('end_turn', {})
       clientToolCalls.push({
         name: 'end_turn',

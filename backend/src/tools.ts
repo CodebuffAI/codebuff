@@ -138,6 +138,8 @@ Indicate the location and nature of the modifications (additions and deletions) 
 
 Make sure that you preserve the indentation and code structure of exactly how you believe the final code will look like (do not output lines that will not be in the final code after they are merged).
 
+##### **IMPORTANT** Deletion Comments
+
 **CRITICAL FOR DELETIONS** If you plan on deleting a section, you MUST provide a comment giving the relevant context such that the code is understood to be removed. This is REQUIRED for the fast-apply model to understand what to delete.
 
 Examples:
@@ -157,7 +159,9 @@ Block 3
 // rest of code
 \`\`\`
 
-**YOU MUST ALWAYS INCLUDE DELETION COMMENTS** when removing code blocks, functions, variables, or any other code elements. The fast-apply model cannot understand deletions without these explicit comments.
+**YOU MUST ALWAYS INCLUDE DELETION COMMENTS** when removing **anything**: single lines, code blocks, functions, variables, or any other code elements. The fast-apply model cannot understand deletions without these explicit comments.
+
+Merely omitting the code block may or may not work. In order to guarantee the deletion of the code, you must include a deletion comment.
 
 #### Additional Info
 
@@ -186,7 +190,7 @@ ${getToolCallString('write_file', {
 Example 2 - Editing with placeholder comments:
 ${getToolCallString('write_file', {
   path: 'foo.ts',
-  content: `// no change to imports
+  content: `// ... existing code ...
 
 function foo() {
   console.log('foo');
@@ -194,9 +198,11 @@ function foo() {
     console.log(i);
   }
   doSomething();
+
+  // Delete the console.log line from here
 }
 
-// rest of code`,
+// ... existing code ...`,
 })}
 
     `.trim(),
