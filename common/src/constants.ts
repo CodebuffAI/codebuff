@@ -225,6 +225,8 @@ export const models = {
 
 export const shortModelNames = {
   'gemini-2.5-pro': models.gemini2_5_pro_preview,
+  'flash-2.5': models.gemini2_5_flash,
+  'opus-4': models.opus4,
   'sonnet-4': models.sonnet,
   'sonnet-3.7': models.sonnet3_7,
   'sonnet-3.6': models.sonnet3_5,

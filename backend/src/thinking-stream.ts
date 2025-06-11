@@ -18,7 +18,7 @@ export async function getThinkingStream(
 ) {
   const { getStream, model } = getAgentStream({
     costMode: options.costMode,
-    selectedModel: 'o3-pro',
+    selectedModel: 'o3',
     stopSequences: [
       '</think_deeply>',
       '<think_deeply>',
@@ -88,18 +88,25 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
   const stream = getStream(agentMessages)
 
   let response = ''
-  if (!isO3) {
-    onChunk(thinkDeeplyPrefix)
-  }
+  onChunk(thinkDeeplyPrefix)
 
   let wasTruncated = false
-  const toolList = TOOL_LIST.filter((tool) => tool !== 'think_deeply')
-  for await (const chunk of stream) {
+  let prefix = ''
+  for await (let chunk of stream) {
+    // Remove a prefix of the the think deeply tool call if it exists.
+    prefix += chunk
     response += chunk
+    if (thinkDeeplyPrefix.startsWith(prefix)) {
+      continue
+    }
+    if (response.startsWith(thinkDeeplyPrefix)) {
+      response = response.slice(thinkDeeplyPrefix.length)
+      chunk = chunk.slice(chunk.length - response.length)
+    }
     onChunk(chunk)
 
     // Check for any complete tool tag
-    for (const tool of toolList) {
+    for (const tool of TOOL_LIST) {
       const toolTag = `<${tool}>`
       const tagIndex = response.indexOf(toolTag)
       if (tagIndex !== -1) {
@@ -114,9 +121,7 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
     }
   }
 
-  if (!response.startsWith('<think_deeply>')) {
-    response = thinkDeeplyPrefix + response
-  }
+  response = thinkDeeplyPrefix + response
 
   if (!response.includes('</thought>')) {
     onChunk('</thought>\n')
