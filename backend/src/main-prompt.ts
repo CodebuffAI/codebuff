@@ -79,6 +79,7 @@ import {
   requestOptionalFile,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
+import { research } from './research'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
@@ -851,6 +852,12 @@ export const mainPrompt = async (
 
         return
       }),
+      research: toolCallback('research', (toolCall) => {
+        clientToolCalls.push({
+          ...toolCall,
+          id: generateCompactId(),
+        } as ClientToolCall)
+      }),
     },
     (name, error) => {
       foundParsingError = true
@@ -916,6 +923,7 @@ export const mainPrompt = async (
         'browser_logs',
         'think_deeply',
         'create_plan',
+        'research',
         'end_turn',
       ].includes(name)
     ) {
@@ -1033,6 +1041,28 @@ export const mainPrompt = async (
           })
         )
       }
+    } else if (toolCall.name === 'research') {
+      const { prompts } = toolCall.parameters as { prompts: string[] }
+      const researchResults = await research(
+        ws,
+        prompts,
+        agentState,
+        userId,
+        clientSessionId
+      )
+
+      // Format results and add to serverToolResults
+      const formattedResult = researchResults
+        .map((history, i) =>
+          `Research for prompt "${prompts[i]}":\n${history.map((m) => toContentString(m.content as CoreMessage)).join('\n')}`
+        )
+        .join('\n\n')
+
+      serverToolResults.push({
+        id: generateCompactId(),
+        name: 'research',
+        result: formattedResult,
+      })
     } else {
       throw new Error(`Unknown tool: ${name}`)
     }
