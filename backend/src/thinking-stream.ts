@@ -23,6 +23,7 @@ export async function getThinkingStream(
       '</think_deeply>',
       '<think_deeply>',
       '<read_files>',
+      '<write_file>',
       '<end_turn>',
     ],
     clientSessionId: options.clientSessionId,
