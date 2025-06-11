@@ -35,16 +35,15 @@ export async function research(
       cwd: initialAgentState.fileContext.currentWorkingDirectory,
     }
 
-    return loopMainPrompt(
-      ws,
-      action,
+    return loopMainPrompt(ws, action, {
       userId,
       clientSessionId,
-      () => {
+      onResponseChunk: () => {
         /* We can ignore chunks for now */
       },
-      undefined // Use default model for lite mode
-    )
+      selectedModel: undefined, // Use default model for lite mode
+      readOnlyMode: true // readOnlyMode = true
+    })
   })
 
   const results = await Promise.all(researchPromises)

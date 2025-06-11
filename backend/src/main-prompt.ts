@@ -86,18 +86,31 @@ const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
 // TODO: We might want to be able to turn this on on a per-repo basis.
 const COLLECT_FULL_FILE_CONTEXT = false
 
+export interface MainPromptOptions {
+  userId: string | undefined
+  clientSessionId: string
+  onResponseChunk: (chunk: string) => void
+  selectedModel: string | undefined
+  readOnlyMode?: boolean
+}
+
 export const mainPrompt = async (
   ws: WebSocket,
   action: Extract<ClientAction, { type: 'prompt' }>,
-  userId: string | undefined,
-  clientSessionId: string,
-  onResponseChunk: (chunk: string) => void,
-  selectedModel: string | undefined
+  options: MainPromptOptions
 ): Promise<{
   agentState: AgentState
   toolCalls: Array<ClientToolCall>
   toolResults: Array<ToolResult>
 }> => {
+  const {
+    userId,
+    clientSessionId,
+    onResponseChunk,
+    selectedModel,
+    readOnlyMode = false
+  } = options
+  
   const {
     prompt,
     agentState,
@@ -530,10 +543,10 @@ export const mainPrompt = async (
         timeToLive: 'agentStep' as const,
       },
 
-    isAskMode && {
+    (isAskMode || readOnlyMode) && {
       role: 'user',
       content: asSystemMessage(
-        `You have been switched to ASK mode. As such, you can no longer use the write_file tool or run_terminal_command tool. Do not attempt to use them because they will not work!`
+        `You have been switched to ${readOnlyMode ? 'READ-ONLY' : 'ASK'} mode. As such, you can no longer use the write_file tool or run_terminal_command tool. Do not attempt to use them because they will not work!`
       ),
       timeToLive: 'agentStep',
     }
@@ -669,14 +682,19 @@ export const mainPrompt = async (
 
         // Filter out restricted tools in ask mode unless exporting summary
         if (
-          isAskMode &&
+          (isAskMode || readOnlyMode) &&
           !isExporting &&
-          ['write_file', 'str_replace', 'run_terminal_command'].includes(tool)
+          buildArray<ToolName>(
+            'write_file',
+            'str_replace',
+            'run_terminal_command',
+            isAskMode && 'create_plan'
+          ).includes(tool)
         ) {
           serverToolResults.push({
             name: tool,
             id: generateCompactId(),
-            result: `Tool ${tool} is not available in ask mode. You can only use tools that read information or provide analysis.`,
+            result: `Tool ${tool} is not available in ${readOnlyMode ? 'read-only' : 'ask'} mode. You can only use tools that read information or provide analysis.`,
           })
           return
         }

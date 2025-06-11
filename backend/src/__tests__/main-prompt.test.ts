@@ -160,21 +160,26 @@ describe('mainPrompt', () => {
     ]
     const userPromptText = 'Test prompt'
 
+    const action = {
+      type: 'prompt' as const,
+      prompt: userPromptText,
+      agentState,
+      fingerprintId: 'test',
+      costMode: 'normal' as const,
+      promptId: 'test',
+      toolResults,
+    }
+
     const { agentState: newAgentState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
+      action,
       {
-        type: 'prompt',
-        prompt: userPromptText,
-        agentState,
-        fingerprintId: 'test',
-        costMode: 'normal',
-        promptId: 'test',
-        toolResults,
-      },
-      TEST_USER_ID,
-      'test-session',
-      () => {},
-      undefined // Mock model
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
     )
 
     // 1. First, find the tool results message
@@ -229,22 +234,27 @@ describe('mainPrompt', () => {
       ]),
     })
 
+    const action = {
+      type: 'prompt' as const,
+      prompt: 'Test prompt causing file update check',
+      agentState,
+      fingerprintId: 'test',
+      costMode: 'max' as const,
+      promptId: 'test',
+      toolResults: [], // No *new* tool results for this specific turn
+    }
+
     // Capture the state *after* the prompt call
     const { agentState: newAgentState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
+      action,
       {
-        type: 'prompt',
-        prompt: 'Test prompt causing file update check',
-        agentState,
-        fingerprintId: 'test',
-        costMode: 'max',
-        promptId: 'test',
-        toolResults: [], // No *new* tool results for this specific turn
-      },
-      TEST_USER_ID,
-      'test-session',
-      () => {},
-      undefined // Mock model
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
     )
 
     // Find the user message containing tool results added *during* the mainPrompt execution
@@ -278,21 +288,26 @@ describe('mainPrompt', () => {
     ).mockImplementation(async () => 'ls -la')
 
     const agentState = getInitialAgentState(mockFileContext)
+    const action = {
+      type: 'prompt' as const,
+      prompt: 'ls -la',
+      agentState,
+      fingerprintId: 'test',
+      costMode: 'max' as const,
+      promptId: 'test',
+      toolResults: [],
+    }
+
     const { toolCalls } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
+      action,
       {
-        type: 'prompt',
-        prompt: 'ls -la',
-        agentState,
-        fingerprintId: 'test',
-        costMode: 'max',
-        promptId: 'test',
-        toolResults: [],
-      },
-      TEST_USER_ID,
-      'test-session',
-      () => {},
-      undefined // Mock model
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
     )
 
     expect(toolCalls).toHaveLength(1)
@@ -308,21 +323,26 @@ describe('mainPrompt', () => {
     mockAgentStream(writeFileBlock)
 
     const agentState = getInitialAgentState(mockFileContext)
+    const action = {
+      type: 'prompt' as const,
+      prompt: 'Write hello world to new-file.txt',
+      agentState,
+      fingerprintId: 'test',
+      costMode: 'max' as const, // This causes streamGemini25Pro to be called
+      promptId: 'test',
+      toolResults: [],
+    }
+
     const { toolCalls, agentState: newAgentState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
+      action,
       {
-        type: 'prompt',
-        prompt: 'Write hello world to new-file.txt',
-        agentState,
-        fingerprintId: 'test',
-        costMode: 'max', // This causes streamGemini25Pro to be called
-        promptId: 'test',
-        toolResults: [],
-      },
-      TEST_USER_ID,
-      'test-session',
-      () => {},
-      undefined // Mock model
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
     )
 
     expect(toolCalls).toHaveLength(1) // This assertion should now pass
@@ -347,21 +367,26 @@ describe('mainPrompt', () => {
       ...Array(20).fill({ role: 'assistant', content: 'Assistant response' }),
     ]
 
+    const action = {
+      type: 'prompt' as const,
+      prompt: '', // No new prompt
+      agentState,
+      fingerprintId: 'test',
+      costMode: 'max' as const,
+      promptId: 'test',
+      toolResults: [],
+    }
+
     const { toolCalls } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
+      action,
       {
-        type: 'prompt',
-        prompt: '', // No new prompt
-        agentState,
-        fingerprintId: 'test',
-        costMode: 'max',
-        promptId: 'test',
-        toolResults: [],
-      },
-      TEST_USER_ID,
-      'test-session',
-      () => {},
-      undefined // Mock model
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
     )
 
     expect(toolCalls).toHaveLength(0) // No tool calls expected
@@ -371,21 +396,26 @@ describe('mainPrompt', () => {
     const agentState = getInitialAgentState(mockFileContext)
     agentState.consecutiveAssistantMessages = 0
 
+    const action = {
+      type: 'prompt' as const,
+      prompt: 'New user prompt',
+      agentState,
+      fingerprintId: 'test',
+      costMode: 'max' as const,
+      promptId: 'test',
+      toolResults: [],
+    }
+
     const { agentState: newAgentState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
+      action,
       {
-        type: 'prompt',
-        prompt: 'New user prompt',
-        agentState,
-        fingerprintId: 'test',
-        costMode: 'max',
-        promptId: 'test',
-        toolResults: [],
-      },
-      TEST_USER_ID,
-      'test-session',
-      () => {},
-      undefined // Mock model
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
     )
 
     // When there's a new prompt, consecutiveAssistantMessages should be set to 1
@@ -397,21 +427,26 @@ describe('mainPrompt', () => {
     const initialCount = 5
     agentState.consecutiveAssistantMessages = initialCount
 
+    const action = {
+      type: 'prompt' as const,
+      prompt: '', // No new prompt
+      agentState,
+      fingerprintId: 'test',
+      costMode: 'max' as const,
+      promptId: 'test',
+      toolResults: [],
+    }
+
     const { agentState: newAgentState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
+      action,
       {
-        type: 'prompt',
-        prompt: '', // No new prompt
-        agentState,
-        fingerprintId: 'test',
-        costMode: 'max',
-        promptId: 'test',
-        toolResults: [],
-      },
-      TEST_USER_ID,
-      'test-session',
-      () => {},
-      undefined // Mock model
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
     )
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
@@ -423,21 +458,26 @@ describe('mainPrompt', () => {
     mockAgentStream('')
 
     const agentState = getInitialAgentState(mockFileContext)
+    const action = {
+      type: 'prompt' as const,
+      prompt: 'Test prompt leading to empty response',
+      agentState,
+      fingerprintId: 'test',
+      costMode: 'normal' as const,
+      promptId: 'test',
+      toolResults: [],
+    }
+
     const { toolCalls } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
+      action,
       {
-        type: 'prompt',
-        prompt: 'Test prompt leading to empty response',
-        agentState,
-        fingerprintId: 'test',
-        costMode: 'normal',
-        promptId: 'test',
-        toolResults: [],
-      },
-      TEST_USER_ID,
-      'test-session',
-      () => {},
-      undefined // Mock model
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
     )
 
     expect(toolCalls).toHaveLength(0) // No tool calls expected for empty response
@@ -456,21 +496,26 @@ describe('mainPrompt', () => {
 
     mockAgentStream(mockResponse)
 
+    const action = {
+      type: 'prompt' as const,
+      prompt: userPromptText,
+      agentState,
+      fingerprintId: 'test',
+      costMode: 'max' as const,
+      promptId: 'test',
+      toolResults: [],
+    }
+
     const { toolCalls } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
+      action,
       {
-        type: 'prompt',
-        prompt: userPromptText,
-        agentState,
-        fingerprintId: 'test',
-        costMode: 'max',
-        promptId: 'test',
-        toolResults: [],
-      },
-      TEST_USER_ID,
-      'test-session',
-      () => {},
-      undefined // Mock model
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
     )
 
     expect(toolCalls).toHaveLength(1)

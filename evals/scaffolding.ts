@@ -112,19 +112,18 @@ export async function runMainPrompt(
 
   let fullResponse = ''
 
-  const result = await mainPromptModule.mainPrompt(
-    mockWs,
-    promptAction,
-    TEST_USER_ID,
-    sessionId,
-    (chunk: string) => {
+  const result = await mainPromptModule.mainPrompt(mockWs, promptAction, {
+    userId: TEST_USER_ID,
+    clientSessionId: sessionId,
+    onResponseChunk: (chunk: string) => {
       if (DEBUG_MODE) {
         process.stdout.write(chunk)
       }
       fullResponse += chunk
     },
-    undefined
-  )
+    selectedModel: undefined, // selectedModel
+    readOnlyMode: false // readOnlyMode = false for evals
+  })
 
   return {
     ...result,
