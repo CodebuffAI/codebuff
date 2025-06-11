@@ -238,10 +238,21 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
     onParamEnd: (paramName, toolName, content) => {
       if (paramName === 'prompts') {
-        const prompts = content.trim().split('\n').filter(Boolean);
-        return gray(`- ${prompts.join('\n- ')}`);
+        try {
+          const prompts = JSON.parse(content);
+          if (Array.isArray(prompts)) {
+            return gray(`- ${prompts.join('\n- ')}`);
+          }
+        } catch (e) {
+          // Fallback for non-json or malformed
+          const prompts = content.trim().split('\n').filter(Boolean);
+          return gray(`- ${prompts.join('\n- ')}`);
+        }
       }
       return null;
+    },
+    onToolEnd: (toolName, params) => {
+      return gray('\n\nResearching...')
     },
   },
 }
