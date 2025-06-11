@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "infisical run --log-level=warn -- nx run web:dev",
+    "dev": "nx run web:dev",
     "build": "nx run web:build",
     "start": "infisical run --log-level=warn -- nx run web:start",
     "preview": "nx run web:build && infisical run --log-level=warn -- nx run web:start",

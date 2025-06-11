@@ -19,11 +19,13 @@
       "executor": "nx:run-commands",
       "outputs": ["{projectRoot}/.next"],
       "options": {
-        "commands": ["bun run contentlayer && next build"],
+        "commands": [
+          "if command -v infisical &> /dev/null; then infisical run -- next build; else next build; fi"
+        ],
         "cwd": "web",
         "parallel": false
       },
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "contentlayer"]
     },
     "dev": {
       "executor": "nx:run-commands",
