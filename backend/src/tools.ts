@@ -121,6 +121,7 @@ ${getToolCallString('update_subgoal', {
           .string()
           .min(1, 'Path cannot be empty')
           .describe(`Path to the file relative to the **project root**`),
+        instructions: z.string().describe('What the change is intended to do.'),
         content: z.string().describe(`Edit snippet to apply to the file.`),
       })
       .describe(`Create or edit a file with the given content.`),
@@ -178,18 +179,21 @@ Notes for editing a file:
 Examples:
 ${getToolCallString('write_file', {
   path: 'path/to/file',
+  instructions: 'How the file is being updated',
   content: 'Your file content here',
 })}
 
 Example 1 - Simple file creation:
 ${getToolCallString('write_file', {
   path: 'new-file.ts',
+  instructions: 'Prints Hello, world',
   content: 'console.log("Hello, world!");',
 })}
 
 Example 2 - Editing with placeholder comments:
 ${getToolCallString('write_file', {
   path: 'foo.ts',
+  instructions: 'Update foo and remove console.log',
   content: `// ... existing code ...
 
 function foo() {
@@ -865,6 +869,7 @@ Assistant: Sure thing! Let's update that file!
 
 ${getToolCallString('write_file', {
   path: 'path/to/example/file.ts',
+  instruction: 'Update the console logs',
   content: "console.log('Hello from Buffy!');",
   // old_0: '// Replace this line with a fun greeting',
   // new_0: "console.log('Hello from Buffy!');",

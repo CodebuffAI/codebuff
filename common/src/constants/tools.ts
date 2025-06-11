@@ -4,7 +4,7 @@ export const toolSchema = {
   update_subgoal: ['id', 'status', 'plan', 'log'],
 
   // File operations
-  write_file: ['path', 'content'],
+  write_file: ['path', 'instructions', 'content'],
   str_replace: ['path', /old_\d+/, /new_\d+/],
   read_files: ['paths'],
   find_files: ['description'],
