@@ -869,7 +869,7 @@ Assistant: Sure thing! Let's update that file!
 
 ${getToolCallString('write_file', {
   path: 'path/to/example/file.ts',
-  instruction: 'Update the console logs',
+  instructions: 'Update the console logs',
   content: "console.log('Hello from Buffy!');",
   // old_0: '// Replace this line with a fun greeting',
   // new_0: "console.log('Hello from Buffy!');",

@@ -13,7 +13,6 @@ import {
   parseGitignore,
 } from 'common/project-file-tree'
 import {
-  createWriteFileBlock,
   ensureDirectoryExists,
   ProjectFileContext,
 } from 'common/util/file'
@@ -539,45 +538,6 @@ export function setFiles(files: Record<string, string>) {
     const fullPath = path.join(projectRoot, filePath)
     fs.writeFileSync(fullPath, content, 'utf8')
   }
-}
-
-export function getFileBlocks(filePaths: string[]) {
-  const result: Record<string, string> = {}
-
-  for (const filePath of filePaths) {
-    const fullPath = path.join(projectRoot, filePath)
-    try {
-      const content = fs.readFileSync(fullPath, 'utf8')
-      result[filePath] = content
-    } catch (error) {
-      const fileDoesNotExist =
-        error instanceof Error &&
-        error.message.includes('no such file or directory')
-
-      result[filePath] = fileDoesNotExist
-        ? '[FILE_DOES_NOT_EXIST]'
-        : '[FILE_READ_ERROR]'
-
-      if (!fileDoesNotExist) {
-        console.error(`Error reading file ${fullPath}`)
-        logger.error(
-          {
-            errorMessage:
-              error instanceof Error ? error.message : String(error),
-            errorStack: error instanceof Error ? error.stack : undefined,
-            fullPath,
-          },
-          'Error reading file for file blocks'
-        )
-      }
-    }
-  }
-
-  const fileBlocks = filePaths.map((filePath) =>
-    createWriteFileBlock(filePath, result[filePath])
-  )
-
-  return fileBlocks.join('\n')
 }
 
 const loadShellConfigFiles = () => {
