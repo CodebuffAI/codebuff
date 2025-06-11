@@ -32,7 +32,7 @@ export default makeSource({
     remarkPlugins: [[remarkCodeToCodeDemo]],
     rehypePlugins: [],
   },
-  onSuccess: () => {
+  onSuccess: async () => {
     // This prevents the worker error by not trying to exit the process
     return Promise.resolve()
   },
