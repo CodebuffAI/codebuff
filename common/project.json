@@ -12,6 +12,16 @@
       },
       "dependsOn": ["root:build-env"]
     },
+    "db-migrate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "if command -v infisical &> /dev/null; then infisical run --log-level=warn -- drizzle-kit push --config=./src/db/drizzle.config.ts; else drizzle-kit push --config=./src/db/drizzle.config.ts; fi"
+        ],
+        "cwd": "common",
+        "parallel": false
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "options": {
