@@ -764,7 +764,7 @@ export const mainPrompt = async (
         fileProcessingPromisesByPath[path].push(Promise.resolve(change))
       }),
       write_file: toolCallback('write_file', (toolCall) => {
-        const { path, content } = toolCall.parameters
+        const { path, instructions, content } = toolCall.parameters
         if (!content) return
 
         // Initialize state for this file path if needed
@@ -790,6 +790,7 @@ export const mainPrompt = async (
 
         const newPromise = processFileBlock(
           path,
+          instructions,
           latestContentPromise,
           fileContentWithoutStartNewline,
           messagesWithUserMessage,

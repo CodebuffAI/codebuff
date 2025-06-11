@@ -18,6 +18,7 @@ const timeoutPromise = (ms: number) =>
 export async function promptRelaceAI(
   initialCode: string,
   editSnippet: string,
+  instructions: string | undefined,
   options: {
     clientSessionId: string
     fingerprintId: string
@@ -48,6 +49,7 @@ export async function promptRelaceAI(
         body: JSON.stringify({
           initialCode,
           editSnippet,
+          ...(instructions ? { instructions } : {}),
           stream: false,
           'relace-metadata': {
             'codebuff-id': messageId,

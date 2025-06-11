@@ -65,14 +65,6 @@ export const ProjectFileContextSchema = z.object({
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
 
-export const createWriteFileBlock = (filePath: string, content: string) => {
-  const tagName = 'write_file'
-  return `<${tagName}>
-<path>${filePath}</path>
-<content>${content}</content>
-</${tagName}>`
-}
-
 export const fileRegex =
   /<write_file>\s*<path>([^<]+)<\/path>\s*<content>([\s\S]*?)<\/content>\s*<\/write_file>/g
 export const fileWithNoPathRegex = /<write_file>([\s\S]*?)<\/write_file>/g

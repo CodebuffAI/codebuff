@@ -66,6 +66,7 @@ describe('processFileBlock', () => {
 
     const result = await processFileBlock(
       'test.ts',
+      undefined,
       Promise.resolve(null),
       newContent,
       [],
@@ -102,6 +103,7 @@ describe('processFileBlock', () => {
 
     const result = await processFileBlock(
       'test.ts',
+      undefined,
       Promise.resolve(oldContent),
       newContent,
       [],
@@ -134,6 +136,7 @@ describe('processFileBlock', () => {
 
     const result = await processFileBlock(
       'test.ts',
+      undefined,
       Promise.resolve(oldContent),
       newContent,
       [],
@@ -203,6 +206,7 @@ function divide(a: number, b: number) {
 
     const result = await processFileBlock(
       'test.ts',
+      undefined,
       Promise.resolve(oldContent),
       newContent,
       [],
@@ -240,6 +244,7 @@ function divide(a: number, b: number) {
 
     const result = await processFileBlock(
       'test.ts',
+      undefined,
       Promise.resolve(oldContent),
       newContent,
       [],
@@ -281,6 +286,7 @@ function divide(a: number, b: number) {
 
     const result = await processFileBlock(
       'test.ts',
+      undefined,
       Promise.resolve(null),
       newContent,
       [],

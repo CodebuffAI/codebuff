@@ -15,6 +15,7 @@ import { countTokens } from './util/token-counter'
 
 export async function processFileBlock(
   path: string,
+  instructions: string | undefined,
   initialContentPromise: Promise<string | null>,
   newContent: string,
   messages: CoreMessage[],
@@ -116,6 +117,7 @@ export async function processFileBlock(
       normalizedInitialContent,
       normalizedEditSnippet,
       path,
+      instructions,
       clientSessionId,
       fingerprintId,
       userInputId,
@@ -141,6 +143,7 @@ export async function processFileBlock(
         normalizedInitialContent,
         updatedEditSnippet,
         path,
+        instructions,
         clientSessionId,
         fingerprintId,
         userInputId,

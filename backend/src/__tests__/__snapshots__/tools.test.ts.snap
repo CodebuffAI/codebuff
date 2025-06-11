@@ -41,6 +41,7 @@ Assistant: Sure thing! Let's update that file!
 
 <write_file>
 <path>path/to/example/file.ts</path>
+<instructions>Update the console logs</instructions>
 <content>console.log('Hello from Buffy!');</content>
 </write_file>
 
@@ -391,6 +392,7 @@ Assistant: Sure thing! Let's update that file!
 
 <write_file>
 <path>path/to/example/file.ts</path>
+<instructions>Update the console logs</instructions>
 <content>console.log('Hello from Buffy!');</content>
 </write_file>
 
@@ -484,6 +486,7 @@ Create or edit a file with the given content.
 
 Params:
 - \`path\`: (required) Path to the file relative to the **project root**
+- \`instructions\`: (required) What the change is intended to do in only one sentence.
 - \`content\`: (required) Edit snippet to apply to the file.
 
 #### **IMPORTANT** Edit Snippet
@@ -539,18 +542,21 @@ Notes for editing a file:
 Examples:
 <write_file>
 <path>path/to/file</path>
+<instructions>How the file is being updated</instructions>
 <content>Your file content here</content>
 </write_file>
 
 Example 1 - Simple file creation:
 <write_file>
 <path>new-file.ts</path>
+<instructions>Prints Hello, world</instructions>
 <content>console.log("Hello, world!");</content>
 </write_file>
 
 Example 2 - Editing with placeholder comments:
 <write_file>
 <path>foo.ts</path>
+<instructions>Update foo and remove console.log</instructions>
 <content>// ... existing code ...
 
 function foo() {
@@ -945,6 +951,7 @@ Assistant: Sure thing! Let's update that file!
 
 <write_file>
 <path>path/to/example/file.ts</path>
+<instructions>Update the console logs</instructions>
 <content>console.log('Hello from Buffy!');</content>
 </write_file>
 
@@ -1038,6 +1045,7 @@ Create or edit a file with the given content.
 
 Params:
 - \`path\`: (required) Path to the file relative to the **project root**
+- \`instructions\`: (required) What the change is intended to do in only one sentence.
 - \`content\`: (required) Edit snippet to apply to the file.
 
 #### **IMPORTANT** Edit Snippet
@@ -1093,18 +1101,21 @@ Notes for editing a file:
 Examples:
 <write_file>
 <path>path/to/file</path>
+<instructions>How the file is being updated</instructions>
 <content>Your file content here</content>
 </write_file>
 
 Example 1 - Simple file creation:
 <write_file>
 <path>new-file.ts</path>
+<instructions>Prints Hello, world</instructions>
 <content>console.log("Hello, world!");</content>
 </write_file>
 
 Example 2 - Editing with placeholder comments:
 <write_file>
 <path>foo.ts</path>
+<instructions>Update foo and remove console.log</instructions>
 <content>// ... existing code ...
 
 function foo() {
@@ -1499,6 +1510,7 @@ Assistant: Sure thing! Let's update that file!
 
 <write_file>
 <path>path/to/example/file.ts</path>
+<instructions>Update the console logs</instructions>
 <content>console.log('Hello from Buffy!');</content>
 </write_file>
 
@@ -1592,6 +1604,7 @@ Create or edit a file with the given content.
 
 Params:
 - \`path\`: (required) Path to the file relative to the **project root**
+- \`instructions\`: (required) What the change is intended to do in only one sentence.
 - \`content\`: (required) Edit snippet to apply to the file.
 
 #### **IMPORTANT** Edit Snippet
@@ -1647,18 +1660,21 @@ Notes for editing a file:
 Examples:
 <write_file>
 <path>path/to/file</path>
+<instructions>How the file is being updated</instructions>
 <content>Your file content here</content>
 </write_file>
 
 Example 1 - Simple file creation:
 <write_file>
 <path>new-file.ts</path>
+<instructions>Prints Hello, world</instructions>
 <content>console.log("Hello, world!");</content>
 </write_file>
 
 Example 2 - Editing with placeholder comments:
 <write_file>
 <path>foo.ts</path>
+<instructions>Update foo and remove console.log</instructions>
 <content>// ... existing code ...
 
 function foo() {
@@ -2053,6 +2069,7 @@ Assistant: Sure thing! Let's update that file!
 
 <write_file>
 <path>path/to/example/file.ts</path>
+<instructions>Update the console logs</instructions>
 <content>console.log('Hello from Buffy!');</content>
 </write_file>
 
@@ -2146,6 +2163,7 @@ Create or edit a file with the given content.
 
 Params:
 - \`path\`: (required) Path to the file relative to the **project root**
+- \`instructions\`: (required) What the change is intended to do in only one sentence.
 - \`content\`: (required) Edit snippet to apply to the file.
 
 #### **IMPORTANT** Edit Snippet
@@ -2201,18 +2219,21 @@ Notes for editing a file:
 Examples:
 <write_file>
 <path>path/to/file</path>
+<instructions>How the file is being updated</instructions>
 <content>Your file content here</content>
 </write_file>
 
 Example 1 - Simple file creation:
 <write_file>
 <path>new-file.ts</path>
+<instructions>Prints Hello, world</instructions>
 <content>console.log("Hello, world!");</content>
 </write_file>
 
 Example 2 - Editing with placeholder comments:
 <write_file>
 <path>foo.ts</path>
+<instructions>Update foo and remove console.log</instructions>
 <content>// ... existing code ...
 
 function foo() {
