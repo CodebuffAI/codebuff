@@ -346,12 +346,10 @@ describe('mainPrompt', () => {
     const params = toolCalls[0].parameters as {
       type: string
       path: string
-      instructions: string
       content: string
     }
     expect(params.type).toBe('file')
     expect(params.path).toBe('new-file.txt')
-    expect(params.instructions).toBe('Added Hello World')
     expect(params.content).toBe('Hello, world!')
   })
 
