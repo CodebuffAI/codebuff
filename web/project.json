@@ -20,7 +20,7 @@
       "outputs": ["{projectRoot}/.next"],
       "options": {
         "commands": [
-          "if command -v infisical &> /dev/null; then infisical run -- next build; else next build; fi"
+          "if command -v infisical >/dev/null 2>&1; then infisical run -- next build; else next build; fi"
         ],
         "cwd": "web",
         "parallel": false
