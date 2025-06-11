@@ -1,8 +1,9 @@
-import { env } from '@/env.mjs'
+import { env } from '@/env'
 
 export const siteConfig = {
   title: 'Codebuff',
-  description: 'Code faster with AI using Codebuff. Edit your codebase and run terminal commands via natural language instruction.',
+  description:
+    'Code faster with AI using Codebuff. Edit your codebase and run terminal commands via natural language instruction.',
   keywords: () => [
     'Manicode',
     'Codebuff',
@@ -15,5 +16,6 @@ export const siteConfig = {
     'TypeScript',
   ],
   url: () => env.NEXT_PUBLIC_APP_URL,
-  googleSiteVerificationId: () => env.GOOGLE_SITE_VERIFICATION_ID || '',
+  googleSiteVerificationId: () =>
+    env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID || '',
 }

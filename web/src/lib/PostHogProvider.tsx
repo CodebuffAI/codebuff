@@ -1,10 +1,19 @@
 'use client'
 
-import { useCallback, useEffect, createContext, useContext } from 'react'
-import posthog from 'posthog-js'
-import { PostHogProvider as PHProvider } from 'posthog-js/react'
+import {
+  PostHogProvider as PostHogProviderWrapper,
+  usePostHog as usePostHogWrapper,
+} from 'posthog-js/react'
 import { useSession } from 'next-auth/react'
-import { env } from '@/env.mjs'
+import {
+  useEffect,
+  createContext,
+  useContext,
+  useCallback,
+  type ReactNode,
+} from 'react'
+import posthog from 'posthog-js'
+import { env } from '@/env'
 
 type PostHogContextType = {
   reinitialize: () => void
@@ -20,7 +29,7 @@ export function usePostHog() {
   return context
 }
 
-export function PostHogProvider({ children }: { children: React.ReactNode }) {
+export function PostHogProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession()
 
   const initializePostHog = useCallback(() => {
@@ -61,8 +70,6 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       email: session.user.email, // Ensure email is used as distinct_id
       user_id: session.user.id, // Keep user ID as a property
       name: session.user.name,
-      subscription_active: session.user.subscription_active,
-      stripe_price_id: session.user.stripe_price_id,
     })
 
     // Set alias to ensure user_id is linked to the email
@@ -71,7 +78,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PostHogContext.Provider value={{ reinitialize: initializePostHog }}>
-      <PHProvider client={posthog}>{children}</PHProvider>
+      <PostHogProviderWrapper client={posthog}>{children}</PostHogProviderWrapper>
     </PostHogContext.Provider>
   )
 }

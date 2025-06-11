@@ -7,7 +7,7 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card'
-import { env } from '@/env.mjs'
+import { env } from '@/env'
 import { LoginCard } from '@/components/login/login-card'
 
 // Server component that handles the auth code expiration check

@@ -1,12 +1,14 @@
 import { stripeServer, getCurrentSubscription } from 'common/src/util/stripe'
-import { env } from '@/env.mjs'
+import { env } from '@/env'
 import type Stripe from 'stripe'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { sql } from 'drizzle-orm'
 import { or, eq } from 'drizzle-orm'
 
-export function getStripeCustomerId(customer: string | Stripe.Customer | Stripe.DeletedCustomer): string {
+export function getStripeCustomerId(
+  customer: string | Stripe.Customer | Stripe.DeletedCustomer
+): string {
   return typeof customer === 'string' ? customer : customer.id
 }
 
@@ -17,23 +19,6 @@ export function getSubscriptionItemByType(
   return subscription.items.data.find(
     (item) => item.price.recurring?.usage_type === usageType
   )
-}
-
-export async function checkForUnpaidInvoices(customerId: string) {
-  const unpaidInvoices = await stripeServer.invoices.list({
-    customer: customerId,
-    status: 'open',
-  })
-
-  if (unpaidInvoices.data.length > 0) {
-    return {
-      error: {
-        message:
-          'You have unpaid invoices. Please check your email or contact support.',
-      },
-      status: 400,
-    }
-  }
 }
 
 export async function getTotalReferralCreditsForCustomer(

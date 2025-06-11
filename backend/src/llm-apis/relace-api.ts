@@ -4,7 +4,7 @@ import {
   parseMarkdownCodeBlock,
 } from 'common/util/file'
 
-import { env } from '../env.mjs'
+import { env } from '@/env'
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { logger } from '../util/logger'
 import { countTokens } from '../util/token-counter'

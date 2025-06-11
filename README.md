@@ -66,7 +66,11 @@ If you want to set up Codebuff for local development:
 
 1. Clone the repository and navigate to the project directory.
 
-2. Create a new `.env` file in the root directory. Copy the `.env.example` file and fill in the values for your environment.
+2. Set up your [Infisical](https://infisical.com/) user. Ask one of us to add you to the project. Then:
+  1. Install the Infisical CLI: `npm install -g @infisical/cli`
+  2. Log in to Infisical: `infisical login`
+  3. When prompted, select the "US" region.
+  4. After logging in, you can run any service. Infisical will automatically inject the necessary environment variables.
 
 3. Install dependencies and build packages in order:
 

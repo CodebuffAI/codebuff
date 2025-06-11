@@ -6,6 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc --build",
+    "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
     "typecheck": "tsc --noEmit",
     "typecheck-this-package": "tsc --noEmit"
   },

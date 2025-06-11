@@ -20,14 +20,13 @@ Important: Local database must be initialized before running schema operations:
 
 Important: The database setup requires:
 
-1. A running Docker instance
-2. Proper environment configuration:
-   - stack.env with NEXT_PUBLIC_CB_ENVIRONMENT=local
-   - .env.local with DATABASE_URL matching docker-compose.yml settings
-3. Run commands in order:
-   - Start Docker
-   - Run database initialization (bun --cwd common db:start)
-   - Run schema operations
+1.  A running Docker instance.
+2.  **Infisical CLI**: You must be logged into Infisical. All environment variables, including `DATABASE_URL`, are injected by Infisical at runtime.
+3.  **Use the `exec` runner**: All commands must be wrapped with `bun run exec --` to load environment variables.
+4.  Run commands in order:
+    *   Start Docker.
+    *   Run database initialization: `bun run exec -- bun --cwd common db:start`.
+    *   Run schema operations.
 
 Note: Setup has been primarily tested on Mac. Windows users may encounter platform-specific issues:
 

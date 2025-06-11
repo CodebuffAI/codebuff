@@ -1,0 +1,21 @@
+{
+  "name": "root",
+  "$schema": "./node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "targets": {
+    "build-env": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p tsconfig.env.json"
+      },
+      "outputs": ["{projectRoot}/dist-env"]
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "echo 'Root build complete (env files built)'"
+      },
+      "dependsOn": ["build-env"]
+    }
+  }
+}

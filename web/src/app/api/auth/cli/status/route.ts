@@ -5,7 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { logger } from '@/util/logger'
 import { genAuthCode } from 'common/util/credentials'
-import { env } from '@/env.mjs'
+import { env } from '@/env'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)

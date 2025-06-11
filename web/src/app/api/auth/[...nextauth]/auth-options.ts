@@ -13,9 +13,9 @@ import { eq } from 'drizzle-orm'
 import type { NextAuthOptions } from 'next-auth'
 import { Adapter } from 'next-auth/adapters'
 import GitHubProvider from 'next-auth/providers/github'
-import { sendSignupEventToLoops } from '@codebuff/internal'
+import { loops } from '@codebuff/internal'
 
-import { env } from '@/env.mjs'
+import { env } from '@/env'
 import { logger } from '@/util/logger'
 
 async function createAndLinkStripeCustomer(
@@ -120,8 +120,8 @@ export const authOptions: NextAuthOptions = {
   }) as Adapter,
   providers: [
     GitHubProvider({
-      clientId: env.GITHUB_ID,
-      clientSecret: env.GITHUB_SECRET,
+      clientId: env.CODEBUFF_GITHUB_ID,
+      clientSecret: env.CODEBUFF_GITHUB_SECRET,
     }),
   ],
   session: {
@@ -205,7 +205,11 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Call the imported function
-      await sendSignupEventToLoops(userData.id, userData.email, userData.name)
+      await loops.sendSignupEventToLoops(
+        userData.id,
+        userData.email,
+        userData.name
+      )
 
       trackEvent(AnalyticsEvent.SIGNUP, userData.id)
 

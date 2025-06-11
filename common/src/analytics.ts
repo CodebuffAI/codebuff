@@ -1,8 +1,8 @@
+import { env } from '@/env'
 import { PostHog } from 'posthog-node'
 
 import { AnalyticsEvent } from 'common/src/constants/analytics-events'
 
-import { env } from './env.mjs'
 import { logger } from './util/logger'
 
 let client: PostHog | undefined
@@ -35,7 +35,7 @@ export function trackEvent(
   userId: string,
   properties?: Record<string, any>
 ) {
-  if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+  if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
     logger.info({ payload: { event, properties } }, 'Analytics event tracked')
     return
   }

@@ -183,8 +183,8 @@ export class E2ETestRunner {
         ...process.env,
         PORT: String(BACKEND_PORT),
         NODE_ENV: 'development',
-        // Set environment to local to avoid production database requirements
-        NEXT_PUBLIC_CB_ENVIRONMENT: 'local',
+        // Set environment to dev to avoid production database requirements
+        NEXT_PUBLIC_CB_ENVIRONMENT: 'dev',
         // Disable BigQuery for testing
         DISABLE_BIGQUERY: 'true',
       },

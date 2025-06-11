@@ -27,7 +27,7 @@ export function initAnalytics() {
   client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY, {
     host: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
     enableExceptionAutocapture:
-      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production',
+      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod',
   })
 }
 export async function flushAnalytics() {
@@ -60,13 +60,13 @@ export function trackEvent(
     return
   }
   if (!client) {
-    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'production') {
+    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod') {
       throw new Error('Analytics client not initialized')
     }
     return
   }
 
-  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
     if (DEBUG_DEV_EVENTS) {
       console.log('Analytics event sent', {
         event,
@@ -91,7 +91,7 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
     throw new Error('Analytics client not initialized')
   }
 
-  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production') {
+  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
     if (DEBUG_DEV_EVENTS) {
       console.log('Identify event sent', {
         userId,

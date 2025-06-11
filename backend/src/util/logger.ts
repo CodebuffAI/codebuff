@@ -5,9 +5,13 @@ import { format } from 'util'
 
 import pino from 'pino'
 
-import { env } from '../env.mjs'
+import { env } from '@/env'
 import { splitData } from './split-data'
-import { getLoggerContext, withAppContext, type LoggerContext } from '../context/app-context'
+import {
+  getLoggerContext,
+  withAppContext,
+  type LoggerContext,
+} from '../context/app-context'
 
 // --- Constants ---
 const MAX_LENGTH = 65535 // Max total log size is sometimes 100k (sometimes 65535?)
@@ -26,7 +30,7 @@ export const withLoggerContext = <T>(
 // Ensure debug directory exists for local environment
 const debugDir = path.join(__dirname, '../../../debug')
 if (
-  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local' &&
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
   process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
 ) {
   try {
@@ -50,7 +54,7 @@ const pinoLogger = pino(
     },
     timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
   },
-  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local' &&
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
     process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
     ? pino.transport({
         target: 'pino/file',
@@ -91,7 +95,7 @@ function splitAndLog(
 }
 
 export const logger: Record<LogLevel, pino.LogFn> =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local'
+  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
     ? pinoLogger
     : (Object.fromEntries(
         loggingLevels.map((level) => {

@@ -10,8 +10,7 @@
     "typecheck-this-package": "tsc --noEmit"
   },
   "dependencies": {
-    "common": "workspace:*",
-    "zod": "3.23.8"
+    "common": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

@@ -12,6 +12,7 @@ tags
 node_modules
 dev
 dist
+dist-env
 tsconfig.tsbuildinfo
 .manicode
 __mock-projects__

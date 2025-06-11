@@ -3,7 +3,7 @@ import path from 'path'
 
 import pino from 'pino'
 
-import { env } from '../env.mjs'
+import { env } from '@/env'
 
 let AsyncLocalStorageImpl: typeof import('async_hooks').AsyncLocalStorage | null
 try {
@@ -46,7 +46,7 @@ export const withLoggerContext = <T>(
 // Only use file transport when not running in Edge/browser‑like env
 const runningInEdge = process.env.NEXT_RUNTIME === 'edge'
 const fileTransport =
-  !runningInEdge && env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'production'
+  !runningInEdge && env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
     ? pino.transport({
         target: 'pino/file',
         options: { destination: path.join(__dirname, '..', 'debug.log') },

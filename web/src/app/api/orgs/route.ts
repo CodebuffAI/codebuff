@@ -9,7 +9,7 @@ import {
   ListOrganizationsResponse,
 } from 'common/types/organization'
 import { stripeServer } from 'common/util/stripe'
-import { env } from 'common/src/env.mjs'
+import { env } from '@/env'
 import { logger } from '@/util/logger'
 
 function validateOrganizationName(name: string): string | null {

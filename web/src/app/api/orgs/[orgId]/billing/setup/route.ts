@@ -7,7 +7,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { logger } from '@/util/logger'
 import { stripeServer } from 'common/src/util/stripe'
-import { env } from '@/env.mjs'
+import { env } from '@/env'
 
 interface RouteParams {
   params: {

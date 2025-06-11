@@ -5,7 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and, gte, sql } from 'drizzle-orm'
 import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
-import { env } from '@/env.mjs';
+import { env } from '@/env';
 
 interface RouteParams {
   params: { orgId: string }

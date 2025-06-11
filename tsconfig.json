@@ -1,14 +1,15 @@
 {
   "files": [],
   "references": [
-    { "path": "common" },
+    { "path": "./tsconfig.env.json" },
     { "path": "backend" },
+    { "path": "common" },
     { "path": "npm-app" },
     { "path": "web" },
     { "path": "evals" },
-    { "path": "packages/code-map" },
-    { "path": "packages/bigquery" },
     { "path": "packages/billing" },
-    { "path": "packages/internal" }
+    { "path": "packages/bigquery" },
+    { "path": "packages/internal" },
+    { "path": "packages/code-map" }
   ]
 }

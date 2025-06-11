@@ -28,7 +28,8 @@
         ],
         "cwd": "npm-app",
         "parallel": false
-      }
+      },
+      "dependsOn": ["^build", "root:build-env"]
     },
     "lint": {
       "executor": "nx:run-commands",

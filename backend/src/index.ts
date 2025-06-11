@@ -11,7 +11,7 @@ import {
 } from './admin/relabelRuns'
 import usageHandler from './api/usage'
 import { isRepoCoveredHandler } from './api/org'
-import { env } from './env.mjs'
+import { env } from '@/env'
 import { checkAdmin } from './util/check-auth'
 import { logger } from './util/logger'
 import {
@@ -103,7 +103,7 @@ let shutdownInProgress = false
 // Graceful shutdown handler for both SIGTERM and SIGINT
 function handleShutdown(signal: string) {
   flushAnalytics()
-  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'local') {
+  if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
     console.log('\nLocal environment detected. Not awaiting client exits.')
     server.close((error) => {
       console.log('Received error closing server', { error })

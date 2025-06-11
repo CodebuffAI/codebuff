@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { eq } from 'drizzle-orm'
 
-import { env } from '@/env.mjs'
+import { env } from '@/env'
 import { stripeServer } from 'common/src/util/stripe'
 import db from 'common/db'
 import * as schema from 'common/db/schema'

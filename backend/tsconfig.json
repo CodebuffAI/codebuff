@@ -1,32 +1,26 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "allowJs": true,
-    "rootDir": "./src",
     "composite": true,
     "module": "CommonJS",
     "moduleResolution": "node",
-    "esModuleInterop": true,
-    "noImplicitReturns": true,
-    "sourceMap": true,
-    "strict": true,
     "target": "esnext",
+    "esModuleInterop": true,
+    "strict": true,
+    "sourceMap": true,
     "incremental": true,
-    "isolatedModules": true,
     "skipLibCheck": true,
     "types": ["node", "bun"],
     "baseUrl": ".",
     "paths": {
-      "common/*": ["./src/common/*", "../common/src/*"],
+      "@/env": ["../env.ts"],
+      "common/*": ["../common/src/*"],
       "@/*": ["./src/*"],
       "@codebuff/billing": ["../packages/billing/src"],
       "@codebuff/bigquery": ["../packages/bigquery/src"],
       "@codebuff/internal": ["../packages/internal/src"]
     },
-    "typeRoots": [
-      "./node_modules/@types",
-      "../node_modules/@types",
-      "../node_modules"
-    ],
     "outDir": "./dist"
   },
   "include": ["src/**/*"],
@@ -36,8 +30,5 @@
     { "path": "../packages/billing" },
     { "path": "../packages/bigquery" },
     { "path": "../packages/internal" }
-  ],
-  "ts-node": {
-    "require": ["tsconfig-paths/register"]
-  }
+  ]
 }

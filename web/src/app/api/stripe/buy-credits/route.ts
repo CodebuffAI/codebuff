@@ -9,7 +9,7 @@ import * as schema from 'common/db/schema'
 import { logger } from '@/util/logger'
 import { stripeServer } from 'common/src/util/stripe'
 import { generateCompactId } from 'common/src/util/string'
-import { env } from '@/env.mjs'
+import { env } from '@/env'
 import { convertCreditsToUsdCents } from 'common/util/currency'
 import { getUserCostPerCredit, processAndGrantCredit } from '@codebuff/billing'
 
