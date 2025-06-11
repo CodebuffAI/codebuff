@@ -32,7 +32,7 @@ import {
 } from './types'
 
 // Try Gemini!
-const COST_MODE = 'experimental' as const
+const COST_MODE = 'normal' as const
 
 async function runSingleEval(
   evalCommit: EvalCommit,
