@@ -9,7 +9,7 @@
     "codebuff": "dist/index.js"
   },
   "scripts": {
-    "prepublishOnly": "nx build npm-app && bun run clean-package.js",
+    "prepublishOnly": "nx clean npm-app && nx build npm-app && infisical run --env=prod --log-level=warn -- bun run clean-package.js",
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "test": "jest",
@@ -81,10 +81,5 @@
   "trustedDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",
     "@vscode/ripgrep"
-  ],
-  "devDependencies": {
-    "eslint-config-prettier": "^10.1.2",
-    "globals": "^16.0.0",
-    "typescript-eslint": "^8.32.0"
-  }
+  ]
 }

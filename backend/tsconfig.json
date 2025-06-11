@@ -15,7 +15,7 @@
     "baseUrl": ".",
     "paths": {
       "@/env": ["../env.ts"],
-      "common/*": ["../common/src/*"],
+      "common/*": ["./src/common/*", "../common/src/*"],
       "@/*": ["./src/*"],
       "@codebuff/billing": ["../packages/billing/src"],
       "@codebuff/bigquery": ["../packages/bigquery/src"],
