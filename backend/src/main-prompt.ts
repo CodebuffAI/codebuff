@@ -1043,18 +1043,17 @@ export const mainPrompt = async (
       }
     } else if (toolCall.name === 'research') {
       const { prompts } = toolCall.parameters as { prompts: string[] }
-      const researchResults = await research(
-        ws,
-        prompts,
-        agentState,
+      const researchResults = await research(ws, prompts, agentState, {
         userId,
-        clientSessionId
-      )
+        clientSessionId,
+        fingerprintId,
+        promptId,
+      })
 
-      // Format results and add to serverToolResults
       const formattedResult = researchResults
-        .map((history, i) =>
-          `Research for prompt "${prompts[i]}":\n${history.map((m) => toContentString(m.content as CoreMessage)).join('\n')}`
+        .map(
+          (result, i) =>
+            `<research_result>\n<prompt>${prompts[i]}</prompt>\n<result>${result}</result>\n</research_result>`
         )
         .join('\n\n')
 

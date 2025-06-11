@@ -23,28 +23,31 @@ export async function loopMainPrompt(
     clientSessionId,
     onResponseChunk,
     selectedModel
-  );
+  )
 
-  // Keep running as long as the agent is using tools and hasn't decided to end the turn.
-  while (toolCalls.length > 0 && !toolCalls.some(tc => tc.name === 'end_turn')) {
+  // Continue running as long as the agent is using tools and hasn't decided to end the turn.
+  while (
+    toolCalls.length > 0 &&
+    !toolCalls.some((tc) => tc.name === 'end_turn')
+  ) {
     const nextAction: Extract<ClientAction, { type: 'prompt' }> = {
-        ...action,
-        agentState,
-        toolResults,
-        prompt: '', // No new user prompt, we're in a loop
-    };
+      ...action,
+      agentState,
+      toolResults,
+      prompt: undefined,
+    }
     const result = await mainPrompt(
-        ws,
-        nextAction,
-        userId,
-        clientSessionId,
-        onResponseChunk,
-        selectedModel
-    );
-    agentState = result.agentState;
-    toolResults = result.toolResults;
-    toolCalls = result.toolCalls;
+      ws,
+      nextAction,
+      userId,
+      clientSessionId,
+      onResponseChunk,
+      selectedModel
+    )
+    agentState = result.agentState
+    toolResults = result.toolResults
+    toolCalls = result.toolCalls
   }
 
-  return { agentState, toolCalls, toolResults };
+  return { agentState, toolCalls, toolResults }
 }

@@ -230,4 +230,18 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       return null
     },
   },
+  research: {
+    ...defaultToolCallRenderer,
+    onParamChunk: (content, paramName, toolName) => {
+      // Don't render chunks for prompts, wait for the full list
+      return null
+    },
+    onParamEnd: (paramName, toolName, content) => {
+      if (paramName === 'prompts') {
+        const prompts = content.trim().split('\n').filter(Boolean);
+        return gray(`- ${prompts.join('\n- ')}`);
+      }
+      return null;
+    },
+  },
 }
