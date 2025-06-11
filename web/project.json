@@ -38,10 +38,30 @@
     "start": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "next start",
+        "commands": [
+          "if command -v infisical >/dev/null 2>&1; then infisical run -- next start; else next start; fi"
+        ],
         "cwd": "web"
       },
       "dependsOn": ["build"]
+    },
+    "discord:start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "if command -v infisical >/dev/null 2>&1; then infisical run -- bun run scripts/discord/index.ts; else bun run scripts/discord/index.ts; fi"
+        ],
+        "cwd": "web"
+      }
+    },
+    "discord:register": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "if command -v infisical >/dev/null 2>&1; then infisical run -- bun run scripts/discord/register-commands.ts; else bun run scripts/discord/register-commands.ts; fi"
+        ],
+        "cwd": "web"
+      }
     }
   },
   "implicitDependencies": ["common", "@codebuff/billing"]
