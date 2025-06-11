@@ -2,9 +2,9 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { getInitialAgentState } from 'common/types/agent-state'
-import { setProjectRoot, setWorkingDirectory } from 'npm-app/project-files'
-import { recreateShell } from 'npm-app/terminal/base'
+import { getInitialAgentState } from '../common/src/types/agent-state'
+import { setProjectRoot, setWorkingDirectory } from '../npm-app/src/project-files'
+import { recreateShell } from '../npm-app/src/terminal/base'
 
 import {
   createFileReadingMock,

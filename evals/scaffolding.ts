@@ -3,22 +3,22 @@ import { EventEmitter } from 'events'
 import fs from 'fs'
 import path from 'path'
 
-import * as mainPromptModule from 'backend/main-prompt'
-import { ClientToolCall } from 'backend/tools'
+import * as mainPromptModule from '../backend/src/main-prompt'
+import { ClientToolCall } from '../backend/src/tools'
 import { mock } from 'bun:test'
-import { getFileTokenScores } from 'code-map/parse'
-import { FileChanges } from 'common/actions'
-import { TEST_USER_ID } from 'common/constants'
+import { getFileTokenScores } from '../packages/code-map/parse'
+import { FileChanges } from '../common/src/actions'
+import { TEST_USER_ID } from '../common/src/constants'
 import {
   getAllFilePaths,
   getProjectFileTree,
-} from 'common/src/project-file-tree'
-import { AgentState, ToolResult } from 'common/src/types/agent-state'
-import { applyAndRevertChanges } from 'common/util/changes'
-import { ProjectFileContext } from 'common/util/file'
-import { generateCompactId } from 'common/util/string'
-import { handleToolCall } from 'npm-app/tool-handlers'
-import { getSystemInfo } from 'npm-app/utils/system-info'
+} from '../common/src/project-file-tree'
+import { AgentState, ToolResult } from '../common/src/types/agent-state'
+import { applyAndRevertChanges } from '../common/src/util/changes'
+import { ProjectFileContext } from '../common/src/util/file'
+import { generateCompactId } from '../common/src/util/string'
+import { handleToolCall } from '../npm-app/src/tool-handlers'
+import { getSystemInfo } from '../npm-app/src/utils/system-info'
 import { blue } from 'picocolors'
 import { WebSocket } from 'ws'
 
@@ -284,4 +284,15 @@ export function resetRepoToCommit(projectPath: string, commit: string) {
     console.error('Error resetting repository:', error)
     throw error
   }
+}
+
+export default {
+  createFileReadingMock,
+  getProjectFileContext,
+  runMainPrompt,
+  runToolCalls,
+  loopMainPrompt,
+  extractErrorFiles,
+  applyAndRevertChangesSequentially,
+  resetRepoToCommit,
 }

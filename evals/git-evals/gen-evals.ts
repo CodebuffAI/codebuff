@@ -4,8 +4,8 @@ import path from 'path'
 import { chunk } from 'lodash'
 import { z } from 'zod'
 
-import { claudeModels, geminiModels } from 'common/src/constants'
-import { promptAiSdkStructured } from 'backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
+import { claudeModels, geminiModels } from '../../common/src/constants'
+import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 import {
   CommitInfo,
   CommitSelectionSchema,

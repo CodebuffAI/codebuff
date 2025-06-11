@@ -10,9 +10,9 @@
     "test:e2e-cat-app": "bun run e2e-cat-app-script.ts",
     "typecheck-this-package": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "gen-git-evals": "bun run git-evals/gen-evals.ts",
-    "run-git-evals": "bun run git-evals/run-git-evals.ts",
-    "run-eval-set": "bun run git-evals/run-eval-set.ts",
+    "gen-git-evals": "if command -v infisical >/dev/null 2>&1; then infisical run -- bun run git-evals/gen-evals.ts; else bun run git-evals/gen-evals.ts; fi",
+    "run-git-evals": "if command -v infisical >/dev/null 2>&1; then infisical run -- bun run git-evals/run-git-evals.ts; else bun run git-evals/run-git-evals.ts; fi",
+    "run-eval-set": "if command -v infisical >/dev/null 2>&1; then infisical run -- bun run git-evals/run-eval-set.ts; else bun run git-evals/run-eval-set.ts; fi",
     "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
   },
   "dependencies": {
