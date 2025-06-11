@@ -103,7 +103,6 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
       response = response.slice(thinkDeeplyPrefix.length)
       chunk = chunk.slice(chunk.length - response.length)
     }
-    onChunk(chunk)
 
     // Check for any complete tool tag
     for (const tool of TOOL_LIST) {
@@ -119,6 +118,8 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
     if (wasTruncated) {
       break
     }
+
+    onChunk(chunk)
   }
 
   response = thinkDeeplyPrefix + response
