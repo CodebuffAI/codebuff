@@ -108,9 +108,9 @@ export const mainPrompt = async (
     clientSessionId,
     onResponseChunk,
     selectedModel,
-    readOnlyMode = false
+    readOnlyMode = false,
   } = options
-  
+
   const {
     prompt,
     agentState,
@@ -141,14 +141,16 @@ export const mainPrompt = async (
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
   // This is used to link logs within a single agent loop
   const agentStepId = crypto.randomUUID()
-  trackEvent(AnalyticsEvent.AGENT_STEP, userId ?? '', {
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId: promptId,
-    userId,
-    repoName: repoId,
-  })
+  if (!readOnlyMode) {
+    trackEvent(AnalyticsEvent.AGENT_STEP, userId ?? '', {
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+      repoName: repoId,
+    })
+  }
 
   const hasKnowledgeFiles =
     Object.keys(fileContext.knowledgeFiles).length > 0 ||
@@ -870,12 +872,6 @@ export const mainPrompt = async (
 
         return
       }),
-      research: toolCallback('research', (toolCall) => {
-        clientToolCalls.push({
-          ...toolCall,
-          id: generateCompactId(),
-        } as ClientToolCall)
-      }),
     },
     (name, error) => {
       foundParsingError = true
@@ -941,7 +937,6 @@ export const mainPrompt = async (
         'browser_logs',
         'think_deeply',
         'create_plan',
-        'research',
         'end_turn',
       ].includes(name)
     ) {
@@ -1060,7 +1055,18 @@ export const mainPrompt = async (
         )
       }
     } else if (toolCall.name === 'research') {
-      const { prompts } = toolCall.parameters as { prompts: string[] }
+      const { prompts: promptsStr } = toolCall.parameters as { prompts: string }
+      let prompts: string[]
+      try {
+        prompts = JSON.parse(promptsStr)
+      } catch (e) {
+        serverToolResults.push({
+          id: generateCompactId(),
+          name: 'research',
+          result: `Failed to parse prompts: ${e}`,
+        })
+        continue
+      }
       const researchResults = await research(ws, prompts, agentState, {
         userId,
         clientSessionId,

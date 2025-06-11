@@ -409,16 +409,25 @@ ${getToolCallString('run_terminal_command', {
   },
   {
     name: 'research',
-    schema: z.object({
-      prompts: z.array(z.string()).describe('An array of research prompts to run in parallel.'),
-    }).describe('Run a series of research prompts in parallel to gather information.'),
+    schema: z
+      .object({
+        prompts: z
+          .string()
+          .describe('A JSON array of research prompts to run in parallel.'),
+      })
+      .describe(
+        'Run a series of research prompts in parallel to gather information.'
+      ),
     additionalInfo: `
 This tool allows you to run multiple, independent queries simultaneously to gather information from the codebase or the web. It's useful for complex questions that can be broken down into smaller, parallelizable sub-questions.
 
 Example:
 ${getToolCallString('research', {
-  prompts_0: 'What is the purpose of the `mainPrompt` function?',
-  prompts_1: 'Find all usages of the `AgentState` type.',
+  prompts: JSON.stringify([
+    'What is the purpose of the `mainPrompt` function?',
+    'Find all usages of the `AgentState` type.',
+    'Look up potential LLM agent frameworks and recommend one.',
+  ]),
 })}
     `.trim(),
   },
@@ -837,7 +846,7 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'find_files',
   'run_terminal_command',
   'code_search',
-  'end_turn',
+  'research',
 ]
 
 export const getToolsInstructions = (toolDescriptions: string[]) => `
