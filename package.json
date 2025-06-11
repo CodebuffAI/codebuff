@@ -33,7 +33,7 @@
     "start-nushell": "bun --cwd npm-app start-nushell",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "bump": "bun run scripts/bump-version.ts",
-    "deploy:npm-app": "infisical run --env=prod --log-level=warn -- bun run bump && cd npm-app && npm publish",
+    "deploy:npm-app": "bun run bump && cd npm-app && npm publish",
     "test:patch": "bun test test/__src__/patch.test.ts",
     "clean": "nx run-many --target=clean --all",
     "build": "nx reset && nx run-many --target=build --all",
@@ -47,6 +47,8 @@
     "@types/node-fetch": "^2.6.12",
     "@types/parse-path": "^7.1.0",
     "bun-types": "^1.2.2",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
     "ignore": "^6.0.2",
     "lodash": "4.17.21",
     "nx": "^20.8.1",
@@ -55,7 +57,8 @@
     "ts-pattern": "^5.5.0",
     "tsconfig-paths": "4.2.0",
     "types": "^0.1.1",
-    "typescript": "5.5.4"
+    "typescript": "5.5.4",
+    "typescript-eslint": "^7.17.0"
   },
   "engines": {
     "node": ">=20.0.0"

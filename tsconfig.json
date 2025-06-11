@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "./tsconfig.env.json" },
+    { "path": "common" },
     { "path": "backend" },
     { "path": "common" },
     { "path": "npm-app" },

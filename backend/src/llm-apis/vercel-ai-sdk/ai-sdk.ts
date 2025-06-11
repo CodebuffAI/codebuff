@@ -29,6 +29,7 @@ import { z } from 'zod'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
+import { logger } from 'common/util/logger'
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
@@ -90,6 +91,12 @@ export const promptAiSdkStream = async function* (
   let finishedReasoning = false
 
   for await (const chunk of response.fullStream) {
+    if (chunk.type === 'error') {
+      logger.error({ chunk }, 'Error from AI SDK')
+      if (process.env.ENVIRONMENT !== 'prod') {
+        throw new Error(chunk.error as string)
+      }
+    }
     if (chunk.type === 'reasoning') {
       if (!hasReasoning) {
         hasReasoning = true

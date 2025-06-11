@@ -2,12 +2,12 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { promptAiSdkStructured } from 'backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
-import { claudeModels } from 'common/src/constants'
-import { withTimeout } from 'common/util/promise'
-import { generateCompactId } from 'common/util/string'
-import { setProjectRoot, setWorkingDirectory } from 'npm-app/project-files'
-import { recreateShell } from 'npm-app/terminal/base'
+import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
+import { claudeModels } from '../../common/src/constants'
+import { withTimeout } from '../../common/src/util/promise'
+import { generateCompactId } from '../../common/src/util/string'
+import { setProjectRoot, setWorkingDirectory } from '../../npm-app/src/project-files'
+import { recreateShell } from '../../npm-app/src/terminal/base'
 import {
   createFileReadingMock,
   loopMainPrompt,
@@ -32,7 +32,7 @@ import {
 } from './types'
 
 // Try Gemini!
-const COST_MODE = 'experimental' as const
+const COST_MODE = 'normal' as const
 
 async function runSingleEval(
   evalCommit: EvalCommit,

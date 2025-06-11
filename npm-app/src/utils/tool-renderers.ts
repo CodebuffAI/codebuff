@@ -158,12 +158,15 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       return null
     },
     onParamEnd: (paramName, toolName, content) => {
-      if (paramName !== 'path') {
-        return null
+      if (paramName === 'path') {
+        return isFileIgnored(content, getProjectRoot())
+          ? gray(strikethrough(content) + ' (blocked)')
+          : gray(content + '...')
       }
-      return isFileIgnored(content, getProjectRoot())
-        ? gray(strikethrough(content) + ' (blocked)')
-        : gray(content + '...')
+      if (paramName === 'instructions') {
+        return gray('\n' + content)
+      }
+      return null
     },
   },
   str_replace: {

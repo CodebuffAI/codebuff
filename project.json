@@ -16,6 +16,12 @@
         "command": "echo 'Root build complete (env files built)'"
       },
       "dependsOn": ["build-env"]
+    },
+    "clean": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rm -rf dist dist-env"
+      }
     }
   }
 }

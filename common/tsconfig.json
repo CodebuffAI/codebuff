@@ -11,17 +11,25 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "target": "esnext",
-    "typeRoots": ["./node_modules/@types", "../node_modules/@types", "./src/types"],
+    "incremental": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "typeRoots": [
+      "./node_modules/@types",
+      "../node_modules/@types",
+      "./src/types"
+    ],
     "baseUrl": ".",
     "outDir": "./dist",
-    "skipLibCheck": true,
-    "types": [],
+    "rootDir": "./src",
     "paths": {
       "@/env": ["../env.ts"]
     }
   },
   "include": ["src/**/*"],
   "references": [{ "path": "../tsconfig.env.json" }],
+
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }

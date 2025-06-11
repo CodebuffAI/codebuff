@@ -12,6 +12,7 @@ export async function fastRewrite(
   initialContent: string,
   editSnippet: string,
   filePath: string,
+  instructions: string | undefined,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
@@ -20,7 +21,7 @@ export async function fastRewrite(
 ) {
   const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
-  let response = await promptRelaceAI(initialContent, editSnippet, {
+  let response = await promptRelaceAI(initialContent, editSnippet, instructions, {
     clientSessionId,
     fingerprintId,
     userInputId,

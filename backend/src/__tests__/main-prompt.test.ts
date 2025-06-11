@@ -11,7 +11,6 @@ import {
 import * as analytics from 'common/analytics'
 import { TEST_USER_ID } from 'common/constants'
 import { getInitialAgentState } from 'common/types/agent-state'
-import { createWriteFileBlock } from 'common/util/file'
 import { WebSocket } from 'ws'
 
 // Mock imports
@@ -55,10 +54,11 @@ describe('mainPrompt', () => {
 
     // Mock processFileBlock
     spyOn(processFileBlockModule, 'processFileBlock').mockImplementation(
-      async (path, contentPromise, newContent) => {
+      async (path, instructions, contentPromise, newContent) => {
         return {
           tool: 'write_file' as const,
           path,
+          instructions,
           content: newContent,
           patch: undefined,
         }
@@ -318,8 +318,24 @@ describe('mainPrompt', () => {
   })
 
   it('should handle write_file tool call', async () => {
+    const createWriteFileBlock = (
+      filePath: string,
+      instructions: string,
+      content: string
+    ) => {
+      const tagName = 'write_file'
+      return `<${tagName}>
+<path>${filePath}</path>
+<instructions>${instructions}</instructions>
+<content>${content}</content>
+</${tagName}>`
+    }
     // Mock LLM to return a write_file tool call
-    const writeFileBlock = createWriteFileBlock('new-file.txt', 'Hello World')
+    const writeFileBlock = createWriteFileBlock(
+      'new-file.txt',
+      'Added Hello World',
+      'Hello, world!'
+    )
     mockAgentStream(writeFileBlock)
 
     const agentState = getInitialAgentState(mockFileContext)
@@ -354,7 +370,7 @@ describe('mainPrompt', () => {
     }
     expect(params.type).toBe('file')
     expect(params.path).toBe('new-file.txt')
-    expect(params.content).toBe('Hello World')
+    expect(params.content).toBe('Hello, world!')
   })
 
   it('should force end of response after MAX_CONSECUTIVE_ASSISTANT_MESSAGES', async () => {

@@ -1,7 +1,7 @@
-import { promptAiSdkStructured } from 'backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
-import { countTokens } from 'backend/src/util/token-counter'
-import { geminiModels } from 'common/constants'
-import { generateCompactId } from 'common/util/string'
+import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
+import { countTokens } from '../../backend/src/util/token-counter'
+import { geminiModels } from '../../common/src/constants'
+import { generateCompactId } from '../../common/src/util/string'
 import { z } from 'zod'
 import { FullEvalLog } from './types'
 
@@ -51,7 +51,7 @@ function buildAnalysisPrompt(evalResult: FullEvalLog): string {
   const metricsSection = `
 Overall Performance Metrics:
 - Average Completion Score: ${metrics.average_completion.toFixed(2)}/10
-- Average Efficiency Score: ${metrics.average_efficiency.toFixed(2)}/10  
+- Average Efficiency Score: ${metrics.average_efficiency.toFixed(2)}/10
 - Average Code Quality Score: ${metrics.average_code_quality.toFixed(2)}/10
 - Average Overall Score: ${metrics.average_overall.toFixed(2)}/10
 - Average Duration: ${(metrics.average_duration_ms / 1000).toFixed(1)} seconds
