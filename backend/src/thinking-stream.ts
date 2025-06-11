@@ -18,7 +18,7 @@ export async function getThinkingStream(
 ) {
   const { getStream, model } = getAgentStream({
     costMode: options.costMode,
-    selectedModel: 'o3',
+    selectedModel: 'gemini-2.5-pro',
     stopSequences: [
       '</think_deeply>',
       '<think_deeply>',
@@ -41,7 +41,7 @@ When the next action is clear, you can stop your thinking immediately. For examp
 - If you already did thinking previously that outlines a plan you are continuing to implement, you can stop your thinking immediately and continue following the plan.
 
 Guidelines:
-- Respond with your analysis inside a think_deeply tool call.
+- Respond with your analysis or plan inside a think_deeply tool call.
 - Explain clearly and concisely what would be helpful for a junior engineer to know to handle the user request.
 - Show key snippets of code to guide the implementation to be as clean as possible.
 - Figure out the solution to any errors or bugs and give instructions on how to fix them.
