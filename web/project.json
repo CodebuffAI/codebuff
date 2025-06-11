@@ -33,7 +33,7 @@
         "command": "infisical run --log-level=warn -- next dev -p 3000",
         "cwd": "web"
       },
-      "dependsOn": ["contentlayer"]
+      "dependsOn": ["contentlayer", "root:build-env"]
     },
     "start": {
       "executor": "nx:run-commands",
