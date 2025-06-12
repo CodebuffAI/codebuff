@@ -18,11 +18,11 @@
         "commands": [
           "eslint src/index.ts",
           "tsc",
-          "tsc-alias -p tsconfig.json",
           "mkdir -p dist/common",
           "cp -r ../common/dist/* dist/common",
           "mkdir -p dist/code-map",
           "cp -r ../packages/code-map/dist/* dist/code-map",
+          "tsc-alias -p tsconfig.json",
           "mkdir -p dist/utils/__tests__",
           "cp -r src/utils/__tests__/*.txt dist/utils/__tests__"
         ],
