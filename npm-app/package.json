@@ -14,6 +14,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "test": "jest",
     "start": "infisical run --log-level=warn -- ts-node -r tsconfig-paths/register src/index.ts ..",
+    "start-js": "nx clean npm-app && nx build npm-app && infisical run --log-level=warn -- bun run clean-package.js && sh -c 'TS_NODE_BASEURL=./dist node -r tsconfig-paths/register dist/index.js ..'",
     "start-max": "infisical run --log-level=warn -- ts-node -r tsconfig-paths/register src/index.ts .. --max",
     "start-lite": "infisical run --log-level=warn -- ts-node -r tsconfig-paths/register src/index.ts .. --lite",
     "start-ask": "infisical run --log-level=warn -- ts-node -r tsconfig-paths/register src/index.ts .. --ask",
