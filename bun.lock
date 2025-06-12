@@ -116,7 +116,7 @@
     },
     "npm-app": {
       "name": "codebuff",
-      "version": "1.0.318",
+      "version": "1.0.324",
       "bin": {
         "codebuff": "dist/index.js",
       },
@@ -245,6 +245,10 @@
       "devDependencies": {
         "@types/bun": "^1.1.16",
       },
+    },
+    "tools": {
+      "name": "@codebuff/tools",
+      "version": "1.0.0",
     },
     "web": {
       "name": "web",
@@ -487,6 +491,8 @@
     "@codebuff/billing": ["@codebuff/billing@workspace:packages/billing"],
 
     "@codebuff/internal": ["@codebuff/internal@workspace:packages/internal"],
+
+    "@codebuff/tools": ["@codebuff/tools@workspace:tools"],
 
     "@commitlint/cli": ["@commitlint/cli@19.8.0", "", { "dependencies": { "@commitlint/format": "^19.8.0", "@commitlint/lint": "^19.8.0", "@commitlint/load": "^19.8.0", "@commitlint/read": "^19.8.0", "@commitlint/types": "^19.8.0", "tinyexec": "^0.3.0", "yargs": "^17.0.0" }, "bin": { "commitlint": "./cli.js" } }, "sha512-t/fCrLVu+Ru01h0DtlgHZXbHV2Y8gKocTR5elDOqIRUzQd0/6hpt2VIWOj9b3NDo7y4/gfxeR2zRtXq/qO6iUg=="],
 

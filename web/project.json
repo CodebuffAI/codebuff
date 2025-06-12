@@ -19,11 +19,8 @@
       "executor": "nx:run-commands",
       "outputs": ["{projectRoot}/.next"],
       "options": {
-        "commands": [
-          "if command -v infisical >/dev/null 2>&1; then infisical run -- next build; else next build; fi"
-        ],
-        "cwd": "web",
-        "parallel": false
+        "command": "bun ../tools/cli/infisical-run.ts next build",
+        "cwd": "web"
       },
       "dependsOn": ["^build", "contentlayer"]
     },
@@ -38,9 +35,7 @@
     "discord:register": {
       "executor": "nx:run-commands",
       "options": {
-        "commands": [
-          "if command -v infisical >/dev/null 2>&1; then infisical run -- bun run scripts/discord/register-commands.ts; else bun run scripts/discord/register-commands.ts; fi"
-        ],
+        "command": "bun ../tools/cli/infisical-run.ts bun run scripts/discord/register-commands.ts",
         "cwd": "web"
       }
     }
