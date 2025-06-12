@@ -239,11 +239,12 @@ async function runEvalSet(
             metadata: {
               numCases: evalResult?.overall_metrics?.total_runs,
               avgScore: evalResult?.overall_metrics?.average_overall,
+              suite: resultWrapper.name,
             },
             cost: 0, // You'll need to calculate actual cost based on your eval results
           }
 
-          const response = await fetch(`${API_BASE}api/git-eval-results`, {
+          const response = await fetch(`${API_BASE}api/git-evals`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

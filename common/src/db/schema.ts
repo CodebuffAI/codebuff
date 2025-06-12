@@ -388,6 +388,7 @@ export const orgFeature = pgTable(
 export type GitEvalMetadata = {
   numCases?: number // Number of eval cases successfully run (total)
   avgScore?: number // Average score across all cases
+  suite?: string // Name of the repo (eg: codebuff, manifold)
 }
 
 // Request type for the insert API
