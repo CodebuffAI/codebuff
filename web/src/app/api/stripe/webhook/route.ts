@@ -1,20 +1,18 @@
+import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { eq } from 'drizzle-orm'
 
 import { env } from '@/env'
-import { stripeServer } from '@codebuff/common/src/util/stripe'
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
+import { getStripeCustomerId } from '@/lib/stripe-utils'
 import { logger } from '@/util/logger'
-import { convertStripeGrantAmountToCredits } from '@codebuff/common/util/currency'
 import {
-  getUserCostPerCredit,
+  grantOrganizationCredits,
   processAndGrantCredit,
   revokeGrantByOperationId,
-  grantOrganizationCredits,
 } from '@codebuff/billing'
-import { getStripeCustomerId } from '@/lib/stripe-utils'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
+import { stripeServer } from '@codebuff/common/util/stripe'
 
 async function handleCustomerCreated(customer: Stripe.Customer) {
   logger.info({ customerId: customer.id }, 'New customer created')
@@ -49,7 +47,7 @@ async function handleCheckoutSessionCompleted(
         stripe_subscription_id: session.subscription,
         auto_topup_enabled: true,
         auto_topup_threshold: 500, // Default threshold: 500 credits
-        auto_topup_amount: 2000,   // Default amount: 2000 credits ($20)
+        auto_topup_amount: 2000, // Default amount: 2000 credits ($20)
         updated_at: new Date(),
       })
       .where(eq(schema.org.id, organizationId))

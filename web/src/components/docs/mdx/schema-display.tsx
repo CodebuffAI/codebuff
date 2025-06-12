@@ -1,7 +1,7 @@
 'use client'
 
-import { CodebuffConfigSchema } from 'common/src/json-config/constants'
-import { stringifySchema } from 'common/src/json-config/stringify-schema'
+import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
+import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
 
 import { CodeDemo } from './code-demo'
 

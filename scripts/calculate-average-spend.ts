@@ -1,6 +1,5 @@
-import { stripeServer } from '@codebuff/common/src/util/stripe'
+import { stripeServer } from '@codebuff/common/util/stripe'
 import type Stripe from 'stripe'
-import { P } from 'ts-pattern'
 
 async function calculateAverageSpend() {
   console.log('Calculating spend per subscriber...')

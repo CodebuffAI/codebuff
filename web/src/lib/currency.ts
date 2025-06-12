@@ -1,4 +1,4 @@
-import { CREDIT_PRICING } from '@codebuff/common/src/constants'
+import { CREDIT_PRICING } from '@codebuff/common/constants'
 
 /**
  * Format a cents amount to dollars, showing cents only when non-zero
@@ -6,7 +6,7 @@ import { CREDIT_PRICING } from '@codebuff/common/src/constants'
  * @returns Formatted dollar amount as string (e.g. "10" or "10.50")
  */
 export const formatDollars = (cents: number) => {
-  return cents % 100 === 0 
+  return cents % 100 === 0
     ? Math.floor(cents / 100).toString()
     : (cents / 100).toFixed(2)
 }
@@ -33,15 +33,20 @@ export const creditsToDollars = (credits: number) => {
  * @param dollars Amount in dollars
  * @param centsPerCredit Cost in cents per credit
  */
-export const dollarsToCreditsWithRate = (dollars: number, centsPerCredit: number) =>
-  Math.round((dollars * 100) / centsPerCredit)
+export const dollarsToCreditsWithRate = (
+  dollars: number,
+  centsPerCredit: number
+) => Math.round((dollars * 100) / centsPerCredit)
 
 /**
  * Convert credits to dollars based on cents per credit
  * @param credits Amount in credits
  * @param centsPerCredit Cost in cents per credit
  */
-export const creditsToDollarsWithRate = (credits: number, centsPerCredit: number) => {
+export const creditsToDollarsWithRate = (
+  credits: number,
+  centsPerCredit: number
+) => {
   const dollars = (credits * centsPerCredit) / 100
   return dollars % 1 === 0 ? Math.floor(dollars).toString() : dollars.toFixed(2)
 }

@@ -1,6 +1,6 @@
 import { BigQuery } from '@google-cloud/bigquery'
 
-import { logger } from '@codebuff/common/src/util/logger'
+import { logger } from '@codebuff/common/util/logger'
 import {
   BaseTrace,
   GetRelevantFilesTrace,

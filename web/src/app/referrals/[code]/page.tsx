@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { sleep } from 'common/util/promise'
+import { sleep } from '@codebuff/common/util/promise'
 import { CheckIcon, CopyIcon, GiftIcon } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'

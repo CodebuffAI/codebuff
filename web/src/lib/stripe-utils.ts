@@ -1,10 +1,7 @@
-import { stripeServer, getCurrentSubscription } from '@codebuff/common/src/util/stripe'
-import { env } from '@/env'
-import type Stripe from 'stripe'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { sql } from 'drizzle-orm'
-import { or, eq } from 'drizzle-orm'
+import { eq, or, sql } from 'drizzle-orm'
+import type Stripe from 'stripe'
 
 export function getStripeCustomerId(
   customer: string | Stripe.Customer | Stripe.DeletedCustomer

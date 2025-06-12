@@ -1,4 +1,4 @@
-import { logger } from '@codebuff/common/src/util/logger'
+import { logger } from '@codebuff/common/util/logger'
 import { LoopsClient, APIError } from 'loops'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'

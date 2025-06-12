@@ -1,5 +1,5 @@
 import { getTracesAndRelabelsForUser, setupBigQuery } from '@codebuff/bigquery'
-import { logger } from '@codebuff/common/src/util/logger'
+import { logger } from '@codebuff/common/util/logger'
 import { gradeRun } from '../../backend/src/admin/grade-runs'
 
 // Parse command line arguments to check for --prod flag

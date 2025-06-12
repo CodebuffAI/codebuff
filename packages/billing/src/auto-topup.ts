@@ -1,7 +1,6 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { CREDIT_PRICING } from '@codebuff/common/src/constants'
-import { env } from '@/env'
+import { CREDIT_PRICING } from '@codebuff/common/constants'
 import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import { logger } from '@codebuff/common/util/logger'
@@ -16,6 +15,7 @@ import {
   grantOrganizationCredits,
 } from './org-billing'
 import { generateOperationIdTimestamp } from './utils'
+import { env } from 'process'
 
 const MINIMUM_PURCHASE_CREDITS = 500
 

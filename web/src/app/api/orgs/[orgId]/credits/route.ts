@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { env } from '@/env'
+import { logger } from '@/util/logger'
+import { grantOrganizationCredits } from '@codebuff/billing'
+import { CREDIT_PRICING } from '@codebuff/common/constants'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { stripeServer } from '@codebuff/common/util/stripe'
-import { env } from '@/env'
-import { CREDIT_PRICING } from '@codebuff/common/src/constants'
-import { logger } from '@/util/logger'
-import { generateCompactId } from '@codebuff/common/src/util/string'
-import { grantOrganizationCredits } from '@codebuff/billing'
+import { and, eq } from 'drizzle-orm'
+import { getServerSession } from 'next-auth'
+import { NextRequest, NextResponse } from 'next/server'
 
 interface RouteParams {
   params: { orgId: string }
@@ -91,11 +91,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const operationId = `org-${orgId}-${generateCompactId()}`
 
     // Get customer's default payment method
-    const customer = await stripeServer.customers.retrieve(organization.stripe_customer_id)
-    
+    const customer = await stripeServer.customers.retrieve(
+      organization.stripe_customer_id
+    )
+
     // Check if customer is not deleted and has invoice settings
-    let defaultPaymentMethodId = !('deleted' in customer) 
-      ? customer.invoice_settings?.default_payment_method as string | null 
+    let defaultPaymentMethodId = !('deleted' in customer)
+      ? (customer.invoice_settings?.default_payment_method as string | null)
       : null
 
     // If no default payment method is set, check if there's exactly one card on file
@@ -109,18 +111,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // If there's exactly one card, set it as the default
         if (paymentMethods.data.length === 1) {
           const singleCard = paymentMethods.data[0]
-          
+
           // Check if the card is valid (not expired)
-          const isValid = singleCard.card?.exp_year &&
+          const isValid =
+            singleCard.card?.exp_year &&
             singleCard.card.exp_month &&
-            new Date(singleCard.card.exp_year, singleCard.card.exp_month - 1) > new Date()
+            new Date(singleCard.card.exp_year, singleCard.card.exp_month - 1) >
+              new Date()
 
           if (isValid) {
-            await stripeServer.customers.update(organization.stripe_customer_id, {
-              invoice_settings: {
-                default_payment_method: singleCard.id,
-              },
-            })
+            await stripeServer.customers.update(
+              organization.stripe_customer_id,
+              {
+                invoice_settings: {
+                  default_payment_method: singleCard.id,
+                },
+              }
+            )
 
             defaultPaymentMethodId = singleCard.id
 
@@ -142,15 +149,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // If we have a default payment method, try to use it first
     if (defaultPaymentMethodId) {
       try {
-        const paymentMethod = await stripeServer.paymentMethods.retrieve(defaultPaymentMethodId)
-        
-        // Check if payment method is valid (not expired for cards)
-        const isValid = paymentMethod.type === 'link' || (
-          paymentMethod.type === 'card' &&
-          paymentMethod.card?.exp_year &&
-          paymentMethod.card.exp_month &&
-          new Date(paymentMethod.card.exp_year, paymentMethod.card.exp_month - 1) > new Date()
+        const paymentMethod = await stripeServer.paymentMethods.retrieve(
+          defaultPaymentMethodId
         )
+
+        // Check if payment method is valid (not expired for cards)
+        const isValid =
+          paymentMethod.type === 'link' ||
+          (paymentMethod.type === 'card' &&
+            paymentMethod.card?.exp_year &&
+            paymentMethod.card.exp_month &&
+            new Date(
+              paymentMethod.card.exp_year,
+              paymentMethod.card.exp_month - 1
+            ) > new Date())
 
         if (isValid) {
           const paymentIntent = await stripeServer.paymentIntents.create({
@@ -182,21 +194,33 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             )
 
             logger.info(
-              { organizationId: orgId, userId: session.user.id, credits, operationId, paymentIntentId: paymentIntent.id },
+              {
+                organizationId: orgId,
+                userId: session.user.id,
+                credits,
+                operationId,
+                paymentIntentId: paymentIntent.id,
+              },
               'Successfully processed direct organization credit purchase'
             )
 
-            return NextResponse.json({ 
-              success: true, 
+            return NextResponse.json({
+              success: true,
               credits,
-              direct_charge: true 
+              direct_charge: true,
             })
           }
         }
       } catch (error: any) {
         // If direct charge fails, fall back to checkout
         logger.warn(
-          { organizationId: orgId, userId: session.user.id, operationId, error: error.message, errorCode: error.code },
+          {
+            organizationId: orgId,
+            userId: session.user.id,
+            operationId,
+            error: error.message,
+            errorCode: error.code,
+          },
           'Direct charge failed for organization, falling back to checkout'
         )
       }
@@ -259,7 +283,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     logger.info(
-      { organizationId: orgId, userId: session.user.id, credits, operationId, sessionId: checkoutSession.id },
+      {
+        organizationId: orgId,
+        userId: session.user.id,
+        credits,
+        operationId,
+        sessionId: checkoutSession.id,
+      },
       'Created Stripe checkout session for organization credit purchase'
     )
 
@@ -268,7 +298,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       checkout_url: checkoutSession.url,
       credits: credits,
       amount_cents: amountInCents,
-      direct_charge: false
+      direct_charge: false,
     })
   } catch (error) {
     console.error('Error creating credit purchase session:', error)

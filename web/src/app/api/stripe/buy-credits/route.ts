@@ -1,17 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { z } from 'zod'
 import { eq } from 'drizzle-orm'
+import { getServerSession } from 'next-auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { env } from '@/env'
+import { logger } from '@/util/logger'
+import { getUserCostPerCredit, processAndGrantCredit } from '@codebuff/billing'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { logger } from '@/util/logger'
-import { stripeServer } from '@codebuff/common/src/util/stripe'
-import { generateCompactId } from '@codebuff/common/src/util/string'
-import { env } from '@/env'
 import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
-import { getUserCostPerCredit, processAndGrantCredit } from '@codebuff/billing'
+import { generateCompactId } from '@codebuff/common/util/string'
+import { stripeServer } from '@codebuff/common/util/stripe'
 
 const buyCreditsSchema = z.object({
   credits: z
@@ -79,25 +79,32 @@ export async function POST(req: NextRequest) {
     const operationId = `buy-${userId}-${generateCompactId()}`
 
     // Get customer's default payment method
-    const customer = await stripeServer.customers.retrieve(user.stripe_customer_id)
-    
+    const customer = await stripeServer.customers.retrieve(
+      user.stripe_customer_id
+    )
+
     // Check if customer is not deleted and has invoice settings
-    const defaultPaymentMethodId = !('deleted' in customer) 
-      ? customer.invoice_settings?.default_payment_method as string | null 
+    const defaultPaymentMethodId = !('deleted' in customer)
+      ? (customer.invoice_settings?.default_payment_method as string | null)
       : null
 
     // If we have a default payment method, try to use it first
     if (defaultPaymentMethodId) {
       try {
-        const paymentMethod = await stripeServer.paymentMethods.retrieve(defaultPaymentMethodId)
-        
-        // Check if payment method is valid (not expired for cards)
-        const isValid = paymentMethod.type === 'link' || (
-          paymentMethod.type === 'card' &&
-          paymentMethod.card?.exp_year &&
-          paymentMethod.card.exp_month &&
-          new Date(paymentMethod.card.exp_year, paymentMethod.card.exp_month - 1) > new Date()
+        const paymentMethod = await stripeServer.paymentMethods.retrieve(
+          defaultPaymentMethodId
         )
+
+        // Check if payment method is valid (not expired for cards)
+        const isValid =
+          paymentMethod.type === 'link' ||
+          (paymentMethod.type === 'card' &&
+            paymentMethod.card?.exp_year &&
+            paymentMethod.card.exp_month &&
+            new Date(
+              paymentMethod.card.exp_year,
+              paymentMethod.card.exp_month - 1
+            ) > new Date())
 
         if (isValid) {
           const paymentIntent = await stripeServer.paymentIntents.create({
@@ -128,7 +135,12 @@ export async function POST(req: NextRequest) {
             )
 
             logger.info(
-              { userId, credits, operationId, paymentIntentId: paymentIntent.id },
+              {
+                userId,
+                credits,
+                operationId,
+                paymentIntentId: paymentIntent.id,
+              },
               'Successfully processed direct credit purchase'
             )
 

@@ -24,7 +24,7 @@ import { useToast } from '@/components/ui/use-toast'
 import {
   CREDITS_REFERRAL_BONUS,
   AFFILIATE_USER_REFFERAL_LIMIT,
-} from 'common/constants'
+} from '@codebuff/common/constants'
 
 function SubmitButton() {
   const { pending } = useFormStatus()
