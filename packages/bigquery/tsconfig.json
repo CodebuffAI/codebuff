@@ -5,7 +5,11 @@
     "outDir": "dist",
     "composite": true,
     "module": "esnext",
-    "types": ["bun", "node"]
+    "types": ["bun", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@codebuff/common/*": ["../../common/src/*"]
+    }
   },
   "include": ["src"],
   "references": [

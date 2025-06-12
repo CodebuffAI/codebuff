@@ -4,8 +4,12 @@
     "rootDir": "src",
     "outDir": "dist",
     "composite": true,
-    "module": "esnext",        // Bun likes modern modules; Node 22 handles them too
-    "types": ["bun", "node"]
+    "module": "esnext",
+    "types": ["bun", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@codebuff/common/*": ["../../common/src/*"]
+    }
   },
   "include": ["src"],
   "references": [
