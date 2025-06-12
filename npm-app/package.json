@@ -1,20 +1,23 @@
 {
-  "name": "codebuff",
+  "name": "codecaner",
   "version": "1.0.324",
   "description": "AI dev assistant",
   "license": "MIT",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "codebuff": "dist/index.js"
+    "codecaner": "dist/index.js"
   },
   "scripts": {
-    "prepublishOnly": "nx clean npm-app && nx build npm-app && infisical run --env=prod --log-level=warn -- bun run clean-package.js",
+    "prepublishOnly": "bun run bundle && infisical run --env=prod --log-level=warn -- bun run clean-package.js",
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
+    "prepack": "bun run bundle && infisical run --env=prod --log-level=warn -- bun run clean-package.js",
+    "postpack": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "test": "jest",
     "start": "infisical run --log-level=warn -- ts-node -r tsconfig-paths/register src/index.ts ..",
-    "start-js": "nx clean npm-app && nx build npm-app && infisical run --log-level=warn -- bun run clean-package.js && sh -c 'TS_NODE_BASEURL=./dist node -r tsconfig-paths/register dist/index.js ..'",
+    "start-js": "npm run bundle && infisical run --log-level=warn -- node dist/index.js ..",
     "start-max": "infisical run --log-level=warn -- ts-node -r tsconfig-paths/register src/index.ts .. --max",
     "start-lite": "infisical run --log-level=warn -- ts-node -r tsconfig-paths/register src/index.ts .. --lite",
     "start-ask": "infisical run --log-level=warn -- ts-node -r tsconfig-paths/register src/index.ts .. --ask",
@@ -29,7 +32,11 @@
     "start-prod": "infisical run --log-level=warn -- ts-node -r tsconfig-paths/register src/index.ts",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
     "typecheck": "npm run build",
-    "build": "nx build npm-app"
+    "build": "tsc --build && tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
+    "prebundle": "bun install",
+    "build:libs": "bunx tsc -b ../common ../packages/code-map",
+    "bundle": "bun build src/index.ts --outdir dist --target node --external '@vscode/ripgrep' --external 'tree-sitter*' --external 'node-gyp-build' --external '@homebridge/node-pty-prebuilt-multiarch' --external '*.node'",
+    "run-bundle": "bun run dist/index.js"
   },
   "files": [
     "dist",
@@ -45,6 +52,7 @@
     "ai": "4.3.16",
     "axios": "1.7.4",
     "@codebuff/code-map": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "commander": "^13.1.0",
     "diff": "5.2.0",
     "git-url-parse": "^16.1.0",

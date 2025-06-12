@@ -1,0 +1,16 @@
+[install]
+# Using workspaces, so dependencies will be in the root node_modules.
+# This avoids creating a separate node_modules in this package.
+no_save = true
+
+[loader]
+# Help bun resolve workspace packages
+".ts" = "tsx"
+
+[define]
+# Define a global for the project root to help with path resolution
+"process.env.PROJECT_ROOT" = "`${process.cwd()}/../`"
+
+[debug]
+# Show more information about module resolution
+show_resolution_errors = true

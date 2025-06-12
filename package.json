@@ -9,7 +9,6 @@
     "backend",
     "npm-app",
     "web",
-    "test",
     "packages/*",
     "scripts",
     "evals"

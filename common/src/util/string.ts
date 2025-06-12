@@ -223,12 +223,12 @@ export const hasLazyEdit = (content: string) => {
  * @param fallback String to use if parsing fails
  * @returns The content string with the transformed JSON field
  */
-export const transformJsonInString = <T = unknown>(
+export function transformJsonInString<T = unknown>(
   content: string,
   field: string,
   transform: (json: T) => unknown,
   fallback: string
-): string => {
+): string {
   // Use a non-greedy match for objects/arrays to prevent over-matching
   const pattern = new RegExp(`"${field}"\\s*:\\s*(\\{[^}]*?\\}|\\[[^\\]]*?\\])`)
   const match = content.match(pattern)

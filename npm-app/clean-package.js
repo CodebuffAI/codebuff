@@ -13,17 +13,10 @@ fs.writeFileSync(
   JSON.stringify(packageJson, null, 2) + '\n'
 )
 
-for (const depType of ['dependencies', 'optionalDependencies']) {
-  if (packageJson[depType]) {
-    for (const [pkgName, version] of Object.entries(packageJson[depType])) {
-      if (typeof version === 'string' && version.startsWith('workspace:')) {
-        if (pkgName === 'common') {
-          delete packageJson[depType][pkgName]
-        } else {
-          packageJson[depType][pkgName] = '1.0.0'
-        }
-      }
-    }
+for (const field of ['dependencies', 'optionalDependencies']) {
+  if (!packageJson[field]) continue
+  for (const [name, range] of Object.entries(packageJson[field])) {
+    if (range.startsWith('workspace:')) delete packageJson[field][name]
   }
 }
 
