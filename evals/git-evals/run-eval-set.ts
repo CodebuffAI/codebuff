@@ -50,12 +50,14 @@ async function runEvalSet(
       evalDataPath: 'git-evals/eval-codebuff.json',
       outputDir,
       modelConfig: {},
+      limit: 2,
     },
     {
       name: 'manifold',
       evalDataPath: 'git-evals/eval-manifold.json',
       outputDir,
       modelConfig: {},
+      limit: 2,
     },
   ]
 
@@ -69,8 +71,8 @@ async function runEvalSet(
   const startTime = Date.now()
   const results: EvalResult[] = []
 
-  // Run all evaluations sequentially
-  for (const config of evalConfigs) {
+  // Run all evaluations in parallel
+  const evalPromises = evalConfigs.map(async (config) => {
     console.log(`Starting ${config.name} evaluation...`)
     const evalStartTime = Date.now()
 
@@ -102,25 +104,31 @@ async function runEvalSet(
             console.log(`   ${problem.description}`)
           })
 
-          results.push({
+          return {
             name: config.name,
-            status: 'success',
+            status: 'success' as const,
             result,
             analysis,
             duration: evalDuration,
-          })
+          }
         } catch (analysisError) {
           console.warn(
             `⚠️ Post-eval analysis failed for ${config.name}:`,
             analysisError
           )
-          results.push({
+          return {
             name: config.name,
-            status: 'success',
+            status: 'success' as const,
             result,
             duration: evalDuration,
-          })
+          }
         }
+      }
+      return {
+        name: config.name,
+        status: 'success' as const,
+        result,
+        duration: evalDuration,
       }
     } catch (error) {
       const evalDuration = Date.now() - evalStartTime
@@ -128,14 +136,21 @@ async function runEvalSet(
         `❌ ${config.name} evaluation failed after ${(evalDuration / 1000).toFixed(1)}s:`,
         error
       )
-      results.push({
+      return {
         name: config.name,
-        status: 'error',
+        status: 'error' as const,
         error: error instanceof Error ? error.message : String(error),
         duration: evalDuration,
-      })
+      }
     }
-  }
+  })
+
+  const settledResults = await Promise.allSettled(evalPromises)
+  settledResults.forEach((res) => {
+    if (res.status === 'fulfilled') {
+      results.push(res.value)
+    }
+  })
 
   const totalDuration = Date.now() - startTime
 
@@ -311,7 +326,7 @@ if (require.main === module) {
 
   runEvalSet(
     outputDir,
-    !args.includes('--no-email'),
+    false, // !args.includes('--no-email'),
     !args.includes('--no-analysis'),
     args.includes('--mock'),
     !args.includes('--no-insert')

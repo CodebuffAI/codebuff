@@ -1,19 +1,12 @@
-import { runSingleEval } from './run-git-evals'
-import { EvalCommit } from './types'
-import {
-  createFileReadingMock,
-  resetRepoToCommit,
-} from '../scaffolding'
-import {
-  createInitialAgentState,
-  setupTestEnvironmentVariables,
-} from '../test-setup'
 import {
   setProjectRoot,
   setWorkingDirectory,
 } from '../../npm-app/src/project-files'
 import { recreateShell } from '../../npm-app/src/terminal/base'
-
+import { createFileReadingMock } from '../scaffolding'
+import { setupTestEnvironmentVariables } from '../test-setup'
+import { runSingleEval } from './run-git-evals'
+import { EvalCommit } from './types'
 
 async function main() {
   const [evalCommitStr, projectPath, clientSessionId, fingerprintId] =

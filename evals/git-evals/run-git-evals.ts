@@ -1,26 +1,17 @@
-import { execSync } from 'child_process'
+import { execSync, fork } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { fork } from 'child_process'
 
 import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 import { claudeModels } from '../../common/src/constants'
 import { withTimeout } from '../../common/src/util/promise'
 import { generateCompactId } from '../../common/src/util/string'
 import {
-  setProjectRoot,
-  setWorkingDirectory,
-} from '../../npm-app/src/project-files'
-import { recreateShell } from '../../npm-app/src/terminal/base'
-import {
   createFileReadingMock,
   loopMainPrompt,
   resetRepoToCommit,
 } from '../scaffolding'
-import {
-  createInitialAgentState,
-  setupTestEnvironmentVariables,
-} from '../test-setup'
+import { createInitialAgentState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import {
@@ -319,7 +310,7 @@ export async function runGitEvals(
     fs.mkdirSync(outputDir, { recursive: true })
   }
 
-  const logsDir = path.join(outputDir, 'logs', traceId)
+  const logsDir = path.join(outputDir, 'logs', `${testRepoName}-${traceId}`)
   fs.mkdirSync(logsDir, { recursive: true })
 
   // Generate filenames with trace ID (single file that gets overwritten)
@@ -351,7 +342,12 @@ export async function runGitEvals(
           `Starting eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.message}...`
         )
 
-        const logPath = path.join(logsDir, `${evalCommit.sha}.log`)
+        const safeMessage = evalCommit.message
+          .split('\n')[0]
+          .replace(/[^a-zA-Z0-9]/g, '_')
+          .slice(0, 30)
+        const logFilename = `${safeMessage}-${evalCommit.sha.slice(0, 7)}.log`
+        const logPath = path.join(logsDir, logFilename)
         const logStream = fs.createWriteStream(logPath)
 
         const child = fork(
@@ -384,7 +380,9 @@ export async function runGitEvals(
         child.on('exit', (code) => {
           logStream.end()
           if (code !== 0) {
-            console.error(`Eval process for ${evalCommit.sha} exited with code ${code}. See logs at ${logPath}`)
+            console.error(
+              `Eval process for ${evalCommit.sha} exited with code ${code}. See logs at ${logPath}`
+            )
             reject(
               new Error(
                 `Eval process for ${evalCommit.sha} exited with code ${code}`
@@ -404,9 +402,7 @@ export async function runGitEvals(
     const evalCommit = commitsToRun[index]
     if (result.status === 'fulfilled') {
       evalRuns.push(result.value)
-      console.log(
-        `Completed eval for commit ${evalCommit.message}`
-      )
+      console.log(`Completed eval for commit ${evalCommit.message}`)
     } else {
       console.error(
         `Failed eval for commit ${evalCommit.message}:`,

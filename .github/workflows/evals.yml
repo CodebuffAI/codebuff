@@ -8,7 +8,7 @@ jobs:
   run-evals:
     if: ${{ contains(github.event.head_commit.message, '[buffbench]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 180
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
