@@ -5,13 +5,8 @@ on:
     branches: ['**']
 
 jobs:
-  echo:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Echo
-        run: echo "${{github.event.head_commit.message}}"
   run-evals:
-    if: ${{ contains(github.event.head_commit.message, '[Buffbench]') }}
+    if: ${{ contains(github.event.head_commit.message, '[buffbench]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
