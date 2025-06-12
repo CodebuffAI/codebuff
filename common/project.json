@@ -19,6 +19,20 @@
         "cwd": "common"
       }
     },
+    "db-generate": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
+        "cwd": "common"
+      }
+    },
+    "db-studio": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "drizzle-kit studio --config=./src/db/drizzle.config.ts",
+        "cwd": "common"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "options": {

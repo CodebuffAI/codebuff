@@ -25,12 +25,19 @@
       "dependsOn": ["^build", "contentlayer"]
     },
     "dev": {
-      "executor": "nx:run-commands",
+      "executor": "@codebuff/build-tools:infisical-run",
       "options": {
-        "command": "infisical run --log-level=warn -- next dev -p 3000",
+        "command": "next dev -p 3000",
         "cwd": "web"
       },
       "dependsOn": ["contentlayer", "root:build-env"]
+    },
+    "start": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "next start",
+        "cwd": "web"
+      }
     },
     "discord:register": {
       "executor": "@codebuff/build-tools:infisical-run",

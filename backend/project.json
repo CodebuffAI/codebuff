@@ -11,6 +11,20 @@
         "cwd": "backend"
       }
     },
+    "start": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "bun src/index.ts",
+        "cwd": "backend"
+      }
+    },
+    "dev": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "bun src/index.ts",
+        "cwd": "backend"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "options": {

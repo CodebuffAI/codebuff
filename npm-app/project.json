@@ -44,6 +44,111 @@
         "command": "bun test $(find src -name *.test.ts)",
         "cwd": "npm-app"
       }
+    },
+    "prepublish": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "infisical run --env=prod --log-level=warn -- bun run clean-package.js",
+        "cwd": "npm-app"
+      }
+    },
+    "start": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts ..",
+        "cwd": "npm-app"
+      }
+    },
+    "start-js": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "bun run clean-package.js && sh -c 'TS_NODE_BASEURL=./dist node -r tsconfig-paths/register dist/index.js ..'",
+        "cwd": "npm-app"
+      }
+    },
+    "start-max": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts .. --max",
+        "cwd": "npm-app"
+      }
+    },
+    "start-lite": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts .. --lite",
+        "cwd": "npm-app"
+      }
+    },
+    "start-ask": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts .. --ask",
+        "cwd": "npm-app"
+      }
+    },
+    "start-superagent": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts .. --superagent",
+        "cwd": "npm-app"
+      }
+    },
+    "start-dir": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts",
+        "cwd": "npm-app"
+      }
+    },
+    "start-experimental": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts .. --experimental",
+        "cwd": "npm-app"
+      }
+    },
+    "start-manifold": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts ../../manifold",
+        "cwd": "npm-app"
+      }
+    },
+    "start-litestar": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts ../test/__mock-projects__/litestar",
+        "cwd": "npm-app"
+      }
+    },
+    "start-jpcsp": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts ../test/__mock-projects__/jpcsp",
+        "cwd": "npm-app"
+      }
+    },
+    "start-vscode": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts ../test/__mock-projects__/vscode",
+        "cwd": "npm-app"
+      }
+    },
+    "start-nushell": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts ../test/__mock-projects__/nushell",
+        "cwd": "npm-app"
+      }
+    },
+    "start-prod": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register src/index.ts",
+        "cwd": "npm-app"
+      }
     }
   },
   "implicitDependencies": ["common", "code-map"]

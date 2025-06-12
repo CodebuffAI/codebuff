@@ -6,7 +6,7 @@
     "dev": "nx run web:dev",
     "build": "nx run web:build",
     "start": "next start",
-    "preview": "nx run web:build && infisical run --log-level=warn -- nx run web:start",
+    "preview": "nx run web:build && nx run web:start",
     "contentlayer": "nx run web:contentlayer",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
