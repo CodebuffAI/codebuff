@@ -1,5 +1,0 @@
-# Ignore Next artifacts
-.next/
-out/
-public/**/*.json
-public/**/*.html

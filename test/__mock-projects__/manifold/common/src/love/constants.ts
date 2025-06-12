@@ -1,6 +1,0 @@
-export const MIN_BET_AMOUNT_FOR_NEW_MATCH = 50
-
-export const MAX_COMPATIBILITY_QUESTION_LENGTH = 240
-
-export const LIKE_COST = 50
-export const LOVE_MARKET_COST = 10000

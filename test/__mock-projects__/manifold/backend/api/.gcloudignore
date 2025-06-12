@@ -1,6 +1,0 @@
-.gitignore
-.gcloudignore
-/tsconfig.json
-/deploy.sh
-/src/
-/lib/
