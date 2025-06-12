@@ -417,13 +417,13 @@ ${getToolCallString('run_terminal_command', {
       .object({
         prompts: z
           .string()
-          .describe('A JSON array of research prompts to run in parallel.'),
+          .describe('A JSON array of research prompts'),
       })
       .describe(
-        'Run a series of research prompts in parallel to gather information.'
+        'Run a series of research prompts in parallel to gather information about your codebase.'
       ),
     additionalInfo: `
-This tool allows you to run multiple, independent queries simultaneously to gather information from the codebase or the web. It's useful for complex questions that can be broken down into smaller, parallelizable sub-questions.
+It is important to use this tool near the beginning of your response to make sure you know all the places in the codebase that will need to be updated. Always use it before using the create_plan tool.
 
 Example:
 ${getToolCallString('research', {
@@ -491,6 +491,8 @@ Use when:
 - User explicitly requests a detailed plan.  
 - Task involves significant architectural or multi-file changes.
 - Use this tool to overwrite a previous plan by using the exact same file name.
+
+Before using this tool, use the research tool to gather information.
 
 Don't include:
 - Goals, timelines, benefits, next steps.  
