@@ -74,6 +74,14 @@
         "@types/lodash": "*",
       },
     },
+    "build-tools": {
+      "name": "@codebuff/build-tools",
+      "version": "1.0.0",
+      "devDependencies": {
+        "@nx/devkit": "^20.8.1",
+        "typescript": "5.5.4",
+      },
+    },
     "common": {
       "name": "common",
       "version": "1.0.0",
@@ -244,14 +252,6 @@
       },
       "devDependencies": {
         "@types/bun": "^1.1.16",
-      },
-    },
-    "tools": {
-      "name": "@codebuff/tools",
-      "version": "1.0.0",
-      "devDependencies": {
-        "@nx/devkit": "^20.8.1",
-        "typescript": "5.5.4",
       },
     },
     "web": {
@@ -494,9 +494,9 @@
 
     "@codebuff/billing": ["@codebuff/billing@workspace:packages/billing"],
 
-    "@codebuff/internal": ["@codebuff/internal@workspace:packages/internal"],
+    "@codebuff/build-tools": ["@codebuff/build-tools@workspace:build-tools"],
 
-    "@codebuff/tools": ["@codebuff/tools@workspace:tools"],
+    "@codebuff/internal": ["@codebuff/internal@workspace:packages/internal"],
 
     "@commitlint/cli": ["@commitlint/cli@19.8.0", "", { "dependencies": { "@commitlint/format": "^19.8.0", "@commitlint/lint": "^19.8.0", "@commitlint/load": "^19.8.0", "@commitlint/read": "^19.8.0", "@commitlint/types": "^19.8.0", "tinyexec": "^0.3.0", "yargs": "^17.0.0" }, "bin": { "commitlint": "./cli.js" } }, "sha512-t/fCrLVu+Ru01h0DtlgHZXbHV2Y8gKocTR5elDOqIRUzQd0/6hpt2VIWOj9b3NDo7y4/gfxeR2zRtXq/qO6iUg=="],
 
