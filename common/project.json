@@ -13,7 +13,7 @@
       "dependsOn": ["root:build-env"]
     },
     "db-migrate": {
-      "executor": "@codebuff/tools:infisical-run",
+      "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "drizzle-kit push --config=./src/db/drizzle.config.ts",
         "cwd": "common"

@@ -16,7 +16,7 @@
       ]
     },
     "build": {
-      "executor": "@codebuff/tools:infisical-run",
+      "executor": "@codebuff/build-tools:infisical-run",
       "outputs": ["{projectRoot}/.next"],
       "options": {
         "command": "next build",
@@ -33,7 +33,7 @@
       "dependsOn": ["contentlayer", "root:build-env"]
     },
     "discord:register": {
-      "executor": "@codebuff/tools:infisical-run",
+      "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "bun run scripts/discord/register-commands.ts",
         "cwd": "web"

@@ -1,5 +1,5 @@
 {
-  "name": "@codebuff/tools",
+  "name": "@codebuff/build-tools",
   "version": "1.0.0",
   "private": true,
   "main": "./dist/executors/infisical-run/executor.js",

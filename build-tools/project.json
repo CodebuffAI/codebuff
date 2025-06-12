@@ -1,5 +1,5 @@
 {
-  "name": "@codebuff/tools",
+  "name": "@codebuff/build-tools",
   "$schema": "../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": ".",
   "projectType": "library",
@@ -9,14 +9,14 @@
       "outputs": ["{projectRoot}/dist"],
       "options": {
         "command": "tsc",
-        "cwd": "tools"
+        "cwd": "build-tools"
       }
     },
     "clean": {
       "executor": "nx:run-commands",
       "options": {
         "command": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
-        "cwd": "tools"
+        "cwd": "build-tools"
       }
     }
   }
