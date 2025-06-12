@@ -16,6 +16,7 @@ export const toolSchema = {
   // Planning tools
   think_deeply: ['thought'],
   create_plan: ['path', 'plan'],
+  research: ['prompts'],
 
   browser_logs: ['type', 'url', 'waitUntil'],
 

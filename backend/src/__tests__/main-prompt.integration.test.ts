@@ -315,27 +315,32 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       }
     )
 
+    const action = {
+      type: 'prompt' as const,
+      prompt: 'Delete the castAssistantMessage function',
+      agentState,
+      fingerprintId: 'test-delete-function-integration',
+      costMode: 'normal' as const,
+      promptId: 'test-delete-function-id-integration',
+      toolResults: [],
+    }
+
     const {
       toolCalls,
       toolResults,
       agentState: finalAgentState,
     } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
+      action,
       {
-        type: 'prompt',
-        prompt: 'Delete the castAssistantMessage function',
-        agentState,
-        fingerprintId: 'test-delete-function-integration',
-        costMode: 'normal',
-        promptId: 'test-delete-function-id-integration',
-        toolResults: [],
-      },
-      TEST_USER_ID,
-      'test-session-delete-function-integration',
-      (chunk: string) => {
-        process.stdout.write(chunk)
-      },
-      undefined
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session-delete-function-integration',
+        onResponseChunk: (chunk: string) => {
+          process.stdout.write(chunk)
+        },
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
     )
 
     // Find the write_file tool call
@@ -346,6 +351,34 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       `@@ -46,32 +46,8 @@\n   }\n   return message.content.map((c) => ('text' in c ? c.text : '')).join('\\n')\n }\n \n-export function castAssistantMessage(message: Message): Message {\n-  if (message.role !== 'assistant') {\n-    return message\n-  }\n-  if (typeof message.content === 'string') {\n-    return {\n-      content: \`<previous_assistant_message>\${message.content}</previous_assistant_message>\`,\n-      role: 'user' as const,\n-    }\n-  }\n-  return {\n-    role: 'user' as const,\n-    content: message.content.map((m) => {\n-      if (m.type === 'text') {\n-        return {\n-          ...m,\n-          text: \`<previous_assistant_message>\${m.text}</previous_assistant_message>\`,\n-        }\n-      }\n-      return m\n-    }),\n-  }\n-}\n-\n // Number of terminal command outputs to keep in full form before simplifying\n const numTerminalCommandsToKeep = 5\n \n /**`.trim()
     )
   }, 60000) // Increase timeout for real LLM call
+
+  it('should handle tool calls and responses', async () => {
+    const agentState = getInitialAgentState(mockFileContext)
+    const action = {
+      type: 'prompt' as const,
+      prompt: 'Create a simple hello world function',
+      agentState,
+      fingerprintId: 'test',
+      costMode: 'normal' as const,
+      promptId: 'test',
+      toolResults: [],
+    }
+
+    const { agentState: newAgentState, toolCalls } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      action,
+      {
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+        selectedModel: undefined,
+        readOnlyMode: false
+      }
+    )
+
+    expect(newAgentState).toBeDefined()
+    expect(toolCalls).toBeDefined()
+  })
 
   describe('Real world example', () => {
     it('should specify deletion comment while deleting single character', async () => {
@@ -394,27 +427,32 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         }
       )
 
+      const action = {
+        type: 'prompt' as const,
+        prompt: "There's a syntax error. Delete the last } in the file",
+        agentState,
+        fingerprintId: 'test-delete-function-integration',
+        costMode: 'normal' as const,
+        promptId: 'test-delete-function-id-integration',
+        toolResults: [],
+      }
+
       const {
         toolCalls,
         toolResults,
         agentState: finalAgentState,
       } = await mainPrompt(
         new MockWebSocket() as unknown as WebSocket,
+        action,
         {
-          type: 'prompt',
-          prompt: "There's a syntax error. Delete the last } in the file",
-          agentState,
-          fingerprintId: 'test-delete-function-integration',
-          costMode: 'normal',
-          promptId: 'test-delete-function-id-integration',
-          toolResults: [],
-        },
-        TEST_USER_ID,
-        'test-session-delete-function-integration',
-        (chunk: string) => {
-          process.stdout.write(chunk)
-        },
-        undefined
+          userId: TEST_USER_ID,
+          clientSessionId: 'test-session-delete-function-integration',
+          onResponseChunk: (chunk: string) => {
+            process.stdout.write(chunk)
+          },
+          selectedModel: undefined,
+          readOnlyMode: false
+        }
       )
 
       // Find the write_file tool call

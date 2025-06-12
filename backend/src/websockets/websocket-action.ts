@@ -152,19 +152,18 @@ const onPrompt = async (
       }
 
       try {
-        const { agentState, toolCalls, toolResults } = await mainPrompt(
-          ws,
-          action,
+        const { agentState, toolCalls, toolResults } = await mainPrompt(ws, action, {
           userId,
           clientSessionId,
-          (chunk) =>
+          onResponseChunk: (chunk) =>
             sendAction(ws, {
               type: 'response-chunk',
               userInputId: promptId,
               chunk,
             }),
-          model
-        )
+          selectedModel: model,
+          readOnlyMode: false // readOnlyMode = false for normal prompts
+        })
 
         // Send prompt data back
         sendAction(ws, {
