@@ -3,6 +3,15 @@
   "version": "1.0.0",
   "description": "Evaluation scripts for Codebuff",
   "scripts": {
+    "test": "nx test evals",
+    "test:manifold": "nx run evals:test:manifold",
+    "test:pglite": "nx run evals:test:pglite",
+    "test:swe-bench": "nx run evals:test:swe-bench",
+    "test:e2e-cat-app": "nx run evals:test:e2e-cat-app",
+    "gen-git-evals": "nx run evals:gen-git-evals",
+    "run-git-evals": "nx run evals:run-git-evals",
+    "run-eval-set": "nx run evals:run-eval-set",
+    "setup-codebuff-repo": "nx run evals:setup-codebuff-repo",
     "typecheck-this-package": "tsc --noEmit"
   },
   "dependencies": {

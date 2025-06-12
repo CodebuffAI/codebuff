@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import path from 'path'
 import { sendEvalResultsEmail } from './email-eval-results'
 import {
   analyzeEvalResults,
@@ -8,7 +9,7 @@ import {
 import { runGitEvals } from './run-git-evals'
 import { FullEvalLog } from './types'
 
-const DEFAULT_OUTPUT_DIR = 'git-evals'
+const DEFAULT_OUTPUT_DIR = path.join(__dirname, '..', 'git-evals')
 
 interface EvalConfig {
   name: string
@@ -35,12 +36,12 @@ async function runEvalSet(
   const evalConfigs: EvalConfig[] = [
     {
       name: 'codebuff',
-      evalDataPath: 'git-evals/eval-codebuff.json',
+      evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
       outputDir,
     },
     {
       name: 'manifold',
-      evalDataPath: 'git-evals/eval-manifold.json',
+      evalDataPath: path.join(__dirname, 'eval-manifold.json'),
       outputDir,
     },
   ]

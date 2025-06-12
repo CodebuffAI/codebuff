@@ -47,24 +47,23 @@
       }
     },
     "gen-git-evals": {
-      "executor": "@codebuff/tools:infisical-run",
+      "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "bun run git-evals/gen-evals.ts",
         "cwd": "evals"
       }
     },
     "run-git-evals": {
-      "executor": "@codebuff/tools:infisical-run",
+      "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "bun run git-evals/run-git-evals.ts",
         "cwd": "evals"
       }
     },
     "run-eval-set": {
-      "executor": "@codebuff/tools:infisical-run",
+      "executor": "@codebuff/build-tools:infisical-run",
       "options": {
-        "command": "bun run git-evals/run-eval-set.ts",
-        "cwd": "evals"
+        "command": "bun run evals/git-evals/run-eval-set.ts"
       }
     },
     "setup-codebuff-repo": {
