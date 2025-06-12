@@ -24,7 +24,7 @@
         "prettier": "3.3.2",
         "ts-node": "^10.9.2",
         "ts-pattern": "^5.5.0",
-        "tsc-alias": "^1.8.16",
+        "tsc-alias": "1.7.0",
         "tsconfig-paths": "4.2.0",
         "types": "^0.1.1",
         "typescript": "5.5.4",
@@ -3358,7 +3358,7 @@
 
     "ts-pattern": ["ts-pattern@5.7.0", "", {}, "sha512-0/FvIG4g3kNkYgbNwBBW5pZBkfpeYQnH+2AA3xmjkCAit/DSDPKmgwC3fKof4oYUq6gupClVOJlFl+939VRBMg=="],
 
-    "tsc-alias": ["tsc-alias@1.8.16", "", { "dependencies": { "chokidar": "^3.5.3", "commander": "^9.0.0", "get-tsconfig": "^4.10.0", "globby": "^11.0.4", "mylas": "^2.1.9", "normalize-path": "^3.0.0", "plimit-lit": "^1.2.6" }, "bin": { "tsc-alias": "dist/bin/index.js" } }, "sha512-QjCyu55NFyRSBAl6+MTFwplpFcnm2Pq01rR/uxfqJoLMm6X3O14KEGtaSDZpJYaE1bJBGDjD0eSuiIWPe2T58g=="],
+    "tsc-alias": ["tsc-alias@1.7.0", "", { "dependencies": { "chokidar": "^3.5.3", "commander": "^9.0.0", "globby": "^11.0.4", "mylas": "^2.1.9", "normalize-path": "^3.0.0", "plimit-lit": "^1.2.6" }, "bin": { "tsc-alias": "dist/bin/index.js" } }, "sha512-n/K6g8S7Ec7Y/A2Z77Ikp2Uv1S1ERtT63ni69XV4W1YPT4rnNmz8ItgIiJYvKfFnKfqcZQ81UPjoKpMTxaC/rg=="],
 
     "tsconfig-paths": ["tsconfig-paths@4.2.0", "", { "dependencies": { "json5": "^2.2.2", "minimist": "^1.2.6", "strip-bom": "^3.0.0" } }, "sha512-NoZ4roiN7LnbKn9QqE1amc9DJfzvZXxF4xDavcOWt1BPkdx+m+0gJuPM+S0vCe7zTJMYUP0R8pO2XMr+Y8oLIg=="],
 
