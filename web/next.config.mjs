@@ -100,11 +100,12 @@ const nextConfig = {
       },
     ],
   },
-  env: {
-    ...env,
-    // Convert PORT to string for Next.js
-    PORT: env.PORT?.toString(),
-  },
+  env: Object.fromEntries(
+    Object.entries(env).map(([key, value]) => [
+      key,
+      typeof value === 'string' ? value : String(value ?? ''),
+    ])
+  ),
 }
 
 export default withContentlayer(withMDX(nextConfig))

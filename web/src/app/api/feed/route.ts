@@ -8,7 +8,7 @@ const SubstackPostSchema = z.object({
   description: z.string().optional(),
   post_date: z.string(),
   body_html: z.string().optional(),
-  cover_image: z.string().url().optional(),
+  cover_image: z.string().url().nullable().optional(),
 })
 
 const SubstackResponseSchema = z.array(SubstackPostSchema)
