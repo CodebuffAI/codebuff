@@ -5,6 +5,7 @@ export interface InfisicalRunExecutorOptions {
   command: string;
   cwd?: string;
   logLevel?: string;
+  env?: string;
 }
 
 function isInfisicalAvailable(): boolean {
@@ -20,10 +21,11 @@ export default async function infisicalRunExecutor(
   options: InfisicalRunExecutorOptions,
   context: ExecutorContext
 ): Promise<{ success: boolean }> {
-  const { command, cwd, logLevel = 'warn' } = options;
+  const { command, cwd, logLevel = 'warn', env } = options;
 
+  const envFlag = env ? `--env=${env}` : '';
   const finalCommand = isInfisicalAvailable()
-    ? `infisical run --log-level=${logLevel} -- ${command}`
+    ? `infisical run ${envFlag} --log-level=${logLevel} -- ${command}`.replace(/\s+/g, ' ').trim()
     : command;
 
   try {

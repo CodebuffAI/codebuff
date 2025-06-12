@@ -46,10 +46,11 @@
       }
     },
     "prepublish": {
-      "executor": "nx:run-commands",
+      "executor": "@codebuff/build-tools:infisical-run",
       "options": {
-        "command": "infisical run --env=prod --log-level=warn -- bun run clean-package.js",
-        "cwd": "npm-app"
+        "command": "bun run clean-package.js",
+        "cwd": "npm-app",
+        "env": "prod"
       }
     },
     "start": {
