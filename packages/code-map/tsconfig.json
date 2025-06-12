@@ -4,7 +4,8 @@
     "rootDir": ".",
     "outDir": "dist",
     "composite": true,
-    "module": "esnext",        // Bun likes modern modules; Node 22 handles them too
+    "module": "commonjs",
+    "moduleResolution": "node",
     "types": ["bun", "node"]
   },
   "include": ["*.ts"],

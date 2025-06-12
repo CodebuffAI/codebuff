@@ -4,8 +4,8 @@
     "rootDir": "src",
     "outDir": "dist",
     "composite": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
+    "module": "commonjs",
+    "moduleResolution": "node",
     "types": ["bun", "node"],
     "baseUrl": ".",
     "paths": {

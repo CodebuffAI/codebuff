@@ -4,8 +4,15 @@
     "rootDir": "src",
     "outDir": "dist",
     "composite": true,
-    "module": "esnext",        // Bun likes modern modules; Node 22 handles them too
-    "types": ["bun", "node", "jest"]
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "types": ["bun", "node", "jest"],
+    "baseUrl": ".",
+    "paths": {
+      "@codebuff/common/*": ["./dist/common/*"],
+      "@codebuff/code-map/*": ["./dist/code-map/*"]
+    }
   },
   "include": ["src"],
   "references": [
