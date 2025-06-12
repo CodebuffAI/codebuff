@@ -6,7 +6,10 @@ import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/
 import { claudeModels } from '../../common/src/constants'
 import { withTimeout } from '../../common/src/util/promise'
 import { generateCompactId } from '../../common/src/util/string'
-import { setProjectRoot, setWorkingDirectory } from '../../npm-app/src/project-files'
+import {
+  setProjectRoot,
+  setWorkingDirectory,
+} from '../../npm-app/src/project-files'
 import { recreateShell } from '../../npm-app/src/terminal/base'
 import {
   createFileReadingMock,
@@ -283,9 +286,16 @@ function getCodebuffFileStates(
   return fileStates
 }
 
+export function mockRunGitEvals(path: string) {
+  const result = JSON.parse(fs.readFileSync(path, 'utf-8')) as FullEvalLog
+
+  return result
+}
+
 export async function runGitEvals(
   evalDataPath: string,
-  outputDir: string
+  outputDir: string,
+  limit?: number
 ): Promise<FullEvalLog> {
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8')
@@ -334,6 +344,10 @@ export async function runGitEvals(
 
   // Run evaluations sequentially
   for (let index = 0; index < evalData.evalCommits.length; index++) {
+    if (limit && index >= limit) {
+      break
+    }
+
     const evalCommit = evalData.evalCommits[index]
 
     console.log(
