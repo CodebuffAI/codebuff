@@ -1,10 +1,23 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.env.json" },
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,            // don't place JS everywhere while hacking
+    "baseUrl": ".",            // Bun & editors see the aliases
+    "paths": {
+      "@/env": ["./env.ts"],   // keep ONLY aliases that are NOT other packages
+      "@codebuff/common/*": ["./common/src/*"],
+      "@codebuff/backend/*": ["./backend/src/*"],
+      "@codebuff/web/*": ["./web/src/*"],
+      "@codebuff/evals/*": ["./evals/*"],
+      "@codebuff/billing/*": ["./packages/billing/src/*"],
+      "@codebuff/bigquery/*": ["./packages/bigquery/src/*"],
+      "@codebuff/internal/*": ["./packages/internal/src/*"],
+      "@codebuff/code-map/*": ["./packages/code-map/*"]
+    }
+  },
+  "references": [              // IDE still knows project graph
     { "path": "common" },
     { "path": "backend" },
-    { "path": "common" },
     { "path": "npm-app" },
     { "path": "web" },
     { "path": "evals" },

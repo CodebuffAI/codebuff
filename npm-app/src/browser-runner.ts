@@ -3,10 +3,10 @@ import {
   BrowserAction,
   BrowserConfig,
   BrowserResponse,
-} from 'common/browser-actions'
-import { ensureDirectoryExists } from 'common/util/file'
-import { sleep } from 'common/util/promise'
-import { ensureUrlProtocol } from 'common/util/string'
+} from '@codebuff/common/browser-actions'
+import { ensureDirectoryExists } from '@codebuff/common/util/file'
+import { sleep } from '@codebuff/common/util/promise'
+import { ensureUrlProtocol } from '@codebuff/common/util/string'
 import * as fs from 'fs'
 import * as path from 'path'
 import puppeteer, {

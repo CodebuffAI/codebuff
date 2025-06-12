@@ -3,8 +3,8 @@ import fs from 'fs'
 import path from 'path'
 import prettier from 'prettier'
 import { promptAiSdk } from '../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from 'common/constants'
-import { generateCompactId } from 'common/util/string'
+import { models } from '@codebuff/common/constants'
+import { generateCompactId } from '@codebuff/common/util/string'
 
 // Native slugify implementation
 function slugify(text: string): string {

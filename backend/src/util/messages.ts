@@ -1,9 +1,9 @@
-import { CodebuffMessage, Message } from 'common/types/message'
-import { withCacheControl, withCacheControlCore } from 'common/util/messages'
+import { CodebuffMessage, Message } from '@codebuff/common/types/message'
+import { withCacheControl, withCacheControlCore } from '@codebuff/common/util/messages'
 
 import { CoreMessage } from 'ai'
 import { AssertionError } from 'assert'
-import { buildArray } from 'common/util/array'
+import { buildArray } from '@codebuff/common/util/array'
 import { System } from '../llm-apis/claude'
 import { OpenAIMessage } from '../llm-apis/openai-api'
 import { logger } from './logger'

@@ -1,4 +1,4 @@
-import { logger } from 'common/util/logger'
+import { logger } from '@codebuff/common/util/logger'
 import { createPatch } from 'diff'
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 

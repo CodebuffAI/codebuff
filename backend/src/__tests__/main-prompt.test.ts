@@ -8,9 +8,9 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import * as analytics from 'common/analytics'
-import { TEST_USER_ID } from 'common/constants'
-import { getInitialAgentState } from 'common/types/agent-state'
+import * as analytics from '@codebuff/common/analytics'
+import { TEST_USER_ID } from '@codebuff/common/constants'
+import { getInitialAgentState } from '@codebuff/common/types/agent-state'
 import { WebSocket } from 'ws'
 
 // Mock imports

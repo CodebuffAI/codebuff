@@ -1,9 +1,9 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
-import { OrganizationRole } from 'common/types/organization'
+import { OrganizationRole } from '@codebuff/common/types/organization'
 import { logger } from '@/util/logger'
 
 export interface OrganizationPermissionResult {

@@ -4,8 +4,8 @@ import {
   NextFunction,
 } from 'express'
 import { z } from 'zod'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 
 import { checkAuth } from '../util/check-auth'

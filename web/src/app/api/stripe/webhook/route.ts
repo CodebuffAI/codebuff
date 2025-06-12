@@ -3,11 +3,11 @@ import Stripe from 'stripe'
 import { eq } from 'drizzle-orm'
 
 import { env } from '@/env'
-import { stripeServer } from 'common/src/util/stripe'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import { stripeServer } from '@codebuff/common/src/util/stripe'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { logger } from '@/util/logger'
-import { convertStripeGrantAmountToCredits } from 'common/util/currency'
+import { convertStripeGrantAmountToCredits } from '@codebuff/common/util/currency'
 import {
   getUserCostPerCredit,
   processAndGrantCredit,

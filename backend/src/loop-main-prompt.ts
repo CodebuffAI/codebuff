@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws'
-import { AgentState, ToolResult } from 'common/types/agent-state'
-import { ClientAction } from 'common/actions'
+import { AgentState, ToolResult } from '@codebuff/common/types/agent-state'
+import { ClientAction } from '@codebuff/common/actions'
 import { mainPrompt, MainPromptOptions } from './main-prompt'
 import { ClientToolCall } from './tools'
 

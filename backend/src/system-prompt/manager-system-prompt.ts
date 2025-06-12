@@ -1,5 +1,5 @@
 import { getManagerToolsInstructions } from '../tools'
-import { getToolCallString } from 'common/constants/tools'
+import { getToolCallString } from '@codebuff/common/constants/tools'
 
 export function getManagerSystemPrompt() {
   const toolsInstructions = getManagerToolsInstructions()

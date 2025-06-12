@@ -3,12 +3,6 @@
   "compilerOptions": {
     "types": ["node", "bun"],
     "rootDir": ".",
-    "paths": {
-      "common/*": ["../common/src/*"],
-      "backend/*": ["../backend/src/*"],
-      "npm-app/*": ["../npm-app/src/*"],
-      "@codebuff/internal/*": ["../packages/internal/src/*"]
-    },
     "typeRoots": ["./node_modules/@types", "../node_modules/@types"]
   },
   "references": [

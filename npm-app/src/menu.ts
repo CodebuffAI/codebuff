@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { CostMode } from 'common/constants'
+import { CostMode } from '@codebuff/common/constants'
 import {
   blue,
   blueBright,
@@ -16,8 +16,8 @@ import {
   yellow,
 } from 'picocolors'
 
-import { codebuffConfigFile } from 'common/json-config/constants'
-import { isValidProjectRoot } from 'common/util/file'
+import { codebuffConfigFile } from '@codebuff/common/json-config/constants'
+import { isValidProjectRoot } from '@codebuff/common/util/file'
 import { Formatter } from 'picocolors/types'
 import { getProjectRoot } from './project-files'
 

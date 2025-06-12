@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { logger } from '@/util/logger'
 

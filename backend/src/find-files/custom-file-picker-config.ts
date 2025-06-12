@@ -3,7 +3,7 @@ import {
   finetunedVertexModelNames, // Restore usage
   costModes,
   type CostMode,
-} from 'common/constants'
+} from '@codebuff/common/constants'
 
 // Create the customFileCounts shape using the centralized costModes
 const customFileCountsShape = costModes.reduce(

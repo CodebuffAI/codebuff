@@ -1,4 +1,4 @@
-import { withTimeout } from 'common/util/promise'
+import { withTimeout } from '@codebuff/common/util/promise'
 import { logger } from '../util/logger'
 
 const CONTEXT7_API_BASE_URL = 'https://context7.com/api/v1'

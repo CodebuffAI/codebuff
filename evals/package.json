@@ -1,5 +1,5 @@
 {
-  "name": "evals",
+  "name": "@codebuff/evals",
   "version": "1.0.0",
   "description": "Evaluation scripts for Codebuff",
   "scripts": {
@@ -16,6 +16,9 @@
     "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
   },
   "dependencies": {
+    "@codebuff/common": "workspace:*",
+    "@codebuff/backend": "workspace:*", 
+    "@codebuff/internal": "workspace:*",
     "async": "^3.2.6",
     "lodash": "^4.17.21"
   },

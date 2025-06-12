@@ -1,10 +1,10 @@
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import { GrantType } from 'common/db/schema'
-import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
+import { GrantType } from '@codebuff/common/db/schema'
+import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 
 // Mock logger - this is needed because @codebuff/billing likely uses the logger
-mock.module('common/util/logger', () => ({
+mock.module('@codebuff/common/util/logger', () => ({
   logger: {
     debug: () => {},
     error: () => {},
@@ -20,7 +20,7 @@ describe('Usage Calculation System', () => {
     mock.restore()
 
     // Re-mock logger after restore
-    mock.module('common/util/logger', () => ({
+    mock.module('@codebuff/common/util/logger', () => ({
       logger: {
         debug: () => {},
         error: () => {},

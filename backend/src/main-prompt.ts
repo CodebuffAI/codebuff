@@ -4,27 +4,27 @@ import {
   GetExpandedFileContextForTrainingBlobTrace,
   insertTrace,
 } from '@codebuff/bigquery'
-import { ClientAction } from 'common/actions'
+import { ClientAction } from '@codebuff/common/actions'
 import {
   HIDDEN_FILE_READ_STATUS,
   models,
   ONE_TIME_LABELS,
   type CostMode,
-} from 'common/constants'
-import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { getToolCallString, toolSchema } from 'common/constants/tools'
-import { trackEvent } from 'common/src/analytics'
-import { AgentState, ToolResult } from 'common/types/agent-state'
-import { buildArray } from 'common/util/array'
-import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
-import { toContentString } from 'common/util/messages'
-import { generateCompactId } from 'common/util/string'
+} from '@codebuff/common/constants'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { getToolCallString, toolSchema } from '@codebuff/common/constants/tools'
+import { trackEvent } from '@codebuff/common/analytics'
+import { AgentState, ToolResult } from '@codebuff/common/types/agent-state'
+import { buildArray } from '@codebuff/common/util/array'
+import { parseFileBlocks, ProjectFileContext } from '@codebuff/common/util/file'
+import { toContentString } from '@codebuff/common/util/messages'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { CoreMessage } from 'ai'
-import { codebuffConfigFile } from 'common/json-config/constants'
-import { CodebuffMessage } from 'common/types/message'
+import { codebuffConfigFile } from '@codebuff/common/json-config/constants'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { checkTerminalCommand } from './check-terminal-command'
 import {
   requestRelevantFiles,

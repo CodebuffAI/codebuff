@@ -4,13 +4,13 @@ import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { logger } from '@/util/logger'
-import { stripeServer } from 'common/src/util/stripe'
-import { generateCompactId } from 'common/src/util/string'
+import { stripeServer } from '@codebuff/common/src/util/stripe'
+import { generateCompactId } from '@codebuff/common/src/util/string'
 import { env } from '@/env'
-import { convertCreditsToUsdCents } from 'common/util/currency'
+import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
 import { getUserCostPerCredit, processAndGrantCredit } from '@codebuff/billing'
 
 const buyCreditsSchema = z.object({

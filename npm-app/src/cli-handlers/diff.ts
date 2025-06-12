@@ -1,4 +1,4 @@
-import { FileChange } from 'common/actions'
+import { FileChange } from '@codebuff/common/actions'
 import { bold, cyan, green, red, yellow } from 'picocolors'
 
 export function handleDiff(lastChanges: FileChange[]) {

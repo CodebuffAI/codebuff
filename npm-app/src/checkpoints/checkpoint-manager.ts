@@ -3,8 +3,8 @@ import os from 'os'
 import { join } from 'path'
 import { Worker } from 'worker_threads'
 
-import { DEFAULT_MAX_FILES, getAllFilePaths } from 'common/project-file-tree'
-import { AgentState, ToolResult } from 'common/types/agent-state'
+import { DEFAULT_MAX_FILES, getAllFilePaths } from '@codebuff/common/project-file-tree'
+import { AgentState, ToolResult } from '@codebuff/common/types/agent-state'
 import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'

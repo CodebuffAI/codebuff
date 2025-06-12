@@ -3,8 +3,8 @@ import {
   printFileTree,
   printFileTreeWithTokens,
   ProjectFileContext,
-} from 'common/util/file'
-import { sampleSizeWithSeed } from 'common/util/random'
+} from '@codebuff/common/util/file'
+import { sampleSizeWithSeed } from '@codebuff/common/util/random'
 import { logger } from '../util/logger'
 import { countTokens, countTokensJson } from '../util/token-counter'
 

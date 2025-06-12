@@ -2,7 +2,7 @@ import { logger } from '@/util/logger'
 import { uniq } from 'lodash'
 import { z } from 'zod'
 
-import { geminiModels } from 'common/constants'
+import { geminiModels } from '@codebuff/common/constants'
 import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
 import { promptAiSdkStructured } from './llm-apis/vercel-ai-sdk/ai-sdk'
 

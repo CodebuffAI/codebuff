@@ -5,7 +5,7 @@ import {
 import {
   convertCreditsToUsdCents,
   convertStripeGrantAmountToCredits,
-} from 'common/util/currency'
+} from '@codebuff/common/util/currency'
 
 describe('Credit Conversion System', () => {
   describe('getUserCostPerCredit', () => {

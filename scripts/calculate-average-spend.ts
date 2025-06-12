@@ -1,4 +1,4 @@
-import { stripeServer } from 'common/src/util/stripe'
+import { stripeServer } from '@codebuff/common/src/util/stripe'
 import type Stripe from 'stripe'
 import { P } from 'ts-pattern'
 

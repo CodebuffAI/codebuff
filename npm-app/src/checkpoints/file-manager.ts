@@ -15,7 +15,7 @@ import {
   statusMatrix,
 } from 'isomorphic-git'
 
-import { buildArray } from 'common/util/array'
+import { buildArray } from '@codebuff/common/util/array'
 import { getProjectDataDir } from '../project-files'
 import { gitCommandIsAvailable } from '../utils/git'
 import { logger } from '../utils/logger'

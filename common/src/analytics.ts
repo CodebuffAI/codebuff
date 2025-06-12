@@ -1,7 +1,7 @@
 import { env } from '@/env'
 import { PostHog } from 'posthog-node'
 
-import { AnalyticsEvent } from 'common/src/constants/analytics-events'
+import { AnalyticsEvent } from './constants/analytics-events'
 
 import { logger } from './util/logger'
 

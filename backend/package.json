@@ -1,5 +1,5 @@
 {
-  "name": "backend",
+  "name": "@codebuff/backend",
   "version": "1.0.0",
   "description": "Backend server for Codebuff",
   "main": "dist/index.js",
@@ -8,7 +8,7 @@
     "start": "infisical run --log-level=warn -- bun src/index.ts",
     "dev": "infisical run --log-level=warn -- bun src/index.ts",
     "build": "tsc --build",
-    "typecheck-this-package": "tsc --noEmit && tsc-alias",
+    "typecheck-this-package": "tsc --noEmit",
     "typecheck": "bun run --cwd ../common build && bun run typecheck-this-package",
     "test": "bun test"
   },
@@ -18,10 +18,10 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@codebuff/billing": "workspace:*",
     "@codebuff/internal": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "@google-cloud/vertexai": "1.10.0",
     "@google/generative-ai": "0.24.1",
     "ai": "4.3.16",
-    "common": "workspace:*",
     "cors": "^2.8.5",
     "diff": "5.2.0",
     "dotenv": "16.4.5",

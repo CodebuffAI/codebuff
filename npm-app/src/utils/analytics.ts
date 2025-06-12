@@ -1,4 +1,4 @@
-import { AnalyticsEvent } from 'common/constants/analytics-events'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { PostHog } from 'posthog-node'
 
 import { logger } from './logger'

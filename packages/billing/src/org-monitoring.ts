@@ -1,10 +1,10 @@
-import { logger } from 'common/util/logger'
-import { trackEvent } from 'common/analytics'
-import { AnalyticsEvent } from 'common/constants/analytics-events'
+import { logger } from '@codebuff/common/util/logger'
+import { trackEvent } from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { calculateOrganizationUsageAndBalance } from './org-billing'
-import { getNextQuotaReset } from 'common/util/dates'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import { getNextQuotaReset } from '@codebuff/common/util/dates'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 
 export interface OrganizationCreditAlert {

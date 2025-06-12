@@ -1,7 +1,7 @@
 import { CoreMessage } from 'ai';
 import { z } from 'zod';
 import { promptAiSdkStructured } from './vercel-ai-sdk/ai-sdk';
-import { models } from 'common/constants';
+import { models } from '@codebuff/common/constants';
 import { getCoreMessagesSubset } from '../util/messages';
 import { logger } from '../util/logger';
 

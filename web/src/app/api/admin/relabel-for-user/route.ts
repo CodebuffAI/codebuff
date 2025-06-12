@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin-auth'
 import { logger } from '@/util/logger'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, eq, gt, desc } from 'drizzle-orm'
 
 // Helper to construct backend URL

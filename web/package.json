@@ -54,7 +54,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cobe": "^0.6.3",
-    "common": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "contentlayer": "0.3.4",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",

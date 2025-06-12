@@ -1,7 +1,7 @@
 import { existsSync, writeFileSync } from 'fs'
 import path from 'path'
 
-import { codebuffConfigFile } from 'common/json-config/constants'
+import { codebuffConfigFile } from '@codebuff/common/json-config/constants'
 
 import { getProjectRoot } from '../project-files'
 

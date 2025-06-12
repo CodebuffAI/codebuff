@@ -12,9 +12,9 @@ import {
   finetunedVertexModels,
   geminiModels,
   TEST_USER_ID,
-} from 'common/constants'
-import { Message } from 'common/types/message'
-import { generateCompactId } from 'common/util/string'
+} from '@codebuff/common/constants'
+import { Message } from '@codebuff/common/types/message'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { System } from '../../backend/src/llm-apis/claude'
 import {
   promptAiSdk,

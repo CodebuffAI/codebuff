@@ -1,4 +1,4 @@
-import { stripeServer } from 'common/src/util/stripe'
+import { stripeServer } from '@codebuff/common/src/util/stripe'
 import type Stripe from 'stripe'
 
 async function calculateMRR() {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { toolSchema } from 'common/constants/tools'
+import { toolSchema } from '@codebuff/common/constants/tools'
 import { processStreamWithTags } from '../xml-stream-parser'
 
 describe('processStreamWithTags', () => {

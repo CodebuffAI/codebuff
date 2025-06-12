@@ -2,8 +2,8 @@ import { Writable } from 'stream'
 
 // @ts-ignore
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
-import { getToolCallString } from 'common/constants/tools'
-import * as projectFileTree from 'common/project-file-tree'
+import { getToolCallString } from '@codebuff/common/constants/tools'
+import * as projectFileTree from '@codebuff/common/project-file-tree'
 import stripAnsi from 'strip-ansi'
 
 import * as projectFiles from '../../project-files'

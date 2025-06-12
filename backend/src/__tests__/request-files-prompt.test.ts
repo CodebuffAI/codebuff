@@ -12,9 +12,9 @@ import {
 import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
 import * as checkNewFilesNecessaryModule from '../find-files/check-new-files-necessary'
 import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
-import { ProjectFileContext } from 'common/util/file'
+import { ProjectFileContext } from '@codebuff/common/util/file'
 import { CoreMessage } from 'ai'
-import { CostMode, finetunedVertexModels } from 'common/constants'
+import { CostMode, finetunedVertexModels } from '@codebuff/common/constants'
 
 // Restore module-level mocks using bunMockFn for the mock implementations
 bunMockFn.module('../find-files/check-new-files-necessary', () => ({

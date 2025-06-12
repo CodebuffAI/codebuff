@@ -2,15 +2,15 @@ import { spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { FileChange } from 'common/actions'
-import { models, TEST_USER_ID } from 'common/constants'
+import { FileChange } from '@codebuff/common/actions'
+import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import {
   getToolCallString,
   ToolName as GlobalToolNameImport,
-} from 'common/src/constants/tools'
+} from '@codebuff/common/constants/tools'
 import { z } from 'zod'
 
-import { buildArray } from 'common/util/array'
+import { buildArray } from '@codebuff/common/util/array'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 

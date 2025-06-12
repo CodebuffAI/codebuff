@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process'
-import { isValidProjectRoot } from 'common/util/file'
+import { isValidProjectRoot } from '@codebuff/common/util/file'
 import fs, { existsSync, statSync } from 'fs'
 import gitUrlParse from 'git-url-parse'
 import { getConfig, listFiles, log, ReadCommitResult } from 'isomorphic-git'

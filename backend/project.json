@@ -19,5 +19,5 @@
       }
     }
   },
-  "implicitDependencies": ["common", "@codebuff/internal"]
+  "implicitDependencies": ["common", "@codebuff/internal", "@codebuff/billing", "@codebuff/bigquery"]
 }

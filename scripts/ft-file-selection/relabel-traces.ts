@@ -4,9 +4,9 @@ import {
   insertRelabel,
 } from '@codebuff/bigquery'
 import { promptFlashWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
-import { claudeModels, models, TEST_USER_ID } from 'common/constants'
-import { Message } from 'common/types/message'
-import { generateCompactId } from 'common/util/string'
+import { claudeModels, models, TEST_USER_ID } from '@codebuff/common/constants'
+import { Message } from '@codebuff/common/types/message'
+import { generateCompactId } from '@codebuff/common/util/string'
 
 import {
   promptAiSdk,

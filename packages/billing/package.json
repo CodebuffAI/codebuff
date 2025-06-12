@@ -10,7 +10,7 @@
     "typecheck-this-package": "tsc --noEmit"
   },
   "dependencies": {
-    "common": "workspace:*"
+    "@codebuff/common": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

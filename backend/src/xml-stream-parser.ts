@@ -1,5 +1,5 @@
-import { Saxy, TagCloseNode, TagOpenNode, TextNode } from 'common/util/saxy'
-import { includesMatch } from 'common/util/string'
+import { Saxy, TagCloseNode, TagOpenNode, TextNode } from '@codebuff/common/util/saxy'
+import { includesMatch } from '@codebuff/common/util/string'
 
 interface PendingState {
   currentTool: null

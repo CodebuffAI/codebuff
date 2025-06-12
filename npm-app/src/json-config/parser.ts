@@ -9,7 +9,7 @@ import {
   codebuffConfigFile,
   codebuffConfigFileBackup,
   CodebuffConfigSchema,
-} from 'common/json-config/constants'
+} from '@codebuff/common/json-config/constants'
 import { getProjectRoot } from '../project-files'
 
 /**

@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
-import { AgentState } from 'common/types/agent-state'
+import { AgentState } from '@codebuff/common/types/agent-state'
 import { loopMainPrompt } from './loop-main-prompt'
-import { toContentString } from 'common/util/messages'
+import { toContentString } from '@codebuff/common/util/messages'
 
 export async function research(
   ws: WebSocket,

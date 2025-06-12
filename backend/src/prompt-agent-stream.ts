@@ -5,7 +5,7 @@ import {
   getModelForMode,
   providerModelNames,
   shortModelNames,
-} from 'common/constants'
+} from '@codebuff/common/constants'
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 

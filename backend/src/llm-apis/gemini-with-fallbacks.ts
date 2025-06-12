@@ -4,7 +4,7 @@ import {
   FinetunedVertexModel,
   GeminiModel,
   openaiModels,
-} from 'common/constants'
+} from '@codebuff/common/constants'
 
 import { CoreMessage } from 'ai'
 import { logger } from '../util/logger'

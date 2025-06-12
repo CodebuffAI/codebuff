@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { env } from '@/env'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
-import { genAuthCode } from 'common/util/credentials'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
+import { genAuthCode } from '@codebuff/common/util/credentials'
 import { logger } from '@/util/logger'
 import { and, eq, gt } from 'drizzle-orm'
 

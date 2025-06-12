@@ -22,11 +22,7 @@
       }
     ],
     "paths": {
-      "@/env": ["../env.ts"],
-      "@/*": ["./src/*"],
-      "common/*": ["../common/src/*"],
-      "@codebuff/billing": ["../packages/billing/src"],
-      "@codebuff/internal": ["../packages/internal/src"]
+      "@/*": ["./src/*"]
     }
   },
   "references": [

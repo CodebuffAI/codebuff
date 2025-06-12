@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 
 async function calculateDAU() {
   console.log('Calculating DAU for the last 7 days...\n')

@@ -1,6 +1,6 @@
 import { Interface as ReadlineInterface } from 'readline'
 
-import { AgentState } from 'common/types/agent-state'
+import { AgentState } from '@codebuff/common/types/agent-state'
 import { bold, cyan, green, red, underline } from 'picocolors'
 
 import {

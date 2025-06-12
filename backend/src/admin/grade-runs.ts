@@ -2,7 +2,7 @@ import { promptAiSdk } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
 import { Relabel } from '@codebuff/bigquery'
 
 import { GetRelevantFilesTrace } from '@codebuff/bigquery'
-import { claudeModels, TEST_USER_ID } from 'common/constants'
+import { claudeModels, TEST_USER_ID } from '@codebuff/common/constants'
 
 const PROMPT = `
 You are an evaluator system, measuring how well various models perform at selecting the most relevant files for a given user request.

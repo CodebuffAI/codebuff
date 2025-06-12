@@ -7,7 +7,7 @@ import {
   Relabel,
   setupBigQuery,
 } from '@codebuff/bigquery'
-import { Message } from 'common/types/message'
+import { Message } from '@codebuff/common/types/message'
 
 // Get model from command line args
 const model = process.argv[2]

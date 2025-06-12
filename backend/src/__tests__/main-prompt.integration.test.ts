@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
-import { TEST_USER_ID } from 'common/constants'
-import { getInitialAgentState } from 'common/types/agent-state'
+import { TEST_USER_ID } from '@codebuff/common/constants'
+import { getInitialAgentState } from '@codebuff/common/types/agent-state'
 import { WebSocket } from 'ws'
 import { mainPrompt } from '../main-prompt'
 
 // Mock imports needed for setup within the test
 import { renderReadFilesResult } from '@/util/parse-tool-call-xml'
-import { getToolCallString } from 'common/constants/tools'
+import { getToolCallString } from '@codebuff/common/constants/tools'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
@@ -60,8 +60,8 @@ describe('mainPrompt (Integration)', () => {
     spyOn(logger, 'warn').mockImplementation(() => {})
     spyOn(requestFilesPrompt, 'requestRelevantFiles').mockResolvedValue([])
 
-    const initialContent = `import { Message } from 'common/types/message'
-import { withCacheControl } from 'common/util/messages'
+    const initialContent = `import { Message } from '@codebuff/common/types/message'
+import { withCacheControl } from '@codebuff/common/util/messages'
 
 import { System } from '../llm-apis/claude'
 import { OpenAIMessage } from '../llm-apis/openai-api'

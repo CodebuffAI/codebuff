@@ -3,8 +3,8 @@ import path from 'path'
 import {
   codebuffConfigFile,
   StartupProcess,
-} from 'common/json-config/constants'
-import { generateCompactId } from 'common/util/string'
+} from '@codebuff/common/json-config/constants'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { yellow } from 'picocolors'
 
 import { runBackgroundCommand } from './terminal/background'

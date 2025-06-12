@@ -10,7 +10,7 @@ import {
   ServerAction,
   UsageReponseSchema,
   UsageResponse,
-} from 'common/actions'
+} from '@codebuff/common/actions'
 import {
   existsSync,
   mkdirSync,
@@ -20,7 +20,7 @@ import {
 } from 'fs'
 import os from 'os'
 
-import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
+import { ApiKeyType, READABLE_NAME } from '@codebuff/common/api-keys/constants'
 import {
   ASKED_CONFIG,
   CostMode,
@@ -30,19 +30,19 @@ import {
   REQUEST_CREDIT_SHOW_THRESHOLD,
   SHOULD_ASK_CONFIG,
   UserState,
-} from 'common/constants'
-import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
+} from '@codebuff/common/constants'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
 import {
   AgentState,
   getInitialAgentState,
   ToolResult,
-} from 'common/types/agent-state'
-import { buildArray } from 'common/util/array'
-import { User } from 'common/util/credentials'
-import { ProjectFileContext } from 'common/util/file'
-import { pluralize } from 'common/util/string'
-import { APIRealtimeClient } from 'common/websockets/websocket-client'
+} from '@codebuff/common/types/agent-state'
+import { buildArray } from '@codebuff/common/util/array'
+import { User } from '@codebuff/common/util/credentials'
+import { ProjectFileContext } from '@codebuff/common/util/file'
+import { pluralize } from '@codebuff/common/util/string'
+import { APIRealtimeClient } from '@codebuff/common/websockets/websocket-client'
 import path from 'path'
 import {
   blue,

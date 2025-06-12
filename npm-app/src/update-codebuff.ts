@@ -2,7 +2,7 @@ import { execSync, spawn } from 'child_process'
 
 import { green, yellow } from 'picocolors'
 
-import { AnalyticsEvent } from 'common/constants/analytics-events'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import packageJson from '../package.json'
 import { killAllBackgroundProcesses } from './background-process-manager'
 import { isProduction } from './config'

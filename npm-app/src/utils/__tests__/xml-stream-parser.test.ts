@@ -4,7 +4,7 @@ import { Writable } from 'stream'
 
 // @ts-ignore
 import { describe, expect, test } from 'bun:test'
-import { getToolCallString } from 'common/constants/tools'
+import { getToolCallString } from '@codebuff/common/constants/tools'
 import stripAnsi from 'strip-ansi'
 
 import { defaultToolCallRenderer } from '../tool-renderers'

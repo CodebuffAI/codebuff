@@ -1,4 +1,4 @@
-import { ClientAction, ServerAction } from 'common/actions'
+import { ClientAction, ServerAction } from '@codebuff/common/actions'
 import { WebSocket } from 'ws'
 
 import { checkAuth } from '../util/check-auth'
@@ -11,10 +11,10 @@ import {
   checkAndTriggerAutoTopup,
   checkAndTriggerOrgAutoTopup,
 } from '@codebuff/billing'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
-import { pluralize } from 'common/util/string'
+import { pluralize } from '@codebuff/common/util/string'
 import { env } from '@/env'
 import {
   calculateOrganizationUsageAndBalance,

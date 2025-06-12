@@ -1,34 +1,15 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
     "composite": true,
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "noImplicitReturns": true,
-    "sourceMap": true,
-    "strict": true,
-    "target": "esnext",
-    "incremental": true,
-    "isolatedModules": true,
-    "skipLibCheck": true,
-    "types": ["node", "jest"],
-    "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
-    "baseUrl": ".",
-    "paths": {
-      "common/*": ["../common/src/*"],
-      "code-map/*": ["../code-map/*"]
-    },
-    "preserveSymlinks": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "resolveJsonModule": true
+    "module": "esnext",        // Bun likes modern modules; Node 22 handles them too
+    "types": ["bun", "node", "jest"]
   },
-  "include": ["src/**/*", "package.json"],
+  "include": ["src"],
   "references": [
     { "path": "../common" },
     { "path": "../packages/code-map" }
-  ],
-  "ts-node": {
-    "require": ["tsconfig-paths/register"]
-  }
+  ]
 }

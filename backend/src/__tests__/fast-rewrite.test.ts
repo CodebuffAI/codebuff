@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test'
-import { TEST_USER_ID } from 'common/constants'
+import { TEST_USER_ID } from '@codebuff/common/constants'
 import { createPatch } from 'diff'
 import path from 'path'
 import { rewriteWithOpenAI } from '../fast-rewrite'

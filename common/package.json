@@ -1,9 +1,31 @@
 {
-  "name": "common",
+  "name": "@codebuff/common",
   "version": "1.0.0",
   "description": "Common utilities for Codebuff",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./db": {
+      "types": "./dist/db/index.d.ts",
+      "import": "./dist/db/index.js",
+      "default": "./dist/db/index.js"
+    },
+    "./db/schema": {
+      "types": "./dist/db/schema.d.ts",
+      "import": "./dist/db/schema.js",
+      "default": "./dist/db/schema.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*",
+      "default": "./dist/*"
+    }
+  },
   "license": "UNLICENSED",
   "scripts": {
     "prebuild": "bun run clean",

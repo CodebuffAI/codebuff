@@ -11,7 +11,7 @@
     "typecheck-this-package": "tsc --noEmit"
   },
   "dependencies": {
-    "common": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "drizzle-orm": "*",
     "loops": "^5.0.1"
   },

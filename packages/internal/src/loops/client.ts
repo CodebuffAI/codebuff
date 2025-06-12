@@ -1,7 +1,7 @@
-import { logger } from 'common/src/util/logger'
+import { logger } from '@codebuff/common/src/util/logger'
 import { LoopsClient, APIError } from 'loops'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 
 import type { LoopsEmailData, SendEmailResult } from './types'

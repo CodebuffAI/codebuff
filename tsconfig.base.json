@@ -1,8 +1,9 @@
 {
   "compilerOptions": {
     "module": "CommonJS",
-    "moduleResolution": "node",
-    "target": "es2020",
+    "moduleResolution": "bundler",
+    "target": "es2021",
+    "lib": ["es2023"],
     "composite": true,
     "allowJs": true,
     "esModuleInterop": true,
@@ -13,9 +14,6 @@
     "incremental": true,
     "skipLibCheck": true,
     "declaration": true,
-    "declarationMap": true,
-    "paths": {
-      "@/env": ["./env.ts"]
-    }
+    "declarationMap": true
   }
 }

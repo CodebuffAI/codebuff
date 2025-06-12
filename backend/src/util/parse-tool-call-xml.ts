@@ -1,7 +1,7 @@
 import { CoreMessage } from 'ai'
-import { ToolResult } from 'common/types/agent-state'
-import { toContentString } from 'common/util/messages'
-import { generateCompactId } from 'common/util/string'
+import { ToolResult } from '@codebuff/common/types/agent-state'
+import { toContentString } from '@codebuff/common/util/messages'
+import { generateCompactId } from '@codebuff/common/util/string'
 
 /**
  * Parses XML content for a tool call into a structured object with only string values.

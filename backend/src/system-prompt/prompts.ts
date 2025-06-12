@@ -1,12 +1,12 @@
-import { STOP_MARKER } from 'common/constants'
-import { flattenTree, getLastReadFilePaths } from 'common/project-file-tree'
+import { STOP_MARKER } from '@codebuff/common/constants'
+import { flattenTree, getLastReadFilePaths } from '@codebuff/common/project-file-tree'
 import {
   codebuffConfigFile,
   CodebuffConfigSchema,
-} from 'common/src/json-config/constants'
-import { stringifySchema } from 'common/src/json-config/stringify-schema'
-import { createMarkdownFileBlock, ProjectFileContext } from 'common/util/file'
-import { truncateString } from 'common/util/string'
+} from '@codebuff/common/json-config/constants'
+import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
+import { createMarkdownFileBlock, ProjectFileContext } from '@codebuff/common/util/file'
+import { truncateString } from '@codebuff/common/util/string'
 
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 

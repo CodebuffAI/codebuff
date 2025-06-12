@@ -3,7 +3,7 @@ import { Server as HttpServer } from 'node:http'
 import {
   CLIENT_MESSAGE_SCHEMA,
   ServerMessage,
-} from 'common/websockets/websocket-schema'
+} from '@codebuff/common/websockets/websocket-schema'
 import { isError } from 'lodash'
 import { RawData, WebSocket, Server as WebSocketServer } from 'ws'
 
@@ -82,7 +82,7 @@ async function processMessage(
 
 export function listen(server: HttpServer, path: string) {
   logger.info(`Listening on websocket path: ${path}`)
-  const wss = new WebSocketServer({ server, path })
+  const wss = new (WebSocketServer as any)({ server, path })
   let deadConnectionCleaner: any | undefined
   wss.on('listening', () => {
     logger.info(`Web socket server listening on ${path}.`)

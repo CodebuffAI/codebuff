@@ -1,15 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "src",
+    "outDir": "dist",
     "composite": true,
-    "declaration": true,
-    "declarationMap": true,
-    "types": ["node", "bun"],
-    "skipLibCheck": true
+    "module": "esnext",
+    "types": ["bun", "node"]
   },
-  "include": ["src/**/*"],
+  "include": ["src"],
   "references": [
     { "path": "../../common" }
   ]

@@ -1,11 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node", "bun"],
-    "typeRoots": ["node_modules/@types", "../../node_modules/@types"],
-    "outDir": "./dist",
-    "esModuleInterop": true
+    "rootDir": ".",
+    "outDir": "dist",
+    "composite": true,
+    "module": "esnext",        // Bun likes modern modules; Node 22 handles them too
+    "types": ["bun", "node"]
   },
+  "include": ["*.ts"],
   "exclude": [
     "node_modules",
     "dist",

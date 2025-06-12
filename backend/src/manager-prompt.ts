@@ -1,10 +1,10 @@
 import { CoreMessage } from 'ai'
 import { WebSocket } from 'ws'
 
-import { toolSchema } from 'common/constants/tools'
-import { AgentState, ToolResult } from 'common/types/agent-state'
-import { ProjectFileContext } from 'common/util/file'
-import { generateCompactId } from 'common/util/string'
+import { toolSchema } from '@codebuff/common/constants/tools'
+import { AgentState, ToolResult } from '@codebuff/common/types/agent-state'
+import { ProjectFileContext } from '@codebuff/common/util/file'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { getAgentStream } from './prompt-agent-stream'
 import { getManagerSystemPrompt } from './system-prompt/manager-system-prompt'
 import {

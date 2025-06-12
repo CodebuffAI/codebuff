@@ -1,4 +1,4 @@
-import { ToolResult } from 'common/types/agent-state'
+import { ToolResult } from '@codebuff/common/types/agent-state'
 
 import {
   parseToolResults,

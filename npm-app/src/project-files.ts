@@ -6,24 +6,24 @@ import { promisify } from 'util'
 import { Worker } from 'worker_threads'
 
 import { getFileTokenScores } from 'code-map/parse'
-import { FILE_READ_STATUS, toOptionalFile } from 'common/constants'
+import { FILE_READ_STATUS, toOptionalFile } from '@codebuff/common/constants'
 import {
   flattenTree,
   getProjectFileTree,
   parseGitignore,
-} from 'common/project-file-tree'
+} from '@codebuff/common/project-file-tree'
 import {
   ensureDirectoryExists,
   ProjectFileContext,
-} from 'common/util/file'
-import { filterObject } from 'common/util/object'
+} from '@codebuff/common/util/file'
+import { filterObject } from '@codebuff/common/util/object'
 import { createPatch } from 'diff'
 import { green } from 'picocolors'
 
 import {
   codebuffConfigFile,
   codebuffConfigFileBackup,
-} from 'common/json-config/constants'
+} from '@codebuff/common/json-config/constants'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
 import { logger } from './utils/logger'

@@ -3,16 +3,16 @@ import * as os from 'os'
 import path from 'path'
 
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
-import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { buildArray } from 'common/util/array'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { buildArray } from '@codebuff/common/util/array'
 import {
   stripColors,
   suffixPrefixOverlap,
   truncateStringWithMessage,
-} from 'common/util/string'
+} from '@codebuff/common/util/string'
 import { green } from 'picocolors'
 
-import { isSubdir } from 'common/util/file'
+import { isSubdir } from '@codebuff/common/util/file'
 import {
   getProjectRoot,
   getWorkingDirectory,
