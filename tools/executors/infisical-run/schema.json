@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/schema",
+  "type": "object",
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "Command to execute (with or without infisical)"
+    },
+    "cwd": {
+      "type": "string",
+      "description": "Working directory for the command"
+    },
+    "logLevel": {
+      "type": "string",
+      "description": "Infisical log level",
+      "default": "warn"
+    }
+  },
+  "required": ["command"]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@codebuff/tools",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/executors/infisical-run/executor.js",
+  "executors": "./executors.json",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)"
+  },
+  "devDependencies": {
+    "@nx/devkit": "^20.8.1",
+    "typescript": "5.5.4"
+  }
+}

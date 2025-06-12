@@ -1,0 +1,9 @@
+{
+  "executors": {
+    "infisical-run": {
+      "implementation": "./dist/executors/infisical-run/executor.js",
+      "schema": "./executors/infisical-run/schema.json",
+      "description": "Run commands with optional infisical wrapper"
+    }
+  }
+}

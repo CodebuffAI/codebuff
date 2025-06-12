@@ -16,10 +16,10 @@
       ]
     },
     "build": {
-      "executor": "nx:run-commands",
+      "executor": "@codebuff/tools:infisical-run",
       "outputs": ["{projectRoot}/.next"],
       "options": {
-        "command": "bun ../tools/cli/infisical-run.ts next build",
+        "command": "next build",
         "cwd": "web"
       },
       "dependsOn": ["^build", "contentlayer"]
@@ -33,9 +33,9 @@
       "dependsOn": ["contentlayer", "root:build-env"]
     },
     "discord:register": {
-      "executor": "nx:run-commands",
+      "executor": "@codebuff/tools:infisical-run",
       "options": {
-        "command": "bun ../tools/cli/infisical-run.ts bun run scripts/discord/register-commands.ts",
+        "command": "bun run scripts/discord/register-commands.ts",
         "cwd": "web"
       }
     }

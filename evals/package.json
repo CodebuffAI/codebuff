@@ -3,17 +3,7 @@
   "version": "1.0.0",
   "description": "Evaluation scripts for Codebuff",
   "scripts": {
-    "test": "bun test",
-    "test:manifold": "bun test manifold.test.ts",
-    "test:pglite": "bun test pglite-demo.test.ts",
-    "test:swe-bench": "bun test swe-bench.test.ts",
-    "test:e2e-cat-app": "bun run e2e-cat-app-script.ts",
-    "typecheck-this-package": "tsc --noEmit",
-    "typecheck": "tsc --noEmit",
-    "gen-git-evals": "if command -v infisical >/dev/null 2>&1; then infisical run -- bun run git-evals/gen-evals.ts; else bun run git-evals/gen-evals.ts; fi",
-    "run-git-evals": "if command -v infisical >/dev/null 2>&1; then infisical run -- bun run git-evals/run-git-evals.ts; else bun run git-evals/run-git-evals.ts; fi",
-    "run-eval-set": "if command -v infisical >/dev/null 2>&1; then infisical run -- bun run git-evals/run-eval-set.ts; else bun run git-evals/run-eval-set.ts; fi",
-    "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
+    "typecheck-this-package": "tsc --noEmit"
   },
   "dependencies": {
     "async": "^3.2.6",
