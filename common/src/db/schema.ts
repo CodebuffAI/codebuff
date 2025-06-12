@@ -1,15 +1,15 @@
 import { SQL, sql } from 'drizzle-orm'
 import {
-  timestamp,
-  pgTable,
-  text,
-  primaryKey,
-  integer,
   boolean,
+  index,
+  integer,
   jsonb,
   numeric,
   pgEnum,
-  index,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
 import { GrantTypeValues } from '../types/grant'
@@ -384,3 +384,32 @@ export const orgFeature = pgTable(
     index('idx_org_feature_active').on(table.org_id, table.is_active),
   ]
 )
+
+export type GitEvalMetadata = {
+  numCases?: number // Number of eval cases successfully run (total)
+  avgScore?: number // Average score across all cases
+}
+
+// Request type for the insert API
+export interface GitEvalResultRequest {
+  cost_mode?: string
+  reasoner_model?: string
+  agent_model?: string
+  metadata?: GitEvalMetadata
+  cost?: number
+}
+
+export const gitEvalResults = pgTable('git_eval_results', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  cost_mode: text('cost_mode'),
+  reasoner_model: text('reasoner_model'),
+  agent_model: text('agent_model'),
+  metadata: jsonb('metadata'), // GitEvalMetadata
+  cost: integer('cost').notNull().default(0),
+  is_public: boolean('is_public').notNull().default(false),
+  created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
