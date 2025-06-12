@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { Command, Option } from 'commander'
 import { type CostMode } from '@codebuff/common/constants'
+import { Command, Option } from 'commander'
 import { red } from 'picocolors'
 
 import packageJson from '../package.json'

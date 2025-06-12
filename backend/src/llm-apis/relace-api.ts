@@ -201,7 +201,7 @@ export async function rerank(
       )
     }
 
-    const rankings: string[] = await response.json()
+    const rankings = await response.json() as string[]
     if (!rankings || !Array.isArray(rankings)) {
       throw new Error('Invalid response format from Relace API')
     }

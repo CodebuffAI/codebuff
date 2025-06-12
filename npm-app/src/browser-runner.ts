@@ -458,7 +458,7 @@ export class BrowserRunner {
     const scrollAmount = direction === 'up' ? -viewport.height : viewport.height
 
     await page.evaluate((amount) => {
-      window.scrollBy(0, amount)
+      (globalThis as any).window.scrollBy(0, amount)
     }, scrollAmount)
 
     this.logs.push({
@@ -646,15 +646,15 @@ export class BrowserRunner {
 
     // Collect Web Vitals and other performance metrics
     const metrics = await this.page.evaluate(() => {
-      const lcpEntry = performance.getEntriesByType(
+      const lcpEntry = (performance as any).getEntriesByType(
         'largest-contentful-paint'
       )[0]
-      const navEntry = performance.getEntriesByType(
+      const navEntry = (performance as any).getEntriesByType(
         'navigation'
-      )[0] as PerformanceNavigationTiming
-      const fcpEntry = performance
+      )[0] as any
+      const fcpEntry = (performance as any)
         .getEntriesByType('paint')
-        .find((entry) => entry.name === 'first-contentful-paint')
+        .find((entry: any) => entry.name === 'first-contentful-paint')
 
       return {
         ttfb: navEntry?.responseStart - navEntry?.requestStart,
@@ -673,7 +673,7 @@ export class BrowserRunner {
 
     const perfEntries = JSON.parse(
       await this.page.evaluate(() =>
-        JSON.stringify(performance.getEntriesByType('navigation'))
+        JSON.stringify((performance as any).getEntriesByType('navigation'))
       )
     )
 
