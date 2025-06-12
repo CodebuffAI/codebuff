@@ -62,16 +62,17 @@ async function runTraces() {
               const system = payload.system
 
               if (model.startsWith('claude')) {
-                output = await promptAiSdk(
-                  transformMessages(messages as Message[], system as System),
-                  {
-                    model: model as typeof claudeModels.sonnet,
-                    clientSessionId: 'relabel-trace-run',
-                    fingerprintId: 'relabel-trace-run',
-                    userInputId: 'relabel-trace-run',
-                    userId: TEST_USER_ID,
-                  }
-                )
+                output = await promptAiSdk({
+                  messages: transformMessages(
+                    messages as Message[],
+                    system as System
+                  ),
+                  model: model as typeof claudeModels.sonnet,
+                  clientSessionId: 'relabel-trace-run',
+                  fingerprintId: 'relabel-trace-run',
+                  userInputId: 'relabel-trace-run',
+                  userId: TEST_USER_ID,
+                })
               } else {
                 output = await promptFlashWithFallbacks(
                   transformMessages(messages as Message[], system as System),

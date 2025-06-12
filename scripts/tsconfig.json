@@ -1,20 +1,19 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "target": "esnext",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "types": ["bun"],
+    "noEmit": true,
     "baseUrl": ".",
     "paths": {
       "backend/*": ["../backend/src/*"],
-      "common/*": ["../common/src/*"]
-    },
-    "types": ["bun"]
+      "common/*": ["../common/src/*"],
+    }
   },
   "include": ["**/*"],
-  "exclude": ["node_modules"],
-  "references": [{ "path": "../backend" }, { "path": "../common" }]
+  "exclude": ["node_modules", "generate-ci-env.js"],
+  "references": [
+    { "path": "../backend" },
+    { "path": "../common" },
+    { "path": "../packages/bigquery" }
+  ]
 }

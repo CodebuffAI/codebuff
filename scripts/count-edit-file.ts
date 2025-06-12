@@ -1,7 +1,6 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { gt, and, isNotNull } from 'drizzle-orm'
-import { Message } from '@codebuff/common/actions'
 
 /**
  * Count the number of times the given substring occurs in a string.

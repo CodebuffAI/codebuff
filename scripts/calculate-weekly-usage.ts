@@ -16,8 +16,7 @@ async function calculateWeeklyUsage() {
       .from(schema.message)
       .leftJoin(schema.user, sql`${schema.message.user_id} = ${schema.user.id}`)
       .where(
-        sql`${schema.message.finished_at} >= ${sevenDaysAgo}
-        AND ${schema.user.subscription_active} = true`
+        sql`${schema.message.finished_at} >= ${sevenDaysAgo}`
       )
 
     const totalCredits = parseInt(totalResult[0]?.totalCredits || '0')
@@ -33,8 +32,7 @@ async function calculateWeeklyUsage() {
       .from(schema.message)
       .leftJoin(schema.user, sql`${schema.message.user_id} = ${schema.user.id}`)
       .where(
-        sql`${schema.message.finished_at} >= ${sevenDaysAgo}
-        AND ${schema.user.subscription_active} = true`
+        sql`${schema.message.finished_at} >= ${sevenDaysAgo}`
       )
       .groupBy(schema.message.user_id, schema.user.email)
       .orderBy(sql`SUM(${schema.message.credits})` as any, 'desc' as any)
@@ -55,8 +53,7 @@ async function calculateWeeklyUsage() {
       .from(schema.message)
       .leftJoin(schema.user, sql`${schema.message.user_id} = ${schema.user.id}`)
       .where(
-        sql`${schema.message.finished_at} >= ${sevenDaysAgo}
-        AND ${schema.user.subscription_active} = true`
+        sql`${schema.message.finished_at} >= ${sevenDaysAgo}`
       )
       .groupBy(sql`DATE(${schema.message.finished_at})`)
       .orderBy(sql`DATE(${schema.message.finished_at})` as any)
