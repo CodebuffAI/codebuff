@@ -24,12 +24,12 @@ import {
 import { generateCompactId } from 'common/util/string'
 
 import { Message } from 'common/types/message'
+import { logger } from 'common/util/logger'
 import { withTimeout } from 'common/util/promise'
 import { z } from 'zod'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
-import { logger } from 'common/util/logger'
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
@@ -94,7 +94,11 @@ export const promptAiSdkStream = async function* (
     if (chunk.type === 'error') {
       logger.error({ chunk }, 'Error from AI SDK')
       if (process.env.ENVIRONMENT !== 'prod') {
-        throw new Error(chunk.error as string)
+        throw new Error(
+          typeof chunk.error === 'string'
+            ? chunk.error
+            : JSON.stringify(chunk.error)
+        )
       }
     }
     if (chunk.type === 'reasoning') {
