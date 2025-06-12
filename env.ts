@@ -54,7 +54,7 @@ export const env = createValidatedEnv({
   client: {
     NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),
     NEXT_PUBLIC_APP_URL: z.string().url().min(1),
-    NEXT_PUBLIC_BACKEND_URL: z.string().url().min(1),
+    NEXT_PUBLIC_BACKEND_URL: z.string().min(1),
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().min(1),
     NEXT_PUBLIC_POSTHOG_API_KEY: z.string().optional().default(''),
     NEXT_PUBLIC_POSTHOG_HOST_URL: z.string().url().optional(),
