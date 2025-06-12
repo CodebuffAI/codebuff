@@ -50,14 +50,12 @@ async function runEvalSet(
       evalDataPath: 'git-evals/eval-codebuff.json',
       outputDir,
       modelConfig: {},
-      limit: 2,
     },
     {
       name: 'manifold',
       evalDataPath: 'git-evals/eval-manifold.json',
       outputDir,
       modelConfig: {},
-      limit: 2,
     },
   ]
 
@@ -326,7 +324,7 @@ if (require.main === module) {
 
   runEvalSet(
     outputDir,
-    false, // !args.includes('--no-email'),
+    !args.includes('--no-email'),
     !args.includes('--no-analysis'),
     args.includes('--mock'),
     !args.includes('--no-insert')

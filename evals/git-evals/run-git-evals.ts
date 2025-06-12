@@ -409,19 +409,6 @@ export async function runGitEvals(
         result.reason
       )
     }
-
-    // Save partial results after each completion/failure
-    const partialResult: FullEvalLog = {
-      test_repo_name: testRepoName,
-      generation_date: new Date().toISOString(),
-      eval_runs: [...evalRuns],
-      overall_metrics: calculateOverallMetrics(evalRuns),
-    }
-
-    fs.writeFileSync(partialOutputPath, JSON.stringify(partialResult, null, 2))
-    console.log(
-      `Partial results saved to ${partialOutputPath} (${evalRuns.length}/${commitsToRun.length} complete)`
-    )
   })
 
   // Calculate final overall metrics
