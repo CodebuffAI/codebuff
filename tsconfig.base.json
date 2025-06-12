@@ -13,9 +13,6 @@
     "incremental": true,
     "skipLibCheck": true,
     "declaration": true,
-    "declarationMap": true,
-    "paths": {
-      "@/env": ["./env.ts"]
-    }
+    "declarationMap": true
   }
 }
