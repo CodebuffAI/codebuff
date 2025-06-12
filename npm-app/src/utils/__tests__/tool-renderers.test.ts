@@ -13,7 +13,7 @@ import { createXMLStreamParser } from '../xml-stream-parser'
 describe('Tool renderers with XML parser', () => {
   beforeEach(() => {
     spyOn(projectFileTree, 'isFileIgnored').mockImplementation(() => false)
-    spyOn(projectFiles, 'getProjectRoot').mockImplementation(() => false)
+    spyOn(projectFiles, 'getProjectRoot').mockImplementation(() => '/test/path')
   })
 
   afterEach(() => {

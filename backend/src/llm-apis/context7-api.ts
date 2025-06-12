@@ -6,28 +6,18 @@ const DEFAULT_TYPE = 'txt'
 const FETCH_TIMEOUT_MS = 10_000
 
 export interface SearchResponse {
-  projects: Array<{
-    settings: {
-      title: string
-      project: string
-      folders: string[]
-      docsRepoUrl: string
-    }
-    version: {
-      lastUpdate: string
-      state:
-        | 'initial'
-        | 'parsed'
-        | 'finalized'
-        | 'invalid_docs'
-        | 'error'
-        | 'stop'
-        | 'delete'
-      parseDuration: number
-      totalTokens: number
-      totalSnippets: number
-      averageTokens: number
-    }
+  results: Array<{
+    id: string
+    title: string
+    description: string
+    branch: string
+    lastUpdateDate: string
+    state: DocumentState
+    totalTokens: number
+    totalSnippets: number
+    totalPages: number
+    stars?: number
+    trustScore?: number
   }>
 }
 
@@ -63,7 +53,7 @@ export async function searchLibraries(
       return null
     }
 
-    const projects = await response.json()
+    const projects = await response.json() as SearchResponse
     return projects.results
   } catch (error) {
     logger.error('Error searching libraries:', error)

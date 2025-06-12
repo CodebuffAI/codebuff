@@ -358,7 +358,7 @@ export class Client {
           this.storedApiKeyTypes.push(keyType)
         }
       } else {
-        throw new Error(respJson.message)
+        throw new Error((respJson as any).message)
       }
     } catch (e) {
       Spinner.get().stop()
@@ -399,14 +399,14 @@ export class Client {
           console.log(
             [
               green(
-                `Noice, you've earned an extra ${respJson.credits_redeemed} credits!`
+                `Noice, you've earned an extra ${(respJson as any).credits_redeemed} credits!`
               ),
               `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
             ].join('\n')
           )
           this.getUsage()
         } else {
-          throw new Error(respJson.error)
+          throw new Error((respJson as any).error)
         }
       } catch (e) {
         const error = e as Error
@@ -522,7 +522,11 @@ export class Client {
         this.freshPrompt()
         return
       }
-      const { loginUrl, fingerprintHash, expiresAt } = await response.json()
+      const { loginUrl, fingerprintHash, expiresAt } = await response.json() as {
+        loginUrl: string
+        fingerprintHash: string
+        expiresAt: string
+      }
 
       const responseToUser = [
         '\n',
@@ -584,7 +588,10 @@ export class Client {
             return
           }
 
-          const { user, message } = await statusResponse.json()
+          const { user, message } = await statusResponse.json() as {
+            user: any
+            message: string
+          }
           if (user) {
             shouldRequestLogin = false
             this.user = user
@@ -1277,11 +1284,11 @@ Go to https://www.codebuff.com/config for more information.`) +
       // Use zod schema to validate response
       const parsedResponse = UsageReponseSchema.parse(data)
 
-      if (data.type === 'action-error') {
-        console.error(red(data.message))
+      if ((data as any).type === 'action-error') {
+        console.error(red((data as any).message))
         logger.error(
           {
-            errorMessage: data.message,
+            errorMessage: (data as any).message,
           },
           'Action error'
         )
@@ -1470,12 +1477,12 @@ Go to https://www.codebuff.com/config for more information.`) +
         return {
           isCovered: false,
           error:
-            errorData.error ||
+            (errorData as any).error ||
             `HTTP ${response.status}: ${response.statusText}`,
         }
       }
 
-      const data = await response.json()
+      const data: any = await response.json()
       return {
         isCovered: data.isCovered || false,
         organizationName: data.organizationName,

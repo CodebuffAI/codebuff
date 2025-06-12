@@ -5,7 +5,7 @@ import path, { isAbsolute } from 'path'
 import { promisify } from 'util'
 import { Worker } from 'worker_threads'
 
-import { getFileTokenScores } from 'code-map/parse'
+import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { FILE_READ_STATUS, toOptionalFile } from '@codebuff/common/constants'
 import {
   flattenTree,
