@@ -1,5 +1,6 @@
 [install]
-# Bun package manager configuration
+# In CI, skip local linking and pull prebuilt artifacts from npm
+linkWorkspacePackages = false
 
 [test]
 # Test configuration
@@ -12,3 +13,4 @@ preload = ["./test/setup.ts"]
 "@codebuff/bigquery/*" = "./packages/bigquery/src/*"
 "@codebuff/internal/*" = "./packages/internal/src/*"
 "@codebuff/code-map/*" = "./packages/code-map/*"
+

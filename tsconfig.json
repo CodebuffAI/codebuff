@@ -15,15 +15,18 @@
       "@codebuff/code-map/*": ["./packages/code-map/*"]
     }
   },
-  "references": [              // IDE still knows project graph
-    { "path": "common" },
-    { "path": "backend" },
-    { "path": "npm-app" },
-    { "path": "web" },
-    { "path": "evals" },
-    { "path": "packages/billing" },
-    { "path": "packages/bigquery" },
-    { "path": "packages/internal" },
-    { "path": "packages/code-map" }
+  "files": [],
+  "references": [
+    { "path": "./common" },
+    { "path": "./backend" },
+    { "path": "./npm-app" },
+    { "path": "./web" },
+    { "path": "./evals" },
+    { "path": "./packages/billing" },
+    { "path": "./packages/bigquery" },
+    { "path": "./packages/internal" },
+    { "path": "./packages/code-map" },
+    { "path": "./scripts" },
   ]
 }
+

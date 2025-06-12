@@ -2,10 +2,15 @@ import { execFileSync } from 'child_process'
 import { isValidProjectRoot } from '@codebuff/common/util/file'
 import fs, { existsSync, statSync } from 'fs'
 import gitUrlParse from 'git-url-parse'
-import { getConfig, listFiles, log, ReadCommitResult } from 'isomorphic-git'
 import path from 'path'
 import { getWorkingDirectory } from '../project-files'
 import { logger } from './logger'
+
+// Dynamic import for isomorphic-git
+async function getIsomorphicGit() {
+  const git = await import('isomorphic-git')
+  return git
+}
 
 /**
  * Checks if the native git command is available on the system.
@@ -78,6 +83,7 @@ export async function getRepoMetrics(providedRemoteUrl?: string): Promise<{
   }
 
   const gitDir = path.join(root, '.git')
+  const { log, listFiles, getConfig } = await getIsomorphicGit()
 
   const commitsArr = await log({ fs, dir: root, gitdir: gitDir }).catch(
     (error) => {
@@ -85,7 +91,7 @@ export async function getRepoMetrics(providedRemoteUrl?: string): Promise<{
         { error },
         'Error fetching git log. Is this an empty git repo?'
       )
-      return [] as ReadCommitResult[]
+      return [] as any[]
     }
   )
   const firstCommit = commitsArr.at(-1) // earliest

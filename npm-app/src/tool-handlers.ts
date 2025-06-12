@@ -214,8 +214,8 @@ function formatResult(
 }
 
 export const handleKillTerminal: ToolHandler<{}> = async (parameters, _id) => {
-  const { resetShell } = await import('./terminal/base')
-  const { getProjectRoot } = await import('./project-files')
+  const { resetShell } = await import('./terminal/base.js')
+  const { getProjectRoot } = await import('./project-files.js')
 
   resetShell(getProjectRoot())
 

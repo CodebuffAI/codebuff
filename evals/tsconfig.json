@@ -3,7 +3,8 @@
   "compilerOptions": {
     "types": ["node", "bun"],
     "rootDir": ".",
-    "typeRoots": ["./node_modules/@types", "../node_modules/@types"]
+    "baseUrl": ".",
+    "noEmit": true,
   },
   "references": [
     { "path": "../common" },

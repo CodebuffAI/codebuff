@@ -20,7 +20,7 @@ if (!isCI) {
   // Wrap the dynamic import and tests in an async IIFE to avoid top-level await
   (async () => {
     // Only import the implementation if not in CI
-    const { getBackgroundProcessInfoString } = await import('../../background-process-manager');
+    const { getBackgroundProcessInfoString } = await import('../../background-process-manager.js');
 
     describe('getBackgroundProcessInfoString', () => {
       let dateNowSpy: ReturnType<typeof spyOn>

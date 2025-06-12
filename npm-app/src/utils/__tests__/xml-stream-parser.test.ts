@@ -16,7 +16,7 @@ const toolRenderers = {
   read_files: defaultToolCallRenderer,
 }
 
-describe('Saxy Stream Processor', () => {
+describe('createXMLStreamParser', () => {
   test('pipes output to writable stream', async () => {
     const xml = getToolCallString('run_terminal_command', {
       command: 'echo hello',

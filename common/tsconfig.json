@@ -3,9 +3,6 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "composite": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
     "types": ["bun", "node"],
     "baseUrl": ".",
     "paths": {

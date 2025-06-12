@@ -3,16 +3,10 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "composite": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "Node16",
+    "moduleResolution": "node16",
     "resolveJsonModule": true,
-    "types": ["bun", "node", "jest"],
-    "baseUrl": ".",
-    "paths": {
-      "@codebuff/common/*": ["./dist/common/*"],
-      "@codebuff/code-map/*": ["./dist/code-map/*"]
-    }
+    "types": ["bun", "node", "jest"]
   },
   "include": ["src"],
   "references": [

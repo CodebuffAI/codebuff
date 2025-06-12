@@ -4,21 +4,16 @@ import fs from 'fs'
 import os from 'os'
 import path, { join } from 'path'
 
-import {
-  add,
-  checkout,
-  commit,
-  init,
-  remove,
-  resetIndex,
-  resolveRef,
-  statusMatrix,
-} from 'isomorphic-git'
-
 import { buildArray } from '@codebuff/common/util/array'
 import { getProjectDataDir } from '../project-files'
 import { gitCommandIsAvailable } from '../utils/git'
 import { logger } from '../utils/logger'
+
+// Dynamic import for isomorphic-git
+async function getIsomorphicGit() {
+  const git = await import('isomorphic-git')
+  return git
+}
 
 /**
  * Generates a unique path for storing the bare git repository based on the project directory.
@@ -75,6 +70,7 @@ export async function hasUnsavedChanges({
     }
   }
 
+  const { statusMatrix } = await getIsomorphicGit()
   for (const [, , workdirStatus, stageStatus] of await statusMatrix({
     fs,
     dir: projectDir,
@@ -119,6 +115,7 @@ export async function getLatestCommit({
       )
     }
   }
+  const { resolveRef } = await getIsomorphicGit()
   return await resolveRef({
     fs,
     gitdir: bareRepoPath,
@@ -148,6 +145,7 @@ export async function initializeCheckpointFileManager({
   // Create the bare repo directory if it doesn't exist
   fs.mkdirSync(bareRepoPath, { recursive: true })
 
+  const { resolveRef, init } = await getIsomorphicGit()
   try {
     // Check if it's already a valid Git repo
     await resolveRef({ fs, gitdir: bareRepoPath, ref: 'HEAD' })
@@ -220,6 +218,7 @@ async function gitAddAll({
   }
 
   // Stage files with isomorphic-git
+  const { statusMatrix, add, remove } = await getIsomorphicGit()
 
   // Get status of all files in the project directory
   const currStatusMatrix =
@@ -419,6 +418,7 @@ async function gitCommit({
     }
   }
 
+  const { commit, checkout } = await getIsomorphicGit()
   const commitHash: string = await commit({
     fs,
     dir: projectDir,
@@ -536,6 +536,7 @@ export async function restoreFileState({
     }
   }
 
+  const { checkout, resetIndex } = await getIsomorphicGit()
   // Update the working directory to reflect the specified commit
   await checkout({
     fs,

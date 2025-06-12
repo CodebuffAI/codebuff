@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "module": "CommonJS",
+    "module": "esnext",
     "moduleResolution": "bundler",
-    "target": "es2021",
-    "lib": ["es2023"],
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM"],
     "composite": true,
     "allowJs": true,
     "esModuleInterop": true,
@@ -14,6 +14,9 @@
     "incremental": true,
     "skipLibCheck": true,
     "declaration": true,
-    "declarationMap": true
+    "declarationMap": true,
+    "forceConsistentCasingInFileNames": true
   }
+
+  // Don't include "paths" here.
 }

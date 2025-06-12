@@ -3,19 +3,12 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "composite": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
     "types": ["bun", "node"],
-    "lib": ["es2023"],
+    "lib": ["ES2023"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@/env": ["../env.ts"],
-      "@codebuff/common/*": ["../common/src/*"],
-      "@codebuff/billing/*": ["../packages/billing/src/*"],
-      "@codebuff/bigquery/*": ["../packages/bigquery/src/*"],
-      "@codebuff/internal/*": ["../packages/internal/src/*"]
+      "@/env": ["../env.ts"]
     }
   },
   "include": ["src"],
@@ -27,3 +20,4 @@
     { "path": "../packages/internal" }
   ]
 }
+
