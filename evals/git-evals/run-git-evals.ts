@@ -338,7 +338,7 @@ export async function runGitEvals(
         )
 
         console.log(
-          `Starting eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.message}...`
+          `Starting ${testRepoName} eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.message}...`
         )
 
         const safeMessage = evalCommit.message
