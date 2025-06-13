@@ -370,8 +370,11 @@ export async function runGitEvals(
             if (message.type === 'result' && message.result) {
               resolve(message.result)
             } else if (message.type === 'error') {
+              console.error(
+                `Received error while running eval: ${message.error.stack}\n`,
+                { message }
+              )
               const err = new Error(message.error.message)
-              err.stack = message.error.stack
               reject(err)
             }
           }
