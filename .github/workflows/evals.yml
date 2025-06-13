@@ -14,9 +14,11 @@ jobs:
 
       - name: Check commit message
         id: check_commit
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           shopt -s nocasematch
-          if [[ "${{ github.event.head_commit.message }}" == *"[buffbench]"* ]]; then
+          if [[ "$COMMIT_MESSAGE" == *"[buffbench]"* ]]; then
             echo "should_run_evals=true" >> $GITHUB_OUTPUT
             echo "Commit message contains [buffbench] - will run evals"
           else
