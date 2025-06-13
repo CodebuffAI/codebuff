@@ -44,7 +44,7 @@ async function runEvalSet(
     },
   ]
 
-  console.log(`Running ${evalConfigs.length} evaluations sequentially:`)
+  console.log(`Running ${evalConfigs.length} evaluations:`)
   evalConfigs.forEach((config) => {
     console.log(
       `  - ${config.name}: ${config.evalDataPath} -> ${config.outputDir}`

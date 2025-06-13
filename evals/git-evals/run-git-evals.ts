@@ -335,9 +335,7 @@ export async function runGitEvals(
     ? evalData.evalCommits.slice(0, limit)
     : evalData.evalCommits
 
-  console.log(
-    `Running ${commitsToRun.length} evaluations with max 20 concurrent processes...`
-  )
+  console.log(`Running ${commitsToRun.length} evaluations...`)
 
   // Use global limiter if available, otherwise create a local one
   const limitConcurrency = globalConcurrencyLimiter || pLimit(20)
