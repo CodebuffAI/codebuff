@@ -235,6 +235,14 @@ async function runEvalSet(
           const evalResult = resultWrapper.result
           const config = evalConfigs.find((c) => c.name === resultWrapper.name)
 
+          // average number of user turns
+          const totalTurns = evalResult?.eval_runs?.reduce((acc, run) => {
+            return acc + run.trace.length
+          }, 0)
+          const numCases = evalResult?.eval_runs?.length
+          const avgTurns =
+            totalTurns && numCases ? totalTurns / numCases : undefined
+
           // Map the eval result data to the database schema
           const payload: GitEvalResultRequest = {
             cost_mode: 'normal', // You can modify this based on your needs
@@ -243,7 +251,12 @@ async function runEvalSet(
             metadata: {
               numCases: evalResult?.overall_metrics?.total_runs,
               avgScore: evalResult?.overall_metrics?.average_overall,
+              avgCompletion: evalResult?.overall_metrics?.average_completion,
+              avgEfficiency: evalResult?.overall_metrics?.average_efficiency,
+              avgCodeQuality: evalResult?.overall_metrics?.average_code_quality,
+              avgDuration: evalResult?.overall_metrics?.average_duration_ms,
               suite: resultWrapper.name,
+              avgTurns,
             },
             cost: 0, // You'll need to calculate actual cost based on your eval results
           }
