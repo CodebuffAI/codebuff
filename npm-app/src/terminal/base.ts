@@ -27,7 +27,8 @@ let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
 const tempConsoleError = console.error
 console.error = () => {}
 try {
-  pty = require('@homebridge/node-pty-prebuilt-multiarch')
+  // Use our native wrapper instead of direct import
+  pty = require('../native/pty')
 } catch (error) {
 } finally {
   console.error = tempConsoleError

@@ -1,0 +1,89 @@
+name: Release Binaries
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: true
+        type: string
+
+jobs:
+  build-binaries:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            output: codebuff-linux-x64
+          - os: ubuntu-latest  
+            target: bun-linux-arm64
+            output: codebuff-linux-arm64
+          - os: macos-13
+            target: bun-darwin-x64
+            output: codebuff-darwin-x64
+          - os: macos-14
+            target: bun-darwin-arm64
+            output: codebuff-darwin-arm64
+          - os: windows-latest
+            target: bun-windows-x64
+            output: codebuff-win32-x64.exe
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+          
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        
+      - name: Build libraries
+        run: bun run build:libs
+        working-directory: npm-app
+        
+      - name: Build binary
+        run: node scripts/build-all-platforms.js
+        working-directory: npm-app
+        env:
+          BUN_TARGET: ${{ matrix.target }}
+          OUTPUT_NAME: ${{ matrix.output }}
+          
+      - name: Create tarball
+        run: |
+          cd npm-app/bin
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            7z a ../${{ matrix.output }}.zip ${{ matrix.output }}
+          else
+            tar -czf ../${{ matrix.output }}.tar.gz ${{ matrix.output }}
+          fi
+          
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: npm-app/${{ matrix.output }}.*
+          
+  create-release:
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          files: artifacts/**/*
+          generate_release_notes: true

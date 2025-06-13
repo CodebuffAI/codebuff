@@ -1,5 +1,20 @@
 #!/usr/bin/env node
 
+// Clean up shell environment variables that can cause OSC sequences in binary builds
+if (process.pkg || process.env.NODE_ENV === 'production') {
+  // Remove shell integration variables that cause OSC sequences
+  delete process.env.TERM_PROGRAM
+  delete process.env.TERM_PROGRAM_VERSION
+  delete process.env.ITERM_SESSION_ID
+  delete process.env.ITERM_PROFILE
+  delete process.env.VSCODE_INJECTION
+  delete process.env.VSCODE_SHELL_INTEGRATION
+  
+  // Set clean terminal environment
+  process.env.TERM = 'xterm-256color'
+  process.env.COLORTERM = 'truecolor'
+}
+
 import { type CostMode } from '@codebuff/common/constants'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'

@@ -1,0 +1,33 @@
+{
+  "name": "codebuff",
+  "version": "1.0.324",
+  "description": "AI dev assistant - native binary wrapper",
+  "license": "MIT",
+  "bin": {
+    "codebuff": "bin/codebuff"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/install.js",
+    "README.md"
+  ],
+  "os": ["darwin", "linux", "win32"],
+  "cpu": ["x64", "arm64"],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "tar": "^6.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codebuffteam/codebuff.git"
+  },
+  "homepage": "https://codebuff.com",
+  "bugs": {
+    "url": "https://github.com/codebuffteam/codebuff/issues"
+  }
+}
