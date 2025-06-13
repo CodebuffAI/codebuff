@@ -10,7 +10,10 @@ import { flushAnalytics } from './utils/analytics'
 import { logger } from './utils/logger'
 import { scrapeWebPage } from './web-scraper'
 
+const DISABLE_UPDATE_CHECK = true
 export async function updateCodebuff() {
+  // TODO: implement an update process for binary builds
+  if (DISABLE_UPDATE_CHECK) return
   if (!isProduction) return
 
   const latestVersion = await getCodebuffNpmVersion()
