@@ -81,8 +81,11 @@ const languageConfigs: Omit<LanguageConfig, 'parser' | 'query' | 'language'>[] =
 export async function getLanguageConfig(
   filePath: string
 ): Promise<LanguageConfig | undefined> {
+  // Load tree-sitter dynamically
+  const TreeSitterModule = await TreeSitter();
+  
   // If tree-sitter is not available, return undefined
-  if (!TreeSitter) {
+  if (!TreeSitterModule) {
     return undefined
   }
 
@@ -93,7 +96,7 @@ export async function getLanguageConfig(
   if (!config) return undefined
 
   if (!config.parser) {
-    const parser = new TreeSitter()
+    const parser = new TreeSitterModule()
 
     try {
       const languageModule = await import(config.packageName)
@@ -113,7 +116,7 @@ export async function getLanguageConfig(
         config.queryFile
       )
       const queryString = fs.readFileSync(queryFilePath, 'utf8')
-      const query = new TreeSitter.Query(parser.getLanguage(), queryString)
+      const query = new TreeSitterModule.Query(parser.getLanguage(), queryString)
 
       config.parser = parser
       config.query = query

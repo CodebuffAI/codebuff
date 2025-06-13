@@ -25,8 +25,11 @@ export async function getFileTokenScores(
   projectRoot: string,
   filePaths: string[]
 ): Promise<FileTokenData> {
+  // Load tree-sitter dynamically
+  const TreeSitterModule = await TreeSitter();
+  
   // If tree-sitter is not available, return empty data
-  if (!TreeSitter) {
+  if (!TreeSitterModule) {
     return {
       tokenScores: {},
       tokenCallers: {}
