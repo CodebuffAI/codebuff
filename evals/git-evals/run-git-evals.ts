@@ -319,7 +319,6 @@ export async function runGitEvals(
     `eval-partial-${testRepoName}-${traceId}.json`
   )
 
-  const evalRuns: EvalRunJudged[] = []
   const commitsToRun = limit
     ? evalData.evalCommits.slice(0, limit)
     : evalData.evalCommits
@@ -368,6 +367,9 @@ export async function runGitEvals(
           'message',
           (message: { type: string; result?: EvalRunJudged; error?: any }) => {
             if (message.type === 'result' && message.result) {
+              console.log(
+                `Completed eval for commit ${testRepoName} - ${evalCommit.message}`
+              )
               resolve(message.result)
             } else if (message.type === 'error') {
               console.error(
@@ -401,18 +403,9 @@ export async function runGitEvals(
 
   const results = await Promise.allSettled(evalPromises)
 
-  results.forEach((result, index) => {
-    const evalCommit = commitsToRun[index]
-    if (result.status === 'fulfilled') {
-      evalRuns.push(result.value)
-      console.log(`Completed eval for commit ${evalCommit.message}`)
-    } else {
-      console.error(
-        `Failed eval for commit ${evalCommit.message}:`,
-        result.reason
-      )
-    }
-  })
+  const evalRuns = results
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value)
 
   // Calculate final overall metrics
   const overallMetrics = calculateOverallMetrics(evalRuns)
