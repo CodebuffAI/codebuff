@@ -27,6 +27,16 @@ async function main() {
     setProjectRoot(projectPath)
     setWorkingDirectory(projectPath)
 
+    console.log({ send: process.send }, 'asdf')
+    if (process.send) {
+      const e = new Error('test error asdf')
+      process.send({
+        type: 'error',
+        error: { message: e.message, stack: e.stack },
+      })
+    }
+    process.exit(1)
+
     const result = await runSingleEval(
       evalCommit,
       projectPath,
