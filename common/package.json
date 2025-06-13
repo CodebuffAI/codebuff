@@ -5,6 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    "./db": "./src/db/index.ts",
+    "./db/*": "./src/db/*.ts",
     "./*": "./src/*.ts" 
   },
   "license": "UNLICENSED",
