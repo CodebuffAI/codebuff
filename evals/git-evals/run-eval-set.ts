@@ -50,13 +50,14 @@ async function runEvalSet(
       evalDataPath: 'git-evals/eval-codebuff.json',
       outputDir,
       modelConfig: {},
+      limit: 2,
     },
-    {
-      name: 'manifold',
-      evalDataPath: 'git-evals/eval-manifold.json',
-      outputDir,
-      modelConfig: {},
-    },
+    // {
+    //   name: 'manifold',
+    //   evalDataPath: 'git-evals/eval-manifold.json',
+    //   outputDir,
+    //   modelConfig: {},
+    // },
   ]
 
   console.log(`Running ${evalConfigs.length} evaluations sequentially:`)

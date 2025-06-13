@@ -367,6 +367,7 @@ export async function runGitEvals(
         child.on(
           'message',
           (message: { type: string; result?: EvalRunJudged; error?: any }) => {
+            console.log('Received message:', message)
             if (message.type === 'result' && message.result) {
               resolve(message.result)
             } else if (message.type === 'error') {
@@ -381,6 +382,9 @@ export async function runGitEvals(
         )
 
         child.on('exit', (code) => {
+          console.log(
+            `Eval process for ${evalCommit.sha} exited with code ${code}`
+          )
           logStream.end()
           if (code !== 0) {
             console.error(
@@ -399,7 +403,13 @@ export async function runGitEvals(
     })
   })
 
+  console.log('Waiting on all eval promises to resolve...')
+  const keepAlive = setInterval(() => {
+    console.log('Stayin alive...')
+  }, 1000)
   const results = await Promise.allSettled(evalPromises)
+  clearInterval(keepAlive)
+  console.log('All eval promises resolved')
 
   results.forEach((result, index) => {
     const evalCommit = commitsToRun[index]
