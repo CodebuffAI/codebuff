@@ -1,6 +1,7 @@
 import { execSync, fork } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+import pLimit from 'p-limit'
 
 import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 import { claudeModels } from '../../common/src/constants'
@@ -284,6 +285,13 @@ export function mockRunGitEvals(path: string) {
   return result
 }
 
+// Global concurrency limiter that can be shared across multiple repository evaluations
+let globalConcurrencyLimiter: ReturnType<typeof pLimit> | null = null
+
+export function setGlobalConcurrencyLimit(limit: number) {
+  globalConcurrencyLimiter = pLimit(limit)
+}
+
 export async function runGitEvals(
   evalDataPath: string,
   outputDir: string,
@@ -323,93 +331,98 @@ export async function runGitEvals(
     ? evalData.evalCommits.slice(0, limit)
     : evalData.evalCommits
 
-  console.log(`Running ${commitsToRun.length} evaluations in parallel...`)
+  console.log(`Running ${commitsToRun.length} evaluations with max 20 concurrent processes...`)
+
+  // Use global limiter if available, otherwise create a local one
+  const limitConcurrency = globalConcurrencyLimiter || pLimit(20)
 
   const evalPromises = commitsToRun.map((evalCommit, index) => {
-    return new Promise<EvalRunJudged>(async (resolve, reject) => {
-      try {
-        console.log(
-          `Setting up test repository for commit ${evalCommit.sha}...`
-        )
-        const projectPath = await setupTestRepo(
-          repoUrl,
-          testRepoName,
-          evalCommit.sha
-        )
+    return limitConcurrency(() =>
+      new Promise<EvalRunJudged>(async (resolve, reject) => {
+        try {
+          console.log(
+            `Setting up test repository for commit ${evalCommit.sha}...`
+          )
+          const projectPath = await setupTestRepo(
+            repoUrl,
+            testRepoName,
+            evalCommit.sha
+          )
 
-        console.log(
-          `Starting ${testRepoName} eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.message}...`
-        )
+          console.log(
+            `Starting ${testRepoName} eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.message}...`
+          )
 
-        const safeMessage = evalCommit.message
-          .split('\n')[0]
-          .replace(/[^a-zA-Z0-9]/g, '_')
-          .slice(0, 30)
-        const logFilename = `${safeMessage}-${evalCommit.sha.slice(0, 7)}.log`
-        const logPath = path.join(logsDir, logFilename)
-        const logStream = fs.createWriteStream(logPath)
+          const safeMessage = evalCommit.message
+            .split('\n')[0]
+            .replace(/[^a-zA-Z0-9]/g, '_')
+            .slice(0, 30)
+          const logFilename = `${safeMessage}-${evalCommit.sha.slice(0, 7)}.log`
+          const logPath = path.join(logsDir, logFilename)
+          const logStream = fs.createWriteStream(logPath)
 
-        // Write evalCommit to temporary file to avoid long command line arguments
-        const tempEvalCommitPath = path.join(
-          logsDir,
-          `eval-commit-${evalCommit.sha.slice(0, 7)}.json`
-        )
-        fs.writeFileSync(tempEvalCommitPath, JSON.stringify(evalCommit))
+          // Write evalCommit to temporary file to avoid long command line arguments
+          const tempEvalCommitPath = path.join(
+            logsDir,
+            `eval-commit-${evalCommit.sha.slice(0, 7)}.json`
+          )
+          fs.writeFileSync(tempEvalCommitPath, JSON.stringify(evalCommit))
 
-        const child = fork(
-          path.resolve(__dirname, 'run-single-eval-process.ts'),
-          [tempEvalCommitPath, projectPath, clientSessionId, fingerprintId],
-          { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] }
-        )
+          const child = fork(
+            path.resolve(__dirname, 'run-single-eval-process.ts'),
+            [tempEvalCommitPath, projectPath, clientSessionId, fingerprintId],
+            { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] }
+          )
 
-        child.stdout?.pipe(logStream)
-        child.stderr?.pipe(logStream)
+          child.stdout?.pipe(logStream)
+          child.stderr?.pipe(logStream)
 
-        child.on(
-          'message',
-          (message: { type: string; result?: EvalRunJudged; error?: any }) => {
-            // Clean up temp file
-            try {
-              fs.unlinkSync(tempEvalCommitPath)
-            } catch (e) {
-              console.warn(
-                `Failed to clean up temp file ${tempEvalCommitPath}:`,
-                e
-              )
+          child.on(
+            'message',
+            (message: { type: string; result?: EvalRunJudged; error?: any }) => {
+              // Clean up temp file
+              try {
+                fs.unlinkSync(tempEvalCommitPath)
+              } catch (e) {
+                console.warn(
+                  `Failed to clean up temp file ${tempEvalCommitPath}:`,
+                  e
+                )
+              }
+              if (message.type === 'result' && message.result) {
+                console.log(
+                  `Completed eval for commit ${testRepoName} - ${evalCommit.message}`
+                )
+                resolve(message.result)
+              } else if (message.type === 'error') {
+                console.error(
+                  `Received error while running eval: ${message.error.stack}\n`,
+                  { message }
+                )
+                const err = new Error(message.error.message)
+                reject(err)
+              }
             }
-            if (message.type === 'result' && message.result) {
-              console.log(
-                `Completed eval for commit ${testRepoName} - ${evalCommit.message}`
-              )
-              resolve(message.result)
-            } else if (message.type === 'error') {
+          )
+
+          child.on('exit', (code) => {
+            logStream.end()
+            if (code !== 0) {
               console.error(
-                `Received error while running eval: ${message.error.stack}\n`,
-                { message }
+                `Eval process for ${evalCommit.sha} exited with code ${code}. See logs at ${logPath}`
               )
-              const err = new Error(message.error.message)
-              reject(err)
+              reject(
+                new Error(
+                  `Eval process for ${evalCommit.sha} exited with code ${code}`
+                )
+              )
             }
-          }
-        )
-
-        child.on('exit', (code) => {
-          logStream.end()
-          if (code !== 0) {
-            console.error(
-              `Eval process for ${evalCommit.sha} exited with code ${code}. See logs at ${logPath}`
-            )
-            reject(
-              new Error(
-                `Eval process for ${evalCommit.sha} exited with code ${code}`
-              )
-            )
-          }
-        })
-      } catch (e) {
-        reject(e)
-      }
-    })
+          })
+        } catch (e) {
+          reject(e)
+        }
+      })
+    )
   })
 
   const results = await Promise.allSettled(evalPromises)
