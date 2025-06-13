@@ -377,7 +377,13 @@ export async function runGitEvals(
 
             const child = fork(
               path.resolve(__dirname, 'run-single-eval-process.ts'),
-              [tempEvalCommitPath, projectPath, clientSessionId, fingerprintId],
+              [
+                tempEvalCommitPath,
+                projectPath,
+                clientSessionId,
+                fingerprintId,
+                JSON.stringify(modelConfig),
+              ],
               { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] }
             )
 
