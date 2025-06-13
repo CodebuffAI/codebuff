@@ -176,7 +176,7 @@ export const mainPrompt = async (
   const isExporting =
     prompt &&
     (prompt.toLowerCase() === '/export' || prompt.toLowerCase() === 'export')
-  const geminiThinkingEnabled =
+  const thinkingEnabled =
     costMode === 'max' || modelConfig?.reasoningModel !== undefined
   const isLiteMode = costMode === 'lite'
   const isGeminiPro = model === models.gemini2_5_pro_preview
@@ -228,7 +228,7 @@ export const mainPrompt = async (
     (isFlash || isGeminiPro) &&
       'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area. Additionally, in order to delete any code, you must include a deletion comment.',
 
-    geminiThinkingEnabled
+    thinkingEnabled
       ? 'Start your response with the think_deeply tool call to decide how to proceed.'
       : 'If the user request is very complex, consider invoking think_deeply.',
 
@@ -623,7 +623,7 @@ export const mainPrompt = async (
   > = {}
 
   // Think deeply at the start of every response
-  if (geminiThinkingEnabled) {
+  if (thinkingEnabled) {
     let response = await getThinkingStream(
       coreMessagesWithSystem(agentMessages, system),
       (chunk) => {
