@@ -30,9 +30,16 @@ export async function setupTestRepo(
 ): Promise<string> {
   const repoDir = path.join(TEST_REPOS_DIR, `${repoName}-${commitSha}`)
 
-  if (fs.existsSync(repoDir)) {
+  if (fs.existsSync(path.join(repoDir, '.git'))) {
     console.log(`Repository already exists at ${repoDir}. Skipping clone.`)
     return repoDir
+  }
+
+  if (fs.existsSync(repoDir)) {
+    console.log(
+      `Repository already exists at ${repoDir} with no .git directory. Deleting...`
+    )
+    fs.rmSync(repoDir, { recursive: true })
   }
 
   fs.mkdirSync(repoDir, { recursive: true })
