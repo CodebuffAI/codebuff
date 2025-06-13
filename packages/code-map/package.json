@@ -12,9 +12,9 @@
     }
   },
   "scripts": {
-    "build": "tsc",
-    "typecheck-this-package": "tsc",
-    "typecheck": "tsc",
+    "build": "tsc --noEmit",
+    "typecheck-this-package": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
   "dependencies": {
