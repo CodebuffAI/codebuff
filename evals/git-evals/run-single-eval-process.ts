@@ -1,3 +1,4 @@
+import fs from 'fs'
 import {
   setProjectRoot,
   setWorkingDirectory,
@@ -7,13 +8,17 @@ import { createFileReadingMock } from '../scaffolding'
 import { setupTestEnvironmentVariables } from '../test-setup'
 import { runSingleEval } from './run-git-evals'
 import { EvalCommit } from './types'
-import fs from 'fs'
 
 async function main() {
   const [evalCommitFilePath, projectPath, clientSessionId, fingerprintId] =
     process.argv.slice(2)
 
-  if (!evalCommitFilePath || !projectPath || !clientSessionId || !fingerprintId) {
+  if (
+    !evalCommitFilePath ||
+    !projectPath ||
+    !clientSessionId ||
+    !fingerprintId
+  ) {
     console.error('Missing required arguments for single eval process')
     process.exit(1)
   }
@@ -41,6 +46,7 @@ async function main() {
       clientSessionId,
       fingerprintId
     )
+    console.log('Final result:', { result })
     if (process.send) {
       process.send({ type: 'result', result })
     }
