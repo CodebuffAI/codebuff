@@ -33,9 +33,6 @@
     "typecheck": "npm run build",
     "build": "tsc --build && tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
     "build:libs": "bunx tsc -b ../common ../packages/code-map",
-    "bundle": "rm -rf dist && bun build src/index.ts --outfile dist/index.js --target node --external:/^[^./]/ --external '*.node' --no-external:@codebuff/common --no-external:@codebuff/code-map",
-    "bundle-for-binary": "rm -rf dist && bun build src/index.ts --outfile dist/index.js --target node --no-external:@codebuff/common --no-external:@codebuff/code-map",
-    "run-bundle": "bun run dist/index.js",
     "build-binary": "node scripts/build-binaries.js",
     "build-all-binaries": "node scripts/build-all-platforms.js",
     "test-binary": "bun run build-binary && ./bin/codebuff --version"

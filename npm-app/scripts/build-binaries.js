@@ -20,12 +20,6 @@ if (!currentTarget) {
   process.exit(1)
 }
 
-// Ensure dist directory exists and is built (use bundle-for-binary that excludes problematic packages)
-if (!fs.existsSync('dist/index.js')) {
-  console.log('Building bundle for binary...')
-  execSync('bun run bundle-for-binary', { stdio: 'inherit' })
-}
-
 // Create bin directory
 const binDir = path.join(__dirname, '..', 'bin')
 if (!fs.existsSync(binDir)) {

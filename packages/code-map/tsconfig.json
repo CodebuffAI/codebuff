@@ -6,7 +6,6 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "types": ["bun", "node"],
-    "noEmit": true
   },
   "include": ["*.ts", "native/*.ts", "types.d.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "__tests__"]
