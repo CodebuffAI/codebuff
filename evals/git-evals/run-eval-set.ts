@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import type { GitEvalResultRequest } from 'common/db/schema'
+import path from 'path'
 import { sendEvalResultsEmail } from './email-eval-results'
 import { analyzeEvalResults } from './post-eval-analysis'
 import {
@@ -31,13 +32,13 @@ async function runEvalSet(
   const evalConfigs: EvalConfig[] = [
     {
       name: 'codebuff',
-      evalDataPath: 'git-evals/eval-codebuff.json',
+      evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
       outputDir,
       modelConfig: {},
     },
     {
       name: 'manifold',
-      evalDataPath: 'git-evals/eval-manifold.json',
+      evalDataPath: path.join(__dirname, 'eval-manifold.json'),
       outputDir,
       modelConfig: {},
     },
