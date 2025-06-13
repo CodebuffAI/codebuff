@@ -1,11 +1,15 @@
 #!/usr/bin/env bun
 
-import path from 'path'
 import { Model } from 'common/constants'
 import type { GitEvalResultRequest } from 'common/db/schema'
+import path from 'path'
 import { sendEvalResultsEmail } from './email-eval-results'
 import { analyzeEvalResults, PostEvalAnalysis } from './post-eval-analysis'
-import { mockRunGitEvals, runGitEvals, setGlobalConcurrencyLimit } from './run-git-evals'
+import {
+  mockRunGitEvals,
+  runGitEvals,
+  setGlobalConcurrencyLimit,
+} from './run-git-evals'
 import { FullEvalLog } from './types'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
@@ -45,7 +49,7 @@ async function runEvalSet(
   console.log(`Output directory: ${outputDir}`)
 
   // Set global concurrency limit of 20 processes across ALL repositories
-  setGlobalConcurrencyLimit(20)
+  setGlobalConcurrencyLimit(10)
 
   // Define the eval configurations
   const evalConfigs: EvalConfig[] = [
