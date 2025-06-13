@@ -1,14 +1,26 @@
-import * as fs from 'fs'
 import * as path from 'path'
 import TreeSitter from './native/tree-sitter'
 
 import { DEBUG_PARSING } from './parse'
 
+// Import query files as static strings
+import cQuery from './tree-sitter-queries/tree-sitter-c-tags.scm'
+import cppQuery from './tree-sitter-queries/tree-sitter-cpp-tags.scm'
+import csharpQuery from './tree-sitter-queries/tree-sitter-c_sharp-tags.scm'
+import goQuery from './tree-sitter-queries/tree-sitter-go-tags.scm'
+import javaQuery from './tree-sitter-queries/tree-sitter-java-tags.scm'
+import javascriptQuery from './tree-sitter-queries/tree-sitter-javascript-tags.scm'
+import phpQuery from './tree-sitter-queries/tree-sitter-php-tags.scm'
+import pythonQuery from './tree-sitter-queries/tree-sitter-python-tags.scm'
+import rubyQuery from './tree-sitter-queries/tree-sitter-ruby-tags.scm'
+import rustQuery from './tree-sitter-queries/tree-sitter-rust-tags.scm'
+import typescriptQuery from './tree-sitter-queries/tree-sitter-typescript-tags.scm'
+
 export interface LanguageConfig {
   language: any
   extensions: string[]
   packageName: string
-  queryFile: string
+  queryString: string
   parser: any
   query: any
   // TODO: Bring back the Tree sitter types
@@ -18,62 +30,62 @@ const languageConfigs: Omit<LanguageConfig, 'parser' | 'query' | 'language'>[] =
   [
     {
       extensions: ['.ts'],
-      queryFile: 'tree-sitter-typescript-tags.scm',
+      queryString: typescriptQuery,
       packageName: 'tree-sitter-typescript',
     },
     {
       extensions: ['.tsx'],
-      queryFile: 'tree-sitter-typescript-tags.scm',
+      queryString: typescriptQuery,
       packageName: 'tree-sitter-typescript',
     },
     {
       extensions: ['.js', '.jsx'],
-      queryFile: 'tree-sitter-javascript-tags.scm',
+      queryString: javascriptQuery,
       packageName: 'tree-sitter-javascript',
     },
     {
       extensions: ['.py'],
-      queryFile: 'tree-sitter-python-tags.scm',
+      queryString: pythonQuery,
       packageName: 'tree-sitter-python',
     },
     {
       extensions: ['.java'],
-      queryFile: 'tree-sitter-java-tags.scm',
+      queryString: javaQuery,
       packageName: 'tree-sitter-java',
     },
     {
       extensions: ['.cs'],
-      queryFile: 'tree-sitter-c_sharp-tags.scm',
+      queryString: csharpQuery,
       packageName: 'tree-sitter-c-sharp',
     },
     {
       extensions: ['.c', '.h'],
-      queryFile: 'tree-sitter-c-tags.scm',
+      queryString: cQuery,
       packageName: 'tree-sitter-c',
     },
     {
       extensions: ['.cpp', '.hpp'],
-      queryFile: 'tree-sitter-cpp-tags.scm',
+      queryString: cppQuery,
       packageName: 'tree-sitter-cpp',
     },
     {
       extensions: ['.rs'],
-      queryFile: 'tree-sitter-rust-tags.scm',
+      queryString: rustQuery,
       packageName: 'tree-sitter-rust',
     },
     {
       extensions: ['.rb'],
-      queryFile: 'tree-sitter-ruby-tags.scm',
+      queryString: rubyQuery,
       packageName: 'tree-sitter-ruby',
     },
     {
       extensions: ['.go'],
-      queryFile: 'tree-sitter-go-tags.scm',
+      queryString: goQuery,
       packageName: 'tree-sitter-go',
     },
     {
       extensions: ['.php'],
-      queryFile: 'tree-sitter-php-tags.scm',
+      queryString: phpQuery,
       packageName: 'tree-sitter-php',
     },
   ]
@@ -110,13 +122,7 @@ export async function getLanguageConfig(
               : languageModule
       parser.setLanguage(language)
 
-      const queryFilePath = path.join(
-        __dirname,
-        'tree-sitter-queries',
-        config.queryFile
-      )
-      const queryString = fs.readFileSync(queryFilePath, 'utf8')
-      const query = new TreeSitterModule.Query(parser.getLanguage(), queryString)
+      const query = new TreeSitterModule.Query(parser.getLanguage(), config.queryString)
 
       config.parser = parser
       config.query = query

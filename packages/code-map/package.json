@@ -2,19 +2,19 @@
   "name": "@codebuff/code-map",
   "version": "1.0.0",
   "license": "UNLICENSED",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "index.ts",
+  "types": "index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./index.ts",
+      "import": "./index.ts",
+      "default": "./index.ts"
     }
   },
   "scripts": {
-    "build": "tsc && cp -R tree-sitter-queries ./dist/",
-    "typecheck-this-package": "tsc --noEmit",
-    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "typecheck-this-package": "tsc",
+    "typecheck": "tsc",
     "test": "bun test"
   },
   "dependencies": {

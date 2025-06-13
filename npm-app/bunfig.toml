@@ -6,6 +6,8 @@ no_save = true
 [loader]
 # Help bun resolve workspace packages
 ".ts" = "tsx"
+# Treat .scm files as text for tree-sitter queries
+".scm" = "text"
 
 [define]
 # Define a global for the project root to help with path resolution

@@ -2,13 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",
-    "outDir": "dist",
     "composite": true,
     "module": "commonjs",
     "moduleResolution": "node",
-    "types": ["bun", "node"]
+    "types": ["bun", "node"],
+    "noEmit": true
   },
-  "include": ["*.ts", "native/*.ts"],
+  "include": ["*.ts", "native/*.ts", "types.d.ts"],
   "exclude": [
     "node_modules",
     "dist",
