@@ -6,19 +6,32 @@ on:
 
 jobs:
   run-evals:
-    if: ${{ contains(github.event.head_commit.message, '[buffbench]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Check commit message
+        id: check_commit
+        run: |
+          shopt -s nocasematch
+          if [[ "${{ github.event.head_commit.message }}" == *"[buffbench]"* ]]; then
+            echo "should_run_evals=true" >> $GITHUB_OUTPUT
+            echo "Commit message contains [buffbench] - will run evals"
+          else
+            echo "should_run_evals=false" >> $GITHUB_OUTPUT
+            echo "Commit message does not contain [buffbench] - skipping evals"
+          fi
+
       - name: Set up Bun
+        if: steps.check_commit.outputs.should_run_evals == 'true'
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.2.12'
 
       - name: Cache dependencies
+        if: steps.check_commit.outputs.should_run_evals == 'true'
         uses: actions/cache@v3
         with:
           path: |
@@ -30,9 +43,11 @@ jobs:
             ${{ runner.os }}-deps-
 
       - name: Install dependencies
+        if: steps.check_commit.outputs.should_run_evals == 'true'
         run: bun install --frozen-lockfile
 
       - name: Set environment variables
+        if: steps.check_commit.outputs.should_run_evals == 'true'
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
         run: |
@@ -46,4 +61,8 @@ jobs:
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Run evals
+        if: steps.check_commit.outputs.should_run_evals == 'true'
         run: bun run --cwd evals run-eval-set
+
+      - name: Workflow completed
+        run: echo "Evals workflow completed successfully"
