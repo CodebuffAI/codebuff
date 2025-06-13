@@ -47,7 +47,9 @@ async function main() {
       })
     }
   } finally {
-    process.exit(0)
+    setTimeout(() => {
+      process.exit(0)
+    }, 2000)
   }
 }
 
