@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { uniq } from 'lodash'
-import Parser from 'tree-sitter'
+import TreeSitter from './native/tree-sitter'
 
 import { LanguageConfig, getLanguageConfig } from './languages'
 
@@ -25,6 +25,14 @@ export async function getFileTokenScores(
   projectRoot: string,
   filePaths: string[]
 ): Promise<FileTokenData> {
+  // If tree-sitter is not available, return empty data
+  if (!TreeSitter) {
+    return {
+      tokenScores: {},
+      tokenCallers: {}
+    }
+  }
+
   const startTime = Date.now()
   const tokenScores: { [filePath: string]: { [token: string]: number } } = {}
   const externalCalls: { [token: string]: number } = {}
@@ -182,8 +190,8 @@ export async function parseTokens(
 }
 
 function parseFile(
-  parser: Parser,
-  query: Parser.Query,
+  parser: any,
+  query: any,
   sourceCode: string
 ): { [key: string]: string[] } {
   const tree = parser.parse(sourceCode, undefined, {

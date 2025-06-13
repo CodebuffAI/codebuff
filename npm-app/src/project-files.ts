@@ -156,11 +156,10 @@ export function initProjectFileContextWithWorker(
   if (resetCache) {
     cachedProjectFileContext = undefined
   }
-  // NOTE: Uses the built worker-script-project-context.js within dist.
-  // So you need to run `bun run build` before running locally.
-  const workerPath = __filename.endsWith('.ts')
-    ? path.join(__dirname, '..', 'dist', 'workers/project-context.js')
-    : path.join(__dirname, 'workers/project-context.js')
+  
+  // Use simple path resolution that works in both development and production
+  const workerPath = path.join(__dirname, 'workers/project-context.ts')
+  
   const worker = new Worker(workerPath as any)
 
   worker.postMessage({ dir })

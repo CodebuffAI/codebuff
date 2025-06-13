@@ -8,7 +8,7 @@
     "moduleResolution": "node",
     "types": ["bun", "node"]
   },
-  "include": ["*.ts"],
+  "include": ["*.ts", "native/*.ts"],
   "exclude": [
     "node_modules",
     "dist",

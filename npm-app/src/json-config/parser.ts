@@ -20,11 +20,11 @@ function parseJsonc(text: string): any {
   let result = ''
   let inString = false
   let escaped = false
-  
+
   for (let i = 0; i < text.length; i++) {
     const char = text[i]
     const nextChar = text[i + 1]
-    
+
     if (inString) {
       result += char
       if (escaped) {
@@ -47,7 +47,10 @@ function parseJsonc(text: string): any {
       } else if (char === '/' && nextChar === '*') {
         // Skip multi-line comment
         i += 2
-        while (i < text.length - 1 && !(text[i] === '*' && text[i + 1] === '/')) {
+        while (
+          i < text.length - 1 &&
+          !(text[i] === '*' && text[i + 1] === '/')
+        ) {
           i++
         }
         i++ // Skip the closing '/'
@@ -56,10 +59,10 @@ function parseJsonc(text: string): any {
       }
     }
   }
-  
+
   // Remove trailing commas before closing brackets/braces
   result = result.replace(/,(\s*[}\]])/g, '$1')
-  
+
   return JSON.parse(result)
 }
 
@@ -89,38 +92,31 @@ export function loadCodebuffConfig(): CodebuffConfig | null {
     const result = CodebuffConfigSchema.safeParse(parsedConfig)
 
     if (!result.success) {
-      // Only show warning if we're not in a binary build or if there are actual validation errors
-      const isBinary = process.pkg || process.env.NODE_ENV === 'production'
-      if (!isBinary) {
-        console.warn(
-          yellow(
-            `Warning: Invalid ${codebuffConfigFile} configuration. Please check the schema:\n` +
-              result.error.errors
-                .map((err) => `- ${err.path.join('.')}: ${err.message}`)
-                .join('\n')
-          )
+      console.warn(
+        yellow(
+          `Warning: Invalid ${codebuffConfigFile} configuration. Please check the schema:\n` +
+            result.error.errors
+              .map((err) => `- ${err.path.join('.')}: ${err.message}`)
+              .join('\n')
         )
-      }
+      )
       return null
     }
 
     return result.data
   } catch (error) {
-    const isBinary = process.pkg || process.env.NODE_ENV === 'production'
-    if (!isBinary) {
-      if (error instanceof SyntaxError) {
-        console.warn(
-          yellow(
-            `Warning: Invalid JSON in ${codebuffConfigFile}. Please check the syntax.`
-          )
+    if (error instanceof SyntaxError) {
+      console.warn(
+        yellow(
+          `Warning: Invalid JSON in ${codebuffConfigFile}. Please check the syntax.`
         )
-      } else {
-        console.warn(
-          yellow(
-            `Warning: Error reading ${codebuffConfigFile} configuration file.`
-          )
+      )
+    } else {
+      console.warn(
+        yellow(
+          `Warning: Error reading ${codebuffConfigFile} configuration file.`
         )
-      }
+      )
     }
     return null
   }

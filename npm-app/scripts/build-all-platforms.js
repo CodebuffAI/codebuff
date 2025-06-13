@@ -51,7 +51,13 @@ function buildTarget(bunTarget, outputName, triplet) {
 
   try {
     const defineFlag = `--define:PLATFORM_TRIPLET='"${triplet}"'`
-    execSync(`bun build dist/index.js --compile --target=${bunTarget} --minify ${defineFlag} --outfile="${outputFile}"`, {
+    // Include worker entrypoints in the compile command
+    const workerEntrypoints = [
+      'src/workers/project-context.ts',
+      'src/workers/checkpoint-worker.ts'
+    ].join(' ')
+    
+    execSync(`bun build --compile dist/index.js ${workerEntrypoints} --target=${bunTarget} --minify ${defineFlag} --outfile="${outputFile}"`, {
       stdio: 'inherit'
     })
     

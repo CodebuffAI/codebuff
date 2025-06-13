@@ -1,4 +1,4 @@
-import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
+import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import * as os from 'os'
 import path from 'path'
 
@@ -29,7 +29,15 @@ console.error = () => {}
 try {
   // Use our native wrapper instead of direct import
   pty = require('../native/pty')
+  
+  // Test if PTY is actually functional by checking if spawn exists
+  if (pty && typeof pty.spawn !== 'function') {
+    logger.error('PTY module loaded but spawn function is not available')
+    pty = undefined
+  }
 } catch (error) {
+  logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Failed to load PTY module, falling back to child_process')
+  pty = undefined
 } finally {
   console.error = tempConsoleError
 }
@@ -62,135 +70,144 @@ const createPersistantProcess = (
   dir: string,
   forceChildProcess = false
 ): PersistentProcess => {
-  if (pty && process.env.NODE_ENV !== 'test' && !forceChildProcess) {
-    const isWindows = os.platform() === 'win32'
-    const currShell = detectShell()
-    const shell = isWindows
-      ? currShell === 'powershell'
-        ? 'powershell.exe'
-        : 'cmd.exe'
-      : 'bash'
+  // Force child process if PTY is not available or if explicitly requested
+  const shouldUseChildProcess = forceChildProcess || !pty || process.env.NODE_ENV === 'test'
+  
+  if (!shouldUseChildProcess) {
+    try {
+      const isWindows = os.platform() === 'win32'
+      const currShell = detectShell()
+      const shell = isWindows
+        ? currShell === 'powershell'
+          ? 'powershell.exe'
+          : 'cmd.exe'
+        : 'bash'
 
-    const shellWithoutExe = shell.split('.')[0]
+      const shellWithoutExe = shell.split('.')[0]
 
-    // Prepare shell init commands
-    let shellInitCommands = ''
-    if (!isWindows) {
-      // Source all relevant config files based on shell type
-      if (currShell === 'zsh') {
-        shellInitCommands = `
-          source ~/.zshenv 2>/dev/null || true
-          source ~/.zprofile 2>/dev/null || true
-          source ~/.zshrc 2>/dev/null || true
-          source ~/.zlogin 2>/dev/null || true
-        `
-      } else if (currShell === 'fish') {
-        shellInitCommands = `
-          source ~/.config/fish/config.fish 2>/dev/null || true
-        `
-      } else {
-        // Bash - source both profile and rc files
-        shellInitCommands = `
-          source ~/.bash_profile 2>/dev/null || true
-          source ~/.profile 2>/dev/null || true
-          source ~/.bashrc 2>/dev/null || true
-        `
-      }
-    } else if (currShell === 'powershell') {
-      // Try to source all possible PowerShell profile locations
-      shellInitCommands = `
-        $profiles = @(
-          $PROFILE.AllUsersAllHosts,
-          $PROFILE.AllUsersCurrentHost,
-          $PROFILE.CurrentUserAllHosts,
-          $PROFILE.CurrentUserCurrentHost
-        )
-        foreach ($prof in $profiles) {
-          if (Test-Path $prof) { . $prof }
+      // Prepare shell init commands
+      let shellInitCommands = ''
+      if (!isWindows) {
+        // Source all relevant config files based on shell type
+        if (currShell === 'zsh') {
+          shellInitCommands = `
+            source ~/.zshenv 2>/dev/null || true
+            source ~/.zprofile 2>/dev/null || true
+            source ~/.zshrc 2>/dev/null || true
+            source ~/.zlogin 2>/dev/null || true
+          `
+        } else if (currShell === 'fish') {
+          shellInitCommands = `
+            source ~/.config/fish/config.fish 2>/dev/null || true
+          `
+        } else {
+          // Bash - source both profile and rc files
+          shellInitCommands = `
+            source ~/.bash_profile 2>/dev/null || true
+            source ~/.profile 2>/dev/null || true
+            source ~/.bashrc 2>/dev/null || true
+          `
         }
-      `
-    }
-
-    const persistentPty = pty.spawn(shell, isWindows ? [] : ['--login'], {
-      name: 'xterm-256color',
-      cols: process.stdout.columns || 80,
-      rows: process.stdout.rows || 24,
-      cwd: dir,
-      env: {
-        ...process.env,
-        PAGER: 'cat',
-        GIT_PAGER: 'cat',
-        GIT_TERMINAL_PROMPT: '0',
-        ...(isWindows
-          ? {
-              TERM: 'cygwin',
-              ANSICON: '1',
-              PROMPT: promptIdentifier,
-            }
-          : {
-              TERM: 'xterm-256color',
-              // Preserve important environment variables
-              PATH: process.env.PATH,
-              HOME: process.env.HOME,
-              USER: process.env.USER,
-              SHELL: shellWithoutExe,
-            }),
-        LESS: '-FRX',
-        TERM_PROGRAM: 'mintty',
-        FORCE_COLOR: '1',
-        // Locale settings for consistent output
-        LANG: 'en_US.UTF-8',
-        LC_ALL: 'en_US.UTF-8',
-      },
-    })
-
-    // Source the shell config files
-    if (shellInitCommands) {
-      persistentPty.write(shellInitCommands)
-    }
-
-    // Set prompt for Unix shells after sourcing config
-    if (!isWindows) {
-      persistentPty.write(
-        `PS1=${promptIdentifier} && PS2=${promptIdentifier}\n`
-      )
-    }
-
-    const persistentProcessInfo: PersistentProcess = {
-      type: 'pty',
-      shell,
-      pty: persistentPty,
-      timerId: null,
-      globalOutputBuffer: '',
-      globalOutputLastReadLength: 0,
-    }
-
-    // Add a persistent listener to capture all output for manager mode
-    persistentPty.onData((data: string) => {
-      if (persistentProcessInfo.type === 'pty') {
-        persistentProcessInfo.globalOutputBuffer += data.toString() // Should we use stripColors(...)?
+      } else if (currShell === 'powershell') {
+        // Try to source all possible PowerShell profile locations
+        shellInitCommands = `
+          $profiles = @(
+            $PROFILE.AllUsersAllHosts,
+            $PROFILE.AllUsersCurrentHost,
+            $PROFILE.CurrentUserAllHosts,
+            $PROFILE.CurrentUserCurrentHost
+          )
+          foreach ($prof in $profiles) {
+            if (Test-Path $prof) { . $prof }
+          }
+        `
       }
-    })
 
-    return persistentProcessInfo
-  } else {
-    // Fallback to child_process
-    const isWindows = os.platform() === 'win32'
-    const currShell = detectShell()
-    const shell = isWindows
-      ? currShell === 'powershell'
-        ? 'powershell.exe'
-        : 'cmd.exe'
-      : 'bash'
-    const childProcess = null as ChildProcessWithoutNullStreams | null
-    return {
-      type: 'process',
-      shell,
-      childProcess,
-      timerId: null,
-      globalOutputBuffer: '',
-      globalOutputLastReadLength: 0,
+      // TypeScript assertion since we've already checked pty exists above
+      const persistentPty = pty!.spawn(shell, isWindows ? [] : ['--login'], {
+        name: 'xterm-256color',
+        cols: process.stdout.columns || 80,
+        rows: process.stdout.rows || 24,
+        cwd: dir,
+        env: {
+          ...process.env,
+          PAGER: 'cat',
+          GIT_PAGER: 'cat',
+          GIT_TERMINAL_PROMPT: '0',
+          ...(isWindows
+            ? {
+                TERM: 'cygwin',
+                ANSICON: '1',
+                PROMPT: promptIdentifier,
+              }
+            : {
+                TERM: 'xterm-256color',
+                // Preserve important environment variables
+                PATH: process.env.PATH,
+                HOME: process.env.HOME,
+                USER: process.env.USER,
+                SHELL: shellWithoutExe,
+              }),
+          LESS: '-FRX',
+          TERM_PROGRAM: 'mintty',
+          FORCE_COLOR: '1',
+          // Locale settings for consistent output
+          LANG: 'en_US.UTF-8',
+          LC_ALL: 'en_US.UTF-8',
+        },
+      })
+
+      // Source the shell config files
+      if (shellInitCommands) {
+        persistentPty.write(shellInitCommands)
+      }
+
+      // Set prompt for Unix shells after sourcing config
+      if (!isWindows) {
+        persistentPty.write(
+          `PS1=${promptIdentifier} && PS2=${promptIdentifier}\n`
+        )
+      }
+
+      const persistentProcessInfo: PersistentProcess = {
+        type: 'pty',
+        shell,
+        pty: persistentPty,
+        timerId: null,
+        globalOutputBuffer: '',
+        globalOutputLastReadLength: 0,
+      }
+
+      // Add a persistent listener to capture all output for manager mode
+      persistentPty.onData((data: string) => {
+        if (persistentProcessInfo.type === 'pty') {
+          persistentProcessInfo.globalOutputBuffer += data.toString() // Should we use stripColors(...)?
+        }
+      })
+
+      return persistentProcessInfo
+    } catch (error) {
+      logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Failed to create PTY process, falling back to child_process')
+      // Fall through to child_process fallback
     }
+  }
+  
+  // Fallback to child_process
+  const isWindows = os.platform() === 'win32'
+  const currShell = detectShell()
+  const shell = isWindows
+    ? currShell === 'powershell'
+      ? 'powershell.exe'
+      : 'cmd.exe'
+    : 'bash'
+  const childProcess = null as ChildProcessWithoutNullStreams | null
+  return {
+    type: 'process',
+    shell,
+    childProcess,
+    timerId: null,
+    globalOutputBuffer: '',
+    globalOutputLastReadLength: 0,
   }
 }
 
@@ -452,8 +469,8 @@ export const runCommandPty = (
   const ptyProcess = persistentProcess.pty
 
   if (command.trim() === 'clear') {
-    // `clear` needs access to the main process stdout. This is a workaround.
-    execSync('clear', { stdio: 'inherit' })
+    // Use direct terminal escape sequence instead of execSync
+    process.stdout.write('\u001b[2J\u001b[0;0H')
     resolve({
       result: formatResult(command, '', `Complete`),
       stdout: '',
@@ -736,8 +753,8 @@ export const runCommandPtyManager = (
   const ptyProcess = persistentProcess.pty
 
   if (command.trim() === 'clear') {
-    // `clear` needs access to the main process stdout. This is a workaround.
-    execSync('clear', { stdio: 'inherit' })
+    // Use direct terminal escape sequence instead of execSync
+    process.stdout.write('\u001b[2J\u001b[0;0H')
     resolve({
       result: formatResult(command, '', `Complete`),
       stdout: '',

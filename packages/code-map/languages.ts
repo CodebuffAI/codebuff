@@ -1,7 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import Parser from 'tree-sitter'
-import { Query } from 'tree-sitter'
+import TreeSitter from './native/tree-sitter'
 
 import { DEBUG_PARSING } from './parse'
 
@@ -10,8 +9,9 @@ export interface LanguageConfig {
   extensions: string[]
   packageName: string
   queryFile: string
-  parser: Parser
-  query: Query
+  parser: any
+  query: any
+  // TODO: Bring back the Tree sitter types
 }
 
 const languageConfigs: Omit<LanguageConfig, 'parser' | 'query' | 'language'>[] =
@@ -81,6 +81,11 @@ const languageConfigs: Omit<LanguageConfig, 'parser' | 'query' | 'language'>[] =
 export async function getLanguageConfig(
   filePath: string
 ): Promise<LanguageConfig | undefined> {
+  // If tree-sitter is not available, return undefined
+  if (!TreeSitter) {
+    return undefined
+  }
+
   const extension = path.extname(filePath)
   const config = languageConfigs.find((config) =>
     config.extensions.includes(extension)
@@ -88,7 +93,7 @@ export async function getLanguageConfig(
   if (!config) return undefined
 
   if (!config.parser) {
-    const parser = new Parser()
+    const parser = new TreeSitter()
 
     try {
       const languageModule = await import(config.packageName)
@@ -108,7 +113,7 @@ export async function getLanguageConfig(
         config.queryFile
       )
       const queryString = fs.readFileSync(queryFilePath, 'utf8')
-      const query = new Query(parser.getLanguage(), queryString)
+      const query = new TreeSitter.Query(parser.getLanguage(), queryString)
 
       config.parser = parser
       config.query = query
