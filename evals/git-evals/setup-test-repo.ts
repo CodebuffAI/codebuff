@@ -28,7 +28,7 @@ export async function setupTestRepo(
   repoName: string,
   commitSha: string
 ): Promise<string> {
-  const repoDir = path.join(TEST_REPOS_DIR, repoName, commitSha)
+  const repoDir = path.join(TEST_REPOS_DIR, `${repoName}-${commitSha}`)
 
   if (fs.existsSync(repoDir)) {
     console.log(`Repository already exists at ${repoDir}. Skipping clone.`)
@@ -38,7 +38,10 @@ export async function setupTestRepo(
   fs.mkdirSync(repoDir, { recursive: true })
 
   console.log(`Cloning repository ${repoUrl} into ${repoDir}...`)
-  execSync(`git clone --no-checkout ${repoUrl} .`, { cwd: repoDir, stdio: 'inherit' })
+  execSync(`git clone --no-checkout ${repoUrl} .`, {
+    cwd: repoDir,
+    stdio: 'inherit',
+  })
   execSync(`git fetch origin ${commitSha}`, { cwd: repoDir, stdio: 'inherit' })
   execSync(`git checkout ${commitSha}`, { cwd: repoDir, stdio: 'inherit' })
 
