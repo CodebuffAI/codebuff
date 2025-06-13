@@ -282,11 +282,9 @@ async function gitAddAllIgnoringNestedRepos({
   bareRepoPath: string
   relativeFilepaths: Array<string>
 }): Promise<void> {
-  const allNestedRepos: string[] = []
+  const nestedRepos: string[] = []
   try {
     while (true) {
-      await gitAddAll({ projectDir, bareRepoPath, relativeFilepaths })
-
       let output: string
       try {
         output = execFileSync(
@@ -313,33 +311,12 @@ async function gitAddAllIgnoringNestedRepos({
         break
       }
 
-      const nestedRepos = buildArray(output.split('\n'))
+      const modifiedFiles = buildArray(output.split('\n'))
         .filter((line) => line[1] === 'M')
         .map((line) => line.slice(3).trim())
 
-      if (nestedRepos.length === 0) {
+      if (modifiedFiles.length === 0) {
         break
-      }
-
-      for (const nestedRepo of nestedRepos) {
-        try {
-          if (!fs.existsSync(path.join(projectDir, nestedRepo, '.git'))) {
-            continue
-          }
-          fs.renameSync(
-            path.join(projectDir, nestedRepo, '.git'),
-            path.join(projectDir, nestedRepo, '.git.codebuffbackup')
-          )
-          allNestedRepos.push(nestedRepo)
-        } catch (error) {
-          logger.error(
-            {
-              error,
-              nestedRepo,
-            },
-            'Failed to backup .git directory for nested repo'
-          )
-        }
       }
 
       try {
@@ -353,14 +330,37 @@ async function gitAddAllIgnoringNestedRepos({
           'rm',
           '--cached',
           '-rf',
-          ...nestedRepos,
+          ...modifiedFiles,
         ])
       } catch (error) {
         logger.error({ error }, 'Failed to run git rm --cached')
       }
+
+      await gitAddAll({ projectDir, bareRepoPath, relativeFilepaths })
+
+      for (const maybeNestedRepo of modifiedFiles) {
+        try {
+          if (!fs.existsSync(path.join(projectDir, maybeNestedRepo, '.git'))) {
+            continue
+          }
+          fs.renameSync(
+            path.join(projectDir, maybeNestedRepo, '.git'),
+            path.join(projectDir, maybeNestedRepo, '.git.codebuffbackup')
+          )
+          nestedRepos.push(maybeNestedRepo)
+        } catch (error) {
+          logger.error(
+            {
+              error,
+              nestedRepo: maybeNestedRepo,
+            },
+            'Failed to backup .git directory for nested repo'
+          )
+        }
+      }
     }
   } finally {
-    for (const nestedRepo of allNestedRepos) {
+    for (const nestedRepo of nestedRepos) {
       const codebuffBackup = path.join(
         projectDir,
         nestedRepo,
