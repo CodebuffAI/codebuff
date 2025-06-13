@@ -349,14 +349,16 @@ export async function runGitEvals(
         const logPath = path.join(logsDir, logFilename)
         const logStream = fs.createWriteStream(logPath)
 
+        // Write evalCommit to temporary file to avoid long command line arguments
+        const tempEvalCommitPath = path.join(
+          logsDir,
+          `eval-commit-${evalCommit.sha.slice(0, 7)}.json`
+        )
+        fs.writeFileSync(tempEvalCommitPath, JSON.stringify(evalCommit))
+
         const child = fork(
           path.resolve(__dirname, 'run-single-eval-process.ts'),
-          [
-            JSON.stringify(evalCommit),
-            projectPath,
-            clientSessionId,
-            fingerprintId,
-          ],
+          [tempEvalCommitPath, projectPath, clientSessionId, fingerprintId],
           { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] }
         )
 
@@ -366,6 +368,15 @@ export async function runGitEvals(
         child.on(
           'message',
           (message: { type: string; result?: EvalRunJudged; error?: any }) => {
+            // Clean up temp file
+            try {
+              fs.unlinkSync(tempEvalCommitPath)
+            } catch (e) {
+              console.warn(
+                `Failed to clean up temp file ${tempEvalCommitPath}:`,
+                e
+              )
+            }
             if (message.type === 'result' && message.result) {
               console.log(
                 `Completed eval for commit ${testRepoName} - ${evalCommit.message}`

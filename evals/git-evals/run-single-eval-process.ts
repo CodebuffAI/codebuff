@@ -7,17 +7,25 @@ import { createFileReadingMock } from '../scaffolding'
 import { setupTestEnvironmentVariables } from '../test-setup'
 import { runSingleEval } from './run-git-evals'
 import { EvalCommit } from './types'
+import fs from 'fs'
 
 async function main() {
-  const [evalCommitStr, projectPath, clientSessionId, fingerprintId] =
+  const [evalCommitFilePath, projectPath, clientSessionId, fingerprintId] =
     process.argv.slice(2)
 
-  if (!evalCommitStr || !projectPath || !clientSessionId || !fingerprintId) {
+  if (!evalCommitFilePath || !projectPath || !clientSessionId || !fingerprintId) {
     console.error('Missing required arguments for single eval process')
     process.exit(1)
   }
 
-  const evalCommit: EvalCommit = JSON.parse(evalCommitStr)
+  let evalCommit: EvalCommit
+  try {
+    const evalCommitStr = fs.readFileSync(evalCommitFilePath, 'utf-8')
+    evalCommit = JSON.parse(evalCommitStr)
+  } catch (error) {
+    console.error('Failed to read evalCommit from file:', error)
+    process.exit(1)
+  }
 
   try {
     // Setup environment for this process
