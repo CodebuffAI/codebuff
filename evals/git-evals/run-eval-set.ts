@@ -1,42 +1,18 @@
 #!/usr/bin/env bun
 
-import { Model } from 'common/constants'
 import type { GitEvalResultRequest } from 'common/db/schema'
-import path from 'path'
 import { sendEvalResultsEmail } from './email-eval-results'
-import { analyzeEvalResults, PostEvalAnalysis } from './post-eval-analysis'
+import { analyzeEvalResults } from './post-eval-analysis'
 import {
   mockRunGitEvals,
   runGitEvals,
   setGlobalConcurrencyLimit,
 } from './run-git-evals'
-import { FullEvalLog } from './types'
+import { EvalConfig, EvalResult } from './types'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
 const MOCK_PATH = 'git-evals/eval-result-codebuff-mock.json'
 const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000/'
-
-interface ModelConfig {
-  reasoningModel?: Model
-  agentModel?: Model
-}
-
-interface EvalConfig {
-  name: string
-  evalDataPath: string
-  outputDir: string
-  modelConfig: ModelConfig
-  limit?: number
-}
-
-interface EvalResult {
-  name: string
-  status: 'success' | 'error'
-  result?: FullEvalLog
-  analysis?: PostEvalAnalysis
-  error?: string
-  duration: number
-}
 
 async function runEvalSet(
   outputDir: string = DEFAULT_OUTPUT_DIR,
@@ -53,17 +29,19 @@ async function runEvalSet(
 
   // Define the eval configurations
   const evalConfigs: EvalConfig[] = [
-    {
-      name: 'codebuff',
-      evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
-      outputDir,
-      modelConfig: {},
-    },
+    // {
+    //   name: 'codebuff',
+    //   evalDataPath: 'git-evals/eval-codebuff.json',
+    //   outputDir,
+    //   modelConfig: {},
+    //   limit: 2,
+    // },
     {
       name: 'manifold',
       evalDataPath: 'git-evals/eval-manifold.json',
       outputDir,
       modelConfig: {},
+      limit: 2,
     },
   ]
 
@@ -85,7 +63,12 @@ async function runEvalSet(
     try {
       const result = mockEval
         ? mockRunGitEvals(MOCK_PATH)
-        : await runGitEvals(config.evalDataPath, config.outputDir, config.limit)
+        : await runGitEvals(
+            config.evalDataPath,
+            config.outputDir,
+            config.modelConfig,
+            config.limit
+          )
       const evalDuration = Date.now() - evalStartTime
       console.log(
         `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`

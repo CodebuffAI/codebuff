@@ -3,10 +3,11 @@ import { EventEmitter } from 'events'
 import fs from 'fs'
 import path from 'path'
 
+import { mock } from 'bun:test'
+import { blue } from 'picocolors'
+import { WebSocket } from 'ws'
 import * as mainPromptModule from '../backend/src/main-prompt'
 import { ClientToolCall } from '../backend/src/tools'
-import { mock } from 'bun:test'
-import { getFileTokenScores } from '../packages/code-map/parse'
 import { FileChanges } from '../common/src/actions'
 import { TEST_USER_ID } from '../common/src/constants'
 import {
@@ -19,8 +20,8 @@ import { ProjectFileContext } from '../common/src/util/file'
 import { generateCompactId } from '../common/src/util/string'
 import { handleToolCall } from '../npm-app/src/tool-handlers'
 import { getSystemInfo } from '../npm-app/src/utils/system-info'
-import { blue } from 'picocolors'
-import { WebSocket } from 'ws'
+import { getFileTokenScores } from '../packages/code-map/parse'
+import { ModelConfig } from './git-evals/types'
 
 const DEBUG_MODE = true
 
@@ -93,6 +94,7 @@ export async function runMainPrompt(
   sessionId: string,
   options: {
     costMode: 'lite' | 'normal' | 'max' | 'experimental'
+    modelConfig: ModelConfig
   }
 ) {
   const mockWs = new EventEmitter() as WebSocket
@@ -121,8 +123,8 @@ export async function runMainPrompt(
       }
       fullResponse += chunk
     },
-    selectedModel: undefined, // selectedModel
-    readOnlyMode: false // readOnlyMode = false for evals
+    selectedModel: options.modelConfig.agentModel,
+    readOnlyMode: false, // readOnlyMode = false for evals
   })
 
   return {
@@ -148,6 +150,7 @@ export async function loopMainPrompt({
   stopCondition,
   options = {
     costMode: 'normal',
+    modelConfig: {},
   },
 }: {
   agentState: AgentState
@@ -160,6 +163,7 @@ export async function loopMainPrompt({
   ) => boolean
   options: {
     costMode: 'lite' | 'normal' | 'max' | 'experimental'
+    modelConfig: ModelConfig
   }
 }) {
   console.log(blue(prompt))

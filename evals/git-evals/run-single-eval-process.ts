@@ -7,17 +7,23 @@ import { recreateShell } from '../../npm-app/src/terminal/base'
 import { createFileReadingMock } from '../scaffolding'
 import { setupTestEnvironmentVariables } from '../test-setup'
 import { runSingleEval } from './run-git-evals'
-import { EvalCommit } from './types'
+import { EvalCommit, ModelConfig } from './types'
 
 async function main() {
-  const [evalCommitFilePath, projectPath, clientSessionId, fingerprintId] =
-    process.argv.slice(2)
+  const [
+    evalCommitFilePath,
+    projectPath,
+    clientSessionId,
+    fingerprintId,
+    modelConfigStr,
+  ] = process.argv.slice(2)
 
   if (
     !evalCommitFilePath ||
     !projectPath ||
     !clientSessionId ||
-    !fingerprintId
+    !fingerprintId ||
+    !modelConfigStr
   ) {
     console.error('Missing required arguments for single eval process')
     process.exit(1)
@@ -31,6 +37,7 @@ async function main() {
     console.error('Failed to read evalCommit from file:', error)
     process.exit(1)
   }
+  const modelConfig: ModelConfig = JSON.parse(modelConfigStr)
 
   try {
     // Setup environment for this process
@@ -44,7 +51,8 @@ async function main() {
       evalCommit,
       projectPath,
       clientSessionId,
-      fingerprintId
+      fingerprintId,
+      modelConfig
     )
     console.log('Final result:', { result })
     if (process.send) {
