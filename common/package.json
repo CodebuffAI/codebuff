@@ -7,7 +7,7 @@
   "exports": {
     "./db": "./src/db/index.ts",
     "./db/*": "./src/db/*.ts",
-    "./*": "./src/*.ts" 
+    "./*": "./src/*.ts"
   },
   "license": "UNLICENSED",
   "scripts": {

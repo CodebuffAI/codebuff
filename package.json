@@ -39,6 +39,10 @@
     "test": "nx run-many --target=test --projects=npm-app,backend,common --output-style=stream --skip-nx-cache",
     "typecheck": "bun run build"
   },
+  "dependencies": {
+    "@t3-oss/env-nextjs": "^0.7.3",
+    "zod": "3.23.8"
+  },
   "devDependencies": {
     "@tanstack/react-query": "^5.59.16",
     "@types/lodash": "4.17.7",

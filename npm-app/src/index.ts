@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
-// Clean up shell environment variables that can cause OSC sequences in binary builds
-if (process.pkg || process.env.NODE_ENV === 'production') {
-  // Remove shell integration variables that cause OSC sequences
+if (process.env.NODE_ENV === 'production') {
   delete process.env.TERM_PROGRAM
   delete process.env.TERM_PROGRAM_VERSION
   delete process.env.ITERM_SESSION_ID

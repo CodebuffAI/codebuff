@@ -21,7 +21,6 @@
     "@codebuff/common": "workspace:*",
     "@google-cloud/vertexai": "1.10.0",
     "@google/generative-ai": "0.24.1",
-    "@t3-oss/env-nextjs": "^0.13.8",
     "ai": "4.3.16",
     "cors": "^2.8.5",
     "diff": "5.2.0",
@@ -35,8 +34,7 @@
     "postgres": "3.4.4",
     "posthog-node": "^4.14.0",
     "ts-pattern": "5.3.1",
-    "ws": "8.18.0",
-    "zod": "^3.25.56"
+    "ws": "8.18.0"
   },
   "devDependencies": {
     "@types/bun": "^1.1.16",

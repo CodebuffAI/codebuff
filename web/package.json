@@ -47,7 +47,6 @@
     "@react-three/drei": "^9.112.0",
     "@react-three/fiber": "^8.17.7",
     "@stripe/stripe-js": "^4.4.0",
-    "@t3-oss/env-nextjs": "^0.13.8",
     "@tanstack/react-query": "^5.80.6",
     "@tanstack/react-virtual": "^3.13.6",
     "aceternity-ui": "^0.2.2",
