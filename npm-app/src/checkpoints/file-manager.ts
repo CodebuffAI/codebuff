@@ -323,6 +323,9 @@ async function gitAddAllIgnoringNestedRepos({
 
       for (const nestedRepo of nestedRepos) {
         try {
+          if (!fs.existsSync(path.join(projectDir, nestedRepo, '.git'))) {
+            continue
+          }
           fs.renameSync(
             path.join(projectDir, nestedRepo, '.git'),
             path.join(projectDir, nestedRepo, '.git.codebuffbackup')
@@ -339,18 +342,22 @@ async function gitAddAllIgnoringNestedRepos({
         }
       }
 
-      execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        '--work-tree',
-        projectDir,
-        '-C',
-        projectDir,
-        'rm',
-        '--cached',
-        '-rf',
-        ...nestedRepos,
-      ])
+      try {
+        execFileSync('git', [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          '-C',
+          projectDir,
+          'rm',
+          '--cached',
+          '-rf',
+          ...nestedRepos,
+        ])
+      } catch (error) {
+        logger.error({ error }, 'Failed to run git rm --cached')
+      }
     }
   } finally {
     for (const nestedRepo of allNestedRepos) {
