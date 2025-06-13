@@ -2,22 +2,22 @@ import { CoreMessage } from 'ai'
 import {
   AnthropicModel,
   CostMode,
-  getModelForMode,
+  Model,
   providerModelNames,
-  shortModelNames,
 } from 'common/constants'
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
 export const getAgentStream = (params: {
   costMode: CostMode
-  selectedModel: string | undefined
+  selectedModel: Model
   stopSequences?: string[]
   clientSessionId: string
   fingerprintId: string
   userInputId: string
   userId: string | undefined
   thinkingBudget?: number
+  modelConfig?: { agentModel?: string; reasoningModel?: string } // Used by the backend for automatic evals
 }) => {
   const {
     costMode,
@@ -30,19 +30,7 @@ export const getAgentStream = (params: {
     userId,
   } = params
 
-  if (selectedModel && !(selectedModel in shortModelNames)) {
-    throw new Error(
-      `Unknown model: ${selectedModel}. Please use a valid model. Valid models are: ${Object.keys(
-        shortModelNames
-      ).join(', ')}`
-    )
-  }
-
-  const fullSelectedModel = selectedModel
-    ? shortModelNames[selectedModel as keyof typeof shortModelNames]
-    : undefined
-
-  const model: string = fullSelectedModel ?? getModelForMode(costMode, 'agent')
+  const model = selectedModel
 
   const provider = providerModelNames[model as keyof typeof providerModelNames]
 
@@ -82,8 +70,5 @@ export const getAgentStream = (params: {
         })()
   }
 
-  return {
-    model: model,
-    getStream,
-  }
+  return getStream
 }

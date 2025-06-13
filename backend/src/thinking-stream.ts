@@ -1,9 +1,9 @@
-import { CostMode, models } from 'common/constants'
+import { CostMode, geminiModels, Model, models } from 'common/constants'
 
 import { CoreMessage } from 'ai'
 import { getAgentStream } from './prompt-agent-stream'
-import { logger } from './util/logger'
 import { TOOL_LIST } from './tools'
+import { logger } from './util/logger'
 
 export async function getThinkingStream(
   messages: CoreMessage[],
@@ -14,11 +14,13 @@ export async function getThinkingStream(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
+    model?: Model
   }
 ) {
-  const { getStream, model } = getAgentStream({
+  const model = options.model ?? geminiModels.gemini2_5_pro_preview
+  const getStream = getAgentStream({
     costMode: options.costMode,
-    selectedModel: 'gemini-2.5-pro',
+    selectedModel: model,
     stopSequences: [
       '</think_deeply>',
       '<think_deeply>',

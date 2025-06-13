@@ -1,42 +1,18 @@
 #!/usr/bin/env bun
 
-import { Model } from 'common/constants'
 import type { GitEvalResultRequest } from 'common/db/schema'
-import path from 'path'
 import { sendEvalResultsEmail } from './email-eval-results'
-import { analyzeEvalResults, PostEvalAnalysis } from './post-eval-analysis'
+import { analyzeEvalResults } from './post-eval-analysis'
 import {
   mockRunGitEvals,
   runGitEvals,
   setGlobalConcurrencyLimit,
 } from './run-git-evals'
-import { FullEvalLog } from './types'
+import { EvalConfig, EvalResult } from './types'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
 const MOCK_PATH = 'git-evals/eval-result-codebuff-mock.json'
 const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000/'
-
-interface ModelConfig {
-  reasoningModel?: Model
-  agentModel?: Model
-}
-
-interface EvalConfig {
-  name: string
-  evalDataPath: string
-  outputDir: string
-  modelConfig: ModelConfig
-  limit?: number
-}
-
-interface EvalResult {
-  name: string
-  status: 'success' | 'error'
-  result?: FullEvalLog
-  analysis?: PostEvalAnalysis
-  error?: string
-  duration: number
-}
 
 async function runEvalSet(
   outputDir: string = DEFAULT_OUTPUT_DIR,
@@ -55,7 +31,7 @@ async function runEvalSet(
   const evalConfigs: EvalConfig[] = [
     {
       name: 'codebuff',
-      evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
+      evalDataPath: 'git-evals/eval-codebuff.json',
       outputDir,
       modelConfig: {},
     },
@@ -85,7 +61,12 @@ async function runEvalSet(
     try {
       const result = mockEval
         ? mockRunGitEvals(MOCK_PATH)
-        : await runGitEvals(config.evalDataPath, config.outputDir, config.limit)
+        : await runGitEvals(
+            config.evalDataPath,
+            config.outputDir,
+            config.modelConfig,
+            config.limit
+          )
       const evalDuration = Date.now() - evalStartTime
       console.log(
         `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`
@@ -252,6 +233,14 @@ async function runEvalSet(
           const evalResult = resultWrapper.result
           const config = evalConfigs.find((c) => c.name === resultWrapper.name)
 
+          // average number of user turns
+          const totalTurns = evalResult?.eval_runs?.reduce((acc, run) => {
+            return acc + run.trace.length
+          }, 0)
+          const numCases = evalResult?.eval_runs?.length
+          const avgTurns =
+            totalTurns && numCases ? totalTurns / numCases : undefined
+
           // Map the eval result data to the database schema
           const payload: GitEvalResultRequest = {
             cost_mode: 'normal', // You can modify this based on your needs
@@ -260,7 +249,12 @@ async function runEvalSet(
             metadata: {
               numCases: evalResult?.overall_metrics?.total_runs,
               avgScore: evalResult?.overall_metrics?.average_overall,
+              avgCompletion: evalResult?.overall_metrics?.average_completion,
+              avgEfficiency: evalResult?.overall_metrics?.average_efficiency,
+              avgCodeQuality: evalResult?.overall_metrics?.average_code_quality,
+              avgDuration: evalResult?.overall_metrics?.average_duration_ms,
               suite: resultWrapper.name,
+              avgTurns,
             },
             cost: 0, // You'll need to calculate actual cost based on your eval results
           }
