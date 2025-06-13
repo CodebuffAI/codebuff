@@ -12,7 +12,7 @@ import { EvalConfig, EvalResult } from './types'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
 const MOCK_PATH = 'git-evals/eval-result-codebuff-mock.json'
-const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000/'
+const API_BASE = 'http://localhost:3000/'
 
 async function runEvalSet(
   outputDir: string = DEFAULT_OUTPUT_DIR,
