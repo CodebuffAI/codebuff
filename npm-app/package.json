@@ -1,13 +1,12 @@
 {
-  "name": "codecaner",
+  "name": "codebuff",
   "version": "1.0.324",
   "description": "AI dev assistant",
   "license": "MIT",
-  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "codecaner": "dist/index.js"
+    "codebuff": "dist/index.js"
   },
   "scripts": {
     "prepublishOnly": "bun run bundle && infisical run --env=prod --log-level=warn -- bun run clean-package.js",
@@ -33,9 +32,8 @@
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
     "typecheck": "npm run build",
     "build": "tsc --build && tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
-    "prebundle": "bun install",
     "build:libs": "bunx tsc -b ../common ../packages/code-map",
-    "bundle": "bun build src/index.ts --outdir dist --target node --external '@vscode/ripgrep' --external 'tree-sitter*' --external 'node-gyp-build' --external '@homebridge/node-pty-prebuilt-multiarch' --external '*.node'",
+    "bundle": "rm -rf dist && bun build src/index.ts --outfile dist/index.js --target node --external:/^[^./]/ --external '*.node' --no-external:@codebuff/common --no-external:@codebuff/code-map",
     "run-bundle": "bun run dist/index.js"
   },
   "files": [
