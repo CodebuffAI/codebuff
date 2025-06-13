@@ -123,8 +123,9 @@ export async function runMainPrompt(
       }
       fullResponse += chunk
     },
-    selectedModel: options.modelConfig.agentModel,
+    selectedModel: undefined,
     readOnlyMode: false, // readOnlyMode = false for evals
+    modelConfig: options.modelConfig,
   })
 
   return {

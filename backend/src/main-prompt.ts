@@ -6,7 +6,11 @@ import {
 } from '@codebuff/bigquery'
 import { ClientAction } from 'common/actions'
 import {
+  geminiModels,
+  getModelForMode,
+  getModelFromShortName,
   HIDDEN_FILE_READ_STATUS,
+  Model,
   models,
   ONE_TIME_LABELS,
   type CostMode,
@@ -35,6 +39,7 @@ import { checkForUnproductiveLoop } from './llm-apis/check-for-loop'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStream } from './prompt-agent-stream'
+import { research } from './research'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
@@ -79,7 +84,6 @@ import {
   requestOptionalFile,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
-import { research } from './research'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
@@ -92,6 +96,7 @@ export interface MainPromptOptions {
   onResponseChunk: (chunk: string) => void
   selectedModel: string | undefined
   readOnlyMode?: boolean
+  modelConfig?: { agentModel?: Model; reasoningModel?: Model } // Used by the backend for automatic evals
 }
 
 export const mainPrompt = async (
@@ -109,6 +114,7 @@ export const mainPrompt = async (
     onResponseChunk,
     selectedModel,
     readOnlyMode = false,
+    modelConfig,
   } = options
 
   const {
@@ -128,14 +134,20 @@ export const mainPrompt = async (
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
-  const { getStream, model } = getAgentStream({
+  const model =
+    modelConfig?.agentModel ??
+    getModelFromShortName(selectedModel) ??
+    getModelForMode(costMode, 'agent')
+
+  const getStream = getAgentStream({
     costMode,
-    selectedModel,
+    selectedModel: model,
     stopSequences: TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
     clientSessionId,
     fingerprintId,
     userInputId: promptId,
     userId,
+    modelConfig,
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
@@ -164,12 +176,13 @@ export const mainPrompt = async (
   const isExporting =
     prompt &&
     (prompt.toLowerCase() === '/export' || prompt.toLowerCase() === 'export')
-  const geminiThinkingEnabled = costMode === 'max'
+  const geminiThinkingEnabled =
+    costMode === 'max' || modelConfig?.reasoningModel !== undefined
   const isLiteMode = costMode === 'lite'
   const isGeminiPro = model === models.gemini2_5_pro_preview
   const isFlash =
-    model === 'gemini-2.5-flash-preview-04-17:thinking' ||
-    (model as any) === 'gemini-2.5-flash-preview-04-17'
+    (model as Model) === geminiModels.gemini2_5_flash_thinking ||
+    model === geminiModels.gemini2_5_flash
   const toolsInstructions = getFilteredToolsInstructions(costMode)
   const userInstructions = buildArray(
     isAskMode &&
@@ -622,6 +635,7 @@ export const mainPrompt = async (
         fingerprintId,
         userInputId: promptId,
         userId,
+        model: modelConfig?.reasoningModel,
       }
     )
     if (model === models.gpt4_1) {

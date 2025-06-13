@@ -262,3 +262,18 @@ export const providerModelNames = {
 export type Model = (typeof models)[keyof typeof models]
 
 export const TEST_USER_ID = 'test-user-id'
+
+export function getModelFromShortName(
+  modelName: string | undefined
+): Model | undefined {
+  if (!modelName) return undefined
+  if (modelName && !(modelName in shortModelNames)) {
+    throw new Error(
+      `Unknown model: ${modelName}. Please use a valid model. Valid models are: ${Object.keys(
+        shortModelNames
+      ).join(', ')}`
+    )
+  }
+
+  return shortModelNames[modelName as keyof typeof shortModelNames]
+}
