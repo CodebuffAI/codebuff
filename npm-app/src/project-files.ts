@@ -31,14 +31,32 @@ import { getSystemInfo } from './utils/system-info'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 // Global variables for chat management
-// Initialize chat ID on first import
-let currentChatId = new Date().toISOString().replace(/:/g, '-')
+// Initialize chat ID on first import with singleton pattern
+let currentChatId: string | null = null
 
-export function getCurrentChatId() {
+function initializeChatId(providedChatId?: string): string {
+  if (currentChatId === null) {
+    currentChatId = providedChatId || new Date().toISOString().replace(/:/g, '-')
+  }
   return currentChatId
 }
 
+// Function to set chat ID from external source (like worker message)
+export function setChatIdFromExternal(chatId: string): void {
+  if (currentChatId === null) {
+    currentChatId = chatId
+  }
+}
+
+export function getCurrentChatId() {
+  if (currentChatId === null) {
+    initializeChatId()
+  }
+  return currentChatId!
+}
+
 export function startNewChat() {
+  const oldId = currentChatId
   currentChatId = new Date().toISOString().replace(/:/g, '-')
   return currentChatId
 }
@@ -59,7 +77,8 @@ export function getProjectDataDir(): string {
 }
 
 export function getCurrentChatDir(): string {
-  const dir = path.join(getProjectDataDir(), 'chats', getCurrentChatId())
+  const chatId = getCurrentChatId()
+  const dir = path.join(getProjectDataDir(), 'chats', chatId)
   ensureDirectoryExists(dir)
   return dir
 }
@@ -162,7 +181,9 @@ export function initProjectFileContextWithWorker(
     : path.join(__dirname, 'workers/project-context.js')
   const worker = new Worker(workerPath as any)
 
-  worker.postMessage({ dir })
+  // Pass the current chat ID to the worker to ensure consistency
+  const mainThreadChatId = getCurrentChatId()
+  worker.postMessage({ dir, chatId: mainThreadChatId })
 
   return new Promise<ProjectFileContext>((resolve, reject) => {
     worker.on('message', (initFileContext) => {
