@@ -16,14 +16,16 @@
       "options": {
         "command": "bun src/index.ts",
         "cwd": "backend"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "dev": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "bun src/index.ts",
         "cwd": "backend"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "test": {
       "executor": "nx:run-commands",

@@ -16,7 +16,8 @@
       "options": {
         "command": "bun test",
         "cwd": "packages/billing"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     }
   },
   "implicitDependencies": ["common"]

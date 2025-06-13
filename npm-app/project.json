@@ -51,105 +51,120 @@
         "command": "bun run clean-package.js",
         "cwd": "npm-app",
         "env": "prod"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts ..",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-js": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "bun run clean-package.js && sh -c 'TS_NODE_BASEURL=./dist node -r tsconfig-paths/register dist/index.js ..'",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-max": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts .. --max",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-lite": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts .. --lite",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-ask": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts .. --ask",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-superagent": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts .. --superagent",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-dir": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-experimental": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts .. --experimental",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-manifold": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts ../../manifold",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-litestar": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts ../test/__mock-projects__/litestar",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-jpcsp": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts ../test/__mock-projects__/jpcsp",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-vscode": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts ../test/__mock-projects__/vscode",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-nushell": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts ../test/__mock-projects__/nushell",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     },
     "start-prod": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "ts-node -r tsconfig-paths/register src/index.ts",
         "cwd": "npm-app"
-      }
+      },
+      "dependsOn": ["@codebuff/build-tools:build"]
     }
   },
   "implicitDependencies": ["common", "code-map"]
