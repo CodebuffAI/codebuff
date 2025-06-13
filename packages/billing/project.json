@@ -1,0 +1,23 @@
+{
+  "name": "@codebuff/billing",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p tsconfig.json",
+        "cwd": "packages/billing"
+      }
+    },
+    "test": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "bun test",
+        "cwd": "packages/billing"
+      }
+    }
+  },
+  "implicitDependencies": ["common"]
+}

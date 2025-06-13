@@ -16,31 +16,33 @@
       ]
     },
     "build": {
-      "executor": "nx:run-commands",
+      "executor": "@codebuff/build-tools:infisical-run",
       "outputs": ["{projectRoot}/.next"],
       "options": {
-        "commands": [
-          "if command -v infisical >/dev/null 2>&1; then infisical run -- next build; else next build; fi"
-        ],
-        "cwd": "web",
-        "parallel": false
+        "command": "next build",
+        "cwd": "web"
       },
       "dependsOn": ["^build", "contentlayer"]
     },
     "dev": {
-      "executor": "nx:run-commands",
+      "executor": "@codebuff/build-tools:infisical-run",
       "options": {
-        "command": "infisical run --log-level=warn -- next dev -p 3000",
+        "command": "next dev -p 3000",
         "cwd": "web"
       },
       "dependsOn": ["contentlayer", "root:build-env"]
     },
-    "discord:register": {
-      "executor": "nx:run-commands",
+    "start": {
+      "executor": "@codebuff/build-tools:infisical-run",
       "options": {
-        "commands": [
-          "if command -v infisical >/dev/null 2>&1; then infisical run -- bun run scripts/discord/register-commands.ts; else bun run scripts/discord/register-commands.ts; fi"
-        ],
+        "command": "next start",
+        "cwd": "web"
+      }
+    },
+    "discord:register": {
+      "executor": "@codebuff/build-tools:infisical-run",
+      "options": {
+        "command": "bun run scripts/discord/register-commands.ts",
         "cwd": "web"
       }
     }

@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import path from 'path'
 import { Model } from 'common/constants'
 import type { GitEvalResultRequest } from 'common/db/schema'
 import { sendEvalResultsEmail } from './email-eval-results'
@@ -47,7 +48,7 @@ async function runEvalSet(
   const evalConfigs: EvalConfig[] = [
     {
       name: 'codebuff',
-      evalDataPath: 'git-evals/eval-codebuff.json',
+      evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
       outputDir,
       modelConfig: {},
     },

@@ -11,10 +11,10 @@
     "typecheck-this-package": "tsc --noEmit",
     "typecheck": "bun run typecheck-this-package",
     "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
-    "db:generate": "infisical run --log-level=warn -- drizzle-kit generate --config=./src/db/drizzle.config.ts",
+    "db:generate": "nx run common:db-generate",
     "db:migrate": "nx run common:db-migrate",
     "db:start": "docker compose -f ./src/db/docker-compose.yml up --wait && bun run db:generate && (timeout 1 || sleep 1) && bun run db:migrate",
-    "db:studio": "infisical run --log-level=warn -- drizzle-kit studio --config=./src/db/drizzle.config.ts"
+    "db:studio": "nx run common:db-studio"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.5.0",
