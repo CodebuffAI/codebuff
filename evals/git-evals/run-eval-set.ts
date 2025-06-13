@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 
-import { claudeModels, openaiModels } from 'common/constants'
 import type { GitEvalResultRequest } from 'common/db/schema'
 import { sendEvalResultsEmail } from './email-eval-results'
 import { analyzeEvalResults } from './post-eval-analysis'
@@ -34,19 +33,14 @@ async function runEvalSet(
       name: 'codebuff',
       evalDataPath: 'git-evals/eval-codebuff.json',
       outputDir,
-      modelConfig: {
-        agentModel: claudeModels.sonnet,
-        reasoningModel: openaiModels.o3pro,
-      },
-      limit: 2,
+      modelConfig: {},
     },
-    // {
-    //   name: 'manifold',
-    //   evalDataPath: 'git-evals/eval-manifold.json',
-    //   outputDir,
-    //   modelConfig: {},
-    //   limit: 2,
-    // },
+    {
+      name: 'manifold',
+      evalDataPath: 'git-evals/eval-manifold.json',
+      outputDir,
+      modelConfig: {},
+    },
   ]
 
   console.log(`Running ${evalConfigs.length} evaluations sequentially:`)
