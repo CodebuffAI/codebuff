@@ -27,16 +27,6 @@ async function main() {
     setProjectRoot(projectPath)
     setWorkingDirectory(projectPath)
 
-    console.log({ send: process.send }, 'asdf')
-    if (process.send) {
-      const e = new Error('test error asdf')
-      process.send({
-        type: 'error',
-        error: { message: e.message, stack: e.stack },
-      })
-    }
-    process.exit(1)
-
     const result = await runSingleEval(
       evalCommit,
       projectPath,
@@ -45,6 +35,9 @@ async function main() {
     )
     if (process.send) {
       process.send({ type: 'result', result })
+      console.log({ result }, 'Sent result to parent process')
+    } else {
+      console.log({ result }, 'No parent process to send result to')
     }
   } catch (error) {
     if (process.send) {
@@ -55,7 +48,11 @@ async function main() {
             ? { message: error.message, stack: error.stack }
             : { message: String(error) },
       })
+      console.log({ error }, 'Sent error to parent process')
+    } else {
+      console.log({ error }, 'No parent process to send error to')
     }
+    process.exit(1)
   } finally {
     process.exit(0)
   }
