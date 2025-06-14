@@ -34,13 +34,7 @@ console.log(`Building binary for ${currentTarget.bunTarget} (${currentTarget.tri
 
 try {
   const defineFlag = `--define:PLATFORM_TRIPLET='"${currentTarget.triplet}"'`
-  // Include worker entrypoints in the compile command
-  const workerEntrypoints = [
-    'src/workers/project-context.ts',
-    'src/workers/checkpoint-worker.ts'
-  ].join(' ')
-  
-  execSync(`bun build --compile dist/index.js ${workerEntrypoints} --target=${currentTarget.bunTarget} --minify ${defineFlag} --outfile="${outputFile}"`, {
+  execSync(`bun build --compile --root src src/index.ts --target=${currentTarget.bunTarget} --minify ${defineFlag} --outfile="${outputFile}"`, {
     stdio: 'inherit'
   })
   

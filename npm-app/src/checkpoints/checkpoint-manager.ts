@@ -3,7 +3,10 @@ import os from 'os'
 import { join } from 'path'
 import { Worker } from 'worker_threads'
 
-import { DEFAULT_MAX_FILES, getAllFilePaths } from '@codebuff/common/project-file-tree'
+import {
+  DEFAULT_MAX_FILES,
+  getAllFilePaths,
+} from '@codebuff/common/project-file-tree'
 import { AgentState, ToolResult } from '@codebuff/common/types/agent-state'
 import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 
@@ -94,10 +97,11 @@ export class CheckpointManager {
    */
   private initWorker(): Worker {
     if (!this.worker) {
-      // Use simple path resolution that works in both development and production
-      const workerPath = join(__dirname, '../workers/checkpoint-worker.ts')
-      
-      this.worker = new Worker(workerPath as any)
+      this.worker = new Worker(
+        // Inline the worker path so it is statically analyzed and compiled into the binary
+        new URL('./workers/checkpoint-worker.ts', import.meta.url).href,
+        { type: 'module' } as any
+      )
     }
     return this.worker
   }

@@ -156,11 +156,13 @@ export function initProjectFileContextWithWorker(
   if (resetCache) {
     cachedProjectFileContext = undefined
   }
-  
-  // Use simple path resolution that works in both development and production
-  const workerPath = path.join(__dirname, 'workers/project-context.ts')
-  
-  const worker = new Worker(workerPath as any)
+
+  // Use relative path that works in both development and production
+  const worker = new Worker(
+    // Inline the worker path so it is statically analyzed and compiled into the binary
+    new URL('./workers/project-context.ts', import.meta.url).href,
+    { type: 'module' } as any
+  )
 
   worker.postMessage({ dir })
 
