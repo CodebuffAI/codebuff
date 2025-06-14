@@ -54,9 +54,11 @@ export function createXMLStreamParser(
           name,
           Saxy.parseAttrs(tag.attrs).attrs
         )
-        if (output !== null) {
+        if (typeof output === 'string') {
           parser.push(output)
           if (callback) callback(output)
+        } else if (output !== null) {
+          output()
         }
       }
     }
@@ -69,9 +71,11 @@ export function createXMLStreamParser(
       const toolRenderer = getRenderer(currentTool)
       if (toolRenderer.onParamStart) {
         const output = toolRenderer.onParamStart(name, currentTool)
-        if (output !== null) {
+        if (typeof output === 'string') {
           parser.push(output)
           if (callback) callback(output)
+        } else if (output !== null) {
+          output()
         }
       }
     }
@@ -89,9 +93,11 @@ export function createXMLStreamParser(
           currentParam,
           currentTool
         )
-        if (output !== null) {
+        if (typeof output === 'string') {
           parser.push(output)
           if (callback) callback(output)
+        } else if (output !== null) {
+          output()
         }
       }
     } else {
@@ -117,9 +123,11 @@ export function createXMLStreamParser(
           currentTool,
           paramContent
         )
-        if (output !== null) {
+        if (typeof output === 'string') {
           parser.push(output)
           if (callback) callback(output)
+        } else if (output !== null) {
+          output()
         }
       }
 
@@ -132,9 +140,11 @@ export function createXMLStreamParser(
       const toolRenderer = getRenderer(currentTool)
       if (toolRenderer.onToolEnd) {
         const output = toolRenderer.onToolEnd(currentTool, params)
-        if (output !== null) {
+        if (typeof output === 'string') {
           parser.push(output)
           if (callback) callback(output)
+        } else if (output !== null) {
+          output()
         }
       }
 

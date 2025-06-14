@@ -13,30 +13,33 @@ export interface ToolCallRenderer {
   onToolStart?: (
     toolName: string,
     attributes: Record<string, string>
-  ) => string | null
+  ) => string | null | (() => void)
 
   // Called when a parameter tag is found within a tool
-  onParamStart?: (paramName: string, toolName: string) => string | null
+  onParamStart?: (
+    paramName: string,
+    toolName: string
+  ) => string | null | (() => void)
 
   // Called when parameter content is received
   onParamChunk?: (
     content: string,
     paramName: string,
     toolName: string
-  ) => string | null
+  ) => string | null | (() => void)
 
   // Called when a parameter tag ends
   onParamEnd?: (
     paramName: string,
     toolName: string,
     content: string
-  ) => string | null
+  ) => string | null | (() => void)
 
   // Called when a tool tag ends
   onToolEnd?: (
     toolName: string,
     params: Record<string, string>
-  ) => string | null
+  ) => string | null | (() => void)
 }
 
 let toolStart = true
@@ -242,17 +245,17 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     onParamEnd: (paramName, toolName, content) => {
       if (paramName === 'prompts') {
         try {
-          const prompts = JSON.parse(content);
+          const prompts = JSON.parse(content)
           if (Array.isArray(prompts)) {
-            return gray(`- ${prompts.join('\n- ')}`);
+            return gray(`- ${prompts.join('\n- ')}`)
           }
         } catch (e) {
           // Fallback for non-json or malformed
-          const prompts = content.trim().split('\n').filter(Boolean);
-          return gray(`- ${prompts.join('\n- ')}`);
+          const prompts = content.trim().split('\n').filter(Boolean)
+          return gray(`- ${prompts.join('\n- ')}`)
         }
       }
-      return null;
+      return null
     },
     onToolEnd: (toolName, params) => {
       return gray('\n\nResearching...')
