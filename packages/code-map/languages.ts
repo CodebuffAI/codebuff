@@ -1,6 +1,7 @@
 import * as path from 'path'
 import { DEBUG_PARSING } from './parse'
 
+/*
 // require('tree-sitter/prebuilds/linux-x64/tree-sitter.node')
 // require('tree-sitter/prebuilds/linux-arm64/tree-sitter.node')
 // require('tree-sitter/prebuilds/darwin-x64/tree-sitter.node')
@@ -63,6 +64,7 @@ require('tree-sitter-rust/prebuilds/darwin-arm64/tree-sitter-rust.node')
 // require('tree-sitter-typescript/prebuilds/darwin-x64/tree-sitter-typescript.node')
 require('tree-sitter-typescript/prebuilds/darwin-arm64/tree-sitter-typescript.node')
 // require('tree-sitter-typescript/prebuilds/win32-x64/tree-sitter-typescript.node')
+*/
 
 import Parser from 'tree-sitter'
 import { Query } from 'tree-sitter'
