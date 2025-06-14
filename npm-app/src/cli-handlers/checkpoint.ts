@@ -256,11 +256,12 @@ export async function saveCheckpoint(
     return
   }
 
-  Spinner.get().start('Saving')
+  Spinner.get().start('Loading')
   await readyPromise
-  Spinner.get().stop()
 
+  Spinner.get().start('Saving')
   await waitForPreviousCheckpoint()
+  Spinner.get().stop()
 
   // Save the current agent state
   try {
