@@ -1,8 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-
 import { uniq } from 'lodash'
-import TreeSitter from './native/tree-sitter'
 
 import { LanguageConfig, getLanguageConfig } from './languages'
 
@@ -25,17 +23,6 @@ export async function getFileTokenScores(
   projectRoot: string,
   filePaths: string[]
 ): Promise<FileTokenData> {
-  // Load tree-sitter dynamically
-  const TreeSitterModule = await TreeSitter();
-  
-  // If tree-sitter is not available, return empty data
-  if (!TreeSitterModule) {
-    return {
-      tokenScores: {},
-      tokenCallers: {}
-    }
-  }
-
   const startTime = Date.now()
   const tokenScores: { [filePath: string]: { [token: string]: number } } = {}
   const externalCalls: { [token: string]: number } = {}

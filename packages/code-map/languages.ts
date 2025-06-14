@@ -1,8 +1,71 @@
 import * as path from 'path'
-import TreeSitter from './native/tree-sitter'
-
 import { DEBUG_PARSING } from './parse'
 
+// require('tree-sitter/prebuilds/linux-x64/tree-sitter.node')
+// require('tree-sitter/prebuilds/linux-arm64/tree-sitter.node')
+// require('tree-sitter/prebuilds/darwin-x64/tree-sitter.node')
+require('tree-sitter/prebuilds/darwin-arm64/tree-sitter.node')
+// require('tree-sitter/prebuilds/win32-x64/tree-sitter.node')
+// require('tree-sitter/prebuilds/win32-arm64/tree-sitter.node')
+
+// Language-specific bindings
+// require('tree-sitter-c/prebuilds/linux-x64/tree-sitter-c.node')
+// require('tree-sitter-c/prebuilds/darwin-x64/tree-sitter-c.node')
+require('tree-sitter-c/prebuilds/darwin-arm64/tree-sitter-c.node')
+// require('tree-sitter-c/prebuilds/win32-x64/tree-sitter-c.node')
+
+// require('tree-sitter-c-sharp/prebuilds/linux-x64/tree-sitter-c-sharp.node')
+// require('tree-sitter-c-sharp/prebuilds/darwin-x64/tree-sitter-c-sharp.node')
+require('tree-sitter-c-sharp/prebuilds/darwin-arm64/tree-sitter-c-sharp.node')
+// require('tree-sitter-c-sharp/prebuilds/win32-x64/tree-sitter-c-sharp.node')
+
+// require('tree-sitter-cpp/prebuilds/linux-x64/tree-sitter-cpp.node')
+// require('tree-sitter-cpp/prebuilds/darwin-x64/tree-sitter-cpp.node')
+require('tree-sitter-cpp/prebuilds/darwin-arm64/tree-sitter-cpp.node')
+// require('tree-sitter-cpp/prebuilds/win32-x64/tree-sitter-cpp.node')
+
+// require('tree-sitter-go/prebuilds/linux-x64/tree-sitter-go.node')
+// require('tree-sitter-go/prebuilds/darwin-x64/tree-sitter-go.node')
+require('tree-sitter-go/prebuilds/darwin-arm64/tree-sitter-go.node')
+// require('tree-sitter-go/prebuilds/win32-x64/tree-sitter-go.node')
+
+// require('tree-sitter-java/prebuilds/linux-x64/tree-sitter-java.node')
+// require('tree-sitter-java/prebuilds/darwin-x64/tree-sitter-java.node')
+require('tree-sitter-java/prebuilds/darwin-arm64/tree-sitter-java.node')
+// require('tree-sitter-java/prebuilds/win32-x64/tree-sitter-java.node')
+
+// require('tree-sitter-javascript/prebuilds/linux-x64/tree-sitter-javascript.node')
+// require('tree-sitter-javascript/prebuilds/darwin-x64/tree-sitter-javascript.node')
+require('tree-sitter-javascript/prebuilds/darwin-arm64/tree-sitter-javascript.node')
+// require('tree-sitter-javascript/prebuilds/win32-x64/tree-sitter-javascript.node')
+
+// require('tree-sitter-php/prebuilds/linux-x64/tree-sitter-php.node')
+// require('tree-sitter-php/prebuilds/darwin-x64/tree-sitter-php.node')
+require('tree-sitter-php/prebuilds/darwin-arm64/tree-sitter-php.node')
+// require('tree-sitter-php/prebuilds/win32-x64/tree-sitter-php.node')
+
+// require('tree-sitter-python/prebuilds/linux-x64/tree-sitter-python.node')
+// require('tree-sitter-python/prebuilds/darwin-x64/tree-sitter-python.node')
+require('tree-sitter-python/prebuilds/darwin-arm64/tree-sitter-python.node')
+// require('tree-sitter-python/prebuilds/win32-x64/tree-sitter-python.node')
+
+// require('tree-sitter-ruby/prebuilds/linux-x64/tree-sitter-ruby.node')
+// require('tree-sitter-ruby/prebuilds/darwin-x64/tree-sitter-ruby.node')
+require('tree-sitter-ruby/prebuilds/darwin-arm64/tree-sitter-ruby.node')
+// require('tree-sitter-ruby/prebuilds/win32-x64/tree-sitter-ruby.node')
+
+// require('tree-sitter-rust/prebuilds/linux-x64/tree-sitter-rust.node')
+// require('tree-sitter-rust/prebuilds/darwin-x64/tree-sitter-rust.node')
+require('tree-sitter-rust/prebuilds/darwin-arm64/tree-sitter-rust.node')
+// require('tree-sitter-rust/prebuilds/win32-x64/tree-sitter-rust.node')
+
+// require('tree-sitter-typescript/prebuilds/linux-x64/tree-sitter-typescript.node')
+// require('tree-sitter-typescript/prebuilds/darwin-x64/tree-sitter-typescript.node')
+require('tree-sitter-typescript/prebuilds/darwin-arm64/tree-sitter-typescript.node')
+// require('tree-sitter-typescript/prebuilds/win32-x64/tree-sitter-typescript.node')
+
+import Parser from 'tree-sitter'
+import { Query } from 'tree-sitter'
 // Import query files as static strings
 import cQuery from './tree-sitter-queries/tree-sitter-c-tags.scm'
 import cppQuery from './tree-sitter-queries/tree-sitter-cpp-tags.scm'
@@ -121,14 +184,6 @@ const languageModules: Record<string, any> = {
 export async function getLanguageConfig(
   filePath: string
 ): Promise<LanguageConfig | undefined> {
-  // Load tree-sitter dynamically
-  const TreeSitterModule = await TreeSitter()
-
-  // If tree-sitter is not available, return undefined
-  if (!TreeSitterModule) {
-    return undefined
-  }
-
   const extension = path.extname(filePath)
   const config = languageConfigs.find((config) =>
     config.extensions.includes(extension)
@@ -136,7 +191,7 @@ export async function getLanguageConfig(
   if (!config) return undefined
 
   if (!config.parser) {
-    const parser = new TreeSitterModule()
+    const parser = new Parser()
 
     const languageModule = languageModules[config.packageName]
     if (!languageModule) {
@@ -157,10 +212,7 @@ export async function getLanguageConfig(
               : languageModule
       parser.setLanguage(language)
 
-      const query = new TreeSitterModule.Query(
-        parser.getLanguage(),
-        config.queryString
-      )
+      const query = new Query(parser.getLanguage(), config.queryString)
 
       config.parser = parser
       config.query = query

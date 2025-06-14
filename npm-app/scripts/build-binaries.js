@@ -34,7 +34,7 @@ console.log(`Building binary for ${currentTarget.bunTarget} (${currentTarget.tri
 
 try {
   const defineFlag = `--define:PLATFORM_TRIPLET='"${currentTarget.triplet}"'`
-  execSync(`bun build --compile src/index.ts src/workers/project-context.ts src/workers/checkpoint-worker.ts --target=${currentTarget.bunTarget} --minify ${defineFlag} --outfile="${outputFile}"`, {
+  execSync(`bun build --compile src/index.ts src/project-context.ts src/checkpoint-worker.ts --root src --target=${currentTarget.bunTarget} ${defineFlag} --outfile="${outputFile}" --asset-naming="[name].[ext]"`, { // --minify 
     stdio: 'inherit'
   })
   

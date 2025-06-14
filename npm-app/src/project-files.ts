@@ -159,7 +159,7 @@ export function initProjectFileContextWithWorker(
 
   // Use relative path that works in both development and production
   // Inline the worker path so it is statically analyzed and compiled into the binary
-  const worker = new Worker('./workers/project-context.ts')
+  const worker = new Worker('./project-context.ts')
 
   worker.postMessage({ dir })
 
@@ -233,6 +233,7 @@ export const getProjectFileContext = async (
       await addScrapedContentToFiles(userKnowledgeFiles)
 
     const shellConfigFiles = loadShellConfigFiles()
+    console.log('getProjectFileContext')
     const { tokenScores, tokenCallers } = await getFileTokenScores(
       projectRoot,
       allFilePaths
