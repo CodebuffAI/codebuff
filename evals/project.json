@@ -66,8 +66,7 @@
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "bun run evals/git-evals/run-eval-set.ts"
-      },
-      "dependsOn": ["@codebuff/build-tools:build"]
+      }
     },
     "setup-codebuff-repo": {
       "executor": "nx:run-commands",
