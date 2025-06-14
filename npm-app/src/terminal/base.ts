@@ -36,6 +36,7 @@ try {
 const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
 const needleIdentifier = '@76593@'
+const setUpPromptIdentifierCommand = `PS1="@362""61@" && PS2="@362""61@"`
 
 type PersistentProcess =
   | {
@@ -46,6 +47,7 @@ type PersistentProcess =
       // Add persistent output buffer for manager mode
       globalOutputBuffer: string
       globalOutputLastReadLength: number
+      setupPromise: Promise<any>
     }
   | {
       type: 'process'
@@ -73,41 +75,38 @@ const createPersistantProcess = (
     const shellWithoutExe = shell.split('.')[0]
 
     // Prepare shell init commands
-    let shellInitCommands = ''
+    let shellInitCommands: string[] = []
     if (!isWindows) {
+      shellInitCommands.push('true')
       // Source all relevant config files based on shell type
       if (currShell === 'zsh') {
-        shellInitCommands = `
-          source ~/.zshenv 2>/dev/null || true
-          source ~/.zprofile 2>/dev/null || true
-          source ~/.zshrc 2>/dev/null || true
-          source ~/.zlogin 2>/dev/null || true
-        `
+        shellInitCommands.push(
+          'source ~/.zshenv 2>/dev/null || true',
+          'source ~/.zprofile 2>/dev/null || true',
+          'source ~/.zshrc 2>/dev/null || true',
+          'source ~/.zlogin 2>/dev/null || true'
+        )
       } else if (currShell === 'fish') {
-        shellInitCommands = `
-          source ~/.config/fish/config.fish 2>/dev/null || true
-        `
+        shellInitCommands.push(
+          'source ~/.config/fish/config.fish 2>/dev/null || true'
+        )
       } else {
         // Bash - source both profile and rc files
-        shellInitCommands = `
-          source ~/.bash_profile 2>/dev/null || true
-          source ~/.profile 2>/dev/null || true
-          source ~/.bashrc 2>/dev/null || true
-        `
+        shellInitCommands.push(
+          'source ~/.bash_profile 2>/dev/null || true',
+          'source ~/.profile 2>/dev/null || true',
+          'source ~/.bashrc 2>/dev/null || true'
+        )
       }
+      shellInitCommands = shellInitCommands.map(
+        (c) => `(${c}) && ${setUpPromptIdentifierCommand}`
+      )
     } else if (currShell === 'powershell') {
       // Try to source all possible PowerShell profile locations
-      shellInitCommands = `
-        $profiles = @(
-          $PROFILE.AllUsersAllHosts,
-          $PROFILE.AllUsersCurrentHost,
-          $PROFILE.CurrentUserAllHosts,
-          $PROFILE.CurrentUserCurrentHost
-        )
-        foreach ($prof in $profiles) {
-          if (Test-Path $prof) { . $prof }
-        }
-      `
+      shellInitCommands.push(
+        '$profiles = @($PROFILE.AllUsersAllHosts,$PROFILE.AllUsersCurrentHost,$PROFILE.CurrentUserAllHosts,$PROFILE.CurrentUserCurrentHost)',
+        'foreach ($prof in $profiles) { if (Test-Path $prof) { . $prof } }'
+      )
     }
 
     const persistentPty = pty.spawn(shell, isWindows ? [] : ['--login'], {
@@ -143,17 +142,12 @@ const createPersistantProcess = (
       },
     })
 
-    // Source the shell config files
-    if (shellInitCommands) {
-      persistentPty.write(shellInitCommands)
-    }
-
-    // Set prompt for Unix shells after sourcing config
-    if (!isWindows) {
-      persistentPty.write(
-        `PS1=${promptIdentifier} && PS2=${promptIdentifier}\n`
-      )
-    }
+    const setupPromise = new Promise<void>(async (resolve) => {
+      for (const command of shellInitCommands) {
+        await runSinglePtyCommand(persistentPty, command, () => {})
+      }
+      resolve()
+    })
 
     const persistentProcessInfo: PersistentProcess = {
       type: 'pty',
@@ -162,6 +156,7 @@ const createPersistantProcess = (
       timerId: null,
       globalOutputBuffer: '',
       globalOutputLastReadLength: 0,
+      setupPromise,
     }
 
     // Add a persistent listener to capture all output for manager mode
@@ -501,6 +496,8 @@ export const runCommandPty = (
   persistentProcess.timerId = timer
 
   new Promise(async () => {
+    await persistentProcess.setupPromise
+
     let fullCombinedOutput = ''
 
     const cdCommand = `cd ${cwd}`
