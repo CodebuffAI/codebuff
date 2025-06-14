@@ -16,7 +16,8 @@ export async function research(
 ): Promise<string[]> {
   const { userId, clientSessionId, fingerprintId, promptId } = options
   const maxIterations = 10
-  const researchPromises = prompts.map((prompt) => {
+  const maxPrompts = 10
+  const researchPromises = prompts.slice(0, maxPrompts).map((prompt) => {
     // Each research prompt runs in 'lite' mode and can only use read-only tools.
     const researchAgentState: AgentState = {
       ...initialAgentState,
@@ -49,7 +50,7 @@ export async function research(
   })
 
   const results = await Promise.all(researchPromises)
-  // We'll return the final message history from each research agent.
+  // We'll return the final message from each research agent.
   return results.map((result) =>
     result.agentState.messageHistory
       .filter((m) => m.role === 'assistant')

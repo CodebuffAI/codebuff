@@ -1084,19 +1084,26 @@ export const mainPrompt = async (
         })
         continue
       }
-      const researchResults = await research(ws, prompts, agentState, {
-        userId,
-        clientSessionId,
-        fingerprintId,
-        promptId,
-      })
 
-      const formattedResult = researchResults
-        .map(
-          (result, i) =>
-            `<research_result>\n<prompt>${prompts[i]}</prompt>\n<result>${result}</result>\n</research_result>`
-        )
-        .join('\n\n')
+      let formattedResult: string
+      try {
+        const researchResults = await research(ws, prompts, agentState, {
+          userId,
+          clientSessionId,
+          fingerprintId,
+          promptId,
+        })
+        formattedResult = researchResults
+          .map(
+            (result, i) =>
+              `<research_result>\n<prompt>${prompts[i]}</prompt>\n<result>${result}</result>\n</research_result>`
+          )
+          .join('\n\n')
+
+        logger.debug({ prompts, researchResults }, 'Ran research')
+      } catch (e) {
+        formattedResult = `Error running research, consider retrying?: ${e instanceof Error ? e.message : 'Unknown error'}`
+      }
 
       serverToolResults.push({
         id: generateCompactId(),
