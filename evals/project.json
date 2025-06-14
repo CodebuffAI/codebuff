@@ -51,16 +51,14 @@
       "options": {
         "command": "bun run git-evals/gen-evals.ts",
         "cwd": "evals"
-      },
-      "dependsOn": ["@codebuff/build-tools:build"]
+      }
     },
     "run-git-evals": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "bun run git-evals/run-git-evals.ts",
         "cwd": "evals"
-      },
-      "dependsOn": ["@codebuff/build-tools:build"]
+      }
     },
     "run-eval-set": {
       "executor": "@codebuff/build-tools:infisical-run",

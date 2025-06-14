@@ -17,24 +17,21 @@
       "options": {
         "command": "drizzle-kit push --config=./src/db/drizzle.config.ts",
         "cwd": "common"
-      },
-      "dependsOn": ["@codebuff/build-tools:build"]
+      }
     },
     "db-generate": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
         "cwd": "common"
-      },
-      "dependsOn": ["@codebuff/build-tools:build"]
+      }
     },
     "db-studio": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "drizzle-kit studio --config=./src/db/drizzle.config.ts",
         "cwd": "common"
-      },
-      "dependsOn": ["@codebuff/build-tools:build"]
+      }
     },
     "test": {
       "executor": "nx:run-commands",

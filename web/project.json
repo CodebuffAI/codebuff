@@ -22,7 +22,7 @@
         "command": "next build",
         "cwd": "web"
       },
-      "dependsOn": ["^build", "contentlayer", "@codebuff/build-tools:build"]
+      "dependsOn": ["^build", "contentlayer"]
     },
     "dev": {
       "executor": "@codebuff/build-tools:infisical-run",
@@ -30,23 +30,21 @@
         "command": "next dev -p 3000",
         "cwd": "web"
       },
-      "dependsOn": ["contentlayer", "root:build-env", "@codebuff/build-tools:build"]
+      "dependsOn": ["contentlayer", "root:build-env"]
     },
     "start": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "next start",
         "cwd": "web"
-      },
-      "dependsOn": ["@codebuff/build-tools:build"]
+      }
     },
     "discord:register": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {
         "command": "bun run scripts/discord/register-commands.ts",
         "cwd": "web"
-      },
-      "dependsOn": ["@codebuff/build-tools:build"]
+      }
     }
   },
   "implicitDependencies": ["common", "@codebuff/billing"]
