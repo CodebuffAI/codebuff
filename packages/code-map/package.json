@@ -1,12 +1,14 @@
 {
   "name": "@codebuff/code-map",
   "version": "1.0.0",
+  "private": true,
   "license": "UNLICENSED",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {
     ".": {
       "types": "./index.ts",
+      "bun": "./index.ts",
       "import": "./index.ts",
       "default": "./index.ts"
     }

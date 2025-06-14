@@ -7,8 +7,5 @@
     "types": ["bun", "node", "jest"]
   },
   "include": ["src"],
-  "references": [
-    { "path": "../common" },
-    { "path": "../packages/code-map" }
-  ]
+  "references": [{ "path": "../common" }]
 }
