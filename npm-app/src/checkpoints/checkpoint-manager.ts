@@ -98,7 +98,7 @@ export class CheckpointManager {
   private initWorker(): Worker {
     if (!this.worker) {
       // Inline the worker path so it is statically analyzed and compiled into the binary
-      this.worker = new Worker('./checkpoint-worker.ts')
+      this.worker = new Worker(new URL('./checkpoint-worker.ts', import.meta.url).href)
     }
     return this.worker
   }

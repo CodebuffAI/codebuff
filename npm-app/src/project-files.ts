@@ -159,7 +159,7 @@ export function initProjectFileContextWithWorker(
 
   // Use relative path that works in both development and production
   // Inline the worker path so it is statically analyzed and compiled into the binary
-  const worker = new Worker('./project-context.ts')
+  const worker = new Worker(new URL('./project-context.ts', import.meta.url))
 
   worker.postMessage({ dir })
 
@@ -233,11 +233,29 @@ export const getProjectFileContext = async (
       await addScrapedContentToFiles(userKnowledgeFiles)
 
     const shellConfigFiles = loadShellConfigFiles()
-    console.log('getProjectFileContext')
-    const { tokenScores, tokenCallers } = await getFileTokenScores(
-      projectRoot,
-      allFilePaths
-    )
+    
+    // Add error handling for getFileTokenScores
+    let tokenScores: Record<string, Record<string, number>> = {}
+    let tokenCallers: Record<string, Record<string, string[]>> = {}
+    
+    try {
+      const result = await getFileTokenScores(projectRoot, allFilePaths)
+      tokenScores = result.tokenScores || {}
+      tokenCallers = result.tokenCallers || {}
+    } catch (error) {
+      logger.error(
+        {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          projectRoot,
+          fileCount: allFilePaths.length,
+        },
+        'Error getting file token scores, using empty scores'
+      )
+      // Use empty objects as fallback
+      tokenScores = {}
+      tokenCallers = {}
+    }
 
     cachedProjectFileContext = {
       currentWorkingDirectory: projectRoot,
