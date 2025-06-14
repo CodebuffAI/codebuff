@@ -12,8 +12,7 @@
     "test",
     "packages/*",
     "scripts",
-    "evals",
-    "build-tools"
+    "evals"
   ],
   "scripts": {
     "start-db": "bun --cwd common db:start",
