@@ -4,6 +4,7 @@ import { capitalize, snakeToTitleCase } from 'common/util/string'
 import { bold, gray, strikethrough } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
+import { Spinner } from './spinner'
 
 /**
  * Interface for handling tool call rendering
@@ -247,18 +248,20 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
         try {
           const prompts = JSON.parse(content)
           if (Array.isArray(prompts)) {
-            return gray(`- ${prompts.join('\n- ')}`)
+            return gray(`- ${prompts.join('\n- ')}`) + '\n\n'
           }
         } catch (e) {
           // Fallback for non-json or malformed
           const prompts = content.trim().split('\n').filter(Boolean)
-          return gray(`- ${prompts.join('\n- ')}`)
+          return gray(`- ${prompts.join('\n- ')}`) + '\n\n'
         }
       }
       return null
     },
     onToolEnd: (toolName, params) => {
-      return gray('\n\nResearching...')
+      return () => {
+        Spinner.get().start('Researching')
+      }
     },
   },
 }
