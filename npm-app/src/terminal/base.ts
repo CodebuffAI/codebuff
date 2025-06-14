@@ -384,14 +384,19 @@ function runSinglePtyCommand(
   ptyProcess: IPty,
   command: string,
   onChunk: (data: string) => void
-): Promise<string> {
+): Promise<{ filteredOutput: string; fullOutput: string }> {
   const isWindows = os.platform() === 'win32'
-  let commandOutput = ''
+  let fullOutput = promptIdentifier
+  let filteredOutput = ''
   let buffer = promptIdentifier
   let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
 
-  const resultPromise = new Promise<string>((resolve) => {
+  const resultPromise = new Promise<{
+    filteredOutput: string
+    fullOutput: string
+  }>((resolve) => {
     const dataDisposable = ptyProcess.onData((data: string) => {
+      fullOutput += data
       buffer += data
 
       // Wait for pending promptIdentifier
@@ -416,14 +421,14 @@ function runSinglePtyCommand(
       }
 
       onChunk(toProcess)
-      commandOutput += toProcess
+      filteredOutput += toProcess
 
       const commandDone = buffer.startsWith(promptIdentifier)
       if (commandDone && echoLinesRemaining === 0) {
         // Command is done
         dataDisposable.dispose()
 
-        resolve(commandOutput)
+        resolve({ filteredOutput, fullOutput })
       }
     })
   })
@@ -496,42 +501,67 @@ export const runCommandPty = (
   persistentProcess.timerId = timer
 
   new Promise(async () => {
-    await runSinglePtyCommand(ptyProcess, `cd ${cwd}`, () => {})
+    let fullCombinedOutput = ''
 
-    await runSinglePtyCommand(ptyProcess, command, (data: string) => {
-      commandOutput += data
-      process.stdout.write(data)
-    })
-
-    const exitCodeHaystack = await runSinglePtyCommand(
+    const cdCommand = `cd ${cwd}`
+    const { fullOutput: cdOutput } = await runSinglePtyCommand(
       ptyProcess,
-      persistentProcess.shell === 'cmd.exe'
-        ? `echo ${needleIdentifier}%ERRORLEVEL%${needleIdentifier}`
-        : `echo ${needleIdentifier}$?${needleIdentifier}`,
+      cdCommand,
       () => {}
     )
+    fullCombinedOutput += `${JSON.stringify(cdCommand).slice(1, -1)}\n${cdOutput}\n\n`
+
+    const { fullOutput: fullCommandOutput } = await runSinglePtyCommand(
+      ptyProcess,
+      command,
+      (data: string) => {
+        commandOutput += data
+        process.stdout.write(data)
+      }
+    )
+    fullCombinedOutput += `${JSON.stringify(command).slice(1, -1)}\n${fullCommandOutput}\n\n`
+
+    const fullExitCodeCommand =
+      persistentProcess.shell === 'cmd.exe'
+        ? `echo ${needleIdentifier}%ERRORLEVEL%${needleIdentifier}`
+        : `echo ${needleIdentifier}$?${needleIdentifier}`
+    const { filteredOutput: exitCodeHaystack, fullOutput: fullExitCodeOutput } =
+      await runSinglePtyCommand(ptyProcess, fullExitCodeCommand, () => {})
+    fullCombinedOutput += `${JSON.stringify(fullExitCodeCommand).slice(1, -1)}\n${fullExitCodeOutput}\n\n`
     let exitCode: number | null = null
     const exitCodeMatch = exitCodeHaystack.match(getNeedlePattern('\\d+'))
     if (exitCodeMatch) {
       exitCode = parseInt(exitCodeMatch[1].trim())
     } else {
-      logger.error({ exitCodeHaystack }, 'Could not find exitCode in output')
+      logger.error(
+        { exitCodeHaystack, fullExitCodeOutput },
+        'Could not find exitCode in output'
+      )
     }
 
-    const cwdHaystack = await runSinglePtyCommand(
-      ptyProcess,
-      isWindows
-        ? `echo ${needleIdentifier}%cd%${needleIdentifier}`
-        : `echo ${needleIdentifier}$(pwd)${needleIdentifier}`,
-      () => {}
-    )
-    const m = cwdHaystack.match(getNeedlePattern())
+    const cwdCommand = isWindows
+      ? `echo ${needleIdentifier}%cd%${needleIdentifier}`
+      : `echo ${needleIdentifier}$(pwd)${needleIdentifier}`
+    const { filteredOutput: cwdHaystack, fullOutput: fullCwdOutput } =
+      await runSinglePtyCommand(ptyProcess, cwdCommand, () => {})
+    fullCombinedOutput += `${JSON.stringify(cwdCommand).slice(1, -1)}\n${fullCwdOutput}\n\n`
+    const cwdMatch = cwdHaystack.match(getNeedlePattern())
     let newWorkingDirectory
-    if (m) {
-      newWorkingDirectory = m[1].trim()
+    if (cwdMatch) {
+      newWorkingDirectory = cwdMatch[1].trim()
     } else {
-      logger.error({ cwdHaystack }, 'Could not find cwd in output')
+      logger.error(
+        { cwdHaystack, fullExitCodeOutput },
+        'Could not find cwd in output'
+      )
       newWorkingDirectory = cwd
+    }
+
+    if (!exitCodeMatch || !cwdMatch) {
+      logger.error(
+        { fullCombinedOutput },
+        'Could not find either exitCode or cwd in output'
+      )
     }
 
     const statusMessage =
