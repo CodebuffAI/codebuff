@@ -97,11 +97,8 @@ export class CheckpointManager {
    */
   private initWorker(): Worker {
     if (!this.worker) {
-      this.worker = new Worker(
-        // Inline the worker path so it is statically analyzed and compiled into the binary
-        new URL('./workers/checkpoint-worker.ts', import.meta.url).href,
-        { type: 'module' } as any
-      )
+      // Inline the worker path so it is statically analyzed and compiled into the binary
+      this.worker = new Worker('./workers/checkpoint-worker.ts')
     }
     return this.worker
   }
@@ -131,6 +128,9 @@ export class CheckpointManager {
       }
 
       worker.on('message', handler)
+      worker.on('error', (error) => {
+        reject(error)
+      })
       worker.postMessage(message)
 
       // Add timeout

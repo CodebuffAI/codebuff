@@ -158,15 +158,15 @@ export function initProjectFileContextWithWorker(
   }
 
   // Use relative path that works in both development and production
-  const worker = new Worker(
-    // Inline the worker path so it is statically analyzed and compiled into the binary
-    new URL('./workers/project-context.ts', import.meta.url).href,
-    { type: 'module' } as any
-  )
+  // Inline the worker path so it is statically analyzed and compiled into the binary
+  const worker = new Worker('./workers/project-context.ts')
 
   worker.postMessage({ dir })
 
   return new Promise<ProjectFileContext>((resolve, reject) => {
+    worker.on('error', (error) => {
+      reject(error)
+    })
     worker.on('message', (initFileContext) => {
       worker.terminate()
       cachedProjectFileContext = initFileContext
