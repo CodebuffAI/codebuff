@@ -16,6 +16,19 @@ import rubyQuery from './tree-sitter-queries/tree-sitter-ruby-tags.scm'
 import rustQuery from './tree-sitter-queries/tree-sitter-rust-tags.scm'
 import typescriptQuery from './tree-sitter-queries/tree-sitter-typescript-tags.scm'
 
+// Static imports for all tree-sitter language modules
+import treeSitterC from 'tree-sitter-c'
+import treeSitterCSharp from 'tree-sitter-c-sharp'
+import treeSitterCpp from 'tree-sitter-cpp'
+import treeSitterGo from 'tree-sitter-go'
+import treeSitterJava from 'tree-sitter-java'
+import treeSitterJavascript from 'tree-sitter-javascript'
+import treeSitterPhp from 'tree-sitter-php'
+import treeSitterPython from 'tree-sitter-python'
+import treeSitterRuby from 'tree-sitter-ruby'
+import treeSitterRust from 'tree-sitter-rust'
+import treeSitterTypescript from 'tree-sitter-typescript'
+
 export interface LanguageConfig {
   language: any
   extensions: string[]
@@ -90,12 +103,27 @@ const languageConfigs: Omit<LanguageConfig, 'parser' | 'query' | 'language'>[] =
     },
   ]
 
+// Map package names to their statically imported modules
+const languageModules: Record<string, any> = {
+  'tree-sitter-c': treeSitterC,
+  'tree-sitter-c-sharp': treeSitterCSharp,
+  'tree-sitter-cpp': treeSitterCpp,
+  'tree-sitter-go': treeSitterGo,
+  'tree-sitter-java': treeSitterJava,
+  'tree-sitter-javascript': treeSitterJavascript,
+  'tree-sitter-php': treeSitterPhp.php,
+  'tree-sitter-python': treeSitterPython,
+  'tree-sitter-ruby': treeSitterRuby,
+  'tree-sitter-rust': treeSitterRust,
+  'tree-sitter-typescript': treeSitterTypescript,
+}
+
 export async function getLanguageConfig(
   filePath: string
 ): Promise<LanguageConfig | undefined> {
   // Load tree-sitter dynamically
-  const TreeSitterModule = await TreeSitter();
-  
+  const TreeSitterModule = await TreeSitter()
+
   // If tree-sitter is not available, return undefined
   if (!TreeSitterModule) {
     return undefined
@@ -110,8 +138,15 @@ export async function getLanguageConfig(
   if (!config.parser) {
     const parser = new TreeSitterModule()
 
+    const languageModule = languageModules[config.packageName]
+    if (!languageModule) {
+      if (DEBUG_PARSING) {
+        console.log('Language module not found:', config.packageName)
+      }
+      return undefined
+    }
+
     try {
-      const languageModule = await import(config.packageName)
       const language =
         extension === '.ts'
           ? languageModule.typescript
@@ -122,7 +157,10 @@ export async function getLanguageConfig(
               : languageModule
       parser.setLanguage(language)
 
-      const query = new TreeSitterModule.Query(parser.getLanguage(), config.queryString)
+      const query = new TreeSitterModule.Query(
+        parser.getLanguage(),
+        config.queryString
+      )
 
       config.parser = parser
       config.query = query
