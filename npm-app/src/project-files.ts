@@ -12,10 +12,7 @@ import {
   getProjectFileTree,
   parseGitignore,
 } from 'common/project-file-tree'
-import {
-  ensureDirectoryExists,
-  ProjectFileContext,
-} from 'common/util/file'
+import { ensureDirectoryExists, ProjectFileContext } from 'common/util/file'
 import { filterObject } from 'common/util/object'
 import { createPatch } from 'diff'
 import { green } from 'picocolors'
@@ -26,6 +23,7 @@ import {
 } from 'common/json-config/constants'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
+import { gitCommandIsAvailable } from './utils/git'
 import { logger } from './utils/logger'
 import { getSystemInfo } from './utils/system-info'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
@@ -36,7 +34,8 @@ let currentChatId: string | null = null
 
 function initializeChatId(providedChatId?: string): string {
   if (currentChatId === null) {
-    currentChatId = providedChatId || new Date().toISOString().replace(/:/g, '-')
+    currentChatId =
+      providedChatId || new Date().toISOString().replace(/:/g, '-')
   }
   return currentChatId
 }
@@ -296,7 +295,15 @@ export const getProjectFileContext = async (
  *          - diffCached: Output of 'git diff --cached' command showing staged changes
  *          - lastCommitMessages: Recent commit messages, formatted as a newline-separated string
  */
-async function getGitChanges() {
+async function getGitChanges(): Promise<{
+  status: string
+  diff: string
+  diffCached: string
+  lastCommitMessages: string
+}> {
+  if (!gitCommandIsAvailable()) {
+    return { status: '', diff: '', diffCached: '', lastCommitMessages: '' }
+  }
   const status = execAsync('git status', { cwd: projectRoot })
     .then(({ stdout }) => stdout)
     .catch((error) => {
