@@ -433,8 +433,12 @@ export async function runGitEvals(
                 )
               }
             })
-          } catch (e) {
-            reject(e)
+          } catch (error) {
+            console.error(
+              `Error while running git eval for ${testRepoName} commit ${evalCommit.sha}`,
+              { error }
+            )
+            reject(error)
           }
         })
     )

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { execSync } from 'child_process'
-import fs from 'fs'
+import fs, { existsSync } from 'fs'
 import path from 'path'
 import { TEST_REPOS_DIR } from '../test-setup'
 
@@ -42,13 +42,17 @@ export async function setupTestRepo(
     fs.rmSync(repoDir, { recursive: true })
   }
 
-  fs.mkdirSync(repoDir, { recursive: true })
+  const repoParentDir = path.dirname(repoDir)
+  fs.mkdirSync(repoParentDir, { recursive: true })
 
   console.log(`Cloning repository ${repoUrl} into ${repoDir}...`)
-  execSync(`git clone --no-checkout ${repoUrl} .`, {
-    cwd: repoDir,
+  execSync(`git clone --no-checkout ${repoUrl} ${repoDir}`, {
+    cwd: repoParentDir,
     stdio: 'inherit',
   })
+  if (!existsSync(path.join(repoDir, '.git'))) {
+    throw new Error('Failed to clone repository')
+  }
   execSync(`git fetch origin ${commitSha}`, { cwd: repoDir, stdio: 'inherit' })
   execSync(`git checkout ${commitSha}`, { cwd: repoDir, stdio: 'inherit' })
 
