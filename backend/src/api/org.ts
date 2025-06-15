@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { findOrganizationForRepository } from '@codebuff/billing'
 
 import { getUserIdFromAuthToken } from '../websockets/websocket-action'
-import { logger } from '@/util/logger'
+import { logger } from '../util/logger'
 
 const isRepoCoveredRequestSchema = z.object({
   owner: z.string(),

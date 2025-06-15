@@ -1,8 +1,8 @@
 import { CostMode, models } from '@codebuff/common/constants'
 
-import { System } from '@/llm-apis/claude'
-import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
-import { getCoreMessagesSubset } from '@/util/messages'
+import { System } from '../llm-apis/claude'
+import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
+import { getCoreMessagesSubset } from '../util/messages'
 import { CoreMessage } from 'ai'
 
 const systemIntro = `

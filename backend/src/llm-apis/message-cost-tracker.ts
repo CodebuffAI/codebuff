@@ -16,11 +16,11 @@ import { WebSocket } from 'ws'
 import { stripNullCharsFromObject } from '../util/object'
 import { getRequestContext } from '../context/app-context'
 
-import { OpenAIMessage } from '@/llm-apis/openai-api'
-import { logger, withLoggerContext } from '@/util/logger'
-import { SWITCHBOARD } from '@/websockets/server'
-import { ClientState } from '@/websockets/switchboard'
-import { sendAction } from '@/websockets/websocket-action'
+import { OpenAIMessage } from './openai-api'
+import { logger, withLoggerContext } from '../util/logger'
+import { SWITCHBOARD } from '../websockets/server'
+import { ClientState } from '../websockets/switchboard'
+import { sendAction } from '../websockets/websocket-action'
 
 const PROFIT_MARGIN = 0.3
 

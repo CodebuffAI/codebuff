@@ -2,7 +2,7 @@ import { ClientAction, ServerAction } from '@codebuff/common/actions'
 import { WebSocket } from 'ws'
 
 import { checkAuth } from '../util/check-auth'
-import { logger, withLoggerContext } from '@/util/logger'
+import { logger } from '../util/logger'
 import { getUserInfoFromAuthToken, UserInfo } from './auth'
 import { sendAction } from './websocket-action'
 import {

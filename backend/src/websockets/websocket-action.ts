@@ -16,9 +16,8 @@ import { mainPrompt } from '../main-prompt'
 import { managerPrompt } from '../manager-prompt'
 import { protec } from './middleware'
 import { sendMessage } from './server'
-
-import { logger, withLoggerContext } from '@/util/logger'
-import { renderToolResults } from '@/util/parse-tool-call-xml'
+import { logger, withLoggerContext } from '../util/logger'
+import { renderToolResults } from '../util/parse-tool-call-xml'
 
 /**
  * Sends an action to the client via WebSocket

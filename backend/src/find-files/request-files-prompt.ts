@@ -28,13 +28,13 @@ import { countTokens } from '../util/token-counter'
 import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
-import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
-import { promptAiSdk } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
+import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import {
   castAssistantMessage,
   coreMessagesWithSystem,
   getCoreMessagesSubset,
-} from '@/util/messages'
+} from '../util/messages'
 import { CoreMessage } from 'ai'
 
 import { getRequestContext } from '../websockets/request-context'

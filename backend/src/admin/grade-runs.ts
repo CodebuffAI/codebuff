@@ -1,4 +1,4 @@
-import { promptAiSdk } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { Relabel } from '@codebuff/bigquery'
 
 import { GetRelevantFilesTrace } from '@codebuff/bigquery'

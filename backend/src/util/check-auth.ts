@@ -5,7 +5,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { Request, Response, NextFunction } from 'express'
 
-import { logger } from '@/util/logger'
+import { logger } from './logger'
 
 export const checkAuth = async ({
   fingerprintId,

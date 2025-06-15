@@ -11,7 +11,7 @@ import { eq } from 'drizzle-orm'
 import { checkAuth } from '../util/check-auth'
 import { genUsageResponse } from '../websockets/websocket-action'
 import { getOrganizationUsageResponse } from '@codebuff/billing'
-import { logger } from '@/util/logger'
+import { logger } from '../util/logger'
 
 const usageRequestSchema = z.object({
   fingerprintId: z.string(),
