@@ -98,16 +98,36 @@ async function buildTarget(bunTarget, outputName, triplet) {
 
   console.log(`Building ${bunTarget} -> ${outputName} (${triplet})...`)
 
+  // Define environment variables, referenced via process.env.KEY in the code.
+  // Note: They are inlined as constants in code. So process.env.IS_BINARY is replaced with the value 'true'.
+  const flags = {
+    PLATFORM_TRIPLET: triplet,
+    IS_BINARY: 'true',
+  }
+  const flagsStr = Object.entries(flags)
+    .map(
+      ([key, value]) =>
+        `--define 'process.env.${key}=${typeof value === 'string' ? JSON.stringify(value) : value}'`
+    )
+
+    .join(' ')
+
   const clientEnvVars = await getClientEnvVars()
   Object.assign(process.env, clientEnvVars)
 
   const envFlag = '--env "NEXT_PUBLIC_*"'
 
-  // Build define flags for environment variables
-  const defineFlags = [`--define:PLATFORM_TRIPLET='"${triplet}"'`]
-
   try {
-    const command = `bun build --compile src/index.ts src/project-context.ts src/checkpoint-worker.ts --root src --target=${bunTarget} ${defineFlags.join(' ')} ${envFlag} --outfile="${outputFile}"` // --minify
+    const command = [
+      'bun build --compile',
+      'src/index.ts src/project-context.ts src/checkpoint-worker.ts',
+      '--root src',
+      `--target=${bunTarget}`,
+      flagsStr,
+      envFlag,
+      `--outfile="${outputFile}"`,
+      // '--minify',
+    ].join(' ')
 
     execSync(command, { stdio: 'inherit' })
 
@@ -117,7 +137,6 @@ async function buildTarget(bunTarget, outputName, triplet) {
     }
 
     console.log(`✅ Built: ${outputFile}`)
-    console.log(`Injected ${defineFlags.length - 1} environment variables`)
   } catch (error) {
     console.error(`❌ Failed to build ${bunTarget}:`, error.message)
     process.exit(1)
