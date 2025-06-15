@@ -1,36 +1,27 @@
-import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
+import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import * as os from 'os'
 import path from 'path'
+import { green } from 'picocolors'
 
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
-import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { buildArray } from 'common/util/array'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { buildArray } from '@codebuff/common/util/array'
 import {
   stripColors,
   suffixPrefixOverlap,
   truncateStringWithMessage,
-} from 'common/util/string'
-import { green } from 'picocolors'
+} from '@codebuff/common/util/string'
+import { isSubdir } from '@codebuff/common/util/file'
 
 import {
   getProjectRoot,
   getWorkingDirectory,
-  isSubdir,
   setWorkingDirectory,
 } from '../project-files'
 import { trackEvent } from '../utils/analytics'
 import { detectShell } from '../utils/detect-shell'
 import { runBackgroundCommand } from './background'
-
-let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
-const tempConsoleError = console.error
-console.error = () => {}
-try {
-  pty = require('@homebridge/node-pty-prebuilt-multiarch')
-} catch (error) {
-} finally {
-  console.error = tempConsoleError
-}
+import { pty } from '../native/pty'
 
 const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
@@ -358,8 +349,8 @@ export const runCommandPty = (
   const ptyProcess = persistentProcess.pty
 
   if (command.trim() === 'clear') {
-    // `clear` needs access to the main process stdout. This is a workaround.
-    execSync('clear', { stdio: 'inherit' })
+    // Use direct terminal escape sequence to clear the screen
+    process.stdout.write('\u001b[2J\u001b[0;0H')
     resolve({
       result: formatResult(command, '', `Complete`),
       stdout: '',
@@ -636,8 +627,8 @@ export const runCommandPtyManager = (
   const ptyProcess = persistentProcess.pty
 
   if (command.trim() === 'clear') {
-    // `clear` needs access to the main process stdout. This is a workaround.
-    execSync('clear', { stdio: 'inherit' })
+    // Use direct terminal escape sequence to clear the screen
+    process.stdout.write('\u001b[2J\u001b[0;0H')
     resolve({
       result: formatResult(command, '', `Complete`),
       stdout: '',
