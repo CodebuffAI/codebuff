@@ -35,9 +35,10 @@
     "start-vscode": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/vscode",
     "start-nushell": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/nushell",
     "typecheck": "tsc --noEmit -p .",
-    "build-binary": "bun run scripts/build-binaries.js --current",
-    "build-all-binaries": "bun run scripts/build-binaries.js",
-    "build": "bun run build-all-binaries"
+    "build-binary": "infisical run --log-level=warn -- bun run scripts/build-binaries.js --current",
+    "build-all-binaries": "infisical run --log-level=warn -- bun run scripts/build-binaries.js",
+    "build": "bun run build-all-binaries",
+    "fetch-external-binaries": "bun scripts/fetch-external-binaries.js"
   },
   "files": [
     "README.md"

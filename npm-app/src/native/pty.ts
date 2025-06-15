@@ -1,25 +1,51 @@
 // Platform-specific node-pty native module loader
-// This uses a compile-time environment variable to statically require the correct .node file
+// This uses compile-time environment variables to statically require the correct .node file
 
 export let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
 
-const platformTriplet = process.env.PLATFORM_TRIPLET
+const platform = process.env.PLATFORM
+const arch = process.env.ARCH
 
-if (platformTriplet) {
-  if (platformTriplet === 'x86_64-unknown-linux-gnu') {
-    pty = require('@homebridge/node-pty-prebuilt-multiarch/prebuilds/linux-x64/node.abi131.node')
-  } else if (platformTriplet === 'aarch64-unknown-linux-gnu') {
-    pty = require('@homebridge/node-pty-prebuilt-multiarch/prebuilds/linux-arm64/node.abi131.node')
-  } else if (platformTriplet === 'x86_64-apple-darwin') {
-    // Use Linux x64 build on macOS x64 since it uses NAPI
-    pty = require('@homebridge/node-pty-prebuilt-multiarch/prebuilds/linux-x64/node.abi131.node')
-  } else if (platformTriplet === 'aarch64-apple-darwin') {
-    // Use Linux arm64 build on macOS arm64 since it uses NAPI
-    pty = require('@homebridge/node-pty-prebuilt-multiarch/prebuilds/linux-arm64/node.abi131.node')
+if (platform && arch) {
+  // Use static requires for bun compilation
+  if (platform === 'linux' && arch === 'x64') {
+    try {
+      pty = require('../../bin-external/pty/linux-x64/node.abi131.node')
+    } catch {
+      pty = require('@homebridge/node-pty-prebuilt-multiarch/prebuilds/linux-x64/node.abi131.node')
+    }
+  } else if (platform === 'linux' && arch === 'arm64') {
+    try {
+      pty = require('../../bin-external/pty/linux-arm64/node.abi131.node')
+    } catch {
+      pty = require('@homebridge/node-pty-prebuilt-multiarch/prebuilds/linux-arm64/node.abi131.node')
+    }
+  } else if (platform === 'darwin' && arch === 'x64') {
+    try {
+      pty = require('../../bin-external/pty/darwin-x64/node.abi131.node')
+    } catch {
+      pty = require('@homebridge/node-pty-prebuilt-multiarch/prebuilds/linux-x64/node.abi131.node')
+    }
+  } else if (platform === 'darwin' && arch === 'arm64') {
+    try {
+      pty = require('../../bin-external/pty/darwin-arm64/node.abi131.node')
+    } catch {
+      pty = require('@homebridge/node-pty-prebuilt-multiarch/prebuilds/linux-arm64/node.abi131.node')
+    }
+  } else if (platform === 'win32' && arch === 'x64') {
+    try {
+      pty = require('../../bin-external/pty/win32-x64/node.abi131.node')
+    } catch {
+      pty = require('@homebridge/node-pty-prebuilt-multiarch')
+    }
   } else {
     pty = undefined
   }
 } else {
-  // Use the standard package for dev
-  pty = require('@homebridge/node-pty-prebuilt-multiarch')
+  // Development mode - use the standard package
+  try {
+    pty = require('@homebridge/node-pty-prebuilt-multiarch')
+  } catch {
+    pty = undefined
+  }
 }

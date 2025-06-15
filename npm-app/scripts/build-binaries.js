@@ -7,23 +7,28 @@ const path = require('path')
 const targets = {
   'bun-linux-x64': {
     output: 'codebuff-linux-x64',
-    triplet: 'x86_64-unknown-linux-gnu',
+    platform: 'linux',
+    arch: 'x64',
   },
   'bun-linux-arm64': {
     output: 'codebuff-linux-arm64',
-    triplet: 'aarch64-unknown-linux-gnu',
+    platform: 'linux',
+    arch: 'arm64',
   },
   'bun-darwin-x64': {
     output: 'codebuff-darwin-x64',
-    triplet: 'x86_64-apple-darwin',
+    platform: 'darwin',
+    arch: 'x64',
   },
   'bun-darwin-arm64': {
     output: 'codebuff-darwin-arm64',
-    triplet: 'aarch64-apple-darwin',
+    platform: 'darwin',
+    arch: 'arm64',
   },
   'bun-windows-x64': {
     output: 'codebuff-win32-x64.exe',
-    triplet: 'x86_64-pc-windows-msvc',
+    platform: 'win32',
+    arch: 'x64',
   },
 }
 
@@ -54,6 +59,13 @@ async function getClientEnvVars() {
 }
 
 async function main() {
+  // Fetch external binaries before building
+  try {
+    execSync('node scripts/fetch-external-binaries.js', { stdio: 'inherit' })
+  } catch (error) {
+    console.warn('⚠️  Failed to fetch external binaries:', error.message)
+  }
+
   if (buildCurrentOnly) {
     if (!currentPlatformTarget || !targets[currentPlatformTarget]) {
       console.error(`Unsupported platform: ${platformKey}`)
@@ -63,7 +75,7 @@ async function main() {
     const targetInfo = targets[currentPlatformTarget]
     const outputName =
       process.platform === 'win32' ? 'codebuff.exe' : 'codebuff'
-    await buildTarget(currentPlatformTarget, outputName, targetInfo.triplet)
+    await buildTarget(currentPlatformTarget, outputName, targetInfo)
   } else {
     // Check for CI environment variables (for backwards compatibility)
     const targetToBuild = process.env.BUN_TARGET
@@ -76,18 +88,18 @@ async function main() {
         console.error(`Unknown target: ${targetToBuild}`)
         process.exit(1)
       }
-      await buildTarget(targetToBuild, outputName, targetInfo.triplet)
+      await buildTarget(targetToBuild, outputName, targetInfo)
     } else {
       // Build all targets (default behavior)
       console.log('Building all targets...')
       for (const [target, info] of Object.entries(targets)) {
-        await buildTarget(target, info.output, info.triplet)
+        await buildTarget(target, info.output, info)
       }
     }
   }
 }
 
-async function buildTarget(bunTarget, outputName, triplet) {
+async function buildTarget(bunTarget, outputName, targetInfo) {
   // Create bin directory
   const binDir = path.join(__dirname, '..', 'bin')
   if (!fs.existsSync(binDir)) {
@@ -96,12 +108,13 @@ async function buildTarget(bunTarget, outputName, triplet) {
 
   const outputFile = path.join(binDir, outputName)
 
-  console.log(`Building ${bunTarget} -> ${outputName} (${triplet})...`)
+  console.log(`🔨 Building ${outputName} (${targetInfo.platform}-${targetInfo.arch})...`)
 
   // Define environment variables, referenced via process.env.KEY in the code.
   // Note: They are inlined as constants in code. So process.env.IS_BINARY is replaced with the value 'true'.
   const flags = {
-    PLATFORM_TRIPLET: triplet,
+    PLATFORM: targetInfo.platform,
+    ARCH: targetInfo.arch,
     IS_BINARY: 'true',
   }
   const flagsStr = Object.entries(flags)
@@ -109,7 +122,6 @@ async function buildTarget(bunTarget, outputName, triplet) {
       ([key, value]) =>
         `--define 'process.env.${key}=${typeof value === 'string' ? JSON.stringify(value) : value}'`
     )
-
     .join(' ')
 
   const clientEnvVars = await getClientEnvVars()
@@ -136,9 +148,9 @@ async function buildTarget(bunTarget, outputName, triplet) {
       fs.chmodSync(outputFile, 0o755)
     }
 
-    console.log(`✅ Built: ${outputFile}`)
+    console.log(`✅ ${outputName}`)
   } catch (error) {
-    console.error(`❌ Failed to build ${bunTarget}:`, error.message)
+    console.error(`❌ ${outputName}: ${error.message}`)
     process.exit(1)
   }
 }
