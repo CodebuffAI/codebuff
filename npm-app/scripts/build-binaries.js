@@ -107,7 +107,7 @@ async function buildTarget(bunTarget, outputName, triplet) {
   const defineFlags = [`--define:PLATFORM_TRIPLET='"${triplet}"'`]
 
   try {
-    const command = `bun build --compile src/index.ts src/project-context.ts src/checkpoint-worker.ts --target=${bunTarget} ${defineFlags.join(' ')} ${envFlag} --outfile="${outputFile}"` // --minify
+    const command = `bun build --compile src/index.ts src/project-context.ts src/checkpoint-worker.ts --root src --target=${bunTarget} ${defineFlags.join(' ')} ${envFlag} --outfile="${outputFile}"` // --minify
 
     execSync(command, { stdio: 'inherit' })
 

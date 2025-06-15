@@ -157,9 +157,8 @@ export function initProjectFileContextWithWorker(
     cachedProjectFileContext = undefined
   }
 
-  // Use relative path that works in both development and production
-  // Inline the worker path so it is statically analyzed and compiled into the binary
-  const worker = new Worker(new URL('./project-context.ts', import.meta.url))
+  // Use absolute path that exactly matches string passed to bun build --compile.
+  const worker = new Worker('src/project-context.ts')
 
   worker.postMessage({ dir })
 

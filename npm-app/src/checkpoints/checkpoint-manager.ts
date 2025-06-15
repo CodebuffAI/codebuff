@@ -97,8 +97,8 @@ export class CheckpointManager {
    */
   private initWorker(): Worker {
     if (!this.worker) {
-      // Inline the worker path so it is statically analyzed and compiled into the binary
-      this.worker = new Worker(new URL('./checkpoint-worker.ts', import.meta.url).href)
+      // Use absolute path that exactly matches string passed to bun build --compile.
+      this.worker = new Worker('src/checkpoint-worker.ts')
     }
     return this.worker
   }
