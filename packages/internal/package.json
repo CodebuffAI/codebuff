@@ -1,14 +1,30 @@
 {
   "name": "@codebuff/internal",
   "version": "1.0.0",
+  "private": true,
   "license": "UNLICENSED",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./loops": {
+      "bun": "./src/loops/index.ts",
+      "types": "./src/loops/index.ts"
+    },
+    "./utils/auth": {
+      "bun": "./src/utils/auth.ts",
+      "types": "./src/utils/auth.ts"
+    }
+  },
   "scripts": {
-    "build": "tsc --build",
-    "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
-    "typecheck": "tsc --noEmit",
-    "typecheck-this-package": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test"
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": ">=1.2.11"
   },
   "dependencies": {
     "@codebuff/common": "workspace:*",
@@ -16,7 +32,7 @@
     "loops": "^5.0.1"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "*"
+    "@types/node": "22",
+    "@types/bun": "^1.2.11"
   }
 }

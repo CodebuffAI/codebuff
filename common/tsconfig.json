@@ -1,16 +1,12 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist",
     "types": ["bun", "node"],
     "baseUrl": ".",
     "paths": {
       "@/env": ["../env.ts"]
     }
   },
-  "include": ["src"],
-  "references": [
-    { "path": "../tsconfig.env.json" }
-  ]
+  "include": ["src/**/*.ts", "../env.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__"]
 }

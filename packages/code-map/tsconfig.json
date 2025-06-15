@@ -1,9 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
-    "types": ["bun", "node"],
+    "rootDir": "src",
+    "types": ["bun", "node"]
   },
-  "include": ["src/**/*.ts", "src/types.d.ts"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "__tests__"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__"]
 }

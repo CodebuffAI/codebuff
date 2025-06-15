@@ -1,19 +1,28 @@
 {
   "name": "@codebuff/billing",
   "version": "1.0.0",
+  "private": true,
   "license": "UNLICENSED",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
   "scripts": {
-    "build": "tsc --build",
-    "typecheck": "tsc --noEmit",
-    "typecheck-this-package": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test"
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": ">=1.2.11"
   },
   "dependencies": {
     "@codebuff/common": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "*"
+    "@types/node": "22",
+    "@types/bun": "^1.2.11"
   }
 }

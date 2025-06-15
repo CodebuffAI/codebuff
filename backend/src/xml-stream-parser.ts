@@ -285,7 +285,7 @@ export async function* processStreamWithTags<T extends string>(
     parser.end()
   }
 
-  for await (const chunk of stream) {
+  for await (const chunk of stream as AsyncIterable<T>) {
     if (streamCompleted) {
       break
     }

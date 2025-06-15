@@ -1,7 +1,7 @@
 import { execSync } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
-import { FileChanges } from '../actions'
+import type { FileChanges } from '../actions'
 
 export function hasStagedChanges(): boolean {
   try {

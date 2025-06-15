@@ -22,15 +22,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "common/*": ["../common/src/*"]
     }
   },
-  "references": [
-    { "path": "../tsconfig.env.json" },
-    { "path": "../common" },
-    { "path": "../packages/billing" },
-    { "path": "../packages/internal" }
-  ],
   "include": [
     "next-env.d.ts",
     "**/*.ts",

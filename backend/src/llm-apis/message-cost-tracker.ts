@@ -1,5 +1,5 @@
 import { consumeCredits, getUserCostPerCredit } from '@codebuff/billing'
-import { consumeOrganizationCredits } from '@codebuff/billing/src/org-billing'
+import { consumeOrganizationCredits } from '@codebuff/billing'
 import { CoreMessage } from 'ai'
 import { trackEvent } from '@codebuff/common/analytics'
 import { models, TEST_USER_ID } from '@codebuff/common/constants'

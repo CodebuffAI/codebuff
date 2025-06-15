@@ -1,21 +1,34 @@
 {
-  "name": "scripts",
+  "name": "@codebuff/scripts",
   "version": "1.0.0",
   "description": "Scripts package for Codebuff",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
   "scripts": {
-    "typecheck-this-package": "tsc --noEmit",
-    "typecheck": "cd .. && bun run --cwd common build && bun run --cwd backend build && cd scripts && bun run typecheck-this-package",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test",
     "debug-log-subset": "bun run debug-log-subset.ts"
   },
+  "sideEffects": false,
+  "engines": {
+    "bun": ">=1.2.11"
+  },
   "dependencies": {
-    "@codebuff/bigquery": "../packages/bigquery",
-    "backend": "file:../backend",
+    "@codebuff/bigquery": "workspace:*",
+    "@codebuff/backend": "workspace:*",
     "drizzle-orm": "0.36.4",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
-    "@types/bun": "^1.1.16",
-    "@types/lodash": "^4.14.195"
-  },
-  "private": true
+    "@types/bun": "^1.2.11",
+    "@types/lodash": "^4.14.195",
+    "@types/node": "22"
+  }
 }

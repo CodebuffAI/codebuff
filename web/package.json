@@ -1,25 +1,36 @@
 {
-  "name": "web",
+  "name": "@codebuff/web",
   "version": "1.0.0",
   "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
   "scripts": {
-    "dev": "nx run web:dev",
-    "build": "nx run web:build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
-    "preview": "nx run web:build && infisical run --log-level=warn -- nx run web:start",
-    "contentlayer": "nx run web:contentlayer",
+    "preview": "bun run build && infisical run --log-level=warn -- bun run start",
+    "contentlayer": "contentlayer build",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "format:check": "prettier --check \"**/*.{ts,tsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,mdx}\" --cache",
-    "typecheck-this-package": "bun run contentlayer && tsc --noEmit",
-    "typecheck": "bun run typecheck-this-package",
+    "typecheck": "bun run contentlayer && tsc --noEmit -p .",
     "test": "jest",
     "test:watch": "jest --watchAll",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "discord:start": "bun run scripts/discord/index.ts",
-    "discord:register": "nx run web:discord:register"
+    "discord:register": "bun run scripts/discord/register-commands.ts"
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": ">=1.2.11"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.8.0",

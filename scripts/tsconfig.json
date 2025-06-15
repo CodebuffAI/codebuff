@@ -1,19 +1,8 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["bun"],
-    "noEmit": true,
-    "baseUrl": ".",
-    "paths": {
-      "backend/*": ["../backend/src/*"],
-      "common/*": ["../common/src/*"],
-    }
+    "types": ["bun", "node"]
   },
-  "include": ["**/*"],
-  "exclude": ["node_modules", "generate-ci-env.js"],
-  "references": [
-    { "path": "../backend" },
-    { "path": "../common" },
-    { "path": "../packages/bigquery" }
-  ]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__", "generate-ci-env.js"]
 }

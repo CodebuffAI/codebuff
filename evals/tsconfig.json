@@ -1,17 +1,12 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node", "bun"],
-    "rootDir": ".",
+    "types": ["bun", "node"],
     "baseUrl": ".",
-    "noEmit": true,
+    "paths": {
+      "@/env": ["../env.ts"]
+    }
   },
-  "references": [
-    { "path": "../common" },
-    { "path": "../backend" },
-    { "path": "../npm-app" },
-    { "path": "../packages/internal" }
-  ],
-  "exclude": ["test-repos"],
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__", "test-repos"]
 }

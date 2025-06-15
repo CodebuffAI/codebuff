@@ -1,5 +1,5 @@
-import { CoreMessage } from 'ai'
-import { CodebuffMessage, Message } from '../types/message'
+import type { CoreMessage } from 'ai'
+import type { CodebuffMessage, Message } from '../types/message'
 
 interface ScreenshotRef {
   msgIdx: number

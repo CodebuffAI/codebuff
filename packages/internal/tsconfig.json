@@ -1,18 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist",
-    "composite": true,
-    "module": "esnext",
     "types": ["bun", "node"],
-    "baseUrl": ".",
-    "paths": {
-      "@codebuff/common/*": ["../../common/src/*"]
-    }
   },
-  "include": ["src"],
-  "references": [
-    { "path": "../../common" }
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__"]
 }

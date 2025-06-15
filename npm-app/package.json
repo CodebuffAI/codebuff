@@ -5,6 +5,14 @@
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./*": "./src/*.ts"
+  },
   "bin": {
     "codebuff": "dist/index.js"
   },
@@ -13,8 +21,8 @@
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "test": "jest",
-    "start": "infisical run --log-level=warn -- bun run build-binary && ./bin/codebuff ..",
-    "start-dev": "infisical run --log-level=warn -- bun run src/index.ts ..",
+    "start-bin": "infisical run --log-level=warn -- bun run build-binary && ./bin/codebuff ..",
+    "start": "infisical run --log-level=warn -- bun run src/index.ts ..",
     "start-max": "infisical run --log-level=warn -- bun run src/index.ts .. --max",
     "start-lite": "infisical run --log-level=warn -- bun run src/index.ts .. --lite",
     "start-ask": "infisical run --log-level=warn -- bun run src/index.ts .. --ask",
@@ -26,21 +34,16 @@
     "start-jpcsp": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/jpcsp",
     "start-vscode": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/vscode",
     "start-nushell": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/nushell",
-    "start-prod": "infisical run --log-level=warn -- bun run src/index.ts",
-    "typecheck-this-package": "tsc --noEmit && tsc-alias",
-    "typecheck": "npm run build",
-    "build": "tsc --build && tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
-    "build:libs": "bunx tsc -b ../common ../packages/code-map",
+    "typecheck": "tsc --noEmit -p .",
     "build-binary": "node scripts/build-binaries.js",
     "build-all-binaries": "node scripts/build-all-platforms.js",
-    "test-binary": "bun run build-binary && ./bin/codebuff --version"
+    "build": "bun run build-all-binaries"
   },
   "files": [
-    "dist",
     "README.md"
   ],
   "engines": {
-    "node": ">=18"
+    "bun": ">=1.2.11"
   },
   "dependencies": {
     "@types/diff": "5.2.1",

@@ -6,8 +6,8 @@ import { getInitialAgentState } from '@codebuff/common/types/agent-state'
 import {
   setProjectRoot,
   setWorkingDirectory,
-} from '../npm-app/src/project-files'
-import { recreateShell } from '../npm-app/src/terminal/base'
+} from 'codebuff/project-files'
+import { recreateShell } from 'codebuff/terminal/base'
 
 import {
   createFileReadingMock,

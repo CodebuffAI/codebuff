@@ -4,15 +4,10 @@ import path from 'path'
 import { chunk } from 'lodash'
 import { z } from 'zod'
 
-import { claudeModels, geminiModels } from '../../common/src/constants'
-import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
-import {
-  CommitInfo,
-  CommitSelectionSchema,
-  EvalCommit,
-  GitRepoEvalData,
-  CommitFileState,
-} from './types'
+import { claudeModels, geminiModels } from '@codebuff/common/constants'
+import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+
+import { CommitInfo, CommitSelectionSchema, EvalCommit, GitRepoEvalData, CommitFileState } from './types'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 
 const COMMIT_SELECTION_PROMPT = `You are an expert at identifying substantial and complete code changes in git commits.

@@ -1,4 +1,4 @@
-import { z, ZodTypeAny } from 'zod'
+import { z, type ZodTypeAny } from 'zod'
 
 function getSchemaDescription(schema: ZodTypeAny): string | undefined {
   return schema.description

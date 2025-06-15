@@ -2,12 +2,16 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
-import { claudeModels } from '../../common/src/constants'
-import { withTimeout } from '../../common/src/util/promise'
-import { generateCompactId } from '../../common/src/util/string'
-import { setProjectRoot, setWorkingDirectory } from '../../npm-app/src/project-files'
-import { recreateShell } from '../../npm-app/src/terminal/base'
+import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { claudeModels } from '@codebuff/common/constants'
+import { withTimeout } from '@codebuff/common/util/promise'
+import { generateCompactId } from '@codebuff/common/util/string'
+import {
+  setProjectRoot,
+  setWorkingDirectory,
+} from 'codebuff/project-files'
+import { recreateShell } from 'codebuff/terminal/base'
+
 import {
   createFileReadingMock,
   loopMainPrompt,

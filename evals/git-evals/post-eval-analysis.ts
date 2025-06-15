@@ -1,7 +1,7 @@
-import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
-import { countTokens } from '../../backend/src/util/token-counter'
-import { geminiModels } from '../../common/src/constants'
-import { generateCompactId } from '../../common/src/util/string'
+import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { countTokens } from '@codebuff/backend/util/token-counter'
+import { geminiModels } from '@codebuff/common/constants'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { z } from 'zod'
 import { FullEvalLog } from './types'
 

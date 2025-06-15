@@ -1,23 +1,12 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist",
     "types": ["bun", "node"],
-    "lib": ["ES2023"],
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@/env": ["../env.ts"]
     }
   },
-  "include": ["src"],
-  "exclude": ["src/**/__mock-data__/**/*"],
-  "references": [
-    { "path": "../common" },
-    { "path": "../packages/billing" },
-    { "path": "../packages/bigquery" },
-    { "path": "../packages/internal" }
-  ]
+  "include": ["src/**/*.ts", "../env.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__", "src/**/__mock-data__/**/*"]
 }
-

@@ -1,6 +1,4 @@
 import { expect, test, describe, beforeEach } from 'bun:test'
-import * as fs from 'fs'
-import * as path from 'path'
 
 import { PROMPT_PREFIX } from './constants'
 import { loopMainPrompt } from './scaffolding'

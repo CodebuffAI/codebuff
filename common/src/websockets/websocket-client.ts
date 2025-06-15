@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
 
-import { ClientAction, ServerAction } from '../actions'
-import {
+import type { ClientAction, ServerAction } from '../actions'
+import type {
   ClientMessage,
   ClientMessageType,
   ServerMessage,

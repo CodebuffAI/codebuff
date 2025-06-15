@@ -1,4 +1,4 @@
-import { env } from '@/env'
+import { env } from '../../env'
 import { PostHog } from 'posthog-node'
 
 import { AnalyticsEvent } from './constants/analytics-events'

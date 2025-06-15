@@ -33,11 +33,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "bump": "bun run scripts/bump-version.ts",
     "deploy:npm-app": "bun run bump && cd npm-app && npm publish",
-    "test:patch": "bun test test/__src__/patch.test.ts",
-    "clean": "nx run-many --target=clean --all",
-    "build": "nx reset && nx run-many --target=build --all",
-    "test": "nx run-many --target=test --projects=npm-app,backend,common --output-style=stream --skip-nx-cache",
-    "typecheck": "bun run build"
+    "typecheck": "bun run --cwd common typecheck && bun run --cwd backend typecheck && bun run --cwd web typecheck && bun run --cwd evals typecheck && bun run --cwd scripts typecheck && bun run --cwd packages/billing typecheck && bun run --cwd packages/bigquery typecheck && bun run --cwd packages/internal typecheck && bun run --cwd packages/code-map typecheck",
+    "test": "bun --cwd backend test && bun --cwd common test && bun --cwd npm-app test"
   },
   "dependencies": {
     "@t3-oss/env-nextjs": "^0.7.3",
@@ -45,6 +42,7 @@
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.59.16",
+    "@types/bun": "^1.2.11",
     "@types/lodash": "4.17.7",
     "@types/node": "^22.9.0",
     "@types/node-fetch": "^2.6.12",
@@ -54,7 +52,6 @@
     "eslint-plugin-import": "^2.29.1",
     "ignore": "^6.0.2",
     "lodash": "4.17.21",
-    "nx": "^20.8.1",
     "prettier": "3.3.2",
     "ts-node": "^10.9.2",
     "ts-pattern": "^5.5.0",

@@ -3,21 +3,20 @@
   "version": "1.0.0",
   "private": true,
   "license": "UNLICENSED",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "type": "module",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
       "bun": "./src/index.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./src/index.ts"
     }
   },
   "scripts": {
-    "build": "tsc --noEmit",
-    "typecheck-this-package": "tsc --noEmit",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p .",
     "test": "bun test"
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": ">=1.2.11"
   },
   "dependencies": {
     "@vscode/tree-sitter-wasm": "^0.1.4",

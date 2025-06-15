@@ -1,20 +1,24 @@
 {
   "compilerOptions": {
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "target": "ES2022",
+    /* language / emit ------------------------------------------------------ */
+    "target": "ES2023",
     "lib": ["ES2023", "DOM"],
-    "composite": true,
-    "allowJs": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",       // Bun-friendly + TS 5.5 import maps
+    "allowImportingTsExtensions": true, // smooth “./foo.ts” imports
+    "noEmit": true,
+
+    /* type-safety ---------------------------------------------------------- */
+    "strict": true,
+    "noImplicitReturns": true,
+    // "exactOptionalPropertyTypes": true,
+    // "noUncheckedIndexedAccess": true,
+
+    /* interop / ergonomics ------------------------------------------------- */
     "esModuleInterop": true,
     "isolatedModules": true,
-    "noImplicitReturns": true,
-    "strict": true,
-    "sourceMap": true,
-    "incremental": true,
-    "skipLibCheck": true,
-    "declaration": true,
-    "declarationMap": true,
+    // "verbatimModuleSyntax": true,        // don’t rewrite ESM syntax
+    "skipLibCheck": true,                // faster CI
     "forceConsistentCasingInFileNames": true
   }
 

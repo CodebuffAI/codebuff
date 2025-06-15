@@ -2,23 +2,23 @@ import { execSync } from 'child_process'
 import { EventEmitter } from 'events'
 import fs from 'fs'
 import path from 'path'
-
-import * as mainPromptModule from '../backend/src/main-prompt'
-import { ClientToolCall } from '../backend/src/tools'
 import { mock } from 'bun:test'
-import { getFileTokenScores } from '../packages/code-map/parse'
-import { FileChanges } from '../common/src/actions'
-import { TEST_USER_ID } from '../common/src/constants'
+
+import { mainPrompt } from '@codebuff/backend/main-prompt'
+import { ClientToolCall } from '@codebuff/backend/tools'
+import { getFileTokenScores } from '@codebuff/code-map'
+import { FileChanges } from '@codebuff/common/actions'
+import { TEST_USER_ID } from '@codebuff/common/constants'
 import {
   getAllFilePaths,
   getProjectFileTree,
-} from '../common/src/project-file-tree'
-import { AgentState, ToolResult } from '../common/src/types/agent-state'
-import { applyAndRevertChanges } from '../common/src/util/changes'
-import { ProjectFileContext } from '../common/src/util/file'
-import { generateCompactId } from '../common/src/util/string'
-import { handleToolCall } from '../npm-app/src/tool-handlers'
-import { getSystemInfo } from '../npm-app/src/utils/system-info'
+} from '@codebuff/common/project-file-tree'
+import { AgentState, ToolResult } from '@codebuff/common/types/agent-state'
+import { applyAndRevertChanges } from '@codebuff/common/util/changes'
+import { ProjectFileContext } from '@codebuff/common/util/file'
+import { generateCompactId } from '@codebuff/common/util/string'
+import { handleToolCall } from 'codebuff/tool-handlers'
+import { getSystemInfo } from 'codebuff/utils/system-info'
 import { blue } from 'picocolors'
 import { WebSocket } from 'ws'
 
@@ -112,7 +112,7 @@ export async function runMainPrompt(
 
   let fullResponse = ''
 
-  const result = await mainPromptModule.mainPrompt(mockWs, promptAction, {
+  const result = await mainPrompt(mockWs, promptAction, {
     userId: TEST_USER_ID,
     clientSessionId: sessionId,
     onResponseChunk: (chunk: string) => {
@@ -122,7 +122,7 @@ export async function runMainPrompt(
       fullResponse += chunk
     },
     selectedModel: undefined, // selectedModel
-    readOnlyMode: false // readOnlyMode = false for evals
+    readOnlyMode: false, // readOnlyMode = false for evals
   })
 
   return {
