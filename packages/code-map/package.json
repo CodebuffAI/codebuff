@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "license": "UNLICENSED",
-  "main": "index.ts",
-  "types": "index.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "exports": {
     ".": {
-      "types": "./index.ts",
-      "bun": "./index.ts",
-      "import": "./index.ts",
-      "default": "./index.ts"
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
     }
   },
   "scripts": {
