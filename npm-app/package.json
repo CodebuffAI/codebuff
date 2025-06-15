@@ -35,8 +35,8 @@
     "start-vscode": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/vscode",
     "start-nushell": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/nushell",
     "typecheck": "tsc --noEmit -p .",
-    "build-binary": "node scripts/build-binaries.js",
-    "build-all-binaries": "node scripts/build-all-platforms.js",
+    "build-binary": "bun run scripts/build-binaries.js --current",
+    "build-all-binaries": "bun run scripts/build-binaries.js",
     "build": "bun run build-all-binaries"
   },
   "files": [

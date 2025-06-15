@@ -16,6 +16,7 @@
   "scripts": {
     "start-db": "bun --cwd common db:start",
     "start-client": "bun --cwd npm-app start",
+    "start-bin": "bun --cwd npm-app start-bin",
     "start-experimental": "bun --cwd npm-app start-experimental",
     "start-max": "bun --cwd npm-app start-max",
     "start-lite": "bun --cwd npm-app start-lite",
