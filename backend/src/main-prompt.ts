@@ -59,7 +59,6 @@ import {
   asSystemInstruction,
   asSystemMessage,
   asUserMessage,
-  castAssistantMessage,
   coreMessagesWithSystem,
   expireMessages,
   getCoreMessagesSubset,
@@ -483,9 +482,11 @@ export const mainPrompt = async (
 
   const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
   const messagesWithUserMessage = buildArray<CodebuffMessage>(
+    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
+    /*
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep').map(
       (m) => castAssistantMessage(m)
-    ),
+    ),*/
 
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -522,13 +523,14 @@ export const mainPrompt = async (
         content: asSystemMessage(agentContext.trim()),
         timeToLive: 'userPrompt',
       },
+      /*
       hasAssistantMessage && {
         role: 'user' as const,
         content: asSystemInstruction(
           "All <previous_assistant_message>messages</previous_assistant_message> were from some less intelligent assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes (including errors from the system), identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Simply continue the conversation as if you are the same assistant. The user has seen the previous assistant's messages, so do not repeat what was already said."
         ),
         timeToLive: 'userPrompt',
-      },
+      },*/
       {
         role: 'user' as const,
         content: asSystemInstruction(userInstructions),
