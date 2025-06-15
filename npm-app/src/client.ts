@@ -522,11 +522,12 @@ export class Client {
         this.freshPrompt()
         return
       }
-      const { loginUrl, fingerprintHash, expiresAt } = await response.json() as {
-        loginUrl: string
-        fingerprintHash: string
-        expiresAt: string
-      }
+      const { loginUrl, fingerprintHash, expiresAt } =
+        (await response.json()) as {
+          loginUrl: string
+          fingerprintHash: string
+          expiresAt: string
+        }
 
       const responseToUser = [
         '\n',
@@ -588,7 +589,7 @@ export class Client {
             return
           }
 
-          const { user, message } = await statusResponse.json() as {
+          const { user, message } = (await statusResponse.json()) as {
             user: any
             message: string
           }

@@ -233,29 +233,11 @@ export const getProjectFileContext = async (
       await addScrapedContentToFiles(userKnowledgeFiles)
 
     const shellConfigFiles = loadShellConfigFiles()
-    
-    // Add error handling for getFileTokenScores
-    let tokenScores: Record<string, Record<string, number>> = {}
-    let tokenCallers: Record<string, Record<string, string[]>> = {}
-    
-    try {
-      const result = await getFileTokenScores(projectRoot, allFilePaths)
-      tokenScores = result.tokenScores || {}
-      tokenCallers = result.tokenCallers || {}
-    } catch (error) {
-      logger.error(
-        {
-          errorMessage: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
-          projectRoot,
-          fileCount: allFilePaths.length,
-        },
-        'Error getting file token scores, using empty scores'
-      )
-      // Use empty objects as fallback
-      tokenScores = {}
-      tokenCallers = {}
-    }
+
+    const { tokenScores, tokenCallers } = await getFileTokenScores(
+      projectRoot,
+      allFilePaths
+    )
 
     cachedProjectFileContext = {
       currentWorkingDirectory: projectRoot,
