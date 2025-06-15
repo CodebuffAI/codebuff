@@ -121,7 +121,6 @@ export const mainPrompt = async (
     cwd,
   } = action
   const { fileContext, agentContext } = agentState
-  console.log('fileContext', fileContext.fileTokenScores)
   const startTime = Date.now()
   let messageHistory = agentState.messageHistory
 
