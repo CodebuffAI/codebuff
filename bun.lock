@@ -104,7 +104,7 @@
     },
     "npm-app": {
       "name": "@codebuff/npm-app",
-      "version": "1.0.327",
+      "version": "1.0.0",
       "bin": {
         "codebuff": "dist/index.js",
       },
@@ -311,9 +311,6 @@
       },
     },
   },
-  "trustedDependencies": [
-    "@vscode/ripgrep",
-  ],
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.3", "", {}, "sha512-VQKMkwriZbaOgVCby1UDY/LDk5fIjhQicCvVPFqfe+69fWaPWydbWJ3wRt59/YzIwda1I81loas3oCoHxnqvdA=="],
 
