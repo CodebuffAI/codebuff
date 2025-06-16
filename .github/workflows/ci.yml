@@ -51,9 +51,13 @@ jobs:
           echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Build and typecheck
+      - name: Typecheck
         run: |
-          bun run build
+          bun run typecheck
+
+      - name: Build
+        run: |
+          cd npm-app && bun run build
 
       # - name: Open interactive debug shell
       #   if: ${{ failure() }}
