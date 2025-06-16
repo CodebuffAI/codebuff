@@ -1,7 +1,0 @@
-{
-  "projects": {
-    "default": "mantic-markets",
-    "prod": "mantic-markets",
-    "dev": "dev-mantic-markets"
-  }
-}

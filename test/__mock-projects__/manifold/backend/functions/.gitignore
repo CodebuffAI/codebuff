@@ -1,5 +1,0 @@
-# GCP deployment artifact
-dist/
-
-# Compiled JavaScript files
-lib/
