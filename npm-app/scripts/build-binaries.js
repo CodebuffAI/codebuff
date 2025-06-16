@@ -58,6 +58,24 @@ async function getClientEnvVars() {
   return Object.fromEntries(clientEnvKeys.map((key) => [key, env[key]]))
 }
 
+function getBunPtyLibPath(platform, arch) {
+  let binaryName
+  if (platform === 'darwin') {
+    binaryName = arch === 'arm64' ? 'librust_pty_arm64.dylib' : 'librust_pty.dylib'
+  } else if (platform === 'win32') {
+    binaryName = 'rust_pty.dll'
+  } else {
+    binaryName = arch === 'arm64' ? 'librust_pty_arm64.so' : 'librust_pty.so'
+  }
+  
+  return path.join(__dirname, '..', '..', 'node_modules', 'bun-pty', 'rust-pty', 'target', 'release', binaryName)
+}
+
+function getRipgrepPath(platform, arch) {
+  const fileName = platform === 'win32' ? 'rg.exe' : 'rg'
+  return path.join(__dirname, '..', '..', 'bin-external', 'ripgrep', `${platform}-${arch}`, fileName)
+}
+
 async function main() {
   // Fetch external binaries before building
   try {
@@ -108,7 +126,13 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
 
   const outputFile = path.join(binDir, outputName)
 
-  console.log(`🔨 Building ${outputName} (${targetInfo.platform}-${targetInfo.arch})...`)
+  console.log(
+    `🔨 Building ${outputName} (${targetInfo.platform}-${targetInfo.arch})...`
+  )
+
+  // Get binary paths for this target
+  const bunPtyLibPath = getBunPtyLibPath(targetInfo.platform, targetInfo.arch)
+  const ripgrepPath = getRipgrepPath(targetInfo.platform, targetInfo.arch)
 
   // Define environment variables, referenced via process.env.KEY in the code.
   // Note: They are inlined as constants in code. So process.env.IS_BINARY is replaced with the value 'true'.
@@ -116,6 +140,8 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
     PLATFORM: targetInfo.platform,
     ARCH: targetInfo.arch,
     IS_BINARY: 'true',
+    BUN_PTY_LIB: bunPtyLibPath,
+    RIPGREP_PATH: ripgrepPath,
   }
   const flagsStr = Object.entries(flags)
     .map(

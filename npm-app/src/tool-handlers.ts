@@ -2,11 +2,15 @@ import { spawn } from 'child_process'
 import * as path from 'path'
 
 import { FileChangeSchema } from '@codebuff/common/actions'
-import { BrowserActionSchema, BrowserResponse } from '@codebuff/common/browser-actions'
+import {
+  BrowserActionSchema,
+  BrowserResponse,
+} from '@codebuff/common/browser-actions'
 import { RawToolCall } from '@codebuff/common/types/tools'
 import { applyChanges } from '@codebuff/common/util/changes'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import { cyan, green, red, yellow } from 'picocolors'
+import { rgPath } from '@vscode/ripgrep'
 import { logger } from './utils/logger'
 
 import { handleBrowserInstruction } from './browser-runner'
@@ -14,16 +18,6 @@ import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/base'
 import { Spinner } from './utils/spinner'
 import { scrapeWebPage } from './web-scraper'
-
-// Try to import ripgrep path, but handle gracefully if not available (e.g., in binary builds)
-let rgPath: string | undefined;
-try {
-  const ripgrepModule = require('./native/ripgrep');
-  rgPath = ripgrepModule.rgPath;
-} catch (error) {
-  // Ripgrep not available, will use fallback
-  rgPath = undefined;
-}
 
 export type ToolHandler<T extends Record<string, any>> = (
   parameters: T,
@@ -143,11 +137,7 @@ export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
   _id
 ) => {
   const projectPath = getProjectRoot()
-  
-  if (!rgPath) {
-    return '<terminal_command_error>Code search is not available in this build. Ripgrep binary not found.</terminal_command_error>'
-  }
-  
+
   return new Promise((resolve) => {
     let stdout = ''
     let stderr = ''

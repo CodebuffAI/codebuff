@@ -2,8 +2,8 @@ import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import * as os from 'os'
 import path from 'path'
 import { green } from 'picocolors'
+import { spawn as ptySpawn, type IPty } from 'bun-pty'
 
-import type { IPty } from 'bun-pty'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { buildArray } from '@codebuff/common/util/array'
 import {
@@ -21,7 +21,6 @@ import {
 import { trackEvent } from '../utils/analytics'
 import { detectShell } from '../utils/detect-shell'
 import { runBackgroundCommand } from './background'
-import { spawn as ptySpawn } from '../native/pty'
 
 const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
@@ -105,9 +104,9 @@ const createPersistantProcess = (
       rows: process.stdout.rows || 24,
       cwd: dir,
       env: {
-        ...Object.fromEntries(
+        ...(Object.fromEntries(
           Object.entries(process.env).filter(([, value]) => value !== undefined)
-        ) as Record<string, string>,
+        ) as Record<string, string>),
         PAGER: 'cat',
         GIT_PAGER: 'cat',
         GIT_TERMINAL_PROMPT: '0',
