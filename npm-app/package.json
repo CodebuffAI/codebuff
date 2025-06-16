@@ -17,13 +17,14 @@
     "codebuff": "dist/index.js"
   },
   "scripts": {
-    "prepublishOnly": "bun run bundle && infisical run --env=prod --log-level=warn -- bun run clean-package.js",
-    "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
     "typecheck": "tsc --noEmit -p .",
     "fetch-external-binaries": "bun scripts/fetch-external-binaries.js",
     "build-binary": "infisical run --log-level=warn -- bun run scripts/build-binaries.js --current",
     "build-all-binaries": "infisical run --log-level=warn -- bun run scripts/build-binaries.js",
     "build": "bun run build-all-binaries",
+    "prepare-release-package": "bun run scripts/prepare-release-package.js",
+    "restore-package": "bun run scripts/restore-package.js",
+    "publish-release": "bun run prepare-release-package && npm publish && bun run restore-package",
     "start-bin": "bun run build-binary && ./bin/codebuff ..",
     "start": "infisical run --log-level=warn -- bun run src/index.ts ..",
     "start-max": "infisical run --log-level=warn -- bun run src/index.ts .. --max",

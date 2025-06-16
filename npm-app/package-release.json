@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.324",
+  "version": "1.0.327",
   "description": "AI dev assistant - native binary wrapper",
   "license": "MIT",
   "bin": {
@@ -24,10 +24,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/codebuffteam/codebuff.git"
+    "url": "https://github.com/CodebuffAI/codebuff.git"
   },
   "homepage": "https://codebuff.com",
   "bugs": {
-    "url": "https://github.com/codebuffteam/codebuff/issues"
+    "url": "https://github.com/CodebuffAI/codebuff/issues"
   }
 }
