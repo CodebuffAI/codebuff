@@ -5,6 +5,9 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { UpdateMemberRoleRequest } from 'common/types/organization'
+import { stripeServer } from 'common/src/util/stripe'
+import { env } from '@/env'
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: { orgId: string; userId: string }
@@ -102,10 +105,14 @@ export async function DELETE(
 
     const { orgId, userId } = params
 
-    // Check if current user is owner or admin, or removing themselves
+    // Check if current user is owner or admin, or removing themselves, and get organization details
     const currentUserMembership = await db
-      .select({ role: schema.orgMember.role })
+      .select({ 
+        role: schema.orgMember.role,
+        organization: schema.org
+      })
       .from(schema.orgMember)
+      .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
@@ -118,7 +125,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
-    const { role: currentUserRole } = currentUserMembership[0]
+    const { role: currentUserRole, organization } = currentUserMembership[0]
     const isRemovingSelf = session.user.id === userId
 
     if (!isRemovingSelf && currentUserRole !== 'owner' && currentUserRole !== 'admin') {
@@ -157,6 +164,39 @@ export async function DELETE(
           eq(schema.orgMember.user_id, userId)
         )
       )
+
+    // Update Stripe subscription quantity if subscription exists
+    if (organization.stripe_subscription_id) {
+      try {
+        const subscription = await stripeServer.subscriptions.retrieve(
+          organization.stripe_subscription_id
+        )
+        
+        const teamFeeItem = subscription.items.data.find(
+          item => item.price.id === env.STRIPE_TEAM_FEE_PRICE_ID
+        )
+        
+        if (teamFeeItem && teamFeeItem.quantity !== undefined) {
+          const newQuantity = Math.max(1, teamFeeItem.quantity - 1)
+          await stripeServer.subscriptionItems.update(teamFeeItem.id, {
+            quantity: newQuantity,
+            proration_behavior: 'create_prorations',
+            proration_date: Math.floor(Date.now() / 1000),
+          })
+
+          logger.info(
+            { orgId, userId, newQuantity },
+            'Updated Stripe subscription quantity after removing member'
+          )
+        }
+      } catch (stripeError) {
+        logger.error(
+          { orgId, userId, error: stripeError },
+          'Failed to update Stripe subscription quantity after removing member'
+        )
+        // Don't fail the request if Stripe update fails
+      }
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

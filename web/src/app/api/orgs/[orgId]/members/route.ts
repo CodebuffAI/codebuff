@@ -5,6 +5,9 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { InviteMemberRequest } from 'common/types/organization'
+import { stripeServer } from 'common/src/util/stripe'
+import { env } from '@/env'
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: { orgId: string }
@@ -76,10 +79,14 @@ export async function POST(
     const { orgId } = params
     const body: InviteMemberRequest = await request.json()
 
-    // Check if user is owner or admin
+    // Check if user is owner or admin and get organization details
     const membership = await db
-      .select({ role: schema.orgMember.role })
+      .select({ 
+        role: schema.orgMember.role,
+        organization: schema.org
+      })
       .from(schema.orgMember)
+      .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
@@ -92,7 +99,7 @@ export async function POST(
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
-    const { role: userRole } = membership[0]
+    const { role: userRole, organization } = membership[0]
     if (userRole !== 'owner' && userRole !== 'admin') {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
@@ -135,6 +142,38 @@ export async function POST(
       user_id: userId,
       role: body.role,
     })
+
+    // Update Stripe subscription quantity if subscription exists
+    if (organization.stripe_subscription_id) {
+      try {
+        const subscription = await stripeServer.subscriptions.retrieve(
+          organization.stripe_subscription_id
+        )
+        
+        const teamFeeItem = subscription.items.data.find(
+          item => item.price.id === env.STRIPE_TEAM_FEE_PRICE_ID
+        )
+        
+        if (teamFeeItem && teamFeeItem.quantity !== undefined) {
+          await stripeServer.subscriptionItems.update(teamFeeItem.id, {
+            quantity: teamFeeItem.quantity + 1,
+            proration_behavior: 'create_prorations',
+            proration_date: Math.floor(Date.now() / 1000),
+          })
+
+          logger.info(
+            { orgId, userId, newQuantity: teamFeeItem.quantity + 1 },
+            'Updated Stripe subscription quantity after adding member'
+          )
+        }
+      } catch (stripeError) {
+        logger.error(
+          { orgId, userId, error: stripeError },
+          'Failed to update Stripe subscription quantity after adding member'
+        )
+        // Don't fail the request if Stripe update fails
+      }
+    }
 
     return NextResponse.json({ success: true }, { status: 201 })
   } catch (error) {

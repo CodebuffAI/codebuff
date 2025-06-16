@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
@@ -143,6 +143,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       )
     }
 
+    // Get member count for the organization
+    const memberCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.orgMember)
+      .where(eq(schema.orgMember.org_id, orgId))
+
+    const seatCount = Math.max(1, memberCount[0].count) // Minimum 1 seat
+
     let stripeCustomerId = organization.stripe_customer_id
 
     // Create Stripe customer if it doesn't exist
@@ -177,12 +185,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       customer: stripeCustomerId,
       mode: 'subscription',
       line_items: [
-        // {
-        //   price: env.STRIPE_TEAM_USAGE_PRICE_ID,
-        // },
         {
           price: env.STRIPE_TEAM_FEE_PRICE_ID,
-          quantity: 1,
+          quantity: seatCount,
         },
       ],
       allow_promotion_codes: true,
@@ -208,8 +213,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     logger.info(
-      { orgId, sessionId: checkoutSession.id },
-      'Created Stripe checkout session for billing setup'
+      { orgId, sessionId: checkoutSession.id, seatCount },
+      'Created Stripe checkout session for billing setup with seat-based pricing'
     )
 
     return NextResponse.json({ sessionId: checkoutSession.id })
