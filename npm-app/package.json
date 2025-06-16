@@ -21,7 +21,7 @@
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "test": "jest",
-    "start-bin": "infisical run --log-level=warn -- bun run build-binary && ./bin/codebuff ..",
+    "start-bin": "bun run build-binary && ./bin/codebuff ..",
     "start": "infisical run --log-level=warn -- bun run src/index.ts ..",
     "start-max": "infisical run --log-level=warn -- bun run src/index.ts .. --max",
     "start-lite": "infisical run --log-level=warn -- bun run src/index.ts .. --lite",
@@ -50,6 +50,7 @@
     "@types/diff": "5.2.1",
     "@types/micromatch": "^4.0.9",
     "@vscode/ripgrep": "1.15.9",
+    "@homebridge/node-pty-prebuilt-multiarch": "0.12.0",
     "ai": "4.3.16",
     "axios": "1.7.4",
     "@codebuff/code-map": "workspace:*",
@@ -71,9 +72,6 @@
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"
-  },
-  "optionalDependencies": {
-    "@homebridge/node-pty-prebuilt-multiarch": "0.12.0"
   },
   "trustedDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",
