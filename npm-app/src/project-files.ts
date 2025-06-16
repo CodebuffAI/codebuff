@@ -178,8 +178,14 @@ export function initProjectFileContextWithWorker(
     cachedProjectFileContext = undefined
   }
 
-  // Use absolute path that exactly matches string passed to bun build --compile.
-  const worker = new Worker('src/workers/project-context.ts')
+  const workerRelativePath = './workers/project-context.ts'
+  const worker = new Worker(
+    process.env.IS_BINARY
+      ? // Use relative path for compiled binary.
+        workerRelativePath
+      : // Use absolute path for dev (via bun URL).
+        new URL(workerRelativePath, import.meta.url).href
+  )
 
   // Pass the current chat ID to the worker to ensure consistency
   const mainThreadChatId = getCurrentChatId()

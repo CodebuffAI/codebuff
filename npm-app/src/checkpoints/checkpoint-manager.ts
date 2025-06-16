@@ -97,8 +97,14 @@ export class CheckpointManager {
    */
   private initWorker(): Worker {
     if (!this.worker) {
-      // Use absolute path that exactly matches string passed to bun build --compile.
-      this.worker = new Worker('src/workers/checkpoint-worker.ts')
+      const workerRelativePath = './workers/checkpoint-worker.ts'
+      this.worker = new Worker(
+        process.env.IS_BINARY
+          ? // Use relative path for compiled binary.
+            workerRelativePath
+          : // Use absolute path for dev (via bun URL).
+            new URL(workerRelativePath, import.meta.url).href
+      )
     }
     return this.worker
   }
