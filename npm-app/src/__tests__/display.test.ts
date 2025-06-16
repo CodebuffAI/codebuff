@@ -1,4 +1,3 @@
-// @ts-ignore: bun:test types aren't available
 import { describe, expect, it } from 'bun:test'
 import { gray } from 'picocolors'
 import { onlyWhitespace, squashNewlines } from '../display'
