@@ -31,11 +31,6 @@
     "start-superagent": "infisical run --log-level=warn -- bun run src/index.ts .. --superagent",
     "start-dir": "infisical run --log-level=warn -- bun run src/index.ts",
     "start-experimental": "infisical run --log-level=warn -- bun run src/index.ts .. --experimental",
-    "start-manifold": "infisical run --log-level=warn -- bun run src/index.ts ../../manifold",
-    "start-litestar": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/litestar",
-    "start-jpcsp": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/jpcsp",
-    "start-vscode": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/vscode",
-    "start-nushell": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/nushell",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "test": "jest"
   },

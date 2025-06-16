@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 function extractEnvVarsFromEnvTs() {
-  const envTsPath = path.join(__dirname, '..', 'env.ts')
+  const envTsPath = path.join(__dirname, '..', 'packages', 'internal', 'src', 'env.ts')
   const envTsContent = fs.readFileSync(envTsPath, 'utf8')
 
   // Extract server and client variables from the env.ts file
