@@ -331,7 +331,7 @@ export class Client {
 
     const readableKeyType = READABLE_NAME[keyType]
 
-    Spinner.get().start('Storing API Key')
+    Spinner.get().start('Storing API Key...')
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
@@ -902,7 +902,7 @@ export class Client {
       }
     )
 
-    Spinner.get().start('Thinking')
+    Spinner.get().start('Thinking...')
 
     const action = {
       promptId: userInputId,
@@ -1155,7 +1155,7 @@ export class Client {
           // Append process updates to existing tool results
           toolResults.push(...getBackgroundProcessUpdates())
           // Continue the prompt with the tool results.
-          Spinner.get().start('Thinking')
+          Spinner.get().start('Thinking...')
           const continuePromptAction: ClientAction = {
             type: 'prompt',
             promptId: userInputId,
@@ -1672,7 +1672,7 @@ Go to https://www.codebuff.com/config for more information.`) +
             result: readNewTerminalOutput(),
           })
           // Continue the prompt with the tool results.
-          Spinner.get().start('Thinking')
+          Spinner.get().start('Thinking...')
           this.webSocket.sendAction({
             type: 'manager-prompt',
             promptId: userInputId,

@@ -260,7 +260,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
     onToolEnd: (toolName, params) => {
       return () => {
-        Spinner.get().start('Researching')
+        Spinner.get().start('Researching...')
       }
     },
   },
