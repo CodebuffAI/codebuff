@@ -1,4 +1,4 @@
-export * from './env/env'
+export * from './env'
 
 // Export internal utilities
 export * as utils from './utils/auth'

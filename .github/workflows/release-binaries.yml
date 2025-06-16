@@ -43,12 +43,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
         
-      - name: Build libraries
-        run: bun run build:libs
-        working-directory: npm-app
-        
       - name: Build binary
-        run: node scripts/build-all-platforms.js
+        run: bun run scripts/build-binaries.js
         working-directory: npm-app
         env:
           BUN_TARGET: ${{ matrix.target }}
