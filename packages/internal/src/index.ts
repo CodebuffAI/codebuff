@@ -1,7 +1,5 @@
-export * from './env'
+import * as env from './env'
+import * as loops from './loops'
+import * as utils from './utils/auth'
 
-// Export internal utilities
-export * as utils from './utils/auth'
-
-// Export loops functionality
-export * as loops from './loops'
+export { env, utils, loops }

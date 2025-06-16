@@ -13,8 +13,9 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "start": "infisical run --log-level=warn -- bun src/index.ts",
-    "dev": "infisical run --log-level=warn -- bun src/index.ts",
+    "inf": "$(git rev-parse --show-toplevel)/inf",
+    "start": "bun run inf bun src/index.ts",
+    "dev": "bun run inf bun src/index.ts",
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test"
   },
