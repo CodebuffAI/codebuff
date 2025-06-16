@@ -45,19 +45,6 @@ const currentPlatformTarget = {
   'win32-x64': 'bun-windows-x64',
 }[platformKey]
 
-async function getClientEnvVars() {
-  // Import the env module from the project root
-  const envModule = await import(path.resolve(__dirname, '../../env.ts'))
-  const env = envModule.env
-
-  // Extract all client environment variable keys
-  const clientEnvKeys = Object.keys(env).filter((key) =>
-    key.startsWith('NEXT_PUBLIC_')
-  )
-
-  return Object.fromEntries(clientEnvKeys.map((key) => [key, env[key]]))
-}
-
 function getBunPtyLibPath(platform, arch) {
   let binaryName
   if (platform === 'darwin') {
@@ -162,9 +149,6 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
         `--define 'process.env.${key}=${typeof value === 'string' ? JSON.stringify(value) : value}'`
     )
     .join(' ')
-
-  const clientEnvVars = await getClientEnvVars()
-  Object.assign(process.env, clientEnvVars)
 
   try {
     const command = [
