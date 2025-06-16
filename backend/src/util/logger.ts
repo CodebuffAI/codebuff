@@ -5,7 +5,7 @@ import { format } from 'util'
 
 import pino from 'pino'
 
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { splitData } from './split-data'
 import {
   getLoggerContext,

@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { getStripeCustomerId } from '@/lib/stripe-utils'
 import { logger } from '@/util/logger'
 import {

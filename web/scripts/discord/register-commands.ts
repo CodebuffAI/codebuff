@@ -1,6 +1,6 @@
-import { REST, Routes, SlashCommandBuilder } from 'discord.js'
-import { env } from '../../../env'
 import { logger } from '@/util/logger'
+import { REST, Routes, SlashCommandBuilder } from 'discord.js'
+import { env } from '@codebuff/internal'
 
 const commands = [
   new SlashCommandBuilder()

@@ -8,7 +8,7 @@ import { checkOrganizationPermission } from '@/lib/organization-permissions'
 import { loops } from '@codebuff/internal'
 import { logger } from '@/util/logger'
 import crypto from 'crypto'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 
 interface RouteParams {
   params: {

@@ -5,7 +5,7 @@ import {
   Interaction,
   ChatInputCommandInteraction,
 } from 'discord.js'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import db from '@codebuff/common/db'
 import { user } from '@codebuff/common/db/schema'
 import { eq, or } from 'drizzle-orm'

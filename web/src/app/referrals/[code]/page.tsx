@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { storeSearchParams } from '@/lib/trackConversions'
 
 const InputWithCopyButton = ({ text }: { text: string }) => {

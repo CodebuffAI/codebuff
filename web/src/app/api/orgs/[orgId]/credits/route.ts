@@ -1,5 +1,5 @@
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { logger } from '@/util/logger'
 import { grantOrganizationCredits } from '@codebuff/billing'
 import { CREDIT_PRICING } from '@codebuff/common/constants'

@@ -1,5 +1,5 @@
-import { env } from '../../env'
 import { PostHog } from 'posthog-node'
+import { env } from '@codebuff/internal'
 
 import { AnalyticsEvent } from './constants/analytics-events'
 

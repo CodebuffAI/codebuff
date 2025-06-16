@@ -2,7 +2,7 @@ import { eq, sql } from 'drizzle-orm'
 import * as schema from '@codebuff/common/db/schema'
 import db from '@codebuff/common/db'
 import { getReferralLink } from '@codebuff/common/util/referral'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 
 export type ReferralStatus =
   | {

@@ -5,7 +5,7 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { logger } from '@/util/logger'
 import { genAuthCode } from '@codebuff/common/util/credentials'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)

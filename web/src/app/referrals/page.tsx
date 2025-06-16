@@ -24,7 +24,7 @@ import { toast } from '@/components/ui/use-toast'
 
 
 import { Separator } from '@/components/ui/separator'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 
 const copyReferral = (link: string) => {
   navigator.clipboard.writeText(link)

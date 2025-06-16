@@ -14,7 +14,7 @@ import {
   KEY_PREFIXES,
 } from './constants'
 
-import { env } from '../../../env'
+import { env } from '@codebuff/internal'
 
 /**
  * Encrypts an API key using the secret from environment variables.
@@ -148,7 +148,10 @@ export async function retrieveAndDecryptApiKey(
   logger.info({ userId, keyType }, 'Attempting to retrieve and decrypt API key')
   try {
     const result = await db.query.encryptedApiKeys.findFirst({
-      where: and(eq(encryptedApiKeys.user_id, userId), eq(encryptedApiKeys.type, keyType)),
+      where: and(
+        eq(encryptedApiKeys.user_id, userId),
+        eq(encryptedApiKeys.type, keyType)
+      ),
       columns: {
         api_key: true, // Select only the encrypted key column
       },
@@ -210,7 +213,10 @@ export async function clearApiKey(
     const result = await db
       .delete(encryptedApiKeys)
       .where(
-        and(eq(encryptedApiKeys.user_id, userId), eq(encryptedApiKeys.type, keyType))
+        and(
+          eq(encryptedApiKeys.user_id, userId),
+          eq(encryptedApiKeys.type, keyType)
+        )
       )
       .returning() // Return the deleted row to check if something was deleted
 

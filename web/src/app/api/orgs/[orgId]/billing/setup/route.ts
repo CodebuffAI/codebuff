@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { logger } from '@/util/logger'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'

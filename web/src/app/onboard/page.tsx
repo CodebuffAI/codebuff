@@ -10,7 +10,7 @@ import { and, eq, gt } from 'drizzle-orm'
 import { MAX_DATE } from '@codebuff/common/constants'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { genAuthCode } from 'common/util/credentials'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import CardWithBeams from '@/components/card-with-beams'
 import { redeemReferralCode } from '../api/referrals/helpers'
 

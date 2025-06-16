@@ -1,6 +1,6 @@
 import { defineConfig } from 'drizzle-kit'
 
-import { env } from '../../../env'
+import { env } from '@codebuff/internal'
 
 import path from 'path'
 

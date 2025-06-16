@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { logger } from '@/util/logger'
 import { getUserCostPerCredit, processAndGrantCredit } from '@codebuff/billing'
 import db from '@codebuff/common/db'

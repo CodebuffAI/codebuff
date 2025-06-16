@@ -5,7 +5,7 @@ import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
 import CardWithBeams from '@/components/card-with-beams'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import Link from 'next/link'
 import { Metadata } from 'next'
 

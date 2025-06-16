@@ -2,11 +2,8 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "types": ["bun", "node"],
-    "baseUrl": ".",
-    "paths": {
-      "@/env": ["../env.ts"]
-    }
+    "baseUrl": "."
   },
-  "include": ["src/**/*.ts", "../env.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__"]
 }

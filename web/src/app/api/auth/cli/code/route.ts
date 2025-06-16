@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { genAuthCode } from '@codebuff/common/util/credentials'

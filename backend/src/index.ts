@@ -11,7 +11,7 @@ import {
 } from './admin/relabelRuns'
 import usageHandler from './api/usage'
 import { isRepoCoveredHandler } from './api/org'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { checkAdmin } from './util/check-auth'
 import { logger } from './util/logger'
 import {

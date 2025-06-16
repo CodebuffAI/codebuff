@@ -15,7 +15,7 @@ import type { NextAuthOptions } from 'next-auth'
 import { Adapter } from 'next-auth/adapters'
 import GitHubProvider from 'next-auth/providers/github'
 
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { logger } from '@/util/logger'
 
 async function createAndLinkStripeCustomer(

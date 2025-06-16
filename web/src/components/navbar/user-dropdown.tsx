@@ -5,7 +5,7 @@ import { Session } from 'next-auth'
 import { signOut } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { useRouter } from 'next/navigation'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { Gift, CreditCard, Users } from 'lucide-react'
 
 import { Icons } from '@/components/icons'

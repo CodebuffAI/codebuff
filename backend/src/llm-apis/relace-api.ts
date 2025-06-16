@@ -4,7 +4,7 @@ import {
   parseMarkdownCodeBlock,
 } from '@codebuff/common/util/file'
 
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { logger } from '../util/logger'
 import { countTokens } from '../util/token-counter'
@@ -201,7 +201,7 @@ export async function rerank(
       )
     }
 
-    const rankings = await response.json() as string[]
+    const rankings = (await response.json()) as string[]
     if (!rankings || !Array.isArray(rankings)) {
       throw new Error('Invalid response format from Relace API')
     }
