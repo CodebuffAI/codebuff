@@ -47,14 +47,14 @@
     "bun": ">=1.2.11"
   },
   "dependencies": {
+    "@codebuff/code-map": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "@types/diff": "5.2.1",
     "@types/micromatch": "^4.0.9",
     "@vscode/ripgrep": "1.15.9",
-    "@homebridge/node-pty-prebuilt-multiarch": "0.12.0",
     "ai": "4.3.16",
     "axios": "1.7.4",
-    "@codebuff/code-map": "workspace:*",
-    "@codebuff/common": "workspace:*",
+    "bun-pty": "0.3.1",
     "commander": "^13.1.0",
     "diff": "5.2.0",
     "git-url-parse": "^16.1.0",
@@ -74,7 +74,6 @@
     "zod": "3.23.8"
   },
   "trustedDependencies": [
-    "@homebridge/node-pty-prebuilt-multiarch",
     "@vscode/ripgrep"
   ]
 }

@@ -3,7 +3,7 @@ import * as os from 'os'
 import path from 'path'
 import { green } from 'picocolors'
 
-import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
+import type { IPty } from 'bun-pty'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { buildArray } from '@codebuff/common/util/array'
 import {
@@ -21,7 +21,7 @@ import {
 import { trackEvent } from '../utils/analytics'
 import { detectShell } from '../utils/detect-shell'
 import { runBackgroundCommand } from './background'
-import { pty } from '../native/pty'
+import { spawn as ptySpawn } from '../native/pty'
 
 const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
@@ -50,7 +50,7 @@ const createPersistantProcess = (
   dir: string,
   forceChildProcess = false
 ): PersistentProcess => {
-  if (pty && process.env.NODE_ENV !== 'test' && !forceChildProcess) {
+  if (ptySpawn && process.env.NODE_ENV !== 'test' && !forceChildProcess) {
     const isWindows = os.platform() === 'win32'
     const currShell = detectShell()
     const shell = isWindows
@@ -99,13 +99,15 @@ const createPersistantProcess = (
       `
     }
 
-    const persistentPty = pty.spawn(shell, isWindows ? [] : ['--login'], {
+    const persistentPty = ptySpawn(shell, isWindows ? [] : ['--login'], {
       name: 'xterm-256color',
       cols: process.stdout.columns || 80,
       rows: process.stdout.rows || 24,
       cwd: dir,
       env: {
-        ...process.env,
+        ...Object.fromEntries(
+          Object.entries(process.env).filter(([, value]) => value !== undefined)
+        ) as Record<string, string>,
         PAGER: 'cat',
         GIT_PAGER: 'cat',
         GIT_TERMINAL_PROMPT: '0',
@@ -118,9 +120,9 @@ const createPersistantProcess = (
           : {
               TERM: 'xterm-256color',
               // Preserve important environment variables
-              PATH: process.env.PATH,
-              HOME: process.env.HOME,
-              USER: process.env.USER,
+              PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+              HOME: process.env.HOME || '/tmp',
+              USER: process.env.USER || 'user',
               SHELL: shellWithoutExe,
             }),
         LESS: '-FRX',
