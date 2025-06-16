@@ -1,11 +1,8 @@
 [install]
-# Using workspaces, so dependencies will be in the root node_modules.
-# This avoids creating a separate node_modules in this package.
+# Don't save dependencies since this is a workspace package
 no_save = true
 
 [loader]
-# Help bun resolve workspace packages
-".ts" = "tsx"
 # Treat .scm files as text for tree-sitter queries
 ".scm" = "text"
 

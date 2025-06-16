@@ -5,12 +5,3 @@ linkWorkspacePackages = false
 [test]
 # Test configuration
 preload = ["./test/setup.ts"]
-
-# Module path mappings for Bun runtime
-[module]
-"@codebuff/common/*" = "./common/src/*"
-"@codebuff/billing/*" = "./packages/billing/src/*"
-"@codebuff/bigquery/*" = "./packages/bigquery/src/*"
-"@codebuff/internal/*" = "./packages/internal/src/*"
-"@codebuff/code-map/*" = "./packages/code-map/*"
-
