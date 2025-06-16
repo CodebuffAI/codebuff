@@ -144,6 +144,9 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
   const bunPtyLibPath = getBunPtyLibPath(targetInfo.platform, targetInfo.arch)
   const ripgrepPath = getRipgrepPath(targetInfo.platform, targetInfo.arch)
 
+  const assets = [bunPtyLibPath, ripgrepPath]
+  const assetsStr = assets.map((asset) => `--assets="${asset}"`).join(' ')
+
   // Define environment variables, referenced via process.env.KEY in the code.
   // Note: They are inlined as constants in code. So process.env.IS_BINARY is replaced with the value 'true'.
   const flags = {
@@ -163,20 +166,17 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
   const clientEnvVars = await getClientEnvVars()
   Object.assign(process.env, clientEnvVars)
 
-  const envFlag = '--env "NEXT_PUBLIC_*"'
-
   try {
     const command = [
       'bun build --compile',
-      'src/index.ts src/project-context.ts src/checkpoint-worker.ts',
+      'src/index.ts src/workers/*', // Entrypoints
       '--root src',
       `--target=${bunTarget}`,
-      `--assets="${bunPtyLibPath}"`,
-      `--assets="${ripgrepPath}"`,
+      assetsStr,
       flagsStr,
-      envFlag,
+      '--env "NEXT_PUBLIC_*"', // Copies all current env vars in process.env to the compiled binary that match the pattern.
       `--outfile="${outputFile}"`,
-      // '--minify',
+      '--minify',
     ].join(' ')
 
     execSync(command, { stdio: 'inherit' })

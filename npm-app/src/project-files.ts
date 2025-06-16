@@ -158,7 +158,7 @@ export function initProjectFileContextWithWorker(
   }
 
   // Use absolute path that exactly matches string passed to bun build --compile.
-  const worker = new Worker('src/project-context.ts')
+  const worker = new Worker('src/workers/project-context.ts')
 
   worker.postMessage({ dir })
 

@@ -1,7 +1,7 @@
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import { parentPort as maybeParentPort } from 'worker_threads'
-import { initializeCheckpointFileManager } from './checkpoints/file-manager'
-import { getProjectFileContext, setProjectRoot } from './project-files'
+import { initializeCheckpointFileManager } from '../checkpoints/file-manager'
+import { getProjectFileContext, setProjectRoot } from '../project-files'
 
 if (maybeParentPort) {
   const parentPort = maybeParentPort
