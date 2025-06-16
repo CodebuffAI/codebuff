@@ -1,6 +1,6 @@
 {
   "name": "@codebuff/npm-app",
-  "version": "1.0.327",
+  "version": "1.0.0",
   "private": true,
   "description": "cli for codebuff",
   "license": "MIT",
@@ -68,8 +68,5 @@
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"
-  },
-  "trustedDependencies": [
-    "@vscode/ripgrep"
-  ]
+  }
 }
