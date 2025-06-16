@@ -61,19 +61,29 @@ async function getClientEnvVars() {
 function getBunPtyLibPath(platform, arch) {
   let binaryName
   if (platform === 'darwin') {
-    binaryName = arch === 'arm64' ? 'librust_pty_arm64.dylib' : 'librust_pty.dylib'
+    binaryName =
+      arch === 'arm64' ? 'librust_pty_arm64.dylib' : 'librust_pty.dylib'
   } else if (platform === 'win32') {
     binaryName = 'rust_pty.dll'
   } else {
     binaryName = arch === 'arm64' ? 'librust_pty_arm64.so' : 'librust_pty.so'
   }
-  
-  return path.join(__dirname, '..', '..', 'node_modules', 'bun-pty', 'rust-pty', 'target', 'release', binaryName)
+
+  return path.join(
+    __dirname,
+    '../../node_modules/bun-pty/rust-pty/target/release',
+    binaryName
+  )
 }
 
 function getRipgrepPath(platform, arch) {
   const fileName = platform === 'win32' ? 'rg.exe' : 'rg'
-  return path.join(__dirname, '..', '..', 'bin-external', 'ripgrep', `${platform}-${arch}`, fileName)
+  return path.join(
+    __dirname,
+    '../../bin-external/ripgrep',
+    `${platform}-${arch}`,
+    fileName
+  )
 }
 
 async function main() {
@@ -161,6 +171,8 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
       'src/index.ts src/project-context.ts src/checkpoint-worker.ts',
       '--root src',
       `--target=${bunTarget}`,
+      `--assets="${bunPtyLibPath}"`,
+      `--assets="${ripgrepPath}"`,
       flagsStr,
       envFlag,
       `--outfile="${outputFile}"`,
