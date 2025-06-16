@@ -22,7 +22,7 @@
     "build-binary": "infisical run --log-level=warn -- bun run scripts/build-binaries.js --current",
     "build-all-binaries": "infisical run --log-level=warn -- bun run scripts/build-binaries.js",
     "build": "bun run build-all-binaries",
-    "publish-release": "npm publish package-release.json",
+    "release": "bun run scripts/release.js",
     "start-bin": "bun run build-binary && ./bin/codebuff ..",
     "start": "infisical run --log-level=warn -- bun run src/index.ts ..",
     "start-max": "infisical run --log-level=warn -- bun run src/index.ts .. --max",
