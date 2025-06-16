@@ -94,7 +94,17 @@ export const promptAiSdkStream = async function* (
     if (chunk.type === 'error') {
       logger.error({ chunk }, 'Error from AI SDK')
       if (process.env.ENVIRONMENT !== 'prod') {
-        throw new Error(chunk.error as string)
+        throw chunk.error instanceof Error
+          ? new Error(`Error from AI SDK: ${chunk.error.message}`, {
+              cause: chunk.error,
+            })
+          : new Error(
+              `Error from AI SDK: ${
+                typeof chunk.error === 'string'
+                  ? chunk.error
+                  : JSON.stringify(chunk.error)
+              }`
+            )
       }
     }
     if (chunk.type === 'reasoning') {

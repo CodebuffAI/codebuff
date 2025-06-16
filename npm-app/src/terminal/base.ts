@@ -21,7 +21,7 @@ import {
 import { trackEvent } from '../utils/analytics'
 import { detectShell } from '../utils/detect-shell'
 import { runBackgroundCommand } from './background'
-import { logger } from '@/utils/logger'
+import { logger } from '../utils/logger'
 
 const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
@@ -105,7 +105,7 @@ const createPersistantProcess = (
       rows: process.stdout.rows || 24,
       cwd: dir,
       env: {
-        ...process.env as any,
+        ...(process.env as any),
         PAGER: 'cat',
         GIT_PAGER: 'cat',
         GIT_TERMINAL_PROMPT: '0',

@@ -22,7 +22,7 @@
     "start-lite": "bun --cwd npm-app start-lite",
     "start-ask": "bun --cwd npm-app start-ask",
     "start-superagent": "bun --cwd npm-app start-superagent",
-    "start-web": "bun --cwd web dev",
+    "start-web": "bun start-db && bun --cwd web dev",
     "start-studio": "bun --cwd common db:studio",
     "start-server": "bun --cwd backend dev",
     "start-manifold": "bun --cwd npm-app start-manifold",

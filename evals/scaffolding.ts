@@ -21,6 +21,7 @@ import { handleToolCall } from 'codebuff/tool-handlers'
 import { getSystemInfo } from 'codebuff/utils/system-info'
 import { blue } from 'picocolors'
 import { WebSocket } from 'ws'
+import { ModelConfig } from 'git-evals/types'
 
 const DEBUG_MODE = true
 
@@ -93,6 +94,7 @@ export async function runMainPrompt(
   sessionId: string,
   options: {
     costMode: 'lite' | 'normal' | 'max' | 'experimental'
+    modelConfig: ModelConfig
   }
 ) {
   const mockWs = new EventEmitter() as WebSocket
@@ -121,8 +123,9 @@ export async function runMainPrompt(
       }
       fullResponse += chunk
     },
-    selectedModel: undefined, // selectedModel
+    selectedModel: undefined,
     readOnlyMode: false, // readOnlyMode = false for evals
+    modelConfig: options.modelConfig,
   })
 
   return {
@@ -148,6 +151,7 @@ export async function loopMainPrompt({
   stopCondition,
   options = {
     costMode: 'normal',
+    modelConfig: {},
   },
 }: {
   agentState: AgentState
@@ -160,6 +164,7 @@ export async function loopMainPrompt({
   ) => boolean
   options: {
     costMode: 'lite' | 'normal' | 'max' | 'experimental'
+    modelConfig: ModelConfig
   }
 }) {
   console.log(blue(prompt))

@@ -10,6 +10,7 @@ export class Spinner {
   private static instance: Spinner | null = null
   private loadingInterval: NodeJS.Timeout | null = null
   private previous: string | null = null
+  private text: string = 'Thinking'
 
   private constructor() {}
 
@@ -20,7 +21,8 @@ export class Spinner {
     return Spinner.instance
   }
 
-  start() {
+  start(text: string) {
+    this.text = text
     if (this.loadingInterval) {
       return
     }
@@ -30,7 +32,7 @@ export class Spinner {
     // Hide cursor while spinner is active
     process.stdout.write('\u001B[?25l')
     this.loadingInterval = setInterval(() => {
-      this.rewriteLine(green(`${chars[i]} Thinking...`))
+      this.rewriteLine(green(`${chars[i]} ${this.text}...`))
       i = (i + 1) % chars.length
     }, 100)
   }
@@ -52,18 +54,6 @@ export class Spinner {
 
   restoreCursor() {
     process.stdout.write('\u001B[?25h')
-  }
-
-  log(message: string) {
-    // Temporarily clear the spinner line
-    this.rewriteLine('')
-    // Write the log message
-    console.log(message)
-    // If spinner is active, redraw it on the next line
-    if (this.loadingInterval) {
-      const i = Math.floor(Math.random() * chars.length)
-      this.rewriteLine(green(`${chars[i]} Thinking...`))
-    }
   }
 
   private rewriteLine(line: string) {

@@ -794,7 +794,7 @@ export class CLI {
     const cleanedInput = this.cleanCommandInput(promptContent)
 
     await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
-    Spinner.get().start()
+    Spinner.get().start('Thinking')
 
     this.isReceivingResponse = true
 

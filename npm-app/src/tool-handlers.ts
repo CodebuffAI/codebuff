@@ -266,7 +266,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   sleep: handleSleep,
   end_turn: async () => '',
   browser_logs: async (params, _id): Promise<string> => {
-    Spinner.get().start()
+    Spinner.get().start('Using browser')
     let response: BrowserResponse
     try {
       const action = BrowserActionSchema.parse(params)

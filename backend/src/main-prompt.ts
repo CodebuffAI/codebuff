@@ -6,7 +6,11 @@ import {
 } from '@codebuff/bigquery'
 import { ClientAction } from '@codebuff/common/actions'
 import {
+  geminiModels,
+  getModelForMode,
+  getModelFromShortName,
   HIDDEN_FILE_READ_STATUS,
+  Model,
   models,
   ONE_TIME_LABELS,
   type CostMode,
@@ -31,10 +35,10 @@ import {
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
 import { getDocumentationForQuery } from './get-documentation-for-query'
-import { checkForUnproductiveLoop } from './llm-apis/check-for-loop'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStream } from './prompt-agent-stream'
+import { research } from './research'
 import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
@@ -79,7 +83,6 @@ import {
   requestOptionalFile,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
-import { research } from './research'
 
 const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
@@ -92,6 +95,7 @@ export interface MainPromptOptions {
   onResponseChunk: (chunk: string) => void
   selectedModel: string | undefined
   readOnlyMode?: boolean
+  modelConfig?: { agentModel?: Model; reasoningModel?: Model } // Used by the backend for automatic evals
 }
 
 export const mainPrompt = async (
@@ -109,6 +113,7 @@ export const mainPrompt = async (
     onResponseChunk,
     selectedModel,
     readOnlyMode = false,
+    modelConfig,
   } = options
 
   const {
@@ -128,14 +133,20 @@ export const mainPrompt = async (
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
-  const { getStream, model } = getAgentStream({
+  const model =
+    modelConfig?.agentModel ??
+    getModelFromShortName(selectedModel) ??
+    getModelForMode(costMode, 'agent')
+
+  const getStream = getAgentStream({
     costMode,
-    selectedModel,
+    selectedModel: model,
     stopSequences: TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
     clientSessionId,
     fingerprintId,
     userInputId: promptId,
     userId,
+    modelConfig,
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
@@ -164,12 +175,13 @@ export const mainPrompt = async (
   const isExporting =
     prompt &&
     (prompt.toLowerCase() === '/export' || prompt.toLowerCase() === 'export')
-  const geminiThinkingEnabled = costMode === 'max'
+  const thinkingEnabled =
+    costMode === 'max' || modelConfig?.reasoningModel !== undefined
   const isLiteMode = costMode === 'lite'
   const isGeminiPro = model === models.gemini2_5_pro_preview
   const isFlash =
-    model === 'gemini-2.5-flash-preview-04-17:thinking' ||
-    (model as any) === 'gemini-2.5-flash-preview-04-17'
+    (model as Model) === geminiModels.gemini2_5_flash_thinking ||
+    model === geminiModels.gemini2_5_flash
   const toolsInstructions = getFilteredToolsInstructions(costMode)
   const userInstructions = buildArray(
     isAskMode &&
@@ -215,7 +227,7 @@ export const mainPrompt = async (
     (isFlash || isGeminiPro) &&
       'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area. Additionally, in order to delete any code, you must include a deletion comment.',
 
-    geminiThinkingEnabled
+    thinkingEnabled
       ? 'Start your response with the think_deeply tool call to decide how to proceed.'
       : 'If the user request is very complex, consider invoking think_deeply.',
 
@@ -610,7 +622,7 @@ export const mainPrompt = async (
   > = {}
 
   // Think deeply at the start of every response
-  if (geminiThinkingEnabled) {
+  if (thinkingEnabled) {
     let response = await getThinkingStream(
       coreMessagesWithSystem(agentMessages, system),
       (chunk) => {
@@ -622,6 +634,7 @@ export const mainPrompt = async (
         fingerprintId,
         userInputId: promptId,
         userId,
+        model: modelConfig?.reasoningModel,
       }
     )
     if (model === models.gpt4_1) {
@@ -1070,19 +1083,26 @@ export const mainPrompt = async (
         })
         continue
       }
-      const researchResults = await research(ws, prompts, agentState, {
-        userId,
-        clientSessionId,
-        fingerprintId,
-        promptId,
-      })
 
-      const formattedResult = researchResults
-        .map(
-          (result, i) =>
-            `<research_result>\n<prompt>${prompts[i]}</prompt>\n<result>${result}</result>\n</research_result>`
-        )
-        .join('\n\n')
+      let formattedResult: string
+      try {
+        const researchResults = await research(ws, prompts, agentState, {
+          userId,
+          clientSessionId,
+          fingerprintId,
+          promptId,
+        })
+        formattedResult = researchResults
+          .map(
+            (result, i) =>
+              `<research_result>\n<prompt>${prompts[i]}</prompt>\n<result>${result}</result>\n</research_result>`
+          )
+          .join('\n\n')
+
+        logger.debug({ prompts, researchResults }, 'Ran research')
+      } catch (e) {
+        formattedResult = `Error running research, consider retrying?: ${e instanceof Error ? e.message : 'Unknown error'}`
+      }
 
       serverToolResults.push({
         id: generateCompactId(),
@@ -1116,28 +1136,6 @@ export const mainPrompt = async (
       name: result.tool,
       result: `${result.path}: ${result.error}`,
     })
-  }
-
-  if (
-    clientToolCalls.every((tool) => tool.name !== 'end_turn') &&
-    (agentState.consecutiveAssistantMessages ?? 0) > 2
-  ) {
-    const isLoop = await checkForUnproductiveLoop(messagesWithResponse, {
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
-    })
-    if (isLoop) {
-      logger.warn('Detected unproductive loop, ending turn.')
-      onResponseChunk('\n\nHow would you like to proceed from here?\n\n')
-      fullResponse += getToolCallString('end_turn', {})
-      clientToolCalls.push({
-        name: 'end_turn',
-        parameters: {},
-        id: generateCompactId(),
-      })
-    }
   }
 
   if (fileChanges.length === 0 && fileProcessingPromises.length > 0) {

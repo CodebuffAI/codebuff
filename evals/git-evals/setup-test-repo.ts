@@ -1,10 +1,9 @@
 #!/usr/bin/env bun
 
-import { execSync } from 'child_process'
+import { execFileSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-
-const TEST_REPOS_DIR = path.join(__dirname, '../test-repos')
+import { TEST_REPOS_DIR } from '../test-setup'
 
 /**
  * Extracts the repository name from a git URL
@@ -33,11 +32,15 @@ export function extractRepoNameFromUrl(repoUrl: string): string {
   return parts[parts.length - 1]
 }
 
-export async function setupTestRepo(repoUrl: string, customRepoName?: string) {
+export async function setupTestRepo(
+  repoUrl: string,
+  customRepoName: string,
+  commitSha: string = 'HEAD'
+): Promise<string> {
   const repoName = customRepoName || extractRepoNameFromUrl(repoUrl)
   console.log(`Setting up test repository: ${repoName}...`)
 
-  const repoDir = path.join(TEST_REPOS_DIR, repoName)
+  const repoDir = path.join(TEST_REPOS_DIR, `${repoName}-${commitSha}`)
 
   // Create test-repos directory if it doesn't exist
   if (!fs.existsSync(TEST_REPOS_DIR)) {
@@ -106,17 +109,34 @@ export async function setupTestRepo(repoUrl: string, customRepoName?: string) {
         GIT_ASKPASS: 'echo', // Provide empty password if prompted
       }
 
-      execSync(`git clone "${cloneUrl}" "${repoDir}"`, {
+      execFileSync('git', ['clone', '--no-checkout', cloneUrl, repoDir], {
         timeout: 120_000, // 2 minute timeout for cloning
         stdio: 'inherit',
         env: gitEnv,
+      })
+      execFileSync('git', ['fetch', 'origin', commitSha], {
+        cwd: repoDir,
+        stdio: 'inherit',
+        env: gitEnv,
+      })
+      execFileSync('git', ['checkout', commitSha], {
+        cwd: repoDir,
+        stdio: 'inherit',
       })
     } else {
       // Local development or public repos
       console.log(`Local environment detected - cloning from: ${repoUrl}`)
 
-      execSync(`git clone "${repoUrl}" "${repoDir}"`, {
+      execFileSync('git', ['clone', '--no-checkout', repoUrl, repoDir], {
         timeout: 120_000, // 2 minute timeout for cloning
+        stdio: 'inherit',
+      })
+      execFileSync('git', ['fetch', 'origin', commitSha], {
+        cwd: repoDir,
+        stdio: 'inherit',
+      })
+      execFileSync('git', ['checkout', commitSha], {
+        cwd: repoDir,
         stdio: 'inherit',
       })
     }
@@ -130,7 +150,7 @@ export async function setupTestRepo(repoUrl: string, customRepoName?: string) {
 
     // Verify git operations work in the cloned repo
     console.log('Verifying git operations...')
-    const gitStatus = execSync('git status --porcelain', {
+    const gitStatus = execFileSync('git', ['status', '--porcelain'], {
       cwd: repoDir,
       encoding: 'utf-8',
       timeout: 10_000,
@@ -141,27 +161,19 @@ export async function setupTestRepo(repoUrl: string, customRepoName?: string) {
     )
 
     // Test that we can access commit history
-    const commitCount = execSync('git rev-list --count HEAD', {
+    const commitCount = execFileSync('git', ['rev-list', '--count', 'HEAD'], {
       cwd: repoDir,
       encoding: 'utf-8',
       timeout: 10_000,
-    }).trim()
+    })
+      .toString()
+      .trim()
 
     console.log(`Repository has ${commitCount} commits in history`)
 
-    // Also verify we can see the full branch history
-    const branchInfo = execSync('git branch -a', {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      timeout: 10_000,
-    }).trim()
-
-    console.log('Available branches:')
-    console.log(branchInfo)
-
     console.log('Repository verification passed')
 
-    return repoName
+    return repoDir
   } catch (error) {
     console.error(`Error setting up ${repoName} repository:`, error)
 
@@ -202,18 +214,18 @@ export async function setupTestRepo(repoUrl: string, customRepoName?: string) {
 // CLI handling
 if (require.main === module) {
   const args = process.argv.slice(2)
-  if (args.length < 1) {
+  if (args.length < 3) {
     console.error(
-      'Usage: bun run setup-test-repo <repo-url> [custom-repo-name]'
+      'Usage: bun run setup-test-repo <repo-url> <repo-name> <commit-sha>'
     )
     process.exit(1)
   }
 
-  const [repoUrl, customRepoName] = args
+  const [repoUrl, repoName, commitSha] = args
 
-  setupTestRepo(repoUrl, customRepoName)
-    .then((repoName) => {
-      console.log(`${repoName} repository setup complete!`)
+  setupTestRepo(repoUrl, repoName, commitSha)
+    .then((repoDir) => {
+      console.log(`Repository cloned successfully at ${repoDir}`)
       process.exit(0)
     })
     .catch((err) => {

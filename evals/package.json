@@ -34,7 +34,8 @@
     "@codebuff/code-map": "workspace:*",
     "codebuff": "workspace:*",
     "async": "^3.2.6",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "p-limit": "^6.2.0"
   },
   "devDependencies": {
     "@types/async": "^3.2.24"

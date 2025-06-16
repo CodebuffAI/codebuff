@@ -403,7 +403,7 @@ describe('processStreamWithTags', () => {
       },
       { tagName: 'test', type: 'end', params: { param: 'content' } },
     ])
-    expect(result).toEqual([...streamChunks, '</param>\n', '</test>\n'])
+    expect(result).toEqual([...streamChunks, '</param>', '</test>'])
   })
 
   it('should handle malformed attributes', async () => {

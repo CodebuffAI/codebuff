@@ -1,0 +1,9 @@
+{
+  "executors": {
+    "infisical-run": {
+      "implementation": "./executors/infisical-run/executor.ts",
+      "schema": "./executors/infisical-run/schema.json",
+      "description": "Run commands with optional infisical wrapper"
+    }
+  }
+}

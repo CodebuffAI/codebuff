@@ -27,19 +27,39 @@ import {
 } from '@codebuff/common/json-config/constants'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
+import { gitCommandIsAvailable } from './utils/git'
 import { logger } from './utils/logger'
 import { getSystemInfo } from './utils/system-info'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 // Global variables for chat management
-// Initialize chat ID on first import
-let currentChatId = new Date().toISOString().replace(/:/g, '-')
+// Initialize chat ID on first import with singleton pattern
+let currentChatId: string | null = null
 
-export function getCurrentChatId() {
+function initializeChatId(providedChatId?: string): string {
+  if (currentChatId === null) {
+    currentChatId =
+      providedChatId || new Date().toISOString().replace(/:/g, '-')
+  }
   return currentChatId
 }
 
+// Function to set chat ID from external source (like worker message)
+export function setChatIdFromExternal(chatId: string): void {
+  if (currentChatId === null) {
+    currentChatId = chatId
+  }
+}
+
+export function getCurrentChatId() {
+  if (currentChatId === null) {
+    initializeChatId()
+  }
+  return currentChatId!
+}
+
 export function startNewChat() {
+  const oldId = currentChatId
   currentChatId = new Date().toISOString().replace(/:/g, '-')
   return currentChatId
 }
@@ -60,7 +80,8 @@ export function getProjectDataDir(): string {
 }
 
 export function getCurrentChatDir(): string {
-  const dir = path.join(getProjectDataDir(), 'chats', getCurrentChatId())
+  const chatId = getCurrentChatId()
+  const dir = path.join(getProjectDataDir(), 'chats', chatId)
   ensureDirectoryExists(dir)
   return dir
 }
@@ -160,7 +181,9 @@ export function initProjectFileContextWithWorker(
   // Use absolute path that exactly matches string passed to bun build --compile.
   const worker = new Worker('src/workers/project-context.ts')
 
-  worker.postMessage({ dir })
+  // Pass the current chat ID to the worker to ensure consistency
+  const mainThreadChatId = getCurrentChatId()
+  worker.postMessage({ dir, chatId: mainThreadChatId })
 
   return new Promise<ProjectFileContext>((resolve, reject) => {
     worker.on('error', (error) => {
@@ -277,7 +300,15 @@ export const getProjectFileContext = async (
  *          - diffCached: Output of 'git diff --cached' command showing staged changes
  *          - lastCommitMessages: Recent commit messages, formatted as a newline-separated string
  */
-async function getGitChanges() {
+async function getGitChanges(): Promise<{
+  status: string
+  diff: string
+  diffCached: string
+  lastCommitMessages: string
+}> {
+  if (!gitCommandIsAvailable()) {
+    return { status: '', diff: '', diffCached: '', lastCommitMessages: '' }
+  }
   const status = execAsync('git status', { cwd: projectRoot })
     .then(({ stdout }) => stdout)
     .catch((error) => {

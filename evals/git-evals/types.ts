@@ -1,5 +1,7 @@
+import { Model } from 'common/constants'
 import { z } from 'zod'
 import { AgentStep } from '../scaffolding'
+import { PostEvalAnalysis } from './post-eval-analysis'
 
 // Base commit types
 export interface CommitInfo {
@@ -97,3 +99,26 @@ export const JudgingAnalysisSchema = z.object({
     overallScore: z.number().min(0).max(10),
   }),
 })
+
+// Types for run-eval-set
+export interface ModelConfig {
+  reasoningModel?: Model
+  agentModel?: Model
+}
+
+export interface EvalConfig {
+  name: string
+  evalDataPath: string
+  outputDir: string
+  modelConfig: ModelConfig
+  limit?: number
+}
+
+export interface EvalResult {
+  name: string
+  status: 'success' | 'error'
+  result?: FullEvalLog
+  analysis?: PostEvalAnalysis
+  error?: string
+  duration: number
+}

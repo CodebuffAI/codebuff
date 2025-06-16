@@ -269,7 +269,7 @@ export async function* processStreamWithTags<T extends string>(
     }
 
     if (state.currentParam !== null) {
-      const closeParam = `</${state.currentParam}>\n`
+      const closeParam = `</${state.currentParam}>`
       onError(
         state.currentParam,
         'WARN: Found end of stream while parsing parameter. End of parameter appended to response. Make sure to close all parameters!'
@@ -278,7 +278,7 @@ export async function* processStreamWithTags<T extends string>(
       yield closeParam
     }
     if (state.currentTool !== null) {
-      const closeTool = `</${state.currentTool}>\n`
+      const closeTool = `</${state.currentTool}>`
       parser.write(closeTool)
       yield closeTool
     }

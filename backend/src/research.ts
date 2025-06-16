@@ -15,12 +15,14 @@ export async function research(
   }
 ): Promise<string[]> {
   const { userId, clientSessionId, fingerprintId, promptId } = options
-  const researchPromises = prompts.map((prompt) => {
+  const maxIterations = 10
+  const maxPrompts = 10
+  const researchPromises = prompts.slice(0, maxPrompts).map((prompt) => {
     // Each research prompt runs in 'lite' mode and can only use read-only tools.
     const researchAgentState: AgentState = {
       ...initialAgentState,
       consecutiveAssistantMessages: 0,
-      agentStepsRemaining: 10,
+      agentStepsRemaining: maxIterations,
       messageHistory: [],
     }
 
@@ -42,12 +44,13 @@ export async function research(
         /* We can ignore chunks for now */
       },
       selectedModel: undefined, // Use default model for lite mode
-      readOnlyMode: true // readOnlyMode = true
+      readOnlyMode: true, // readOnlyMode = true
+      maxIterations,
     })
   })
 
   const results = await Promise.all(researchPromises)
-  // We'll return the final message history from each research agent.
+  // We'll return the final message from each research agent.
   return results.map((result) =>
     result.agentState.messageHistory
       .filter((m) => m.role === 'assistant')

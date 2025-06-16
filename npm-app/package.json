@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.324",
+  "version": "1.0.327",
   "description": "AI dev assistant",
   "license": "MIT",
   "main": "dist/index.js",
@@ -19,8 +19,11 @@
   "scripts": {
     "prepublishOnly": "bun run bundle && infisical run --env=prod --log-level=warn -- bun run clean-package.js",
     "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "test": "jest",
+    "typecheck": "tsc --noEmit -p .",
+    "fetch-external-binaries": "bun scripts/fetch-external-binaries.js",
+    "build-binary": "infisical run --log-level=warn -- bun run scripts/build-binaries.js --current",
+    "build-all-binaries": "infisical run --log-level=warn -- bun run scripts/build-binaries.js",
+    "build": "bun run build-all-binaries",
     "start-bin": "bun run build-binary && ./bin/codebuff ..",
     "start": "infisical run --log-level=warn -- bun run src/index.ts ..",
     "start-max": "infisical run --log-level=warn -- bun run src/index.ts .. --max",
@@ -34,11 +37,8 @@
     "start-jpcsp": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/jpcsp",
     "start-vscode": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/vscode",
     "start-nushell": "infisical run --log-level=warn -- bun run src/index.ts ../test/__mock-projects__/nushell",
-    "typecheck": "tsc --noEmit -p .",
-    "build-binary": "infisical run --log-level=warn -- bun run scripts/build-binaries.js --current",
-    "build-all-binaries": "infisical run --log-level=warn -- bun run scripts/build-binaries.js",
-    "build": "bun run build-all-binaries",
-    "fetch-external-binaries": "bun scripts/fetch-external-binaries.js"
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "test": "jest"
   },
   "files": [
     "README.md"

@@ -2,6 +2,10 @@ import { CoreMessage } from 'ai'
 import { WebSocket } from 'ws'
 
 import { toolSchema } from '@codebuff/common/constants/tools'
+import {
+  getModelForMode,
+  getModelFromShortName,
+} from '@codebuff/common/constants'
 import { AgentState, ToolResult } from '@codebuff/common/types/agent-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -84,9 +88,10 @@ export async function managerPrompt(
     'Manager prompt'
   )
 
-  const { getStream } = getAgentStream({
+  const getStream = getAgentStream({
     costMode: costMode as any,
-    selectedModel: model,
+    selectedModel:
+      getModelFromShortName(model) ?? getModelForMode(costMode as any, 'agent'),
     stopSequences: ['</run_terminal_command>', '</sleep>', '</kill_terminal>'],
     clientSessionId,
     fingerprintId: action.fingerprintId,

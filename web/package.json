@@ -12,7 +12,7 @@
   },
   "scripts": {
     "infisical": "infisical run --log-level=warn",
-    "dev": "bun run infisical -- next dev",
+    "dev": "bun run infisical -- next dev -p 3000",
     "build": "bun run infisical -- next build",
     "start": "bun run infisical -- next start",
     "preview": "bun run build && infisical run --log-level=warn -- bun run start",

@@ -1,5 +1,6 @@
-import { execSync } from 'child_process'
+import { execSync, fork } from 'child_process'
 import fs from 'fs'
+import pLimit from 'p-limit'
 import path from 'path'
 
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
@@ -7,20 +8,11 @@ import { claudeModels } from '@codebuff/common/constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import {
-  setProjectRoot,
-  setWorkingDirectory,
-} from 'codebuff/project-files'
-import { recreateShell } from 'codebuff/terminal/base'
-
-import {
   createFileReadingMock,
   loopMainPrompt,
   resetRepoToCommit,
 } from '../scaffolding'
-import {
-  createInitialAgentState,
-  setupTestEnvironmentVariables,
-} from '../test-setup'
+import { createInitialAgentState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import {
@@ -33,16 +25,18 @@ import {
   EvalRunLog,
   FullEvalLog,
   GitRepoEvalData,
+  ModelConfig,
 } from './types'
 
 // Try Gemini!
 const COST_MODE = 'normal' as const
 
-async function runSingleEval(
+export async function runSingleEval(
   evalCommit: EvalCommit,
   projectPath: string,
   clientSessionId: string,
-  fingerprintId: string
+  fingerprintId: string,
+  modelConfig: ModelConfig
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -150,6 +144,7 @@ Explain your reasoning in detail.`,
             maxIterations: 20,
             options: {
               costMode: COST_MODE,
+              modelConfig,
             },
           }),
           // Timeout after 30 minutes
@@ -287,9 +282,24 @@ function getCodebuffFileStates(
   return fileStates
 }
 
+export function mockRunGitEvals(path: string) {
+  const result = JSON.parse(fs.readFileSync(path, 'utf-8')) as FullEvalLog
+
+  return result
+}
+
+// Global concurrency limiter that can be shared across multiple repository evaluations
+let globalConcurrencyLimiter: ReturnType<typeof pLimit> | null = null
+
+export function setGlobalConcurrencyLimit(limit: number) {
+  globalConcurrencyLimiter = pLimit(limit)
+}
+
 export async function runGitEvals(
   evalDataPath: string,
-  outputDir: string
+  outputDir: string,
+  modelConfig: ModelConfig,
+  limit?: number
 ): Promise<FullEvalLog> {
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8')
@@ -299,17 +309,6 @@ export async function runGitEvals(
 
   // Extract repo name from URL or use provided testRepoName as fallback
   const testRepoName = evalData.testRepoName || extractRepoNameFromUrl(repoUrl)
-
-  // Setup the test repository using the generic function
-  console.log(`Setting up test repository from: ${repoUrl}`)
-  const actualRepoName = await setupTestRepo(repoUrl, testRepoName)
-
-  const projectPath = path.join(__dirname, '../test-repos', actualRepoName)
-  setupTestEnvironmentVariables()
-  createFileReadingMock(projectPath)
-  recreateShell(projectPath, true)
-  setProjectRoot(projectPath)
-  setWorkingDirectory(projectPath)
 
   const clientSessionId = generateCompactId()
   const fingerprintId = generateCompactId()
@@ -323,60 +322,139 @@ export async function runGitEvals(
     fs.mkdirSync(outputDir, { recursive: true })
   }
 
+  const logsDir = path.join(outputDir, 'logs', `${testRepoName}-${traceId}`)
+  fs.mkdirSync(logsDir, { recursive: true })
+
   // Generate filenames with trace ID (single file that gets overwritten)
   const partialOutputPath = path.join(
     outputDir,
-    `eval-partial-${actualRepoName}-${traceId}.json`
+    `eval-partial-${testRepoName}-${traceId}.json`
   )
 
-  let completedCount = 0
-  const evalRuns: EvalRunJudged[] = []
+  const commitsToRun = limit
+    ? evalData.evalCommits.slice(0, limit)
+    : evalData.evalCommits
 
-  console.log(
-    `Running ${evalData.evalCommits.length} evaluations sequentially...`
-  )
+  console.log(`Running ${commitsToRun.length} evaluations...`)
 
-  // Run evaluations sequentially
-  for (let index = 0; index < evalData.evalCommits.length; index++) {
-    const evalCommit = evalData.evalCommits[index]
+  // Use global limiter if available, otherwise create a local one
+  const limitConcurrency = globalConcurrencyLimiter || pLimit(20)
 
-    console.log(
-      `Starting eval ${index + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message}...`
+  const evalPromises = commitsToRun.map((evalCommit, index) => {
+    return limitConcurrency(
+      () =>
+        new Promise<EvalRunJudged>(async (resolve, reject) => {
+          try {
+            console.log(
+              `Setting up test repository for commit ${evalCommit.sha}...`
+            )
+            const projectPath = await setupTestRepo(
+              repoUrl,
+              testRepoName,
+              evalCommit.sha
+            )
+
+            console.log(
+              `Starting ${testRepoName} eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.message}...`
+            )
+
+            const safeMessage = evalCommit.message
+              .split('\n')[0]
+              .replace(/[^a-zA-Z0-9]/g, '_')
+              .slice(0, 30)
+            const logFilename = `${safeMessage}-${evalCommit.sha.slice(0, 7)}.log`
+            const logPath = path.join(logsDir, logFilename)
+            const logStream = fs.createWriteStream(logPath)
+
+            // Write evalCommit to temporary file to avoid long command line arguments
+            const tempEvalCommitPath = path.join(
+              logsDir,
+              `eval-commit-${evalCommit.sha.slice(0, 7)}.json`
+            )
+            fs.writeFileSync(tempEvalCommitPath, JSON.stringify(evalCommit))
+
+            const child = fork(
+              path.resolve(__dirname, 'run-single-eval-process.ts'),
+              [
+                tempEvalCommitPath,
+                projectPath,
+                clientSessionId,
+                fingerprintId,
+                JSON.stringify(modelConfig),
+              ],
+              { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] }
+            )
+
+            child.stdout?.pipe(logStream)
+            child.stderr?.pipe(logStream)
+
+            child.on(
+              'message',
+              (message: {
+                type: string
+                result?: EvalRunJudged
+                error?: any
+              }) => {
+                // Clean up temp file
+                try {
+                  fs.unlinkSync(tempEvalCommitPath)
+                } catch (e) {
+                  console.warn(
+                    `Failed to clean up temp file ${tempEvalCommitPath}:`,
+                    e
+                  )
+                }
+                if (message.type === 'result' && message.result) {
+                  console.log(
+                    `Completed eval for commit ${testRepoName} - ${evalCommit.message}`
+                  )
+                  resolve(message.result)
+                } else if (message.type === 'error') {
+                  console.error(
+                    `Received error while running eval: ${message.error.stack}\n`,
+                    { message }
+                  )
+                  const err = new Error(message.error.message)
+                  reject(err)
+                }
+              }
+            )
+
+            child.on('exit', (code) => {
+              logStream.end()
+              if (code !== 0) {
+                console.error(
+                  `Eval process for ${evalCommit.sha} exited with code ${code}. See logs at ${logPath}`
+                )
+                reject(
+                  new Error(
+                    `Eval process for ${evalCommit.sha} exited with code ${code}`
+                  )
+                )
+              }
+            })
+          } catch (error) {
+            console.error(
+              `Error while running git eval for ${testRepoName} commit ${evalCommit.sha}`,
+              { error }
+            )
+            reject(error)
+          }
+        })
     )
+  })
 
-    const evalRun = await runSingleEval(
-      evalCommit,
-      projectPath,
-      clientSessionId,
-      fingerprintId
-    )
+  const results = await Promise.allSettled(evalPromises)
 
-    completedCount++
-    console.log(
-      `Completed eval ${index + 1}/${evalData.evalCommits.length} for commit ${evalCommit.message} (${completedCount}/${evalData.evalCommits.length} total)`
-    )
-
-    evalRuns.push(evalRun)
-
-    // Save partial results after each completion
-    const partialResult: FullEvalLog = {
-      test_repo_name: actualRepoName,
-      generation_date: new Date().toISOString(),
-      eval_runs: [...evalRuns],
-      overall_metrics: calculateOverallMetrics(evalRuns),
-    }
-
-    fs.writeFileSync(partialOutputPath, JSON.stringify(partialResult, null, 2))
-    console.log(
-      `Partial results saved to ${partialOutputPath} (${completedCount}/${evalData.evalCommits.length} complete)`
-    )
-  }
+  const evalRuns = results
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value)
 
   // Calculate final overall metrics
   const overallMetrics = calculateOverallMetrics(evalRuns)
 
   const result: FullEvalLog = {
-    test_repo_name: actualRepoName,
+    test_repo_name: testRepoName,
     generation_date: new Date().toISOString(),
     eval_runs: evalRuns,
     overall_metrics: overallMetrics,
@@ -385,7 +463,7 @@ export async function runGitEvals(
   // Create final filename with trace ID
   const finalOutputPath = path.join(
     outputDir,
-    `eval-result-${actualRepoName}-${traceId}.json`
+    `eval-result-${testRepoName}-${traceId}.json`
   )
 
   // Write final results to file
@@ -435,7 +513,7 @@ if (require.main === module) {
   const evalDataPath = args[0] || 'git-evals/git-evals.json'
   const outputDir = args[1] || 'git-evals'
 
-  runGitEvals(evalDataPath, outputDir)
+  runGitEvals(evalDataPath, outputDir, {})
     .then(() => {
       console.log('Done!')
       process.exit(0)
