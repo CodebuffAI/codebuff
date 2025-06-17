@@ -89,76 +89,103 @@ export function squashNewlines(str: string): string {
   return agg.join('\r\n')
 }
 
-const originalWrite = process.stdout.write.bind(process.stdout)
+/**
+ * Common utility function to handle squashing logic for any write function
+ */
+function createSquashingWriteFunction<T extends Function>(
+  originalWrite: T,
+  isSquashingEnabled: () => boolean
+): T {
+  return (function (
+    chunk: string | Uint8Array,
+    encodingOrCallback?:
+      | BufferEncoding
+      | ((err?: Error | null | undefined) => void),
+    callbackMaybe?: (err?: Error | null | undefined) => void
+  ): boolean {
+    let chunkString = typeof chunk === 'string' ? chunk : chunk.toString()
+    chunkString = addCarriageReturn(chunkString)
 
-process.stdout.write = function (
-  chunk: string | Uint8Array,
-  encodingOrCallback?:
-    | BufferEncoding
-    | ((err?: Error | null | undefined) => void),
-  callbackMaybe?: (err?: Error | null | undefined) => void
-): boolean {
-  let chunkString = typeof chunk === 'string' ? chunk : chunk.toString()
-  chunkString = addCarriageReturn(chunkString)
+    if (!isSquashingEnabled()) {
+      previous += chunkString
+      previous = getLastTwoLines(previous)
 
-  if (!squashingEnabled) {
-    previous += chunkString
-    previous = getLastTwoLines(previous)
+      if (typeof encodingOrCallback === 'function') {
+        return originalWrite(chunkString, encodingOrCallback)
+      }
+      return originalWrite(chunkString, encodingOrCallback, callbackMaybe)
+    }
+
+    const combinedContent = previous + chunkString
+    const processedContent = squashNewlines(combinedContent)
+    const processedChunk = processedContent.slice(previous.length)
+    previous = getLastTwoLines(processedContent)
 
     if (typeof encodingOrCallback === 'function') {
-      // Called like write(chunk, callback)
-      return originalWrite(chunkString, encodingOrCallback)
+      return originalWrite(processedChunk, encodingOrCallback)
     }
-    // Called like write(chunk, encoding, callback)
-    return originalWrite(chunkString, encodingOrCallback, callbackMaybe)
-  }
+    return originalWrite(processedChunk, encodingOrCallback, callbackMaybe)
+  } as any) as T
+}
 
-  const combinedContent = previous + chunkString
-  const processedContent = squashNewlines(combinedContent)
-  const processedChunk = processedContent.slice(previous.length)
-  previous = getLastTwoLines(processedContent)
+export const initSquashNewLines = () => {
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout)
+  const originalStderrWrite = process.stderr.write.bind(process.stderr)
 
-  if (typeof encodingOrCallback === 'function') {
-    // Called like write(chunk, callback)
-    return originalWrite(processedChunk, encodingOrCallback)
-  }
-  // Called like write(chunk, encoding, callback)
-  return originalWrite(processedChunk, encodingOrCallback, callbackMaybe)
-} as typeof process.stdout.write
+  // Override stdout and stderr write functions
+  process.stdout.write = createSquashingWriteFunction(
+    originalStdoutWrite,
+    () => squashingEnabled
+  )
 
-const originalError = process.stderr.write.bind(process.stderr)
+  process.stderr.write = createSquashingWriteFunction(
+    originalStderrWrite,
+    () => squashingEnabled
+  )
 
-process.stderr.write = function (
-  chunk: string | Uint8Array,
-  encodingOrCallback?:
-    | BufferEncoding
-    | ((err?: Error | null | undefined) => void),
-  callbackMaybe?: (err?: Error | null | undefined) => void
-): boolean {
-  let chunkString = typeof chunk === 'string' ? chunk : chunk.toString()
-  chunkString = addCarriageReturn(chunkString)
+  // Override console.log and console.error for Bun compatibility
+  const originalConsoleLog = console.log.bind(console)
+  const originalConsoleError = console.error.bind(console)
 
-  if (!squashingEnabled) {
-    previous += chunkString
-    previous = getLastTwoLines(previous)
-
-    if (typeof encodingOrCallback === 'function') {
-      // Called like write(chunk, callback)
-      return originalError(chunkString, encodingOrCallback)
+  console.log = function (...args: any[]) {
+    if (!squashingEnabled) {
+      return originalConsoleLog(...args)
     }
-    // Called like write(chunk, encoding, callback)
-    return originalError(chunkString, encodingOrCallback, callbackMaybe)
+
+    // Convert arguments to string and process through squashing logic
+    const output = args.map(arg => 
+      typeof arg === 'string' ? arg : 
+      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : 
+      String(arg)
+    ).join(' ') + '\n'
+
+    const processedOutput = addCarriageReturn(output)
+    const combinedContent = previous + processedOutput
+    const processedContent = squashNewlines(combinedContent)
+    const processedChunk = processedContent.slice(previous.length)
+    previous = getLastTwoLines(processedContent)
+
+    process.stdout.write(processedChunk)
   }
 
-  const combinedContent = previous + chunkString
-  const processedContent = squashNewlines(combinedContent)
-  const processedChunk = processedContent.slice(previous.length)
-  previous = getLastTwoLines(processedContent)
+  console.error = function (...args: any[]) {
+    if (!squashingEnabled) {
+      return originalConsoleError(...args)
+    }
 
-  if (typeof encodingOrCallback === 'function') {
-    // Called like write(chunk, callback)
-    return originalError(processedChunk, encodingOrCallback)
+    // Convert arguments to string and process through squashing logic
+    const output = args.map(arg => 
+      typeof arg === 'string' ? arg : 
+      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : 
+      String(arg)
+    ).join(' ') + '\n'
+
+    const processedOutput = addCarriageReturn(output)
+    const combinedContent = previous + processedOutput
+    const processedContent = squashNewlines(combinedContent)
+    const processedChunk = processedContent.slice(previous.length)
+    previous = getLastTwoLines(processedContent)
+
+    process.stderr.write(processedChunk)
   }
-  // Called like write(chunk, encoding, callback)
-  return originalError(processedChunk, encodingOrCallback, callbackMaybe)
-} as typeof process.stderr.write
+}

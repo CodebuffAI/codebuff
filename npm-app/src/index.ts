@@ -8,7 +8,7 @@ import packageJson from '../package.json'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { createTemplateProject } from './create-template-project'
-import { enableSquashNewlines } from './display'
+import { enableSquashNewlines, initSquashNewLines } from './display'
 import {
   getStartingDirectory,
   initProjectFileContextWithWorker,
@@ -27,6 +27,7 @@ async function codebuff(
   projectDir: string | undefined,
   { initialInput, git, costMode, runInitFlow, model, isManager }: CliOptions
 ) {
+  initSquashNewLines()
   enableSquashNewlines()
 
   // Initialize starting directory
