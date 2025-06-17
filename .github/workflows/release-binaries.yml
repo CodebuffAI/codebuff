@@ -91,12 +91,14 @@ jobs:
         with:
           path: artifacts
           
-      - name: Create release
+      - name: Create release in codebuff-community
         uses: softprops/action-gh-release@v2
         with:
+          repository: CodebuffAI/codebuff-community
           tag_name: ${{ github.ref_name || inputs.tag }}
           files: artifacts/**/*
           generate_release_notes: false
           body: "Binary release"
           draft: false
           prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}

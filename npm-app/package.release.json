@@ -18,5 +18,9 @@
   "dependencies": {
     "tar": "^6.2.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodebuffAI/codebuff-community.git"
+  },
   "homepage": "https://codebuff.com"
 }

@@ -24,7 +24,7 @@ if (!file) {
   process.exit(1)
 }
 
-const url = `https://github.com/CodebuffAI/codebuff/releases/download/v${ver}/${file}`
+const url = `https://github.com/CodebuffAI/codebuff-community/releases/download/v${ver}/${file}`
 const binDir = path.join(__dirname, '..', 'bin')
 
 // Create bin directory

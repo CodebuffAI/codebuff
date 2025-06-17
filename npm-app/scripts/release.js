@@ -90,7 +90,7 @@ function checkGitBranch() {
 
 async function waitForGitHubRelease(version) {
   log('Waiting for GitHub Actions to build and create release...')
-  log('You can monitor the progress at: https://github.com/CodebuffAI/codebuff/actions')
+  log('You can monitor the progress at: https://github.com/CodebuffAI/codebuff-community/actions')
   
   // Wait a bit for the workflow to start
   await new Promise(resolve => setTimeout(resolve, 10000))
@@ -102,7 +102,7 @@ async function waitForGitHubRelease(version) {
   while (attempts < maxAttempts) {
     try {
       // Check if the release exists
-      execSync(`curl -s -f -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/CodebuffAI/codebuff/releases/tags/v${version}`, { stdio: 'pipe' })
+      execSync(`curl -s -f -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/CodebuffAI/codebuff-community/releases/tags/v${version}`, { stdio: 'pipe' })
       log('✅ GitHub release is ready!')
       return true
     } catch (err) {
@@ -115,6 +115,21 @@ async function waitForGitHubRelease(version) {
   }
   
   error('Timeout waiting for GitHub release. Please check the GitHub Actions workflow.')
+}
+
+async function triggerWorkflow(version) {
+  log('Triggering GitHub Actions workflow...')
+  try {
+    // Trigger the workflow in the current repository using the tag we just pushed to community repo
+    execSync(`curl -X POST \
+      -H "Accept: application/vnd.github.v3+json" \
+      -H "Authorization: token $GITHUB_TOKEN" \
+      https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/release-binaries.yml/dispatches \
+      -d '{"ref":"main","inputs":{"tag":"v${version}"}}'`, { stdio: 'pipe' })
+    log('✅ Workflow triggered successfully!')
+  } catch (err) {
+    log('⚠️  Failed to trigger workflow automatically. You may need to trigger it manually.')
+  }
 }
 
 async function main() {
@@ -151,14 +166,17 @@ async function main() {
   // Commit the version change
   run('git add package.release.json')
   run(`git commit -m "Bump version to ${newVersion}"`)
-  
+  run('git push')
+
   // Create and push tag
   run(`git tag -a v${newVersion} -m "Release version ${newVersion}"`)
-  run('git push origin main')
-  run(`git push origin v${newVersion}`)
-  
+  run(`git push https://github.com/CodebuffAI/codebuff-community.git v${newVersion}`)
+
+  // Trigger the workflow manually
+  await triggerWorkflow(newVersion)
+
   log('✅ Tag pushed! GitHub Actions will now build the binaries.')
-  
+
   // Wait for GitHub release to be ready
   await waitForGitHubRelease(newVersion)
   
