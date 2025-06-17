@@ -1,4 +1,4 @@
-import db from '@codebuff/common/db'
+import { db } from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { gt, and, isNotNull } from 'drizzle-orm'
 

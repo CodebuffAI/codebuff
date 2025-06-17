@@ -198,7 +198,7 @@
       "dependencies": {
         "@codebuff/backend": "workspace:*",
         "@codebuff/bigquery": "workspace:*",
-        "drizzle-orm": "0.36.4",
+        "@codebuff/common": "workspace:*",
         "lodash": "^4.17.21",
       },
       "devDependencies": {

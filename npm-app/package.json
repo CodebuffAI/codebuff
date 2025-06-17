@@ -33,7 +33,7 @@
     "start-dir": "bun run inf bun run src/index.ts",
     "start-experimental": "bun run inf bun run src/index.ts .. --experimental",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "test": "jest"
+    "test": "bun run inf test"
   },
   "files": [
     "README.md"

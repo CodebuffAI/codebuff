@@ -1,5 +1,5 @@
 import { eq, desc } from 'drizzle-orm'
-import db from '@codebuff/common/db'
+import { db } from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { fileRegex } from '@codebuff/common/util/file'
 import fs from 'fs'
