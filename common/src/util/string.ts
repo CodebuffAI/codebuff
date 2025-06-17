@@ -263,24 +263,26 @@ export const transformJsonInString = <T = unknown>(
  * generateCompactId('msg-') // => "msg-1a2b3c4d5e6"
  */
 export const generateCompactId = (prefix?: string): string => {
-  const timestamp = BigInt(Date.now()) & 0xffffffffffn // Last 40 bits of timestamp (34+ years)
-  const random = BigInt(Math.floor(Math.random() * 0x1000000)) // 24 random bits
+  // Get the last 32 bits of the timestamp
+  const timestamp = (Date.now() & 0xffffffff) >>> 0;
+  // Generate a 32-bit random number
+  const random = Math.floor(Math.random() * 0x100000000) >>> 0;
+
+  // Combine them into a 64-bit representation as two 32-bit numbers
+  const high = timestamp;
+  const low = random;
+
+  // Convert to a hex string, pad if necessary, and combine
+  const highHex = high.toString(16).padStart(8, '0');
+  const lowHex = low.toString(16).padStart(8, '0');
   
-  // Combine into exactly 64 bits: 40 timestamp + 24 random
-  const combined = (timestamp << 24n) | random
-  
-  // Convert to bytes (8 bytes = 64 bits)
-  const bytes = new Uint8Array(8)
-  
-  // Store the 64-bit number in bytes (big-endian)
-  for (let i = 0; i < 8; i++) {
-    bytes[7 - i] = Number((combined >> BigInt(i * 8)) & 0xffn)
-  }
-  
-  // Convert to base64url and remove padding
-  const str = Buffer.from(bytes).toString('base64url').replace(/=/g, '')
-  
-  return prefix ? `${prefix}${str}` : str
+  const combinedHex = highHex + lowHex;
+
+  // Convert hex to a Buffer and then to base64url
+  const bytes = Buffer.from(combinedHex, 'hex');
+  const str = bytes.toString('base64url').replace(/=/g, '');
+
+  return prefix ? `${prefix}${str}` : str;
 }
 
 /**
