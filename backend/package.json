@@ -6,11 +6,12 @@
   "license": "UNLICENSED",
   "type": "module",
   "exports": {
-    ".": {
-      "bun": "./src/index.ts",
-      "types": "./src/index.ts"
-    },
-    "./*": "./src/*.ts"
+    "./*": {
+      "bun": "./src/*.ts",
+      "import": "./src/*.ts",
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
   },
   "scripts": {
     "inf": "$(git rev-parse --show-toplevel)/inf",

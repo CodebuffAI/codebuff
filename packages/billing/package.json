@@ -8,7 +8,14 @@
     ".": {
       "bun": "./src/index.ts",
       "import": "./src/index.ts",
-      "types": "./src/index.ts"
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "bun": "./src/*.ts",
+      "import": "./src/*.ts",
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
     }
   },
   "scripts": {

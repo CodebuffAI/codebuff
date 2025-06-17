@@ -6,9 +6,18 @@
   "license": "UNLICENSED",
   "type": "module",
   "exports": {
-    "./db": "./src/db/index.ts",
-    "./db/*": "./src/db/*.ts",
-    "./*": "./src/*.ts"
+    "./db": {
+      "bun": "./src/db/index.ts",
+      "import": "./src/db/index.ts",
+      "types": "./src/db/index.ts",
+      "default": "./src/db/index.ts"
+    },
+    "./*": {
+      "bun": "./src/*.ts",
+      "import": "./src/*.ts",
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
   },
   "scripts": {
     "inf": "$(git rev-parse --show-toplevel)/inf",
