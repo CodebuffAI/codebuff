@@ -11,7 +11,11 @@ const currentArch = process.arch
 // Map current platform/arch to target info
 const getTargetInfo = () => {
   // Check for environment variable overrides (for cross-compilation)
-  if (process.env.OVERRIDE_TARGET && process.env.OVERRIDE_PLATFORM && process.env.OVERRIDE_ARCH) {
+  if (
+    process.env.OVERRIDE_TARGET &&
+    process.env.OVERRIDE_PLATFORM &&
+    process.env.OVERRIDE_ARCH
+  ) {
     return {
       bunTarget: process.env.OVERRIDE_TARGET,
       platform: process.env.OVERRIDE_PLATFORM,
@@ -20,28 +24,45 @@ const getTargetInfo = () => {
   }
 
   const platformKey = `${currentPlatform}-${currentArch}`
-  
+
   const targetMap = {
     'linux-x64': { bunTarget: 'bun-linux-x64', platform: 'linux', arch: 'x64' },
-    'linux-arm64': { bunTarget: 'bun-linux-arm64', platform: 'linux', arch: 'arm64' },
-    'darwin-x64': { bunTarget: 'bun-darwin-x64', platform: 'darwin', arch: 'x64' },
-    'darwin-arm64': { bunTarget: 'bun-darwin-arm64', platform: 'darwin', arch: 'arm64' },
-    'win32-x64': { bunTarget: 'bun-windows-x64', platform: 'win32', arch: 'x64' },
+    'linux-arm64': {
+      bunTarget: 'bun-linux-arm64',
+      platform: 'linux',
+      arch: 'arm64',
+    },
+    'darwin-x64': {
+      bunTarget: 'bun-darwin-x64',
+      platform: 'darwin',
+      arch: 'x64',
+    },
+    'darwin-arm64': {
+      bunTarget: 'bun-darwin-arm64',
+      platform: 'darwin',
+      arch: 'arm64',
+    },
+    'win32-x64': {
+      bunTarget: 'bun-windows-x64',
+      platform: 'win32',
+      arch: 'x64',
+    },
   }
-  
+
   const targetInfo = targetMap[platformKey]
   if (!targetInfo) {
     console.error(`Unsupported platform: ${platformKey}`)
     process.exit(1)
   }
-  
+
   return targetInfo
 }
 
 function getBunPtyLibPath(platform, arch) {
   let binaryName
   if (platform === 'darwin') {
-    binaryName = arch === 'arm64' ? 'librust_pty_arm64.dylib' : 'librust_pty.dylib'
+    binaryName =
+      arch === 'arm64' ? 'librust_pty_arm64.dylib' : 'librust_pty.dylib'
   } else if (platform === 'win32') {
     binaryName = 'rust_pty.dll'
   } else {
@@ -58,7 +79,7 @@ function getBunPtyLibPath(platform, arch) {
 async function main() {
   const targetInfo = getTargetInfo()
   const outputName = currentPlatform === 'win32' ? 'codebuff.exe' : 'codebuff'
-  
+
   await buildTarget(targetInfo.bunTarget, outputName, targetInfo)
 }
 
@@ -89,11 +110,19 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
     IS_BINARY: 'true',
     BUN_PTY_LIB: bunPtyLibPath,
   }
+
+  const isWindows = process.platform === 'win32'
   const flagsStr = Object.entries(flags)
-    .map(
-      ([key, value]) =>
-        `--define 'process.env.${key}=${typeof value === 'string' ? JSON.stringify(value) : value}'`
-    )
+    .map(([key, value]) => {
+      const stringValue = typeof value === 'string' ? value : String(value)
+      if (isWindows) {
+        // For Windows, use double quotes and escape internal quotes
+        return `--define "process.env.${key}=\\"${stringValue.replace(/"/g, '\\"')}\\""`
+      } else {
+        // For Unix, use single quotes around the whole thing
+        return `--define 'process.env.${key}=${JSON.stringify(stringValue)}'`
+      }
+    })
     .join(' ')
 
   try {
