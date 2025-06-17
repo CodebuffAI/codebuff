@@ -1,14 +1,7 @@
+import { CODEBUFF_ADMIN_USER_EMAILS } from 'common/constants'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
 import { eq } from 'drizzle-orm'
-
-// List of admin user emails - single source of truth
-export const CODEBUFF_ADMIN_USER_EMAILS = [
-  'venkateshrameshkumar+1@gmail.com',
-  'brandonchenjiacheng@gmail.com',
-  'jahooma@gmail.com',
-  'charleslien97@gmail.com',
-]
 
 export interface AdminUser {
   id: string
@@ -112,13 +105,6 @@ export async function checkUserIsCodebuffAdmin(
     email: user.email,
     name: user.name,
   }
-}
-
-/**
- * Check if an email corresponds to a Codebuff admin
- */
-export function isCodebuffAdmin(email: string): boolean {
-  return CODEBUFF_ADMIN_USER_EMAILS.includes(email)
 }
 
 /**
