@@ -3,6 +3,7 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const { patchBunPty } = require('./patch-bun-pty.js')
 
 // Get current platform info
 const currentPlatform = process.platform
@@ -77,6 +78,10 @@ function getBunPtyLibPath(platform, arch) {
 }
 
 async function main() {
+  // Patch bun-pty before building
+  console.log('🔧 Patching bun-pty...')
+  patchBunPty()
+
   const targetInfo = getTargetInfo()
   const outputName = currentPlatform === 'win32' ? 'codebuff.exe' : 'codebuff'
 
