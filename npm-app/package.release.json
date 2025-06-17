@@ -1,0 +1,22 @@
+{
+  "name": "codecane",
+  "version": "1.0.394",
+  "description": "AI dev assistant",
+  "license": "MIT",
+  "bin": {
+    "codecane": "bin/codecane"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "files": ["bin/", "scripts/install.js", "README.md"],
+  "os": ["darwin", "linux", "win32"],
+  "cpu": ["x64", "arm64"],
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {
+    "tar": "^6.2.0"
+  },
+  "homepage": "https://codebuff.com"
+}

@@ -31,7 +31,7 @@ function run(command, options = {}) {
 }
 
 function getCurrentVersion() {
-  const packagePath = path.join(__dirname, '..', 'package-release.json')
+  const packagePath = path.join(__dirname, '..', 'package.release.json')
   const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
   return pkg.version
 }
@@ -56,11 +56,11 @@ function bumpVersion(currentVersion, type) {
 }
 
 function updatePackageVersion(newVersion) {
-  const packagePath = path.join(__dirname, '..', 'package-release.json')
+  const packagePath = path.join(__dirname, '..', 'package.release.json')
   const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
   pkg.version = newVersion
   fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + '\n')
-  log(`Updated package-release.json to version ${newVersion}`)
+  log(`Updated package.release.json to version ${newVersion}`)
 }
 
 function checkWorkingDirectory() {
@@ -145,11 +145,11 @@ async function main() {
     })
   }
   
-  // Update version in package-release.json
+  // Update version in package.release.json
   updatePackageVersion(newVersion)
   
   // Commit the version change
-  run('git add package-release.json')
+  run('git add package.release.json')
   run(`git commit -m "Bump version to ${newVersion}"`)
   
   // Create and push tag
@@ -164,7 +164,7 @@ async function main() {
   
   // Publish to npm
   log('Publishing to npm...')
-  run('npm publish package-release.json')
+  run('npm publish package.release.json')
   
   log('🎉 Release complete!')
   log(`Version ${newVersion} has been:`)
