@@ -3,9 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { eq, and, inArray } from 'drizzle-orm'
-import { stripeServer } from 'common/src/util/stripe'
-import { env } from '@/env'
+import { eq, and, inArray, sql } from 'drizzle-orm'
+import { updateStripeSubscriptionQuantity } from '@codebuff/billing'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
@@ -47,7 +46,7 @@ export async function POST(
 
     // Check if user is owner or admin and get organization details
     const membership = await db
-      .select({ 
+      .select({
         role: schema.orgMember.role,
         organization: schema.org
       })
@@ -98,7 +97,7 @@ export async function POST(
 
     for (const invitation of body.invitations) {
       const userId = userMap.get(invitation.email)
-      
+
       if (!userId) {
         skipped.push({ email: invitation.email, reason: 'User not found' })
         continue
@@ -112,8 +111,9 @@ export async function POST(
       validInvitations.push({ userId, role: invitation.role })
     }
 
-    // Add all valid members in a transaction
-    let addedCount = 0
+    // Add all valid members in a transaction and get updated count
+    let addedCount = 0;
+    let actualQuantity = 0; // Initialize to handle edge cases
     if (validInvitations.length > 0) {
       await db.transaction(async (tx) => {
         for (const invitation of validInvitations) {
@@ -124,40 +124,26 @@ export async function POST(
           })
           addedCount++
         }
+
+        // Get current member count immediately after all inserts
+        const memberCount = await tx
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.orgMember)
+          .where(eq(schema.orgMember.org_id, orgId))
+
+        actualQuantity = Math.max(1, memberCount[0].count) // Minimum 1 seat
       })
     }
 
     // Update Stripe subscription quantity once if members were added
-    if (addedCount > 0 && organization.stripe_subscription_id) {
-      try {
-        const subscription = await stripeServer.subscriptions.retrieve(
-          organization.stripe_subscription_id
-        )
-        
-        const teamFeeItem = subscription.items.data.find(
-          item => item.price.id === env.STRIPE_TEAM_FEE_PRICE_ID
-        )
-        
-        if (teamFeeItem && teamFeeItem.quantity !== undefined) {
-          const newQuantity = teamFeeItem.quantity + addedCount
-          await stripeServer.subscriptionItems.update(teamFeeItem.id, {
-            quantity: newQuantity,
-            proration_behavior: 'create_prorations',
-            proration_date: Math.floor(Date.now() / 1000),
-          })
-
-          logger.info(
-            { orgId, addedCount, newQuantity },
-            'Updated Stripe subscription quantity after bulk member addition'
-          )
-        }
-      } catch (stripeError) {
-        logger.error(
-          { orgId, addedCount, error: stripeError },
-          'Failed to update Stripe subscription quantity after bulk member addition'
-        )
-        // Don't fail the request if Stripe update fails
-      }
+    if (addedCount > 0 && organization.stripe_subscription_id && actualQuantity > 0) {
+      await updateStripeSubscriptionQuantity({
+        stripeSubscriptionId: organization.stripe_subscription_id,
+        actualQuantity,
+        orgId,
+        context: 'bulk added members',
+        addedCount
+      })
     }
 
     return NextResponse.json({

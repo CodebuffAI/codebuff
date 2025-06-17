@@ -3,10 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq, and, isNull, sql } from 'drizzle-orm'
 import { UpdateMemberRoleRequest } from 'common/types/organization'
-import { stripeServer } from 'common/src/util/stripe'
-import { env } from '@/env'
+import { updateStripeSubscriptionQuantity } from '@codebuff/billing'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
@@ -49,9 +48,9 @@ export async function PATCH(
 
     // Get target member's role and email
     const targetMembership = await db
-      .select({ 
+      .select({
         role: schema.orgMember.role,
-        email: schema.user.email 
+        email: schema.user.email
       })
       .from(schema.orgMember)
       .innerJoin(schema.user, eq(schema.orgMember.user_id, schema.user.id))
@@ -111,7 +110,7 @@ export async function DELETE(
 
     // Check if current user is owner or admin, or removing themselves, and get organization details
     const currentUserMembership = await db
-      .select({ 
+      .select({
         role: schema.orgMember.role,
         organization: schema.org
       })
@@ -138,9 +137,9 @@ export async function DELETE(
 
     // Get target member's role and email
     const targetMembership = await db
-      .select({ 
+      .select({
         role: schema.orgMember.role,
-        email: schema.user.email 
+        email: schema.user.email
       })
       .from(schema.orgMember)
       .innerJoin(schema.user, eq(schema.orgMember.user_id, schema.user.id))
@@ -163,7 +162,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Only owners can remove other owners' }, { status: 403 })
     }
 
-    // Remove member and clean up invitations in a transaction
+    // Remove member and clean up invitations in a transaction, then get updated count
+    let actualQuantity = 0; // Initialize to handle edge cases
     await db.transaction(async (tx) => {
       // Remove member
       await tx
@@ -185,39 +185,25 @@ export async function DELETE(
             isNull(schema.orgInvite.accepted_at)
           )
         )
+
+      // Get current member count immediately after deletion
+      const memberCount = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.orgMember)
+        .where(eq(schema.orgMember.org_id, orgId))
+
+      actualQuantity = Math.max(1, memberCount[0].count) // Minimum 1 seat
     })
 
     // Update Stripe subscription quantity if subscription exists
-    if (organization.stripe_subscription_id) {
-      try {
-        const subscription = await stripeServer.subscriptions.retrieve(
-          organization.stripe_subscription_id
-        )
-        
-        const teamFeeItem = subscription.items.data.find(
-          item => item.price.id === env.STRIPE_TEAM_FEE_PRICE_ID
-        )
-        
-        if (teamFeeItem && teamFeeItem.quantity !== undefined) {
-          const newQuantity = Math.max(1, teamFeeItem.quantity - 1)
-          await stripeServer.subscriptionItems.update(teamFeeItem.id, {
-            quantity: newQuantity,
-            proration_behavior: 'create_prorations',
-            proration_date: Math.floor(Date.now() / 1000),
-          })
-
-          logger.info(
-            { orgId, userId, newQuantity },
-            'Updated Stripe subscription quantity after removing member'
-          )
-        }
-      } catch (stripeError) {
-        logger.error(
-          { orgId, userId, error: stripeError },
-          'Failed to update Stripe subscription quantity after removing member'
-        )
-        // Don't fail the request if Stripe update fails
-      }
+    if (organization.stripe_subscription_id && actualQuantity > 0) {
+      await updateStripeSubscriptionQuantity({
+        stripeSubscriptionId: organization.stripe_subscription_id,
+        actualQuantity,
+        orgId,
+        userId,
+        context: 'removed member'
+      })
     }
 
     return NextResponse.json({ success: true })
