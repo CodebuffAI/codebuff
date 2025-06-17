@@ -7,15 +7,18 @@
   "exports": {
     ".": {
       "bun": "./src/index.ts",
-      "types": "./src/index.ts"
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
     },
     "./loops": {
       "bun": "./src/loops/index.ts",
-      "types": "./src/loops/index.ts"
+      "types": "./src/loops/index.ts",
+      "default": "./src/loops/index.ts"
     },
     "./utils/auth": {
       "bun": "./src/utils/auth.ts",
-      "types": "./src/utils/auth.ts"
+      "types": "./src/utils/auth.ts",
+      "default": "./src/utils/auth.ts"
     }
   },
   "scripts": {
