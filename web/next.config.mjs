@@ -17,7 +17,9 @@ const nextConfig = {
     config.externals.push(
       { 'thread-stream': 'commonjs thread-stream', pino: 'commonjs pino' },
       'pino-pretty',
-      'encoding'
+      'encoding',
+      'perf_hooks',
+      'async_hooks'
     )
     return config
   },
