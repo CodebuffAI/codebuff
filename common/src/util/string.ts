@@ -254,18 +254,32 @@ export const transformJsonInString = <T = unknown>(
 
 /**
  * Generates a compact unique identifier by combining timestamp bits with random bits.
- * Takes last 24 bits of timestamp (enough for months) and 8 random bits.
- * Encodes in base36 for very compact strings (~5-6 chars).
+ * Uses 40 bits of timestamp (enough for ~34 years) and 24 random bits for exactly 64 total bits.
+ * Encodes in base64url for compact, URL-safe strings (~11 chars).
  * @param prefix Optional prefix to add to the ID
  * @returns A unique string ID
  * @example
- * generateCompactId()      // => "1a2b3c"
- * generateCompactId('msg-') // => "msg-1a2b3c"
+ * generateCompactId()      // => "1a2b3c4d5e6"
+ * generateCompactId('msg-') // => "msg-1a2b3c4d5e6"
  */
 export const generateCompactId = (prefix?: string): string => {
-  const timestamp = Date.now() & 0xffffff // Last 24 bits of timestamp
-  const random = Math.floor(Math.random() * 0xff) // 8 random bits
-  const str = ((timestamp << 8) | random).toString(36).replace(/^-/, '') // Remove leading dash if present
+  const timestamp = BigInt(Date.now()) & 0xffffffffffn // Last 40 bits of timestamp (34+ years)
+  const random = BigInt(Math.floor(Math.random() * 0x1000000)) // 24 random bits
+  
+  // Combine into exactly 64 bits: 40 timestamp + 24 random
+  const combined = (timestamp << 24n) | random
+  
+  // Convert to bytes (8 bytes = 64 bits)
+  const bytes = new Uint8Array(8)
+  
+  // Store the 64-bit number in bytes (big-endian)
+  for (let i = 0; i < 8; i++) {
+    bytes[7 - i] = Number((combined >> BigInt(i * 8)) & 0xffn)
+  }
+  
+  // Convert to base64url and remove padding
+  const str = Buffer.from(bytes).toString('base64url').replace(/=/g, '')
+  
   return prefix ? `${prefix}${str}` : str
 }
 
