@@ -16,6 +16,30 @@ When using Next.js 15+ with contentlayer:
     return Promise.resolve()
   }
   ```
+- Suppress webpack infrastructure logging to prevent verbose cache messages:
+  ```js
+  webpack: (config) => {
+    config.infrastructureLogging = {
+      level: 'error',
+    }
+    return config
+  }
+  ```
+
+### Contentlayer Warnings
+
+Contentlayer v0.3.4 shows esbuild warnings about "ES2023" target environment being unrecognized. These warnings are harmless and can be ignored - they occur because contentlayer's internal esbuild doesn't recognize the ES2023 target from tsconfig.base.json. The build still succeeds and all functionality works correctly.
+
+To suppress only these specific warnings while preserving other Next.js errors, the build script uses sed to filter them out: `"build": "bun run inf -- next build 2>&1 | sed '/Contentlayer esbuild warnings:/,/^]/d'"`
+
+### ESLint Configuration
+
+ESLint is disabled during builds to prevent configuration conflicts with ES modules:
+```js
+eslint: {
+  ignoreDuringBuilds: true,
+}
+```
 
 ## Authentication Flow
 

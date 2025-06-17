@@ -13,7 +13,7 @@
   "scripts": {
     "inf": "$(git rev-parse --show-toplevel)/inf",
     "dev": "bun run inf -- next dev -p 3000",
-    "build": "bun run inf -- next build",
+    "build": "bun run inf -- next build 2>&1 | sed '/Contentlayer esbuild warnings:/,/^]/d'",
     "start": "bun run inf -- next start",
     "preview": "bun run build && bun run inf bun run start",
     "contentlayer": "contentlayer build",

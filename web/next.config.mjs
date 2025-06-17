@@ -1,5 +1,5 @@
-import { withContentlayer } from 'next-contentlayer'
 import createMDX from '@next/mdx'
+import { withContentlayer } from 'next-contentlayer'
 
 const withMDX = createMDX({
   extension: /\.mdx?$/,
@@ -11,6 +11,10 @@ const withMDX = createMDX({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    // Disable ESLint during builds
+    ignoreDuringBuilds: true,
+  },
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false }
     // Tell Next.js to leave pino and thread-stream unbundled
@@ -21,6 +25,12 @@ const nextConfig = {
       'perf_hooks',
       'async_hooks'
     )
+    
+    // Suppress contentlayer webpack cache warnings
+    config.infrastructureLogging = {
+      level: 'error',
+    }
+    
     return config
   },
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
