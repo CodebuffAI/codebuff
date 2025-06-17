@@ -82,8 +82,6 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
-      
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -94,4 +92,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name || inputs.tag }}
           files: artifacts/**/*
-          generate_release_notes: true
+          generate_release_notes: false
+          body: "Binary release"
+          draft: false
+          prerelease: false
