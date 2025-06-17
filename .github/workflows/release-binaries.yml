@@ -46,6 +46,7 @@ jobs:
       - name: Build binary
         run: bun run scripts/build-binary.js
         working-directory: npm-app
+        shell: bash
         env:
           OVERRIDE_TARGET: ${{ matrix.target }}
           OVERRIDE_PLATFORM: ${{ matrix.platform }}

@@ -99,9 +99,6 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
   // Get binary paths for this target
   const bunPtyLibPath = getBunPtyLibPath(targetInfo.platform, targetInfo.arch)
 
-  const assets = [bunPtyLibPath]
-  const assetsStr = assets.map((asset) => `--assets="${asset}"`).join(' ')
-
   // Define environment variables, referenced via process.env.KEY in the code.
   // Note: They are inlined as constants in code. So process.env.IS_BINARY is replaced with the value 'true'.
   const flags = {
@@ -111,34 +108,27 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
     BUN_PTY_LIB: bunPtyLibPath,
   }
 
-  const isWindows = process.platform === 'win32'
-  const flagsStr = Object.entries(flags)
+  const defineFlags = Object.entries(flags)
     .map(([key, value]) => {
       const stringValue = typeof value === 'string' ? value : String(value)
-      if (isWindows) {
-        // For Windows, use double quotes and escape internal quotes
-        return `--define "process.env.${key}=\\"${stringValue.replace(/"/g, '\\"')}\\""`
-      } else {
-        // For Unix, use single quotes around the whole thing
-        return `--define 'process.env.${key}=${JSON.stringify(stringValue)}'`
-      }
+      return `--define process.env.${key}=${JSON.stringify(stringValue)}`
     })
     .join(' ')
 
-  try {
-    const command = [
-      'bun build --compile',
-      'src/index.ts src/workers/*', // Entrypoints
-      '--root src',
-      `--target=${bunTarget}`,
-      assetsStr,
-      flagsStr,
-      '--env "NEXT_PUBLIC_*"', // Copies all current env vars in process.env to the compiled binary that match the pattern.
-      `--outfile="${outputFile}"`,
-      '--minify',
-    ].join(' ')
+  const command = [
+    'bun build --compile',
+    'src/index.ts src/workers/*', // Entrypoints
+    '--root src',
+    `--target=${bunTarget}`,
+    `--assets=${bunPtyLibPath}`,
+    defineFlags,
+    '--env "NEXT_PUBLIC_*"', // Copies all current env vars in process.env to the compiled binary that match the pattern.
+    `--outfile=${outputFile}`,
+    '--minify',
+  ].join(' ')
 
-    execSync(command, { stdio: 'inherit' })
+  try {
+    execSync(command, { stdio: 'inherit', shell: true })
 
     // Make executable on Unix systems
     if (!outputName.endsWith('.exe')) {
