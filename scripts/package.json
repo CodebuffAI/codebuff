@@ -14,7 +14,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test",
-    "debug-log-subset": "bun run debug-log-subset.ts"
+    "debug-log-subset": "bun run debug-log-subset.ts",
+    "typecheck-all": "bun run typecheck-all.ts"
   },
   "sideEffects": false,
   "engines": {

@@ -33,7 +33,7 @@
     "start-nushell": "bun --cwd npm-app start-nushell",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "release:npm-app": "bun run --cwd npm-app release",
-    "typecheck": "bun run --cwd common typecheck & bun run --cwd backend typecheck & bun run --cwd web typecheck & bun run --cwd npm-app typecheck & bun run --cwd evals typecheck & bun run --cwd scripts typecheck & bun run --cwd packages/billing typecheck & bun run --cwd packages/bigquery typecheck & bun run --cwd packages/internal typecheck & bun run --cwd packages/code-map typecheck && wait",
+    "typecheck": "bun run --cwd scripts typecheck-all",
     "test": "bun --cwd backend test && bun --cwd common test && bun --cwd npm-app test"
   },
   "dependencies": {
