@@ -10,6 +10,15 @@ const currentArch = process.arch
 
 // Map current platform/arch to target info
 const getTargetInfo = () => {
+  // Check for environment variable overrides (for cross-compilation)
+  if (process.env.OVERRIDE_TARGET && process.env.OVERRIDE_PLATFORM && process.env.OVERRIDE_ARCH) {
+    return {
+      bunTarget: process.env.OVERRIDE_TARGET,
+      platform: process.env.OVERRIDE_PLATFORM,
+      arch: process.env.OVERRIDE_ARCH,
+    }
+  }
+
   const platformKey = `${currentPlatform}-${currentArch}`
   
   const targetMap = {

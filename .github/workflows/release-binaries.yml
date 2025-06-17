@@ -16,19 +16,17 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            target: bun-linux-x64
             output: codebuff-linux-x64
           - os: ubuntu-latest  
-            target: bun-linux-arm64
             output: codebuff-linux-arm64
+            target: bun-linux-arm64
+            platform: linux
+            arch: arm64
           - os: macos-13
-            target: bun-darwin-x64
             output: codebuff-darwin-x64
           - os: macos-14
-            target: bun-darwin-arm64
             output: codebuff-darwin-arm64
           - os: windows-latest
-            target: bun-windows-x64
             output: codebuff-win32-x64.exe
     
     runs-on: ${{ matrix.os }}
@@ -44,11 +42,22 @@ jobs:
         run: bun install --frozen-lockfile
         
       - name: Build binary
-        run: bun run scripts/build-binaries.js
+        run: bun run scripts/build-binary.js
         working-directory: npm-app
         env:
-          BUN_TARGET: ${{ matrix.target }}
-          OUTPUT_NAME: ${{ matrix.output }}
+          OVERRIDE_TARGET: ${{ matrix.target }}
+          OVERRIDE_PLATFORM: ${{ matrix.platform }}
+          OVERRIDE_ARCH: ${{ matrix.arch }}
+          
+      - name: Rename binary to expected output name
+        run: |
+          cd npm-app/bin
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            mv codebuff.exe ${{ matrix.output }}
+          else
+            mv codebuff ${{ matrix.output }}
+          fi
+        shell: bash
           
       - name: Create tarball
         run: |
@@ -58,6 +67,7 @@ jobs:
           else
             tar -czf ../${{ matrix.output }}.tar.gz ${{ matrix.output }}
           fi
+        shell: bash
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
