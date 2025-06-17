@@ -8,6 +8,7 @@ import * as schema from 'common/db/schema'
 import { logger } from '@/util/logger'
 import { stripeServer } from 'common/src/util/stripe'
 import { env } from '@/env'
+import { pluralize } from 'common/src/util/string'
 
 interface RouteParams {
   params: {
@@ -157,6 +158,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     if (!stripeCustomerId) {
       const customer = await stripeServer.customers.create({
         name: organization.name,
+        email: session.user.email || undefined,
         metadata: {
           organization_id: orgId,
           type: 'organization',
@@ -198,8 +200,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         type: 'subscription_setup',
       },
       subscription_data: {
+        description: `Team subscription for ${organization.name} - Monthly billing for ${pluralize(seatCount, 'seat')}. You will be charged for each member of your organization. Add or remove team members anytime and your billing will adjust automatically.`,
         metadata: {
           organization_id: orgId,
+        },
+      },
+      custom_text: {
+        submit: {
+          message: `You're subscribing to a team plan with ${pluralize(seatCount, 'seat')}. Your billing will automatically adjust when you add or remove team members.`,
         },
       },
     })

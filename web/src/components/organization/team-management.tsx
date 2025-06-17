@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -103,10 +104,23 @@ export function TeamManagement({
   const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false)
   const [currentInvitationToCancel, setCurrentInvitationToCancel] =
     useState<Invitation | null>(null)
+  const [confirmRemoveDialogOpen, setConfirmRemoveDialogOpen] = useState(false)
+  const [currentMemberToRemove, setCurrentMemberToRemove] = useState<{
+    userId: string
+    name: string
+  } | null>(null)
 
   const canManageTeam = userRole === 'owner' || userRole === 'admin'
   const isMobile = useIsMobile()
   const hasMountedRef = useRef(false)
+  const searchParams = useSearchParams()
+
+  // Auto-open invite dialog if invite=true query param is present
+  useEffect(() => {
+    if (searchParams.get('invite') === 'true' && canManageTeam) {
+      setBulkInviteDialogOpen(true)
+    }
+  }, [searchParams, canManageTeam])
 
   useEffect(() => {
     // Only show loading skeleton on initial mount, not on subsequent mounts
@@ -508,13 +522,15 @@ export function TeamManagement({
   }
 
   const handleRemoveMember = async (userId: string, memberName: string) => {
-    if (
-      !confirm(
-        `Are you sure you want to remove ${memberName} from the organization?`
-      )
-    ) {
-      return
-    }
+    setCurrentMemberToRemove({ userId, name: memberName })
+    setConfirmRemoveDialogOpen(true)
+  }
+
+  const handleConfirmRemoveMember = async () => {
+    if (!currentMemberToRemove) return
+
+    const { userId, name } = currentMemberToRemove
+    setConfirmRemoveDialogOpen(false)
 
     try {
       const response = await fetch(
@@ -531,7 +547,7 @@ export function TeamManagement({
 
       toast({
         title: 'Success',
-        description: `${memberName} has been removed from the organization`,
+        description: `${name} has been removed from the organization`,
       })
 
       fetchTeamData(false) // Refresh without showing skeleton
@@ -542,6 +558,8 @@ export function TeamManagement({
           error instanceof Error ? error.message : 'Failed to remove member',
         variant: 'destructive',
       })
+    } finally {
+      setCurrentMemberToRemove(null)
     }
   }
 
@@ -1061,6 +1079,36 @@ export function TeamManagement({
             </DialogClose>
             <Button variant="destructive" onClick={handleConfirmCancel}>
               Confirm Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog for Remove Member */}
+      <Dialog
+        open={confirmRemoveDialogOpen}
+        onOpenChange={setConfirmRemoveDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Team Member</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove{' '}
+              <strong>{currentMemberToRemove?.name}</strong> from the organization? 
+              This action cannot be undone and they will lose access immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose asChild>
+              <Button
+                variant="outline"
+                onClick={() => setCurrentMemberToRemove(null)}
+              >
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button variant="destructive" onClick={handleConfirmRemoveMember}>
+              Remove Member
             </Button>
           </DialogFooter>
         </DialogContent>

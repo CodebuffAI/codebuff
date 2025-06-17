@@ -38,6 +38,7 @@ export default function OrganizationBillingPurchasePage() {
 
   // Check if we just completed billing setup
   const setupSuccess = searchParams.get('setup_success') === 'true'
+  const subscriptionSuccess = searchParams.get('subscription_success') === 'true'
 
   useEffect(() => {
     if (setupSuccess) {
@@ -260,6 +261,29 @@ export default function OrganizationBillingPurchasePage() {
             </Button>
           </Link>
         </div>
+
+        {/* Subscription Success Banner */}
+        {subscriptionSuccess && (
+          <div className="mb-8 bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-green-900 mb-1">
+                  Team subscription activated!
+                </h3>
+                <p className="text-green-800 text-sm mb-3">
+                  Your team plan is now active. Invite your team members to start collaborating.
+                </p>
+                <Link href={`/orgs/${orgSlug}/team?invite=true`}>
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+                    <Users className="h-4 w-4 mr-2" />
+                    Invite Team Members
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Page Title */}
         <div className="mb-8">
