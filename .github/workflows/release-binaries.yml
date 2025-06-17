@@ -40,6 +40,8 @@ jobs:
           
       - name: Install dependencies
         run: bun install --frozen-lockfile
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
       - name: Build binary
         run: bun run scripts/build-binary.js
