@@ -279,24 +279,23 @@ export function TeamManagement({
         throw new Error(data.error || 'Failed to send bulk invitations')
       }
 
-      const { summary, results } = data
+      const { added, skipped } = data
 
-      if (summary.successful > 0) {
+      if (added > 0) {
         toast({
           title: 'Success',
-          description: `${summary.successful} invitation(s) sent successfully${summary.failed > 0 ? `, ${summary.failed} failed` : ''}`,
+          description: `${added} member(s) added successfully${skipped.length > 0 ? `, ${skipped.length} skipped` : ''}`,
         })
       }
 
-      if (summary.failed > 0) {
-        const failedEmails = results
-          .filter((r: any) => !r.success)
-          .map((r: any) => `${r.email}: ${r.error}`)
+      if (skipped.length > 0) {
+        const skippedEmails = skipped
+          .map((s: any) => `${s.email}: ${s.reason}`)
           .join('\n')
 
         toast({
-          title: 'Some invitations failed',
-          description: failedEmails,
+          title: 'Some invitations were skipped',
+          description: skippedEmails,
           variant: 'destructive',
         })
       }
@@ -1094,7 +1093,7 @@ export function TeamManagement({
             <DialogTitle>Remove Team Member</DialogTitle>
             <DialogDescription>
               Are you sure you want to remove{' '}
-              <strong>{currentMemberToRemove?.name}</strong> from the organization? 
+              <strong>{currentMemberToRemove?.name}</strong> from the organization?
               This action cannot be undone and they will lose access immediately.
             </DialogDescription>
           </DialogHeader>

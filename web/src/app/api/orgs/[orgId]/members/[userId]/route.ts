@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, isNull } from 'drizzle-orm'
 import { UpdateMemberRoleRequest } from 'common/types/organization'
 import { stripeServer } from 'common/src/util/stripe'
 import { env } from '@/env'
@@ -47,10 +47,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
-    // Get target member's current role
+    // Get target member's role and email
     const targetMembership = await db
-      .select({ role: schema.orgMember.role })
+      .select({ 
+        role: schema.orgMember.role,
+        email: schema.user.email 
+      })
       .from(schema.orgMember)
+      .innerJoin(schema.user, eq(schema.orgMember.user_id, schema.user.id))
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
@@ -63,7 +67,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Member not found' }, { status: 404 })
     }
 
-    const { role: targetRole } = targetMembership[0]
+    const { role: targetRole, email: targetEmail } = targetMembership[0]
 
     // Only owners can change owner roles
     if (targetRole === 'owner') {
@@ -132,10 +136,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
-    // Get target member's role
+    // Get target member's role and email
     const targetMembership = await db
-      .select({ role: schema.orgMember.role })
+      .select({ 
+        role: schema.orgMember.role,
+        email: schema.user.email 
+      })
       .from(schema.orgMember)
+      .innerJoin(schema.user, eq(schema.orgMember.user_id, schema.user.id))
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
@@ -148,22 +156,36 @@ export async function DELETE(
       return NextResponse.json({ error: 'Member not found' }, { status: 404 })
     }
 
-    const { role: targetRole } = targetMembership[0]
+    const { role: targetRole, email: targetEmail } = targetMembership[0]
 
     // Only owners can remove other owners
     if (targetRole === 'owner' && !isRemovingSelf && currentUserRole !== 'owner') {
       return NextResponse.json({ error: 'Only owners can remove other owners' }, { status: 403 })
     }
 
-    // Remove member
-    await db
-      .delete(schema.orgMember)
-      .where(
-        and(
-          eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, userId)
+    // Remove member and clean up invitations in a transaction
+    await db.transaction(async (tx) => {
+      // Remove member
+      await tx
+        .delete(schema.orgMember)
+        .where(
+          and(
+            eq(schema.orgMember.org_id, orgId),
+            eq(schema.orgMember.user_id, userId)
+          )
         )
-      )
+
+      // Clean up any pending invitations for this user's email
+      await tx
+        .delete(schema.orgInvite)
+        .where(
+          and(
+            eq(schema.orgInvite.org_id, orgId),
+            eq(schema.orgInvite.email, targetEmail),
+            isNull(schema.orgInvite.accepted_at)
+          )
+        )
+    })
 
     // Update Stripe subscription quantity if subscription exists
     if (organization.stripe_subscription_id) {
