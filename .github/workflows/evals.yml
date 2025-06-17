@@ -64,7 +64,7 @@ jobs:
 
       - name: Run evals
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
-        run: bun run --cwd evals run-eval-set
+        run: cd evals && bun run git-evals/run-eval-set.ts
 
       - name: Workflow completed
         run: echo "Evals workflow completed successfully"
