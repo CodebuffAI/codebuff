@@ -132,6 +132,42 @@ async function triggerWorkflow(version) {
   }
 }
 
+async function createTagInCommunityRepo(version) {
+  log('Creating tag in codebuff-community repository...')
+  try {
+    // Get the latest commit SHA from the community repo
+    const getCommitCmd = `curl -s -H "Accept: application/vnd.github.v3+json" \
+      -H "Authorization: token $GITHUB_TOKEN" \
+      https://api.github.com/repos/CodebuffAI/codebuff-community/commits/main`
+    
+    const commitResponse = execSync(getCommitCmd, { encoding: 'utf8', stdio: 'pipe' })
+    const commitData = JSON.parse(commitResponse)
+    const commitSha = commitData.sha
+    
+    // Create the tag
+    const createTagCmd = `curl -X POST \
+      -H "Accept: application/vnd.github.v3+json" \
+      -H "Authorization: token $GITHUB_TOKEN" \
+      https://api.github.com/repos/CodebuffAI/codebuff-community/git/tags \
+      -d '{"tag":"v${version}","message":"Release version ${version}","object":"${commitSha}","type":"commit"}'`
+    
+    execSync(createTagCmd, { stdio: 'pipe' })
+    
+    // Create the reference
+    const createRefCmd = `curl -X POST \
+      -H "Accept: application/vnd.github.v3+json" \
+      -H "Authorization: token $GITHUB_TOKEN" \
+      https://api.github.com/repos/CodebuffAI/codebuff-community/git/refs \
+      -d '{"ref":"refs/tags/v${version}","sha":"${commitSha}"}'`
+    
+    execSync(createRefCmd, { stdio: 'pipe' })
+    
+    log('✅ Tag created successfully in codebuff-community!')
+  } catch (err) {
+    error(`Failed to create tag in codebuff-community: ${err.message}`)
+  }
+}
+
 async function main() {
   log('Starting release process...')
   
@@ -168,9 +204,8 @@ async function main() {
   run(`git commit -m "Bump version to ${newVersion}"`)
   run('git push')
 
-  // Create and push tag
-  run(`git tag -a v${newVersion} -m "Release version ${newVersion}"`)
-  run(`git push https://github.com/CodebuffAI/codebuff-community.git v${newVersion}`)
+  // Create tag directly in codebuff-community repository
+  await createTagInCommunityRepo(newVersion)
 
   // Trigger the workflow manually
   await triggerWorkflow(newVersion)
