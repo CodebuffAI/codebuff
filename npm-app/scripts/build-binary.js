@@ -117,7 +117,7 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
 
   const command = [
     'bun build --compile',
-    'src/index.ts src/workers/*', // Entrypoints
+    'src/index.ts src/workers/project-context.ts src/workers/checkpoint-worker.ts', // Entrypoints
     '--root src',
     `--target=${bunTarget}`,
     `--assets=${bunPtyLibPath}`,
