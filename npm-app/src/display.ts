@@ -159,13 +159,8 @@ export const initSquashNewLines = () => {
       String(arg)
     ).join(' ') + '\n'
 
-    const processedOutput = addCarriageReturn(output)
-    const combinedContent = previous + processedOutput
-    const processedContent = squashNewlines(combinedContent)
-    const processedChunk = processedContent.slice(previous.length)
-    previous = getLastTwoLines(processedContent)
 
-    process.stdout.write(processedChunk)
+    process.stdout.write(output)
   }
 
   console.error = function (...args: any[]) {
@@ -180,12 +175,6 @@ export const initSquashNewLines = () => {
       String(arg)
     ).join(' ') + '\n'
 
-    const processedOutput = addCarriageReturn(output)
-    const combinedContent = previous + processedOutput
-    const processedContent = squashNewlines(combinedContent)
-    const processedChunk = processedContent.slice(previous.length)
-    previous = getLastTwoLines(processedContent)
-
-    process.stderr.write(processedChunk)
+    process.stderr.write(output)
   }
 }
