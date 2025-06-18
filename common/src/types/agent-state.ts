@@ -20,8 +20,7 @@ export const AgentStateSchema = z.object({
   agentContext: z.string(),
   fileContext: ProjectFileContextSchema,
   messageHistory: z.array(CodebuffMessageSchema),
-  consecutiveAssistantMessages: z.number().optional(),
-  agentStepsRemaining: z.number().optional(),
+  agentStepsRemaining: z.number(),
 })
 export type AgentState = z.infer<typeof AgentStateSchema>
 
@@ -32,7 +31,6 @@ export function getInitialAgentState(
     agentContext: '',
     messageHistory: [],
     fileContext,
-    consecutiveAssistantMessages: 0,
-    agentStepsRemaining: undefined,
+    agentStepsRemaining: 12,
   }
 }

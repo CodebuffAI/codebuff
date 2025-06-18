@@ -83,7 +83,6 @@ import {
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
 
-const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
 const COLLECT_FULL_FILE_CONTEXT = false
@@ -286,8 +285,6 @@ export const mainPrompt = async (
     })
     const duration = Date.now() - startTime
 
-    agentState.consecutiveAssistantMessages = 0
-
     if (terminalCommand) {
       logger.debug(
         {
@@ -321,12 +318,7 @@ export const mainPrompt = async (
   }
 
   // Check number of assistant messages since last user message with prompt
-  const remainingAssistantMessages =
-    agentState.agentStepsRemaining !== undefined
-      ? agentState.agentStepsRemaining - 1
-      : MAX_CONSECUTIVE_ASSISTANT_MESSAGES -
-        (agentState.consecutiveAssistantMessages ?? 0)
-  if (remainingAssistantMessages < 0) {
+  if (agentState.agentStepsRemaining <= 0) {
     logger.warn(
       `Detected too many consecutive assistant messages without user prompt`
     )
@@ -541,7 +533,7 @@ export const mainPrompt = async (
     {
       role: 'user',
       content: asSystemMessage(
-        `You have ${remainingAssistantMessages + 1} more response(s) before you will be cut off and the turn will be ended automatically.${remainingAssistantMessages === 0 ? ' (This will be the last response.)' : ''}`
+        `You have ${agentState.agentStepsRemaining} more response(s) before you will be cut off and the turn will be ended automatically.${agentState.agentStepsRemaining === 1 ? ' (This will be the last response.)' : ''}`
       ),
       timeToLive: 'agentStep',
     },
@@ -1189,13 +1181,7 @@ export const mainPrompt = async (
     ...agentState,
     messageHistory: finalMessageHistory,
     agentContext: newAgentContext,
-    consecutiveAssistantMessages: prompt
-      ? 1
-      : (agentState.consecutiveAssistantMessages ?? 0) + 1,
-    agentStepsRemaining:
-      agentState.agentStepsRemaining === undefined
-        ? undefined
-        : agentState.agentStepsRemaining - 1,
+    agentStepsRemaining: agentState.agentStepsRemaining - 1,
   }
 
   logger.debug(
