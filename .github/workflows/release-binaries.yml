@@ -1,0 +1,104 @@
+name: Release Binaries
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-binaries:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            output: codebuff-linux-x64
+          - os: ubuntu-latest  
+            output: codebuff-linux-arm64
+            target: bun-linux-arm64
+            platform: linux
+            arch: arm64
+          - os: macos-13
+            output: codebuff-darwin-x64
+          - os: macos-14
+            output: codebuff-darwin-arm64
+          - os: windows-latest
+            output: codebuff-win32-x64.exe
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+          
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+      - name: Build binary
+        run: bun run scripts/build-binary.js
+        working-directory: npm-app
+        shell: bash
+        env:
+          OVERRIDE_TARGET: ${{ matrix.target }}
+          OVERRIDE_PLATFORM: ${{ matrix.platform }}
+          OVERRIDE_ARCH: ${{ matrix.arch }}
+          
+      - name: Rename binary to expected output name
+        run: |
+          cd npm-app/bin
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            mv codebuff.exe ${{ matrix.output }}
+          else
+            mv codebuff ${{ matrix.output }}
+          fi
+        shell: bash
+          
+      - name: Create tarball
+        run: |
+          cd npm-app/bin
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            7z a ../${{ matrix.output }}.zip ${{ matrix.output }}
+          else
+            tar -czf ../${{ matrix.output }}.tar.gz ${{ matrix.output }}
+          fi
+        shell: bash
+          
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: npm-app/${{ matrix.output }}.*
+          
+  create-release:
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          
+      - name: Create release in codebuff-community
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: CodebuffAI/codebuff-community
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          files: artifacts/**/*
+          generate_release_notes: false
+          body: "Binary release"
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
