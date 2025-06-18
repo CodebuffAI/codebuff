@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
 /*
  * This entire script is to remove one console.log line from bun-pty.
  */
 
-function patchBunPty() {
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+export function patchBunPty() {
   const bunPtyIndexPath = path.join(__dirname, '../../node_modules/bun-pty/dist/index.js')
   
   if (!fs.existsSync(bunPtyIndexPath)) {
@@ -32,8 +36,7 @@ function patchBunPty() {
   }
 }
 
-if (require.main === module) {
+// Check if this script is being run directly
+if (import.meta.url === `file://${process.argv[1]}`) {
   patchBunPty()
 }
-
-module.exports = { patchBunPty }
