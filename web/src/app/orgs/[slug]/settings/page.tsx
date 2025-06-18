@@ -26,6 +26,7 @@ import {
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
+import { BillingStatus } from '@/components/organization/billing-status'
 
 export default function OrganizationSettingsPage() {
   const { data: session, status } = useSession()
@@ -262,6 +263,11 @@ export default function OrganizationSettingsPage() {
         </div>
 
         <div className="space-y-6">
+          {/* Billing & Seats */}
+          {canManageOrg && organization && (
+            <BillingStatus organizationId={organization.id} />
+          )}
+
           {/* General Settings */}
           <Card>
             <CardHeader>

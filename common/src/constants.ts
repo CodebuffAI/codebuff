@@ -277,18 +277,3 @@ export function getModelFromShortName(
 
   return shortModelNames[modelName as keyof typeof shortModelNames]
 }
-
-// List of admin user emails - single source of truth
-export const CODEBUFF_ADMIN_USER_EMAILS = [
-  'venkateshrameshkumar+1@gmail.com',
-  'brandonchenjiacheng@gmail.com',
-  'jahooma@gmail.com',
-  'charleslien97@gmail.com',
-]
-
-/**
- * Check if an email corresponds to a Codebuff admin
- */
-export function isCodebuffAdmin(email: string): boolean {
-  return CODEBUFF_ADMIN_USER_EMAILS.includes(email)
-}
