@@ -70,7 +70,8 @@ export async function getProjectFileContext(
   const fileTokenScores = (await getFileTokenScores(projectPath, allFilePaths))
     .tokenScores
   return {
-    currentWorkingDirectory: projectPath,
+    projectRoot: projectPath,
+    cwd: projectPath,
     gitChanges: {
       status: '',
       diff: '',
