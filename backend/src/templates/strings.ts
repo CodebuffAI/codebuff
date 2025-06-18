@@ -12,9 +12,8 @@ import { injectableVariables } from './types'
 export function formatPrompt(
   prompt: string,
   agentState: AgentState,
-  tools: ToolName[],
-  cwd: string
-) {
+  tools: ToolName[]
+): string {
   const toInject: Record<(typeof injectableVariables)[number], string> = {
     CODEBUFF_CONFIG_SCHEMA: stringifySchema(CodebuffConfigSchema),
     CODEBUFF_FILE_TREE_PROMPT: getProjectFileTreePrompt(
@@ -27,7 +26,7 @@ export function formatPrompt(
     CODEBUFF_PROJECT_ROOT: agentState.fileContext.projectRoot,
     CODEBUFF_SYSTEM_INFO_PROMPT: getSystemInfoPrompt(agentState.fileContext),
     CODEBUFF_TOOLS_PROMPT: getToolsInstructions(tools),
-    CODEBUFF_USER_CWD: cwd,
+    CODEBUFF_USER_CWD: agentState.fileContext.cwd,
   }
 
   for (const varName of injectableVariables) {
