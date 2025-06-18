@@ -95,12 +95,30 @@ jobs:
       - name: Generate GitHub App token
         id: generate-token
         run: |
+          # Create temporary private key file with proper formatting
+          echo -e "$GITHUB_APP_PRIVATE_KEY" > /tmp/github_app_private_key.pem
+          
           cd npm-app
-          TOKEN=$(bun run scripts/generate-github-token.ts | grep 'export GITHUB_TOKEN=' | sed 's/export GITHUB_TOKEN="//' | sed 's/"//')
+          export GITHUB_APP_PRIVATE_KEY_PATH="/tmp/github_app_private_key.pem"
+          
+          # Run the script and extract the token
+          OUTPUT=$(bun run scripts/generate-github-token.ts 2>&1)
+          echo "Script output: $OUTPUT"
+          
+          TOKEN=$(echo "$OUTPUT" | grep 'export GITHUB_TOKEN=' | sed 's/export GITHUB_TOKEN="//' | sed 's/"//')
+          
+          if [ -z "$TOKEN" ]; then
+            echo "Failed to extract token from output"
+            exit 1
+          fi
+          
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          
+          # Clean up
+          rm -f /tmp/github_app_private_key.pem
         env:
           GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY_PATH: ${{ secrets.GITHUB_APP_PRIVATE_KEY_PATH }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
           GITHUB_APP_INSTALLATION_ID: ${{ secrets.GITHUB_APP_INSTALLATION_ID }}
           
       - name: Download all artifacts
