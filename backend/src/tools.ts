@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { FileChange } from 'common/actions'
-import { models, TEST_USER_ID } from 'common/constants'
+import { CostMode, models, TEST_USER_ID } from 'common/constants'
 import {
   getToolCallString,
   ToolName as GlobalToolNameImport,
@@ -15,6 +15,7 @@ import { buildArray } from 'common/util/array'
 import { generateCompactId } from 'common/util/string'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
+import { baseAgentToolNames, readOnlyToolNames } from './templates/types'
 
 // Define Zod schemas for parameter validation
 const toolConfigs = {
@@ -1232,4 +1233,15 @@ export function getFilteredToolsInstructions(
   }
 
   return getToolsInstructions(allowedTools)
+}
+
+export function getFilteredToolSet(costMode: CostMode): ToolSet {
+  const allowedToolNames =
+    costMode === 'ask' ? readOnlyToolNames : baseAgentToolNames
+
+  return Object.fromEntries(
+    Object.entries(toolConfigs).filter(([name]) =>
+      allowedToolNames.includes(name as keyof typeof toolConfigs)
+    )
+  ) satisfies ToolSet
 }
