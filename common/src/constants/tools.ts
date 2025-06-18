@@ -20,10 +20,6 @@ export const toolSchema = {
 
   browser_logs: ['type', 'url', 'waitUntil'],
 
-  // Agent-only tools
-  kill_terminal: [],
-  sleep: ['seconds'],
-
   end_turn: [],
 }
 

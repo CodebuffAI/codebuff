@@ -346,7 +346,10 @@ ${getToolCallString('code_search', { pattern: 'import.*foo' })}
     parameters: z
       .object({
         // Can be empty to use it for a timeout.
-        command: z.string().describe(`CLI command valid for user's OS.`),
+        command: z
+          .string()
+          .min(1, 'Command cannot be empty')
+          .describe(`CLI command valid for user's OS.`),
         process_type: z
           .enum(['SYNC', 'BACKGROUND'])
           .default('SYNC')
@@ -597,42 +600,6 @@ ${getToolCallString('browser_logs', {
 })}
     `.trim(),
   },
-  kill_terminal: {
-    parameters: z
-      .object({})
-      .transform(() => ({}))
-      .describe(
-        `Kill the current terminal process and restart it. Only available in agent mode.`
-      ),
-    description: `
-Purpose: Use this tool to forcefully terminate the current terminal session and start fresh. This is useful when a command is stuck or the terminal is in an unresponsive state.
-
-This tool is only available in agent mode and will not work in regular Codebuff.
-
-Example:
-${getToolCallString('kill_terminal', {})}
-    `.trim(),
-  },
-  sleep: {
-    parameters: z
-      .object({
-        seconds: z
-          .string()
-          .min(1, 'Seconds cannot be empty')
-          .describe(`Number of seconds to sleep (as string)`),
-      })
-      .describe(
-        `Sleep for a specified number of seconds. Only available in agent mode.`
-      ),
-    description: `
-Purpose: Use this tool to pause execution for a specified amount of time. This can be useful when waiting for processes to complete, giving time for services to start up, or adding delays between operations.
-
-This tool is only available in agent mode and will not work in regular Codebuff.
-
-Example:
-${getToolCallString('sleep', { seconds: '5' })}
-    `.trim(),
-  },
   end_turn: {
     parameters: z
       .object({})
@@ -757,13 +724,6 @@ const toolDescriptions = Object.fromEntries(
     buildToolDescription(name, config.parameters, config.description),
   ])
 ) as Record<keyof typeof toolConfigs, string>
-
-const managerTools = [
-  'run_terminal_command',
-  'kill_terminal',
-  'sleep',
-  'end_turn',
-] as const
 
 type ToolConfig = (typeof toolConfigsList)[number]
 
@@ -1242,15 +1202,9 @@ function renderSubgoalUpdate(subgoal: {
   return getToolCallString('add_subgoal', params)
 }
 
-export function getManagerToolsInstructions() {
-  return getToolsInstructions(managerTools)
-}
-
 // Function to get filtered tools based on cost mode and agent mode
 export function getFilteredToolsInstructions(costMode: string) {
-  let allowedTools = TOOL_LIST.filter(
-    (tool) => !['kill_terminal', 'sleep'].includes(tool)
-  )
+  let allowedTools = TOOL_LIST
 
   // Filter based on cost mode
   if (costMode === 'ask') {

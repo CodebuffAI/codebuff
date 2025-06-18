@@ -4,7 +4,6 @@ import {
   FileChanges,
   FileChangeSchema,
   InitResponseSchema,
-  ManagerPromptResponseSchema,
   MessageCostResponseSchema,
   PromptResponseSchema,
   ServerAction,
@@ -76,7 +75,6 @@ import {
   getWorkingDirectory,
   startNewChat,
 } from './project-files'
-import { readNewTerminalOutput } from './terminal/base'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
@@ -863,9 +861,7 @@ export class Client {
     // Check if we're in manager mode using CLI's isManagerMode flag
     const cli = CLI.getInstance()
 
-    const f = cli.isManagerMode
-      ? this.subscribeToManagerResponse.bind(this)
-      : this.subscribeToResponse.bind(this)
+    const f = this.subscribeToResponse.bind(this)
 
     const { responsePromise, stopResponse } = f(
       (chunk) => {
@@ -890,11 +886,6 @@ export class Client {
     const toolResults = buildArray(
       ...(this.lastToolResults || []),
       ...getBackgroundProcessUpdates(),
-      cli.isManagerMode && {
-        id: 'continued-terminal-output',
-        name: 'run_terminal_command',
-        result: readNewTerminalOutput(),
-      },
       scrapedContent && {
         id: 'scraped-content',
         name: 'web-scraper',
@@ -917,17 +908,10 @@ export class Client {
       repoUrl: loggerContext.repoUrl,
       repoName: loggerContext.repoName,
     }
-    if (cli.isManagerMode) {
-      this.webSocket.sendAction({
-        type: 'manager-prompt',
-        ...action,
-      })
-    } else {
-      this.webSocket.sendAction({
-        type: 'prompt',
-        ...action,
-      })
-    }
+    this.webSocket.sendAction({
+      type: 'prompt',
+      ...action,
+    })
 
     return {
       responsePromise,
@@ -1495,250 +1479,6 @@ Go to https://www.codebuff.com/config for more information.`) +
         isCovered: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       }
-    }
-  }
-
-  private subscribeToManagerResponse(
-    onChunk: (chunk: string) => void,
-    userInputId: string,
-    onStreamStart: () => void,
-    prompt: string,
-    startTime: number
-  ) {
-    const rawChunkBuffer: string[] = []
-    this.responseBuffer = ''
-    let streamStarted = false
-    let responseStopped = false
-    let resolveResponse: (
-      value: ServerAction & { type: 'manager-prompt-response' } & {
-        wasStoppedByUser: boolean
-      }
-    ) => void
-    let rejectResponse: (reason?: any) => void
-    let unsubscribeChunks: () => void
-    let unsubscribeComplete: () => void
-
-    const responsePromise = new Promise<
-      ServerAction & { type: 'manager-prompt-response' } & {
-        wasStoppedByUser: boolean
-      }
-    >((resolve, reject) => {
-      resolveResponse = resolve
-      rejectResponse = reject
-    })
-
-    const stopResponse = () => {
-      responseStopped = true
-      unsubscribeChunks()
-      unsubscribeComplete()
-
-      const additionalMessages = [
-        { role: 'user' as const, content: prompt },
-        {
-          role: 'user' as const,
-          content: `<system><assistant_message>${rawChunkBuffer.join('')}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
-        },
-      ]
-
-      // Update the agent state with just the assistant's response
-      const { messageHistory } = this.agentState!
-      const newMessages = [...messageHistory, ...additionalMessages]
-      this.agentState = {
-        ...this.agentState!,
-        messageHistory: newMessages,
-      }
-      setMessages(newMessages)
-
-      resolveResponse({
-        type: 'manager-prompt-response',
-        promptId: userInputId,
-        agentState: this.agentState!,
-        toolCalls: [],
-        toolResults: [],
-        wasStoppedByUser: true,
-      })
-    }
-
-    const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
-      onChunk(chunk)
-    })
-
-    unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
-      if (a.userInputId !== userInputId) return
-      const { chunk } = a
-
-      rawChunkBuffer.push(chunk)
-
-      const trimmed = chunk.trim()
-      for (const tag of ONE_TIME_TAGS) {
-        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)) {
-          if (this.oneTimeFlags[tag]) {
-            return
-          }
-          Spinner.get().stop()
-          const warningMessage = trimmed
-            .replace(`<${tag}>`, '')
-            .replace(`</${tag}>`, '')
-          process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
-          this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
-          return
-        }
-      }
-
-      if (chunk && chunk.trim()) {
-        if (!streamStarted && chunk.trim()) {
-          streamStarted = true
-          onStreamStart()
-        }
-      }
-
-      try {
-        xmlStreamParser.write(chunk, 'utf8')
-      } catch (e) {
-        // console.error('Error writing chunk', e)
-      }
-    })
-
-    let stepsCount = 0
-    let toolCallsCount = 0
-    unsubscribeComplete = this.webSocket.subscribe(
-      'manager-prompt-response',
-      async (action) => {
-        const parsedAction = ManagerPromptResponseSchema.safeParse(action)
-        if (!parsedAction.success) {
-          const message = [
-            'Received invalid manager-prompt-response from server:',
-            JSON.stringify(parsedAction.error.errors),
-            'If this issues persists, please contact support@codebuff.com',
-          ].join('\n')
-          console.error(message)
-          logger.error(message, {
-            eventId: AnalyticsEvent.MALFORMED_PROMPT_RESPONSE,
-          })
-          return
-        }
-        if (action.promptId !== userInputId) return
-        const a = parsedAction.data
-        let isComplete = false
-
-        Spinner.get().stop()
-
-        this.agentState = a.agentState
-        const toolResults: ToolResult[] = [...a.toolResults]
-
-        for (const toolCall of a.toolCalls) {
-          try {
-            if (toolCall.name === 'end_turn') {
-              this.responseComplete = true
-              isComplete = true
-              continue
-            }
-            if (toolCall.name === 'run_terminal_command') {
-              if (toolCall.parameters.mode === 'user') {
-                // Special case: when terminal command is run as a user command, then no need to reprompt assistant.
-                this.responseComplete = true
-                isComplete = true
-              }
-            }
-            const toolResult = await handleToolCall(toolCall)
-            toolResults.push(toolResult)
-          } catch (error) {
-            console.error(
-              '\n\n' +
-                red(`Error parsing tool call ${toolCall.name}:\n${error}`) +
-                '\n'
-            )
-          }
-        }
-        stepsCount++
-        toolCallsCount += a.toolCalls.length
-        if (a.toolCalls.length === 0 && a.toolResults.length === 0) {
-          this.responseComplete = true
-          isComplete = true
-        }
-        console.log('\n')
-
-        // If we had any file changes, update the project context
-        if (this.hadFileChanges) {
-          this.fileContext = await getProjectFileContext(getProjectRoot(), {})
-        }
-
-        if (!isComplete) {
-          // Append process updates to existing tool results
-          toolResults.push(...getBackgroundProcessUpdates())
-          toolResults.push({
-            id: 'continued-terminal-output',
-            name: 'run_terminal_command',
-            result: readNewTerminalOutput(),
-          })
-          // Continue the prompt with the tool results.
-          Spinner.get().start('Thinking...')
-          this.webSocket.sendAction({
-            type: 'manager-prompt',
-            promptId: userInputId,
-            prompt: undefined,
-            agentState: this.agentState,
-            toolResults,
-            fingerprintId: await this.fingerprintId,
-            authToken: this.user?.authToken,
-            costMode: this.costMode,
-            model: this.model,
-            repoName: loggerContext.repoName,
-          })
-          return
-        }
-
-        const endTime = Date.now()
-        const latencyMs = endTime - startTime
-        trackEvent(AnalyticsEvent.USER_INPUT_COMPLETE, {
-          userInputId,
-          latencyMs,
-          stepsCount,
-          toolCallsCount,
-        })
-
-        this.lastToolResults = toolResults
-        xmlStreamParser.end()
-
-        if (this.agentState) {
-          setMessages(this.agentState.messageHistory)
-        }
-
-        // Show total credits used for this prompt if significant
-        const credits =
-          this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
-        if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
-          console.log(
-            `\n\n${pluralize(credits, 'credit')} used for this request.`
-          )
-        }
-
-        if (this.hadFileChanges) {
-          let checkpointAddendum = ''
-          try {
-            checkpointAddendum = ` or "checkpoint ${checkpointManager.getLatestCheckpoint().id}" to revert`
-          } catch (error) {
-            // No latest checkpoint, don't show addendum
-          }
-          console.log(
-            `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n`
-          )
-          this.hadFileChanges = false
-          this.freshPrompt()
-        }
-
-        unsubscribeChunks()
-        unsubscribeComplete()
-        resolveResponse({ ...a, wasStoppedByUser: false })
-      }
-    )
-
-    // Reset flags at the start of each response
-    this.responseComplete = false
-
-    return {
-      responsePromise,
-      stopResponse,
     }
   }
 }

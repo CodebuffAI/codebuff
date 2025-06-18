@@ -8,7 +8,6 @@ export interface CliOptions {
   costMode: CostMode
   runInitFlow?: boolean
   model?: string
-  isManager?: boolean
 }
 
 /**

@@ -65,10 +65,4 @@ export const cliOptions: CliParam[] = [
     description: 'Use cutting-edge experimental features and models',
     hidden: true,
   },
-  {
-    flags: '--superagent',
-    description: 'Start in superagent mode (autonomously use codebuff)',
-    menuDescription: 'Start in superagent mode (autonomously use codebuff)',
-    hidden: true,
-  },
 ]

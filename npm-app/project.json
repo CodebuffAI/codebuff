@@ -88,13 +88,6 @@
         "cwd": "npm-app"
       }
     },
-    "start-superagent": {
-      "executor": "@codebuff/build-tools:infisical-run",
-      "options": {
-        "command": "ts-node -r tsconfig-paths/register src/index.ts .. --superagent",
-        "cwd": "npm-app"
-      }
-    },
     "start-dir": {
       "executor": "@codebuff/build-tools:infisical-run",
       "options": {

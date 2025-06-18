@@ -18,7 +18,6 @@
     "start-max": "nx run npm-app:start-max",
     "start-lite": "nx run npm-app:start-lite",
     "start-ask": "nx run npm-app:start-ask",
-    "start-superagent": "nx run npm-app:start-superagent",
     "start-dir": "nx run npm-app:start-dir",
     "start-experimental": "nx run npm-app:start-experimental",
     "start-manifold": "nx run npm-app:start-manifold",
