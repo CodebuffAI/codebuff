@@ -7,7 +7,8 @@ import { getToolsInstructions, ToolName } from '@/tools'
 import { CodebuffConfigSchema } from 'common/json-config/constants'
 import { stringifySchema } from 'common/json-config/stringify-schema'
 import { AgentState, AgentTemplateName } from 'common/types/agent-state'
-import { agentTemplates, injectableVariables } from './types'
+import { agentTemplates } from './agent-list'
+import { injectableVariables } from './types'
 
 export function formatPrompt(
   prompt: string,
