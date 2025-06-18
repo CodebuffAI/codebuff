@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+// Force output to show even when npm suppresses stdout
+const originalLog = console.log
+console.log = (...args) => {
+  process.stderr.write(args.join(' ') + '\n')
+}
+
 const https = require('https')
 const fs = require('fs')
 const path = require('path')
@@ -33,6 +39,7 @@ const manicodeDir = path.join(homeDir, '.config', 'manicode')
 fs.mkdirSync(manicodeDir, { recursive: true })
 
 console.log(`⬇️  Downloading ${file} from GitHub releases...`)
+console.log(`📍 Installing to: ${manicodeDir}`)
 
 const request = https.get(url, (res) => {
   if (res.statusCode === 302 || res.statusCode === 301) {
@@ -54,6 +61,33 @@ function handleResponse(res) {
     process.exit(1)
   }
 
+  const totalSize = parseInt(res.headers['content-length'] || '0', 10)
+  let downloadedSize = 0
+  let lastProgressTime = Date.now()
+
+  // Show progress for downloads
+  const showProgress = (downloaded, total) => {
+    const now = Date.now()
+    // Update progress every 100ms to avoid too frequent updates
+    if (now - lastProgressTime < 100 && downloaded < total) return
+    lastProgressTime = now
+
+    if (total > 0) {
+      const percentage = Math.round((downloaded / total) * 100)
+      const downloadedMB = (downloaded / 1024 / 1024).toFixed(1)
+      const totalMB = (total / 1024 / 1024).toFixed(1)
+      process.stderr.write(`\r📥 Downloaded ${downloadedMB}MB / ${totalMB}MB (${percentage}%)`)
+    } else {
+      const downloadedMB = (downloaded / 1024 / 1024).toFixed(1)
+      process.stderr.write(`\r📥 Downloaded ${downloadedMB}MB`)
+    }
+  }
+
+  res.on('data', (chunk) => {
+    downloadedSize += chunk.length
+    showProgress(downloadedSize, totalSize)
+  })
+
   if (file.endsWith('.zip')) {
     // Handle zip files (Windows)
     const zipPath = path.join(manicodeDir, file)
@@ -62,12 +96,14 @@ function handleResponse(res) {
     res.pipe(writeStream)
     
     writeStream.on('finish', () => {
+      process.stderr.write('\n') // New line after progress
+      console.log('📦 Extracting...')
       // Extract zip file
       const { execSync } = require('child_process')
       try {
         execSync(`cd "${manicodeDir}" && unzip -o "${file}"`, { stdio: 'inherit' })
         fs.unlinkSync(zipPath) // Clean up zip file
-        console.log('✅ codebuff installed')
+        console.log('✅ codebuff installed successfully!')
       } catch (error) {
         console.error('❌ Failed to extract zip:', error.message)
         process.exit(1)
@@ -81,20 +117,22 @@ function handleResponse(res) {
     res.pipe(zlib.createGunzip())
        .pipe(tar.extract({ cwd: manicodeDir }))
        .on('finish', () => {
-         // Make executable and rename to standard name
-         const binaryName = platform === 'win32' ? 'codebuff.exe' : 'codebuff'
-         const extractedBinaryName = platform === 'win32' ? 'codebuff.exe' : 'codebuff'
-         const binaryPath = path.join(manicodeDir, extractedBinaryName)
-         const finalBinaryPath = path.join(manicodeDir, binaryName)
+         process.stderr.write('\n') // New line after progress
+         // The extracted binary will have the platform/arch in the name
+         const extractedBinaryName = file.replace('.tar.gz', '').replace('.zip', '')
+         const finalBinaryName = platform === 'win32' ? 'codebuff.exe' : 'codebuff'
+         const extractedBinaryPath = path.join(manicodeDir, extractedBinaryName)
+         const finalBinaryPath = path.join(manicodeDir, finalBinaryName)
          
-         if (fs.existsSync(binaryPath)) {
-           fs.chmodSync(binaryPath, 0o755)
-           // Rename if necessary (though it should already be the correct name)
-           if (binaryPath !== finalBinaryPath) {
-             fs.renameSync(binaryPath, finalBinaryPath)
-           }
+         if (fs.existsSync(extractedBinaryPath)) {
+           fs.chmodSync(extractedBinaryPath, 0o755)
+           // Rename to the standard name
+           fs.renameSync(extractedBinaryPath, finalBinaryPath)
+           console.log('✅ codebuff installed successfully!')
+         } else {
+           console.error(`❌ Binary not found at ${extractedBinaryPath}`)
+           process.exit(1)
          }
-         console.log('✅ codebuff installed')
        })
        .on('error', (err) => {
          console.error(`❌ Extraction failed: ${err.message}`)
