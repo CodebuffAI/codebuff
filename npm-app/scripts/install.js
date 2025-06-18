@@ -3,6 +3,7 @@
 const https = require('https')
 const fs = require('fs')
 const path = require('path')
+const os = require('os')
 const { platform, arch } = process
 const packageJson = require('../package.json')
 const ver = packageJson.version
@@ -25,10 +26,11 @@ if (!file) {
 }
 
 const url = `https://github.com/CodebuffAI/codebuff-community/releases/download/v${ver}/${file}`
-const binDir = path.join(__dirname, '..', 'bin')
+const homeDir = os.homedir()
+const manicodeDir = path.join(homeDir, '.manicode')
 
-// Create bin directory
-fs.mkdirSync(binDir, { recursive: true })
+// Create .manicode directory
+fs.mkdirSync(manicodeDir, { recursive: true })
 
 console.log(`⬇️  Downloading ${file} from GitHub releases...`)
 
@@ -54,7 +56,7 @@ function handleResponse(res) {
 
   if (file.endsWith('.zip')) {
     // Handle zip files (Windows)
-    const zipPath = path.join(binDir, file)
+    const zipPath = path.join(manicodeDir, file)
     const writeStream = fs.createWriteStream(zipPath)
     
     res.pipe(writeStream)
@@ -63,7 +65,7 @@ function handleResponse(res) {
       // Extract zip file
       const { execSync } = require('child_process')
       try {
-        execSync(`cd "${binDir}" && unzip -o "${file}"`, { stdio: 'inherit' })
+        execSync(`cd "${manicodeDir}" && unzip -o "${file}"`, { stdio: 'inherit' })
         fs.unlinkSync(zipPath) // Clean up zip file
         console.log('✅ codebuff installed')
       } catch (error) {
@@ -77,11 +79,11 @@ function handleResponse(res) {
     const tar = require('tar')
     
     res.pipe(zlib.createGunzip())
-       .pipe(tar.extract({ cwd: binDir }))
+       .pipe(tar.extract({ cwd: manicodeDir }))
        .on('finish', () => {
          // Make executable
          const binaryName = platform === 'win32' ? 'codebuff.exe' : 'codebuff'
-         const binaryPath = path.join(binDir, binaryName)
+         const binaryPath = path.join(manicodeDir, binaryName)
          if (fs.existsSync(binaryPath)) {
            fs.chmodSync(binaryPath, 0o755)
          }

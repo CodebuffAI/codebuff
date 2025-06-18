@@ -4,12 +4,12 @@
   "description": "AI dev assistant",
   "license": "MIT",
   "bin": {
-    "codecane": "bin/codecane"
+    "codecane": "scripts/codebuff-wrapper.js"
   },
   "scripts": {
     "postinstall": "node scripts/install.js"
   },
-  "files": ["bin/", "scripts/install.js", "README.md"],
+  "files": ["scripts/codebuff-wrapper.js", "scripts/install.js", "README.md"],
   "os": ["darwin", "linux", "win32"],
   "cpu": ["x64", "arm64"],
   "engines": {
