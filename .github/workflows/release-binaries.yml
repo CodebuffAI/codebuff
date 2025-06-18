@@ -51,6 +51,7 @@ jobs:
         working-directory: npm-app
         shell: bash
         env:
+          VERBOSE: true
           OVERRIDE_TARGET: ${{ matrix.target }}
           OVERRIDE_PLATFORM: ${{ matrix.platform }}
           OVERRIDE_ARCH: ${{ matrix.arch }}

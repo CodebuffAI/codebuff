@@ -110,6 +110,7 @@ const languageTable: LanguageConfig[] = [
 /* ------------------------------------------------------------------ */
 /* 4 .  One-time library init                                          */
 /* ------------------------------------------------------------------ */
+// Initialize tree-sitter - in binary builds, WASM files are bundled as assets
 const parserReady = Parser.init() // kick it off immediately
 
 /* ------------------------------------------------------------------ */
