@@ -170,7 +170,7 @@ function getVSCodeTreeSitterWasmPaths() {
 
 async function main() {
   log('🔧 Patching bun-pty...')
-  patchBunPty()
+  patchBunPty(VERBOSE)
 
   // Copy required packages to local node_modules
   log('📦 Copying required packages to local node_modules...')
@@ -213,6 +213,7 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
     PLATFORM: targetInfo.platform,
     ARCH: targetInfo.arch,
     IS_BINARY: 'true',
+    BUN_PTY_LIB: bunPtyLibPath,
   }
 
   const defineFlags = Object.entries(flags)
@@ -247,9 +248,9 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
       fs.chmodSync(outputFile, 0o755)
     }
 
-    logAlways(`✅ ${outputName}`)
+    logAlways(`✅ Built ${outputName}`)
   } catch (error) {
-    logAlways(`❌ ${outputName}: ${error.message}`)
+    logAlways(`❌ Failed to build ${outputName}: ${error.message}`)
     process.exit(1)
   }
 }
