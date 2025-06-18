@@ -178,7 +178,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -253,7 +253,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -306,7 +306,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -357,7 +357,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -377,7 +377,7 @@ describe('mainPrompt', () => {
     const agentState = getInitialAgentState(mockFileContext)
 
     // Set up message history with many consecutive assistant messages
-    agentState.consecutiveAssistantMessages = 20 // Set to MAX_CONSECUTIVE_ASSISTANT_MESSAGES
+    agentState.agentStepsRemaining = 0
     agentState.messageHistory = [
       { role: 'user', content: 'Initial prompt' },
       ...Array(20).fill({ role: 'assistant', content: 'Assistant response' }),
@@ -401,7 +401,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -410,7 +410,7 @@ describe('mainPrompt', () => {
 
   it('should update consecutiveAssistantMessages when new prompt is received', async () => {
     const agentState = getInitialAgentState(mockFileContext)
-    agentState.consecutiveAssistantMessages = 0
+    agentState.agentStepsRemaining = 12
 
     const action = {
       type: 'prompt' as const,
@@ -430,18 +430,20 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
     // When there's a new prompt, consecutiveAssistantMessages should be set to 1
-    expect(newAgentState.consecutiveAssistantMessages).toBe(1)
+    expect(newAgentState.agentStepsRemaining).toBe(
+      agentState.agentStepsRemaining - 1
+    )
   })
 
   it('should increment consecutiveAssistantMessages when no new prompt', async () => {
     const agentState = getInitialAgentState(mockFileContext)
     const initialCount = 5
-    agentState.consecutiveAssistantMessages = initialCount
+    agentState.agentStepsRemaining = initialCount
 
     const action = {
       type: 'prompt' as const,
@@ -461,12 +463,12 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
-    expect(newAgentState.consecutiveAssistantMessages).toBe(initialCount + 1)
+    expect(newAgentState.agentStepsRemaining).toBe(initialCount + 1)
   })
 
   it('should return no tool calls when LLM response is empty', async () => {
@@ -492,7 +494,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -530,7 +532,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 

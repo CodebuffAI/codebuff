@@ -1,7 +1,7 @@
-import { WebSocket } from 'ws'
 import { AgentState } from 'common/types/agent-state'
-import { loopMainPrompt } from './loop-main-prompt'
 import { toContentString } from 'common/util/messages'
+import { WebSocket } from 'ws'
+import { loopMainPrompt } from './loop-main-prompt'
 
 export async function research(
   ws: WebSocket,
@@ -21,7 +21,6 @@ export async function research(
     // Each research prompt runs in 'lite' mode and can only use read-only tools.
     const researchAgentState: AgentState = {
       ...initialAgentState,
-      consecutiveAssistantMessages: 0,
       agentStepsRemaining: maxIterations,
       messageHistory: [],
     }

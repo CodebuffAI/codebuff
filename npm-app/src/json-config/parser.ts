@@ -10,6 +10,7 @@ import {
   codebuffConfigFileBackup,
   CodebuffConfigSchema,
 } from 'common/json-config/constants'
+import { getDefaultConfig } from 'common/json-config/default'
 import { getProjectRoot } from '../project-files'
 
 /**
@@ -17,7 +18,7 @@ import { getProjectRoot } from '../project-files'
  * @param projectPath - The root directory of the project
  * @returns The parsed and validated configuration, or null if no valid config exists
  */
-export function loadCodebuffConfig(): CodebuffConfig | null {
+export function loadCodebuffConfig(): CodebuffConfig {
   const projectPath = getProjectRoot()
   const configPathPrimary = path.join(projectPath, codebuffConfigFile)
   const configPathBackup = path.join(projectPath, codebuffConfigFileBackup)
@@ -28,7 +29,7 @@ export function loadCodebuffConfig(): CodebuffConfig | null {
       : null
 
   if (configPath === null) {
-    return null
+    return getDefaultConfig()
   }
 
   try {
@@ -46,7 +47,7 @@ export function loadCodebuffConfig(): CodebuffConfig | null {
               .join('\n')
         )
       )
-      return null
+      return getDefaultConfig()
     }
 
     return result.data
@@ -64,6 +65,6 @@ export function loadCodebuffConfig(): CodebuffConfig | null {
         )
       )
     }
-    return null
+    return getDefaultConfig()
   }
 }

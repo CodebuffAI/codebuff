@@ -851,7 +851,7 @@ export class Client {
       },
     ])
 
-    this.agentState.agentStepsRemaining = loadCodebuffConfig()?.maxAgentSteps
+    this.agentState.agentStepsRemaining = loadCodebuffConfig().maxAgentSteps
     this.lastChanges = []
     this.filesChangedForHook = []
 
