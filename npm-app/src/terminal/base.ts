@@ -627,7 +627,7 @@ If you want to change the project root:
         command,
         commandOutput,
         buildArray([
-          `cwd: ${currentWorkingDirectory}`,
+          `Starting cwd: ${currentWorkingDirectory}`,
           `${statusMessage}\n`,
           outsideProject &&
             `Detected final cwd outside project root. Reset cwd to ${currentWorkingDirectory}`,
