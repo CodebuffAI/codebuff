@@ -95,11 +95,7 @@ jobs:
       - name: Generate GitHub App token
         id: generate-token
         run: |
-          # Create temporary private key file with proper formatting
-          echo -e "$GH_APP_PRIVATE_KEY" > /tmp/github_app_private_key.pem
-          
           cd npm-app
-          export GH_APP_PRIVATE_KEY_PATH="/tmp/github_app_private_key.pem"
           
           # Run the script and extract the token
           OUTPUT=$(bun run scripts/generate-github-token.ts 2>&1)
@@ -113,9 +109,6 @@ jobs:
           fi
           
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
-          
-          # Clean up
-          rm -f /tmp/github_app_private_key.pem
         env:
           GH_APP_ID: ${{ secrets.GH_APP_ID }}
           GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
