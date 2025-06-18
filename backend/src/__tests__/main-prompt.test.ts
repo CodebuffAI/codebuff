@@ -468,7 +468,7 @@ describe('mainPrompt', () => {
     )
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
-    expect(newAgentState.agentStepsRemaining).toBe(initialCount + 1)
+    expect(newAgentState.agentStepsRemaining).toBe(initialCount - 1)
   })
 
   it('should return no tool calls when LLM response is empty', async () => {
