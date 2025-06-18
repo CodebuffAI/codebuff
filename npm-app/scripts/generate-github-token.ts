@@ -4,9 +4,9 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 
 // GitHub App configuration - you'll need to set these
-const APP_ID: string | undefined = process.env.GITHUB_APP_ID
-const PRIVATE_KEY_PATH: string | undefined = process.env.GITHUB_APP_PRIVATE_KEY_PATH
-const INSTALLATION_ID: string | undefined = process.env.GITHUB_APP_INSTALLATION_ID
+const APP_ID: string | undefined = process.env.GH_APP_ID
+const PRIVATE_KEY_PATH: string | undefined = process.env.GH_APP_PRIVATE_KEY_PATH
+const INSTALLATION_ID: string | undefined = process.env.GH_APP_INSTALLATION_ID
 
 function error(message) {
   console.error(`❌ ${message}`)
@@ -21,7 +21,7 @@ function base64urlEscape(str) {
 
 function generateJWT() {
   if (!APP_ID || !PRIVATE_KEY_PATH) {
-    error('GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY_PATH environment variables are required')
+    error('GH_APP_ID and GH_APP_PRIVATE_KEY_PATH environment variables are required')
     return
   }
 
@@ -79,7 +79,7 @@ function generateJWT() {
 
 function getInstallationToken(jwt) {
   if (!INSTALLATION_ID) {
-    error('GITHUB_APP_INSTALLATION_ID environment variable is required')
+    error('GH_APP_INSTALLATION_ID environment variable is required')
   }
 
   try {

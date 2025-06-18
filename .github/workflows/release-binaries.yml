@@ -96,10 +96,10 @@ jobs:
         id: generate-token
         run: |
           # Create temporary private key file with proper formatting
-          echo -e "$GITHUB_APP_PRIVATE_KEY" > /tmp/github_app_private_key.pem
+          echo -e "$GH_APP_PRIVATE_KEY" > /tmp/github_app_private_key.pem
           
           cd npm-app
-          export GITHUB_APP_PRIVATE_KEY_PATH="/tmp/github_app_private_key.pem"
+          export GH_APP_PRIVATE_KEY_PATH="/tmp/github_app_private_key.pem"
           
           # Run the script and extract the token
           OUTPUT=$(bun run scripts/generate-github-token.ts 2>&1)
@@ -117,9 +117,9 @@ jobs:
           # Clean up
           rm -f /tmp/github_app_private_key.pem
         env:
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          GITHUB_APP_INSTALLATION_ID: ${{ secrets.GITHUB_APP_INSTALLATION_ID }}
+          GH_APP_ID: ${{ secrets.GH_APP_ID }}
+          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          GH_APP_INSTALLATION_ID: ${{ secrets.GH_APP_INSTALLATION_ID }}
           
       - name: Download all artifacts
         uses: actions/download-artifact@v4
