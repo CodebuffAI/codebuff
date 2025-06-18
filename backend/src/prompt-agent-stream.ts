@@ -7,6 +7,7 @@ import {
 } from 'common/constants'
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
+import { getFilteredToolSet } from './tools'
 
 export const getAgentStream = (params: {
   costMode: CostMode
@@ -44,6 +45,7 @@ export const getAgentStream = (params: {
       userInputId,
       userId,
       maxTokens: 32_000,
+      tools: getFilteredToolSet(costMode),
     }
 
     if (provider === 'gemini') {
