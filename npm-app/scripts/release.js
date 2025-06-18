@@ -26,7 +26,7 @@ function run(command, options = {}) {
       ...options,
     })
   } catch (err) {
-    error(`Command failed: ${command}`)
+    throw new Error(`Command failed: ${command} - ${err.message}`)
   }
 }
 
@@ -251,8 +251,8 @@ async function main() {
   generateGitHubToken()
 
   // Pre-flight checks
-  // checkWorkingDirectory()
-  // checkGitBranch()
+  checkWorkingDirectory()
+  checkGitBranch()
 
   // Get current version and calculate new version
   const currentVersion = getCurrentVersion()
@@ -276,15 +276,15 @@ async function main() {
   }
 
   // Update version in package.release.json
-  // updatePackageVersion(newVersion)
+  updatePackageVersion(newVersion)
 
   // Commit the version change
-  // run('git add package.release.json')
-  // run(`git commit -m "Bump version to ${newVersion}"`)
-  // run('git push')
+  run('git add package.release.json')
+  run(`git commit -m "Bump version to ${newVersion}"`)
+  run('git push')
 
   // Create tag directly in codebuff-community repository
-  // await createTagInCommunityRepo(newVersion)
+  await createTagInCommunityRepo(newVersion)
 
   // Trigger the workflow in the private codebuff repo
   await triggerWorkflow(newVersion)
@@ -296,15 +296,30 @@ async function main() {
 
   // Publish to npm
   log('Publishing to npm...')
-  run('npm publish package.release.json')
-
-  log('🎉 Release complete!')
-  log(`Version ${newVersion} has been:`)
-  log('  ✅ Tagged and pushed to GitHub')
-  log('  ✅ Built as binaries via GitHub Actions')
-  log('  ✅ Published to npm')
-  log('')
-  log(`Users can now install with: npm install -g codebuff@${newVersion}`)
+  
+  // Temporarily copy package.release.json to package.json for publishing
+  const originalPackageJson = fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')
+  const releasePackageJson = fs.readFileSync(path.join(__dirname, '..', 'package.release.json'), 'utf8')
+  
+  try {
+    // Replace package.json with release version
+    fs.writeFileSync(path.join(__dirname, '..', 'package.json'), releasePackageJson)
+    
+    // Publish using the standard package.json
+    run('npm publish')
+    
+    log('🎉 Release complete!')
+    log(`Version ${newVersion} has been:`)
+    log('  ✅ Tagged and pushed to GitHub')
+    log('  ✅ Built as binaries via GitHub Actions')
+    log('  ✅ Published to npm')
+    log('')
+    log(`Users can now install with: npm install -g codebuff@${newVersion}`)
+  } finally {
+    // Always restore the original package.json
+    fs.writeFileSync(path.join(__dirname, '..', 'package.json'), originalPackageJson)
+    log('✅ Restored original package.json')
+  }
 }
 
 main().catch((err) => {
