@@ -1,6 +1,6 @@
 {
   "name": "codecane",
-  "version": "1.0.395",
+  "version": "1.0.396",
   "description": "AI dev assistant",
   "license": "MIT",
   "bin": {
@@ -9,9 +9,20 @@
   "scripts": {
     "postinstall": "node scripts/install.js"
   },
-  "files": ["scripts/codebuff-wrapper.js", "scripts/install.js", "README.md"],
-  "os": ["darwin", "linux", "win32"],
-  "cpu": ["x64", "arm64"],
+  "files": [
+    "scripts/codebuff-wrapper.js",
+    "scripts/install.js",
+    "README.md"
+  ],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "engines": {
     "node": ">=16"
   },
