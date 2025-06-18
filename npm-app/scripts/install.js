@@ -27,9 +27,9 @@ if (!file) {
 
 const url = `https://github.com/CodebuffAI/codebuff-community/releases/download/v${ver}/${file}`
 const homeDir = os.homedir()
-const manicodeDir = path.join(homeDir, '.manicode')
+const manicodeDir = path.join(homeDir, '.config', 'manicode')
 
-// Create .manicode directory
+// Create .config/manicode directory
 fs.mkdirSync(manicodeDir, { recursive: true })
 
 console.log(`⬇️  Downloading ${file} from GitHub releases...`)
@@ -81,11 +81,18 @@ function handleResponse(res) {
     res.pipe(zlib.createGunzip())
        .pipe(tar.extract({ cwd: manicodeDir }))
        .on('finish', () => {
-         // Make executable
+         // Make executable and rename to standard name
          const binaryName = platform === 'win32' ? 'codebuff.exe' : 'codebuff'
-         const binaryPath = path.join(manicodeDir, binaryName)
+         const extractedBinaryName = platform === 'win32' ? 'codebuff.exe' : 'codebuff'
+         const binaryPath = path.join(manicodeDir, extractedBinaryName)
+         const finalBinaryPath = path.join(manicodeDir, binaryName)
+         
          if (fs.existsSync(binaryPath)) {
            fs.chmodSync(binaryPath, 0o755)
+           // Rename if necessary (though it should already be the correct name)
+           if (binaryPath !== finalBinaryPath) {
+             fs.renameSync(binaryPath, finalBinaryPath)
+           }
          }
          console.log('✅ codebuff installed')
        })

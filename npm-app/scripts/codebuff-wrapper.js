@@ -6,7 +6,7 @@ const os = require('os')
 const { spawn } = require('child_process')
 
 const homeDir = os.homedir()
-const manicodeDir = path.join(homeDir, '.manicode')
+const manicodeDir = path.join(homeDir, '.config', 'manicode')
 const binaryName = process.platform === 'win32' ? 'codebuff.exe' : 'codebuff'
 const binaryPath = path.join(manicodeDir, binaryName)
 
