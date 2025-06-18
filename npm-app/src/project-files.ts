@@ -224,7 +224,7 @@ export const getProjectFileContext = async (
 
   if (
     !cachedProjectFileContext ||
-    cachedProjectFileContext.currentWorkingDirectory !== projectRoot
+    cachedProjectFileContext.projectRoot !== projectRoot
   ) {
     const fileTree = getProjectFileTree(projectRoot)
     const flattenedNodes = flattenTree(fileTree)
@@ -257,7 +257,8 @@ export const getProjectFileContext = async (
     )
 
     cachedProjectFileContext = {
-      currentWorkingDirectory: projectRoot,
+      projectRoot,
+      cwd: projectRoot,
       fileTree,
       fileTokenScores: tokenScores,
       tokenCallers,

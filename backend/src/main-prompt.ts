@@ -114,15 +114,8 @@ export const mainPrompt = async (
     modelConfig,
   } = options
 
-  const {
-    prompt,
-    agentState,
-    fingerprintId,
-    costMode,
-    promptId,
-    toolResults,
-    cwd,
-  } = action
+  const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
+    action
   const { fileContext, agentContext } = agentState
   const startTime = Date.now()
   let messageHistory = agentState.messageHistory
@@ -202,7 +195,7 @@ export const mainPrompt = async (
 
     isGeminiPro
       ? toolsInstructions
-      : `Any tool calls will be run from the project root (${agentState.fileContext.currentWorkingDirectory}) unless otherwise specified`,
+      : `Any tool calls will be run from the project root (${agentState.fileContext.projectRoot}) unless otherwise specified`,
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it if you have not already!',
 
@@ -260,10 +253,10 @@ export const mainPrompt = async (
       content: renderToolResults(toolResults),
     },
     prompt && [
-      cwd && {
+      {
         role: 'user' as const,
         content: asSystemMessage(
-          `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
+          `Assistant cwd (project root): ${agentState.fileContext.projectRoot}\nUser cwd: ${agentState.fileContext.cwd}`
         ),
         timeToLive: 'agentStep',
       },
@@ -538,14 +531,13 @@ export const mainPrompt = async (
       timeToLive: 'agentStep',
     },
 
-    prompt &&
-      cwd && {
-        role: 'user' as const,
-        content: asSystemMessage(
-          `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
-        ),
-        timeToLive: 'agentStep',
-      },
+    prompt && {
+      role: 'user' as const,
+      content: asSystemMessage(
+        `Assistant cwd (project root): ${agentState.fileContext.projectRoot}\nUser cwd: ${agentState.fileContext.cwd}`
+      ),
+      timeToLive: 'agentStep',
+    },
     !prompt &&
       toolInstructions && {
         role: 'user' as const,

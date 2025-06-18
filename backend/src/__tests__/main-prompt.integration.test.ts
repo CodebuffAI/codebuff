@@ -7,6 +7,7 @@ import { mainPrompt } from '../main-prompt'
 // Mock imports needed for setup within the test
 import { renderReadFilesResult } from '@/util/parse-tool-call-xml'
 import { getToolCallString } from 'common/constants/tools'
+import { ProjectFileContext } from 'common/util/file'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
@@ -22,8 +23,9 @@ class MockWebSocket {
   removeListener(event: string, listener: (...args: any[]) => void) {}
 }
 
-const mockFileContext = {
-  currentWorkingDirectory: '/test',
+const mockFileContext: ProjectFileContext = {
+  projectRoot: '/test',
+  cwd: '/test',
   fileTree: [],
   fileTokenScores: {},
   knowledgeFiles: {},
@@ -329,19 +331,15 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       toolCalls,
       toolResults,
       agentState: finalAgentState,
-    } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
-      action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session-delete-function-integration',
-        onResponseChunk: (chunk: string) => {
-          process.stdout.write(chunk)
-        },
-        selectedModel: undefined,
-        readOnlyMode: false
-      }
-    )
+    } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session-delete-function-integration',
+      onResponseChunk: (chunk: string) => {
+        process.stdout.write(chunk)
+      },
+      selectedModel: undefined,
+      readOnlyMode: false,
+    })
 
     // Find the write_file tool call
     const writeFileCall = toolCalls.find((call) => call.name === 'write_file')
@@ -372,7 +370,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -451,7 +449,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
             process.stdout.write(chunk)
           },
           selectedModel: undefined,
-          readOnlyMode: false
+          readOnlyMode: false,
         }
       )
 

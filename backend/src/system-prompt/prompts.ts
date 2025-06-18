@@ -140,7 +140,7 @@ export const getProjectFileTreePrompt = (
   fileTreeTokenBudget: number,
   mode: 'search' | 'agent'
 ) => {
-  const { currentWorkingDirectory } = fileContext
+  const { projectRoot } = fileContext
   const { printedTree, truncationLevel } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
     Math.max(0, fileTreeTokenBudget)
@@ -162,7 +162,7 @@ As Buffy, you have access to all the files in the project.
 
 The following is the path to the project on the user's computer. It is also the current working directory for terminal commands:
 <project_path>
-${currentWorkingDirectory}
+${projectRoot}
 </project_path>
 
 Within this project directory, here is the file tree.

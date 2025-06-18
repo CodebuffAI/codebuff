@@ -24,7 +24,7 @@ export function formatPrompt(
     ),
     CODEBUFF_GIT_CHANGES_PROMPT: getGitChangesPrompt(agentState.fileContext),
     CODEBUFF_REMAINING_AGENT_STEPS: `${agentState.agentStepsRemaining!}`,
-    CODEBUFF_PROJECT_ROOT: agentState.fileContext.currentWorkingDirectory,
+    CODEBUFF_PROJECT_ROOT: agentState.fileContext.projectRoot,
     CODEBUFF_SYSTEM_INFO_PROMPT: getSystemInfoPrompt(agentState.fileContext),
     CODEBUFF_TOOLS_PROMPT: getToolsInstructions(tools),
     CODEBUFF_USER_CWD: cwd,

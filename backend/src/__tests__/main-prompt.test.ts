@@ -20,6 +20,7 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
+import { ProjectFileContext } from 'common/util/file'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import { asUserMessage } from '../util/messages'
 import { renderToolResults } from '../util/parse-tool-call-xml'
@@ -125,8 +126,9 @@ describe('mainPrompt', () => {
     removeListener(event: string, listener: (...args: any[]) => void) {}
   }
 
-  const mockFileContext = {
-    currentWorkingDirectory: '/test',
+  const mockFileContext: ProjectFileContext = {
+    projectRoot: '/test',
+    cwd: '/test',
     fileTree: [],
     fileTokenScores: {},
     knowledgeFiles: {},

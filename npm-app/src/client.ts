@@ -1154,6 +1154,7 @@ export class Client {
         if (!isComplete) {
           // Append process updates to existing tool results
           toolResults.push(...getBackgroundProcessUpdates())
+          this.agentState.fileContext.cwd = getWorkingDirectory()
           // Continue the prompt with the tool results.
           Spinner.get().start('Thinking...')
           const continuePromptAction: ClientAction = {
@@ -1166,7 +1167,6 @@ export class Client {
             authToken: this.user?.authToken,
             costMode: this.costMode,
             model: this.model,
-            cwd: getWorkingDirectory(),
             repoUrl: loggerContext.repoUrl,
           }
           this.webSocket.sendAction(continuePromptAction)

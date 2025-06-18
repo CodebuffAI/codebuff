@@ -33,7 +33,6 @@ export async function research(
       toolResults: [],
       fingerprintId,
       promptId,
-      cwd: initialAgentState.fileContext.currentWorkingDirectory,
     }
 
     return loopMainPrompt(ws, action, {
