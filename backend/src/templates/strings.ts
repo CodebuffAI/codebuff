@@ -6,8 +6,8 @@ import {
 import { getToolsInstructions, ToolName } from '@/tools'
 import { CodebuffConfigSchema } from 'common/json-config/constants'
 import { stringifySchema } from 'common/json-config/stringify-schema'
-import { AgentState } from 'common/types/agent-state'
-import { injectableVariables } from './types'
+import { AgentState, AgentTemplateName } from 'common/types/agent-state'
+import { agentTemplates, injectableVariables } from './types'
 
 export function formatPrompt(
   prompt: string,
@@ -36,4 +36,17 @@ export function formatPrompt(
   }
 
   return prompt
+}
+
+export function getAgentPrompt(
+  agentTemplateName: AgentTemplateName,
+  promptType: 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt',
+  agentState: AgentState
+): string {
+  const agentTemplate = agentTemplates[agentTemplateName]
+  return formatPrompt(
+    agentTemplate[promptType],
+    agentState,
+    agentTemplate.toolNames
+  )
 }

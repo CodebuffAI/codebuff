@@ -1,6 +1,7 @@
 import { ToolName } from '@/tools'
 import { Model } from 'common/constants'
 import { AgentTemplateName } from 'common/types/agent-state'
+import { claude4base } from './claude4base'
 
 export type AgentTemplate = {
   name: AgentTemplateName
@@ -11,6 +12,10 @@ export type AgentTemplate = {
   systemPrompt: string
   userInputPrompt: string
   agentStepPrompt: string
+}
+
+export const agentTemplates: Record<AgentTemplateName, AgentTemplate> = {
+  claude4base,
 }
 
 export const injectableVariables = [
