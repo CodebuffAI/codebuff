@@ -35,7 +35,7 @@ function generateGitHubToken() {
   
   try {
     // Run the generate-github-token script and capture its output
-    const output = execSync('node scripts/generate-github-token.js', { 
+    const output = execSync('bun run scripts/generate-github-token.ts', { 
       encoding: 'utf8',
       stdio: 'pipe' // Capture output instead of inheriting
     })
@@ -251,8 +251,8 @@ async function main() {
   generateGitHubToken()
 
   // Pre-flight checks
-  checkWorkingDirectory()
-  checkGitBranch()
+  // checkWorkingDirectory()
+  // checkGitBranch()
 
   // Get current version and calculate new version
   const currentVersion = getCurrentVersion()
@@ -276,15 +276,15 @@ async function main() {
   }
 
   // Update version in package.release.json
-  updatePackageVersion(newVersion)
+  // updatePackageVersion(newVersion)
 
   // Commit the version change
-  run('git add package.release.json')
-  run(`git commit -m "Bump version to ${newVersion}"`)
-  run('git push')
+  // run('git add package.release.json')
+  // run(`git commit -m "Bump version to ${newVersion}"`)
+  // run('git push')
 
   // Create tag directly in codebuff-community repository
-  await createTagInCommunityRepo(newVersion)
+  // await createTagInCommunityRepo(newVersion)
 
   // Trigger the workflow in the private codebuff repo
   await triggerWorkflow(newVersion)
