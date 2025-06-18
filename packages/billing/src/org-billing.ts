@@ -8,6 +8,7 @@ import { withSerializableTransaction } from 'common/db/transaction'
 import { GrantTypeValues } from 'common/types/grant'
 import { stripeServer } from 'common/util/stripe'
 import { getNextQuotaReset } from 'common/util/dates'
+import { env } from '@/env'
 import {
   CreditBalance,
   CreditUsageAndBalance,
@@ -19,6 +20,15 @@ import {
 
 // Add a minimal structural type that both `db` and `tx` satisfy
 type DbConn = Pick<typeof db, 'select' | 'update'>
+
+interface UpdateSubscriptionQuantityParams {
+  stripeSubscriptionId: string
+  actualQuantity: number
+  orgId: string
+  userId?: string
+  context: string
+  addedCount?: number
+}
 
 /**
  * Syncs organization billing cycle with Stripe subscription and returns the current cycle start date.
@@ -442,5 +452,59 @@ export function validateAndNormalizeRepositoryUrl(url: string): {
     return { isValid: true, normalizedUrl: normalized }
   } catch (error) {
     return { isValid: false, error: 'Invalid URL format' }
+  }
+}
+
+/**
+ * Updates Stripe subscription quantity based on actual member count
+ * Only updates if the quantity differs from what's in Stripe
+ */
+export async function updateStripeSubscriptionQuantity({
+  stripeSubscriptionId,
+  actualQuantity,
+  orgId,
+  userId,
+  context,
+  addedCount
+}: UpdateSubscriptionQuantityParams): Promise<void> {
+  try {
+    const subscription = await stripeServer.subscriptions.retrieve(stripeSubscriptionId)
+    
+    const teamFeeItem = subscription.items.data.find(
+      item => item.price.id === env.STRIPE_TEAM_FEE_PRICE_ID
+    )
+    
+    if (teamFeeItem && teamFeeItem.quantity !== actualQuantity) {
+      await stripeServer.subscriptionItems.update(teamFeeItem.id, {
+        quantity: actualQuantity,
+        proration_behavior: 'create_prorations',
+        proration_date: Math.floor(Date.now() / 1000),
+      })
+
+      const logData: any = { 
+        orgId, 
+        actualQuantity, 
+        previousQuantity: teamFeeItem.quantity,
+        context
+      }
+      
+      if (userId) logData.userId = userId
+      if (addedCount !== undefined) logData.addedCount = addedCount
+
+      logger.info(logData, `Updated Stripe subscription quantity: ${context}`)
+    }
+  } catch (stripeError) {
+    const logData: any = { 
+      orgId, 
+      actualQuantity,
+      context,
+      error: stripeError 
+    }
+    
+    if (userId) logData.userId = userId
+    if (addedCount !== undefined) logData.addedCount = addedCount
+
+    logger.error(logData, `Failed to update Stripe subscription quantity: ${context}`)
+    // Don't throw - we don't want Stripe failures to break the core functionality
   }
 }

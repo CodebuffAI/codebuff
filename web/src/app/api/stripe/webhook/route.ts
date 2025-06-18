@@ -217,14 +217,73 @@ async function handleCheckoutSessionCompleted(
 }
 
 async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
+  const organizationId = subscription.metadata?.organization_id
+
   logger.info(
     {
       subscriptionId: subscription.id,
       status: subscription.status,
       customerId: subscription.customer,
+      organizationId,
     },
     'Subscription event received'
   )
+
+  if (!organizationId) {
+    logger.warn(
+      { subscriptionId: subscription.id },
+      'Subscription event received without organization_id in metadata'
+    )
+    return
+  }
+
+  try {
+    // Handle subscription cancellation
+    if (subscription.status === 'canceled') {
+      await db
+        .update(schema.org)
+        .set({
+          stripe_subscription_id: null,
+          auto_topup_enabled: false,
+          updated_at: new Date(),
+        })
+        .where(eq(schema.org.id, organizationId))
+
+      logger.info(
+        { subscriptionId: subscription.id, organizationId },
+        'Updated organization after subscription cancellation'
+      )
+    }
+    // Handle subscription updates (status changes, etc.)
+    else if (subscription.status === 'active' || subscription.status === 'past_due') {
+      // Ensure organization has the subscription ID set
+      const org = await db
+        .select({ stripe_subscription_id: schema.org.stripe_subscription_id })
+        .from(schema.org)
+        .where(eq(schema.org.id, organizationId))
+        .limit(1)
+
+      if (org.length > 0 && !org[0].stripe_subscription_id) {
+        await db
+          .update(schema.org)
+          .set({
+            stripe_subscription_id: subscription.id,
+            updated_at: new Date(),
+          })
+          .where(eq(schema.org.id, organizationId))
+
+        logger.info(
+          { subscriptionId: subscription.id, organizationId },
+          'Updated organization with subscription ID'
+        )
+      }
+    }
+  } catch (error) {
+    logger.error(
+      { subscriptionId: subscription.id, organizationId, error },
+      'Failed to handle subscription event'
+    )
+  }
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
@@ -287,6 +346,12 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
     switch (event.type) {
       case 'customer.created':
         break
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        await handleSubscriptionEvent(event.data.object as Stripe.Subscription)
+        break
+      }
       case 'charge.refunded': {
         const charge = event.data.object as Stripe.Charge
         // Get the payment intent ID from the charge
@@ -343,15 +408,26 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
           invoice.billing_reason === 'manual'
         ) {
           const userId = invoice.metadata?.userId
+          const organizationId = invoice.metadata?.organizationId
+
           if (userId) {
             logger.warn(
               { invoiceId: invoice.id, userId },
-              `Invoice payment failed for auto-topup. Disabling setting for user ${userId}.`
+              `Invoice payment failed for user auto-topup. Disabling setting for user ${userId}.`
             )
             await db
               .update(schema.user)
               .set({ auto_topup_enabled: false })
               .where(eq(schema.user.id, userId))
+          } else if (organizationId) {
+            logger.warn(
+              { invoiceId: invoice.id, organizationId },
+              `Invoice payment failed for organization auto-topup. Disabling setting for organization ${organizationId}.`
+            )
+            await db
+              .update(schema.org)
+              .set({ auto_topup_enabled: false })
+              .where(eq(schema.org.id, organizationId))
           }
         }
         break

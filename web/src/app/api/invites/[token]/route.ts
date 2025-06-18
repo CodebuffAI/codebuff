@@ -3,8 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from 'common/db'
 import * as schema from 'common/db/schema'
-import { eq, and, gt, isNull } from 'drizzle-orm'
-// import { sendOrganizationWelcomeEmail } from '@codebuff/integrations'
+import { eq, and, gt, isNull, sql } from 'drizzle-orm'
+import { updateStripeSubscriptionQuantity } from '@codebuff/billing'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
@@ -138,7 +138,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Accept the invitation in a transaction
+    // Accept the invitation in a transaction and get updated count
+    let actualQuantity = 0; // Initialize to handle edge cases
     await db.transaction(async (tx) => {
       // Add user to organization
       await tx.insert(schema.orgMember).values({
@@ -155,7 +156,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           accepted_by: session.user!.id,
         })
         .where(eq(schema.orgInvite.id, inv.id))
+
+      // Get current member count immediately after addition
+      const memberCount = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.orgMember)
+        .where(eq(schema.orgMember.org_id, inv.org_id))
+
+      actualQuantity = Math.max(1, memberCount[0].count) // Minimum 1 seat
     })
+
+    // Update Stripe subscription quantity if subscription exists
+    if (org.stripe_subscription_id && actualQuantity > 0) {
+      await updateStripeSubscriptionQuantity({
+        stripeSubscriptionId: org.stripe_subscription_id,
+        actualQuantity,
+        orgId: inv.org_id,
+        userId: session.user!.id,
+        context: 'invite accepted'
+      })
+    }
 
     // // Send welcome email
     // await sendOrganizationWelcomeEmail({
