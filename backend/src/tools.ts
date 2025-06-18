@@ -650,10 +650,15 @@ ${getToolCallString('end_turn', {})}
   },
 } as const
 
-const toolConfigsList = Object.entries(toolConfigs).map(([name, config]) => ({
-  name: name as keyof typeof toolConfigs,
-  ...config,
-}))
+const toolConfigsList = Object.entries(toolConfigs).map(
+  ([name, config]) =>
+    ({
+      name: name as keyof typeof toolConfigs,
+      ...config,
+    }) as {
+      [K in keyof typeof toolConfigs]: { name: K } & (typeof toolConfigs)[K]
+    }[keyof typeof toolConfigs]
+)
 
 export type ToolName = keyof typeof toolConfigs
 export const TOOL_LIST = Object.keys(toolConfigs) as ToolName[]
