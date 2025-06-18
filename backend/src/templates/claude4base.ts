@@ -260,9 +260,5 @@ You have {CODEBUFF_REMAINING_AGENT_STEPS} more response(s) before you will be cu
 
 Assistant cwd (project root): {CODEBUFF_PROJECT_ROOT}
 User cwd: {CODEBUFF_USER_CWD}
-</system>
-
-<system_instructions>
-{CODEBUFF_TOOLS_PROMPT}
-</system_instructions>`,
+</system>`,
 }
