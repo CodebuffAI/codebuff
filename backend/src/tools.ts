@@ -15,9 +15,8 @@ import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
 // Define Zod schemas for parameter validation
-const toolConfigsList = [
-  {
-    name: 'add_subgoal',
+const toolConfigs = {
+  add_subgoal: {
     schema: z
       .object({
         id: z
@@ -56,8 +55,7 @@ ${getToolCallString('add_subgoal', {
 })}
 `.trim(),
   },
-  {
-    name: 'update_subgoal',
+  update_subgoal: {
     schema: z
       .object({
         id: z
@@ -113,15 +111,16 @@ ${getToolCallString('update_subgoal', {
 })}
     `.trim(),
   },
-  {
-    name: 'write_file',
+  write_file: {
     schema: z
       .object({
         path: z
           .string()
           .min(1, 'Path cannot be empty')
           .describe(`Path to the file relative to the **project root**`),
-        instructions: z.string().describe('What the change is intended to do in only one sentence.'),
+        instructions: z
+          .string()
+          .describe('What the change is intended to do in only one sentence.'),
         content: z.string().describe(`Edit snippet to apply to the file.`),
       })
       .describe(`Create or edit a file with the given content.`),
@@ -211,8 +210,7 @@ function foo() {
 
     `.trim(),
   },
-  {
-    name: 'str_replace',
+  str_replace: {
     schema: z
       .object({
         path: z
@@ -249,8 +247,7 @@ ${getToolCallString('str_replace', {
 })}
     `.trim(),
   },
-  {
-    name: 'read_files',
+  read_files: {
     schema: z
       .object({
         paths: z
@@ -272,8 +269,7 @@ ${getToolCallString('read_files', {
 })}
     `.trim(),
   },
-  {
-    name: 'find_files',
+  find_files: {
     schema: z
       .object({
         description: z
@@ -306,8 +302,7 @@ Don't use this tool if:
 This tool is not guaranteed to find the correct file. In general, prefer using read_files instead of find_files.
       `.trim(),
   },
-  {
-    name: 'code_search',
+  code_search: {
     schema: z
       .object({
         pattern: z
@@ -346,8 +341,7 @@ ${getToolCallString('code_search', { pattern: 'foo' })}
 ${getToolCallString('code_search', { pattern: 'import.*foo' })}
     `.trim(),
   },
-  {
-    name: 'run_terminal_command',
+  run_terminal_command: {
     schema: z
       .object({
         // Can be empty to use it for a timeout.
@@ -411,13 +405,10 @@ ${getToolCallString('run_terminal_command', {
 })}
     `.trim(),
   },
-  {
-    name: 'research',
+  research: {
     schema: z
       .object({
-        prompts: z
-          .string()
-          .describe('A JSON array of research prompts'),
+        prompts: z.string().describe('A JSON array of research prompts'),
       })
       .describe(
         'Run a series of research prompts in parallel to gather information about your codebase.'
@@ -435,8 +426,7 @@ ${getToolCallString('research', {
 })}
     `.trim(),
   },
-  {
-    name: 'think_deeply',
+  think_deeply: {
     schema: z
       .object({
         thought: z
@@ -470,8 +460,7 @@ ${getToolCallString('think_deeply', {
 })}
     `.trim(),
   },
-  {
-    name: 'create_plan',
+  create_plan: {
     schema: z
       .object({
         path: z
@@ -534,8 +523,7 @@ ${getToolCallString('create_plan', {
 })}
     `.trim(),
   },
-  {
-    name: 'browser_logs',
+  browser_logs: {
     schema: z
       .object({
         type: z
@@ -608,8 +596,7 @@ ${getToolCallString('browser_logs', {
 })}
     `.trim(),
   },
-  {
-    name: 'kill_terminal',
+  kill_terminal: {
     schema: z
       .object({})
       .transform(() => ({}))
@@ -625,8 +612,7 @@ Example:
 ${getToolCallString('kill_terminal', {})}
     `.trim(),
   },
-  {
-    name: 'sleep',
+  sleep: {
     schema: z
       .object({
         seconds: z
@@ -646,8 +632,7 @@ Example:
 ${getToolCallString('sleep', { seconds: '5' })}
     `.trim(),
   },
-  {
-    name: 'end_turn',
+  end_turn: {
     schema: z
       .object({})
       .transform(() => ({}))
@@ -663,7 +648,15 @@ Example:
 ${getToolCallString('end_turn', {})}
     `.trim(),
   },
-] as const
+} as const
+
+const toolConfigsList = Object.entries(toolConfigs).map(([name, config]) => ({
+  name: name as keyof typeof toolConfigs,
+  ...config,
+}))
+
+export type ToolName = keyof typeof toolConfigs
+export const TOOL_LIST = Object.keys(toolConfigs) as ToolName[]
 
 // Helper function to generate markdown for parameter list
 function generateParamsList(
@@ -752,20 +745,19 @@ const tools = toolConfigsList.map((config) => ({
   ),
 })) as { name: GlobalToolNameImport; description: string }[]
 
-const managerTools = tools.filter((tool) =>
-  ['run_terminal_command', 'kill_terminal', 'sleep', 'end_turn'].includes(
-    tool.name
-  )
-)
+const toolDescriptions = Object.fromEntries(
+  Object.entries(toolConfigs).map(([name, config]) => [
+    name,
+    buildToolDescription(name, config.schema, config.additionalInfo),
+  ])
+) as Record<keyof typeof toolConfigs, string>
 
-const toolSchemas = Object.fromEntries(
-  toolConfigsList.map((tool) => [tool.name, tool.schema])
-) as {
-  [K in (typeof toolConfigsList)[number]['name']]: Extract<
-    (typeof toolConfigsList)[number],
-    { name: K }
-  >['schema']
-}
+const managerTools = [
+  'run_terminal_command',
+  'kill_terminal',
+  'sleep',
+  'end_turn',
+] as const
 
 type ToolConfig = (typeof toolConfigsList)[number]
 
@@ -788,7 +780,7 @@ export function parseRawToolCall(rawToolCall: {
 }): ToolCall | ToolCallError {
   const name = rawToolCall.name
 
-  if (!(name in toolSchemas)) {
+  if (!(name in toolConfigs)) {
     return {
       name,
       parameters: rawToolCall.parameters,
@@ -797,7 +789,8 @@ export function parseRawToolCall(rawToolCall: {
   }
   const validName = name as GlobalToolNameImport
 
-  let schema: z.ZodObject<any> | z.ZodEffects<any> = toolSchemas[validName]
+  let schema: z.ZodObject<any> | z.ZodEffects<any> =
+    toolConfigs[validName].schema
   while (schema instanceof z.ZodEffects) {
     schema = schema.innerType()
   }
@@ -844,9 +837,6 @@ export function parseRawToolCall(rawToolCall: {
   return { name: validName, parameters: result.data } as ToolCall
 }
 
-export const TOOL_LIST = tools.map((tool) => tool.name)
-export type ToolName = (typeof TOOL_LIST)[number]
-
 export const TOOLS_WHICH_END_THE_RESPONSE = [
   'read_files',
   'find_files',
@@ -855,7 +845,7 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'research',
 ]
 
-export const getToolsInstructions = (toolDescriptions: string[]) => `
+export const getToolsInstructions = (toolNames: readonly ToolName[]) => `
 # Tools
 
 You (Buffy) have access to the following tools. Call them when needed.
@@ -932,7 +922,7 @@ The user does not need to know about the exact results of these tools, especiall
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
 
-${toolDescriptions.join('\n\n')}
+${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}
 `
 
 export async function updateContext(
@@ -1247,13 +1237,13 @@ function renderSubgoalUpdate(subgoal: {
 }
 
 export function getManagerToolsInstructions() {
-  return getToolsInstructions(managerTools.map((tool) => tool.description))
+  return getToolsInstructions(managerTools)
 }
 
 // Function to get filtered tools based on cost mode and agent mode
 export function getFilteredToolsInstructions(costMode: string) {
-  let allowedTools = tools.filter(
-    (tool) => !['kill_terminal', 'sleep'].includes(tool.name)
+  let allowedTools = TOOL_LIST.filter(
+    (tool) => !['kill_terminal', 'sleep'].includes(tool)
   )
 
   // Filter based on cost mode
@@ -1261,11 +1251,9 @@ export function getFilteredToolsInstructions(costMode: string) {
     // For ask mode, exclude write_file, str_replace, create_plan, and run_terminal_command
     allowedTools = allowedTools.filter(
       (tool) =>
-        !['write_file', 'str_replace', 'run_terminal_command'].includes(
-          tool.name
-        )
+        !['write_file', 'str_replace', 'run_terminal_command'].includes(tool)
     )
   }
 
-  return getToolsInstructions(allowedTools.map((tool) => tool.description))
+  return getToolsInstructions(allowedTools)
 }
