@@ -86,6 +86,23 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      - uses: actions/checkout@v4
+      
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+          
+      - name: Generate GitHub App token
+        id: generate-token
+        run: |
+          cd npm-app
+          TOKEN=$(bun run scripts/generate-github-token.ts | grep 'export GITHUB_TOKEN=' | sed 's/export GITHUB_TOKEN="//' | sed 's/"//')
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY_PATH: ${{ secrets.GITHUB_APP_PRIVATE_KEY_PATH }}
+          GITHUB_APP_INSTALLATION_ID: ${{ secrets.GITHUB_APP_INSTALLATION_ID }}
+          
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -101,4 +118,4 @@ jobs:
           body: "Binary release"
           draft: false
           prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.generate-token.outputs.token }}
