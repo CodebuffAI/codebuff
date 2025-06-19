@@ -6,7 +6,7 @@ const path = require('path')
 const { patchBunPty } = require('./patch-bun-pty.js')
 
 // Configuration
-const VERBOSE = process.env.VERBOSE === 'true' || false
+const VERBOSE = process.env.VERBOSE === 'true'
 
 // Logging helper
 function log(message) {
@@ -73,83 +73,9 @@ const getTargetInfo = () => {
   return targetInfo
 }
 
-function copyPackageToLocal(packageName) {
-  const rootNodeModules = path.join(
-    __dirname,
-    '../../node_modules',
-    packageName
-  )
-  const localNodeModules = path.join(__dirname, '../node_modules', packageName)
-
-  if (!fs.existsSync(rootNodeModules)) {
-    if (VERBOSE) {
-      console.warn(`⚠️  Package ${packageName} not found in root node_modules`)
-    }
-    return false
-  }
-
-  // Create local node_modules directory if it doesn't exist
-  const localNodeModulesDir = path.dirname(localNodeModules)
-  if (!fs.existsSync(localNodeModulesDir)) {
-    fs.mkdirSync(localNodeModulesDir, { recursive: true })
-  }
-
-  // Remove existing local package if it exists
-  if (fs.existsSync(localNodeModules)) {
-    fs.rmSync(localNodeModules, { recursive: true, force: true })
-  }
-
-  // Copy the package
-  fs.cpSync(rootNodeModules, localNodeModules, { recursive: true })
-  log(`📦 Copied ${packageName} to local node_modules`)
-  return true
-}
-
-function getTreeSitterWasmPath() {
-  const wasmPath = path.join(
-    __dirname,
-    '../node_modules/web-tree-sitter/tree-sitter.wasm'
-  )
-
-  if (!fs.existsSync(wasmPath)) {
-    if (VERBOSE) {
-      console.error(`⚠️  Web tree sitter wasm not found: ${wasmPath}`)
-    }
-    return null
-  }
-
-  return wasmPath
-}
-
-function getVSCodeTreeSitterWasmPaths() {
-  const wasmDir = path.join(
-    __dirname,
-    '../node_modules/@vscode/tree-sitter-wasm/wasm'
-  )
-
-  if (!fs.existsSync(wasmDir)) {
-    if (VERBOSE) {
-      console.error(`⚠️  VS Code tree sitter wasm dir not found: ${wasmDir}`)
-    }
-    return []
-  }
-
-  return fs
-    .readdirSync(wasmDir)
-    .filter((file) => file.endsWith('.wasm'))
-    .map((file) => path.join(wasmDir, file))
-    .filter((filePath) => fs.existsSync(filePath))
-}
-
 async function main() {
   log('🔧 Patching bun-pty...')
   patchBunPty(VERBOSE)
-
-  // Copy required packages to local node_modules
-  log('📦 Copying required packages to local node_modules...')
-  copyPackageToLocal('bun-pty')
-  copyPackageToLocal('web-tree-sitter')
-  copyPackageToLocal('@vscode/tree-sitter-wasm')
 
   const targetInfo = getTargetInfo()
   const outputName = currentPlatform === 'win32' ? 'codebuff.exe' : 'codebuff'
@@ -170,10 +96,6 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
     `🔨 Building ${outputName} (${targetInfo.platform}-${targetInfo.arch})...`
   )
 
-  // Get all asset paths (now from local node_modules)
-  const treeSitterWasmPath = getTreeSitterWasmPath()
-  const vsCodeWasmPaths = getVSCodeTreeSitterWasmPaths()
-
   const flags = {
     IS_BINARY: 'true',
   }
@@ -189,9 +111,6 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
     'src/index.ts',
     'src/workers/project-context.ts',
     'src/workers/checkpoint-worker.ts',
-    'src/native/pty.ts',
-    treeSitterWasmPath,
-    ...vsCodeWasmPaths,
   ]
 
   const command = [

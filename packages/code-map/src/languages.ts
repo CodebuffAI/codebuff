@@ -5,6 +5,10 @@ import { DEBUG_PARSING } from './parse'
 /* ------------------------------------------------------------------ */
 /* 1 .  WASM files
 /* ------------------------------------------------------------------ */
+// Import core WASM file from web-tree-sitter
+// @ts-ignore
+import coreWasmPath from 'web-tree-sitter/tree-sitter.wasm' with { type: 'file' }
+
 // Import WASM files from @vscode/tree-sitter-wasm
 import cppWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-cpp.wasm'
 import csharpWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-c-sharp.wasm'
@@ -111,7 +115,7 @@ const languageTable: LanguageConfig[] = [
 /* 4 .  One-time library init                                          */
 /* ------------------------------------------------------------------ */
 // Initialize tree-sitter - in binary builds, WASM files are bundled as assets
-const parserReady = Parser.init() // kick it off immediately
+const parserReady = Parser.init(coreWasmPath) // kick it off immediately
 
 /* ------------------------------------------------------------------ */
 /* 5 .  Public helper                                                  */
