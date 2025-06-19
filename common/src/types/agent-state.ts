@@ -31,7 +31,7 @@ export const SubagentStateSchema: z.ZodType<{
 )
 export type SubagentState = z.infer<typeof SubagentStateSchema>
 
-export const AgentTemplateNameSchema = z.enum(['claude4base', 'experimental'])
+export const AgentTemplateNameSchema = z.enum(['claude4base', 'experimental', 'lite', 'max'])
 export type AgentTemplateName = z.infer<typeof AgentTemplateNameSchema>
 
 export const AgentStateSchema = z.object({
