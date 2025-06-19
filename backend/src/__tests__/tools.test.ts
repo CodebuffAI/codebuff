@@ -39,12 +39,17 @@ describe('getFilteredToolsInstructions', () => {
   })
 
   test('should return a subset of tools for ask mode', () => {
-    const instructions = getFilteredToolsInstructions('ask', true)
+    const instructions = getFilteredToolsInstructions('ask', false)
     for (const tool of askModeTools) {
       expect(instructions).toInclude(`### ${tool}`)
     }
     expect(instructions).not.toInclude(`### write_file`)
     expect(instructions).not.toInclude(`### str_replace`)
     expect(instructions).not.toInclude(`### run_terminal_command`)
+  })
+
+  test('should not include research if readOnlyMode is true', () => {
+    const instructions = getFilteredToolsInstructions('normal', true)
+    expect(instructions).not.toInclude(`### research`)
   })
 })
