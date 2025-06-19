@@ -93,6 +93,17 @@ jobs:
           OVERRIDE_PLATFORM: ${{ matrix.platform }}
           OVERRIDE_ARCH: ${{ matrix.arch }}
 
+      - name: Test binary
+        run: |
+          cd npm-app/bin
+          echo "Testing binary..."
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            ./codebuff.exe --version
+          else
+            ./codebuff --version
+          fi
+        shell: bash
+
       - name: Rename binary
         run: |
           cd npm-app/bin
