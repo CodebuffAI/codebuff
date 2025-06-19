@@ -206,8 +206,8 @@ describe('simplifyTerminalCommandResultsInMessages', () => {
 describe('simplifyReadFileToolResult', () => {
   it('should extract file paths from read_files result', () => {
     const toolResult = {
-      id: '1',
-      name: 'read_files',
+      toolCallId: '1',
+      toolName: 'read_files',
       result: `<read_file>
 <path>test1.txt</path>
 <content>content1</content>
@@ -222,8 +222,8 @@ describe('simplifyReadFileToolResult', () => {
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
-    expect(simplified.id).toBe('1')
-    expect(simplified.name).toBe('read_files')
+    expect(simplified.toolCallId).toBe('1')
+    expect(simplified.toolName).toBe('read_files')
     expect(simplified.result).toBe(
       'Read the following files: test1.txt\ntest2.txt'
     )
@@ -231,8 +231,8 @@ describe('simplifyReadFileToolResult', () => {
 
   it('should handle single file result', () => {
     const toolResult = {
-      id: '1',
-      name: 'read_files',
+      toolCallId: '1',
+      toolName: 'read_files',
       result:
         '<read_file><path>test.txt</path><content>content</content><referenced_by>None</referenced_by></read_file>',
     }
@@ -243,8 +243,8 @@ describe('simplifyReadFileToolResult', () => {
 
   it('should handle empty read_files result', () => {
     const toolResult = {
-      id: '1',
-      name: 'read_files',
+      toolCallId: '1',
+      toolName: 'read_files',
       result: '',
     }
 
@@ -254,8 +254,8 @@ describe('simplifyReadFileToolResult', () => {
 
   it('should handle malformed read_file tags', () => {
     const toolResult = {
-      id: '1',
-      name: 'read_files',
+      toolCallId: '1',
+      toolName: 'read_files',
       result:
         '<read_file>no path attribute<referenced_by>None</referenced_by></read_file>',
     }
@@ -266,8 +266,8 @@ describe('simplifyReadFileToolResult', () => {
 
   it('should handle read_file tags with empty path', () => {
     const toolResult = {
-      id: '1',
-      name: 'read_files',
+      toolCallId: '1',
+      toolName: 'read_files',
       result:
         '<read_file><path></path><content>content</content><referenced_by>None</referenced_by></read_file>',
     }
@@ -280,22 +280,22 @@ describe('simplifyReadFileToolResult', () => {
 describe('simplifyTerminalCommandResult', () => {
   it('should shorten long terminal output', () => {
     const toolResult = {
-      id: '1',
-      name: 'run_terminal_command',
+      toolCallId: '1',
+      toolName: 'run_terminal_command',
       result: 'Very long terminal output that should be shortened',
     }
 
     const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.id).toBe('1')
-    expect(simplified.name).toBe('run_terminal_command')
+    expect(simplified.toolCallId).toBe('1')
+    expect(simplified.toolName).toBe('run_terminal_command')
     expect(simplified.result).toBe('[Output omitted]')
   })
 
   it('should preserve short terminal output', () => {
     const shortOutput = 'ok'
     const toolResult = {
-      id: '1',
-      name: 'run_terminal_command',
+      toolCallId: '1',
+      toolName: 'run_terminal_command',
       result: shortOutput,
     }
 
@@ -305,8 +305,8 @@ describe('simplifyTerminalCommandResult', () => {
 
   it('should handle empty terminal output', () => {
     const toolResult = {
-      id: '1',
-      name: 'run_terminal_command',
+      toolCallId: '1',
+      toolName: 'run_terminal_command',
       result: '',
     }
 
@@ -316,8 +316,8 @@ describe('simplifyTerminalCommandResult', () => {
 
   it('should handle output exactly matching omitted message length', () => {
     const toolResult = {
-      id: '1',
-      name: 'run_terminal_command',
+      toolCallId: '1',
+      toolName: 'run_terminal_command',
       result: '[Output omitted]', // Same length as replacement
     }
 
@@ -327,8 +327,8 @@ describe('simplifyTerminalCommandResult', () => {
 
   it('should handle output one character longer than omitted message', () => {
     const toolResult = {
-      id: '1',
-      name: 'run_terminal_command',
+      toolCallId: '1',
+      toolName: 'run_terminal_command',
       result: '[Output omitted].', // One char longer than replacement
     }
 
@@ -338,8 +338,8 @@ describe('simplifyTerminalCommandResult', () => {
 
   it('should handle output one character shorter than omitted message', () => {
     const toolResult = {
-      id: '1',
-      name: 'run_terminal_command',
+      toolCallId: '1',
+      toolName: 'run_terminal_command',
       result: '[Output omit]', // One char shorter than replacement
     }
 

@@ -1,9 +1,9 @@
 import { ToolResult } from 'common/types/agent-state'
 
 import {
+  parseReadFilesResult,
   parseToolResults,
   renderToolResults,
-  parseReadFilesResult,
 } from './parse-tool-call-xml'
 
 /**
@@ -30,14 +30,18 @@ function simplifyToolResults(
   }
 
   const toolResults = parseToolResults(resultsStr)
-  const targetResults = toolResults.filter((result) => result.name === toolName)
+  const targetResults = toolResults.filter(
+    (result) => result.toolName === toolName
+  )
 
   if (targetResults.length === 0) {
     return resultsStr
   }
 
   // Keep non-target results unchanged
-  const otherResults = toolResults.filter((result) => result.name !== toolName)
+  const otherResults = toolResults.filter(
+    (result) => result.toolName !== toolName
+  )
 
   // Create simplified results
   const simplifiedResults = targetResults.map(simplifyFn)
@@ -87,8 +91,8 @@ export function simplifyReadFileToolResult(toolResult: ToolResult): ToolResult {
   const fileBlocks = parseReadFilesResult(toolResult.result)
   const filePaths = fileBlocks.map((block) => block.path)
   return {
-    id: toolResult.id,
-    name: 'read_files',
+    toolCallId: toolResult.toolCallId,
+    toolName: 'read_files',
     result: `Read the following files: ${filePaths.join('\n')}`,
   }
 }
@@ -104,8 +108,8 @@ export function simplifyTerminalCommandToolResult(
   const shortenedResultCandidate = '[Output omitted]'
   return shortenedResultCandidate.length < toolResult.result.length
     ? {
-        id: toolResult.id,
-        name: 'run_terminal_command',
+        toolCallId: toolResult.toolCallId,
+        toolName: 'run_terminal_command',
         result: shortenedResultCandidate,
       }
     : toolResult

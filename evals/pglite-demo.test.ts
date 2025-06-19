@@ -1,10 +1,8 @@
-import { expect, test, describe, beforeEach } from 'bun:test'
-import * as fs from 'fs'
-import * as path from 'path'
+import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { PROMPT_PREFIX } from './constants'
 import { loopMainPrompt } from './scaffolding'
-import { setupTestEnvironment, createInitialAgentState } from './test-setup'
+import { createInitialAgentState, setupTestEnvironment } from './test-setup'
 
 describe('pglite-demo', async () => {
   // Set up the test environment once for all tests
@@ -26,18 +24,18 @@ describe('pglite-demo', async () => {
         projectPath: repoPath,
         maxIterations: 20,
         stopCondition: (_, toolCalls) => {
-          return toolCalls.some((call) => call.name === 'write_file')
+          return toolCalls.some((call) => call.toolName === 'write_file')
         },
         options: {
-          costMode: 'normal'
-        }
+          costMode: 'normal',
+        },
       })
 
       // Extract write_file tool calls
       const writeFileCalls = toolCalls.filter(
-        (call) => call.name === 'write_file'
+        (call) => call.toolName === 'write_file'
       )
-      const changes = writeFileCalls.map((call) => call.parameters)
+      const changes = writeFileCalls.map((call) => call.args)
 
       const filePathToPatch = Object.fromEntries(
         changes.map((change) => [change.path, change.content])

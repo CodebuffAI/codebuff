@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { costModes } from './constants'
 import {
   AgentStateSchema,
-  ToolCallSchema as NewToolCallSchema,
-  ToolResultSchema,
+  toolCallSchema,
+  toolResultSchema,
 } from './types/agent-state'
 import { GrantTypeValues } from './types/grant'
 import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
@@ -18,13 +18,6 @@ export type FileChange = z.infer<typeof FileChangeSchema>
 export const CHANGES = z.array(FileChangeSchema)
 export type FileChanges = z.infer<typeof CHANGES>
 
-export const ToolCallSchema = z.object({
-  name: z.string(),
-  id: z.string(),
-  input: z.record(z.string(), z.any()),
-})
-export type ToolCall = z.infer<typeof ToolCallSchema>
-
 export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('prompt'),
@@ -34,7 +27,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     authToken: z.string().optional(),
     costMode: z.enum(costModes).optional().default('normal'),
     agentState: AgentStateSchema,
-    toolResults: z.array(ToolResultSchema),
+    toolResults: z.array(toolResultSchema),
     model: z.string().optional(),
     repoUrl: z.string().optional(),
   }),
@@ -112,8 +105,8 @@ export const PromptResponseSchema = z.object({
   type: z.literal('prompt-response'),
   promptId: z.string(),
   agentState: AgentStateSchema,
-  toolCalls: z.array(NewToolCallSchema),
-  toolResults: z.array(ToolResultSchema),
+  toolCalls: z.array(toolCallSchema),
+  toolResults: z.array(toolResultSchema),
 })
 export type PromptResponse = z.infer<typeof PromptResponseSchema>
 
@@ -134,7 +127,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('tool-call'),
     userInputId: z.string(),
     response: z.string(),
-    data: ToolCallSchema,
+    data: toolCallSchema,
     changes: CHANGES,
     changesAlreadyApplied: CHANGES,
     addedFileVersions: z.array(FileVersionSchema),

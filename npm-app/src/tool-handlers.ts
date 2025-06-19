@@ -4,12 +4,12 @@ import * as path from 'path'
 import { rgPath } from '@vscode/ripgrep'
 import { FileChangeSchema } from 'common/actions'
 import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
-import { RawToolCall } from 'common/types/tools'
 import { applyChanges } from 'common/util/changes'
 import { truncateStringWithMessage } from 'common/util/string'
 import { cyan, green, red, yellow } from 'picocolors'
 import { logger } from './utils/logger'
 
+import { ToolCall } from 'common/types/agent-state'
 import { handleBrowserInstruction } from './browser-runner'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/base'
@@ -301,18 +301,18 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   },
 }
 
-export const handleToolCall = async (toolCall: RawToolCall) => {
-  const { name, parameters } = toolCall
-  const handler = toolHandlers[name]
+export const handleToolCall = async (toolCall: ToolCall) => {
+  const { toolName, args, toolCallId } = toolCall
+  const handler = toolHandlers[toolName]
   if (!handler) {
-    throw new Error(`No handler found for tool: ${name}`)
+    throw new Error(`No handler found for tool: ${toolName}`)
   }
 
-  const content = await handler(parameters, toolCall.id)
+  const content = await handler(args, toolCallId)
 
   if (typeof content !== 'string') {
     throw new Error(
-      `Tool call ${name} not supported. It returned non-string content.`
+      `Tool call ${toolName} not supported. It returned non-string content.`
     )
   }
 
@@ -337,8 +337,8 @@ export const handleToolCall = async (toolCall: RawToolCall) => {
   // }
 
   return {
-    name,
+    toolName,
+    toolCallId,
     result: content,
-    id: toolCall.id,
   }
 }

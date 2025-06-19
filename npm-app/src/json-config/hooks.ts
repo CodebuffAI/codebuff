@@ -53,8 +53,8 @@ export async function runFileChangeHooks(
         someHooksFailed = true
       }
       toolResults.push({
-        name: hookName,
-        id: hookId,
+        toolName: hookName,
+        toolCallId: hookId,
         result: result.result,
       })
     } catch (error) {

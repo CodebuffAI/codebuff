@@ -32,15 +32,11 @@ import {
 } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
-import {
-  AgentState,
-  getInitialAgentState,
-  ToolResult,
-} from 'common/types/agent-state'
+import { AgentState, getInitialAgentState } from 'common/types/agent-state'
 import { buildArray } from 'common/util/array'
 import { User } from 'common/util/credentials'
 import { ProjectFileContext } from 'common/util/file'
-import { pluralize } from 'common/util/string'
+import { generateCompactId, pluralize } from 'common/util/string'
 import { APIRealtimeClient } from 'common/websockets/websocket-client'
 import path from 'path'
 import {
@@ -55,6 +51,7 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
+import { ToolResult } from 'common/types/agent-state'
 import packageJson from '../package.json'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
@@ -887,8 +884,8 @@ export class Client {
       ...(this.lastToolResults || []),
       ...getBackgroundProcessUpdates(),
       scrapedContent && {
-        id: 'scraped-content',
-        name: 'web-scraper',
+        toolName: 'web-scraper',
+        toolCallId: generateCompactId(),
         result: scrapedContent,
       }
     )
@@ -1043,6 +1040,7 @@ export class Client {
           logger.error(
             {
               errorMessage: message,
+              action,
               eventId: AnalyticsEvent.MALFORMED_PROMPT_RESPONSE,
             },
             'Malformed prompt response'
@@ -1060,33 +1058,33 @@ export class Client {
 
         for (const toolCall of a.toolCalls) {
           try {
-            if (toolCall.name === 'end_turn') {
+            if (toolCall.toolName === 'end_turn') {
               this.responseComplete = true
               isComplete = true
               continue
             }
             if (
-              toolCall.name === 'write_file' ||
-              toolCall.name === 'str_replace' ||
-              toolCall.name === 'create_plan'
+              toolCall.toolName === 'write_file' ||
+              toolCall.toolName === 'str_replace' ||
+              toolCall.toolName === 'create_plan'
             ) {
               await waitForPreviousCheckpoint()
               // Save lastChanges for `diff` command
-              this.lastChanges.push(FileChangeSchema.parse(toolCall.parameters))
+              this.lastChanges.push(FileChangeSchema.parse(toolCall.args))
               this.hadFileChanges = true
               // Track the changed file path
-              this.filesChangedForHook.push(toolCall.parameters.path)
+              this.filesChangedForHook.push(toolCall.args.path)
             }
-            if (toolCall.name === 'run_terminal_command') {
+            if (toolCall.toolName === 'run_terminal_command') {
               await waitForPreviousCheckpoint()
-              if (toolCall.parameters.mode === 'user') {
+              if (toolCall.args.mode === 'user') {
                 // Special case: when terminal command is run as a user command, then no need to reprompt assistant.
                 this.responseComplete = true
                 isComplete = true
               }
               if (
-                toolCall.parameters.mode === 'assistant' &&
-                toolCall.parameters.process_type === 'BACKGROUND'
+                toolCall.args.mode === 'assistant' &&
+                toolCall.args.process_type === 'BACKGROUND'
               ) {
                 this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
               }
@@ -1099,14 +1097,14 @@ export class Client {
                 errorMessage:
                   error instanceof Error ? error.message : String(error),
                 errorStack: error instanceof Error ? error.stack : undefined,
-                toolCallName: toolCall.name,
-                toolCallId: toolCall.id,
+                toolCallName: toolCall.toolName,
+                toolCallId: toolCall.toolCallId,
               },
               'Error parsing tool call'
             )
             console.error(
               '\n\n' +
-                red(`Error parsing tool call ${toolCall.name}:\n${error}`) +
+                red(`Error parsing tool call ${toolCall.toolName}:\n${error}`) +
                 '\n'
             )
           }

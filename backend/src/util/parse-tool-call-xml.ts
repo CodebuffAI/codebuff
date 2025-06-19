@@ -1,5 +1,4 @@
-import { CoreMessage } from 'ai'
-import { ToolResult } from 'common/types/agent-state'
+import { CoreMessage, ToolResultPart } from 'ai'
 import { toContentString } from 'common/util/messages'
 import { generateCompactId } from 'common/util/string'
 
@@ -30,12 +29,14 @@ export function parseToolCallXml(xmlString: string): Record<string, string> {
   return result
 }
 
-export function renderToolResults(toolResults: ToolResult[]): string {
+type StringToolResultPart = Omit<ToolResultPart, 'type'> & { result: string }
+
+export function renderToolResults(toolResults: StringToolResultPart[]): string {
   return `
 ${toolResults
   .map(
     (result) => `<tool_result>
-<tool>${result.name}</tool>
+<tool>${result.toolName}</tool>
 <result>${result.result}</result>
 </tool_result>`
   )
@@ -43,10 +44,10 @@ ${toolResults
 `.trim()
 }
 
-export const parseToolResults = (xmlString: string): ToolResult[] => {
+export const parseToolResults = (xmlString: string): StringToolResultPart[] => {
   if (!xmlString.trim()) return []
 
-  const results: ToolResult[] = []
+  const results: StringToolResultPart[] = []
   const toolResultPattern = /<tool_result>([\s\S]*?)<\/tool_result>/g
   let match
 
@@ -57,8 +58,8 @@ export const parseToolResults = (xmlString: string): ToolResult[] => {
 
     if (toolMatch && resultMatch) {
       results.push({
-        id: generateCompactId(),
-        name: toolMatch[1],
+        toolName: toolMatch[1],
+        toolCallId: generateCompactId(),
         result: resultMatch[1].trim(),
       })
     }
