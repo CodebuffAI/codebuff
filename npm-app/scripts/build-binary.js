@@ -105,33 +105,6 @@ function copyPackageToLocal(packageName) {
   return true
 }
 
-function getBunPtyLibPath(platform, arch) {
-  let binaryName
-  if (platform === 'darwin') {
-    binaryName =
-      arch === 'arm64' ? 'librust_pty_arm64.dylib' : 'librust_pty.dylib'
-  } else if (platform === 'win32') {
-    binaryName = 'rust_pty.dll'
-  } else {
-    binaryName = arch === 'arm64' ? 'librust_pty_arm64.so' : 'librust_pty.so'
-  }
-
-  const libPath = path.join(
-    __dirname,
-    '../node_modules/bun-pty/rust-pty/target/release',
-    binaryName
-  )
-
-  if (!fs.existsSync(libPath)) {
-    if (VERBOSE) {
-      console.error(`⚠️  Bun pty lib not found: ${libPath}`)
-    }
-    return null
-  }
-
-  return libPath
-}
-
 function getTreeSitterWasmPath() {
   const wasmPath = path.join(
     __dirname,
@@ -198,22 +171,11 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
   )
 
   // Get all asset paths (now from local node_modules)
-  const bunPtyLibPath = getBunPtyLibPath(targetInfo.platform, targetInfo.arch)
   const treeSitterWasmPath = getTreeSitterWasmPath()
   const vsCodeWasmPaths = getVSCodeTreeSitterWasmPaths()
 
-  // Build assets array declaratively, filtering out null values
-  const assets = [bunPtyLibPath, treeSitterWasmPath, ...vsCodeWasmPaths].filter(
-    Boolean
-  )
-
-  log(`📦 Bundling assets: ${assets.join(', ')}`)
-
   const flags = {
-    PLATFORM: targetInfo.platform,
-    ARCH: targetInfo.arch,
     IS_BINARY: 'true',
-    BUN_PTY_LIB: bunPtyLibPath,
   }
 
   const defineFlags = Object.entries(flags)
@@ -223,14 +185,20 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
     })
     .join(' ')
 
-  const assetsFlag = assets.length > 0 ? `--assets=${assets.join(',')}` : ''
+  const entrypoints = [
+    'src/index.ts',
+    'src/workers/project-context.ts',
+    'src/workers/checkpoint-worker.ts',
+    'src/native/pty.ts',
+    treeSitterWasmPath,
+    ...vsCodeWasmPaths,
+  ]
 
   const command = [
     'bun build --compile',
-    'src/index.ts src/workers/project-context.ts src/workers/checkpoint-worker.ts', // Entrypoints
+    ...entrypoints,
     '--root src',
     `--target=${bunTarget}`,
-    assetsFlag,
     defineFlags,
     '--env "NEXT_PUBLIC_*"', // Copies all current env vars in process.env to the compiled binary that match the pattern.
     `--outfile=${outputFile}`,
@@ -248,7 +216,9 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
       fs.chmodSync(outputFile, 0o755)
     }
 
-    logAlways(`✅ Built ${outputName}`)
+    logAlways(
+      `✅ Built ${outputName} for ${targetInfo.platform}-${targetInfo.arch}`
+    )
   } catch (error) {
     logAlways(`❌ Failed to build ${outputName}: ${error.message}`)
     process.exit(1)

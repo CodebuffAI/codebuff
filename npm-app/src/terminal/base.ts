@@ -2,7 +2,9 @@ import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import * as os from 'os'
 import path from 'path'
 import { green } from 'picocolors'
-import { spawn as ptySpawn, type IPty } from 'bun-pty'
+
+import { bunPty } from '../native/pty'
+type IPty = ReturnType<typeof bunPty.spawn>
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { buildArray } from '@codebuff/common/util/array'
@@ -99,7 +101,7 @@ const createPersistantProcess = (
       )
     }
 
-    const persistentPty = ptySpawn(shell, isWindows ? [] : ['--login'], {
+    const persistentPty = bunPty.spawn(shell, isWindows ? [] : ['--login'], {
       name: 'xterm-256color',
       cols: process.stdout.columns || 80,
       rows: process.stdout.rows || 24,
@@ -366,7 +368,7 @@ function getNeedlePattern(middlePattern: string = '.*'): RegExp {
  * 3. Detecting command completion markers (promptIdentifier)
  */
 function runSinglePtyCommand(
-  ptyProcess: IPty,
+  ptyProcess: any,
   command: string,
   onChunk: (data: string) => void
 ): Promise<{ filteredOutput: string; fullOutput: string }> {
