@@ -24,8 +24,7 @@ jobs:
             platform: linux
             arch: x64
 
-          # native arm64 runner (use GH's ubuntu-arm64 or self-host)
-          - os: ubuntu22.04-arm64
+          - os: ubuntu-latest
             output: codebuff-linux-arm64
             target: bun-linux-arm64
             platform: linux
@@ -73,6 +72,7 @@ jobs:
       - name: Set environment variables
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+        shell: bash
         run: |
           VAR_NAMES=$(node scripts/generate-ci-env.js)
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
