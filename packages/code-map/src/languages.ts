@@ -115,7 +115,7 @@ const languageTable: LanguageConfig[] = [
 /* 4 .  One-time library init                                          */
 /* ------------------------------------------------------------------ */
 // Initialize tree-sitter - in binary builds, WASM files are bundled as assets
-const parserReady = Parser.init(coreWasmPath) // kick it off immediately
+const parserReady = Parser.init({ locateFile: () => coreWasmPath }) // kick it off immediately
 
 /* ------------------------------------------------------------------ */
 /* 5 .  Public helper                                                  */
