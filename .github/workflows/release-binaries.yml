@@ -24,7 +24,7 @@ jobs:
             platform: linux
             arch: x64
 
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             output: codebuff-linux-arm64
             target: bun-linux-arm64
             platform: linux
@@ -97,7 +97,10 @@ jobs:
         run: |
           cd npm-app/bin
           echo "Testing binary..."
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
+          # Only test if we're building for the native architecture
+          if [[ "${{ matrix.platform }}" == "linux" && "${{ matrix.arch }}" == "arm64" && "${{ runner.arch }}" != "ARM64" ]]; then
+            echo "Skipping test for cross-compiled ARM64 binary"
+          elif [[ "${{ runner.os }}" == "Windows" ]]; then
             ./codebuff.exe --version
           else
             ./codebuff --version
