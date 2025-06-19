@@ -173,7 +173,7 @@ export const mainPrompt = async (
   const isFlash =
     (model as Model) === geminiModels.gemini2_5_flash_thinking ||
     model === geminiModels.gemini2_5_flash
-  const toolsInstructions = getFilteredToolsInstructions(costMode)
+  const toolsInstructions = getFilteredToolsInstructions(costMode, readOnlyMode)
   const userInstructions = buildArray(
     isAskMode &&
       'You are a coding agent in "ASK" mode so the user can ask questions, which means you do not have access to tools that can modify files or run terminal commands. You should instead answer the user\'s questions and come up with brilliant plans which can later be implemented.',
@@ -691,7 +691,7 @@ export const mainPrompt = async (
             'write_file',
             'str_replace',
             'run_terminal_command',
-            isAskMode && 'create_plan'
+            readOnlyMode && 'create_plan'
           ).includes(tool)
         ) {
           serverToolResults.push({

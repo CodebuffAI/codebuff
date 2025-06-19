@@ -1203,15 +1203,24 @@ function renderSubgoalUpdate(subgoal: {
 }
 
 // Function to get filtered tools based on cost mode and agent mode
-export function getFilteredToolsInstructions(costMode: string) {
+export function getFilteredToolsInstructions(
+  costMode: string,
+  readOnlyMode: boolean
+) {
   let allowedTools = TOOL_LIST
 
   // Filter based on cost mode
-  if (costMode === 'ask') {
+  if (costMode === 'ask' || readOnlyMode) {
     // For ask mode, exclude write_file, str_replace, create_plan, and run_terminal_command
     allowedTools = allowedTools.filter(
       (tool) =>
         !['write_file', 'str_replace', 'run_terminal_command'].includes(tool)
+    )
+  }
+
+  if (readOnlyMode) {
+    allowedTools = allowedTools.filter(
+      (tool) => !['create_plan', 'research'].includes(tool)
     )
   }
 
