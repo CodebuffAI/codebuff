@@ -28,27 +28,29 @@ const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
 type LogLevel = (typeof loggingLevels)[number]
 
 function setLogPath(p: string): void {
-  if (logPath === p) {
-    return
-  }
+  if (p === logPath) return // nothing to do
 
   logPath = p
   mkdirSync(dirname(p), { recursive: true })
+
+  // ──────────────────────────────────────────────────────────────
+  //  pino.destination(..) → SonicBoom stream, no worker thread
+  // ──────────────────────────────────────────────────────────────
+  const fileStream = pino.destination({
+    dest: p, // absolute or relative file path
+    mkdir: true, // create parent dirs if they don’t exist
+    sync: false, // set true if you *must* block on every write
+  })
+
   pinoLogger = pino(
     {
       level: 'debug',
       formatters: {
-        level: (label) => {
-          return { level: label.toUpperCase() }
-        },
+        level: (label) => ({ level: label.toUpperCase() }),
       },
-      timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
+      timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
     },
-    pino.transport({
-      target: 'pino/file',
-      options: { destination: p },
-      level: 'debug',
-    })
+    fileStream // <-- no worker thread involved
   )
 }
 
