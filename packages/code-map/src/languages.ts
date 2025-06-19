@@ -1,5 +1,5 @@
 import * as path from 'path'
-import Parser, { Query } from 'web-tree-sitter'
+import { Language, Parser, Query } from 'web-tree-sitter'
 import { DEBUG_PARSING } from './parse'
 
 /* ------------------------------------------------------------------ */
@@ -7,7 +7,7 @@ import { DEBUG_PARSING } from './parse'
 /* ------------------------------------------------------------------ */
 // Import core WASM file from web-tree-sitter
 // @ts-ignore
-import coreWasmPath from 'web-tree-sitter/tree-sitter.wasm' with { type: 'file' }
+// import coreWasmPath from 'web-tree-sitter/tree-sitter.wasm' with { type: 'file' }
 
 // Import WASM files from @vscode/tree-sitter-wasm
 import cppWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-cpp.wasm'
@@ -47,7 +47,7 @@ export interface LanguageConfig {
   /* Loaded lazily ↓ */
   parser?: Parser
   query?: Query
-  language?: Parser.Language
+  language?: Language
 }
 
 const languageTable: LanguageConfig[] = [
@@ -115,7 +115,7 @@ const languageTable: LanguageConfig[] = [
 /* 4 .  One-time library init                                          */
 /* ------------------------------------------------------------------ */
 // Initialize tree-sitter - in binary builds, WASM files are bundled as assets
-const parserReady = Parser.init({ locateFile: () => coreWasmPath }) // kick it off immediately
+const parserReady = Parser.init()
 
 /* ------------------------------------------------------------------ */
 /* 5 .  Public helper                                                  */
@@ -133,7 +133,7 @@ export async function getLanguageConfig(
 
       // Use the imported WASM file directly
       const parser = new Parser()
-      const lang = await Parser.Language.load(cfg.wasmFile)
+      const lang = await Language.load(cfg.wasmFile)
       parser.setLanguage(lang)
 
       cfg.language = lang

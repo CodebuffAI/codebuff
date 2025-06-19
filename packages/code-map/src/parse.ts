@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { uniq } from 'lodash'
-import Parser, { Query } from 'web-tree-sitter'
+import { Parser, Query } from 'web-tree-sitter'
 
 import { LanguageConfig, getLanguageConfig } from './languages'
 
@@ -187,6 +187,9 @@ function parseFile(
   sourceCode: string
 ): { [key: string]: string[] } {
   const tree = parser.parse(sourceCode)
+  if (!tree) {
+    return {}
+  }
   const captures = query.captures(tree.rootNode)
   const result: { [key: string]: string[] } = {}
 
