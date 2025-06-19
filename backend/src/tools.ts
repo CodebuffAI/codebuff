@@ -1205,7 +1205,7 @@ function renderSubgoalUpdate(subgoal: {
 // Function to get filtered tools based on cost mode and agent mode
 export function getFilteredToolsInstructions(
   costMode: string,
-  readOnlyMode: boolean
+  readOnlyMode: boolean = false
 ) {
   let allowedTools = TOOL_LIST
 

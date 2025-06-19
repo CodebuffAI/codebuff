@@ -556,7 +556,7 @@ export const mainPrompt = async (
 
   const iterationNum = messagesWithUserMessage.length
 
-  const system = getAgentSystemPrompt(fileContext, costMode)
+  const system = getAgentSystemPrompt(fileContext, readOnlyMode, costMode)
   const systemTokens = countTokensJson(system)
 
   // Possibly truncated messagesWithUserMessage + cache.
