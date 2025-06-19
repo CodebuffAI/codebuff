@@ -24,7 +24,9 @@ jobs:
             platform: linux
             arch: x64
 
-          - os: ubuntu-24.04-arm
+          # This is actually x64, but we can cross-compile to arm64
+          # There is ubuntu-arm64, but it's not supported for private repos
+          - os: ubuntu-latest
             output: codebuff-linux-arm64
             target: bun-linux-arm64
             platform: linux
