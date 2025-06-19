@@ -32,14 +32,14 @@ function run(command, options = {}) {
 
 function generateGitHubToken() {
   log('🔑 Generating GitHub App access token...')
-  
+
   try {
     // Run the generate-github-token script and capture its output
-    const output = execSync('bun run scripts/generate-github-token.ts', { 
+    const output = execSync('bun run scripts/generate-github-token.ts', {
       encoding: 'utf8',
-      stdio: 'pipe' // Capture output instead of inheriting
+      stdio: 'pipe', // Capture output instead of inheriting
     })
-    
+
     // Extract the token from the export command in the output
     const exportMatch = output.match(/export GITHUB_TOKEN="([^"]+)"/)
     if (exportMatch && exportMatch[1]) {
@@ -48,7 +48,9 @@ function generateGitHubToken() {
       log('✅ GitHub token generated and set successfully!')
       return token
     } else {
-      error('Failed to extract GitHub token from generate-github-token script output')
+      error(
+        'Failed to extract GitHub token from generate-github-token script output'
+      )
     }
   } catch (err) {
     error(`Failed to generate GitHub token: ${err.message}`)
@@ -122,7 +124,7 @@ function checkGitBranch() {
 async function waitForGitHubRelease(version) {
   log('Waiting for GitHub Actions to build and create release...')
   log(
-    'You can monitor the progress at: https://github.com/CodebuffAI/codebuff-community/actions'
+    'You can monitor the progress at: https://github.com/CodebuffAI/codebuff/actions'
   )
 
   // Wait a bit for the workflow to start
@@ -130,7 +132,7 @@ async function waitForGitHubRelease(version) {
 
   log('Checking if GitHub release is ready...')
   let attempts = 0
-  const maxAttempts = 120 // 10 minutes max
+  const maxAttempts = 60 // 10 minutes max
 
   while (attempts < maxAttempts) {
     try {
@@ -144,7 +146,7 @@ async function waitForGitHubRelease(version) {
     } catch (err) {
       attempts++
       if (attempts % 6 === 0) {
-        // Log every 30 seconds
+        // Log every 60 seconds
         log(`Still waiting for GitHub release... (${attempts / 6}/10 minutes)`)
       }
       await new Promise((resolve) => setTimeout(resolve, 10000)) // Wait 10 seconds
@@ -173,14 +175,18 @@ async function triggerWorkflow(version) {
       -d '{"ref":"main","inputs":{"tag":"v${version}"}}'`
 
     const response = execSync(triggerCmd, { encoding: 'utf8' })
-    
+
     // Check if response contains error message
     if (response.includes('workflow_dispatch')) {
       log(`⚠️  Workflow dispatch failed: ${response}`)
       log('The workflow may need to be updated on GitHub. Continuing anyway...')
-      log('Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/release-binaries.yml')
+      log(
+        'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/release-binaries.yml'
+      )
     } else {
-      log(`Workflow trigger response: ${response || '(empty response - likely success)'}`)
+      log(
+        `Workflow trigger response: ${response || '(empty response - likely success)'}`
+      )
       log('✅ Workflow triggered successfully!')
     }
   } catch (err) {
@@ -289,25 +295,36 @@ async function main() {
   // Trigger the workflow in the private codebuff repo
   await triggerWorkflow(newVersion)
 
-  log('✅ Tag created and workflow triggered! GitHub Actions will now build the binaries.')
+  log(
+    '✅ Tag created and workflow triggered! GitHub Actions will now build the binaries.'
+  )
 
   // Wait for GitHub release to be ready
   await waitForGitHubRelease(newVersion)
 
   // Publish to npm
   log('Publishing to npm...')
-  
+
   // Temporarily copy package.release.json to package.json for publishing
-  const originalPackageJson = fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')
-  const releasePackageJson = fs.readFileSync(path.join(__dirname, '..', 'package.release.json'), 'utf8')
-  
+  const originalPackageJson = fs.readFileSync(
+    path.join(__dirname, '..', 'package.json'),
+    'utf8'
+  )
+  const releasePackageJson = fs.readFileSync(
+    path.join(__dirname, '..', 'package.release.json'),
+    'utf8'
+  )
+
   try {
     // Replace package.json with release version
-    fs.writeFileSync(path.join(__dirname, '..', 'package.json'), releasePackageJson)
-    
+    fs.writeFileSync(
+      path.join(__dirname, '..', 'package.json'),
+      releasePackageJson
+    )
+
     // Publish using the standard package.json
     run('npm publish')
-    
+
     log('🎉 Release complete!')
     log(`Version ${newVersion} has been:`)
     log('  ✅ Tagged and pushed to GitHub')
@@ -317,7 +334,10 @@ async function main() {
     log(`Users can now install with: npm install -g codebuff@${newVersion}`)
   } finally {
     // Always restore the original package.json
-    fs.writeFileSync(path.join(__dirname, '..', 'package.json'), originalPackageJson)
+    fs.writeFileSync(
+      path.join(__dirname, '..', 'package.json'),
+      originalPackageJson
+    )
     log('✅ Restored original package.json')
   }
 }
