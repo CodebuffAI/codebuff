@@ -142,7 +142,7 @@ I see that my changes went through correctly. What would you like to do next?
 
 <end_turn></end_turn>
 
-${PLACEHOLDER.TOOLS}
+${PLACEHOLDER.TOOLS_PROMPT}
 
 # Knowledge files
 
@@ -207,11 +207,11 @@ To stop a background process, attempt to close the process using the appropriate
 
 When you want to restart a background process, make sure to run the terminal command in the background.
 
-${PLACEHOLDER.FILE_TREE}
+${PLACEHOLDER.FILE_TREE_PROMPT}
 
-${PLACEHOLDER.SYSTEM_INFO}
+${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 
-${PLACEHOLDER.GIT_CHANGES}`,
+${PLACEHOLDER.GIT_CHANGES_PROMPT}`,
   userInputPrompt: `<system_instructions>
 Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. You must finally use the end_turn tool at the end of your response.
 
@@ -256,9 +256,9 @@ Important: When editing an existing file with the write_file tool, do not rewrit
 Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.
 </system_instructions>`,
   agentStepPrompt: `<system>
-You have ${PLACEHOLDER.REMAINING_STEPS} more response(s) before you will be cut off and the turn will be ended automatically.</system>
+You have ${PLACEHOLDER.REMAINING_STEPS_PROMPT} more response(s) before you will be cut off and the turn will be ended automatically.</system>
 
-Assistant cwd (project root): ${PLACEHOLDER.PROJECT_ROOT}
+Assistant cwd (project root): ${PLACEHOLDER.PROJECT_ROOT_PROMPT}
 User cwd: ${PLACEHOLDER.USER_CWD}
 </system>`,
 }

@@ -14,19 +14,28 @@ export type AgentTemplate = {
   agentStepPrompt: string
 }
 
-export enum PLACEHOLDER {
-  CONFIG_SCHEMA = '{CODEBUFF_CONFIG_SCHEMA}',
-  FILE_TREE = '{CODEBUFF_FILE_TREE_PROMPT}',
-  GIT_CHANGES = '{CODEBUFF_GIT_CHANGES_PROMPT}',
-  REMAINING_STEPS = '{CODEBUFF_REMAINING_AGENT_STEPS}',
-  PROJECT_ROOT = '{CODEBUFF_PROJECT_ROOT}',
-  SYSTEM_INFO = '{CODEBUFF_SYSTEM_INFO_PROMPT}',
-  TOOLS = '{CODEBUFF_TOOLS_PROMPT}',
-  USER_CWD = '{CODEBUFF_USER_CWD}',
+const placeholderNames = [
+  'CONFIG_SCHEMA',
+  'FILE_TREE_PROMPT',
+  'GIT_CHANGES_PROMPT',
+  'REMAINING_STEPS_PROMPT',
+  'PROJECT_ROOT_PROMPT',
+  'SYSTEM_INFO_PROMPT',
+  'TOOLS_PROMPT',
+  'USER_CWD',
+] as const
+
+type PlaceholderType<T extends typeof placeholderNames> = {
+  [K in T[number]]: `{CODEBUFF_${K}}`
 }
 
-// All injectable placeholders
-export const injectablePlaceholders = Object.values(PLACEHOLDER)
+export const PLACEHOLDER = Object.fromEntries(
+  placeholderNames.map((name) => [name, `{CODEBUFF_${name}}` as const])
+) as PlaceholderType<typeof placeholderNames>
+
+export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
+
+export const placeholderValues = Object.values(PLACEHOLDER)
 
 export const editingToolNames: ToolName[] = [
   'create_plan',

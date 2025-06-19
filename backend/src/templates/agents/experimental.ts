@@ -7,12 +7,12 @@ export const experimental: AgentTemplate = {
   model: 'gemini-2.5-pro-preview-06-05',
   toolNames: baseAgentToolNames,
 
-  systemPrompt: `${PLACEHOLDER.TOOLS}`,
-  userInputPrompt: `${PLACEHOLDER.TOOLS}`,
+  systemPrompt: `${PLACEHOLDER.TOOLS_PROMPT}`,
+  userInputPrompt: `${PLACEHOLDER.TOOLS_PROMPT}`,
   agentStepPrompt: `<system>
-You have ${PLACEHOLDER.REMAINING_STEPS} more response(s) before you will be cut off and the turn will be ended automatically.</system>
+You have ${PLACEHOLDER.REMAINING_STEPS_PROMPT} more response(s) before you will be cut off and the turn will be ended automatically.</system>
 
-Assistant cwd (project root): ${PLACEHOLDER.PROJECT_ROOT}
+Assistant cwd (project root): ${PLACEHOLDER.PROJECT_ROOT_PROMPT}
 User cwd: ${PLACEHOLDER.USER_CWD}
 </system>`,
 }
