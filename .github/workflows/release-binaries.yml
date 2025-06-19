@@ -20,32 +20,56 @@ jobs:
         include:
           - os: ubuntu-latest
             output: codebuff-linux-x64
-          - os: ubuntu-latest  
+            target: bun-linux-x64
+            platform: linux
+            arch: x64
+
+          # native arm64 runner (use GH’s ubuntu-arm64 or self-host)
+          - os: ubuntu22.04-arm64
             output: codebuff-linux-arm64
             target: bun-linux-arm64
             platform: linux
             arch: arm64
+
           - os: macos-13
             output: codebuff-darwin-x64
+            target: bun-darwin-x64
+            platform: darwin
+            arch: x64
+
           - os: macos-14
             output: codebuff-darwin-arm64
+            target: bun-darwin-arm64
+            platform: darwin
+            arch: arm64
+
           - os: windows-latest
             output: codebuff-win32-x64.exe
-    
+            target: bun-windows-x64
+            platform: win32
+            arch: x64
+
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
+      # Cache Bun downloads for speed
+      - name: Cache Bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lockb') }}
+
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
-          
+          bun-version: 1.2.x
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
+
       - name: Build binary
         run: bun run scripts/build-binary.js
         working-directory: npm-app
@@ -55,79 +79,73 @@ jobs:
           OVERRIDE_TARGET: ${{ matrix.target }}
           OVERRIDE_PLATFORM: ${{ matrix.platform }}
           OVERRIDE_ARCH: ${{ matrix.arch }}
-          
-      - name: Rename binary to expected output name
+
+      - name: Rename binary
         run: |
           cd npm-app/bin
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            mv codebuff.exe ${{ matrix.output }}
-          else
-            mv codebuff ${{ matrix.output }}
-          fi
+          mv codebuff* ${{ matrix.output }}
         shell: bash
-          
-      - name: Create tarball
+
+      - name: Package artifact
         run: |
           cd npm-app/bin
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
             7z a ../${{ matrix.output }}.zip ${{ matrix.output }}
           else
             tar -czf ../${{ matrix.output }}.tar.gz ${{ matrix.output }}
           fi
         shell: bash
-          
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.output }}
           path: npm-app/${{ matrix.output }}.*
-          
+
   create-release:
     needs: build-binaries
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
-          
+          bun-version: 1.2.x
+
       - name: Generate GitHub App token
         id: generate-token
         run: |
           cd npm-app
-          
+
           # Run the script and extract the token
           OUTPUT=$(bun run scripts/generate-github-token.ts 2>&1)
           echo "Script output: $OUTPUT"
-          
+
           TOKEN=$(echo "$OUTPUT" | grep 'export GITHUB_TOKEN=' | sed 's/export GITHUB_TOKEN="//' | sed 's/"//')
-          
+
           if [ -z "$TOKEN" ]; then
             echo "Failed to extract token from output"
             exit 1
           fi
-          
+
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
         env:
           GH_APP_ID: ${{ secrets.GH_APP_ID }}
           GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
           GH_APP_INSTALLATION_ID: ${{ secrets.GH_APP_INSTALLATION_ID }}
-          
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          
-      - name: Create release in codebuff-community
+
+      - name: Publish release in codebuff-community repo
         uses: softprops/action-gh-release@v2
         with:
           repository: CodebuffAI/codebuff-community
           tag_name: ${{ github.ref_name || inputs.tag }}
           files: artifacts/**/*
-          generate_release_notes: false
-          body: "Binary release"
           draft: false
           prerelease: false
+          generate_release_notes: false
+          body: Binary release
           token: ${{ steps.generate-token.outputs.token }}
