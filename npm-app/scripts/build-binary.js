@@ -121,7 +121,7 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
     defineFlags,
     '--env "NEXT_PUBLIC_*"', // Copies all current env vars in process.env to the compiled binary that match the pattern.
     `--outfile=${outputFile}`,
-    '--minify',
+    // '--minify', // harder to debug
   ]
     .filter(Boolean)
     .join(' ')
