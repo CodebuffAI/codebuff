@@ -256,9 +256,9 @@ Important: When editing an existing file with the write_file tool, do not rewrit
 Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.
 </system_instructions>`,
   agentStepPrompt: `<system>
-You have ${PLACEHOLDER.REMAINING_STEPS_PROMPT} more response(s) before you will be cut off and the turn will be ended automatically.</system>
+You have ${PLACEHOLDER.REMAINING_STEPS} more response(s) before you will be cut off and the turn will be ended automatically.</system>
 
-Assistant cwd (project root): ${PLACEHOLDER.PROJECT_ROOT_PROMPT}
+Assistant cwd (project root): ${PLACEHOLDER.PROJECT_ROOT}
 User cwd: ${PLACEHOLDER.USER_CWD}
 </system>`,
 }

@@ -142,7 +142,7 @@ I see that my changes went through correctly. What would you like to do next?
 
 <end_turn></end_turn>
 
-${PLACEHOLDER.TOOLS}
+${PLACEHOLDER.TOOLS_PROMPT}
 
 # Knowledge files
 
@@ -207,11 +207,11 @@ To stop a background process, attempt to close the process using the appropriate
 
 When you want to restart a background process, make sure to run the terminal command in the background.
 
-${PLACEHOLDER.FILE_TREE}
+${PLACEHOLDER.FILE_TREE_PROMPT}
 
-${PLACEHOLDER.SYSTEM_INFO}
+${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 
-${PLACEHOLDER.GIT_CHANGES}`,
+${PLACEHOLDER.GIT_CHANGES_PROMPT}`,
   userInputPrompt: `<system_instructions>
 Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. You must finally use the end_turn tool at the end of your response.
 
