@@ -1,4 +1,4 @@
-import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from './types'
+import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
 
 export const claude4base: AgentTemplate = {
   name: 'claude4base',
