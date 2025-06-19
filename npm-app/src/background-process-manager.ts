@@ -160,9 +160,9 @@ export function getBackgroundProcessUpdates(): ToolResult[] {
 
   return updates.map(([update, toolCallId]) => {
     return {
-      name: 'background_process_updates',
+      toolCallId,
+      toolName: 'background_process_updates',
       result: update,
-      id: toolCallId,
     }
   })
 }

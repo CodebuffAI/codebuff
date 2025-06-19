@@ -155,8 +155,9 @@ describe('mainPrompt', () => {
     const agentState = getInitialAgentState(mockFileContext)
     const toolResults = [
       {
-        id: '1',
-        name: 'read_files',
+        type: 'tool-result' as const,
+        toolCallId: '1',
+        toolName: 'read_files',
         result: 'Read test.txt',
       },
     ]
@@ -228,8 +229,8 @@ describe('mainPrompt', () => {
       role: 'user',
       content: renderToolResults([
         {
-          id: 'prev-read',
-          name: 'read_files',
+          toolCallId: 'prev-read',
+          toolName: 'read_files',
           result:
             '<read_file>\n<path>test.txt</path>\n<content>old content</content>\n</read_file>',
         },
@@ -313,8 +314,8 @@ describe('mainPrompt', () => {
     )
 
     expect(toolCalls).toHaveLength(1)
-    expect(toolCalls[0].name).toBe('run_terminal_command')
-    const params = toolCalls[0].parameters as { command: string; mode: string }
+    expect(toolCalls[0].toolName).toBe('run_terminal_command')
+    const params = toolCalls[0].args as { command: string; mode: string }
     expect(params.command).toBe('ls -la')
     expect(params.mode).toBe('user')
   })
@@ -364,8 +365,8 @@ describe('mainPrompt', () => {
     )
 
     expect(toolCalls).toHaveLength(1) // This assertion should now pass
-    expect(toolCalls[0].name).toBe('write_file')
-    const params = toolCalls[0].parameters as {
+    expect(toolCalls[0].toolName).toBe('write_file')
+    const params = toolCalls[0].args as {
       type: string
       path: string
       content: string
@@ -539,8 +540,8 @@ describe('mainPrompt', () => {
     )
 
     expect(toolCalls).toHaveLength(1)
-    expect(toolCalls[0].name).toBe('run_terminal_command')
-    expect((toolCalls[0].parameters as { command: string }).command).toBe(
+    expect(toolCalls[0].toolName).toBe('run_terminal_command')
+    expect((toolCalls[0].args as { command: string }).command).toBe(
       expectedCommand
     )
   })

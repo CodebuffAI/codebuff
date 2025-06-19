@@ -10,8 +10,9 @@ import {
 } from 'common/src/constants/tools'
 import { z } from 'zod'
 
-import { ToolSet } from 'ai'
+import { ToolCallPart, ToolSet } from 'ai'
 import { buildArray } from 'common/util/array'
+import { generateCompactId } from 'common/util/string'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
@@ -727,45 +728,45 @@ const toolDescriptions = Object.fromEntries(
 
 type ToolConfig = (typeof toolConfigsList)[number]
 
-export type ToolCall = {
+export type CodebuffToolCall = {
   [K in ToolConfig as K['name']]: {
-    name: K['name']
-    parameters: z.infer<K['parameters']>
-  }
+    toolName: K['name']
+    args: z.infer<K['parameters']>
+  } & Omit<ToolCallPart, 'type'>
 }[ToolConfig['name']]
 
 export type ToolCallError = {
-  name?: string
-  parameters: Record<string, string>
+  toolName?: string
+  args: Record<string, string>
   error: string
-}
+} & Omit<ToolCallPart, 'type'>
 
-export function parseRawToolCall(rawToolCall: {
-  name: string
-  parameters: Record<string, string>
-}): ToolCall | ToolCallError {
-  const name = rawToolCall.name
+export function parseRawToolCall(
+  rawToolCall: ToolCallPart & { args: Record<string, string> }
+): CodebuffToolCall | ToolCallError {
+  const toolName = rawToolCall.toolName
 
-  if (!(name in toolConfigs)) {
+  if (!(toolName in toolConfigs)) {
     return {
-      name,
-      parameters: rawToolCall.parameters,
-      error: `Tool ${name} not found`,
+      toolName,
+      toolCallId: generateCompactId(),
+      args: rawToolCall.args,
+      error: `Tool ${toolName} not found`,
     }
   }
-  const validName = name as GlobalToolNameImport
+  const validName = toolName as GlobalToolNameImport
 
   let schema: z.ZodObject<any> | z.ZodEffects<any> =
     toolConfigs[validName].parameters
   while (schema instanceof z.ZodEffects) {
     schema = schema.innerType()
   }
-  const processedParameters: Record<string, any> = { ...rawToolCall.parameters }
+  const processedParameters: Record<string, any> = { ...rawToolCall.args }
 
   const arrayParamPattern = /^(.+)_(\d+)$/
   const arrayParamsCollector: Record<string, string[]> = {}
 
-  for (const [key, value] of Object.entries(rawToolCall.parameters)) {
+  for (const [key, value] of Object.entries(rawToolCall.args)) {
     const match = key.match(arrayParamPattern)
     if (match) {
       const [, paramNameBase, indexStr] = match
@@ -794,13 +795,14 @@ export function parseRawToolCall(rawToolCall: {
   const result = schema.safeParse(processedParameters)
   if (!result.success) {
     return {
-      name: validName,
-      parameters: rawToolCall.parameters,
+      toolName: validName,
+      toolCallId: generateCompactId(),
+      args: rawToolCall.args,
       error: `Invalid parameters for ${validName}: ${JSON.stringify(result.error.issues, null, 2)}`,
     }
   }
 
-  return { name: validName, parameters: result.data } as ToolCall
+  return { toolName: validName, args: result.data } as CodebuffToolCall
 }
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
@@ -944,22 +946,23 @@ Please rewrite the entire context using the update instructions in a <new_contex
 
 export async function updateContextFromToolCalls(
   agentContext: string,
-  toolCalls: Extract<ToolCall, { name: 'update_subgoal' | 'add_subgoal' }>[]
+  toolCalls: Extract<
+    CodebuffToolCall,
+    { toolName: 'update_subgoal' | 'add_subgoal' }
+  >[]
 ) {
   let prompt = [] // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
 
   for (const toolCall of toolCalls) {
-    const { name, parameters } = toolCall
-    if (name === 'add_subgoal') {
+    const { toolName, args } = toolCall
+    if (toolName === 'add_subgoal') {
       prompt.push(
-        `Please add the following subgoal:\n${renderSubgoalUpdate(
-          parameters as any
-        )}`
+        `Please add the following subgoal:\n${renderSubgoalUpdate(args as any)}`
       )
-    } else if (name === 'update_subgoal') {
+    } else if (toolName === 'update_subgoal') {
       prompt.push(
         `Please update the subgoal with the matching id. For <status> and <plan>, if there are already tags, update them to the new values, keeping only one. For <log>, please keep all the existing logs and append a new <log> entry at the end of the subgoal. Finally, for any unmentioned parameters, do not change them in the existing subgoal:\n${renderSubgoalUpdate(
-          parameters as any
+          args as any
         )}`
       )
     }
@@ -1082,26 +1085,30 @@ export interface RawToolCall {
 }
 
 export type ClientToolCall =
-  | {
-      id: string
-      name: Exclude<ToolName, 'write_file' | 'str_replace' | 'create_plan'>
-      parameters: Record<string, unknown>
-    }
-  | {
-      id: string
-      name: 'write_file'
-      parameters: FileChange
-    }
-  | {
-      id: string
-      name: 'str_replace'
-      parameters: FileChange
-    }
-  | {
-      id: string
-      name: 'create_plan'
-      parameters: FileChange
-    }
+  | Exclude<
+      CodebuffToolCall,
+      {
+        toolName:
+          | 'write_file'
+          | 'str_replace'
+          | 'create_plan'
+          | 'run_terminal_command'
+      }
+    >
+  | (Omit<ToolCallPart, 'type'> &
+      (
+        | {
+            toolName: 'write_file' | 'str_replace' | 'create_plan'
+            args: FileChange
+          }
+        | {
+            toolName: 'run_terminal_command'
+            args: { mode: 'user' | 'assistant' } & Extract<
+              CodebuffToolCall,
+              { toolName: 'run_terminal_command' }
+            >['args']
+          }
+      ))
 
 export function parseToolCalls(messageContent: string) {
   // TODO: Return a typed tool call. Typescript is hard.
