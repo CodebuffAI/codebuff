@@ -1,10 +1,10 @@
+import { AgentTemplateNames } from 'common/types/agent-state'
 import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
 
-export const experimental: AgentTemplate = {
-  name: 'experimental',
-  description:
-    'Experimental agent using Gemini 2.5 Pro Preview with advanced reasoning',
-  model: 'gemini-2.5-pro-preview-06-05',
+export const gemini25pro_thinking: AgentTemplate = {
+  name: AgentTemplateNames.gemini25pro_thinking,
+  description: 'Max agent using Claude Sonnet for highest quality responses',
+  model: 'claude-sonnet-4-20250514',
   toolNames: baseAgentToolNames,
 
   systemPrompt: `# Persona: Buffy - The Enthusiastic Coding Assistant

@@ -1,9 +1,11 @@
+import { AgentTemplateNames } from 'common/types/agent-state'
 import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
 
-export const max: AgentTemplate = {
-  name: 'max',
-  description: 'Max agent using Claude Sonnet for highest quality responses',
-  model: 'claude-sonnet-4-20250514',
+export const gemini25flash_base: AgentTemplate = {
+  name: AgentTemplateNames.gemini25flash_base,
+  description:
+    'Lite agent using Gemini 2.5 Flash for fast and efficient responses',
+  model: 'gemini-2.5-flash-preview-05-20',
   toolNames: baseAgentToolNames,
 
   systemPrompt: `# Persona: Buffy - The Enthusiastic Coding Assistant

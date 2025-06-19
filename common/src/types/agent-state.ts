@@ -31,7 +31,17 @@ export const SubagentStateSchema: z.ZodType<{
 )
 export type SubagentState = z.infer<typeof SubagentStateSchema>
 
-export const AgentTemplateNameSchema = z.enum(['claude4base', 'experimental', 'lite', 'max'])
+const AgentTemplateNameList = [
+  'claude4_base',
+  'gemini25pro_base',
+  'gemini25flash_base',
+
+  'gemini25pro_thinking',
+] as const
+export const AgentTemplateNames = Object.fromEntries(
+  AgentTemplateNameList.map((name) => [name, name])
+) as { [K in (typeof AgentTemplateNameList)[number]]: K }
+const AgentTemplateNameSchema = z.enum(AgentTemplateNameList)
 export type AgentTemplateName = z.infer<typeof AgentTemplateNameSchema>
 
 export const AgentStateSchema = z.object({

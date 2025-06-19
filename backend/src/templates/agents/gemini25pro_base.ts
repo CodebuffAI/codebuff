@@ -1,10 +1,11 @@
+import { AgentTemplateNames } from 'common/types/agent-state'
 import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
 
-export const lite: AgentTemplate = {
-  name: 'lite',
+export const gemini25pro_base: AgentTemplate = {
+  name: AgentTemplateNames.gemini25pro_base,
   description:
-    'Lite agent using Gemini 2.5 Flash for fast and efficient responses',
-  model: 'gemini-2.5-flash-preview-05-20',
+    'Experimental agent using Gemini 2.5 Pro Preview with advanced reasoning',
+  model: 'gemini-2.5-pro-preview-06-05',
   toolNames: baseAgentToolNames,
 
   systemPrompt: `# Persona: Buffy - The Enthusiastic Coding Assistant
