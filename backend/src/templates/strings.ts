@@ -1,38 +1,40 @@
+import { CodebuffConfigSchema } from 'common/json-config/constants'
+import { stringifySchema } from 'common/json-config/stringify-schema'
+import { AgentState, AgentTemplateName } from 'common/types/agent-state'
+
 import {
   getGitChangesPrompt,
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from '@/system-prompt/prompts'
 import { getToolsInstructions, ToolName } from '@/tools'
-import { CodebuffConfigSchema } from 'common/json-config/constants'
-import { stringifySchema } from 'common/json-config/stringify-schema'
-import { AgentState, AgentTemplateName } from 'common/types/agent-state'
+
 import { agentTemplates } from './agent-list'
-import { injectableVariables } from './types'
+import { PLACEHOLDER, injectablePlaceholders } from './types'
 
 export function formatPrompt(
   prompt: string,
   agentState: AgentState,
   tools: ToolName[]
 ): string {
-  const toInject: Record<(typeof injectableVariables)[number], string> = {
-    CODEBUFF_CONFIG_SCHEMA: stringifySchema(CodebuffConfigSchema),
-    CODEBUFF_FILE_TREE_PROMPT: getProjectFileTreePrompt(
+  const toInject: Record<PLACEHOLDER, string> = {
+    [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
+    [PLACEHOLDER.FILE_TREE]: getProjectFileTreePrompt(
       agentState.fileContext,
       20_000,
       'agent'
     ),
-    CODEBUFF_GIT_CHANGES_PROMPT: getGitChangesPrompt(agentState.fileContext),
-    CODEBUFF_REMAINING_AGENT_STEPS: `${agentState.agentStepsRemaining!}`,
-    CODEBUFF_PROJECT_ROOT: agentState.fileContext.projectRoot,
-    CODEBUFF_SYSTEM_INFO_PROMPT: getSystemInfoPrompt(agentState.fileContext),
-    CODEBUFF_TOOLS_PROMPT: getToolsInstructions(tools),
-    CODEBUFF_USER_CWD: agentState.fileContext.cwd,
+    [PLACEHOLDER.GIT_CHANGES]: getGitChangesPrompt(agentState.fileContext),
+    [PLACEHOLDER.REMAINING_STEPS]: `${agentState.agentStepsRemaining!}`,
+    [PLACEHOLDER.PROJECT_ROOT]: agentState.fileContext.projectRoot,
+    [PLACEHOLDER.SYSTEM_INFO]: getSystemInfoPrompt(agentState.fileContext),
+    [PLACEHOLDER.TOOLS]: getToolsInstructions(tools),
+    [PLACEHOLDER.USER_CWD]: agentState.fileContext.cwd,
   }
 
-  for (const varName of injectableVariables) {
+  for (const varName of injectablePlaceholders) {
     if (toInject[varName]) {
-      prompt = prompt.replaceAll(`{${varName}}`, toInject[varName])
+      prompt = prompt.replaceAll(varName, toInject[varName])
     }
   }
 

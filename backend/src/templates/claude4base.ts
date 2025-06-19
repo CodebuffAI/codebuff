@@ -1,4 +1,4 @@
-import { AgentTemplate, baseAgentToolNames } from './types'
+import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from './types'
 
 export const claude4base: AgentTemplate = {
   name: 'claude4base',
@@ -142,7 +142,7 @@ I see that my changes went through correctly. What would you like to do next?
 
 <end_turn></end_turn>
 
-{CODEBUFF_TOOLS_PROMPT}
+${PLACEHOLDER.TOOLS}
 
 # Knowledge files
 
@@ -197,7 +197,7 @@ If the user sends you the url to a page that is helpful now or could be helpful 
 
 The following describes the structure of the \`./codebuff.json\` configuration file that users might have in their project root. You can use this to understand user settings if they mention them.
 
-{CODEBUFF_CONFIG_SCHEMA}
+${PLACEHOLDER.CONFIG_SCHEMA}
 
 ## Background Processes
 
@@ -207,11 +207,11 @@ To stop a background process, attempt to close the process using the appropriate
 
 When you want to restart a background process, make sure to run the terminal command in the background.
 
-{CODEBUFF_FILE_TREE_PROMPT}
+${PLACEHOLDER.FILE_TREE}
 
-{CODEBUFF_SYSTEM_INFO_PROMPT}
+${PLACEHOLDER.SYSTEM_INFO}
 
-{CODEBUFF_GIT_CHANGES_PROMPT}`,
+${PLACEHOLDER.GIT_CHANGES}`,
   userInputPrompt: `<system_instructions>
 Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. You must finally use the end_turn tool at the end of your response.
 
@@ -227,7 +227,7 @@ Be extremely concise in your replies. Example: If asked what 2+2 equals, respond
 
 The tool results will be provided by the user's *system* (and **NEVER** by the assistant).
 
-Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ...", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.
+Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..." or "/* ... existing code ... */", whichever is appropriate for the language) around the changed area.
 
 You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it if you have not already!
 
@@ -256,9 +256,9 @@ Important: When editing an existing file with the write_file tool, do not rewrit
 Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.
 </system_instructions>`,
   agentStepPrompt: `<system>
-You have {CODEBUFF_REMAINING_AGENT_STEPS} more response(s) before you will be cut off and the turn will be ended automatically.</system>
+You have ${PLACEHOLDER.REMAINING_STEPS} more response(s) before you will be cut off and the turn will be ended automatically.</system>
 
-Assistant cwd (project root): {CODEBUFF_PROJECT_ROOT}
-User cwd: {CODEBUFF_USER_CWD}
+Assistant cwd (project root): ${PLACEHOLDER.PROJECT_ROOT}
+User cwd: ${PLACEHOLDER.USER_CWD}
 </system>`,
 }

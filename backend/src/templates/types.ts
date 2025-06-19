@@ -1,6 +1,7 @@
-import { ToolName } from '@/tools'
 import { Model } from 'common/constants'
 import { AgentTemplateName } from 'common/types/agent-state'
+
+import { ToolName } from '@/tools'
 
 export type AgentTemplate = {
   name: AgentTemplateName
@@ -13,16 +14,19 @@ export type AgentTemplate = {
   agentStepPrompt: string
 }
 
-export const injectableVariables = [
-  'CODEBUFF_CONFIG_SCHEMA',
-  'CODEBUFF_FILE_TREE_PROMPT',
-  'CODEBUFF_GIT_CHANGES_PROMPT',
-  'CODEBUFF_REMAINING_AGENT_STEPS',
-  'CODEBUFF_PROJECT_ROOT',
-  'CODEBUFF_SYSTEM_INFO_PROMPT',
-  'CODEBUFF_TOOLS_PROMPT',
-  'CODEBUFF_USER_CWD',
-] as const
+export enum PLACEHOLDER {
+  CONFIG_SCHEMA = '{CODEBUFF_CONFIG_SCHEMA}',
+  FILE_TREE = '{CODEBUFF_FILE_TREE_PROMPT}',
+  GIT_CHANGES = '{CODEBUFF_GIT_CHANGES_PROMPT}',
+  REMAINING_STEPS = '{CODEBUFF_REMAINING_AGENT_STEPS}',
+  PROJECT_ROOT = '{CODEBUFF_PROJECT_ROOT}',
+  SYSTEM_INFO = '{CODEBUFF_SYSTEM_INFO_PROMPT}',
+  TOOLS = '{CODEBUFF_TOOLS_PROMPT}',
+  USER_CWD = '{CODEBUFF_USER_CWD}',
+}
+
+// All injectable placeholders
+export const injectablePlaceholders = Object.values(PLACEHOLDER)
 
 export const editingToolNames: ToolName[] = [
   'create_plan',
