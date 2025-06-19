@@ -14,6 +14,35 @@ let client: PostHog | undefined
 
 export let identified: boolean = false
 
+// Store original console methods
+const originalConsoleError = console.error
+const originalConsoleWarn = console.warn
+
+// Wrap console methods to suppress PostHog errors
+function wrapConsoleMethod(originalMethod: typeof console.error) {
+  return function (...args: any[]) {
+    // Check if this is a PostHog-related error
+    const message = args.join(' ')
+    if (
+      message.toLowerCase().includes('posthog') &&
+      args[0] &&
+      typeof args[0] === 'object' &&
+      args[0].name === 'PostHogError'
+    ) {
+      // Suppress PostHog errors - don't log to console
+      return
+    }
+    // For non-PostHog errors, use the original method
+    originalMethod.apply(console, args)
+  }
+}
+
+// Apply console wrapping when PostHog is initialized
+function suppressPostHogConsoleErrors() {
+  console.error = wrapConsoleMethod(originalConsoleError)
+  console.warn = wrapConsoleMethod(originalConsoleWarn)
+}
+
 export function initAnalytics() {
   if (
     !process.env.NEXT_PUBLIC_POSTHOG_API_KEY ||
@@ -29,7 +58,11 @@ export function initAnalytics() {
     enableExceptionAutocapture:
       process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod',
   })
+
+  // Suppress PostHog console errors after initialization
+  suppressPostHogConsoleErrors()
 }
+
 export async function flushAnalytics() {
   if (!client) {
     return
@@ -37,17 +70,8 @@ export async function flushAnalytics() {
   try {
     await client.flush()
   } catch (error) {
-    // Silently handle PostHog network errors
-    if (DEBUG_DEV_EVENTS) {
-      console.error('PostHog error:', error)
-    }
-    logger.error(
-      {
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
-      'PostHog error'
-    )
+    // Silently handle PostHog network errors - don't log to console or logger
+    // This prevents PostHog errors from cluttering the user's console
   }
 }
 
@@ -117,9 +141,14 @@ export function logError(
     return
   }
 
-  client.captureException(
-    error,
-    userId ?? currentUserId ?? 'unknown',
-    properties
-  )
+  try {
+    client.captureException(
+      error,
+      userId ?? currentUserId ?? 'unknown',
+      properties
+    )
+  } catch (postHogError) {
+    // Silently handle PostHog errors - don't log them to console
+    // This prevents PostHog connection issues from cluttering the user's console
+  }
 }
