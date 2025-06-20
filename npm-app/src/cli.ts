@@ -95,18 +95,12 @@ export class CLI {
     readyPromise: Promise<[ProjectFileContext, void, void]>,
     { git, costMode, model }: CliOptions
   ) {
-    console.log('[CLI] Initializing CLI with options:', { git, costMode, model })
-    
     this.git = git
     this.costMode = costMode
 
-    console.log('[CLI] Setting up signal handlers...')
     this.setupSignalHandlers()
-    
-    console.log('[CLI] Initializing readline interface...')
     this.initReadlineInterface()
 
-    console.log('[CLI] Creating Client instance...')
     Client.createInstance({
       websocketUrl,
       onWebSocketError: this.onWebSocketError.bind(this),
@@ -118,13 +112,10 @@ export class CLI {
       model,
     })
 
-    console.log('[CLI] Setting up ready promise...')
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
-        console.log('[CLI] Ready promise resolved, initializing agent state...')
         const [fileContext, ,] = results
         Client.getInstance().initAgentState(fileContext)
-        console.log('[CLI] Agent state initialized, warming context cache...')
         return Client.getInstance().warmContextCache()
       }),
       Client.getInstance().connect(),
@@ -160,8 +151,6 @@ export class CLI {
       )
       this.freshPrompt()
     })
-    
-    console.log('[CLI] CLI initialization complete')
   }
 
   public static initialize(
@@ -475,14 +464,10 @@ export class CLI {
     initialInput?: string
     runInitFlow?: boolean
   }) {
-    console.log('[CLI] printInitialPrompt called with:', { initialInput, runInitFlow })
-    
     const client = Client.getInstance()
     if (client.user) {
-      console.log('[CLI] User found, displaying greeting for:', client.user.name)
       displayGreeting(this.costMode, client.user.name)
     } else {
-      console.log('[CLI] No user found, prompting for login...')
       console.log(
         `Welcome to Codebuff! Give us a sec to get your account set up...`
       )
@@ -491,12 +476,10 @@ export class CLI {
     }
     this.freshPrompt()
     if (runInitFlow) {
-      console.log('[CLI] Running init flow...')
       process.stdout.write('init\n')
       await this.handleUserInput('init')
     }
     if (initialInput) {
-      console.log('[CLI] Processing initial input:', initialInput)
       process.stdout.write(initialInput + '\n')
       await this.handleUserInput(initialInput)
     }
@@ -520,27 +503,21 @@ export class CLI {
   }
 
   private async handleUserInput(userInput: string) {
-    console.log('[CLI] handleUserInput called with:', userInput)
-    
     enableSquashNewlines()
     this.rl.setPrompt('')
     if (!userInput) {
-      console.log('[CLI] Empty user input, showing fresh prompt')
       this.freshPrompt()
       return
     }
     userInput = userInput.trim()
 
-    console.log('[CLI] Processing command:', userInput)
     const processedResult = await this.processCommand(userInput)
 
     if (processedResult === null) {
-      console.log('[CLI] Command was fully handled by processCommand')
       // Command was fully handled by processCommand
       return
     }
 
-    console.log('[CLI] Forwarding processed result to user input:', processedResult)
     // processedResult is the string to be forwarded as a prompt
     await this.forwardUserInput(processedResult)
   }
@@ -732,26 +709,22 @@ export class CLI {
 
     // Checkpoint commands
     if (isCheckpointCommand(cleanInput)) {
-      console.log('[CHECKPOINT CLI] Processing checkpoint command:', cleanInput)
       trackEvent(AnalyticsEvent.CHECKPOINT_COMMAND_USED, {
         command: cleanInput, // Log the cleaned command
       })
       if (isCheckpointCommand(cleanInput, 'undo')) {
-        console.log('[CHECKPOINT CLI] Executing undo command')
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleUndo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
         return null
       }
       if (isCheckpointCommand(cleanInput, 'redo')) {
-        console.log('[CHECKPOINT CLI] Executing redo command')
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleRedo(Client.getInstance(), this.rl)
         this.freshPrompt(toRestore)
         return null
       }
       if (isCheckpointCommand(cleanInput, 'list')) {
-        console.log('[CHECKPOINT CLI] Executing list command')
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         await listCheckpoints()
         this.freshPrompt()
@@ -760,7 +733,6 @@ export class CLI {
       const restoreMatch = isCheckpointCommand(cleanInput, 'restore')
       if (restoreMatch) {
         const id = parseInt((restoreMatch as RegExpMatchArray)[1], 10)
-        console.log('[CHECKPOINT CLI] Executing restore command for checkpoint:', id)
         await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
         const toRestore = await handleRestoreCheckpoint(
           id,
@@ -771,13 +743,11 @@ export class CLI {
         return null
       }
       if (isCheckpointCommand(cleanInput, 'clear')) {
-        console.log('[CHECKPOINT CLI] Executing clear command')
         handleClearCheckpoints()
         this.freshPrompt()
         return null
       }
       if (isCheckpointCommand(cleanInput, 'save')) {
-        console.log('[CHECKPOINT CLI] Executing save command')
         await saveCheckpoint(
           userInput,
           Client.getInstance(),
@@ -789,7 +759,6 @@ export class CLI {
         return null
       }
       // Default checkpoint action (if just "checkpoint" or "/checkpoint" is typed)
-      console.log('[CHECKPOINT CLI] Displaying checkpoint menu')
       displayCheckpointMenu()
       this.freshPrompt()
       return null
@@ -819,26 +788,20 @@ export class CLI {
   }
 
   private async forwardUserInput(promptContent: string) {
-    console.log('[CLI] forwardUserInput called with content length:', promptContent.length)
-    
     const cleanedInput = this.cleanCommandInput(promptContent)
 
-    console.log('[CHECKPOINT CLI] About to save checkpoint before forwarding user input:', cleanedInput)
     await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
     Spinner.get().start('Thinking...')
 
-    console.log('[CLI] Setting receiving response flag and sending to client...')
     this.isReceivingResponse = true
 
     const { responsePromise, stopResponse } =
       await Client.getInstance().sendUserInput(cleanedInput)
 
     this.stopResponse = stopResponse
-    console.log('[CLI] Waiting for response...')
     await responsePromise
     this.stopResponse = null
 
-    console.log('[CLI] Response completed, resetting flags...')
     this.isReceivingResponse = false
 
     Spinner.get().stop()
