@@ -40,6 +40,19 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lockb') }}
 
+
+      # Cache Bun build artifacts
+      - name: Cache Bun build
+        uses: actions/cache@v4
+        with:
+          path: |
+            npm-app/.bun-build
+            npm-app/node_modules/.cache
+          key: ${{ runner.os }}-${{ matrix.target }}-bun-build-${{ hashFiles('npm-app/src/**/*.ts', 'npm-app/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-bun-build-
+            ${{ runner.os }}-bun-build-
+
       # Cache dependencies for speed
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -48,8 +61,9 @@ jobs:
             node_modules
             */node_modules
             packages/*/node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb', '**/package.json') }}
           restore-keys: |
+            ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
             ${{ runner.os }}-deps-
 
       - name: Install dependencies
@@ -184,8 +198,9 @@ jobs:
             node_modules
             */node_modules
             packages/*/node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb', '**/package.json') }}
           restore-keys: |
+            ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
             ${{ runner.os }}-deps-
 
       - name: Install dependencies
