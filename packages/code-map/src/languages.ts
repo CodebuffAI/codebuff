@@ -5,10 +5,6 @@ import { DEBUG_PARSING } from './parse'
 /* ------------------------------------------------------------------ */
 /* 1 .  WASM files
 /* ------------------------------------------------------------------ */
-// Import core WASM file from web-tree-sitter
-// @ts-ignore
-// import coreWasmPath from 'web-tree-sitter/tree-sitter.wasm' with { type: 'file' }
-
 // Import WASM files from @vscode/tree-sitter-wasm
 import cppWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-cpp.wasm'
 import csharpWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-c-sharp.wasm'
@@ -129,8 +125,7 @@ export async function getLanguageConfig(
 
   if (!cfg.parser) {
     try {
-      await parserReady // ensure WebAssembly runtime initialised
-
+      await parserReady
       // Use the imported WASM file directly
       const parser = new Parser()
       const lang = await Language.load(cfg.wasmFile)

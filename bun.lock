@@ -5,6 +5,7 @@
       "name": "codebuff-project",
       "dependencies": {
         "@t3-oss/env-nextjs": "^0.7.3",
+        "web-tree-sitter": "^0.25.6",
         "zod": "3.23.8",
       },
       "devDependencies": {

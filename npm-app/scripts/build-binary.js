@@ -4,6 +4,7 @@ const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const { patchBunPty } = require('./patch-bun-pty.js')
+const { patchWebTreeSitter } = require('./patch-web-tree-sitter.js')
 
 // Configuration
 const VERBOSE = process.env.VERBOSE === 'true'
@@ -77,6 +78,9 @@ async function main() {
   log('🔧 Patching bun-pty...')
   patchBunPty(VERBOSE)
 
+  log('🔧 Patching web-tree-sitter...')
+  patchWebTreeSitter(VERBOSE)
+
   const targetInfo = getTargetInfo()
   const outputName = currentPlatform === 'win32' ? 'codebuff.exe' : 'codebuff'
 
@@ -118,6 +122,7 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
     ...entrypoints,
     '--root src',
     `--target=${bunTarget}`,
+    '--asset-naming=[name].[ext]',
     defineFlags,
     '--env "NEXT_PUBLIC_*"', // Copies all current env vars in process.env to the compiled binary that match the pattern.
     `--outfile=${outputFile}`,
