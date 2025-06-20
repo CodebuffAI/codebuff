@@ -264,6 +264,9 @@ jobs:
       matrix:
         package: [codebuff-linux-x64, codebuff-linux-arm64, codebuff-darwin-x64, codebuff-darwin-arm64, codebuff-win32-x64]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Download platform package
         uses: actions/download-artifact@v4
@@ -277,20 +280,25 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
 
-      - name: Configure npm authentication
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          npm whoami
+      - name: Debug NPM token
+        run: printf '%s\n' "${NODE_AUTH_TOKEN:0:4}***"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish platform package
         run: |
           cd ${{ matrix.package }}
           npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # Publish the stub package last, once all platform binaries are live
   publish-main-package:
     needs: [prepare-release, publish-platform-packages]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -306,15 +314,12 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
 
-      - name: Configure npm authentication
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          npm whoami
-
       - name: Publish main stub package
         run: |
           cd npm-app/packages/codebuff
           npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # Commit version changes only after successful publishing
   commit-release:
