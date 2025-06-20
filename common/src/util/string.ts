@@ -254,19 +254,35 @@ export function transformJsonInString<T = unknown>(
 
 /**
  * Generates a compact unique identifier by combining timestamp bits with random bits.
- * Takes last 24 bits of timestamp (enough for months) and 8 random bits.
- * Encodes in base36 for very compact strings (~5-6 chars).
+ * Uses 40 bits of timestamp (enough for ~34 years) and 24 random bits for exactly 64 total bits.
+ * Encodes in base64url for compact, URL-safe strings (~11 chars).
  * @param prefix Optional prefix to add to the ID
  * @returns A unique string ID
  * @example
- * generateCompactId()      // => "1a2b3c"
- * generateCompactId('msg-') // => "msg-1a2b3c"
+ * generateCompactId()      // => "1a2b3c4d5e6"
+ * generateCompactId('msg-') // => "msg-1a2b3c4d5e6"
  */
 export const generateCompactId = (prefix?: string): string => {
-  const timestamp = Date.now() & 0xffffff // Last 24 bits of timestamp
-  const random = Math.floor(Math.random() * 0xff) // 8 random bits
-  const str = ((timestamp << 8) | random).toString(36).replace(/^-/, '') // Remove leading dash if present
-  return prefix ? `${prefix}${str}` : str
+  // Get the last 32 bits of the timestamp
+  const timestamp = (Date.now() & 0xffffffff) >>> 0;
+  // Generate a 32-bit random number
+  const random = Math.floor(Math.random() * 0x100000000) >>> 0;
+
+  // Combine them into a 64-bit representation as two 32-bit numbers
+  const high = timestamp;
+  const low = random;
+
+  // Convert to a hex string, pad if necessary, and combine
+  const highHex = high.toString(16).padStart(8, '0');
+  const lowHex = low.toString(16).padStart(8, '0');
+  
+  const combinedHex = highHex + lowHex;
+
+  // Convert hex to a Buffer and then to base64url
+  const bytes = Buffer.from(combinedHex, 'hex');
+  const str = bytes.toString('base64url').replace(/=/g, '');
+
+  return prefix ? `${prefix}${str}` : str;
 }
 
 /**

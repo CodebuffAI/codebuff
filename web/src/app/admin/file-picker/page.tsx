@@ -123,11 +123,6 @@ export default function FilePicker() {
   }, [])
 
   const fetchUserTraces = async (userId: string) => {
-    if (status !== 'authenticated') {
-      setError('You must be logged in to use this feature')
-      return
-    }
-
     try {
       setIsLoading(true)
       setError('')
@@ -172,11 +167,6 @@ export default function FilePicker() {
   }
 
   const handleRunRelabelling = async () => {
-    if (status !== 'authenticated') {
-      setError('You must be logged in to use this feature')
-      return
-    }
-
     if (!userId.trim()) {
       setError('Please enter a user ID')
       return
@@ -267,10 +257,6 @@ export default function FilePicker() {
         <CardContent>
           {status === 'loading' ? (
             <div>Loading...</div>
-          ) : status === 'unauthenticated' ? (
-            <div className="text-red-500">
-              You must be logged in to use this feature.
-            </div>
           ) : (
             <>
               <form onSubmit={handleSubmit} className="space-y-4">

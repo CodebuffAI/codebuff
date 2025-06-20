@@ -20,6 +20,7 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
+import { ProjectFileContext } from 'common/util/file'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import { asUserMessage } from '../util/messages'
 import { renderToolResults } from '../util/parse-tool-call-xml'
@@ -125,8 +126,9 @@ describe('mainPrompt', () => {
     removeListener(event: string, listener: (...args: any[]) => void) {}
   }
 
-  const mockFileContext = {
-    currentWorkingDirectory: '/test',
+  const mockFileContext: ProjectFileContext = {
+    projectRoot: '/test',
+    cwd: '/test',
     fileTree: [],
     fileTokenScores: {},
     knowledgeFiles: {},
@@ -153,8 +155,9 @@ describe('mainPrompt', () => {
     const agentState = getInitialAgentState(mockFileContext)
     const toolResults = [
       {
-        id: '1',
-        name: 'read_files',
+        type: 'tool-result' as const,
+        toolCallId: '1',
+        toolName: 'read_files',
         result: 'Read test.txt',
       },
     ]
@@ -178,7 +181,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -226,8 +229,8 @@ describe('mainPrompt', () => {
       role: 'user',
       content: renderToolResults([
         {
-          id: 'prev-read',
-          name: 'read_files',
+          toolCallId: 'prev-read',
+          toolName: 'read_files',
           result:
             '<read_file>\n<path>test.txt</path>\n<content>old content</content>\n</read_file>',
         },
@@ -253,7 +256,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -306,13 +309,13 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
     expect(toolCalls).toHaveLength(1)
-    expect(toolCalls[0].name).toBe('run_terminal_command')
-    const params = toolCalls[0].parameters as { command: string; mode: string }
+    expect(toolCalls[0].toolName).toBe('run_terminal_command')
+    const params = toolCalls[0].args as { command: string; mode: string }
     expect(params.command).toBe('ls -la')
     expect(params.mode).toBe('user')
   })
@@ -357,13 +360,13 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
     expect(toolCalls).toHaveLength(1) // This assertion should now pass
-    expect(toolCalls[0].name).toBe('write_file')
-    const params = toolCalls[0].parameters as {
+    expect(toolCalls[0].toolName).toBe('write_file')
+    const params = toolCalls[0].args as {
       type: string
       path: string
       content: string
@@ -377,7 +380,7 @@ describe('mainPrompt', () => {
     const agentState = getInitialAgentState(mockFileContext)
 
     // Set up message history with many consecutive assistant messages
-    agentState.consecutiveAssistantMessages = 20 // Set to MAX_CONSECUTIVE_ASSISTANT_MESSAGES
+    agentState.agentStepsRemaining = 0
     agentState.messageHistory = [
       { role: 'user', content: 'Initial prompt' },
       ...Array(20).fill({ role: 'assistant', content: 'Assistant response' }),
@@ -401,7 +404,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -410,7 +413,7 @@ describe('mainPrompt', () => {
 
   it('should update consecutiveAssistantMessages when new prompt is received', async () => {
     const agentState = getInitialAgentState(mockFileContext)
-    agentState.consecutiveAssistantMessages = 0
+    agentState.agentStepsRemaining = 12
 
     const action = {
       type: 'prompt' as const,
@@ -430,18 +433,20 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
     // When there's a new prompt, consecutiveAssistantMessages should be set to 1
-    expect(newAgentState.consecutiveAssistantMessages).toBe(1)
+    expect(newAgentState.agentStepsRemaining).toBe(
+      agentState.agentStepsRemaining - 1
+    )
   })
 
   it('should increment consecutiveAssistantMessages when no new prompt', async () => {
     const agentState = getInitialAgentState(mockFileContext)
     const initialCount = 5
-    agentState.consecutiveAssistantMessages = initialCount
+    agentState.agentStepsRemaining = initialCount
 
     const action = {
       type: 'prompt' as const,
@@ -461,12 +466,12 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
-    expect(newAgentState.consecutiveAssistantMessages).toBe(initialCount + 1)
+    expect(newAgentState.agentStepsRemaining).toBe(initialCount - 1)
   })
 
   it('should return no tool calls when LLM response is empty', async () => {
@@ -492,7 +497,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -530,13 +535,13 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
     expect(toolCalls).toHaveLength(1)
-    expect(toolCalls[0].name).toBe('run_terminal_command')
-    expect((toolCalls[0].parameters as { command: string }).command).toBe(
+    expect(toolCalls[0].toolName).toBe('run_terminal_command')
+    expect((toolCalls[0].args as { command: string }).command).toBe(
       expectedCommand
     )
   })

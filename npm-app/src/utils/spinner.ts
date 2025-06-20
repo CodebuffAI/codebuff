@@ -32,7 +32,7 @@ export class Spinner {
     // Hide cursor while spinner is active
     process.stdout.write('\u001B[?25l')
     this.loadingInterval = setInterval(() => {
-      this.rewriteLine(green(`${chars[i]} ${this.text}...`))
+      this.rewriteLine(green(`${chars[i]} ${this.text}`))
       i = (i + 1) % chars.length
     }, 100)
   }

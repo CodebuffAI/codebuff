@@ -1,28 +1,56 @@
 import { z } from 'zod'
 
-import type { ProjectFileContext } from '../util/file'
-import { ProjectFileContextSchema } from '../util/file'
-import { CodebuffMessageSchema } from './message'
+import { ProjectFileContext, ProjectFileContextSchema } from '../util/file'
+import { CodebuffMessage, CodebuffMessageSchema } from './message'
 
-export const ToolCallSchema = z.object({
-  name: z.string(),
-  parameters: z.record(z.string(), z.string()),
-  id: z.string(),
+export const toolCallSchema = z.object({
+  toolName: z.string(),
+  args: z.record(z.string(), z.string()),
+  toolCallId: z.string(),
 })
-export type ToolCall = z.infer<typeof ToolCallSchema>
-export const ToolResultSchema = z.object({
-  name: z.string(),
+export type ToolCall = z.infer<typeof toolCallSchema>
+
+export const toolResultSchema = z.object({
+  toolName: z.string(),
+  toolCallId: z.string(),
   result: z.string(),
-  id: z.string(),
 })
-export type ToolResult = z.infer<typeof ToolResultSchema>
+export type ToolResult = z.infer<typeof toolResultSchema>
+
+export const SubagentStateSchema: z.ZodType<{
+  agentId: string
+  agentName: AgentTemplateName
+  agents: SubagentState[]
+  messageHistory: CodebuffMessage[]
+}> = z.lazy(() =>
+  z.object({
+    agentId: z.string(),
+    agentName: AgentTemplateNameSchema,
+    agents: SubagentStateSchema.array(),
+    messageHistory: CodebuffMessageSchema.array(),
+  })
+)
+export type SubagentState = z.infer<typeof SubagentStateSchema>
+
+const AgentTemplateNameList = [
+  'claude4_base',
+  'gemini25pro_base',
+  'gemini25flash_base',
+
+  'gemini25pro_thinking',
+] as const
+export const AgentTemplateNames = Object.fromEntries(
+  AgentTemplateNameList.map((name) => [name, name])
+) as { [K in (typeof AgentTemplateNameList)[number]]: K }
+const AgentTemplateNameSchema = z.enum(AgentTemplateNameList)
+export type AgentTemplateName = z.infer<typeof AgentTemplateNameSchema>
 
 export const AgentStateSchema = z.object({
   agentContext: z.string(),
   fileContext: ProjectFileContextSchema,
   messageHistory: z.array(CodebuffMessageSchema),
-  consecutiveAssistantMessages: z.number().optional(),
-  agentStepsRemaining: z.number().optional(),
+  agents: SubagentStateSchema.array().default([]),
+  agentStepsRemaining: z.number(),
 })
 export type AgentState = z.infer<typeof AgentStateSchema>
 
@@ -32,8 +60,8 @@ export function getInitialAgentState(
   return {
     agentContext: '',
     messageHistory: [],
+    agents: [],
     fileContext,
-    consecutiveAssistantMessages: 0,
-    agentStepsRemaining: undefined,
+    agentStepsRemaining: 12,
   }
 }

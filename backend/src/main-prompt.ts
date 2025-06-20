@@ -46,10 +46,10 @@ import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { getThinkingStream } from './thinking-stream'
 import {
   ClientToolCall,
+  CodebuffToolCall,
   getFilteredToolsInstructions,
   parseRawToolCall,
   TOOL_LIST,
-  ToolCall,
   ToolName,
   TOOLS_WHICH_END_THE_RESPONSE,
   updateContextFromToolCalls,
@@ -59,7 +59,6 @@ import {
   asSystemInstruction,
   asSystemMessage,
   asUserMessage,
-  castAssistantMessage,
   coreMessagesWithSystem,
   expireMessages,
   getCoreMessagesSubset,
@@ -84,7 +83,6 @@ import {
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
 
-const MAX_CONSECUTIVE_ASSISTANT_MESSAGES = 12
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
 const COLLECT_FULL_FILE_CONTEXT = false
@@ -116,15 +114,8 @@ export const mainPrompt = async (
     modelConfig,
   } = options
 
-  const {
-    prompt,
-    agentState,
-    fingerprintId,
-    costMode,
-    promptId,
-    toolResults,
-    cwd,
-  } = action
+  const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
+    action
   const { fileContext, agentContext } = agentState
   const startTime = Date.now()
   let messageHistory = agentState.messageHistory
@@ -169,7 +160,7 @@ export const mainPrompt = async (
   const isNotFirstUserMessage =
     messageHistory.filter((m) => m.role === 'user').length > 0
   const justRanTerminalCommand = toolResults.some(
-    (t) => t.name === 'run_terminal_command'
+    (t) => t.toolName === 'run_terminal_command'
   )
   const isAskMode = costMode === 'ask'
   const isExporting =
@@ -182,7 +173,7 @@ export const mainPrompt = async (
   const isFlash =
     (model as Model) === geminiModels.gemini2_5_flash_thinking ||
     model === geminiModels.gemini2_5_flash
-  const toolsInstructions = getFilteredToolsInstructions(costMode)
+  const toolsInstructions = getFilteredToolsInstructions(costMode, readOnlyMode)
   const userInstructions = buildArray(
     isAskMode &&
       'You are a coding agent in "ASK" mode so the user can ask questions, which means you do not have access to tools that can modify files or run terminal commands. You should instead answer the user\'s questions and come up with brilliant plans which can later be implemented.',
@@ -204,7 +195,7 @@ export const mainPrompt = async (
 
     isGeminiPro
       ? toolsInstructions
-      : `Any tool calls will be run from the project root (${agentState.fileContext.currentWorkingDirectory}) unless otherwise specified`,
+      : `Any tool calls will be run from the project root (${agentState.fileContext.projectRoot}) unless otherwise specified`,
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it if you have not already!',
 
@@ -262,10 +253,10 @@ export const mainPrompt = async (
       content: renderToolResults(toolResults),
     },
     prompt && [
-      cwd && {
+      {
         role: 'user' as const,
         content: asSystemMessage(
-          `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
+          `Assistant cwd (project root): ${agentState.fileContext.projectRoot}\nUser cwd: ${agentState.fileContext.cwd}`
         ),
         timeToLive: 'agentStep',
       },
@@ -287,8 +278,6 @@ export const mainPrompt = async (
     })
     const duration = Date.now() - startTime
 
-    agentState.consecutiveAssistantMessages = 0
-
     if (terminalCommand) {
       logger.debug(
         {
@@ -308,11 +297,13 @@ export const mainPrompt = async (
         agentState: newAgentState,
         toolCalls: [
           {
-            id: generateCompactId(),
-            name: 'run_terminal_command',
-            parameters: {
+            toolName: 'run_terminal_command',
+            toolCallId: generateCompactId(),
+            args: {
               command: terminalCommand,
               mode: 'user',
+              process_type: 'SYNC',
+              timeout_seconds: '-1',
             },
           },
         ],
@@ -322,12 +313,7 @@ export const mainPrompt = async (
   }
 
   // Check number of assistant messages since last user message with prompt
-  const remainingAssistantMessages =
-    agentState.agentStepsRemaining !== undefined
-      ? agentState.agentStepsRemaining - 1
-      : MAX_CONSECUTIVE_ASSISTANT_MESSAGES -
-        (agentState.consecutiveAssistantMessages ?? 0)
-  if (remainingAssistantMessages < 0) {
+  if (agentState.agentStepsRemaining <= 0) {
     logger.warn(
       `Detected too many consecutive assistant messages without user prompt`
     )
@@ -420,7 +406,7 @@ export const mainPrompt = async (
     // Update tool results.
     for (let i = 0; i < toolResults.length; i++) {
       const toolResult = toolResults[i]
-      if (toolResult.name === 'read_files') {
+      if (toolResult.toolName === 'read_files') {
         toolResults[i] = simplifyReadFileToolResult(toolResult)
       }
     }
@@ -442,8 +428,8 @@ export const mainPrompt = async (
 
   if (updatedFiles.length > 0) {
     toolResults.push({
-      id: generateCompactId(),
-      name: 'file_updates',
+      toolName: 'file_updates',
+      toolCallId: generateCompactId(),
       result:
         `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes:\n` +
         renderReadFilesResult(updatedFiles, fileContext.tokenCallers ?? {}),
@@ -452,9 +438,9 @@ export const mainPrompt = async (
 
   const readFileMessages: CodebuffMessage[] = []
   if (newFiles.length > 0) {
-    const readFilesToolResult = {
-      id: generateCompactId(),
-      name: 'read_files',
+    const readFilesToolResult: ToolResult = {
+      toolCallId: generateCompactId(),
+      toolName: 'read_files',
       result: renderReadFilesResult(newFiles, fileContext.tokenCallers ?? {}),
     }
 
@@ -483,9 +469,11 @@ export const mainPrompt = async (
 
   const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
   const messagesWithUserMessage = buildArray<CodebuffMessage>(
+    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
+    /*
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep').map(
       (m) => castAssistantMessage(m)
-    ),
+    ),*/
 
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -522,13 +510,14 @@ export const mainPrompt = async (
         content: asSystemMessage(agentContext.trim()),
         timeToLive: 'userPrompt',
       },
+      /*
       hasAssistantMessage && {
         role: 'user' as const,
         content: asSystemInstruction(
           "All <previous_assistant_message>messages</previous_assistant_message> were from some less intelligent assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes (including errors from the system), identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Simply continue the conversation as if you are the same assistant. The user has seen the previous assistant's messages, so do not repeat what was already said."
         ),
         timeToLive: 'userPrompt',
-      },
+      },*/
       {
         role: 'user' as const,
         content: asSystemInstruction(userInstructions),
@@ -539,19 +528,18 @@ export const mainPrompt = async (
     {
       role: 'user',
       content: asSystemMessage(
-        `You have ${remainingAssistantMessages + 1} more response(s) before you will be cut off and the turn will be ended automatically.${remainingAssistantMessages === 0 ? ' (This will be the last response.)' : ''}`
+        `You have ${agentState.agentStepsRemaining} more response(s) before you will be cut off and the turn will be ended automatically.${agentState.agentStepsRemaining === 1 ? ' (This will be the last response.)' : ''}`
       ),
       timeToLive: 'agentStep',
     },
 
-    prompt &&
-      cwd && {
-        role: 'user' as const,
-        content: asSystemMessage(
-          `Assistant cwd (project root): ${agentState.fileContext.currentWorkingDirectory}\nUser cwd: ${cwd}`
-        ),
-        timeToLive: 'agentStep',
-      },
+    prompt && {
+      role: 'user' as const,
+      content: asSystemMessage(
+        `Assistant cwd (project root): ${agentState.fileContext.projectRoot}\nUser cwd: ${agentState.fileContext.cwd}`
+      ),
+      timeToLive: 'agentStep',
+    },
     !prompt &&
       toolInstructions && {
         role: 'user' as const,
@@ -570,7 +558,7 @@ export const mainPrompt = async (
 
   const iterationNum = messagesWithUserMessage.length
 
-  const system = getAgentSystemPrompt(fileContext, costMode)
+  const system = getAgentSystemPrompt(fileContext, readOnlyMode, costMode)
   const systemTokens = countTokensJson(system)
 
   // Possibly truncated messagesWithUserMessage + cache.
@@ -658,19 +646,19 @@ export const mainPrompt = async (
     )
   )
 
-  const allToolCalls: ToolCall[] = []
+  const allToolCalls: CodebuffToolCall[] = []
   const clientToolCalls: ClientToolCall[] = []
   const serverToolResults: ToolResult[] = []
   const subgoalToolCalls: Extract<
-    ToolCall,
-    { name: 'add_subgoal' | 'update_subgoal' }
+    CodebuffToolCall,
+    { toolName: 'add_subgoal' | 'update_subgoal' }
   >[] = []
 
   let foundParsingError = false
 
   function toolCallback<T extends ToolName>(
     tool: T,
-    after: (toolCall: Extract<ToolCall, { name: T }>) => void
+    after: (toolCall: Extract<CodebuffToolCall, { toolName: T }>) => void
   ): {
     params: (string | RegExp)[]
     onTagStart: () => void
@@ -682,15 +670,17 @@ export const mainPrompt = async (
     return {
       params: toolSchema[tool],
       onTagStart: () => {},
-      onTagEnd: async (_: string, parameters: Record<string, string>) => {
+      onTagEnd: async (_: string, args: Record<string, string>) => {
         const toolCall = parseRawToolCall({
-          name: tool,
-          parameters,
+          type: 'tool-call',
+          toolName: tool,
+          toolCallId: generateCompactId(),
+          args,
         })
         if ('error' in toolCall) {
           serverToolResults.push({
-            name: tool,
-            id: generateCompactId(),
+            toolName: tool,
+            toolCallId: generateCompactId(),
             result: toolCall.error,
           })
           foundParsingError = true
@@ -705,20 +695,20 @@ export const mainPrompt = async (
             'write_file',
             'str_replace',
             'run_terminal_command',
-            isAskMode && 'create_plan'
+            readOnlyMode && 'create_plan'
           ).includes(tool)
         ) {
           serverToolResults.push({
-            name: tool,
-            id: generateCompactId(),
+            toolName: tool,
+            toolCallId: generateCompactId(),
             result: `Tool ${tool} is not available in ${readOnlyMode ? 'read-only' : 'ask'} mode. You can only use tools that read information or provide analysis.`,
           })
           return
         }
 
-        allToolCalls.push(toolCall as Extract<ToolCall, { name: T }>)
+        allToolCalls.push(toolCall as Extract<CodebuffToolCall, { name: T }>)
 
-        after(toolCall as Extract<ToolCall, { name: T }>)
+        after(toolCall as Extract<CodebuffToolCall, { name: T }>)
       },
     }
   }
@@ -729,7 +719,7 @@ export const mainPrompt = async (
         TOOL_LIST.map((tool) => [tool, toolCallback(tool, () => {})])
       ),
       think_deeply: toolCallback('think_deeply', (toolCall) => {
-        const { thought } = toolCall.parameters
+        const { thought } = toolCall.args
         logger.debug(
           {
             thought,
@@ -751,7 +741,7 @@ export const mainPrompt = async (
           toolCallback(tool, (toolCall) => {
             clientToolCalls.push({
               ...toolCall,
-              id: generateCompactId(),
+              toolCallId: generateCompactId(),
             } as ClientToolCall)
           }),
         ])
@@ -760,17 +750,17 @@ export const mainPrompt = async (
         const clientToolCall = {
           ...{
             ...toolCall,
-            parameters: {
-              ...toolCall.parameters,
+            args: {
+              ...toolCall.args,
               mode: 'assistant' as const,
             },
           },
-          id: generateCompactId(),
+          toolCallId: generateCompactId(),
         }
         clientToolCalls.push(clientToolCall)
       }),
       create_plan: toolCallback('create_plan', (toolCall) => {
-        const { path, plan } = toolCall.parameters
+        const { path, plan } = toolCall.args
         logger.debug(
           {
             path,
@@ -800,7 +790,7 @@ export const mainPrompt = async (
         fileProcessingPromisesByPath[path].push(Promise.resolve(change))
       }),
       write_file: toolCallback('write_file', (toolCall) => {
-        const { path, instructions, content } = toolCall.parameters
+        const { path, instructions, content } = toolCall.args
         if (!content) return
 
         // Initialize state for this file path if needed
@@ -851,7 +841,7 @@ export const mainPrompt = async (
         return
       }),
       str_replace: toolCallback('str_replace', (toolCall) => {
-        const { path, old_vals, new_vals } = toolCall.parameters
+        const { path, old_vals, new_vals } = toolCall.args
         if (!old_vals || !Array.isArray(old_vals)) {
           return
         }
@@ -889,9 +879,13 @@ export const mainPrompt = async (
         return
       }),
     },
-    (name, error) => {
+    (toolName, error) => {
       foundParsingError = true
-      serverToolResults.push({ id: generateCompactId(), name, result: error })
+      serverToolResults.push({
+        toolName,
+        toolCallId: generateCompactId(),
+        result: error,
+      })
     }
   )
 
@@ -937,7 +931,7 @@ export const mainPrompt = async (
       : Promise.resolve(agentContext)
 
   for (const toolCall of allToolCalls) {
-    const { name, parameters } = toolCall
+    const { toolName: name, args: parameters } = toolCall
     trackEvent(AnalyticsEvent.TOOL_USE, userId ?? '', {
       tool: name,
       parameters,
@@ -957,10 +951,10 @@ export const mainPrompt = async (
       ].includes(name)
     ) {
       // Handled above
-    } else if (toolCall.name === 'read_files') {
+    } else if (toolCall.toolName === 'read_files') {
       const paths = (
-        toolCall as Extract<ToolCall, { name: 'read_files' }>
-      ).parameters.paths
+        toolCall as Extract<CodebuffToolCall, { toolName: 'read_files' }>
+      ).args.paths
         .split(/\s+/)
         .map((path: string) => path.trim())
         .filter(Boolean)
@@ -1004,17 +998,17 @@ export const mainPrompt = async (
         'read_files tool call'
       )
       serverToolResults.push({
-        id: generateCompactId(),
-        name: 'read_files',
+        toolName: 'read_files',
+        toolCallId: generateCompactId(),
         result: renderReadFilesResult(
           addedFiles,
           fileContext.tokenCallers ?? {}
         ),
       })
-    } else if (toolCall.name === 'find_files') {
+    } else if (toolCall.toolName === 'find_files') {
       const description = (
-        toolCall as Extract<ToolCall, { name: 'find_files' }>
-      ).parameters.description
+        toolCall as Extract<CodebuffToolCall, { toolName: 'find_files' }>
+      ).args.description
       const { addedFiles, updatedFilePaths, printedPaths } =
         await getFileReadingUpdates(
           ws,
@@ -1055,8 +1049,8 @@ export const mainPrompt = async (
         'find_files tool call'
       )
       serverToolResults.push({
-        id: generateCompactId(),
-        name: 'find_files',
+        toolName: 'find_files',
+        toolCallId: generateCompactId(),
         result:
           addedFiles.length > 0
             ? renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
@@ -1070,15 +1064,15 @@ export const mainPrompt = async (
           })
         )
       }
-    } else if (toolCall.name === 'research') {
-      const { prompts: promptsStr } = toolCall.parameters as { prompts: string }
+    } else if (toolCall.toolName === 'research') {
+      const { prompts: promptsStr } = toolCall.args as { prompts: string }
       let prompts: string[]
       try {
         prompts = JSON.parse(promptsStr)
       } catch (e) {
         serverToolResults.push({
-          id: generateCompactId(),
-          name: 'research',
+          toolName: 'research',
+          toolCallId: generateCompactId(),
           result: `Failed to parse prompts: ${e}`,
         })
         continue
@@ -1105,8 +1099,8 @@ export const mainPrompt = async (
       }
 
       serverToolResults.push({
-        id: generateCompactId(),
-        name: 'research',
+        toolName: 'research',
+        toolCallId: generateCompactId(),
         result: formattedResult,
       })
     } else {
@@ -1132,8 +1126,8 @@ export const mainPrompt = async (
   for (const result of fileChangeErrors) {
     // Forward error message to agent as tool result.
     serverToolResults.push({
-      id: generateCompactId(),
-      name: result.tool,
+      toolName: result.tool,
+      toolCallId: generateCompactId(),
       result: `${result.path}: ${result.error}`,
     })
   }
@@ -1146,21 +1140,24 @@ export const mainPrompt = async (
   }
 
   // Add successful changes to clientToolCalls
-  const changeToolCalls = fileChanges.map(({ path, content, patch, tool }) => ({
-    name: tool,
-    parameters: patch
-      ? {
-          type: 'patch' as const,
-          path,
-          content: patch,
-        }
-      : {
-          type: 'file' as const,
-          path,
-          content,
-        },
-    id: generateCompactId(),
-  }))
+  const changeToolCalls: ClientToolCall[] = fileChanges.map(
+    ({ path, content, patch, tool }) => ({
+      type: 'tool-call',
+      toolName: tool,
+      toolCallId: generateCompactId(),
+      args: patch
+        ? {
+            type: 'patch' as const,
+            path,
+            content: patch,
+          }
+        : {
+            type: 'file' as const,
+            path,
+            content,
+          },
+    })
+  )
   clientToolCalls.unshift(...changeToolCalls)
 
   const newAgentContext = await agentContextPromise
@@ -1187,13 +1184,7 @@ export const mainPrompt = async (
     ...agentState,
     messageHistory: finalMessageHistory,
     agentContext: newAgentContext,
-    consecutiveAssistantMessages: prompt
-      ? 1
-      : (agentState.consecutiveAssistantMessages ?? 0) + 1,
-    agentStepsRemaining:
-      agentState.agentStepsRemaining === undefined
-        ? undefined
-        : agentState.agentStepsRemaining - 1,
+    agentStepsRemaining: agentState.agentStepsRemaining - 1,
   }
 
   logger.debug(
@@ -1272,7 +1263,7 @@ async function getFileReadingUpdates(
     .filter(isToolResult)
     .flatMap((content) => parseToolResults(toContentString(content)))
   const previousFileList = toolResults
-    .filter(({ name }) => name === 'read_files')
+    .filter(({ toolName }) => toolName === 'read_files')
     .flatMap(({ result }) => parseReadFilesResult(result))
 
   const previousFiles = Object.fromEntries(

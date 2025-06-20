@@ -1,169 +1,66 @@
-'use client'
+import { utils } from '@codebuff/internal'
+import db from 'common/db'
+import * as schema from 'common/db/schema'
+import { desc, eq } from 'drizzle-orm'
+import { getServerSession } from 'next-auth'
+import { z } from 'zod'
 
-import { useEffect, useState } from 'react'
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
+import { EvalsTable } from './evals-table'
 
-type GitEvalResult = {
-    id: string
-    cost_mode: string | null
-    reasoner_model: string | null
-    agent_model: string | null
-    metadata: {
-        numCases?: number
-        avgScore?: number
-        suite?: string
-    } | null
-    cost: number
-    is_public: boolean
-    created_at: string
+const GitEvalMetadataSchema = z.object({
+    numCases: z.number().optional(),
+    avgScore: z.number().optional(),
+    avgCompletion: z.number().optional(),
+    avgEfficiency: z.number().optional(),
+    avgCodeQuality: z.number().optional(),
+    avgDuration: z.number().optional(),
+    suite: z.string().optional(),
+    avgTurns: z.number().optional(),
+}).nullable()
+
+const GitEvalResultSchema = z.object({
+    id: z.string(),
+    cost_mode: z.string().nullable(),
+    reasoner_model: z.string().nullable(),
+    agent_model: z.string().nullable(),
+    metadata: GitEvalMetadataSchema,
+    cost: z.number(),
+    is_public: z.boolean(),
+    created_at: z.date(),
+})
+
+type GitEvalResult = typeof schema.gitEvalResults.$inferSelect & {
+    metadata: schema.GitEvalMetadata | null
 }
 
-export default function Evals() {
-    const [results, setResults] = useState<GitEvalResult[]>([])
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState('')
+async function getEvalResults(): Promise<{ results: GitEvalResult[], isAdmin: boolean }> {
+    const limit = 100
 
-    useEffect(() => {
-        const fetchEvals = async () => {
-            try {
-                setIsLoading(true)
-                setError('')
+    // Check if user is admin
+    const session = await getServerSession(authOptions)
+    const isAdmin = await utils.checkSessionIsAdmin(session)
 
-                const response = await fetch('/api/git-evals')
+    // Build query with conditional where clause
+    const evalResults = await db
+        .select()
+        .from(schema.gitEvalResults)
+        .where(isAdmin ? undefined : eq(schema.gitEvalResults.is_public, true))
+        .orderBy(desc(schema.gitEvalResults.id))
+        .limit(limit)
 
-                if (!response.ok) {
-                    throw new Error(
-                        `Failed to fetch: ${response.status} ${response.statusText}`
-                    )
-                }
+    // Validate results with Zod before casting
+    const validatedResults = z.array(GitEvalResultSchema).parse(evalResults)
 
-                const data = await response.json()
-                setResults(data)
-            } catch (err) {
-                console.error('Error fetching evals:', err)
-                setError(
-                    err instanceof Error ? err.message : 'Failed to fetch evaluations'
-                )
-            } finally {
-                setIsLoading(false)
-            }
-        }
-
-        fetchEvals()
-    }, [])
-
-    // Sort results by score (best to worst)
-    const sortedResults = [...results].sort((a, b) => {
-        const scoreA = a.metadata?.avgScore ?? 0
-        const scoreB = b.metadata?.avgScore ?? 0
-        return scoreB - scoreA // Descending order (best first)
-    })
-
-    // Helper function to get model name
-    const getModelName = (result: GitEvalResult) => {
-        if (result.agent_model && result.reasoner_model) {
-            return `${result.agent_model} / ${result.reasoner_model}`
-        }
-        return result.agent_model || result.reasoner_model || 'Unknown'
+    return {
+        results: validatedResults as GitEvalResult[],
+        isAdmin: !!isAdmin,
     }
+}
 
-    // Helper function to format score as percentage
-    const formatScore = (score?: number) => {
-        if (score === undefined || score === null) return 'N/A'
-        return `${(score * 10).toFixed(1)}%` // Convert 0-10 scale to percentage
-    }
+export default async function Evals() {
+    const { results, isAdmin } = await getEvalResults()
 
-    // Helper function to format cost
-    const formatCost = (cost: number) => {
-        return `$${(cost / 100).toFixed(2)}` // Assuming cost is in cents
-    }
-
-    return (
-        <div className="container mx-auto py-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-2xl font-bold">
-                        Evals
-                    </CardTitle>
-                    <p className="text-muted-foreground">
-                        Performance comparison of different models on git-based coding tasks
-                    </p>
-                </CardHeader>
-                <CardContent>
-                    {isLoading ? (
-                        <div className="flex justify-center py-8">
-                            <div className="text-muted-foreground">Loading evaluations...</div>
-                        </div>
-                    ) : error ? (
-                        <div className="text-red-500 py-8 text-center">{error}</div>
-                    ) : results.length === 0 ? (
-                        <div className="text-muted-foreground py-8 text-center">
-                            No evaluation results found
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <div className="text-sm text-muted-foreground">
-                                Showing {results.length} evaluation{results.length !== 1 ? 's' : ''}
-                            </div>
-
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Model</TableHead>
-                                            <TableHead>Score</TableHead>
-                                            <TableHead>Cost</TableHead>
-                                            <TableHead>Test Cases</TableHead>
-                                            <TableHead>Suite</TableHead>
-                                            <TableHead>Date</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {sortedResults.map((result) => (
-                                            <TableRow key={result.id}>
-                                                <TableCell className="font-medium">
-                                                    {getModelName(result)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center space-x-2">
-                                                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${(result.metadata?.avgScore ?? 0) >= 8
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : (result.metadata?.avgScore ?? 0) >= 6
-                                                                ? 'bg-yellow-100 text-yellow-800'
-                                                                : 'bg-red-100 text-red-800'
-                                                            }`}>
-                                                            {formatScore(result.metadata?.avgScore)}
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>{formatCost(result.cost)}</TableCell>
-                                                <TableCell>
-                                                    {result.metadata?.numCases ?? 'N/A'}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {result.metadata?.suite ?? 'N/A'}
-                                                </TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">
-                                                    {new Date(result.created_at).toLocaleDateString()}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        </div>
-    )
-} 
+    return <EvalsTable results={results} isAdmin={isAdmin} />
+}

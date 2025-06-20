@@ -13,7 +13,7 @@ import { EvalConfig, EvalResult } from './types'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
 const MOCK_PATH = 'git-evals/eval-result-codebuff-mock.json'
-const API_BASE = 'http://localhost:3000/'
+const API_BASE = 'https://www.codebuff.com/'
 
 async function runEvalSet(
   outputDir: string = DEFAULT_OUTPUT_DIR,
@@ -26,7 +26,7 @@ async function runEvalSet(
   console.log(`Output directory: ${outputDir}`)
 
   // Set global concurrency limit of 20 processes across ALL repositories
-  setGlobalConcurrencyLimit(10)
+  setGlobalConcurrencyLimit(5)
 
   // Define the eval configurations
   const evalConfigs: EvalConfig[] = [

@@ -240,8 +240,8 @@ function getCodebuffFileStates(
       for (const step of traceEntry.steps) {
         if (step.toolCalls) {
           for (const toolCall of step.toolCalls) {
-            if (toolCall.name === 'write_file' && toolCall.parameters.path) {
-              codebuffWrittenFilePaths.add(toolCall.parameters.path as string)
+            if (toolCall.toolName === 'write_file' && toolCall.args.path) {
+              codebuffWrittenFilePaths.add(toolCall.args.path as string)
             }
           }
         }

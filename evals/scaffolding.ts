@@ -70,7 +70,8 @@ export async function getProjectFileContext(
   const fileTokenScores = (await getFileTokenScores(projectPath, allFilePaths))
     .tokenScores
   return {
-    currentWorkingDirectory: projectPath,
+    projectRoot: projectPath,
+    cwd: projectPath,
     gitChanges: {
       status: '',
       diff: '',
@@ -200,7 +201,7 @@ export async function loopMainPrompt({
     toolResults = [
       ...newToolResults,
       ...(await runToolCalls(newToolCalls)),
-    ].filter((tool) => tool.name !== 'end_turn')
+    ].filter((tool) => tool.toolName !== 'end_turn')
 
     steps.push({
       response: fullResponse,
@@ -208,7 +209,9 @@ export async function loopMainPrompt({
       toolResults: newToolResults,
     })
 
-    const containsEndTurn = toolCalls.some((call) => call.name === 'end_turn')
+    const containsEndTurn = toolCalls.some(
+      (call) => call.toolName === 'end_turn'
+    )
 
     if (containsEndTurn || toolResults.length === 0) {
       break

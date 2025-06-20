@@ -77,12 +77,6 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   browser_logs: {
     // Don't render anything
   },
-  kill_terminal: {
-    // Don't render anything
-  },
-  sleep: {
-    // Don't render anything
-  },
   read_files: {
     ...defaultToolCallRenderer,
     onParamChunk: (content, paramName, toolName) => {
@@ -260,7 +254,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
     onToolEnd: (toolName, params) => {
       return () => {
-        Spinner.get().start('Researching')
+        Spinner.get().start('Researching...')
       }
     },
   },

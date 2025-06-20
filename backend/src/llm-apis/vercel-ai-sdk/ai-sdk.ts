@@ -92,7 +92,7 @@ export const promptAiSdkStream = async function* (
 
   for await (const chunk of response.fullStream) {
     if (chunk.type === 'error') {
-      logger.error({ chunk }, 'Error from AI SDK')
+      logger.error({ chunk, model: options.model }, 'Error from AI SDK')
       if (process.env.ENVIRONMENT !== 'prod') {
         throw chunk.error instanceof Error
           ? new Error(`Error from AI SDK: ${chunk.error.message}`, {

@@ -1,9 +1,12 @@
+import { logger } from '@/util/logger'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { GitEvalResultRequest } from '@codebuff/common/db/schema'
-import { logger } from '@codebuff/common/util/logger'
-import { desc } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { utils } from '@codebuff/internal'
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,22 +59,41 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Fetch the most recent eval results
-    const evalResults = await db
-      .select()
-      .from(schema.gitEvalResults)
-      .orderBy(desc(schema.gitEvalResults.id))
-      .limit(limit)
+    // Check if user is admin
+    const session = await getServerSession(authOptions)
+    const isAdmin = await utils.checkSessionIsAdmin(session)
+
+    let evalResults
+    if (isAdmin) {
+      // Admin users see all results
+      evalResults = await db
+        .select()
+        .from(schema.gitEvalResults)
+        .orderBy(desc(schema.gitEvalResults.id))
+        .limit(limit)
+    } else {
+      // Non-admin users only see public results
+      evalResults = await db
+        .select()
+        .from(schema.gitEvalResults)
+        .where(eq(schema.gitEvalResults.is_public, true))
+        .orderBy(desc(schema.gitEvalResults.id))
+        .limit(limit)
+    }
 
     logger.info(
       {
         count: evalResults.length,
         limit,
+        isAdmin: !!isAdmin,
       },
       'Retrieved git eval results'
     )
 
-    return NextResponse.json(evalResults)
+    return NextResponse.json({
+      results: evalResults,
+      isAdmin: !!isAdmin,
+    })
   } catch (error) {
     logger.error({ error }, 'Error retrieving git eval results')
     return NextResponse.json(

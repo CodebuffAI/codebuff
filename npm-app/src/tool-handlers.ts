@@ -1,18 +1,15 @@
 import { spawn } from 'child_process'
 import * as path from 'path'
 
+import { rgPath } from '@vscode/ripgrep'
 import { FileChangeSchema } from '@codebuff/common/actions'
-import {
-  BrowserActionSchema,
-  BrowserResponse,
-} from '@codebuff/common/browser-actions'
-import { RawToolCall } from '@codebuff/common/types/tools'
+import { BrowserActionSchema, BrowserResponse } from '@codebuff/common/browser-actions'
 import { applyChanges } from '@codebuff/common/util/changes'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import { cyan, green, red, yellow } from 'picocolors'
-import { rgPath } from '@vscode/ripgrep'
 import { logger } from './utils/logger'
 
+import { ToolCall } from '@codebuff/common/types/agent-state'
 import { handleBrowserInstruction } from './browser-runner'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/base'
@@ -90,7 +87,7 @@ export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
 export const handleRunTerminalCommand = async (
   parameters: {
     command: string
-    mode?: 'user' | 'assistant' | 'manager'
+    mode?: 'user' | 'assistant'
     process_type?: 'SYNC' | 'BACKGROUND'
     cwd?: string
     timeout_seconds?: string
@@ -217,38 +214,6 @@ function formatResult(
   return result
 }
 
-export const handleKillTerminal: ToolHandler<{}> = async (parameters, _id) => {
-  const { resetShell } = await import('./terminal/base.js')
-  const { getProjectRoot } = await import('./project-files.js')
-
-  resetShell(getProjectRoot())
-
-  return 'Terminal killed and restarted successfully.'
-}
-
-export const handleSleep: ToolHandler<{ seconds: string }> = async (
-  parameters,
-  _id
-) => {
-  const { seconds } = parameters
-  let secondsNum: number
-
-  try {
-    secondsNum = parseInt(seconds)
-    if (secondsNum <= 0) {
-      return 'Error: Sleep duration must be a positive number'
-    }
-  } catch (error) {
-    return `Error: Could not parse seconds: ${error instanceof Error ? error.message : error}`
-  }
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(`Slept for ${secondsNum} second${secondsNum === 1 ? '' : 's'}.`)
-    }, secondsNum * 1000)
-  })
-}
-
 export const toolHandlers: Record<string, ToolHandler<any>> = {
   write_file: handleUpdateFile,
   str_replace: handleUpdateFile,
@@ -262,11 +227,9 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
     process_type: 'SYNC' | 'BACKGROUND'
   }>,
   code_search: handleCodeSearch,
-  kill_terminal: handleKillTerminal,
-  sleep: handleSleep,
   end_turn: async () => '',
   browser_logs: async (params, _id): Promise<string> => {
-    Spinner.get().start('Using browser')
+    Spinner.get().start('Using browser...')
     let response: BrowserResponse
     try {
       const action = BrowserActionSchema.parse(params)
@@ -339,18 +302,18 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   },
 }
 
-export const handleToolCall = async (toolCall: RawToolCall) => {
-  const { name, parameters } = toolCall
-  const handler = toolHandlers[name]
+export const handleToolCall = async (toolCall: ToolCall) => {
+  const { toolName, args, toolCallId } = toolCall
+  const handler = toolHandlers[toolName]
   if (!handler) {
-    throw new Error(`No handler found for tool: ${name}`)
+    throw new Error(`No handler found for tool: ${toolName}`)
   }
 
-  const content = await handler(parameters, toolCall.id)
+  const content = await handler(args, toolCallId)
 
   if (typeof content !== 'string') {
     throw new Error(
-      `Tool call ${name} not supported. It returned non-string content.`
+      `Tool call ${toolName} not supported. It returned non-string content.`
     )
   }
 
@@ -375,8 +338,8 @@ export const handleToolCall = async (toolCall: RawToolCall) => {
   // }
 
   return {
-    name,
+    toolName,
+    toolCallId,
     result: content,
-    id: toolCall.id,
   }
 }

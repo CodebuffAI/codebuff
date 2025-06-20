@@ -21,7 +21,6 @@ export async function research(
     // Each research prompt runs in 'lite' mode and can only use read-only tools.
     const researchAgentState: AgentState = {
       ...initialAgentState,
-      consecutiveAssistantMessages: 0,
       agentStepsRemaining: maxIterations,
       messageHistory: [],
     }
@@ -34,7 +33,6 @@ export async function research(
       toolResults: [],
       fingerprintId,
       promptId,
-      cwd: initialAgentState.fileContext.currentWorkingDirectory,
     }
 
     return loopMainPrompt(ws, action, {

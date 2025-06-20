@@ -36,7 +36,8 @@ export const FileVersionSchema = z.object({
 export type FileVersion = z.infer<typeof FileVersionSchema>
 
 export const ProjectFileContextSchema = z.object({
-  currentWorkingDirectory: z.string(),
+  projectRoot: z.string(),
+  cwd: z.string(),
   fileTree: z.array(z.custom<FileTreeNode>()),
   fileTokenScores: z.record(z.string(), z.record(z.string(), z.number())),
   tokenCallers: z

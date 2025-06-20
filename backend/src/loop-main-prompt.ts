@@ -25,7 +25,7 @@ export async function loopMainPrompt(
   // Continue running as long as the agent is using tools and hasn't decided to end the turn.
   while (
     toolCalls.length > 0 &&
-    !toolCalls.some((tc) => tc.name === 'end_turn')
+    !toolCalls.some((tc) => tc.toolName === 'end_turn')
   ) {
     const nextAction: Extract<ClientAction, { type: 'prompt' }> = {
       ...action,

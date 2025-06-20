@@ -10,15 +10,16 @@ import {
 } from '@codebuff/common/constants/tools'
 import { z } from 'zod'
 
+import { ToolCallPart, ToolSet } from 'ai'
 import { buildArray } from '@codebuff/common/util/array'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
 // Define Zod schemas for parameter validation
-const toolConfigsList = [
-  {
-    name: 'add_subgoal',
-    schema: z
+const toolConfigs = {
+  add_subgoal: {
+    parameters: z
       .object({
         id: z
           .string()
@@ -47,7 +48,7 @@ const toolConfigsList = [
         `Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!`
       ),
 
-    additionalInfo: `
+    description: `
 Example:
 ${getToolCallString('add_subgoal', {
   id: '1',
@@ -56,9 +57,8 @@ ${getToolCallString('add_subgoal', {
 })}
 `.trim(),
   },
-  {
-    name: 'update_subgoal',
-    schema: z
+  update_subgoal: {
+    parameters: z
       .object({
         id: z
           .string()
@@ -84,7 +84,7 @@ ${getToolCallString('add_subgoal', {
       .describe(
         `Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.`
       ),
-    additionalInfo: `
+    description: `
 Examples:
 
 Usage 1 (update status):
@@ -113,19 +113,20 @@ ${getToolCallString('update_subgoal', {
 })}
     `.trim(),
   },
-  {
-    name: 'write_file',
-    schema: z
+  write_file: {
+    parameters: z
       .object({
         path: z
           .string()
           .min(1, 'Path cannot be empty')
           .describe(`Path to the file relative to the **project root**`),
-        instructions: z.string().describe('What the change is intended to do in only one sentence.'),
+        instructions: z
+          .string()
+          .describe('What the change is intended to do in only one sentence.'),
         content: z.string().describe(`Edit snippet to apply to the file.`),
       })
       .describe(`Create or edit a file with the given content.`),
-    additionalInfo: `
+    description: `
 #### **IMPORTANT** Edit Snippet
 
 Format the \`content\` parameter as an edit snippet that describes how you would like to modify the provided existing code.
@@ -211,9 +212,8 @@ function foo() {
 
     `.trim(),
   },
-  {
-    name: 'str_replace',
-    schema: z
+  str_replace: {
+    parameters: z
       .object({
         path: z
           .string()
@@ -234,7 +234,7 @@ function foo() {
         message: 'old_vals and new_vals must have the same number of elements.',
       })
       .describe(`Replace strings in a file with new strings.`),
-    additionalInfo: `
+    description: `
 This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
 
 If you are making multiple edits row to a single file with this tool, use only one <str_replace> call (without closing the tool) with old_0, new_0, old_1, new_1, old_2, new_2, etc. instead of calling str_replace multiple times on the same file.
@@ -249,9 +249,8 @@ ${getToolCallString('str_replace', {
 })}
     `.trim(),
   },
-  {
-    name: 'read_files',
-    schema: z
+  read_files: {
+    parameters: z
       .object({
         paths: z
           .string()
@@ -263,7 +262,7 @@ ${getToolCallString('str_replace', {
       .describe(
         `Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`
       ),
-    additionalInfo: `
+    description: `
 Note: DO NOT call this tool for files you've already read! There's no need to read them again — any changes to the files will be surfaced to you as a file update tool result.
 
 Example:
@@ -272,9 +271,8 @@ ${getToolCallString('read_files', {
 })}
     `.trim(),
   },
-  {
-    name: 'find_files',
-    schema: z
+  find_files: {
+    parameters: z
       .object({
         description: z
           .string()
@@ -286,7 +284,7 @@ ${getToolCallString('read_files', {
       .describe(
         `Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.`
       ),
-    additionalInfo: `
+    description: `
 Example:
 ${getToolCallString('find_files', {
   description: 'The implementation of function foo',
@@ -306,9 +304,8 @@ Don't use this tool if:
 This tool is not guaranteed to find the correct file. In general, prefer using read_files instead of find_files.
       `.trim(),
   },
-  {
-    name: 'code_search',
-    schema: z
+  code_search: {
+    parameters: z
       .object({
         pattern: z
           .string()
@@ -319,7 +316,7 @@ This tool is not guaranteed to find the correct file. In general, prefer using r
         `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`
       ),
 
-    additionalInfo: `
+    description: `
 Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
 
 Prefer to use read_files instead of code_search unless you need to search for a specific pattern in multiple files.
@@ -346,12 +343,14 @@ ${getToolCallString('code_search', { pattern: 'foo' })}
 ${getToolCallString('code_search', { pattern: 'import.*foo' })}
     `.trim(),
   },
-  {
-    name: 'run_terminal_command',
-    schema: z
+  run_terminal_command: {
+    parameters: z
       .object({
         // Can be empty to use it for a timeout.
-        command: z.string().describe(`CLI command valid for user's OS.`),
+        command: z
+          .string()
+          .min(1, 'Command cannot be empty')
+          .describe(`CLI command valid for user's OS.`),
         process_type: z
           .enum(['SYNC', 'BACKGROUND'])
           .default('SYNC')
@@ -374,7 +373,7 @@ ${getToolCallString('code_search', { pattern: 'import.*foo' })}
       .describe(
         `Execute a CLI command from the **project root** (different from the user's cwd).`
       ),
-    additionalInfo: `
+    description: `
 Stick to these use cases:
 1. Compiling the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
@@ -411,18 +410,15 @@ ${getToolCallString('run_terminal_command', {
 })}
     `.trim(),
   },
-  {
-    name: 'research',
-    schema: z
+  research: {
+    parameters: z
       .object({
-        prompts: z
-          .string()
-          .describe('A JSON array of research prompts'),
+        prompts: z.string().describe('A JSON array of research prompts'),
       })
       .describe(
         'Run a series of research prompts in parallel to gather information about your codebase.'
       ),
-    additionalInfo: `
+    description: `
 It is important to use this tool near the beginning of your response to make sure you know all the places in the codebase that will need to be updated. Always use it before using the create_plan tool.
 
 Example:
@@ -435,9 +431,8 @@ ${getToolCallString('research', {
 })}
     `.trim(),
   },
-  {
-    name: 'think_deeply',
-    schema: z
+  think_deeply: {
+    parameters: z
       .object({
         thought: z
           .string()
@@ -449,7 +444,7 @@ ${getToolCallString('research', {
       .describe(
         `Deeply consider complex tasks by brainstorming approaches and tradeoffs step-by-step.`
       ),
-    additionalInfo: `
+    description: `
 Use when user request:
 - Explicitly asks for deep planning.
 - Requires multi-file changes or complex logic.
@@ -470,9 +465,8 @@ ${getToolCallString('think_deeply', {
 })}
     `.trim(),
   },
-  {
-    name: 'create_plan',
-    schema: z
+  create_plan: {
+    parameters: z
       .object({
         path: z
           .string()
@@ -486,7 +480,7 @@ ${getToolCallString('think_deeply', {
           .describe(`A detailed plan to solve the user's request.`),
       })
       .describe(`Generate a detailed markdown plan for complex tasks.`),
-    additionalInfo: `
+    description: `
 Use when:  
 - User explicitly requests a detailed plan.  
 - Task involves significant architectural or multi-file changes.
@@ -534,9 +528,8 @@ ${getToolCallString('create_plan', {
 })}
     `.trim(),
   },
-  {
-    name: 'browser_logs',
-    schema: z
+  browser_logs: {
+    parameters: z
       .object({
         type: z
           .string()
@@ -558,7 +551,7 @@ ${getToolCallString('create_plan', {
       .describe(
         `In a headless browser, navigate to a web page and get the console logs after page load.`
       ),
-    additionalInfo: `
+    description: `
 Purpose: Use this tool to check the output of console.log or errors in order to debug issues, test functionality, or verify expected behavior.
 
 IMPORTANT: Assume the user's development server is ALREADY running and active, unless you see logs indicating otherwise. Never start the user's development server for them, unless they ask you to do so.
@@ -608,53 +601,14 @@ ${getToolCallString('browser_logs', {
 })}
     `.trim(),
   },
-  {
-    name: 'kill_terminal',
-    schema: z
-      .object({})
-      .transform(() => ({}))
-      .describe(
-        `Kill the current terminal process and restart it. Only available in agent mode.`
-      ),
-    additionalInfo: `
-Purpose: Use this tool to forcefully terminate the current terminal session and start fresh. This is useful when a command is stuck or the terminal is in an unresponsive state.
-
-This tool is only available in agent mode and will not work in regular Codebuff.
-
-Example:
-${getToolCallString('kill_terminal', {})}
-    `.trim(),
-  },
-  {
-    name: 'sleep',
-    schema: z
-      .object({
-        seconds: z
-          .string()
-          .min(1, 'Seconds cannot be empty')
-          .describe(`Number of seconds to sleep (as string)`),
-      })
-      .describe(
-        `Sleep for a specified number of seconds. Only available in agent mode.`
-      ),
-    additionalInfo: `
-Purpose: Use this tool to pause execution for a specified amount of time. This can be useful when waiting for processes to complete, giving time for services to start up, or adding delays between operations.
-
-This tool is only available in agent mode and will not work in regular Codebuff.
-
-Example:
-${getToolCallString('sleep', { seconds: '5' })}
-    `.trim(),
-  },
-  {
-    name: 'end_turn',
-    schema: z
+  end_turn: {
+    parameters: z
       .object({})
       .transform(() => ({}))
       .describe(
         `End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.`
       ),
-    additionalInfo: `
+    description: `
 Purpose: Use this tool if you have fully responded to the user and want to get their feedback. This ignores any tool results (from write_file, run_terminal_command, etc.), so be sure you are done before using it.
 
 Make sure to use this tool if you want a response from the user and not the system. Otherwise, you may receive tool results from the previous tools. e.g. "Let me know if you need xyz!${getToolCallString('end_turn', {})}"
@@ -663,7 +617,20 @@ Example:
 ${getToolCallString('end_turn', {})}
     `.trim(),
   },
-] as const
+} as const satisfies ToolSet
+
+const toolConfigsList = Object.entries(toolConfigs).map(
+  ([name, config]) =>
+    ({
+      name: name as keyof typeof toolConfigs,
+      ...config,
+    }) as {
+      [K in keyof typeof toolConfigs]: { name: K } & (typeof toolConfigs)[K]
+    }[keyof typeof toolConfigs]
+)
+
+export type ToolName = keyof typeof toolConfigs
+export const TOOL_LIST = Object.keys(toolConfigs) as ToolName[]
 
 // Helper function to generate markdown for parameter list
 function generateParamsList(
@@ -723,7 +690,7 @@ function generateParamsList(
 function buildToolDescription(
   toolName: string,
   schema: z.ZodType<any, any, any>,
-  additionalInfo: string
+  description: string = ''
 ): string {
   const mainDescription = schema.description || ''
   const paramsArray = generateParamsList(toolName, schema)
@@ -739,7 +706,7 @@ function buildToolDescription(
     `### ${toolName}`,
     mainDescription,
     paramsSection,
-    additionalInfo,
+    description,
   ]).join('\n\n')
 }
 
@@ -747,66 +714,59 @@ const tools = toolConfigsList.map((config) => ({
   name: config.name,
   description: buildToolDescription(
     config.name,
-    config.schema,
-    config.additionalInfo
+    config.parameters,
+    config.description
   ),
 })) as { name: GlobalToolNameImport; description: string }[]
 
-const managerTools = tools.filter((tool) =>
-  ['run_terminal_command', 'kill_terminal', 'sleep', 'end_turn'].includes(
-    tool.name
-  )
-)
-
-const toolSchemas = Object.fromEntries(
-  toolConfigsList.map((tool) => [tool.name, tool.schema])
-) as {
-  [K in (typeof toolConfigsList)[number]['name']]: Extract<
-    (typeof toolConfigsList)[number],
-    { name: K }
-  >['schema']
-}
+const toolDescriptions = Object.fromEntries(
+  Object.entries(toolConfigs).map(([name, config]) => [
+    name,
+    buildToolDescription(name, config.parameters, config.description),
+  ])
+) as Record<keyof typeof toolConfigs, string>
 
 type ToolConfig = (typeof toolConfigsList)[number]
 
-export type ToolCall = {
+export type CodebuffToolCall = {
   [K in ToolConfig as K['name']]: {
-    name: K['name']
-    parameters: z.infer<K['schema']>
-  }
+    toolName: K['name']
+    args: z.infer<K['parameters']>
+  } & Omit<ToolCallPart, 'type'>
 }[ToolConfig['name']]
 
 export type ToolCallError = {
-  name?: string
-  parameters: Record<string, string>
+  toolName?: string
+  args: Record<string, string>
   error: string
-}
+} & Omit<ToolCallPart, 'type'>
 
-export function parseRawToolCall(rawToolCall: {
-  name: string
-  parameters: Record<string, string>
-}): ToolCall | ToolCallError {
-  const name = rawToolCall.name
+export function parseRawToolCall(
+  rawToolCall: ToolCallPart & { args: Record<string, string> }
+): CodebuffToolCall | ToolCallError {
+  const toolName = rawToolCall.toolName
 
-  if (!(name in toolSchemas)) {
+  if (!(toolName in toolConfigs)) {
     return {
-      name,
-      parameters: rawToolCall.parameters,
-      error: `Tool ${name} not found`,
+      toolName,
+      toolCallId: generateCompactId(),
+      args: rawToolCall.args,
+      error: `Tool ${toolName} not found`,
     }
   }
-  const validName = name as GlobalToolNameImport
+  const validName = toolName as GlobalToolNameImport
 
-  let schema: z.ZodObject<any> | z.ZodEffects<any> = toolSchemas[validName]
+  let schema: z.ZodObject<any> | z.ZodEffects<any> =
+    toolConfigs[validName].parameters
   while (schema instanceof z.ZodEffects) {
     schema = schema.innerType()
   }
-  const processedParameters: Record<string, any> = { ...rawToolCall.parameters }
+  const processedParameters: Record<string, any> = { ...rawToolCall.args }
 
   const arrayParamPattern = /^(.+)_(\d+)$/
   const arrayParamsCollector: Record<string, string[]> = {}
 
-  for (const [key, value] of Object.entries(rawToolCall.parameters)) {
+  for (const [key, value] of Object.entries(rawToolCall.args)) {
     const match = key.match(arrayParamPattern)
     if (match) {
       const [, paramNameBase, indexStr] = match
@@ -835,17 +795,15 @@ export function parseRawToolCall(rawToolCall: {
   const result = schema.safeParse(processedParameters)
   if (!result.success) {
     return {
-      name: validName,
-      parameters: rawToolCall.parameters,
+      toolName: validName,
+      toolCallId: generateCompactId(),
+      args: rawToolCall.args,
       error: `Invalid parameters for ${validName}: ${JSON.stringify(result.error.issues, null, 2)}`,
     }
   }
 
-  return { name: validName, parameters: result.data } as ToolCall
+  return { toolName: validName, args: result.data } as CodebuffToolCall
 }
-
-export const TOOL_LIST = tools.map((tool) => tool.name)
-export type ToolName = (typeof TOOL_LIST)[number]
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
   'read_files',
@@ -855,7 +813,7 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'research',
 ]
 
-export const getToolsInstructions = (toolDescriptions: string[]) => `
+export const getToolsInstructions = (toolNames: readonly ToolName[]) => `
 # Tools
 
 You (Buffy) have access to the following tools. Call them when needed.
@@ -932,7 +890,7 @@ The user does not need to know about the exact results of these tools, especiall
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
 
-${toolDescriptions.join('\n\n')}
+${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}
 `
 
 export async function updateContext(
@@ -988,22 +946,23 @@ Please rewrite the entire context using the update instructions in a <new_contex
 
 export async function updateContextFromToolCalls(
   agentContext: string,
-  toolCalls: Extract<ToolCall, { name: 'update_subgoal' | 'add_subgoal' }>[]
+  toolCalls: Extract<
+    CodebuffToolCall,
+    { toolName: 'update_subgoal' | 'add_subgoal' }
+  >[]
 ) {
   let prompt = [] // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
 
   for (const toolCall of toolCalls) {
-    const { name, parameters } = toolCall
-    if (name === 'add_subgoal') {
+    const { toolName, args } = toolCall
+    if (toolName === 'add_subgoal') {
       prompt.push(
-        `Please add the following subgoal:\n${renderSubgoalUpdate(
-          parameters as any
-        )}`
+        `Please add the following subgoal:\n${renderSubgoalUpdate(args as any)}`
       )
-    } else if (name === 'update_subgoal') {
+    } else if (toolName === 'update_subgoal') {
       prompt.push(
         `Please update the subgoal with the matching id. For <status> and <plan>, if there are already tags, update them to the new values, keeping only one. For <log>, please keep all the existing logs and append a new <log> entry at the end of the subgoal. Finally, for any unmentioned parameters, do not change them in the existing subgoal:\n${renderSubgoalUpdate(
-          parameters as any
+          args as any
         )}`
       )
     }
@@ -1126,26 +1085,30 @@ export interface RawToolCall {
 }
 
 export type ClientToolCall =
-  | {
-      id: string
-      name: Exclude<ToolName, 'write_file' | 'str_replace' | 'create_plan'>
-      parameters: Record<string, unknown>
-    }
-  | {
-      id: string
-      name: 'write_file'
-      parameters: FileChange
-    }
-  | {
-      id: string
-      name: 'str_replace'
-      parameters: FileChange
-    }
-  | {
-      id: string
-      name: 'create_plan'
-      parameters: FileChange
-    }
+  | Exclude<
+      CodebuffToolCall,
+      {
+        toolName:
+          | 'write_file'
+          | 'str_replace'
+          | 'create_plan'
+          | 'run_terminal_command'
+      }
+    >
+  | (Omit<ToolCallPart, 'type'> &
+      (
+        | {
+            toolName: 'write_file' | 'str_replace' | 'create_plan'
+            args: FileChange
+          }
+        | {
+            toolName: 'run_terminal_command'
+            args: { mode: 'user' | 'assistant' } & Extract<
+              CodebuffToolCall,
+              { toolName: 'run_terminal_command' }
+            >['args']
+          }
+      ))
 
 export function parseToolCalls(messageContent: string) {
   // TODO: Return a typed tool call. Typescript is hard.
@@ -1246,26 +1209,27 @@ function renderSubgoalUpdate(subgoal: {
   return getToolCallString('add_subgoal', params)
 }
 
-export function getManagerToolsInstructions() {
-  return getToolsInstructions(managerTools.map((tool) => tool.description))
-}
-
 // Function to get filtered tools based on cost mode and agent mode
-export function getFilteredToolsInstructions(costMode: string) {
-  let allowedTools = tools.filter(
-    (tool) => !['kill_terminal', 'sleep'].includes(tool.name)
-  )
+export function getFilteredToolsInstructions(
+  costMode: string,
+  readOnlyMode: boolean = false
+) {
+  let allowedTools = TOOL_LIST
 
   // Filter based on cost mode
-  if (costMode === 'ask') {
+  if (costMode === 'ask' || readOnlyMode) {
     // For ask mode, exclude write_file, str_replace, create_plan, and run_terminal_command
     allowedTools = allowedTools.filter(
       (tool) =>
-        !['write_file', 'str_replace', 'run_terminal_command'].includes(
-          tool.name
-        )
+        !['write_file', 'str_replace', 'run_terminal_command'].includes(tool)
     )
   }
 
-  return getToolsInstructions(allowedTools.map((tool) => tool.description))
+  if (readOnlyMode) {
+    allowedTools = allowedTools.filter(
+      (tool) => !['create_plan', 'research'].includes(tool)
+    )
+  }
+
+  return getToolsInstructions(allowedTools)
 }

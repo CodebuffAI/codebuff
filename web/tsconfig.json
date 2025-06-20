@@ -22,8 +22,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "common/*": ["../common/src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": [

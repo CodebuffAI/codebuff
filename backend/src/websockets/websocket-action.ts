@@ -13,7 +13,6 @@ import { eq } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 
 import { mainPrompt } from '../main-prompt'
-import { managerPrompt } from '../manager-prompt'
 import { protec } from './middleware'
 import { sendMessage } from './server'
 import { logger, withLoggerContext } from '../util/logger'
@@ -146,23 +145,26 @@ const onPrompt = async (
         trackEvent(AnalyticsEvent.USER_INPUT, userId, {
           prompt,
           promptId,
-          isAgentMode: false,
         })
       }
 
       try {
-        const { agentState, toolCalls, toolResults } = await mainPrompt(ws, action, {
-          userId,
-          clientSessionId,
-          onResponseChunk: (chunk) =>
-            sendAction(ws, {
-              type: 'response-chunk',
-              userInputId: promptId,
-              chunk,
-            }),
-          selectedModel: model,
-          readOnlyMode: false // readOnlyMode = false for normal prompts
-        })
+        const { agentState, toolCalls, toolResults } = await mainPrompt(
+          ws,
+          action,
+          {
+            userId,
+            clientSessionId,
+            onResponseChunk: (chunk) =>
+              sendAction(ws, {
+                type: 'response-chunk',
+                userInputId: promptId,
+                chunk,
+              }),
+            selectedModel: model,
+            readOnlyMode: false, // readOnlyMode = false for normal prompts
+          }
+        )
 
         // Send prompt data back
         sendAction(ws, {
@@ -208,124 +210,6 @@ const onPrompt = async (
               messageHistory: newMessages,
             },
             toolCalls: [],
-            toolResults: [],
-          })
-        }, 100)
-      } finally {
-        const usageResponse = await genUsageResponse(
-          fingerprintId,
-          userId,
-          undefined
-        )
-        sendAction(ws, usageResponse)
-      }
-    }
-  )
-}
-
-/**
- * Handles agent prompt actions from the client
- */
-const onManagerPrompt = async (
-  action: Extract<ClientAction, { type: 'manager-prompt' }>,
-  clientSessionId: string,
-  ws: WebSocket
-) => {
-  const {
-    fingerprintId,
-    authToken,
-    prompt,
-    promptId,
-    agentState,
-    toolResults,
-    costMode,
-    model,
-  } = action
-
-  await withLoggerContext(
-    { fingerprintId, clientRequestId: 'manager-' + Date.now(), costMode },
-    async () => {
-      const userId = await getUserIdFromAuthToken(authToken)
-      if (!userId) {
-        throw new Error('User not found')
-      }
-
-      if (prompt) {
-        logger.info({ userId, fingerprintId }, `MANAGER PROMPT: ${prompt}`)
-      }
-
-      trackEvent(AnalyticsEvent.USER_INPUT, userId, {
-        prompt,
-        promptId,
-        isManagerMode: true,
-      })
-
-      try {
-        const {
-          toolCalls,
-          toolResults: serverToolResults,
-          agentState: updatedAgentState,
-        } = await managerPrompt(
-          ws,
-          {
-            type: 'manager-prompt',
-            prompt,
-            agentState,
-            toolResults,
-            fingerprintId,
-            authToken,
-            costMode,
-            model,
-          },
-          userId,
-          clientSessionId,
-          (chunk) => {
-            sendAction(ws, {
-              type: 'response-chunk',
-              userInputId: promptId,
-              chunk,
-            })
-          },
-          agentState.fileContext
-        )
-        sendAction(ws, {
-          type: 'manager-prompt-response',
-          promptId,
-          toolCalls: toolCalls as any[],
-          toolResults: serverToolResults,
-          agentState: updatedAgentState,
-        })
-      } catch (e) {
-        logger.error(e, 'Error in handleManagerPrompt')
-        const response =
-          e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
-
-        sendAction(ws, {
-          type: 'response-chunk',
-          userInputId: promptId,
-          chunk: response,
-        })
-
-        const updatedAgentState = {
-          ...agentState,
-          messageHistory: buildArray(
-            ...agentState.messageHistory,
-            prompt && {
-              role: 'user' as const,
-              content: [{ type: 'text' as const, text: prompt }],
-            },
-            {
-              role: 'assistant' as const,
-              content: [{ type: 'text' as const, text: response }],
-            }
-          ),
-        }
-        setTimeout(() => {
-          sendAction(ws, {
-            type: 'manager-prompt-response',
-            promptId,
-            toolCalls: [],
-            agentState: updatedAgentState,
             toolResults: [],
           })
         }, 100)
@@ -453,7 +337,6 @@ export const onWebsocketAction = async (
 // Register action handlers
 subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
-subscribeToAction('manager-prompt', protec.run(onManagerPrompt))
 
 /**
  * Requests multiple files from the client

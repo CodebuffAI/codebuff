@@ -3,8 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 import { InviteMemberRequest } from '@codebuff/common/types/organization'
+import { updateStripeSubscriptionQuantity } from '@codebuff/billing'
 
 interface RouteParams {
   params: { orgId: string }
@@ -76,10 +77,14 @@ export async function POST(
     const { orgId } = params
     const body: InviteMemberRequest = await request.json()
 
-    // Check if user is owner or admin
+    // Check if user is owner or admin and get organization details
     const membership = await db
-      .select({ role: schema.orgMember.role })
+      .select({
+        role: schema.orgMember.role,
+        organization: schema.org
+      })
       .from(schema.orgMember)
+      .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
@@ -92,7 +97,7 @@ export async function POST(
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
-    const { role: userRole } = membership[0]
+    const { role: userRole, organization } = membership[0]
     if (userRole !== 'owner' && userRole !== 'admin') {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
@@ -129,12 +134,35 @@ export async function POST(
       )
     }
 
-    // Add member
-    await db.insert(schema.orgMember).values({
-      org_id: orgId,
-      user_id: userId,
-      role: body.role,
+    // Add member and get updated count in a transaction
+    let actualQuantity = 0; // Initialize to handle edge cases
+    await db.transaction(async (tx) => {
+      // Add member
+      await tx.insert(schema.orgMember).values({
+        org_id: orgId,
+        user_id: userId,
+        role: body.role,
+      })
+
+      // Get current member count immediately after insert
+      const memberCount = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.orgMember)
+        .where(eq(schema.orgMember.org_id, orgId))
+
+      actualQuantity = Math.max(1, memberCount[0].count) // Minimum 1 seat
     })
+
+    // Update Stripe subscription quantity if subscription exists
+    if (organization.stripe_subscription_id && actualQuantity > 0) {
+      await updateStripeSubscriptionQuantity({
+        stripeSubscriptionId: organization.stripe_subscription_id,
+        actualQuantity,
+        orgId,
+        userId,
+        context: 'added member'
+      })
+    }
 
     return NextResponse.json({ success: true }, { status: 201 })
   } catch (error) {

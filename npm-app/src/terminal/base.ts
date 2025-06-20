@@ -36,7 +36,6 @@ type PersistentProcess =
       shell: 'cmd.exe' | 'powershell.exe' | 'bash'
       pty: IPty
       timerId: NodeJS.Timeout | null
-      // Add persistent output buffer for manager mode
       globalOutputBuffer: string
       globalOutputLastReadLength: number
       setupPromise: Promise<any>
@@ -46,7 +45,6 @@ type PersistentProcess =
       shell: 'bash' | 'cmd.exe' | 'powershell.exe'
       childProcess: ChildProcessWithoutNullStreams | null
       timerId: NodeJS.Timeout | null
-      // Add persistent output buffer for manager mode
       globalOutputBuffer: string
       globalOutputLastReadLength: number
     }
@@ -151,7 +149,6 @@ const createPersistantProcess = (
       setupPromise,
     }
 
-    // Add a persistent listener to capture all output for manager mode
     persistentPty.onData((data: string) => {
       if (persistentProcessInfo.type === 'pty') {
         persistentProcessInfo.globalOutputBuffer += data.toString() // Should we use stripColors(...)?
@@ -222,16 +219,11 @@ export const resetShell = (cwd: string) => {
   }
 }
 
-function formatResult(
-  command: string,
-  stdout: string | undefined,
-  status: string
-): string {
+function formatResult(command: string, stdout: string, status: string): string {
   return buildArray(
     `<command>${command}</command>`,
     '<terminal_command_result>',
-    stdout &&
-      `<output>${truncateStringWithMessage({ str: stripColors(stdout), maxLength: COMMAND_OUTPUT_LIMIT, remove: 'MIDDLE' })}</output>`,
+    `<output>${truncateStringWithMessage({ str: stripColors(stdout), maxLength: COMMAND_OUTPUT_LIMIT, remove: 'MIDDLE' })}</output>`,
     `<status>${status}</status>`,
     '</terminal_command_result>'
   ).join('\n')
@@ -240,7 +232,7 @@ function formatResult(
 export const runTerminalCommand = async (
   toolCallId: string,
   command: string,
-  mode: 'user' | 'assistant' | 'manager',
+  mode: 'user' | 'assistant',
   processType: 'SYNC' | 'BACKGROUND',
   timeoutSeconds: number,
   cwd?: string,
@@ -294,24 +286,14 @@ export const runTerminalCommand = async (
         resolveCommand
       )
     } else if (persistentProcess.type === 'pty') {
-      if (mode === 'manager') {
-        runCommandPtyManager(
-          persistentProcess,
-          modifiedCommand,
-          cwd,
-          maybeTimeoutSeconds,
-          resolveCommand
-        )
-      } else {
-        runCommandPty(
-          persistentProcess,
-          modifiedCommand,
-          mode,
-          cwd,
-          maybeTimeoutSeconds,
-          resolveCommand
-        )
-      }
+      runCommandPty(
+        persistentProcess,
+        modifiedCommand,
+        mode,
+        cwd,
+        maybeTimeoutSeconds,
+        resolveCommand
+      )
     } else {
       // Fallback to child_process implementation
       runCommandChildProcess(
@@ -619,7 +601,7 @@ If you want to change the project root:
         command,
         commandOutput,
         buildArray([
-          `cwd: ${currentWorkingDirectory}`,
+          `Starting cwd: ${currentWorkingDirectory}`,
           `${statusMessage}\n`,
           outsideProject &&
             `Detected final cwd outside project root. Reset cwd to ${currentWorkingDirectory}`,
@@ -735,156 +717,6 @@ export function killAndResetPersistentProcess() {
 
 export function clearScreen() {
   process.stdout.write('\u001b[2J\u001b[0;0H')
-}
-
-// New function specifically for manager mode with settling behavior
-export const runCommandPtyManager = (
-  persistentProcess: PersistentProcess & {
-    type: 'pty'
-  },
-  command: string,
-  cwd: string,
-  maybeTimeoutSeconds: number | null,
-  resolve: (value: {
-    result: string
-    stdout: string
-    exitCode: number | null
-  }) => void
-) => {
-  const ptyProcess = persistentProcess.pty
-
-  if (command.trim() === 'clear') {
-    // Use direct terminal escape sequence to clear the screen
-    process.stdout.write('\u001b[2J\u001b[0;0H')
-    resolve({
-      result: formatResult(command, '', `Complete`),
-      stdout: '',
-      exitCode: 0,
-    })
-    return
-  }
-
-  const projectRoot = getProjectRoot()
-  const isWindows = os.platform() === 'win32'
-
-  console.log(green(`${cwd} > ${command}`))
-
-  let commandOutput = ''
-  let buffer = promptIdentifier
-  let echoLinesRemaining = isWindows ? 1 : command.split('\n').length
-
-  let timer: NodeJS.Timeout | null = null
-  let settleTimer: NodeJS.Timeout | null = null
-
-  // Use the provided timeout or default to 30 seconds for manager mode
-  const managerTimeoutMs =
-    maybeTimeoutSeconds !== null ? maybeTimeoutSeconds * 1000 : 30000
-
-  if (maybeTimeoutSeconds !== null) {
-    timer = setTimeout(() => {
-      // In manager mode, don't kill the terminal - just report what we have
-      if (timer) {
-        clearTimeout(timer)
-      }
-      if (settleTimer) {
-        clearTimeout(settleTimer)
-      }
-      dataDisposable.dispose()
-
-      resolve({
-        result: formatResult(
-          command,
-          commandOutput,
-          `Command timed out after ${managerTimeoutMs / 1000} seconds. Output captured so far. Terminal is still running.`
-        ),
-        stdout: commandOutput,
-        exitCode: null, // null indicates timeout, not failure
-      })
-    }, managerTimeoutMs)
-  }
-
-  persistentProcess.timerId = timer
-
-  const finishCommand = (exitCode: number | null = null) => {
-    if (timer) {
-      clearTimeout(timer)
-    }
-    if (settleTimer) {
-      clearTimeout(settleTimer)
-    }
-    dataDisposable.dispose()
-
-    const statusMessage =
-      exitCode === 0
-        ? 'Complete'
-        : exitCode === null
-          ? 'Comand started'
-          : `Failed with exit code: ${exitCode}`
-
-    resolve({
-      result: formatResult(
-        command,
-        undefined,
-        `cwd: ${path.resolve(projectRoot, cwd)}\n\n${statusMessage}`
-      ),
-      stdout: commandOutput,
-      exitCode,
-    })
-  }
-
-  const dataDisposable = ptyProcess.onData((data: string) => {
-    buffer += data
-    const suffix = suffixPrefixOverlap(buffer, promptIdentifier)
-    let toProcess = buffer.slice(0, buffer.length - suffix.length)
-    buffer = suffix
-
-    const matches = toProcess.match(echoLinePattern)
-    if (matches) {
-      for (let i = 0; i < matches.length && echoLinesRemaining > 0; i++) {
-        echoLinesRemaining = Math.max(echoLinesRemaining - 1, 0)
-        // Process normal output line
-        toProcess = toProcess.replace(echoLinePattern, '')
-      }
-    }
-
-    const indexOfPromptIdentifier = toProcess.indexOf(promptIdentifier)
-    if (indexOfPromptIdentifier !== -1) {
-      buffer = toProcess.slice(indexOfPromptIdentifier) + buffer
-      toProcess = toProcess.slice(0, indexOfPromptIdentifier)
-    }
-
-    process.stdout.write(toProcess)
-    commandOutput += toProcess
-
-    // Reset settle timer whenever we get new output
-    if (settleTimer) {
-      clearTimeout(settleTimer)
-    }
-
-    // Set settle timer for 3000ms - if no new output comes, finish the command
-    settleTimer = setTimeout(() => {
-      finishCommand()
-    }, 3000)
-
-    const commandDone = buffer.startsWith(promptIdentifier)
-    if (commandDone && echoLinesRemaining === 0) {
-      // Command is done
-      const exitCode = buffer.includes('Command completed')
-        ? 0
-        : (() => {
-            const match = buffer.match(/Command failed with exit code (\d+)\./)
-            return match ? parseInt(match[1]) : null
-          })()
-
-      finishCommand(exitCode)
-      return
-    }
-  })
-
-  ptyProcess.write(`${command}`)
-  setTimeout(() => {
-    ptyProcess.write('\r')
-  }, 50)
 }
 
 // Add a function to get new terminal output since last read

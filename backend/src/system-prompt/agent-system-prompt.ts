@@ -16,7 +16,11 @@ import {
   knowledgeFilesPrompt,
 } from './prompts'
 
-export const getAgentSystemPrompt = (fileContext: ProjectFileContext, costMode?: string) => {
+export const getAgentSystemPrompt = (
+  fileContext: ProjectFileContext,
+  readOnlyMode: boolean,
+  costMode?: string
+) => {
   const agentInstructions = fs.readFileSync(
     path.join(__dirname, 'agent-instructions.md'),
     'utf8'
@@ -46,7 +50,10 @@ export const getAgentSystemPrompt = (fileContext: ProjectFileContext, costMode?:
 
   const configSchemaTokens = countTokens(configSchemaPrompt)
 
-  const toolsInstructions = getFilteredToolsInstructions(costMode || 'normal')
+  const toolsInstructions = getFilteredToolsInstructions(
+    costMode || 'normal',
+    readOnlyMode
+  )
 
   const systemPrompt = buildArray(
     agentInstructions,

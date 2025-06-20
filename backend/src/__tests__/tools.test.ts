@@ -32,33 +32,24 @@ describe('getFilteredToolsInstructions', () => {
   ]
 
   test('should return all tools for normal mode', () => {
-    const instructions = getFilteredToolsInstructions('normal')
+    const instructions = getFilteredToolsInstructions('normal', false)
     for (const tool of allTools) {
       expect(instructions).toInclude(`### ${tool}`)
     }
-    expect(instructions).not.toInclude(`### kill_terminal`)
-    expect(instructions).not.toInclude(`### sleep`)
   })
 
   test('should return a subset of tools for ask mode', () => {
-    const instructions = getFilteredToolsInstructions('ask')
+    const instructions = getFilteredToolsInstructions('ask', false)
     for (const tool of askModeTools) {
       expect(instructions).toInclude(`### ${tool}`)
     }
     expect(instructions).not.toInclude(`### write_file`)
     expect(instructions).not.toInclude(`### str_replace`)
     expect(instructions).not.toInclude(`### run_terminal_command`)
-    expect(instructions).not.toInclude(`### kill_terminal`)
-    expect(instructions).not.toInclude(`### sleep`)
   })
 
-  test('should not include manager-only tools', () => {
-    const normalInstructions = getFilteredToolsInstructions('normal')
-    expect(normalInstructions).not.toInclude('kill_terminal')
-    expect(normalInstructions).not.toInclude('sleep')
-
-    const askInstructions = getFilteredToolsInstructions('ask')
-    expect(askInstructions).not.toInclude('kill_terminal')
-    expect(askInstructions).not.toInclude('sleep')
+  test('should not include research if readOnlyMode is true', () => {
+    const instructions = getFilteredToolsInstructions('normal', true)
+    expect(instructions).not.toInclude(`### research`)
   })
 })

@@ -1,20 +1,20 @@
 import {
+  beforeEach,
+  mock as bunMockFn,
+  spyOn as bunSpyOn,
   describe,
   expect,
   it,
-  mock as bunMockFn,
-  spyOn as bunSpyOn,
-  beforeEach,
   Mock,
 } from 'bun:test'
 
 // Import the entire module to spy on its exports
-import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
-import * as checkNewFilesNecessaryModule from '../find-files/check-new-files-necessary'
-import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 import { CoreMessage } from 'ai'
 import { CostMode, finetunedVertexModels } from '@codebuff/common/constants'
+import { ProjectFileContext } from '@codebuff/common/util/file'
+import * as checkNewFilesNecessaryModule from '../find-files/check-new-files-necessary'
+import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
+import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
 
 // Restore module-level mocks using bunMockFn for the mock implementations
 bunMockFn.module('../find-files/check-new-files-necessary', () => ({
@@ -62,7 +62,8 @@ describe('requestRelevantFiles', () => {
   const mockMessages: CoreMessage[] = [{ role: 'user', content: 'test prompt' }]
   const mockSystem = 'test system'
   const mockFileContext: ProjectFileContext = {
-    currentWorkingDirectory: '/test/project',
+    projectRoot: '/test/project',
+    cwd: '/test/project',
     fileTree: [{ name: 'file1.ts', filePath: 'file1.ts', type: 'file' }],
     fileTokenScores: {},
     knowledgeFiles: {},

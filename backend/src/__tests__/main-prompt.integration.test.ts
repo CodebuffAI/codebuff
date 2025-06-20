@@ -5,8 +5,10 @@ import { WebSocket } from 'ws'
 import { mainPrompt } from '../main-prompt'
 
 // Mock imports needed for setup within the test
-import { renderReadFilesResult } from '@/util/parse-tool-call-xml'
+import { ClientToolCall } from '../tools'
+import { renderReadFilesResult } from '../util/parse-tool-call-xml'
 import { getToolCallString } from '@codebuff/common/constants/tools'
+import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
@@ -22,8 +24,9 @@ class MockWebSocket {
   removeListener(event: string, listener: (...args: any[]) => void) {}
 }
 
-const mockFileContext = {
-  currentWorkingDirectory: '/test',
+const mockFileContext: ProjectFileContext = {
+  projectRoot: '/test',
+  cwd: '/test',
   fileTree: [],
   fileTokenScores: {},
   knowledgeFiles: {},
@@ -329,25 +332,29 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       toolCalls,
       toolResults,
       agentState: finalAgentState,
-    } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
-      action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session-delete-function-integration',
-        onResponseChunk: (chunk: string) => {
-          process.stdout.write(chunk)
-        },
-        selectedModel: undefined,
-        readOnlyMode: false
-      }
-    )
+    } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session-delete-function-integration',
+      onResponseChunk: (chunk: string) => {
+        process.stdout.write(chunk)
+      },
+      selectedModel: undefined,
+      readOnlyMode: false,
+    })
 
     // Find the write_file tool call
-    const writeFileCall = toolCalls.find((call) => call.name === 'write_file')
+    const writeFileCall = toolCalls.find(
+      (call) => call.toolName === 'write_file'
+    )
     expect(writeFileCall).toBeDefined()
-    expect(writeFileCall?.parameters.path).toBe('src/util/messages.ts')
-    expect(writeFileCall?.parameters.content.trim()).toBe(
+    expect(
+      (writeFileCall as ClientToolCall & { toolName: 'write_file' }).args.path
+    ).toBe('src/util/messages.ts')
+    expect(
+      (
+        writeFileCall as ClientToolCall & { toolName: 'write_file' }
+      ).args.content.trim()
+    ).toBe(
       `@@ -46,32 +46,8 @@\n   }\n   return message.content.map((c) => ('text' in c ? c.text : '')).join('\\n')\n }\n \n-export function castAssistantMessage(message: Message): Message {\n-  if (message.role !== 'assistant') {\n-    return message\n-  }\n-  if (typeof message.content === 'string') {\n-    return {\n-      content: \`<previous_assistant_message>\${message.content}</previous_assistant_message>\`,\n-      role: 'user' as const,\n-    }\n-  }\n-  return {\n-    role: 'user' as const,\n-    content: message.content.map((m) => {\n-      if (m.type === 'text') {\n-        return {\n-          ...m,\n-          text: \`<previous_assistant_message>\${m.text}</previous_assistant_message>\`,\n-        }\n-      }\n-      return m\n-    }),\n-  }\n-}\n-\n // Number of terminal command outputs to keep in full form before simplifying\n const numTerminalCommandsToKeep = 5\n \n /**`.trim()
     )
   }, 60000) // Increase timeout for real LLM call
@@ -372,7 +379,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         selectedModel: undefined,
-        readOnlyMode: false
+        readOnlyMode: false,
       }
     )
 
@@ -451,17 +458,23 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
             process.stdout.write(chunk)
           },
           selectedModel: undefined,
-          readOnlyMode: false
+          readOnlyMode: false,
         }
       )
 
       // Find the write_file tool call
-      const writeFileCall = toolCalls.find((call) => call.name === 'write_file')
-      expect(writeFileCall).toBeDefined()
-      expect(writeFileCall?.parameters.path).toBe(
-        'packages/backend/src/index.ts'
+      const writeFileCall = toolCalls.find(
+        (call) => call.toolName === 'write_file'
       )
-      expect(writeFileCall?.parameters.content.trim()).toBe(
+      expect(writeFileCall).toBeDefined()
+      expect(
+        (writeFileCall as ClientToolCall & { toolName: 'write_file' }).args.path
+      ).toBe('packages/backend/src/index.ts')
+      expect(
+        (
+          writeFileCall as ClientToolCall & { toolName: 'write_file' }
+        ).args.content.trim()
+      ).toBe(
         `
 @@ -689,6 +689,4 @@
    });

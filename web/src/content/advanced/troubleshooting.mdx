@@ -7,9 +7,27 @@ order: 1
 
 # Troubleshooting
 
+## Version
+
+The most latest version of the Codebuff client can be found on the [npm page](https://www.npmjs.com/package/codebuff).
+
+Run `codebuff --version` to make sure you're on the latest version.
+
+Note: Codebuff should automatically install the latest version. If you're still having issues, see below.
+
+## Codebuff not updating
+
+If you see the npm install run but Codebuff still isn't at the latest version, this is most likely an issue with npm's cache. Try running `npm cache clean --force` and then `npm install -g codebuff`.
+
 ## Install failed
 
-If `npm install -g codebuff` gave you an error, try using `sudo`. Otherwise, try reinstalling node with [nvm or fnm](https://nodejs.org/en/download). Then run the codebuff install command again.
+If `npm install -g codebuff` gave you an error regarding permissions, try using setting the owner of that directory to your user.
+
+Mac/Linux: `sudo chown -R $(whoami) <directory>`
+
+Windows: `cmd takeown /F <directory> /R /D Y`
+
+Otherwise, try reinstalling node with [nvm or fnm](https://nodejs.org/en/download). Then run the codebuff install command again.
 
 ## Accessing Your Chat History
 
@@ -24,11 +42,11 @@ If you need help, we'd love if you include a copy of your recent chats for us to
 If you see a message like this:
 
 ```bash
-/Users/<youruser>/Library/pnpm/global/5/.pnpm/codebuff@1.0.153/node_modules/codebuff/dist/common/websockets/websocket-client.js:158
+/Users/<youruser>/Library/pnpm/global/5/.pnpm/codebuff@someversion/node_modules/codebuff/dist/common/websockets/websocket-client.js:158
                     reject(new Error(`Websocket message with txid ${txid} timed out.`));                           ^
 
 Error: Websocket message with txid 32 timed out.
-    at Timeout._onTimeout (/Users/<youruser>/Library/pnpm/global/5/.pnpm/codebuff@1.0.153/node_modules/codebuff/dist/common/websockets/websocket-client.js:158:28)
+    at Timeout._onTimeout (/Users/<youruser>/Library/pnpm/global/5/.pnpm/codebuff@someversion/node_modules/codebuff/dist/common/websockets/websocket-client.js:158:28)
     at listOnTimeout (node:internal/timers:594:17)
     at process.processTimers (node:internal/timers:529:7)
 
@@ -49,16 +67,20 @@ If Codebuff keeps trying to update itself in an endless loop, there could be sev
 One common cause is having conflicting Node/npm installations on your system, particularly between Homebrew and nvm. Here's how to diagnose and fix this:
 
 1. Check your Node and npm paths:
+
    ```bash
    which node
    which npm
    ```
+
    If these point to Homebrew paths (e.g., `/opt/homebrew/bin/`) instead of nvm paths (e.g., `~/.nvm/versions/`), that's the issue.
 
 2. Check what packages depend on Node through Homebrew:
+
    ```bash
    brew uninstall node
    ```
+
    This will show you any packages that depend on Node.
 
 3. If you don't need those packages anymore, you can uninstall them. This will automatically remove Node as a dependency.
@@ -97,4 +119,4 @@ rm -rf /some/path/to/node_modules/.codebuff-SOMEHASH
 If you're still experiencing issues:
 
 1. Join our [Discord community](https://codebuff.com/discord) for real-time help from other users!
-2. Contact us at [support@codebuff.com](mailto:support@codebuff.com) – please note we prioritize subscribers, but we'll likely reply within a week.
+2. Contact us at [support@codebuff.com](mailto:support@codebuff.com) – please note we prioritize paying users, but we'll likely reply within a week.

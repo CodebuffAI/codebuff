@@ -169,7 +169,7 @@ export async function handleRestoreCheckpoint(
   client: Client,
   rl: ReadlineInterface
 ): Promise<string> {
-  Spinner.get().start('Restoring')
+  Spinner.get().start('Restoring...')
 
   if (checkpointManager.disabledReason !== null) {
     console.log(
@@ -256,10 +256,10 @@ export async function saveCheckpoint(
     return
   }
 
-  Spinner.get().start('Loading')
+  Spinner.get().start('Loading Files...')
   await readyPromise
 
-  Spinner.get().start('Saving')
+  Spinner.get().start('Saving...')
   await waitForPreviousCheckpoint()
   Spinner.get().stop()
 
