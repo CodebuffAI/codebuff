@@ -94,7 +94,6 @@ jobs:
           ' >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_CB_ENVIRONMENT=prod" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Build binary
