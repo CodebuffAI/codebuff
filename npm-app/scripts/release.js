@@ -96,7 +96,7 @@ async function triggerWorkflow(versionType) {
       log(`⚠️  Workflow dispatch failed: ${response}`)
       log('The workflow may need to be updated on GitHub. Continuing anyway...')
       log(
-        'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/release-binaries.yml'
+        'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/publish.yml'
       )
     } else {
       log(
@@ -107,7 +107,7 @@ async function triggerWorkflow(versionType) {
   } catch (err) {
     log(`⚠️  Failed to trigger workflow automatically: ${err.message}`)
     log(
-      'You may need to trigger it manually at: https://github.com/CodebuffAI/codebuff/actions/workflows/release-binaries.yml'
+      'You may need to trigger it manually at: https://github.com/CodebuffAI/codebuff/actions/workflows/publish.yml'
     )
   }
 }
