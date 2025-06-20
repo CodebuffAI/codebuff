@@ -1,6 +1,7 @@
-// @ts-ignore: bun:test types aren't available
+// @ts-ignore
 import { describe, expect, it } from 'bun:test'
 import { gray } from 'picocolors'
+
 import { onlyWhitespace, squashNewlines } from '../display'
 
 const PREFIX = '.\r\n'

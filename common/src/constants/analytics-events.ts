@@ -20,6 +20,7 @@ export enum AnalyticsEvent {
   SLASH_MENU_ACTIVATED = 'cli.slash_menu_activated',
   SLASH_COMMAND_USED = 'cli.slash_command_used',
   INVALID_COMMAND = 'cli.invalid_command',
+  RAGE = 'cli.rage',
 
   // Backend
   USER_INPUT = 'backend.user_input',
