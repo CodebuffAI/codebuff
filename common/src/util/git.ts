@@ -3,9 +3,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 import type { FileChanges } from '../actions'
 
+const maxBuffer = 50 * 1024 * 1024  // 50 MB
+
 export function hasStagedChanges(): boolean {
   try {
-    execSync('git diff --staged --quiet', { stdio: 'ignore' })
+    execSync('git diff --staged --quiet', { stdio: 'ignore', maxBuffer })
     return false
   } catch {
     return true
@@ -14,7 +16,7 @@ export function hasStagedChanges(): boolean {
 
 export function getStagedChanges(): string {
   try {
-    return execSync('git diff --staged').toString()
+    return execSync('git diff --staged', { maxBuffer }).toString()
   } catch (error) {
     return ''
   }
@@ -22,13 +24,13 @@ export function getStagedChanges(): string {
 
 export function commitChanges(commitMessage: string) {
   try {
-    execSync(`git commit -m "${commitMessage}"`, { stdio: 'ignore' })
+    execSync(`git commit -m "${commitMessage}"`, { stdio: 'ignore', maxBuffer })
   } catch (error) {}
 }
 
 export function stageAllChanges(): boolean {
   try {
-    execSync('git add -A', { stdio: 'pipe' })
+    execSync('git add -A', { stdio: 'pipe', maxBuffer })
     return hasStagedChanges()
   } catch (error) {
     return false
@@ -46,7 +48,7 @@ export function stagePatches(dir: string, changes: FileChanges): boolean {
       return false
     }
 
-    execSync(`git add ${existingFileNames.join(' ')}`, { cwd: dir })
+    execSync(`git add ${existingFileNames.join(' ')}`, { cwd: dir, maxBuffer })
     return hasStagedChanges()
   } catch (error) {
     console.error('Error in stagePatches:', error)

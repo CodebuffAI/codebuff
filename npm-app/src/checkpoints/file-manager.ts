@@ -15,6 +15,8 @@ async function getIsomorphicGit() {
   return git
 }
 
+const maxBuffer = 50 * 1024 * 1024  // 50 MB
+
 /**
  * Generates a unique path for storing the bare git repository based on the project directory.
  * Uses SHA-256 hashing to create a unique identifier.
@@ -53,7 +55,7 @@ function exposeSubmodules({
         ':(exclude)**/*.codebuffbackup',
         ':(exclude)**/*.codebuffbackup/**',
       ],
-      { stdio: ['ignore', 'pipe', 'inherit'] }
+      { stdio: ['ignore', 'pipe', 'inherit'], maxBuffer }
     ).toString()
     const submodules = buildArray(
       submodulesOutput
@@ -102,7 +104,7 @@ function exposeSubmodules({
           '--cached',
           ...submodules,
         ],
-        { stdio: 'ignore' }
+        { stdio: 'ignore', maxBuffer }
       )
     } catch (error) {
       logger.error(
@@ -182,7 +184,7 @@ export async function hasUnsavedChanges({
           ':(exclude)**/*.codebuffbackup',
           ':(exclude)**/*.codebuffbackup/**',
         ],
-        { stdio: ['ignore', 'pipe', 'ignore'] }
+        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
       ).toString()
       return !!output
     } catch (error) {
@@ -217,7 +219,7 @@ export async function getLatestCommit({
       return execFileSync(
         'git',
         ['--git-dir', bareRepoPath, 'rev-parse', 'HEAD'],
-        { stdio: ['ignore', 'pipe', 'ignore'] }
+        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
       )
         .toString()
         .trim()
@@ -318,7 +320,7 @@ async function gitAddAll({
           ':!**/*.codebuffbackup',
           ':!**/*.codebuffbackup/**',
         ],
-        { stdio: 'ignore' }
+        { stdio: 'ignore', maxBuffer }
       )
       return
     } catch (error) {
@@ -413,7 +415,7 @@ async function gitAddAllIgnoringNestedRepos({
           'status',
           '--porcelain',
         ],
-        { stdio: ['ignore', 'pipe', 'ignore'] }
+        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
       ).toString()
     } catch (error) {
       logger.error(
@@ -450,7 +452,7 @@ async function gitAddAllIgnoringNestedRepos({
           '-rf',
           ...modifiedFiles,
         ],
-        { stdio: 'ignore' }
+        { stdio: 'ignore', maxBuffer }
       )
     } catch (error) {
       logger.error({ error }, 'Failed to run git rm --cached')
@@ -484,7 +486,7 @@ async function gitCommit({
           '-m',
           message,
         ],
-        { stdio: 'ignore' }
+        { stdio: 'ignore', maxBuffer }
       )
       return await getLatestCommit({ bareRepoPath })
     } catch (error) {
@@ -523,7 +525,7 @@ async function gitCommit({
           'checkout',
           'master',
         ],
-        { stdio: 'ignore' }
+        { stdio: 'ignore', maxBuffer }
       )
       return commitHash
     } catch (error) {
@@ -603,7 +605,7 @@ export async function restoreFileState({
         'reset',
         '--hard',
         commit,
-      ])
+      ], { maxBuffer })
       return
     } catch (error) {
       logger.error(
