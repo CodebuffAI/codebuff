@@ -21,17 +21,22 @@ const originalConsoleWarn = console.warn
 // Wrap console methods to suppress PostHog errors
 function wrapConsoleMethod(originalMethod: typeof console.error) {
   return function (...args: any[]) {
-    // Check if this is a PostHog-related error
-    const message = args.join(' ')
-    if (
-      message.toLowerCase().includes('posthog') &&
-      args[0] &&
-      typeof args[0] === 'object' &&
-      args[0].name === 'PostHogError'
-    ) {
-      // Suppress PostHog errors - don't log to console
+    // Check for error name in any of the arguments
+    let errorName = ''
+    for (const arg of args) {
+      if (arg instanceof Error) {
+        errorName = arg.name
+        break
+      } else if (arg && typeof arg === 'object' && arg.constructor) {
+        errorName = arg.constructor.name
+        break
+      }
+    }
+
+    if (errorName.toLowerCase().includes('posthog')) {
       return
     }
+
     // For non-PostHog errors, use the original method
     originalMethod.apply(console, args)
   }
