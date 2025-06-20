@@ -58,7 +58,10 @@ function exposeSubmodules({
         ':(exclude)**/*.codebuffbackup',
         ':(exclude)**/*.codebuffbackup/**',
       ],
-      { stdio: ['ignore', 'pipe', 'inherit'] }
+      {
+        stdio: ['ignore', 'pipe', 'ignore'],
+        maxBuffer: 1024 * 1024 * 50,
+      }
     ).toString()
     const submodules = buildArray(
       submodulesOutput
