@@ -1,61 +1,147 @@
 name: Release Binaries
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Tag to release'
+      version_type:
+        description: 'Version bump type (patch, minor, major, or specific version like 1.2.3)'
         required: true
         type: string
+        default: 'patch'
 
 permissions:
   contents: write
 
 jobs:
-  build-binaries:
+  # First job: Calculate new version and update package files
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump_version.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.2.16'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Calculate and update version
+        id: bump_version
+        run: |
+          cd npm-app
+          
+          # Get current version from main package
+          CURRENT_VERSION=$(node -p "require('./packages/codebuff/package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Calculate new version
+          VERSION_TYPE="${{ inputs.version_type }}"
+          if [[ "$VERSION_TYPE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            NEW_VERSION="$VERSION_TYPE"
+          else
+            IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+            MAJOR=${VERSION_PARTS[0]}
+            MINOR=${VERSION_PARTS[1]}
+            PATCH=${VERSION_PARTS[2]}
+            
+            case "$VERSION_TYPE" in
+              "major")
+                NEW_VERSION="$((MAJOR + 1)).0.0"
+                ;;
+              "minor")
+                NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+                ;;
+              "patch"|*)
+                NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+                ;;
+            esac
+          fi
+          
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          
+          # Update all package.json files
+          for package_dir in packages/*/; do
+            if [ -f "$package_dir/package.json" ]; then
+              echo "Updating $package_dir/package.json to version $NEW_VERSION"
+              node -e "
+                const fs = require('fs');
+                const pkg = JSON.parse(fs.readFileSync('$package_dir/package.json', 'utf8'));
+                pkg.version = '$NEW_VERSION';
+                if (pkg.optionalDependencies) {
+                  for (const dep in pkg.optionalDependencies) {
+                    pkg.optionalDependencies[dep] = '^$NEW_VERSION';
+                  }
+                }
+                fs.writeFileSync('$package_dir/package.json', JSON.stringify(pkg, null, 2) + '\n');
+              "
+            fi
+          done
+          
+      - name: Upload updated packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-packages
+          path: npm-app/packages/
+
+  build-and-publish:
+    needs: prepare-release
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
-            output: codebuff-linux-x64
-            target: bun-linux-x64
+            target: linux-x64
+            package: codebuff-linux-x64
+            binary: codebuff
+            bun_target: bun-linux-x64
             platform: linux
             arch: x64
-
-          # This is actually x64, but we can cross-compile to arm64
-          # There is ubuntu-arm64, but it's not supported for private repos
           - os: ubuntu-latest
-            output: codebuff-linux-arm64
-            target: bun-linux-arm64
+            target: linux-arm64
+            package: codebuff-linux-arm64
+            binary: codebuff
+            bun_target: bun-linux-arm64
             platform: linux
             arch: arm64
-
           - os: macos-13
-            output: codebuff-darwin-x64
-            target: bun-darwin-x64
+            target: darwin-x64
+            package: codebuff-darwin-x64
+            binary: codebuff
+            bun_target: bun-darwin-x64
             platform: darwin
             arch: x64
-
           - os: macos-14
-            output: codebuff-darwin-arm64
-            target: bun-darwin-arm64
+            target: darwin-arm64
+            package: codebuff-darwin-arm64
+            binary: codebuff
+            bun_target: bun-darwin-arm64
             platform: darwin
             arch: arm64
-
           - os: windows-latest
-            output: codebuff-win32-x64.exe
-            target: bun-windows-x64
+            target: win32-x64
+            package: codebuff-win32-x64
+            binary: codebuff.exe
+            bun_target: bun-windows-x64
             platform: win32
             arch: x64
-
     runs-on: ${{ matrix.os }}
-
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Download updated packages
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-packages
+          path: npm-app/packages/
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.2.16'
 
@@ -102,7 +188,7 @@ jobs:
         shell: bash
         env:
           VERBOSE: true
-          OVERRIDE_TARGET: ${{ matrix.target }}
+          OVERRIDE_TARGET: ${{ matrix.bun_target }}
           OVERRIDE_PLATFORM: ${{ matrix.platform }}
           OVERRIDE_ARCH: ${{ matrix.arch }}
 
@@ -120,72 +206,80 @@ jobs:
           fi
         shell: bash
 
-      - name: Rename binary
+      - name: Copy binary to platform package
         run: |
-          cd npm-app/bin
-          mv codebuff* ${{ matrix.output }}
-        shell: bash
+          mkdir -p npm-app/packages/${{ matrix.package }}
+          cp npm-app/bin/${{ matrix.binary }} npm-app/packages/${{ matrix.package }}/
 
-      - name: Package artifact
-        run: |
-          cd npm-app/bin
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            7z a ../${{ matrix.output }}.zip ${{ matrix.output }}
-          else
-            tar -czf ../${{ matrix.output }}.tar.gz ${{ matrix.output }}
-          fi
-        shell: bash
-
-      - uses: actions/upload-artifact@v4
+      - name: Set up Node.js for npm publishing
+        uses: actions/setup-node@v4
         with:
-          name: ${{ matrix.output }}
-          path: npm-app/${{ matrix.output }}.*
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
 
-  create-release:
-    needs: build-binaries
+      - name: Publish platform package
+        run: |
+          cd npm-app/packages/${{ matrix.package }}
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # Publish the stub package last, once all platform binaries are live
+  publish-main-package:
+    needs: [prepare-release, build-and-publish]
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.2.16'
 
-      - name: Generate GitHub App token
-        id: generate-token
-        run: |
-          cd npm-app
-
-          # Run the script and extract the token
-          OUTPUT=$(bun run scripts/generate-github-token.ts 2>&1)
-          echo "Script output: $OUTPUT"
-
-          TOKEN=$(echo "$OUTPUT" | grep 'export GITHUB_TOKEN=' | sed 's/export GITHUB_TOKEN="//' | sed 's/"//')
-
-          if [ -z "$TOKEN" ]; then
-            echo "Failed to extract token from output"
-            exit 1
-          fi
-
-          echo "token=$TOKEN" >> $GITHUB_OUTPUT
-        env:
-          GH_APP_ID: ${{ secrets.GH_APP_ID }}
-          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          GH_APP_INSTALLATION_ID: ${{ secrets.GH_APP_INSTALLATION_ID }}
-
-      - name: Download all artifacts
+      - name: Download updated packages
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: updated-packages
+          path: npm-app/packages/
 
-      - name: Publish release in codebuff-community repo
-        uses: softprops/action-gh-release@v2
+      - name: Set up Node.js for npm publishing
+        uses: actions/setup-node@v4
         with:
-          repository: CodebuffAI/codebuff-community
-          tag_name: ${{ github.ref_name || inputs.tag }}
-          files: artifacts/**/*
-          draft: false
-          prerelease: false
-          generate_release_notes: false
-          body: Binary release
-          token: ${{ steps.generate-token.outputs.token }}
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+
+      - name: Publish main stub package
+        run: |
+          cd npm-app/packages/codebuff
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # Commit version changes only after successful publishing
+  commit-release:
+    needs: [prepare-release, build-and-publish, publish-main-package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download updated packages
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-packages
+          path: npm-app/packages/
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push version bump
+        run: |
+          git add npm-app/packages/*/package.json
+          if [ -f "npm-app/package.release.json" ]; then
+            git add npm-app/package.release.json
+          fi
+          git commit -m "Bump version to ${{ needs.prepare-release.outputs.new_version }}"
+          git push
+
+      - name: Create and push tag
+        run: |
+          git tag "v${{ needs.prepare-release.outputs.new_version }}"
+          git push origin "v${{ needs.prepare-release.outputs.new_version }}"

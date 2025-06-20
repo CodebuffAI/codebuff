@@ -1,0 +1,23 @@
+{
+  "name": "codebuff",
+  "version": "1.0.398",
+  "description": "AI coding agent",
+  "optionalDependencies": {
+    "codebuff-linux-x64": "^1.0.398",
+    "codebuff-linux-arm64": "^1.0.398",
+    "codebuff-darwin-x64": "^1.0.398",
+    "codebuff-darwin-arm64": "^1.0.398",
+    "codebuff-win32-x64": "^1.0.398"
+  },
+  "bin": { "codebuff": "index.js" },
+  "files": ["index.js"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodebuffAI/codebuff-community.git"
+  },
+  "homepage": "https://codebuff.com"
+}

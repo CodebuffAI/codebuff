@@ -1,0 +1,16 @@
+{
+  "name": "codebuff-win32-x64",
+  "version": "1.0.398",
+  "description": "Codebuff CLI – Windows x64 binary",
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "files": ["codebuff.exe"],
+  "bin": { "codebuff": "codebuff.exe" },
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodebuffAI/codebuff-community.git"
+  },
+  "homepage": "https://codebuff.com"
+}
