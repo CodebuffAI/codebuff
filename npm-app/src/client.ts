@@ -179,6 +179,8 @@ export class Client {
     git,
     model,
   }: ClientOptions) {
+    console.log('[CLIENT] Initializing client with options:', { websocketUrl, costMode, model })
+    
     this.costMode = costMode
     this.model = model
     this.git = git
@@ -187,14 +189,24 @@ export class Client {
       onWebSocketError,
       onWebSocketReconnect
     )
+    
+    console.log('[CLIENT] Setting up logger context...')
     loggerContext.costMode = this.costMode
     loggerContext.model = this.model
+    
+    console.log('[CLIENT] Getting user from credentials...')
     this.user = this.getUser()
+    console.log('[CLIENT] User found:', this.user ? `${this.user.name} (${this.user.id})` : 'none')
+    
+    console.log('[CLIENT] Initializing fingerprint ID...')
     this.initFingerprintId()
+    
+    console.log('[CLIENT] Setting repo context...')
     const repoInfoPromise = this.setRepoContext()
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
-    repoInfoPromise.then(() =>
+    repoInfoPromise.then(() => {
+      console.log('[CLIENT] Repo context set, logging app launch event')
       logger.info(
         {
           eventId: AnalyticsEvent.APP_LAUNCHED,
@@ -204,7 +216,9 @@ export class Client {
         },
         'App launched'
       )
-    )
+    })
+    
+    console.log('[CLIENT] Client initialization complete')
   }
 
   public static createInstance(options: ClientOptions): Client {
@@ -304,9 +318,13 @@ export class Client {
   }
 
   async connect() {
+    console.log('[CLIENT] Connecting to websocket...')
     await this.webSocket.connect()
+    console.log('[CLIENT] Websocket connected, setting up subscriptions...')
     this.setupSubscriptions()
+    console.log('[CLIENT] Fetching stored API key types...')
     await this.fetchStoredApiKeyTypes()
+    console.log('[CLIENT] Client connection setup complete')
   }
 
   async fetchStoredApiKeyTypes(): Promise<void> {
@@ -675,7 +693,10 @@ export class Client {
   }
 
   private setupSubscriptions() {
+    console.log('[CLIENT] Setting up websocket subscriptions...')
+    
     this.webSocket.subscribe('action-error', (action) => {
+      console.log('[CLIENT] Received action-error:', action.error)
       if (action.error === 'Insufficient credits') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
         logger.info(
@@ -714,6 +735,7 @@ export class Client {
     })
 
     this.webSocket.subscribe('read-files', (a) => {
+      console.log('[CLIENT] Received read-files request for', a.filePaths.length, 'files')
       const { filePaths, requestId } = a
       const files = getFiles(filePaths)
 
@@ -722,9 +744,11 @@ export class Client {
         files,
         requestId,
       })
+      console.log('[CLIENT] Sent read-files-response for request:', requestId)
     })
 
     this.webSocket.subscribe('npm-version-status', (action) => {
+      console.log('[CLIENT] Received npm-version-status:', action.isUpToDate)
       const { isUpToDate } = action
       if (!isUpToDate) {
         console.warn(
@@ -739,6 +763,8 @@ export class Client {
       const parsedAction = MessageCostResponseSchema.safeParse(action)
       if (!parsedAction.success) return
       const response = parsedAction.data
+
+      console.log('[CLIENT] Received message-cost-response:', response.credits, 'credits for prompt:', response.promptId)
 
       // Store credits used for this prompt
       if (!this.creditsByPromptId[response.promptId]) {
@@ -764,10 +790,12 @@ export class Client {
         return
       }
 
+      console.log('[CLIENT] Received usage-response:', parsedAction.data.remainingBalance, 'credits remaining')
       this.setUsage(parsedAction.data)
 
       // Store auto-topup amount if present, to be displayed when returning control to user
       if (parsedAction.data.autoTopupAdded) {
+        console.log('[CLIENT] Auto-topup added:', parsedAction.data.autoTopupAdded, 'credits')
         this.pendingTopUpMessageAmount += parsedAction.data.autoTopupAdded
       }
 
@@ -779,8 +807,11 @@ export class Client {
 
     // Used to handle server restarts gracefully
     this.webSocket.subscribe('request-reconnect', () => {
+      console.log('[CLIENT] Received request-reconnect from server')
       this.reconnectWhenNextIdle()
     })
+    
+    console.log('[CLIENT] Websocket subscriptions setup complete')
   }
 
   private showUsageWarning() {
@@ -842,10 +873,14 @@ export class Client {
     >
     stopResponse: () => void
   }> {
+    console.log('[CLIENT] sendUserInput called with prompt length:', prompt.length)
+    
     if (!this.agentState) {
+      console.log('[CLIENT] Error: Agent state not initialized')
       throw new Error('Agent state not initialized')
     }
 
+    console.log('[CLIENT] Setting messages in chat storage...')
     setMessages([
       ...this.agentState.messageHistory,
       {
@@ -854,12 +889,15 @@ export class Client {
       },
     ])
 
+    console.log('[CLIENT] Resetting agent state for new prompt...')
     this.agentState.agentStepsRemaining = loadCodebuffConfig().maxAgentSteps
     this.lastChanges = []
     this.filesChangedForHook = []
 
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
+    console.log('[CLIENT] Generated user input ID:', userInputId)
+    
     loggerContext.clientRequestId = userInputId
     const startTime = Date.now() // Capture start time
 
@@ -868,6 +906,7 @@ export class Client {
 
     const f = this.subscribeToResponse.bind(this)
 
+    console.log('[CLIENT] Setting up response subscription...')
     const { responsePromise, stopResponse } = f(
       (chunk) => {
         Spinner.get().stop()
@@ -882,11 +921,17 @@ export class Client {
       startTime
     )
 
+    console.log('[CLIENT] Parsing URLs from prompt content...')
     const urls = parseUrlsFromContent(prompt)
+    console.log('[CLIENT] Found', urls.length, 'URLs in prompt')
+    
     const scrapedBlocks = await getScrapedContentBlocks(urls)
+    console.log('[CLIENT] Scraped', scrapedBlocks.length, 'content blocks')
+    
     const scrapedContent =
       scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
 
+    console.log('[CLIENT] Getting background process updates...')
     // Append process updates to existing tool results
     const toolResults = buildArray(
       ...(this.lastToolResults || []),
@@ -897,9 +942,11 @@ export class Client {
         result: scrapedContent,
       }
     )
+    console.log('[CLIENT] Prepared', toolResults.length, 'tool results')
 
     Spinner.get().start('Thinking...')
 
+    console.log('[CLIENT] Preparing action to send to server...')
     const action = {
       promptId: userInputId,
       prompt,
@@ -913,11 +960,23 @@ export class Client {
       repoUrl: loggerContext.repoUrl,
       repoName: loggerContext.repoName,
     }
+    
+    console.log('[CLIENT] Sending prompt action to server with:', {
+      promptId: userInputId,
+      promptLength: prompt.length,
+      toolResultsCount: toolResults.length,
+      costMode: this.costMode,
+      model: this.model,
+      cwd: getWorkingDirectory(),
+      hasAuth: !!this.user?.authToken
+    })
+    
     this.webSocket.sendAction({
       type: 'prompt',
       ...action,
     })
 
+    console.log('[CLIENT] Prompt sent, returning response promise and stop function')
     return {
       responsePromise,
       stopResponse,
@@ -1376,19 +1435,31 @@ Go to https://www.codebuff.com/config for more information.`) +
   }
 
   public async warmContextCache() {
+    console.log('[CLIENT] warmContextCache called')
+    
+    console.log('[CLIENT] Getting project file context...')
     const fileContext = await getProjectFileContext(getProjectRoot(), {})
     if (!fileContext) {
+      console.log('[CLIENT] Error: Failed to initialize project file context')
       throw new Error('Failed to initialize project file context')
     }
+    console.log('[CLIENT] Project file context obtained with', Object.keys(fileContext.fileTokenScores).length, 'files')
 
+    console.log('[CLIENT] Setting up init-response subscription...')
     this.webSocket.subscribe('init-response', (a) => {
+      console.log('[CLIENT] Received init-response')
       const parsedAction = InitResponseSchema.safeParse(a)
-      if (!parsedAction.success) return
+      if (!parsedAction.success) {
+        console.log('[CLIENT] Invalid init-response received')
+        return
+      }
 
+      console.log('[CLIENT] Setting initial usage data from init response')
       // Set initial usage data from the init response
       this.setUsage(parsedAction.data)
     })
 
+    console.log('[CLIENT] Preparing init action...')
     const initAction: ClientAction = {
       type: 'init',
       fingerprintId: await this.fingerprintId,
@@ -1397,9 +1468,18 @@ Go to https://www.codebuff.com/config for more information.`) +
       // Add repoUrl here as per the diff for client.ts
       repoUrl: loggerContext.repoUrl,
     }
+    
+    console.log('[CLIENT] Sending init action to server with:', {
+      hasAuth: !!this.user?.authToken,
+      fileContextSize: Object.keys(fileContext.fileTokenScores).length,
+      repoUrl: loggerContext.repoUrl
+    })
+    
     this.webSocket.sendAction(initAction)
 
+    console.log('[CLIENT] Fetching stored API key types...')
     await this.fetchStoredApiKeyTypes()
+    console.log('[CLIENT] warmContextCache complete')
   }
 
   /**

@@ -160,14 +160,20 @@ export async function hasUnsavedChanges({
   bareRepoPath: string
   relativeFilepaths: Array<string>
 }): Promise<boolean> {
+  console.log('[CHECKPOINT FILE] hasUnsavedChanges called for project:', projectDir)
+  console.log('[CHECKPOINT FILE] Checking', relativeFilepaths.length, 'files for changes')
+  
   if (!gitCommandIsAvailable()) {
+    console.log('[CHECKPOINT FILE] Git not available, returning false for unsaved changes')
     return false
   }
 
   try {
+    console.log('[CHECKPOINT FILE] Exposing submodules...')
     exposeSubmodules({ bareRepoPath, projectDir })
 
     try {
+      console.log('[CHECKPOINT FILE] Running git status --porcelain...')
       const output = execFileSync(
         'git',
         [
@@ -186,8 +192,12 @@ export async function hasUnsavedChanges({
         ],
         { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
       ).toString()
-      return !!output
+      
+      const hasChanges = !!output
+      console.log('[CHECKPOINT FILE] Git status output length:', output.length, 'Has changes:', hasChanges)
+      return hasChanges
     } catch (error) {
+      console.log('[CHECKPOINT FILE] Error running git status:', error instanceof Error ? error.message : String(error))
       logger.error(
         {
           error,
@@ -199,6 +209,7 @@ export async function hasUnsavedChanges({
       return false
     }
   } finally {
+    console.log('[CHECKPOINT FILE] Restoring submodules...')
     restoreSubmodules({ projectDir })
   }
 }
@@ -214,16 +225,23 @@ export async function getLatestCommit({
 }: {
   bareRepoPath: string
 }): Promise<string> {
+  console.log('[CHECKPOINT FILE] getLatestCommit called for bare repo:', bareRepoPath)
+  
   if (gitCommandIsAvailable()) {
     try {
-      return execFileSync(
+      console.log('[CHECKPOINT FILE] Using git command to get latest commit...')
+      const commitHash = execFileSync(
         'git',
         ['--git-dir', bareRepoPath, 'rev-parse', 'HEAD'],
         { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
       )
         .toString()
         .trim()
+      
+      console.log('[CHECKPOINT FILE] Latest commit hash:', commitHash)
+      return commitHash
     } catch (error) {
+      console.log('[CHECKPOINT FILE] Error getting latest commit with git command:', error instanceof Error ? error.message : String(error))
       logger.error(
         {
           errorMessage: error instanceof Error ? error.message : String(error),
@@ -234,12 +252,17 @@ export async function getLatestCommit({
       )
     }
   }
+  
+  console.log('[CHECKPOINT FILE] Falling back to isomorphic-git for latest commit...')
   const { resolveRef } = await getIsomorphicGit()
-  return await resolveRef({
+  const commitHash = await resolveRef({
     fs,
     gitdir: bareRepoPath,
     ref: 'HEAD',
   })
+  
+  console.log('[CHECKPOINT FILE] Latest commit hash (isomorphic-git):', commitHash)
+  return commitHash
 }
 
 /**
@@ -256,19 +279,28 @@ export async function initializeCheckpointFileManager({
   projectDir: string
   relativeFilepaths: Array<string>
 }): Promise<void> {
+  console.log('[CHECKPOINT FILE] initializeCheckpointFileManager called for project:', projectDir)
+  console.log('[CHECKPOINT FILE] Initializing with', relativeFilepaths.length, 'files')
+  
   if (projectDir === os.homedir()) {
+    console.log('[CHECKPOINT FILE] Skipping initialization - project is in home directory')
     return
   }
+  
   const bareRepoPath = getBareRepoPath(projectDir)
+  console.log('[CHECKPOINT FILE] Using bare repo path:', bareRepoPath)
 
   // Create the bare repo directory if it doesn't exist
   fs.mkdirSync(bareRepoPath, { recursive: true })
 
   const { resolveRef, init } = await getIsomorphicGit()
   try {
+    console.log('[CHECKPOINT FILE] Checking if bare repo already exists...')
     // Check if it's already a valid Git repo
     await resolveRef({ fs, gitdir: bareRepoPath, ref: 'HEAD' })
+    console.log('[CHECKPOINT FILE] Bare repo already exists')
   } catch (error) {
+    console.log('[CHECKPOINT FILE] Bare repo does not exist, initializing...')
     // Bare repo doesn't exist yet
     await init({
       fs,
@@ -277,8 +309,10 @@ export async function initializeCheckpointFileManager({
       bare: true,
       defaultBranch: 'master',
     })
+    console.log('[CHECKPOINT FILE] Bare repo initialized')
   }
 
+  console.log('[CHECKPOINT FILE] Creating initial commit...')
   // Commit the files in the bare repo
   await storeFileState({
     projectDir,
@@ -286,6 +320,7 @@ export async function initializeCheckpointFileManager({
     message: 'Initial Commit',
     relativeFilepaths,
   })
+  console.log('[CHECKPOINT FILE] Initial commit created')
 }
 
 /**
@@ -565,13 +600,24 @@ export async function storeFileState({
   message: string
   relativeFilepaths: Array<string>
 }): Promise<string> {
+  console.log('[CHECKPOINT FILE] storeFileState called')
+  console.log('[CHECKPOINT FILE] Project dir:', projectDir)
+  console.log('[CHECKPOINT FILE] Bare repo path:', bareRepoPath)
+  console.log('[CHECKPOINT FILE] Commit message:', message)
+  console.log('[CHECKPOINT FILE] Files to store:', relativeFilepaths.length)
+
+  console.log('[CHECKPOINT FILE] Adding all files...')
   await gitAddAllIgnoringNestedRepos({
     projectDir,
     bareRepoPath,
     relativeFilepaths,
   })
 
-  return await gitCommit({ projectDir, bareRepoPath, message })
+  console.log('[CHECKPOINT FILE] Creating commit...')
+  const commitHash = await gitCommit({ projectDir, bareRepoPath, message })
+  console.log('[CHECKPOINT FILE] Commit created with hash:', commitHash)
+  
+  return commitHash
 }
 
 /**
@@ -594,9 +640,16 @@ export async function restoreFileState({
   commit: string
   relativeFilepaths: Array<string>
 }): Promise<void> {
+  console.log('[CHECKPOINT FILE] restoreFileState called')
+  console.log('[CHECKPOINT FILE] Project dir:', projectDir)
+  console.log('[CHECKPOINT FILE] Bare repo path:', bareRepoPath)
+  console.log('[CHECKPOINT FILE] Target commit:', commit)
+  console.log('[CHECKPOINT FILE] Files to restore:', relativeFilepaths.length)
+
   let resetDone = false
   if (gitCommandIsAvailable()) {
     try {
+      console.log('[CHECKPOINT FILE] Using git reset --hard...')
       execFileSync('git', [
         '--git-dir',
         bareRepoPath,
@@ -606,8 +659,10 @@ export async function restoreFileState({
         '--hard',
         commit,
       ], { maxBuffer })
+      console.log('[CHECKPOINT FILE] Git reset completed successfully')
       return
     } catch (error) {
+      console.log('[CHECKPOINT FILE] Git reset failed, falling back to isomorphic-git:', error instanceof Error ? error.message : String(error))
       logger.error(
         {
           errorMessage: error instanceof Error ? error.message : String(error),
@@ -621,7 +676,10 @@ export async function restoreFileState({
     }
   }
 
+  console.log('[CHECKPOINT FILE] Using isomorphic-git for restore...')
   const { checkout, resetIndex } = await getIsomorphicGit()
+  
+  console.log('[CHECKPOINT FILE] Checking out files...')
   // Update the working directory to reflect the specified commit
   await checkout({
     fs,
@@ -632,6 +690,7 @@ export async function restoreFileState({
     force: true,
   })
 
+  console.log('[CHECKPOINT FILE] Resetting index for', relativeFilepaths.length, 'files...')
   // Reset the index to match the specified commit
   await Promise.all(
     relativeFilepaths.map((filepath) =>
@@ -644,6 +703,8 @@ export async function restoreFileState({
       })
     )
   )
+  
+  console.log('[CHECKPOINT FILE] File state restore completed')
 }
 
 // Export fs for testing
