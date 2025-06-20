@@ -186,46 +186,52 @@ describe('mainPrompt', () => {
     )
 
     // 1. First, find the tool results message
-    const userToolResultMessageIndex = newSessionState.messageHistory.findIndex(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('<tool_result>') &&
-        m.content.includes('read_files')
-    )
+    const userToolResultMessageIndex =
+      newSessionState.mainAgentState.messageHistory.findIndex(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.includes('<tool_result>') &&
+          m.content.includes('read_files')
+      )
     expect(userToolResultMessageIndex).toBeGreaterThanOrEqual(0)
     const userToolResultMessage =
-      newSessionState.messageHistory[userToolResultMessageIndex]
+      newSessionState.mainAgentState.messageHistory[userToolResultMessageIndex]
     expect(userToolResultMessage).toBeDefined()
     expect(userToolResultMessage?.content).toContain('read_files')
 
     // 2. Find the actual user prompt message (wrapped in <user_message> tags)
-    const userPromptMessageIndex = newSessionState.messageHistory.findIndex(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content === asUserMessage(userPromptText)
-    )
+    const userPromptMessageIndex =
+      newSessionState.mainAgentState.messageHistory.findIndex(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content === asUserMessage(userPromptText)
+      )
     expect(userPromptMessageIndex).toBeGreaterThanOrEqual(0)
     const userPromptMessage =
-      newSessionState.messageHistory[userPromptMessageIndex]
+      newSessionState.mainAgentState.messageHistory[userPromptMessageIndex]
     expect(userPromptMessage?.role).toBe('user')
     expect(userPromptMessage.content).toEqual(asUserMessage(userPromptText))
 
     // 3. The assistant response should be the last message
     const assistantResponseMessage =
-      newSessionState.messageHistory[newSessionState.messageHistory.length - 1]
+      newSessionState.mainAgentState.messageHistory[
+        newSessionState.mainAgentState.messageHistory.length - 1
+      ]
     expect(assistantResponseMessage?.role).toBe('assistant')
     expect(assistantResponseMessage?.content).toBe('Test response')
 
     // Check overall length - should have at least the tool results, user prompt, and assistant response
-    expect(newSessionState.messageHistory.length).toBeGreaterThanOrEqual(3)
+    expect(
+      newSessionState.mainAgentState.messageHistory.length
+    ).toBeGreaterThanOrEqual(3)
   })
 
   it('should add file updates to tool results in message history', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     // Simulate a previous read_files result being in the history
-    sessionState.messageHistory.push({
+    sessionState.mainAgentState.messageHistory.push({
       role: 'user',
       content: renderToolResults([
         {
@@ -263,12 +269,13 @@ describe('mainPrompt', () => {
     // Find the user message containing tool results added *during* the mainPrompt execution
     // This message should contain the 'file_updates' result.
     // It's usually the message right before the final assistant response.
-    const toolResultMessages = newSessionState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('<tool_result>')
-    )
+    const toolResultMessages =
+      newSessionState.mainAgentState.messageHistory.filter(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.includes('<tool_result>')
+      )
 
     // Find the specific tool result message that contains file_updates
     const fileUpdateMessage = toolResultMessages.find(
@@ -380,8 +387,8 @@ describe('mainPrompt', () => {
     const sessionState = getInitialSessionState(mockFileContext)
 
     // Set up message history with many consecutive assistant messages
-    sessionState.agentStepsRemaining = 0
-    sessionState.messageHistory = [
+    sessionState.mainAgentState.stepsRemaining = 0
+    sessionState.mainAgentState.messageHistory = [
       { role: 'user', content: 'Initial prompt' },
       ...Array(20).fill({ role: 'assistant', content: 'Assistant response' }),
     ]
@@ -413,7 +420,7 @@ describe('mainPrompt', () => {
 
   it('should update consecutiveAssistantMessages when new prompt is received', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
-    sessionState.agentStepsRemaining = 12
+    sessionState.mainAgentState.stepsRemaining = 12
 
     const action = {
       type: 'prompt' as const,
@@ -438,15 +445,15 @@ describe('mainPrompt', () => {
     )
 
     // When there's a new prompt, consecutiveAssistantMessages should be set to 1
-    expect(newSessionState.agentStepsRemaining).toBe(
-      sessionState.agentStepsRemaining - 1
+    expect(newSessionState.mainAgentState.stepsRemaining).toBe(
+      sessionState.mainAgentState.stepsRemaining - 1
     )
   })
 
   it('should increment consecutiveAssistantMessages when no new prompt', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const initialCount = 5
-    sessionState.agentStepsRemaining = initialCount
+    sessionState.mainAgentState.stepsRemaining = initialCount
 
     const action = {
       type: 'prompt' as const,
@@ -471,7 +478,7 @@ describe('mainPrompt', () => {
     )
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
-    expect(newSessionState.agentStepsRemaining).toBe(initialCount - 1)
+    expect(newSessionState.mainAgentState.stepsRemaining).toBe(initialCount - 1)
   })
 
   it('should return no tool calls when LLM response is empty', async () => {

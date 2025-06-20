@@ -20,9 +20,14 @@ export async function research(
   const researchPromises = prompts.slice(0, maxPrompts).map((prompt) => {
     // Each research prompt runs in 'lite' mode and can only use read-only tools.
     const researchSessionState: SessionState = {
-      ...initialSessionState,
-      agentStepsRemaining: maxIterations,
-      messageHistory: [],
+      ...{
+        ...initialSessionState,
+        mainAgentState: {
+          ...initialSessionState.mainAgentState,
+          stepsRemaining: maxIterations,
+          messageHistory: [],
+        },
+      },
     }
 
     const action = {
@@ -50,7 +55,7 @@ export async function research(
   const results = await Promise.all(researchPromises)
   // We'll return the final message from each research agent.
   return results.map((result) =>
-    result.sessionState.messageHistory
+    result.sessionState.mainAgentState.messageHistory
       .filter((m) => m.role === 'assistant')
       .map((m) => `Research agent: ${toContentString(m)}`)
       .join('\n\n')

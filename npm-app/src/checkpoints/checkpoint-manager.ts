@@ -245,7 +245,7 @@ export class CheckpointManager {
       sessionStateString: JSON.stringify(sessionState),
       lastToolResultsString: JSON.stringify(lastToolResults),
       fileStateIdPromise,
-      historyLength: sessionState.messageHistory.length,
+      historyLength: sessionState.mainAgentState.messageHistory.length,
       id,
       parentId: this.currentCheckpointId,
       timestamp: Date.now(),
