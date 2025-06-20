@@ -10,7 +10,6 @@ import { cliArguments, cliOptions } from './cli-definitions'
 import { createTemplateProject } from './create-template-project'
 import { enableSquashNewlines, initSquashNewLines } from './display'
 import {
-  getProjectFileContext,
   getStartingDirectory,
   initProjectFileContextWithWorker,
   setProjectRoot,
@@ -46,12 +45,6 @@ async function codebuff(
 
   const updatePromise = updateCodebuff()
 
-  // TODO: Remove this call.
-  const fileContext = await getProjectFileContext(projectRoot, {})
-  console.log(
-    'index fileTokenScores',
-    Object.values(fileContext.fileTokenScores).slice(0, 10)
-  )
   const initFileContextPromise = initProjectFileContextWithWorker(projectRoot)
 
   const readyPromise = Promise.all([
