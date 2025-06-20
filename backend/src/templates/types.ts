@@ -1,10 +1,10 @@
-import { Model } from '@codebuff/common/constants'
-import { AgentTemplateName } from '@codebuff/common/types/agent-state'
+import { AgentTemplateType } from '@codebuff/common/types/session-state'
+import { Model } from 'common/constants'
 
 import { ToolName } from '../tools'
 
 export type AgentTemplate = {
-  name: AgentTemplateName
+  name: AgentTemplateType
   description: string
   model: Model
   toolNames: ToolName[]

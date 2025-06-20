@@ -2,7 +2,7 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { getInitialAgentState } from '@codebuff/common/types/agent-state'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   setProjectRoot,
   setWorkingDirectory,
@@ -168,7 +168,7 @@ export async function setupTestEnvironment(projectName: string) {
 }
 
 // Creates an initial agent state for testing
-export async function createInitialAgentState(repoPath: string) {
+export async function createInitialSessionState(repoPath: string) {
   const fileContext = await getProjectFileContext(repoPath)
-  return getInitialAgentState(fileContext)
+  return getInitialSessionState(fileContext)
 }

@@ -55,7 +55,6 @@ import {
   initProjectFileContextWithWorker,
 } from './project-files'
 import { rageDetectors } from './rage-detectors'
-import { createRageDetectors, RageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import {
   clearScreen,
@@ -116,7 +115,7 @@ export class CLI {
 
     this.readyPromise = Promise.all([
       readyPromise.then(([fileContext]) => {
-        Client.getInstance().initAgentState(fileContext)
+        Client.getInstance().initSessionState(fileContext)
         return Client.getInstance().warmContextCache()
       }),
       Client.getInstance().connect(),

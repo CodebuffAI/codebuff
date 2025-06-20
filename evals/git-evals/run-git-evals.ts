@@ -12,7 +12,7 @@ import {
   loopMainPrompt,
   resetRepoToCommit,
 } from '../scaffolding'
-import { createInitialAgentState } from '../test-setup'
+import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import {
@@ -67,7 +67,7 @@ export async function runSingleEval(
 
     // Initialize agent state
     createFileReadingMock(projectPath)
-    let agentState = await createInitialAgentState(projectPath)
+    let sessionState = await createInitialSessionState(projectPath)
 
     let currentDecision: AgentDecision = 'continue'
     let attempts = 0
@@ -138,7 +138,7 @@ Explain your reasoning in detail.`,
         // Use loopMainPrompt with timeout wrapper
         const codeBuffResult = await withTimeout(
           loopMainPrompt({
-            agentState,
+            sessionState,
             prompt,
             projectPath,
             maxIterations: 20,
@@ -151,7 +151,7 @@ Explain your reasoning in detail.`,
           60_000 * 30
         )
 
-        agentState = codeBuffResult.agentState
+        sessionState = codeBuffResult.sessionState
         trace.push({ prompt, steps: codeBuffResult.steps })
       }
 

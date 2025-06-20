@@ -1,6 +1,6 @@
-import { WebSocket } from 'ws'
-import { AgentState, ToolResult } from '@codebuff/common/types/agent-state'
 import { ClientAction } from '@codebuff/common/actions'
+import { SessionState, ToolResult } from '@codebuff/common/types/session-state'
+import { WebSocket } from 'ws'
 import { mainPrompt, MainPromptOptions } from './main-prompt'
 import { ClientToolCall } from './tools'
 
@@ -11,12 +11,12 @@ export async function loopMainPrompt(
   action: Extract<ClientAction, { type: 'prompt' }>,
   options: MainPromptOptions & { maxIterations?: number }
 ): Promise<{
-  agentState: AgentState
+  sessionState: SessionState
   toolCalls: Array<ClientToolCall>
   toolResults: Array<ToolResult>
 }> {
   const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS
-  let { agentState, toolResults, toolCalls } = await mainPrompt(
+  let { sessionState, toolResults, toolCalls } = await mainPrompt(
     ws,
     action,
     options
@@ -29,12 +29,12 @@ export async function loopMainPrompt(
   ) {
     const nextAction: Extract<ClientAction, { type: 'prompt' }> = {
       ...action,
-      agentState,
+      sessionState,
       toolResults,
       prompt: undefined,
     }
     const result = await mainPrompt(ws, nextAction, options)
-    agentState = result.agentState
+    sessionState = result.sessionState
     toolResults = result.toolResults
     toolCalls = result.toolCalls
     iterations++
@@ -43,5 +43,5 @@ export async function loopMainPrompt(
     }
   }
 
-  return { agentState, toolCalls, toolResults }
+  return { sessionState, toolCalls, toolResults }
 }
