@@ -4,6 +4,7 @@
 export enum AnalyticsEvent {
   // CLI
   APP_LAUNCHED = 'cli.app_launched',
+  APP_HUNG = 'cli.app_hung',
   BACKGROUND_PROCESS_CONTINUE = 'cli.background_process_continue',
   BACKGROUND_PROCESS_END = 'cli.background_process_end',
   BACKGROUND_PROCESS_LEFTOVER_DETECTED = 'cli.background_process_leftover_detected',

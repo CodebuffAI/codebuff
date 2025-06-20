@@ -1,16 +1,21 @@
 import * as readline from 'readline'
 
+import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { green } from 'picocolors'
 
 import { getPrevious, setPrevious } from '../display'
+import { trackEvent } from './analytics'
 
 const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+const HANG_TIMEOUT_MS = 60 * 1000 // 60 seconds
 
 export class Spinner {
   private static instance: Spinner | null = null
   private loadingInterval: NodeJS.Timeout | null = null
+  private hangTimeout: NodeJS.Timeout | null = null
   private previous: string | null = null
   private text: string = 'Thinking'
+  private startTime: number = 0
 
   private constructor() {}
 
@@ -27,7 +32,18 @@ export class Spinner {
       return
     }
 
+    this.startTime = Date.now()
     this.previous = getPrevious()
+
+    // Set up hang detection timeout
+    this.hangTimeout = setTimeout(() => {
+      const duration = Date.now() - this.startTime
+      trackEvent(AnalyticsEvent.APP_HUNG, {
+        spinnerText: this.text,
+        durationMs: duration,
+      })
+    }, HANG_TIMEOUT_MS)
+
     let i = 0
     // Hide cursor while spinner is active
     process.stdout.write('\u001B[?25l')
@@ -38,12 +54,19 @@ export class Spinner {
   }
 
   stop() {
+    // Clear hang detection timeout
+    if (this.hangTimeout) {
+      clearTimeout(this.hangTimeout)
+      this.hangTimeout = null
+    }
+
     if (!this.loadingInterval) {
       return
     }
 
     clearInterval(this.loadingInterval)
     this.loadingInterval = null
+
     this.rewriteLine('') // Clear the spinner line
     this.restoreCursor() // Show cursor after spinner stops
     if (this.previous) {
