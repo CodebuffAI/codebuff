@@ -72,7 +72,7 @@ async function triggerWorkflow(versionType, packageName) {
       log(
         `Workflow trigger response: ${response || '(empty response - likely success)'}`
       )
-      log('✅ Workflow triggered successfully!')
+      log('🎉 Release workflow triggered!')
     }
   } catch (err) {
     log(`⚠️  Failed to trigger workflow automatically: ${err.message}`)
@@ -83,7 +83,7 @@ async function triggerWorkflow(versionType, packageName) {
 }
 
 async function main() {
-  log('Starting release process...')
+  log('Starting release process...', new Date().toISOString())
 
   // Generate GitHub token first
   generateGitHubToken()
@@ -94,14 +94,6 @@ async function main() {
   // Trigger the workflow
   await triggerWorkflow(versionType, packageName)
 
-  log('🎉 Release workflow triggered!')
-  log('The GitHub Actions workflow will now:')
-  log('  1. Calculate and update package versions')
-  log(`  2. ${packageName === 'codecane' ? 'Toggle package names to codecane' : 'Keep codebuff package names'}`)
-  log('  3. Build binaries for all platforms')
-  log(`  4. Publish platform-specific npm packages as ${packageName}-*`)
-  log(`  5. Publish the main ${packageName} npm package`)
-  log('  6. Commit version changes and create git tag')
   log('')
   log('Monitor progress at: https://github.com/CodebuffAI/codebuff/actions')
 }
