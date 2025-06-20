@@ -114,7 +114,7 @@ jobs:
           name: updated-packages
           path: npm-app/packages/
 
-  build-and-publish:
+  build-binaries:
     needs: prepare-release
     strategy:
       matrix:
@@ -240,22 +240,45 @@ jobs:
           mkdir -p npm-app/packages/${{ matrix.package }}
           cp npm-app/bin/${{ matrix.binary }} npm-app/packages/${{ matrix.package }}/
 
+      - name: Upload platform package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package }}
+          path: npm-app/packages/${{ matrix.package }}/
+
+  # Publish all platform packages only after all builds succeed
+  publish-platform-packages:
+    needs: [prepare-release, build-binaries]
+    strategy:
+      matrix:
+        package: [codebuff-linux-x64, codebuff-linux-arm64, codebuff-darwin-x64, codebuff-darwin-arm64, codebuff-win32-x64]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download platform package
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.package }}
+          path: ${{ matrix.package }}/
+
       - name: Set up Node.js for npm publishing
         uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org/
 
+      - name: Configure npm authentication
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          npm whoami
+
       - name: Publish platform package
         run: |
-          cd npm-app/packages/${{ matrix.package }}
+          cd ${{ matrix.package }}
           npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # Publish the stub package last, once all platform binaries are live
   publish-main-package:
-    needs: [prepare-release, build-and-publish]
+    needs: [prepare-release, publish-platform-packages]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -277,16 +300,19 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
 
+      - name: Configure npm authentication
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          npm whoami
+
       - name: Publish main stub package
         run: |
           cd npm-app/packages/codebuff
           npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # Commit version changes only after successful publishing
   commit-release:
-    needs: [prepare-release, build-and-publish, publish-main-package]
+    needs: [prepare-release, publish-platform-packages, publish-main-package]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
