@@ -297,7 +297,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     spyOn(aisdk, 'promptAiSdk').mockResolvedValue('Mocked non-stream AiSdk')
 
     const sessionState = getInitialSessionState(mockFileContext)
-    sessionState.messageHistory.push(
+    sessionState.mainAgentState.messageHistory.push(
       {
         role: 'assistant',
         content: getToolCallString('read_files', {
@@ -413,7 +413,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       spyOn(aisdk, 'promptAiSdk').mockResolvedValue('Mocked non-stream AiSdk')
 
       const sessionState = getInitialSessionState(mockFileContext)
-      sessionState.messageHistory.push(
+      sessionState.mainAgentState.messageHistory.push(
         {
           role: 'assistant',
           content: getToolCallString('read_files', {
