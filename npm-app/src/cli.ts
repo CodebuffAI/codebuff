@@ -182,6 +182,12 @@ export class CLI {
       if (!isHomeDir) {
         console.log(green('Codebuff out!'))
       }
+      if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
+        logger.info(
+          '[dev] active handles on close',
+          (process as any)._getActiveHandles()
+        )
+      }
     })
     for (const signal of ['SIGTERM', 'SIGHUP']) {
       process.on(signal, async () => {
