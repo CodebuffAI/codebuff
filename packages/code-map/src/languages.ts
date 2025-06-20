@@ -133,7 +133,7 @@ export async function getLanguageConfig(
 
       cfg.language = lang
       cfg.parser = parser
-      cfg.query = lang.query(cfg.queryText)
+      cfg.query = new Query(lang, cfg.queryText)
     } catch (err) {
       if (DEBUG_PARSING)
         console.error('[tree-sitter] load error for', filePath, err)
