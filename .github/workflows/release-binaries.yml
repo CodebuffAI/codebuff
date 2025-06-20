@@ -257,7 +257,14 @@ jobs:
           registry-url: https://registry.npmjs.org/
 
       - name: Debug NPM token
-        run: printf '%s\n' "${NODE_AUTH_TOKEN:0:4}***"
+        run: |
+          echo "NODE_AUTH_TOKEN length: ${#NODE_AUTH_TOKEN}"
+          echo "NODE_AUTH_TOKEN first 4 chars: ${NODE_AUTH_TOKEN:0:4}***"
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "❌ NODE_AUTH_TOKEN is empty!"
+          else
+            echo "✅ NODE_AUTH_TOKEN is set"
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
