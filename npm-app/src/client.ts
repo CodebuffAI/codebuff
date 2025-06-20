@@ -1,4 +1,3 @@
-import { spawn } from 'child_process'
 import {
   ClientAction,
   FileChanges,
@@ -10,6 +9,7 @@ import {
   UsageReponseSchema,
   UsageResponse,
 } from '@codebuff/common/actions'
+import { spawn } from 'child_process'
 import {
   existsSync,
   mkdirSync,
@@ -32,7 +32,11 @@ import {
 } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
-import { AgentState, getInitialAgentState } from '@codebuff/common/types/agent-state'
+import {
+  getInitialSessionState,
+  SessionState,
+  ToolResult,
+} from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
 import { User } from '@codebuff/common/util/credentials'
 import { ProjectFileContext } from '@codebuff/common/util/file'
@@ -51,15 +55,13 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
-import { ToolResult } from '@codebuff/common/types/agent-state'
-import { npmAppVersion } from './config'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CLI } from './cli'
 import { waitForPreviousCheckpoint } from './cli-handlers/checkpoint'
-import { backendUrl, websiteUrl } from './config'
+import { backendUrl, npmAppVersion, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { calculateFingerprint } from './fingerprint'
 import { runFileChangeHooks } from './json-config/hooks'
@@ -160,7 +162,7 @@ export class Client {
   public fileContext: ProjectFileContext | undefined
   public lastChanges: FileChanges = []
   public filesChangedForHook: string[] = []
-  public agentState: AgentState | undefined
+  public sessionState: SessionState | undefined
   public originalFileVersions: Record<string, string | null> = {}
   public creditsByPromptId: Record<string, number[]> = {}
   public user: User | undefined
@@ -233,14 +235,14 @@ export class Client {
     process.exit(0)
   }
 
-  public initAgentState(projectFileContext: ProjectFileContext) {
-    this.agentState = getInitialAgentState(projectFileContext)
+  public initSessionState(projectFileContext: ProjectFileContext) {
+    this.sessionState = getInitialSessionState(projectFileContext)
     this.fileContext = projectFileContext
   }
 
   public async resetContext() {
     if (!this.fileContext) return
-    this.initAgentState(this.fileContext)
+    this.initSessionState(this.fileContext)
     this.lastToolResults = []
     this.lastChanges = []
     this.creditsByPromptId = {}
@@ -840,19 +842,19 @@ export class Client {
     >
     stopResponse: () => void
   }> {
-    if (!this.agentState) {
+    if (!this.sessionState) {
       throw new Error('Agent state not initialized')
     }
 
     setMessages([
-      ...this.agentState.messageHistory,
+      ...this.sessionState.messageHistory,
       {
         role: 'user',
         content: prompt,
       },
     ])
 
-    this.agentState.agentStepsRemaining = loadCodebuffConfig().maxAgentSteps
+    this.sessionState.agentStepsRemaining = loadCodebuffConfig().maxAgentSteps
     this.lastChanges = []
     this.filesChangedForHook = []
 
@@ -901,7 +903,7 @@ export class Client {
     const action = {
       promptId: userInputId,
       prompt,
-      agentState: this.agentState,
+      sessionState: this.sessionState,
       toolResults,
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
@@ -965,10 +967,10 @@ export class Client {
       ]
 
       // Update the agent state with just the assistant's response
-      const { messageHistory } = this.agentState!
+      const { messageHistory } = this.sessionState!
       const newMessages = [...messageHistory, ...additionalMessages]
-      this.agentState = {
-        ...this.agentState!,
+      this.sessionState = {
+        ...this.sessionState!,
         messageHistory: newMessages,
       }
       setMessages(newMessages)
@@ -976,7 +978,7 @@ export class Client {
       resolveResponse({
         type: 'prompt-response',
         promptId: userInputId,
-        agentState: this.agentState!,
+        sessionState: this.sessionState!,
         toolCalls: [],
         toolResults: [],
         wasStoppedByUser: true,
@@ -1059,7 +1061,7 @@ export class Client {
 
         Spinner.get().stop()
 
-        this.agentState = a.agentState
+        this.sessionState = a.sessionState
         const toolResults: ToolResult[] = [...a.toolResults]
 
         for (const toolCall of a.toolCalls) {
@@ -1142,14 +1144,14 @@ export class Client {
         if (!isComplete) {
           // Append process updates to existing tool results
           toolResults.push(...getBackgroundProcessUpdates())
-          this.agentState.fileContext.cwd = getWorkingDirectory()
+          this.sessionState.fileContext.cwd = getWorkingDirectory()
           // Continue the prompt with the tool results.
           Spinner.get().start('Thinking...')
           const continuePromptAction: ClientAction = {
             type: 'prompt',
             promptId: userInputId,
             prompt: undefined,
-            agentState: this.agentState,
+            sessionState: this.sessionState,
             toolResults,
             fingerprintId: await this.fingerprintId,
             authToken: this.user?.authToken,
@@ -1192,8 +1194,8 @@ Go to https://www.codebuff.com/config for more information.`) +
           )
         }
 
-        if (this.agentState) {
-          setMessages(this.agentState.messageHistory)
+        if (this.sessionState) {
+          setMessages(this.sessionState.messageHistory)
         }
 
         // Show total credits used for this prompt if significant

@@ -1,12 +1,12 @@
-import { WebSocket } from 'ws'
-import { AgentState } from '@codebuff/common/types/agent-state'
-import { loopMainPrompt } from './loop-main-prompt'
+import { SessionState } from '@codebuff/common/types/session-state'
 import { toContentString } from '@codebuff/common/util/messages'
+import { WebSocket } from 'ws'
+import { loopMainPrompt } from './loop-main-prompt'
 
 export async function research(
   ws: WebSocket,
   prompts: string[],
-  initialAgentState: AgentState,
+  initialSessionState: SessionState,
   options: {
     userId: string | undefined
     clientSessionId: string
@@ -19,8 +19,8 @@ export async function research(
   const maxPrompts = 10
   const researchPromises = prompts.slice(0, maxPrompts).map((prompt) => {
     // Each research prompt runs in 'lite' mode and can only use read-only tools.
-    const researchAgentState: AgentState = {
-      ...initialAgentState,
+    const researchSessionState: SessionState = {
+      ...initialSessionState,
       agentStepsRemaining: maxIterations,
       messageHistory: [],
     }
@@ -28,7 +28,7 @@ export async function research(
     const action = {
       type: 'prompt' as const,
       prompt,
-      agentState: researchAgentState,
+      sessionState: researchSessionState,
       costMode: 'lite' as const,
       toolResults: [],
       fingerprintId,
@@ -50,7 +50,7 @@ export async function research(
   const results = await Promise.all(researchPromises)
   // We'll return the final message from each research agent.
   return results.map((result) =>
-    result.agentState.messageHistory
+    result.sessionState.messageHistory
       .filter((m) => m.role === 'assistant')
       .map((m) => `Research agent: ${toContentString(m)}`)
       .join('\n\n')

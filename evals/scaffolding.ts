@@ -1,27 +1,25 @@
-import { execSync } from 'child_process'
-import { EventEmitter } from 'events'
-import fs from 'fs'
-import path from 'path'
-import { mock } from 'bun:test'
-
-import { mainPrompt } from '@codebuff/backend/main-prompt'
 import { ClientToolCall } from '@codebuff/backend/tools'
-import { getFileTokenScores } from '@codebuff/code-map'
+import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { FileChanges } from '@codebuff/common/actions'
 import { TEST_USER_ID } from '@codebuff/common/constants'
-import {
-  getAllFilePaths,
-  getProjectFileTree,
-} from '@codebuff/common/project-file-tree'
-import { AgentState, ToolResult } from '@codebuff/common/types/agent-state'
+import { SessionState, ToolResult } from '@codebuff/common/types/session-state'
 import { applyAndRevertChanges } from '@codebuff/common/util/changes'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { handleToolCall } from '@codebuff/npm-app/tool-handlers'
 import { getSystemInfo } from '@codebuff/npm-app/utils/system-info'
+import { mock } from 'bun:test'
+import { execSync } from 'child_process'
+import { EventEmitter } from 'events'
+import fs from 'fs'
+import path from 'path'
 import { blue } from 'picocolors'
 import { WebSocket } from 'ws'
-import { ModelConfig } from 'git-evals/types'
+import {
+  getAllFilePaths,
+  getProjectFileTree,
+} from '../common/src/project-file-tree'
+import { ModelConfig } from './git-evals/types'
 
 const DEBUG_MODE = true
 
@@ -89,7 +87,7 @@ export async function getProjectFileContext(
 }
 
 export async function runMainPrompt(
-  agentState: AgentState,
+  sessionState: SessionState,
   prompt: string | undefined,
   toolResults: ToolResult[],
   sessionId: string,
@@ -109,7 +107,7 @@ export async function runMainPrompt(
     prompt,
     fingerprintId: 'test-fingerprint-id',
     costMode: options.costMode,
-    agentState,
+    sessionState,
     toolResults,
   }
 
@@ -145,7 +143,7 @@ export async function runToolCalls(toolCalls: ClientToolCall[]) {
 }
 
 export async function loopMainPrompt({
-  agentState,
+  sessionState,
   prompt,
   projectPath,
   maxIterations,
@@ -155,12 +153,12 @@ export async function loopMainPrompt({
     modelConfig: {},
   },
 }: {
-  agentState: AgentState
+  sessionState: SessionState
   prompt: string
   projectPath: string
   maxIterations: number
   stopCondition?: (
-    agentState: AgentState,
+    sessionState: SessionState,
     toolCalls: ClientToolCall[]
   ) => boolean
   options: {
@@ -172,7 +170,7 @@ export async function loopMainPrompt({
 
   const startTime = Date.now()
   const sessionId = 'test-session-id-' + generateCompactId()
-  let currentAgentState = agentState
+  let currentSessionState = sessionState
   let toolResults: ToolResult[] = []
   let toolCalls: ClientToolCall[] = []
   let iterations = 1
@@ -181,21 +179,21 @@ export async function loopMainPrompt({
   for (; iterations < maxIterations; iterations++) {
     console.log('\nIteration', iterations)
     let {
-      agentState: newAgentState,
+      sessionState: newSessionState,
       toolCalls: newToolCalls,
       toolResults: newToolResults,
       fullResponse,
     } = await runMainPrompt(
-      currentAgentState,
+      currentSessionState,
       iterations === 1 ? prompt : undefined,
       toolResults,
       sessionId,
       options
     )
-    currentAgentState = newAgentState
+    currentSessionState = newSessionState
     toolCalls = newToolCalls
 
-    const stop = stopCondition && stopCondition(currentAgentState, toolCalls)
+    const stop = stopCondition && stopCondition(currentSessionState, toolCalls)
     if (stop) break
 
     toolResults = [
@@ -227,7 +225,7 @@ export async function loopMainPrompt({
   )
 
   return {
-    agentState: currentAgentState,
+    sessionState: currentSessionState,
     toolCalls,
     toolResults,
     iterations: iterations - 1,

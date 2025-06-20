@@ -1,15 +1,18 @@
 import { spawn } from 'child_process'
 import * as path from 'path'
 
-import { getRgPath } from './native/ripgrep'
 import { FileChangeSchema } from '@codebuff/common/actions'
-import { BrowserActionSchema, BrowserResponse } from '@codebuff/common/browser-actions'
+import {
+  BrowserActionSchema,
+  BrowserResponse,
+} from '@codebuff/common/browser-actions'
 import { applyChanges } from '@codebuff/common/util/changes'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import { cyan, green, red, yellow } from 'picocolors'
+import { getRgPath } from './native/ripgrep'
 import { logger } from './utils/logger'
 
-import { ToolCall } from '@codebuff/common/types/agent-state'
+import { ToolCall } from '@codebuff/common/types/session-state'
 import { handleBrowserInstruction } from './browser-runner'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/base'

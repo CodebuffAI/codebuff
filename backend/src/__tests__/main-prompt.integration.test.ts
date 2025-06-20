@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
-import { TEST_USER_ID } from '@codebuff/common/constants'
-import { getInitialAgentState } from '@codebuff/common/types/agent-state'
+import { TEST_USER_ID } from 'common/constants'
+import { getInitialSessionState } from 'common/types/session-state'
 import { WebSocket } from 'ws'
 import { mainPrompt } from '../main-prompt'
 
 // Mock imports needed for setup within the test
-import { ClientToolCall } from '../tools'
-import { renderReadFilesResult } from '../util/parse-tool-call-xml'
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
+import { ClientToolCall } from '../tools'
 import { logger } from '../util/logger'
+import { renderReadFilesResult } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
 // --- Shared Mocks & Helpers ---
@@ -296,8 +296,8 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     // Mock LLM calls
     spyOn(aisdk, 'promptAiSdk').mockResolvedValue('Mocked non-stream AiSdk')
 
-    const agentState = getInitialAgentState(mockFileContext)
-    agentState.messageHistory.push(
+    const sessionState = getInitialSessionState(mockFileContext)
+    sessionState.messageHistory.push(
       {
         role: 'assistant',
         content: getToolCallString('read_files', {
@@ -321,7 +321,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     const action = {
       type: 'prompt' as const,
       prompt: 'Delete the castAssistantMessage function',
-      agentState,
+      sessionState,
       fingerprintId: 'test-delete-function-integration',
       costMode: 'normal' as const,
       promptId: 'test-delete-function-id-integration',
@@ -331,7 +331,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     const {
       toolCalls,
       toolResults,
-      agentState: finalAgentState,
+      sessionState: finalSessionState,
     } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session-delete-function-integration',
@@ -360,18 +360,18 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
   }, 60000) // Increase timeout for real LLM call
 
   it('should handle tool calls and responses', async () => {
-    const agentState = getInitialAgentState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContext)
     const action = {
       type: 'prompt' as const,
       prompt: 'Create a simple hello world function',
-      agentState,
+      sessionState,
       fingerprintId: 'test',
       costMode: 'normal' as const,
       promptId: 'test',
       toolResults: [],
     }
 
-    const { agentState: newAgentState, toolCalls } = await mainPrompt(
+    const { sessionState: newSessionState, toolCalls } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -383,7 +383,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       }
     )
 
-    expect(newAgentState).toBeDefined()
+    expect(newSessionState).toBeDefined()
     expect(toolCalls).toBeDefined()
   })
 
@@ -412,8 +412,8 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       // Mock LLM calls
       spyOn(aisdk, 'promptAiSdk').mockResolvedValue('Mocked non-stream AiSdk')
 
-      const agentState = getInitialAgentState(mockFileContext)
-      agentState.messageHistory.push(
+      const sessionState = getInitialSessionState(mockFileContext)
+      sessionState.messageHistory.push(
         {
           role: 'assistant',
           content: getToolCallString('read_files', {
@@ -437,7 +437,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       const action = {
         type: 'prompt' as const,
         prompt: "There's a syntax error. Delete the last } in the file",
-        agentState,
+        sessionState,
         fingerprintId: 'test-delete-function-integration',
         costMode: 'normal' as const,
         promptId: 'test-delete-function-id-integration',
@@ -447,7 +447,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       const {
         toolCalls,
         toolResults,
-        agentState: finalAgentState,
+        sessionState: finalSessionState,
       } = await mainPrompt(
         new MockWebSocket() as unknown as WebSocket,
         action,
