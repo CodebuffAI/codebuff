@@ -254,6 +254,7 @@ jobs:
         run: |
           mkdir -p npm-app/packages/${{ matrix.package }}
           cp npm-app/bin/${{ matrix.binary }} npm-app/packages/${{ matrix.package }}/
+        shell: bash
 
       - name: Upload platform package
         uses: actions/upload-artifact@v4
