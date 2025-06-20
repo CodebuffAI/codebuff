@@ -34,9 +34,21 @@ function updatePackageJson(filePath, targetName) {
   const pkg = JSON.parse(fs.readFileSync(filePath, 'utf8'))
   let changed = false
 
-  // Update name field - directly set to target name
+  // Update name field - preserve platform suffix for platform packages
   if (pkg.name) {
-    const newName = targetName
+    let newName
+    if (filePath.includes('packages/codebuff/')) {
+      // Main package - use target name directly
+      newName = targetName
+    } else if (filePath.includes('packages/codebuff-')) {
+      // Platform package - preserve platform suffix
+      const platformSuffix = pkg.name.replace(/^(codebuff|codecane)/, '')
+      newName = targetName + platformSuffix
+    } else {
+      // Other files like package.release.json
+      newName = targetName
+    }
+    
     if (newName !== pkg.name) {
       log(`${filePath}: ${pkg.name} → ${newName}`)
       pkg.name = newName
@@ -44,7 +56,7 @@ function updatePackageJson(filePath, targetName) {
     }
   }
 
-  // Update bin field - directly set to target name
+  // Update bin field - use target name for command
   if (pkg.bin) {
     if (typeof pkg.bin === 'string') {
       const newBin = targetName
@@ -65,12 +77,13 @@ function updatePackageJson(filePath, targetName) {
     }
   }
 
-  // Update optionalDependencies field - set platform packages to target name
+  // Update optionalDependencies field - preserve platform suffixes
   if (pkg.optionalDependencies) {
     const newOptionalDeps = {}
     for (const [dep, version] of Object.entries(pkg.optionalDependencies)) {
-      // For platform packages, replace codebuff/codecane with target name
-      const newDep = dep.replace(/codebuff|codecane/g, targetName)
+      // Extract platform suffix and apply to target name
+      const platformSuffix = dep.replace(/^(codebuff|codecane)/, '')
+      const newDep = targetName + platformSuffix
       newOptionalDeps[newDep] = version
       if (newDep !== dep) {
         changed = true
@@ -107,7 +120,7 @@ function main() {
   }
 
   log(`✅ Package names set to ${targetPackageName}!`)
-  log('Note: Directory names remain as codebuff-*, only package names and bin commands are changed')
+  log('Note: Directory names remain as codebuff-*, platform packages named as ${targetPackageName}-platform-arch')
 }
 
 main()
