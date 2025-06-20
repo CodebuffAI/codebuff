@@ -1,10 +1,10 @@
 import { Model } from 'common/constants'
-import { AgentTemplateName } from 'common/types/agent-state'
+import { AgentTemplateType } from 'common/types/session-state'
 
 import { ToolName } from '@/tools'
 
 export type AgentTemplate = {
-  name: AgentTemplateName
+  name: AgentTemplateType
   description: string
   model: Model
   toolNames: ToolName[]

@@ -5,12 +5,12 @@ import * as path from 'path'
 import { ClientToolCall } from 'backend/tools'
 import { PROMPT_PREFIX } from './constants'
 import { loopMainPrompt } from './scaffolding'
-import { createInitialAgentState, setupTestEnvironment } from './test-setup'
+import { createInitialSessionState, setupTestEnvironment } from './test-setup'
 
 describe('manifold', async () => {
   // Set up the test environment once for all tests
   const { repoPath, commit, resetRepo } = await setupTestEnvironment('manifold')
-  const initialAgentState = await createInitialAgentState(repoPath)
+  const initialSessionState = await createInitialSessionState(repoPath)
 
   // Reset repo before each test
   beforeEach(() => resetRepo(commit))
@@ -22,7 +22,7 @@ describe('manifold', async () => {
         PROMPT_PREFIX +
         'Can you add a console.log statement to components/like-button.ts with all the props?'
       let { toolCalls } = await loopMainPrompt({
-        agentState: initialAgentState,
+        sessionState: initialSessionState,
         prompt,
         projectPath: repoPath,
         maxIterations: 20,
@@ -65,7 +65,7 @@ describe('manifold', async () => {
     async () => {
       const prompt = PROMPT_PREFIX + 'Add an endpoint to delete a comment'
       await loopMainPrompt({
-        agentState: initialAgentState,
+        sessionState: initialSessionState,
         prompt,
         projectPath: repoPath,
         maxIterations: 20,

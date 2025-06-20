@@ -8,7 +8,7 @@ import { loopMainPrompt } from './scaffolding'
 import { passesSweBenchTests } from './swe-bench-eval'
 import { SWE_BENCH_IDS } from './swe-bench-ids'
 import {
-  createInitialAgentState,
+  createInitialSessionState,
   ensureTestRepos,
   setupTestEnvironment,
   TEST_REPOS_DIR,
@@ -48,19 +48,21 @@ describe('SWE-Bench', async () => {
           instanceId,
           async () => {
             const { repoPath, resetRepo } = await setupTestEnvironment(repoName)
-            const initialAgentState = await createInitialAgentState(repoPath)
+            const initialSessionState =
+              await createInitialSessionState(repoPath)
             resetRepo(sweBenchLiteDataset[instanceId].base_commit)
 
             const prompt =
               PROMPT_PREFIX + sweBenchLiteDataset[instanceId].problem_statement
             await loopMainPrompt({
-              agentState: initialAgentState,
+              sessionState: initialSessionState,
               prompt,
               projectPath: repoPath,
               maxIterations: 100,
               options: {
-                costMode: 'normal'
-              }
+                costMode: 'normal',
+                modelConfig: {},
+              },
             })
             expect(await passesSweBenchTests(instanceId, repoPath)).toBeTruthy()
           },

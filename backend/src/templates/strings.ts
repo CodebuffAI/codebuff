@@ -1,6 +1,6 @@
 import { CodebuffConfigSchema } from 'common/json-config/constants'
 import { stringifySchema } from 'common/json-config/stringify-schema'
-import { AgentState, AgentTemplateName } from 'common/types/agent-state'
+import { AgentTemplateType, SessionState } from 'common/types/session-state'
 
 import {
   getGitChangesPrompt,
@@ -14,26 +14,26 @@ import { PLACEHOLDER, PlaceholderValue, placeholderValues } from './types'
 
 export function formatPrompt(
   prompt: string,
-  agentState: AgentState,
+  sessionState: SessionState,
   tools: ToolName[]
 ): string {
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
-      agentState.fileContext,
+      sessionState.fileContext,
       20_000,
       'agent'
     ),
     [PLACEHOLDER.GIT_CHANGES_PROMPT]: getGitChangesPrompt(
-      agentState.fileContext
+      sessionState.fileContext
     ),
-    [PLACEHOLDER.REMAINING_STEPS]: `${agentState.agentStepsRemaining!}`,
-    [PLACEHOLDER.PROJECT_ROOT]: agentState.fileContext.projectRoot,
+    [PLACEHOLDER.REMAINING_STEPS]: `${sessionState.mainAgent?.stepsRemaining!}`,
+    [PLACEHOLDER.PROJECT_ROOT]: sessionState.fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(
-      agentState.fileContext
+      sessionState.fileContext
     ),
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
-    [PLACEHOLDER.USER_CWD]: agentState.fileContext.cwd,
+    [PLACEHOLDER.USER_CWD]: sessionState.fileContext.cwd,
   }
 
   for (const varName of placeholderValues) {
@@ -46,14 +46,14 @@ export function formatPrompt(
 }
 
 export function getAgentPrompt(
-  agentTemplateName: AgentTemplateName,
+  agentTemplateName: AgentTemplateType,
   promptType: 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt',
-  agentState: AgentState
+  sessionState: SessionState
 ): string {
   const agentTemplate = agentTemplates[agentTemplateName]
   return formatPrompt(
     agentTemplate[promptType],
-    agentState,
+    sessionState,
     agentTemplate.toolNames
   )
 }

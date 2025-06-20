@@ -1,8 +1,8 @@
-import { AgentTemplateNames } from 'common/types/agent-state'
+import { AgentTemplateTypes } from 'common/types/session-state'
 import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
 
 export const gemini25pro_base: AgentTemplate = {
-  name: AgentTemplateNames.gemini25pro_base,
+  name: AgentTemplateTypes.gemini25pro_base,
   description:
     'Experimental agent using Gemini 2.5 Pro Preview with advanced reasoning',
   model: 'gemini-2.5-pro-preview-06-05',

@@ -9,7 +9,7 @@ import { truncateStringWithMessage } from 'common/util/string'
 import { cyan, green, red, yellow } from 'picocolors'
 import { logger } from './utils/logger'
 
-import { ToolCall } from 'common/types/agent-state'
+import { ToolCall } from 'common/types/session-state'
 import { handleBrowserInstruction } from './browser-runner'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/base'

@@ -1,6 +1,6 @@
 import { Interface as ReadlineInterface } from 'readline'
 
-import { AgentState } from 'common/types/agent-state'
+import { SessionState } from 'common/types/session-state'
 import { bold, cyan, green, red, underline } from 'picocolors'
 
 import {
@@ -105,8 +105,8 @@ export async function handleUndo(
     const currentCheckpoint =
       checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
 
-    // Restore the agentState
-    client.agentState = JSON.parse(currentCheckpoint.agentStateString)
+    // Restore the sessionState
+    client.sessionState = JSON.parse(currentCheckpoint.sessionStateString)
     client.lastToolResults = JSON.parse(currentCheckpoint.lastToolResultsString)
 
     console.log(
@@ -149,8 +149,8 @@ export async function handleRedo(
     const currentCheckpoint =
       checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
 
-    // Restore the agentState
-    client.agentState = JSON.parse(currentCheckpoint.agentStateString)
+    // Restore the sessionState
+    client.sessionState = JSON.parse(currentCheckpoint.sessionStateString)
     client.lastToolResults = JSON.parse(currentCheckpoint.lastToolResultsString)
 
     console.log(
@@ -199,8 +199,8 @@ export async function handleRestoreCheckpoint(
     )
   }
 
-  // Restore the agentState
-  client.agentState = JSON.parse(checkpoint.agentStateString)
+  // Restore the sessionState
+  client.sessionState = JSON.parse(checkpoint.sessionStateString)
   client.lastToolResults = JSON.parse(checkpoint.lastToolResultsString)
 
   let failed = false
@@ -266,7 +266,7 @@ export async function saveCheckpoint(
   // Save the current agent state
   try {
     const { checkpoint, created } = await checkpointManager.addCheckpoint(
-      client.agentState as AgentState,
+      client.sessionState as SessionState,
       client.lastToolResults,
       userInput,
       saveWithNoChanges

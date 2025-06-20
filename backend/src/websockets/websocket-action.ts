@@ -150,7 +150,7 @@ const onPrompt = async (
       }
 
       try {
-        const { agentState, toolCalls, toolResults } = await mainPrompt(
+        const { sessionState, toolCalls, toolResults } = await mainPrompt(
           ws,
           action,
           {
@@ -171,7 +171,7 @@ const onPrompt = async (
         sendAction(ws, {
           type: 'prompt-response',
           promptId,
-          agentState,
+          sessionState,
           toolCalls: toolCalls as any[],
           toolResults,
         })
@@ -181,7 +181,7 @@ const onPrompt = async (
           e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
 
         const newMessages = buildArray(
-          ...action.agentState.messageHistory,
+          ...action.sessionState.messageHistory,
           prompt && {
             role: 'user' as const,
             content: prompt,
@@ -205,9 +205,9 @@ const onPrompt = async (
           sendAction(ws, {
             type: 'prompt-response',
             promptId,
-            // Send back original agentState.
-            agentState: {
-              ...action.agentState,
+            // Send back original sessionState.
+            sessionState: {
+              ...action.sessionState,
               messageHistory: newMessages,
             },
             toolCalls: [],

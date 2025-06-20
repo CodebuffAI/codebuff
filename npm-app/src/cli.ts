@@ -115,7 +115,7 @@ export class CLI {
     this.readyPromise = Promise.all([
       readyPromise.then((results) => {
         const [fileContext, ,] = results
-        Client.getInstance().initAgentState(fileContext)
+        Client.getInstance().initSessionState(fileContext)
         return Client.getInstance().warmContextCache()
       }),
       Client.getInstance().connect(),

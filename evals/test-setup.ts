@@ -2,8 +2,11 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { getInitialAgentState } from '../common/src/types/agent-state'
-import { setProjectRoot, setWorkingDirectory } from '../npm-app/src/project-files'
+import { getInitialSessionState } from 'common/types/session-state'
+import {
+  setProjectRoot,
+  setWorkingDirectory,
+} from '../npm-app/src/project-files'
 import { recreateShell } from '../npm-app/src/terminal/base'
 
 import {
@@ -165,7 +168,7 @@ export async function setupTestEnvironment(projectName: string) {
 }
 
 // Creates an initial agent state for testing
-export async function createInitialAgentState(repoPath: string) {
+export async function createInitialSessionState(repoPath: string) {
   const fileContext = await getProjectFileContext(repoPath)
-  return getInitialAgentState(fileContext)
+  return getInitialSessionState(fileContext)
 }

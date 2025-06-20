@@ -1,8 +1,8 @@
-import { AgentTemplateNames } from 'common/types/agent-state'
+import { AgentTemplateTypes } from 'common/types/session-state'
 import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
 
 export const gemini25flash_base: AgentTemplate = {
-  name: AgentTemplateNames.gemini25flash_base,
+  name: AgentTemplateTypes.gemini25flash_base,
   description:
     'Lite agent using Gemini 2.5 Flash for fast and efficient responses',
   model: 'gemini-2.5-flash-preview-05-20',

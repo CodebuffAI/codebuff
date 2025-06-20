@@ -10,7 +10,7 @@ import {
 } from 'bun:test'
 import * as analytics from 'common/analytics'
 import { TEST_USER_ID } from 'common/constants'
-import { getInitialAgentState } from 'common/types/agent-state'
+import { getInitialSessionState } from 'common/types/session-state'
 import { WebSocket } from 'ws'
 
 // Mock imports
@@ -152,7 +152,7 @@ describe('mainPrompt', () => {
   }
 
   it('should add tool results to message history', async () => {
-    const agentState = getInitialAgentState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContext)
     const toolResults = [
       {
         type: 'tool-result' as const,
@@ -166,14 +166,14 @@ describe('mainPrompt', () => {
     const action = {
       type: 'prompt' as const,
       prompt: userPromptText,
-      agentState,
+      sessionState,
       fingerprintId: 'test',
       costMode: 'normal' as const,
       promptId: 'test',
       toolResults,
     }
 
-    const { agentState: newAgentState } = await mainPrompt(
+    const { sessionState: newSessionState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -186,7 +186,7 @@ describe('mainPrompt', () => {
     )
 
     // 1. First, find the tool results message
-    const userToolResultMessageIndex = newAgentState.messageHistory.findIndex(
+    const userToolResultMessageIndex = newSessionState.messageHistory.findIndex(
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
@@ -195,12 +195,12 @@ describe('mainPrompt', () => {
     )
     expect(userToolResultMessageIndex).toBeGreaterThanOrEqual(0)
     const userToolResultMessage =
-      newAgentState.messageHistory[userToolResultMessageIndex]
+      newSessionState.messageHistory[userToolResultMessageIndex]
     expect(userToolResultMessage).toBeDefined()
     expect(userToolResultMessage?.content).toContain('read_files')
 
     // 2. Find the actual user prompt message (wrapped in <user_message> tags)
-    const userPromptMessageIndex = newAgentState.messageHistory.findIndex(
+    const userPromptMessageIndex = newSessionState.messageHistory.findIndex(
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
@@ -208,24 +208,24 @@ describe('mainPrompt', () => {
     )
     expect(userPromptMessageIndex).toBeGreaterThanOrEqual(0)
     const userPromptMessage =
-      newAgentState.messageHistory[userPromptMessageIndex]
+      newSessionState.messageHistory[userPromptMessageIndex]
     expect(userPromptMessage?.role).toBe('user')
     expect(userPromptMessage.content).toEqual(asUserMessage(userPromptText))
 
     // 3. The assistant response should be the last message
     const assistantResponseMessage =
-      newAgentState.messageHistory[newAgentState.messageHistory.length - 1]
+      newSessionState.messageHistory[newSessionState.messageHistory.length - 1]
     expect(assistantResponseMessage?.role).toBe('assistant')
     expect(assistantResponseMessage?.content).toBe('Test response')
 
     // Check overall length - should have at least the tool results, user prompt, and assistant response
-    expect(newAgentState.messageHistory.length).toBeGreaterThanOrEqual(3)
+    expect(newSessionState.messageHistory.length).toBeGreaterThanOrEqual(3)
   })
 
   it('should add file updates to tool results in message history', async () => {
-    const agentState = getInitialAgentState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContext)
     // Simulate a previous read_files result being in the history
-    agentState.messageHistory.push({
+    sessionState.messageHistory.push({
       role: 'user',
       content: renderToolResults([
         {
@@ -240,7 +240,7 @@ describe('mainPrompt', () => {
     const action = {
       type: 'prompt' as const,
       prompt: 'Test prompt causing file update check',
-      agentState,
+      sessionState,
       fingerprintId: 'test',
       costMode: 'max' as const,
       promptId: 'test',
@@ -248,7 +248,7 @@ describe('mainPrompt', () => {
     }
 
     // Capture the state *after* the prompt call
-    const { agentState: newAgentState } = await mainPrompt(
+    const { sessionState: newSessionState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -263,7 +263,7 @@ describe('mainPrompt', () => {
     // Find the user message containing tool results added *during* the mainPrompt execution
     // This message should contain the 'file_updates' result.
     // It's usually the message right before the final assistant response.
-    const toolResultMessages = newAgentState.messageHistory.filter(
+    const toolResultMessages = newSessionState.messageHistory.filter(
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
@@ -290,11 +290,11 @@ describe('mainPrompt', () => {
       'checkTerminalCommand'
     ).mockImplementation(async () => 'ls -la')
 
-    const agentState = getInitialAgentState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContext)
     const action = {
       type: 'prompt' as const,
       prompt: 'ls -la',
-      agentState,
+      sessionState,
       fingerprintId: 'test',
       costMode: 'max' as const,
       promptId: 'test',
@@ -341,18 +341,18 @@ describe('mainPrompt', () => {
     )
     mockAgentStream(writeFileBlock)
 
-    const agentState = getInitialAgentState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContext)
     const action = {
       type: 'prompt' as const,
       prompt: 'Write hello world to new-file.txt',
-      agentState,
+      sessionState,
       fingerprintId: 'test',
       costMode: 'max' as const, // This causes streamGemini25Pro to be called
       promptId: 'test',
       toolResults: [],
     }
 
-    const { toolCalls, agentState: newAgentState } = await mainPrompt(
+    const { toolCalls, sessionState: newSessionState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -377,11 +377,11 @@ describe('mainPrompt', () => {
   })
 
   it('should force end of response after MAX_CONSECUTIVE_ASSISTANT_MESSAGES', async () => {
-    const agentState = getInitialAgentState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContext)
 
     // Set up message history with many consecutive assistant messages
-    agentState.agentStepsRemaining = 0
-    agentState.messageHistory = [
+    sessionState.agentStepsRemaining = 0
+    sessionState.messageHistory = [
       { role: 'user', content: 'Initial prompt' },
       ...Array(20).fill({ role: 'assistant', content: 'Assistant response' }),
     ]
@@ -389,7 +389,7 @@ describe('mainPrompt', () => {
     const action = {
       type: 'prompt' as const,
       prompt: '', // No new prompt
-      agentState,
+      sessionState,
       fingerprintId: 'test',
       costMode: 'max' as const,
       promptId: 'test',
@@ -412,20 +412,20 @@ describe('mainPrompt', () => {
   })
 
   it('should update consecutiveAssistantMessages when new prompt is received', async () => {
-    const agentState = getInitialAgentState(mockFileContext)
-    agentState.agentStepsRemaining = 12
+    const sessionState = getInitialSessionState(mockFileContext)
+    sessionState.agentStepsRemaining = 12
 
     const action = {
       type: 'prompt' as const,
       prompt: 'New user prompt',
-      agentState,
+      sessionState,
       fingerprintId: 'test',
       costMode: 'max' as const,
       promptId: 'test',
       toolResults: [],
     }
 
-    const { agentState: newAgentState } = await mainPrompt(
+    const { sessionState: newSessionState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -438,27 +438,27 @@ describe('mainPrompt', () => {
     )
 
     // When there's a new prompt, consecutiveAssistantMessages should be set to 1
-    expect(newAgentState.agentStepsRemaining).toBe(
-      agentState.agentStepsRemaining - 1
+    expect(newSessionState.agentStepsRemaining).toBe(
+      sessionState.agentStepsRemaining - 1
     )
   })
 
   it('should increment consecutiveAssistantMessages when no new prompt', async () => {
-    const agentState = getInitialAgentState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContext)
     const initialCount = 5
-    agentState.agentStepsRemaining = initialCount
+    sessionState.agentStepsRemaining = initialCount
 
     const action = {
       type: 'prompt' as const,
       prompt: '', // No new prompt
-      agentState,
+      sessionState,
       fingerprintId: 'test',
       costMode: 'max' as const,
       promptId: 'test',
       toolResults: [],
     }
 
-    const { agentState: newAgentState } = await mainPrompt(
+    const { sessionState: newSessionState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -471,18 +471,18 @@ describe('mainPrompt', () => {
     )
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
-    expect(newAgentState.agentStepsRemaining).toBe(initialCount - 1)
+    expect(newSessionState.agentStepsRemaining).toBe(initialCount - 1)
   })
 
   it('should return no tool calls when LLM response is empty', async () => {
     // Mock the LLM stream to return nothing
     mockAgentStream('')
 
-    const agentState = getInitialAgentState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContext)
     const action = {
       type: 'prompt' as const,
       prompt: 'Test prompt leading to empty response',
-      agentState,
+      sessionState,
       fingerprintId: 'test',
       costMode: 'normal' as const,
       promptId: 'test',
@@ -505,7 +505,7 @@ describe('mainPrompt', () => {
   })
 
   it('should unescape ampersands in run_terminal_command tool calls', async () => {
-    const agentState = getInitialAgentState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContext)
     const userPromptText = 'Run the backend tests'
     const escapedCommand = 'cd backend &amp;&amp; bun test'
     const expectedCommand = 'cd backend && bun test'
@@ -520,7 +520,7 @@ describe('mainPrompt', () => {
     const action = {
       type: 'prompt' as const,
       prompt: userPromptText,
-      agentState,
+      sessionState,
       fingerprintId: 'test',
       costMode: 'max' as const,
       promptId: 'test',

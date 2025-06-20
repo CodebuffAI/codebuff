@@ -1,4 +1,4 @@
-import { ToolResult } from 'common/types/agent-state'
+import { ToolResult } from 'common/types/session-state'
 import { generateCompactId } from 'common/util/string'
 import micromatch from 'micromatch'
 

@@ -4,7 +4,7 @@ import { join } from 'path'
 import { Worker } from 'worker_threads'
 
 import { DEFAULT_MAX_FILES, getAllFilePaths } from 'common/project-file-tree'
-import { AgentState, ToolResult } from 'common/types/agent-state'
+import { SessionState, ToolResult } from 'common/types/session-state'
 import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
@@ -59,7 +59,7 @@ interface WorkerResponse {
  * Interface representing a checkpoint of agent state
  */
 export interface Checkpoint {
-  agentStateString: string
+  sessionStateString: string
   lastToolResultsString: string
   /** Promise resolving to the git commit hash for this checkpoint */
   fileStateIdPromise: Promise<string>
@@ -152,14 +152,14 @@ export class CheckpointManager {
 
   /**
    * Add a new checkpoint of the current agent and file state
-   * @param agentState - The current agent state to checkpoint
+   * @param sessionState - The current agent state to checkpoint
    * @param lastToolResults - The tool results from the last assistant turn
    * @param userInput - The user input that triggered this checkpoint
    * @returns The latest checkpoint and whether that checkpoint was created (or already existed)
    * @throws {Error} If the checkpoint cannot be added
    */
   async addCheckpoint(
-    agentState: AgentState,
+    sessionState: SessionState,
     lastToolResults: ToolResult[],
     userInput: string,
     saveWithNoChanges: boolean = false
@@ -180,7 +180,7 @@ export class CheckpointManager {
       throw new CheckpointsDisabledError(this.disabledReason)
     }
     const bareRepoPath = this.getBareRepoPath()
-    const relativeFilepaths = getAllFilePaths(agentState.fileContext.fileTree)
+    const relativeFilepaths = getAllFilePaths(sessionState.fileContext.fileTree)
 
     if (relativeFilepaths.length >= DEFAULT_MAX_FILES) {
       this.disabledReason = 'Project too large'
@@ -220,10 +220,10 @@ export class CheckpointManager {
     }
 
     const checkpoint: Checkpoint = {
-      agentStateString: JSON.stringify(agentState),
+      sessionStateString: JSON.stringify(sessionState),
       lastToolResultsString: JSON.stringify(lastToolResults),
       fileStateIdPromise,
-      historyLength: agentState.messageHistory.length,
+      historyLength: sessionState.messageHistory.length,
       id,
       parentId: this.currentCheckpointId,
       timestamp: Date.now(),
@@ -275,7 +275,7 @@ export class CheckpointManager {
     }
 
     const relativeFilepaths = getAllFilePaths(
-      (JSON.parse(checkpoint.agentStateString) as AgentState).fileContext
+      (JSON.parse(checkpoint.sessionStateString) as SessionState).fileContext
         .fileTree
     )
 

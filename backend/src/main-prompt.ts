@@ -18,7 +18,7 @@ import {
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { getToolCallString, toolSchema } from 'common/constants/tools'
 import { trackEvent } from 'common/src/analytics'
-import { AgentState, ToolResult } from 'common/types/agent-state'
+import { SessionState, ToolResult } from 'common/types/session-state'
 import { buildArray } from 'common/util/array'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { toContentString } from 'common/util/messages'
@@ -101,7 +101,7 @@ export const mainPrompt = async (
   action: Extract<ClientAction, { type: 'prompt' }>,
   options: MainPromptOptions
 ): Promise<{
-  agentState: AgentState
+  sessionState: SessionState
   toolCalls: Array<ClientToolCall>
   toolResults: Array<ToolResult>
 }> => {
@@ -114,11 +114,17 @@ export const mainPrompt = async (
     modelConfig,
   } = options
 
-  const { prompt, agentState, fingerprintId, costMode, promptId, toolResults } =
-    action
-  const { fileContext, agentContext } = agentState
+  const {
+    prompt,
+    sessionState: sessionState,
+    fingerprintId,
+    costMode,
+    promptId,
+    toolResults,
+  } = action
+  const { fileContext, agentContext } = sessionState
   const startTime = Date.now()
-  let messageHistory = agentState.messageHistory
+  let messageHistory = sessionState.messageHistory
 
   // Get the extracted repo ID from request context
   const requestContext = getRequestContext()
@@ -195,7 +201,7 @@ export const mainPrompt = async (
 
     isGeminiPro
       ? toolsInstructions
-      : `Any tool calls will be run from the project root (${agentState.fileContext.projectRoot}) unless otherwise specified`,
+      : `Any tool calls will be run from the project root (${sessionState.fileContext.projectRoot}) unless otherwise specified`,
 
     'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it if you have not already!',
 
@@ -256,7 +262,7 @@ export const mainPrompt = async (
       {
         role: 'user' as const,
         content: asSystemMessage(
-          `Assistant cwd (project root): ${agentState.fileContext.projectRoot}\nUser cwd: ${agentState.fileContext.cwd}`
+          `Assistant cwd (project root): ${sessionState.fileContext.projectRoot}\nUser cwd: ${sessionState.fileContext.cwd}`
         ),
         timeToLive: 'agentStep',
       },
@@ -286,15 +292,15 @@ export const mainPrompt = async (
         },
         `Detected terminal command in ${duration}ms, executing directly: ${prompt}`
       )
-      const newAgentState = {
-        ...agentState,
+      const newSessionState = {
+        ...sessionState,
         messageHistory: expireMessages(
           messagesWithToolResultsAndUser,
           'userPrompt'
         ),
       }
       return {
-        agentState: newAgentState,
+        sessionState: newSessionState,
         toolCalls: [
           {
             toolName: 'run_terminal_command',
@@ -313,7 +319,7 @@ export const mainPrompt = async (
   }
 
   // Check number of assistant messages since last user message with prompt
-  if (agentState.agentStepsRemaining <= 0) {
+  if (sessionState.agentStepsRemaining <= 0) {
     logger.warn(
       `Detected too many consecutive assistant messages without user prompt`
     )
@@ -327,8 +333,8 @@ export const mainPrompt = async (
     onResponseChunk(`${warningString}\n\n`)
 
     return {
-      agentState: {
-        ...agentState,
+      sessionState: {
+        ...sessionState,
         messageHistory: [
           ...expireMessages(messagesWithToolResultsAndUser, 'userPrompt'),
           {
@@ -528,7 +534,7 @@ export const mainPrompt = async (
     {
       role: 'user',
       content: asSystemMessage(
-        `You have ${agentState.agentStepsRemaining} more response(s) before you will be cut off and the turn will be ended automatically.${agentState.agentStepsRemaining === 1 ? ' (This will be the last response.)' : ''}`
+        `You have ${sessionState.agentStepsRemaining} more response(s) before you will be cut off and the turn will be ended automatically.${sessionState.agentStepsRemaining === 1 ? ' (This will be the last response.)' : ''}`
       ),
       timeToLive: 'agentStep',
     },
@@ -536,7 +542,7 @@ export const mainPrompt = async (
     prompt && {
       role: 'user' as const,
       content: asSystemMessage(
-        `Assistant cwd (project root): ${agentState.fileContext.projectRoot}\nUser cwd: ${agentState.fileContext.cwd}`
+        `Assistant cwd (project root): ${sessionState.fileContext.projectRoot}\nUser cwd: ${sessionState.fileContext.cwd}`
       ),
       timeToLive: 'agentStep',
     },
@@ -1080,7 +1086,7 @@ export const mainPrompt = async (
 
       let formattedResult: string
       try {
-        const researchResults = await research(ws, prompts, agentState, {
+        const researchResults = await research(ws, prompts, sessionState, {
           userId,
           clientSessionId,
           fingerprintId,
@@ -1180,11 +1186,11 @@ export const mainPrompt = async (
     logger.debug({ summary: fullResponse }, 'Compacted messages')
   }
 
-  const newAgentState: AgentState = {
-    ...agentState,
+  const newSessionState: SessionState = {
+    ...sessionState,
     messageHistory: finalMessageHistory,
     agentContext: newAgentContext,
-    agentStepsRemaining: agentState.agentStepsRemaining - 1,
+    agentStepsRemaining: sessionState.agentStepsRemaining - 1,
   }
 
   logger.debug(
@@ -1203,7 +1209,7 @@ export const mainPrompt = async (
     `Main prompt response ${iterationNum}`
   )
   return {
-    agentState: newAgentState,
+    sessionState: newSessionState,
     toolCalls: clientToolCalls,
     toolResults: serverToolResults,
   }

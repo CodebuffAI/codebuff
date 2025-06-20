@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { ClientToolCall } from 'backend/tools'
 import { PROMPT_PREFIX } from './constants'
 import { loopMainPrompt } from './scaffolding'
-import { createInitialAgentState, setupTestEnvironment } from './test-setup'
+import { createInitialSessionState, setupTestEnvironment } from './test-setup'
 
 describe('pglite-demo', async () => {
   // Set up the test environment once for all tests
   const { repoPath, commit, resetRepo } =
     await setupTestEnvironment('pglite-demo')
-  const initialAgentState = await createInitialAgentState(repoPath)
+  const initialSessionState = await createInitialSessionState(repoPath)
 
   // Reset repo before each test
   beforeEach(() => resetRepo(commit))
@@ -19,7 +20,7 @@ describe('pglite-demo', async () => {
       const prompt =
         PROMPT_PREFIX + 'Can you add a console.log statement to the main page?'
       let { toolCalls } = await loopMainPrompt({
-        agentState: initialAgentState,
+        sessionState: initialSessionState,
         prompt,
         projectPath: repoPath,
         maxIterations: 20,
@@ -28,13 +29,14 @@ describe('pglite-demo', async () => {
         },
         options: {
           costMode: 'normal',
+          modelConfig: {},
         },
       })
 
       // Extract write_file tool calls
       const writeFileCalls = toolCalls.filter(
         (call) => call.toolName === 'write_file'
-      )
+      ) as (ClientToolCall & { toolName: 'write_file' })[]
       const changes = writeFileCalls.map((call) => call.args)
 
       const filePathToPatch = Object.fromEntries(

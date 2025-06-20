@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
 import { costModes } from './constants'
+import { GrantTypeValues } from './types/grant'
 import {
-  AgentStateSchema,
+  SessionStateSchema,
   toolCallSchema,
   toolResultSchema,
-} from './types/agent-state'
-import { GrantTypeValues } from './types/grant'
+} from './types/session-state'
 import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
 
 export const FileChangeSchema = z.object({
@@ -26,7 +26,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fingerprintId: z.string(),
     authToken: z.string().optional(),
     costMode: z.enum(costModes).optional().default('normal'),
-    agentState: AgentStateSchema,
+    sessionState: SessionStateSchema,
     toolResults: z.array(toolResultSchema),
     model: z.string().optional(),
     repoUrl: z.string().optional(),
@@ -104,7 +104,7 @@ export type MessageCostResponse = z.infer<typeof MessageCostResponseSchema>
 export const PromptResponseSchema = z.object({
   type: z.literal('prompt-response'),
   promptId: z.string(),
-  agentState: AgentStateSchema,
+  sessionState: SessionStateSchema,
   toolCalls: z.array(toolCallSchema),
   toolResults: z.array(toolResultSchema),
 })

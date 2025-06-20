@@ -19,48 +19,50 @@ export type ToolResult = z.infer<typeof toolResultSchema>
 
 export const SubagentStateSchema: z.ZodType<{
   agentId: string
-  agentName: AgentTemplateName
-  agents: SubagentState[]
+  agentType: AgentTemplateType
+  subagents: SubagentState[]
   messageHistory: CodebuffMessage[]
+  stepsRemaining: number
 }> = z.lazy(() =>
   z.object({
     agentId: z.string(),
-    agentName: AgentTemplateNameSchema,
-    agents: SubagentStateSchema.array(),
+    agentType: agentTemplateTypeSchema,
+    subagents: SubagentStateSchema.array(),
     messageHistory: CodebuffMessageSchema.array(),
+    stepsRemaining: z.number(),
   })
 )
 export type SubagentState = z.infer<typeof SubagentStateSchema>
 
-const AgentTemplateNameList = [
+const AgentTemplateTypeList = [
   'claude4_base',
   'gemini25pro_base',
   'gemini25flash_base',
 
   'gemini25pro_thinking',
 ] as const
-export const AgentTemplateNames = Object.fromEntries(
-  AgentTemplateNameList.map((name) => [name, name])
-) as { [K in (typeof AgentTemplateNameList)[number]]: K }
-const AgentTemplateNameSchema = z.enum(AgentTemplateNameList)
-export type AgentTemplateName = z.infer<typeof AgentTemplateNameSchema>
+export const AgentTemplateTypes = Object.fromEntries(
+  AgentTemplateTypeList.map((name) => [name, name])
+) as { [K in (typeof AgentTemplateTypeList)[number]]: K }
+const agentTemplateTypeSchema = z.enum(AgentTemplateTypeList)
+export type AgentTemplateType = z.infer<typeof agentTemplateTypeSchema>
 
-export const AgentStateSchema = z.object({
+export const SessionStateSchema = z.object({
   agentContext: z.string(),
   fileContext: ProjectFileContextSchema,
-  messageHistory: z.array(CodebuffMessageSchema),
-  agents: SubagentStateSchema.array().default([]),
+  messageHistory: CodebuffMessageSchema.array(),
+  mainAgent: SubagentStateSchema.optional(),
   agentStepsRemaining: z.number(),
 })
-export type AgentState = z.infer<typeof AgentStateSchema>
+export type SessionState = z.infer<typeof SessionStateSchema>
 
-export function getInitialAgentState(
+export function getInitialSessionState(
   fileContext: ProjectFileContext
-): AgentState {
+): SessionState {
   return {
     agentContext: '',
     messageHistory: [],
-    agents: [],
+    mainAgent: undefined,
     fileContext,
     agentStepsRemaining: 12,
   }

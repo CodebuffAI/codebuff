@@ -1,8 +1,8 @@
-import { AgentTemplateNames } from 'common/types/agent-state'
+import { AgentTemplateTypes } from 'common/types/session-state'
 import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
 
 export const claude4_base: AgentTemplate = {
-  name: AgentTemplateNames.claude4_base,
+  name: AgentTemplateTypes.claude4_base,
   description: 'Base agent using Claude Sonnet 4',
   model: 'claude-sonnet-4-20250514',
   toolNames: baseAgentToolNames,
