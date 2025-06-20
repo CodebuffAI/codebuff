@@ -43,37 +43,6 @@ function generateGitHubToken() {
   }
 }
 
-function checkWorkingDirectory() {
-  try {
-    const status = execSync('git status --porcelain', { encoding: 'utf8' })
-    if (status.trim()) {
-      error(
-        'Working directory is not clean. Please commit or stash your changes first.'
-      )
-    }
-  } catch (err) {
-    error('Failed to check git status')
-  }
-}
-
-function checkGitBranch() {
-  try {
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-      encoding: 'utf8',
-    }).trim()
-    if (branch !== 'main') {
-      const proceed = process.env.FORCE_RELEASE === 'true'
-      if (!proceed) {
-        error(
-          `You are on branch '${branch}', not 'main'. Set FORCE_RELEASE=true to proceed anyway.`
-        )
-      }
-    }
-  } catch (err) {
-    error('Failed to check current git branch')
-  }
-}
-
 async function triggerWorkflow(versionType, packageName) {
   log('Triggering GitHub Actions workflow...')
 
@@ -82,13 +51,13 @@ async function triggerWorkflow(versionType, packageName) {
   }
 
   try {
-    // Use workflow ID instead of filename to avoid caching issues
+    // Use workflow filename instead of ID
     const triggerCmd = `curl -s -w "HTTP Status: %{http_code}" -X POST \
       -H "Accept: application/vnd.github.v3+json" \
       -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Content-Type: application/json" \
-      https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/168942713/dispatches \
-      -d '{"ref":"main","inputs":{"version_type":"${versionType}","package_name":"${packageName}"}}'`
+      https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/release-binaries.yml/dispatches \
+      -d '{"ref":"improve-build","inputs":{"version_type":"${versionType}","package_name":"${packageName}"}}'`
 
     const response = execSync(triggerCmd, { encoding: 'utf8' })
 
@@ -97,7 +66,7 @@ async function triggerWorkflow(versionType, packageName) {
       log(`⚠️  Workflow dispatch failed: ${response}`)
       log('The workflow may need to be updated on GitHub. Continuing anyway...')
       log(
-        'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/publish.yml'
+        'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/release-binaries.yml'
       )
     } else {
       log(
@@ -108,7 +77,7 @@ async function triggerWorkflow(versionType, packageName) {
   } catch (err) {
     log(`⚠️  Failed to trigger workflow automatically: ${err.message}`)
     log(
-      'You may need to trigger it manually at: https://github.com/CodebuffAI/codebuff/actions/workflows/publish.yml'
+      'You may need to trigger it manually at: https://github.com/CodebuffAI/codebuff/actions/workflows/release-binaries.yml'
     )
   }
 }
@@ -118,10 +87,6 @@ async function main() {
 
   // Generate GitHub token first
   generateGitHubToken()
-
-  // Pre-flight checks
-  checkWorkingDirectory()
-  checkGitBranch()
 
   log(`Version bump type: ${versionType}`)
   log(`Package name: ${packageName}`)
