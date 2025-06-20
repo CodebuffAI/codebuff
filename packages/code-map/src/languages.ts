@@ -6,16 +6,16 @@ import { DEBUG_PARSING } from './parse'
 /* 1 .  WASM files
 /* ------------------------------------------------------------------ */
 // Import WASM files from @vscode/tree-sitter-wasm
-import cppWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-cpp.wasm'
-import csharpWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-c-sharp.wasm'
-import goWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-go.wasm'
-import javaWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-java.wasm'
-import javascriptWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-javascript.wasm'
-import pythonWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-python.wasm'
-import rubyWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-ruby.wasm'
-import rustWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-rust.wasm'
-import typescriptWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-typescript.wasm'
-import tsxWasm from '@vscode/tree-sitter-wasm/wasm/tree-sitter-tsx.wasm'
+import cppWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-cpp.wasm' with { type: 'file' }
+import csharpWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-c-sharp.wasm' with { type: 'file' }
+import goWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-go.wasm' with { type: 'file' }
+import javaWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-java.wasm' with { type: 'file' }
+import javascriptWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-javascript.wasm' with { type: 'file' }
+import pythonWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-python.wasm' with { type: 'file' }
+import rubyWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-ruby.wasm' with { type: 'file' }
+import rustWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-rust.wasm' with { type: 'file' }
+import typescriptWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-typescript.wasm' with { type: 'file' }
+import tsxWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-tsx.wasm' with { type: 'file' }
 
 /* ------------------------------------------------------------------ */
 /* 2 .  Queries
@@ -49,32 +49,32 @@ export interface LanguageConfig {
 const languageTable: LanguageConfig[] = [
   {
     extensions: ['.ts'],
-    wasmFile: typescriptWasm,
+    wasmFile: typescriptWasmPath,
     queryText: typescriptQuery,
   },
   {
     extensions: ['.tsx'],
-    wasmFile: tsxWasm,
+    wasmFile: tsxWasmPath,
     queryText: typescriptQuery,
   },
   {
     extensions: ['.js', '.jsx'],
-    wasmFile: javascriptWasm,
+    wasmFile: javascriptWasmPath,
     queryText: javascriptQuery,
   },
   {
     extensions: ['.py'],
-    wasmFile: pythonWasm,
+    wasmFile: pythonWasmPath,
     queryText: pythonQuery,
   },
   {
     extensions: ['.java'],
-    wasmFile: javaWasm,
+    wasmFile: javaWasmPath,
     queryText: javaQuery,
   },
   {
     extensions: ['.cs'],
-    wasmFile: csharpWasm,
+    wasmFile: csharpWasmPath,
     queryText: csharpQuery,
   },
   // Note: C WASM not available in @vscode/tree-sitter-wasm, keeping disabled for now
@@ -85,20 +85,20 @@ const languageTable: LanguageConfig[] = [
   // },
   {
     extensions: ['.cpp', '.hpp'],
-    wasmFile: cppWasm,
+    wasmFile: cppWasmPath,
     queryText: cppQuery,
   },
   {
     extensions: ['.rs'],
-    wasmFile: rustWasm,
+    wasmFile: rustWasmPath,
     queryText: rustQuery,
   },
   {
     extensions: ['.rb'],
-    wasmFile: rubyWasm,
+    wasmFile: rubyWasmPath,
     queryText: rubyQuery,
   },
-  { extensions: ['.go'], wasmFile: goWasm, queryText: goQuery },
+  { extensions: ['.go'], wasmFile: goWasmPath, queryText: goQuery },
   // Note: PHP WASM not available in @vscode/tree-sitter-wasm, keeping disabled for now
   // {
   //   extensions: ['.php'],
@@ -128,7 +128,10 @@ export async function getLanguageConfig(
       await parserReady
       // Use the imported WASM file directly
       const parser = new Parser()
-      const lang = await Language.load(cfg.wasmFile)
+      // NOTE (James): For some reason, Bun gives the wrong path to the imported WASM file,
+      // so we need to delete one level of ../.
+      const actualPath = cfg.wasmFile.replace('../', '')
+      const lang = await Language.load(actualPath)
       parser.setLanguage(lang)
 
       cfg.language = lang

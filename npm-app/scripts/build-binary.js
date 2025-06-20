@@ -120,7 +120,6 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
   const command = [
     'bun build --compile',
     ...entrypoints,
-    '--root src',
     `--target=${bunTarget}`,
     '--asset-naming=[name].[ext]',
     defineFlags,
