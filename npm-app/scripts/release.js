@@ -91,20 +91,6 @@ async function main() {
   log(`Version bump type: ${versionType}`)
   log(`Package name: ${packageName}`)
 
-  // Confirm with user
-  if (process.env.CI !== 'true') {
-    log('Press Ctrl+C to cancel, or Enter to continue...')
-    process.stdin.setRawMode(true)
-    process.stdin.resume()
-    await new Promise((resolve) => {
-      process.stdin.once('data', () => {
-        process.stdin.setRawMode(false)
-        process.stdin.pause()
-        resolve()
-      })
-    })
-  }
-
   // Trigger the workflow
   await triggerWorkflow(versionType, packageName)
 
