@@ -190,13 +190,6 @@ jobs:
         with:
           bun-version: '1.2.16'
 
-      # Cache Bun downloads for speed
-      - name: Cache Bun
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lockb') }}
-
       # Cache dependencies for speed
       - name: Cache dependencies
         uses: actions/cache@v4
