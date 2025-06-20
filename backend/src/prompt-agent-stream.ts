@@ -7,7 +7,8 @@ import {
 } from 'common/constants'
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
-import { getFilteredToolSet } from './tools'
+import { AgentTemplate } from './templates/types'
+import { getFilteredToolSet, getToolSet } from './tools'
 
 export const getAgentStream = (params: {
   costMode: CostMode
@@ -69,6 +70,58 @@ export const getAgentStream = (params: {
           throw new Error(
             `Unknown model/provider: ${selectedModel}/${model}/${provider}`
           )
+        })()
+  }
+
+  return getStream
+}
+
+export const getAgentStreamFromTemplate = (params: {
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+
+  template: AgentTemplate
+}) => {
+  const { template, clientSessionId, fingerprintId, userInputId, userId } =
+    params
+
+  const model = template.model
+
+  const provider = providerModelNames[model as keyof typeof providerModelNames]
+
+  const getStream = (messages: CoreMessage[]) => {
+    const options: Parameters<typeof promptAiSdkStream>[0] = {
+      messages,
+      model,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      maxTokens: 32_000,
+      tools: getToolSet(template.toolNames),
+    }
+
+    if (provider === 'gemini') {
+      if (!options.providerOptions) {
+        options.providerOptions = {}
+      }
+      if (!options.providerOptions.gemini) {
+        options.providerOptions.gemini = {}
+      }
+      if (!options.providerOptions.gemini.thinkingConfig) {
+        options.providerOptions.gemini.thinkingConfig = {
+          thinkingBudget: 128,
+        }
+      }
+    }
+    return provider === 'anthropic' ||
+      provider === 'openai' ||
+      provider === 'gemini'
+      ? promptAiSdkStream(options)
+      : (() => {
+          throw new Error(`Unknown model/provider: ${model}/${provider}`)
         })()
   }
 

@@ -1063,7 +1063,6 @@ export class Client {
         Spinner.get().stop()
 
         this.sessionState = a.sessionState
-        const toolResults: ToolResult[] = [...a.toolResults]
 
         for (const toolCall of a.toolCalls) {
           try {
@@ -1099,7 +1098,16 @@ export class Client {
               }
             }
             const toolResult = await handleToolCall(toolCall)
-            toolResults.push(toolResult)
+            this.sessionState.mainAgentState.messageHistory.push(
+              {
+                role: 'assistant',
+                content: [{ type: 'tool-call', ...toolCall }],
+              },
+              {
+                role: 'tool',
+                content: [{ type: 'tool-result', ...toolResult }],
+              }
+            )
           } catch (error) {
             logger.error(
               {
@@ -1131,6 +1139,7 @@ export class Client {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
         }
 
+        const toolResults: ToolResult[] = []
         if (this.filesChangedForHook.length > 0 && isComplete) {
           // Run file change hooks with the actual changed files
           const { toolResults: hookToolResults, someHooksFailed } =

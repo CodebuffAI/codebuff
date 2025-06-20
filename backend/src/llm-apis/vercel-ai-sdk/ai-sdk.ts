@@ -9,6 +9,7 @@ import {
   generateText,
   LanguageModelV1,
   streamText,
+  ToolCallPart,
 } from 'ai'
 import {
   AnthropicModel,
@@ -23,6 +24,7 @@ import {
 
 import { generateCompactId } from 'common/util/string'
 
+import { CodebuffToolCall } from '@/tools'
 import { Message } from 'common/types/message'
 import { logger } from 'common/util/logger'
 import { withTimeout } from 'common/util/promise'
@@ -69,7 +71,7 @@ export const promptAiSdkStream = async function* (
     chargeUser?: boolean
     thinkingBudget?: number
   } & Omit<Parameters<typeof streamText>[0], 'model'>
-) {
+): AsyncGenerator<string | ToolCallPart> {
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
@@ -91,7 +93,9 @@ export const promptAiSdkStream = async function* (
   let finishedReasoning = false
 
   for await (const chunk of response.fullStream) {
+    console.log({ chunk }, 'asdf')
     if (chunk.type === 'error') {
+      console.log('error asdf', { options })
       logger.error({ chunk, model: options.model }, 'Error from AI SDK')
       if (process.env.ENVIRONMENT !== 'prod') {
         throw chunk.error instanceof Error
@@ -108,19 +112,19 @@ export const promptAiSdkStream = async function* (
       }
     }
     if (chunk.type === 'reasoning') {
-      if (!hasReasoning) {
-        hasReasoning = true
-        yield '<think_deeply>\n<thought>'
-      }
-      yield chunk.textDelta
+      yield {
+        type: 'tool-call' as const,
+        toolName: 'think_deeply',
+        toolCallId: generateCompactId('reasoning-'),
+        args: { thought: chunk.textDelta },
+      } satisfies CodebuffToolCall & ToolCallPart
     }
     if (chunk.type === 'text-delta') {
-      if (hasReasoning && !finishedReasoning) {
-        finishedReasoning = true
-        yield '</thought>\n</think_deeply>'
-      }
       content += chunk.textDelta
       yield chunk.textDelta
+    }
+    if (chunk.type === 'tool-call') {
+      yield chunk
     }
   }
 

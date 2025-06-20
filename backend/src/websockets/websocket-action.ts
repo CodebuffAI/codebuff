@@ -150,22 +150,18 @@ const onPrompt = async (
       }
 
       try {
-        const { sessionState, toolCalls, toolResults } = await mainPrompt(
-          ws,
-          action,
-          {
-            userId,
-            clientSessionId,
-            onResponseChunk: (chunk) =>
-              sendAction(ws, {
-                type: 'response-chunk',
-                userInputId: promptId,
-                chunk,
-              }),
-            selectedModel: model,
-            readOnlyMode: false, // readOnlyMode = false for normal prompts
-          }
-        )
+        const { sessionState, toolCalls } = await mainPrompt(ws, action, {
+          userId,
+          clientSessionId,
+          onResponseChunk: (chunk) =>
+            sendAction(ws, {
+              type: 'response-chunk',
+              userInputId: promptId,
+              chunk,
+            }),
+          selectedModel: model,
+          readOnlyMode: false, // readOnlyMode = false for normal prompts
+        })
 
         // Send prompt data back
         sendAction(ws, {
@@ -173,7 +169,7 @@ const onPrompt = async (
           promptId,
           sessionState,
           toolCalls: toolCalls as any[],
-          toolResults,
+          toolResults: [],
         })
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')

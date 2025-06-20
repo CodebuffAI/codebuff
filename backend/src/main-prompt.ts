@@ -6,19 +6,14 @@ import {
 } from '@codebuff/bigquery'
 import { ClientAction } from 'common/actions'
 import {
-  geminiModels,
-  getModelForMode,
-  getModelFromShortName,
   HIDDEN_FILE_READ_STATUS,
   Model,
-  models,
   ONE_TIME_LABELS,
   type CostMode,
 } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { getToolCallString, toolSchema } from 'common/constants/tools'
 import { trackEvent } from 'common/src/analytics'
-import { SessionState, ToolResult } from 'common/types/session-state'
+import { SessionState } from 'common/types/session-state'
 import { buildArray } from 'common/util/array'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { toContentString } from 'common/util/messages'
@@ -26,62 +21,41 @@ import { generateCompactId } from 'common/util/string'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
-import { CoreMessage } from 'ai'
-import { codebuffConfigFile } from 'common/json-config/constants'
+import { CoreMessage, ToolCallPart } from 'ai'
+import assert from 'assert'
 import { CodebuffMessage } from 'common/types/message'
 import { checkTerminalCommand } from './check-terminal-command'
 import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
-import { getDocumentationForQuery } from './get-documentation-for-query'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
-import { getAgentStream } from './prompt-agent-stream'
+import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { research } from './research'
-import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
-import { additionalSystemPrompts } from './system-prompt/prompts'
-import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
-import { getThinkingStream } from './thinking-stream'
+import { agentTemplates } from './templates/agent-list'
+import { getAgentPrompt } from './templates/strings'
 import {
   ClientToolCall,
   CodebuffToolCall,
-  getFilteredToolsInstructions,
   parseRawToolCall,
-  TOOL_LIST,
-  ToolName,
-  TOOLS_WHICH_END_THE_RESPONSE,
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
-import {
-  asSystemInstruction,
-  asSystemMessage,
-  asUserMessage,
-  coreMessagesWithSystem,
-  expireMessages,
-  getCoreMessagesSubset,
-  isSystemInstruction,
-} from './util/messages'
+import { asSystemMessage, asUserMessage, expireMessages } from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
   parseToolResults,
-  renderReadFilesResult,
   renderToolResults,
 } from './util/parse-tool-call-xml'
-import {
-  simplifyReadFileResults,
-  simplifyReadFileToolResult,
-} from './util/simplify-tool-results'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 import {
   requestFiles,
   requestOptionalFile,
 } from './websockets/websocket-action'
-import { processStreamWithTags } from './xml-stream-parser'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
@@ -103,10 +77,9 @@ export const mainPrompt = async (
 ): Promise<{
   sessionState: SessionState
   toolCalls: Array<ClientToolCall>
-  toolResults: Array<ToolResult>
 }> => {
   const {
-    userId,
+    userId: maybeUserId,
     clientSessionId,
     onResponseChunk,
     selectedModel,
@@ -119,160 +92,75 @@ export const mainPrompt = async (
     sessionState: sessionState,
     fingerprintId,
     costMode,
-    promptId,
+    promptId: userInputId,
     toolResults,
   } = action
-  const { fileContext, mainAgentState } = sessionState
-  const { agentContext } = mainAgentState
+  const { fileContext, mainAgentState: agentState } = sessionState
+  const { agentContext, messageHistory, agentId, stepsRemaining } = agentState
+  const userId = maybeUserId ?? ''
+  const isMainAgent = true
+
   const startTime = Date.now()
-  let messageHistory = sessionState.mainAgentState.messageHistory
 
   // Get the extracted repo ID from request context
   const requestContext = getRequestContext()
-  const repoId = requestContext?.processedRepoId
+  const repoName = requestContext?.processedRepoId
 
-  const model =
-    modelConfig?.agentModel ??
-    getModelFromShortName(selectedModel) ??
-    getModelForMode(costMode, 'agent')
+  const agentType = agentState.agentType ?? 'gemini25pro_base'
+  agentState.agentType = agentType
 
-  const getStream = getAgentStream({
-    costMode,
-    selectedModel: model,
-    stopSequences: TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
+  const template = agentTemplates[agentType]
+  const { model } = template
+
+  const getStreamWithTools = getAgentStreamFromTemplate({
+    template,
     clientSessionId,
-    fingerprintId,
-    userInputId: promptId,
     userId,
-    modelConfig,
+    userInputId,
+    fingerprintId,
   })
 
-  // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
-  // This is used to link logs within a single agent loop
-  const agentStepId = crypto.randomUUID()
-  if (!readOnlyMode) {
-    trackEvent(AnalyticsEvent.AGENT_STEP, userId ?? '', {
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
-      repoName: repoId,
-    })
-  }
+  const agentStepId = generateCompactId(`${agentId}-step-`)
+  trackEvent(AnalyticsEvent.AGENT_STEP, userId, {
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    repoName,
+    agentType,
+    agentId,
+  })
 
-  const hasKnowledgeFiles =
-    Object.keys(fileContext.knowledgeFiles).length > 0 ||
-    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
-  const isNotFirstUserMessage =
-    messageHistory.filter((m) => m.role === 'user').length > 0
-  const justRanTerminalCommand = toolResults.some(
-    (t) => t.toolName === 'run_terminal_command'
-  )
-  const isAskMode = costMode === 'ask'
-  const isExporting =
-    prompt &&
-    (prompt.toLowerCase() === '/export' || prompt.toLowerCase() === 'export')
-  const thinkingEnabled =
-    costMode === 'max' || modelConfig?.reasoningModel !== undefined
-  const isLiteMode = costMode === 'lite'
-  const isGeminiPro = model === models.gemini2_5_pro_preview
-  const isFlash =
-    (model as Model) === geminiModels.gemini2_5_flash_thinking ||
-    model === geminiModels.gemini2_5_flash
-  const toolsInstructions = getFilteredToolsInstructions(costMode, readOnlyMode)
-  const userInstructions = buildArray(
-    isAskMode &&
-      'You are a coding agent in "ASK" mode so the user can ask questions, which means you do not have access to tools that can modify files or run terminal commands. You should instead answer the user\'s questions and come up with brilliant plans which can later be implemented.',
-    'Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. You must finally use the end_turn tool at the end of your response.',
+  const iterationNum = messageHistory.length
 
-    'If the user asks a question, use the research tool to gather information and answer the question, and do not make changes to the code!',
-
-    'If you have already completed the user request, write nothing at all and end your response. If you have already made 1 attempt at fixing an error, you should stop and end_turn to wait for user feedback. Err on the side of ending your response early!',
-
-    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
-
-    'You must use the research tool for all requests, except the most trivial in order make sure you have all the information you need!',
-
-    'Be extremely concise in your replies. Example: If asked what 2+2 equals, respond simply: "4". No need to even write a full sentence.',
-
-    "The tool results will be provided by the user's *system* (and **NEVER** by the assistant).",
-
-    'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ...", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
-
-    isGeminiPro
-      ? toolsInstructions
-      : `Any tool calls will be run from the project root (${sessionState.fileContext.projectRoot}) unless otherwise specified`,
-
-    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it if you have not already!',
-
-    (isFlash || isGeminiPro) &&
-      'Important: When mentioning a file path, for example for <write_file> or <read_files>, make sure to include all the directories in the path to the file from the project root. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts! Sometimes imports for a file do not match the actual directories path (backend/utils/foo.ts for example).',
-
-    !isLiteMode &&
-      'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
-
-    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
-
-    'If you are trying to kill background processes, make sure to kill the entire process GROUP (or tree in Windows), and always prefer SIGTERM signals. If you restart the process, make sure to do so with process_type=BACKGROUND',
-
-    !isLiteMode &&
-      `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
-
-    (isFlash || isGeminiPro) &&
-      "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
-
-    (isFlash || isGeminiPro) &&
-      'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area. Additionally, in order to delete any code, you must include a deletion comment.',
-
-    thinkingEnabled
-      ? 'Start your response with the think_deeply tool call to decide how to proceed.'
-      : 'If the user request is very complex, consider invoking think_deeply.',
-
-    'If the user is starting a new feature or refactoring, consider invoking the create_plan tool.',
-    "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
-    'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
-
-    hasKnowledgeFiles &&
-      'If the knowledge files (or CLAUDE.md) say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
-
-    isNotFirstUserMessage &&
-      'If you have learned something useful for the future that is not derivable from the code, consider updating a knowledge file at the end of your response to add this condensed information.',
-
-    'Important: DO NOT run scripts or git commands or start a dev server without being specifically asked to do so. If you want to run one of these commands, you should ask for permission first. This can prevent costly accidents!',
-
-    'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
-
-    'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
-
-    'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.'
-  ).join('\n\n')
-
-  const toolInstructions = buildArray(
-    justRanTerminalCommand &&
-      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please do not write anything else and end your response.`
-  ).join('\n\n')
-
-  const messagesWithToolResultsAndUser = buildArray<CodebuffMessage>(
+  const renderedToolResults = renderToolResults(toolResults)
+  const messagesWithToolResults = buildArray<CodebuffMessage>([
     ...messageHistory,
     toolResults.length > 0 && {
       role: 'user' as const,
-      content: renderToolResults(toolResults),
+      content: asSystemMessage(renderedToolResults),
     },
+  ])
+
+  const messagesWithToolResultsAndUser = buildArray<CodebuffMessage>(
+    ...messagesWithToolResults,
     prompt && [
       {
         role: 'user' as const,
         content: asSystemMessage(
-          `Assistant cwd (project root): ${sessionState.fileContext.projectRoot}\nUser cwd: ${sessionState.fileContext.cwd}`
+          `Assistant cwd (project root): ${fileContext.projectRoot}\nUser cwd: ${fileContext.cwd}`
         ),
         timeToLive: 'agentStep',
       },
       {
         role: 'user' as const,
-        content: prompt,
+        content: asUserMessage(prompt),
       },
     ]
   )
+
+  console.log('asdf', { messagesWithToolResultsAndUser })
 
   if (prompt) {
     // Check if this is a direct terminal command
@@ -280,7 +168,7 @@ export const mainPrompt = async (
     const terminalCommand = await checkTerminalCommand(prompt, {
       clientSessionId,
       fingerprintId,
-      userInputId: promptId,
+      userInputId,
       userId,
     })
     const duration = Date.now() - startTime
@@ -295,10 +183,13 @@ export const mainPrompt = async (
       )
       const newSessionState = {
         ...sessionState,
-        messageHistory: expireMessages(
-          messagesWithToolResultsAndUser,
-          'userPrompt'
-        ),
+        mainAgentState: {
+          ...agentState,
+          messageHistory: expireMessages(
+            messagesWithToolResultsAndUser,
+            'userPrompt'
+          ),
+        },
       }
       return {
         sessionState: newSessionState,
@@ -314,299 +205,113 @@ export const mainPrompt = async (
             },
           },
         ],
-        toolResults: [],
       }
     }
   }
 
-  // Check number of assistant messages since last user message with prompt
-  if (sessionState.mainAgentState.stepsRemaining <= 0) {
+  if (stepsRemaining <= 0) {
     logger.warn(
       `Detected too many consecutive assistant messages without user prompt`
     )
 
-    const warningString = [
-      "I've made quite a few responses in a row.",
-      "Let me pause here to make sure we're still on the right track.",
-      "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
-    ].join(' ')
+    if (isMainAgent) {
+      const warningString = [
+        "I've made quite a few responses in a row.",
+        "Let me pause here to make sure we're still on the right track.",
+        "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+      ].join(' ')
 
-    onResponseChunk(`${warningString}\n\n`)
+      onResponseChunk(`${warningString}\n\n`)
+    }
 
     return {
       sessionState: {
         ...sessionState,
         mainAgentState: {
-          ...sessionState.mainAgentState,
+          ...agentState,
           messageHistory: [
             ...expireMessages(messagesWithToolResultsAndUser, 'userPrompt'),
             {
               role: 'user',
               content: asSystemMessage(
-                `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in ${codebuffConfigFile}.`
+                `The assistant has responded too many times in a row. The assistant's turn has automatically been ended.`
               ),
             },
           ],
         },
       },
       toolCalls: [],
-      toolResults: [],
     }
   }
 
-  const relevantDocumentationPromise = prompt
-    ? getDocumentationForQuery(prompt, {
-        tokens: 5000,
-        clientSessionId,
-        userInputId: promptId,
-        fingerprintId,
-        userId,
-      })
-    : Promise.resolve(null)
-
-  const fileRequestMessagesTokens = countTokensJson(
-    messagesWithToolResultsAndUser
-  )
-
-  // Step 1: Read more files.
-  const searchSystem = getSearchSystemPrompt(
-    fileContext,
-    costMode,
-    fileRequestMessagesTokens,
-    {
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId: userId,
-    }
-  )
-  const {
-    addedFiles,
-    updatedFilePaths,
-    printedPaths,
-    clearReadFileToolResults,
-  } = await getFileReadingUpdates(
-    ws,
-    messagesWithToolResultsAndUser,
-    searchSystem,
-    fileContext,
-    null,
-    {
-      skipRequestingFiles: !prompt,
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
-      costMode,
-      repoId,
-    }
-  )
-  const [updatedFiles, newFiles] = partition(addedFiles, (f) =>
-    updatedFilePaths.includes(f.path)
-  )
-  if (clearReadFileToolResults) {
-    // Update message history.
-    for (const message of messageHistory) {
-      if (isToolResult(message)) {
-        message.content = simplifyReadFileResults(message.content)
-      }
-    }
-    // Update tool results.
-    for (let i = 0; i < toolResults.length; i++) {
-      const toolResult = toolResults[i]
-      if (toolResult.toolName === 'read_files') {
-        toolResults[i] = simplifyReadFileToolResult(toolResult)
-      }
-    }
-
-    messageHistory = messageHistory.filter((message) => {
-      return (
-        typeof message.content !== 'string' ||
-        !isSystemInstruction(message.content)
-      )
-    })
-  }
-
-  if (printedPaths.length > 0) {
-    const readFileToolCall = getToolCallString('read_files', {
-      paths: printedPaths.join('\n'),
-    })
-    onResponseChunk(`${readFileToolCall}\n\n`)
-  }
-
-  if (updatedFiles.length > 0) {
-    toolResults.push({
-      toolName: 'file_updates',
-      toolCallId: generateCompactId(),
-      result:
-        `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes:\n` +
-        renderReadFilesResult(updatedFiles, fileContext.tokenCallers ?? {}),
-    })
-  }
-
-  const readFileMessages: CodebuffMessage[] = []
-  if (newFiles.length > 0) {
-    const readFilesToolResult: ToolResult = {
-      toolCallId: generateCompactId(),
-      toolName: 'read_files',
-      result: renderReadFilesResult(newFiles, fileContext.tokenCallers ?? {}),
-    }
-
-    readFileMessages.push(
-      {
-        role: 'user' as const,
-        content: asSystemInstruction(
-          'Before continuing with the user request, read some relevant files first.'
-        ),
-        timeToLive: 'userPrompt',
-      },
-      {
-        role: 'assistant' as const,
-        content: getToolCallString('read_files', {
-          paths: newFiles.map((file) => file.path).join('\n'),
-        }),
-      },
-      {
-        role: 'user' as const,
-        content: asSystemMessage(renderToolResults([readFilesToolResult])),
-      }
-    )
-  }
-
-  const relevantDocumentation = await relevantDocumentationPromise
-
-  const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
-  const messagesWithUserMessage = buildArray<CodebuffMessage>(
-    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
-    /*
-    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep').map(
-      (m) => castAssistantMessage(m)
-    ),*/
-
-    toolResults.length > 0 && {
-      role: 'user' as const,
-      content: asSystemMessage(renderToolResults(toolResults)),
-    },
-
+  const messagesWithEphemeralMessages = buildArray<CodebuffMessage>([
+    ...expireMessages(
+      messagesWithToolResults,
+      prompt ? 'userPrompt' : 'agentStep'
+    ),
     prompt && [
-      {
-        // Actual user prompt!
-        role: 'user' as const,
-        content: asUserMessage(prompt),
-      },
-      prompt in additionalSystemPrompts && {
-        role: 'user' as const,
-        content: asSystemInstruction(
-          additionalSystemPrompts[
-            prompt as keyof typeof additionalSystemPrompts
-          ]
-        ),
-      },
-    ],
-
-    ...readFileMessages,
-
-    prompt && [
-      relevantDocumentation && {
-        role: 'user' as const,
-        content: asSystemMessage(
-          `Relevant context from web documentation:\n${relevantDocumentation}`
-        ),
-      },
-      agentContext && {
-        role: 'user' as const,
-        content: asSystemMessage(agentContext.trim()),
-        timeToLive: 'userPrompt',
-      },
-      /*
-      hasAssistantMessage && {
-        role: 'user' as const,
-        content: asSystemInstruction(
-          "All <previous_assistant_message>messages</previous_assistant_message> were from some less intelligent assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes (including errors from the system), identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Simply continue the conversation as if you are the same assistant. The user has seen the previous assistant's messages, so do not repeat what was already said."
-        ),
-        timeToLive: 'userPrompt',
-      },*/
+      { role: 'user' as const, content: asUserMessage(prompt) },
       {
         role: 'user' as const,
-        content: asSystemInstruction(userInstructions),
+        content: getAgentPrompt(
+          agentType,
+          'userInputPrompt',
+          fileContext,
+          agentState
+        ),
         timeToLive: 'userPrompt',
       },
     ],
-
-    {
-      role: 'user',
-      content: asSystemMessage(
-        `You have ${sessionState.mainAgentState.stepsRemaining} more response(s) before you will be cut off and the turn will be ended automatically.${sessionState.mainAgentState.stepsRemaining === 1 ? ' (This will be the last response.)' : ''}`
-      ),
-      timeToLive: 'agentStep',
-    },
-
-    prompt && {
+    !prompt && {
       role: 'user' as const,
-      content: asSystemMessage(
-        `Assistant cwd (project root): ${sessionState.fileContext.projectRoot}\nUser cwd: ${sessionState.fileContext.cwd}`
+      content: getAgentPrompt(
+        agentType,
+        'agentStepPrompt',
+        fileContext,
+        agentState
       ),
       timeToLive: 'agentStep',
     },
-    !prompt &&
-      toolInstructions && {
-        role: 'user' as const,
-        content: asSystemInstruction(toolInstructions),
-        timeToLive: 'agentStep' as const,
-      },
+  ])
 
-    (isAskMode || readOnlyMode) && {
-      role: 'user',
-      content: asSystemMessage(
-        `You have been switched to ${readOnlyMode ? 'READ-ONLY' : 'ASK'} mode. As such, you can no longer use the write_file tool or run_terminal_command tool. Do not attempt to use them because they will not work!`
-      ),
-      timeToLive: 'agentStep',
+  // Accumulators for stream
+  const fullResponse: CodebuffMessage[] = []
+  let responseBuffer = ''
+  function flushResponseBuffer() {
+    if (responseBuffer) {
+      fullResponse.push({ role: 'assistant', content: responseBuffer })
+      responseBuffer = ''
     }
-  )
-
-  const iterationNum = messagesWithUserMessage.length
-
-  const system = getAgentSystemPrompt(fileContext, readOnlyMode, costMode)
-  const systemTokens = countTokensJson(system)
-
-  // Possibly truncated messagesWithUserMessage + cache.
-  const agentMessages = getCoreMessagesSubset(
-    messagesWithUserMessage,
-    systemTokens + countTokensJson({ agentContext, userInstructions })
-  )
-
-  const debugPromptCaching = false
-  if (debugPromptCaching) {
-    // Store the agent request to a file for debugging
-    await saveAgentRequest(
-      coreMessagesWithSystem(agentMessages, system),
-      promptId
+  }
+  function addToolCallWithResponse(
+    toolCall: CodebuffToolCall,
+    toolResult: any
+  ) {
+    flushResponseBuffer()
+    fullResponse.push(
+      { role: 'assistant', content: [{ type: 'tool-call', ...toolCall }] },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolName: toolCall.toolName,
+            toolCallId: toolCall.toolCallId,
+            result: toolResult,
+          },
+        ],
+      }
     )
   }
-
-  logger.debug(
-    {
-      agentMessages,
-      prompt,
-      agentContext,
-      iteration: iterationNum,
-      toolResults,
-      systemTokens,
-      model,
-      duration: Date.now() - startTime,
-    },
-    `Main prompt ${iterationNum}`
-  )
-
-  let fullResponse = ''
   const fileProcessingPromisesByPath: Record<
     string,
     Promise<
       {
         tool: 'write_file' | 'str_replace' | 'create_plan'
         path: string
+        toolCall: CodebuffToolCall & {
+          toolName: 'write_file' | 'str_replace' | 'create_plan'
+        }
       } & (
         | {
             content: string
@@ -618,226 +323,152 @@ export const mainPrompt = async (
       )
     >[]
   > = {}
+  const clientToolCalls: ClientToolCall[] = []
+  const subgoalToolCalls: (CodebuffToolCall & {
+    toolName: 'add_subgoal' | 'update_subgoal'
+  })[] = []
+  const remainingToolCalls: (CodebuffToolCall & {
+    toolName: 'read_files' | 'find_files' | 'research'
+  })[] = []
 
-  // Think deeply at the start of every response
-  if (thinkingEnabled) {
-    let response = await getThinkingStream(
-      coreMessagesWithSystem(agentMessages, system),
-      (chunk) => {
-        onResponseChunk(chunk)
-      },
-      {
-        costMode,
+  // Process stream
+  for await (const chunk of getStreamWithTools([
+    {
+      role: 'system',
+      content: getAgentPrompt(
+        agentType,
+        'systemPrompt',
+        fileContext,
+        agentState
+      ),
+    },
+    ...messagesWithEphemeralMessages,
+  ])) {
+    if (typeof chunk === 'string') {
+      if (
+        !ONE_TIME_LABELS.some(
+          (tag) => chunk.startsWith(`<${tag}>`) && chunk.endsWith(`</${tag}>`)
+        )
+      ) {
+        responseBuffer += chunk
+      }
+      onResponseChunk(chunk)
+      continue
+    }
+
+    const toolCall = parseRawToolCall(
+      chunk as ToolCallPart & { args: Record<string, string> }
+    )
+    if ('error' in toolCall) {
+      fullResponse.push(
+        { role: 'assistant', content: [chunk] },
+        {
+          role: 'tool',
+          content: [
+            {
+              type: 'tool-result',
+              toolCallId: chunk.toolCallId,
+              toolName: chunk.toolName,
+              result: toolCall.error,
+            },
+          ],
+        }
+      )
+      continue
+    }
+
+    processSpecificToolCall: if (toolCall.toolName === 'think_deeply') {
+      addToolCallWithResponse(toolCall, '')
+      logger.debug({ thought: toolCall.args.thought }, 'Thought deeply')
+    } else if (
+      toolCall.toolName === 'add_subgoal' ||
+      toolCall.toolName === 'update_subgoal'
+    ) {
+      subgoalToolCalls.push(toolCall)
+    } else if (
+      toolCall.toolName === 'code_search' ||
+      toolCall.toolName === 'browser_logs' ||
+      toolCall.toolName === 'end_turn'
+    ) {
+      clientToolCalls.push(toolCall)
+    } else if (toolCall.toolName === 'run_terminal_command') {
+      clientToolCalls.push({
+        ...toolCall,
+        args: {
+          ...toolCall.args,
+          mode: 'assistant' as const,
+        },
+      })
+    } else if (toolCall.toolName === 'create_plan') {
+      const { path, plan } = toolCall.args
+      logger.debug({ path, plan }, 'Created plan')
+
+      // Add the plan file to the processing queue
+      if (!fileProcessingPromisesByPath[path]) {
+        fileProcessingPromisesByPath[path] = []
+        if (path.endsWith('knowledge.md')) {
+          trackEvent(AnalyticsEvent.KNOWLEDGE_FILE_UPDATED, userId ?? '', {
+            agentStepId,
+            clientSessionId,
+            fingerprintId,
+            userInputId,
+            userId,
+            repoName,
+          })
+        }
+      }
+      const change = {
+        tool: 'create_plan' as const,
+        toolCall,
+        path,
+        content: plan,
+      }
+      fileProcessingPromisesByPath[path].push(Promise.resolve(change))
+    } else if (toolCall.toolName === 'write_file') {
+      const { path, instructions, content } = toolCall.args
+      if (!content) {
+        break processSpecificToolCall
+      }
+
+      // Initialize state for this file path if needed
+      if (!fileProcessingPromisesByPath[path]) {
+        fileProcessingPromisesByPath[path] = []
+      }
+      const editsForFile = fileProcessingPromisesByPath[path]
+      const previousPromise = editsForFile[editsForFile.length - 1]
+
+      const latestContentPromise = previousPromise
+        ? previousPromise.then((maybeResult) =>
+            maybeResult && 'content' in maybeResult
+              ? maybeResult.content
+              : requestOptionalFile(ws, path)
+          )
+        : requestOptionalFile(ws, path)
+
+      const fileContentWithoutStartNewline = content.startsWith('\n')
+        ? content.slice(1)
+        : content
+
+      logger.debug({ path, content }, `write_file ${path}`)
+
+      const changePromise = processFileBlock(
+        path,
+        instructions,
+        latestContentPromise,
+        fileContentWithoutStartNewline,
+        expireMessages(messagesWithEphemeralMessages, 'userPrompt'),
+        fullResponse
+          .filter((m) => typeof m.content === 'string')
+          .map((m) => m.content)
+          .join('\n\n'),
+        prompt,
         clientSessionId,
         fingerprintId,
-        userInputId: promptId,
+        userInputId,
         userId,
-        model: modelConfig?.reasoningModel,
-      }
-    )
-    if (model === models.gpt4_1) {
-      onResponseChunk('\n')
-      response += '\n'
-    }
-    fullResponse += response
-  }
-
-  const stream = getStream(
-    coreMessagesWithSystem(
-      buildArray(
-        ...agentMessages,
-        // Add prefix of the response from fullResponse if it exists
-        fullResponse && {
-          role: 'assistant' as const,
-          content: fullResponse.trim(),
-        }
-      ),
-      system
-    )
-  )
-
-  const allToolCalls: CodebuffToolCall[] = []
-  const clientToolCalls: ClientToolCall[] = []
-  const serverToolResults: ToolResult[] = []
-  const subgoalToolCalls: Extract<
-    CodebuffToolCall,
-    { toolName: 'add_subgoal' | 'update_subgoal' }
-  >[] = []
-
-  let foundParsingError = false
-
-  function toolCallback<T extends ToolName>(
-    tool: T,
-    after: (toolCall: Extract<CodebuffToolCall, { toolName: T }>) => void
-  ): {
-    params: (string | RegExp)[]
-    onTagStart: () => void
-    onTagEnd: (
-      name: string,
-      parameters: Record<string, string>
-    ) => Promise<void>
-  } {
-    return {
-      params: toolSchema[tool],
-      onTagStart: () => {},
-      onTagEnd: async (_: string, args: Record<string, string>) => {
-        const toolCall = parseRawToolCall({
-          type: 'tool-call',
-          toolName: tool,
-          toolCallId: generateCompactId(),
-          args,
-        })
-        if ('error' in toolCall) {
-          serverToolResults.push({
-            toolName: tool,
-            toolCallId: generateCompactId(),
-            result: toolCall.error,
-          })
-          foundParsingError = true
-          return
-        }
-
-        // Filter out restricted tools in ask mode unless exporting summary
-        if (
-          (isAskMode || readOnlyMode) &&
-          !isExporting &&
-          buildArray<ToolName>(
-            'write_file',
-            'str_replace',
-            'run_terminal_command',
-            readOnlyMode && 'create_plan'
-          ).includes(tool)
-        ) {
-          serverToolResults.push({
-            toolName: tool,
-            toolCallId: generateCompactId(),
-            result: `Tool ${tool} is not available in ${readOnlyMode ? 'read-only' : 'ask'} mode. You can only use tools that read information or provide analysis.`,
-          })
-          return
-        }
-
-        allToolCalls.push(toolCall as Extract<CodebuffToolCall, { name: T }>)
-
-        after(toolCall as Extract<CodebuffToolCall, { name: T }>)
-      },
-    }
-  }
-  const streamWithTags = processStreamWithTags(
-    stream,
-    {
-      ...Object.fromEntries(
-        TOOL_LIST.map((tool) => [tool, toolCallback(tool, () => {})])
-      ),
-      think_deeply: toolCallback('think_deeply', (toolCall) => {
-        const { thought } = toolCall.args
-        logger.debug(
-          {
-            thought,
-          },
-          'Thought deeply'
-        )
-      }),
-      ...Object.fromEntries(
-        (['add_subgoal', 'update_subgoal'] as const).map((tool) => [
-          tool,
-          toolCallback(tool, (toolCall) => {
-            subgoalToolCalls.push(toolCall)
-          }),
-        ])
-      ),
-      ...Object.fromEntries(
-        (['code_search', 'browser_logs', 'end_turn'] as const).map((tool) => [
-          tool,
-          toolCallback(tool, (toolCall) => {
-            clientToolCalls.push({
-              ...toolCall,
-              toolCallId: generateCompactId(),
-            } as ClientToolCall)
-          }),
-        ])
-      ),
-      run_terminal_command: toolCallback('run_terminal_command', (toolCall) => {
-        const clientToolCall = {
-          ...{
-            ...toolCall,
-            args: {
-              ...toolCall.args,
-              mode: 'assistant' as const,
-            },
-          },
-          toolCallId: generateCompactId(),
-        }
-        clientToolCalls.push(clientToolCall)
-      }),
-      create_plan: toolCallback('create_plan', (toolCall) => {
-        const { path, plan } = toolCall.args
-        logger.debug(
-          {
-            path,
-            plan,
-          },
-          'Create plan'
-        )
-        // Add the plan file to the processing queue
-        if (!fileProcessingPromisesByPath[path]) {
-          fileProcessingPromisesByPath[path] = []
-          if (path.endsWith('knowledge.md')) {
-            trackEvent(AnalyticsEvent.KNOWLEDGE_FILE_UPDATED, userId ?? '', {
-              agentStepId,
-              clientSessionId,
-              fingerprintId,
-              userInputId: promptId,
-              userId,
-              repoName: repoId,
-            })
-          }
-        }
-        const change = {
-          tool: 'create_plan' as const,
-          path,
-          content: plan,
-        }
-        fileProcessingPromisesByPath[path].push(Promise.resolve(change))
-      }),
-      write_file: toolCallback('write_file', (toolCall) => {
-        const { path, instructions, content } = toolCall.args
-        if (!content) return
-
-        // Initialize state for this file path if needed
-        if (!fileProcessingPromisesByPath[path]) {
-          fileProcessingPromisesByPath[path] = []
-        }
-        const previousPromises = fileProcessingPromisesByPath[path]
-        const previousEdit = previousPromises[previousPromises.length - 1]
-
-        const latestContentPromise = previousEdit
-          ? previousEdit.then((maybeResult) =>
-              maybeResult && 'content' in maybeResult
-                ? maybeResult.content
-                : requestOptionalFile(ws, path)
-            )
-          : requestOptionalFile(ws, path)
-
-        const fileContentWithoutStartNewline = content.startsWith('\n')
-          ? content.slice(1)
-          : content
-
-        logger.debug({ path, content }, `write_file ${path}`)
-
-        const newPromise = processFileBlock(
-          path,
-          instructions,
-          latestContentPromise,
-          fileContentWithoutStartNewline,
-          messagesWithUserMessage,
-          fullResponse,
-          prompt,
-          clientSessionId,
-          fingerprintId,
-          promptId,
-          userId,
-          costMode
-        ).catch((error) => {
+        'normal'
+      )
+        .catch((error) => {
           logger.error(error, 'Error processing write_file block')
           return {
             tool: 'write_file' as const,
@@ -845,37 +476,42 @@ export const mainPrompt = async (
             error: `Error: Failed to process the write_file block. ${typeof error === 'string' ? error : error.msg}`,
           }
         })
+        .then((result) => {
+          return { ...result, toolCall }
+        })
 
-        fileProcessingPromisesByPath[path].push(newPromise)
+      fileProcessingPromisesByPath[path].push(changePromise)
+    } else if (toolCall.toolName === 'str_replace') {
+      const { path, old_vals, new_vals } = toolCall.args
+      if (old_vals.length !== new_vals.length) {
+        addToolCallWithResponse(
+          toolCall,
+          'Error: old_vals and new_vals must have the same number of elements.'
+        )
+        break processSpecificToolCall
+      }
 
-        return
-      }),
-      str_replace: toolCallback('str_replace', (toolCall) => {
-        const { path, old_vals, new_vals } = toolCall.args
-        if (!old_vals || !Array.isArray(old_vals)) {
-          return
-        }
+      if (!fileProcessingPromisesByPath[path]) {
+        fileProcessingPromisesByPath[path] = []
+      }
+      const previousPromises = fileProcessingPromisesByPath[path]
+      const previousEdit = previousPromises[previousPromises.length - 1]
 
-        if (!fileProcessingPromisesByPath[path]) {
-          fileProcessingPromisesByPath[path] = []
-        }
-        const previousPromises = fileProcessingPromisesByPath[path]
-        const previousEdit = previousPromises[previousPromises.length - 1]
+      const latestContentPromise = previousEdit
+        ? previousEdit.then((maybeResult) =>
+            maybeResult && 'content' in maybeResult
+              ? maybeResult.content
+              : requestOptionalFile(ws, path)
+          )
+        : requestOptionalFile(ws, path)
 
-        const latestContentPromise = previousEdit
-          ? previousEdit.then((maybeResult) =>
-              maybeResult && 'content' in maybeResult
-                ? maybeResult.content
-                : requestOptionalFile(ws, path)
-            )
-          : requestOptionalFile(ws, path)
-
-        const newPromise = processStrReplace(
-          path,
-          old_vals,
-          new_vals || [],
-          latestContentPromise
-        ).catch((error: any) => {
+      const changePromise = processStrReplace(
+        path,
+        old_vals,
+        new_vals || [],
+        latestContentPromise
+      )
+        .catch((error: any) => {
           logger.error(error, 'Error processing str_replace block')
           return {
             tool: 'str_replace' as const,
@@ -883,33 +519,23 @@ export const mainPrompt = async (
             error: 'Unknown error: Failed to process the str_replace block.',
           }
         })
+        .then((result) => {
+          return { ...result, toolCall }
+        })
 
-        fileProcessingPromisesByPath[path].push(newPromise)
-
-        return
-      }),
-    },
-    (toolName, error) => {
-      foundParsingError = true
-      serverToolResults.push({
-        toolName,
-        toolCallId: generateCompactId(),
-        result: error,
-      })
-    }
-  )
-
-  for await (const chunk of streamWithTags) {
-    const trimmed = chunk.trim()
-    if (
-      !ONE_TIME_LABELS.some(
-        (tag) => trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)
-      )
+      fileProcessingPromisesByPath[path].push(changePromise)
+    } else if (
+      toolCall.toolName === 'read_files' ||
+      toolCall.toolName === 'find_files' ||
+      toolCall.toolName === 'research'
     ) {
-      fullResponse += chunk
+      remainingToolCalls.push(toolCall)
+    } else {
+      toolCall satisfies never
+      assert(false, `Unknown tool name for tool: ${{ toolCall }}`)
     }
-    onResponseChunk(chunk)
   }
+  flushResponseBuffer()
 
   const agentResponseTrace: AgentResponseTrace = {
     type: 'agent-response',
@@ -918,8 +544,11 @@ export const mainPrompt = async (
     user_id: userId ?? '',
     id: crypto.randomUUID(),
     payload: {
-      output: fullResponse,
-      user_input_id: promptId,
+      output: fullResponse
+        .filter((m) => typeof m.content === 'string')
+        .map((m) => m.content)
+        .join('\n\n'),
+      user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
     },
@@ -928,40 +557,23 @@ export const mainPrompt = async (
   insertTrace(agentResponseTrace)
 
   const messagesWithResponse = [
-    ...agentMessages,
-    {
-      role: 'assistant' as const,
-      content: fullResponse,
-    },
+    ...messagesWithEphemeralMessages,
+    ...fullResponse,
   ]
+  const tokensWithResponse = countTokensJson(messagesWithResponse)
 
   const agentContextPromise =
     subgoalToolCalls.length > 0
       ? updateContextFromToolCalls(agentContext, subgoalToolCalls)
       : Promise.resolve(agentContext)
 
-  for (const toolCall of allToolCalls) {
+  for (const toolCall of remainingToolCalls) {
     const { toolName: name, args: parameters } = toolCall
     trackEvent(AnalyticsEvent.TOOL_USE, userId ?? '', {
       tool: name,
       parameters,
     })
-    if (
-      [
-        'write_file',
-        'str_replace',
-        'add_subgoal',
-        'update_subgoal',
-        'code_search',
-        'run_terminal_command',
-        'browser_logs',
-        'think_deeply',
-        'create_plan',
-        'end_turn',
-      ].includes(name)
-    ) {
-      // Handled above
-    } else if (toolCall.toolName === 'read_files') {
+    if (toolCall.toolName === 'read_files') {
       const paths = (
         toolCall as Extract<CodebuffToolCall, { toolName: 'read_files' }>
       ).args.paths
@@ -972,18 +584,13 @@ export const mainPrompt = async (
       const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
         ws,
         messagesWithResponse,
-        getSearchSystemPrompt(
-          fileContext,
-          costMode,
-          fileRequestMessagesTokens,
-          {
-            agentStepId,
-            clientSessionId,
-            fingerprintId,
-            userInputId: promptId,
-            userId,
-          }
-        ),
+        getSearchSystemPrompt(fileContext, costMode, tokensWithResponse, {
+          agentStepId,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        }),
         fileContext,
         null,
         {
@@ -992,10 +599,10 @@ export const mainPrompt = async (
           agentStepId,
           clientSessionId,
           fingerprintId,
-          userInputId: promptId,
+          userInputId,
           userId,
           costMode,
-          repoId,
+          repoId: repoName,
         }
       )
       logger.debug(
@@ -1007,14 +614,7 @@ export const mainPrompt = async (
         },
         'read_files tool call'
       )
-      serverToolResults.push({
-        toolName: 'read_files',
-        toolCallId: generateCompactId(),
-        result: renderReadFilesResult(
-          addedFiles,
-          fileContext.tokenCallers ?? {}
-        ),
-      })
+      addToolCallWithResponse(toolCall, addedFiles)
     } else if (toolCall.toolName === 'find_files') {
       const description = (
         toolCall as Extract<CodebuffToolCall, { toolName: 'find_files' }>
@@ -1023,18 +623,13 @@ export const mainPrompt = async (
         await getFileReadingUpdates(
           ws,
           messagesWithResponse,
-          getSearchSystemPrompt(
-            fileContext,
-            costMode,
-            fileRequestMessagesTokens,
-            {
-              agentStepId,
-              clientSessionId,
-              fingerprintId,
-              userInputId: promptId,
-              userId,
-            }
-          ),
+          getSearchSystemPrompt(fileContext, costMode, tokensWithResponse, {
+            agentStepId,
+            clientSessionId,
+            fingerprintId,
+            userInputId,
+            userId,
+          }),
           fileContext,
           description,
           {
@@ -1042,10 +637,10 @@ export const mainPrompt = async (
             agentStepId,
             clientSessionId,
             fingerprintId,
-            userInputId: promptId,
+            userInputId,
             userId,
             costMode,
-            repoId,
+            repoId: repoName,
           }
         )
       logger.debug(
@@ -1058,33 +653,19 @@ export const mainPrompt = async (
         },
         'find_files tool call'
       )
-      serverToolResults.push({
-        toolName: 'find_files',
-        toolCallId: generateCompactId(),
-        result:
-          addedFiles.length > 0
-            ? renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
-            : `No new files found for description: ${description}`,
-      })
-      if (printedPaths.length > 0) {
-        onResponseChunk('\n\n')
-        onResponseChunk(
-          getToolCallString('read_files', {
-            paths: printedPaths.join('\n'),
-          })
-        )
-      }
+      addToolCallWithResponse(
+        toolCall,
+        addedFiles.length > 0
+          ? addedFiles
+          : `No new files found for description: ${description}`
+      )
     } else if (toolCall.toolName === 'research') {
       const { prompts: promptsStr } = toolCall.args as { prompts: string }
       let prompts: string[]
       try {
         prompts = JSON.parse(promptsStr)
       } catch (e) {
-        serverToolResults.push({
-          toolName: 'research',
-          toolCallId: generateCompactId(),
-          result: `Failed to parse prompts: ${e}`,
-        })
+        addToolCallWithResponse(toolCall, `Failed to parse prompts: ${e}`)
         continue
       }
 
@@ -1094,7 +675,7 @@ export const mainPrompt = async (
           userId,
           clientSessionId,
           fingerprintId,
-          promptId,
+          promptId: userInputId,
         })
         formattedResult = researchResults
           .map(
@@ -1108,11 +689,7 @@ export const mainPrompt = async (
         formattedResult = `Error running research, consider retrying?: ${e instanceof Error ? e.message : 'Unknown error'}`
       }
 
-      serverToolResults.push({
-        toolName: 'research',
-        toolCallId: generateCompactId(),
-        result: formattedResult,
-      })
+      addToolCallWithResponse(toolCall, formattedResult)
     } else {
       throw new Error(`Unknown tool: ${name}`)
     }
@@ -1135,11 +712,7 @@ export const mainPrompt = async (
 
   for (const result of fileChangeErrors) {
     // Forward error message to agent as tool result.
-    serverToolResults.push({
-      toolName: result.tool,
-      toolCallId: generateCompactId(),
-      result: `${result.path}: ${result.error}`,
-    })
+    addToolCallWithResponse(result.toolCall, `${result.path}: ${result.error}`)
   }
 
   if (fileChanges.length === 0 && fileProcessingPromises.length > 0) {
@@ -1151,10 +724,10 @@ export const mainPrompt = async (
 
   // Add successful changes to clientToolCalls
   const changeToolCalls: ClientToolCall[] = fileChanges.map(
-    ({ path, content, patch, tool }) => ({
+    ({ path, content, patch, tool, toolCall }) => ({
       type: 'tool-call',
       toolName: tool,
-      toolCallId: generateCompactId(),
+      toolCallId: toolCall.toolCallId,
       args: patch
         ? {
             type: 'patch' as const,
@@ -1172,7 +745,10 @@ export const mainPrompt = async (
 
   const newAgentContext = await agentContextPromise
 
-  let finalMessageHistory = expireMessages(messagesWithResponse, 'agentStep')
+  let finalMessageHistory = expireMessages(
+    [...messagesWithEphemeralMessages, ...fullResponse],
+    'agentStep'
+  )
 
   // Handle /compact command: replace message history with the summary
   const wasCompacted =
@@ -1205,9 +781,9 @@ export const mainPrompt = async (
       iteration: iterationNum,
       prompt,
       fullResponse,
-      toolCalls: allToolCalls,
+      subgoalToolCalls,
       clientToolCalls,
-      serverToolResults,
+      remainingToolCalls,
       agentContext: newAgentContext,
       messagesWithResponse,
       model,
@@ -1218,7 +794,6 @@ export const mainPrompt = async (
   return {
     sessionState: newSessionState,
     toolCalls: clientToolCalls,
-    toolResults: serverToolResults,
   }
 }
 

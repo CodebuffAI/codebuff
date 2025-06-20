@@ -1245,3 +1245,11 @@ export function getFilteredToolSet(costMode: CostMode): ToolSet {
     )
   ) satisfies ToolSet
 }
+
+export function getToolSet(toolNames: ToolName[]): ToolSet {
+  return Object.fromEntries(
+    Object.entries(toolConfigs).filter(([name]) =>
+      toolNames.includes(name as keyof typeof toolConfigs)
+    )
+  ) satisfies ToolSet
+}
