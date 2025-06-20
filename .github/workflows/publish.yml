@@ -8,6 +8,11 @@ on:
         required: true
         type: string
         default: 'patch'
+      package_name:
+        description: 'Target package name (e.g., codebuff, codecane, or any test name)'
+        required: false
+        default: 'codebuff'
+        type: string
 
 permissions:
   contents: write
@@ -169,6 +174,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set package names if needed
+        if: ${{ inputs.package_name != 'codebuff' }}
+        run: bun run scripts/update-package-names.js ${{ inputs.package_name }}
+        working-directory: npm-app
+
       - name: Set environment variables
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
@@ -236,6 +246,11 @@ jobs:
         with:
           name: updated-packages
           path: npm-app/packages/
+
+      - name: Set package names if needed
+        if: ${{ inputs.package_name != 'codebuff' }}
+        run: bun run scripts/update-package-names.js ${{ inputs.package_name }}
+        working-directory: npm-app
 
       - name: Set up Node.js for npm publishing
         uses: actions/setup-node@v4

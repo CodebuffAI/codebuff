@@ -4,7 +4,8 @@ const { execSync } = require('child_process')
 
 // Parse command line arguments
 const args = process.argv.slice(2)
-const versionType = args[0] || 'patch' // patch, minor, major, or specific version like 1.2.3
+const packageName = args[0] || 'codebuff' // codebuff or codecane
+const versionType = args[1] || 'patch' // patch, minor, major, or specific version like 1.2.3
 
 function log(message) {
   console.log(`🚀 ${message}`)
@@ -73,7 +74,7 @@ function checkGitBranch() {
   }
 }
 
-async function triggerWorkflow(versionType) {
+async function triggerWorkflow(versionType, packageName) {
   log('Triggering GitHub Actions workflow...')
 
   if (!process.env.GITHUB_TOKEN) {
@@ -87,7 +88,7 @@ async function triggerWorkflow(versionType) {
       -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Content-Type: application/json" \
       https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/168942713/dispatches \
-      -d '{"ref":"main","inputs":{"version_type":"${versionType}"}}'`
+      -d '{"ref":"main","inputs":{"version_type":"${versionType}","package_name":"${packageName}"}}'`
 
     const response = execSync(triggerCmd, { encoding: 'utf8' })
 
@@ -123,6 +124,7 @@ async function main() {
   checkGitBranch()
 
   log(`Version bump type: ${versionType}`)
+  log(`Package name: ${packageName}`)
 
   // Confirm with user
   if (process.env.CI !== 'true') {
@@ -139,15 +141,16 @@ async function main() {
   }
 
   // Trigger the workflow
-  await triggerWorkflow(versionType)
+  await triggerWorkflow(versionType, packageName)
 
   log('🎉 Release workflow triggered!')
   log('The GitHub Actions workflow will now:')
   log('  1. Calculate and update package versions')
-  log('  2. Build binaries for all platforms')
-  log('  3. Publish platform-specific npm packages')
-  log('  4. Publish the main codebuff npm package')
-  log('  5. Commit version changes and create git tag')
+  log(`  2. ${packageName === 'codecane' ? 'Toggle package names to codecane' : 'Keep codebuff package names'}`)
+  log('  3. Build binaries for all platforms')
+  log(`  4. Publish platform-specific npm packages as ${packageName}-*`)
+  log(`  5. Publish the main ${packageName} npm package`)
+  log('  6. Commit version changes and create git tag')
   log('')
   log('Monitor progress at: https://github.com/CodebuffAI/codebuff/actions')
 }

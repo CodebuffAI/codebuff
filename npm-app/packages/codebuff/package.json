@@ -3,11 +3,11 @@
   "version": "1.0.398",
   "description": "AI coding agent",
   "optionalDependencies": {
-    "codebuff-linux-x64": "^1.0.398",
-    "codebuff-linux-arm64": "^1.0.398",
-    "codebuff-darwin-x64": "^1.0.398",
-    "codebuff-darwin-arm64": "^1.0.398",
-    "codebuff-win32-x64": "^1.0.398"
+    "codebuff-linux-x64": "1.0.398",
+    "codebuff-linux-arm64": "1.0.398",
+    "codebuff-darwin-x64": "1.0.398",
+    "codebuff-darwin-arm64": "1.0.398",
+    "codebuff-win32-x64": "1.0.398"
   },
   "bin": { "codebuff": "index.js" },
   "files": ["index.js"],
