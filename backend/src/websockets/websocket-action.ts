@@ -181,7 +181,7 @@ const onPrompt = async (
           e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
 
         const newMessages = buildArray(
-          ...action.sessionState.messageHistory,
+          ...action.sessionState.mainAgentState.messageHistory,
           prompt && {
             role: 'user' as const,
             content: prompt,
@@ -208,7 +208,10 @@ const onPrompt = async (
             // Send back original sessionState.
             sessionState: {
               ...action.sessionState,
-              messageHistory: newMessages,
+              mainAgentState: {
+                ...action.sessionState.mainAgentState,
+                messageHistory: newMessages,
+              },
             },
             toolCalls: [],
             toolResults: [],

@@ -122,9 +122,10 @@ export const mainPrompt = async (
     promptId,
     toolResults,
   } = action
-  const { fileContext, agentContext } = sessionState
+  const { fileContext, mainAgentState } = sessionState
+  const { agentContext } = mainAgentState
   const startTime = Date.now()
-  let messageHistory = sessionState.messageHistory
+  let messageHistory = sessionState.mainAgentState.messageHistory
 
   // Get the extracted repo ID from request context
   const requestContext = getRequestContext()
@@ -319,7 +320,7 @@ export const mainPrompt = async (
   }
 
   // Check number of assistant messages since last user message with prompt
-  if (sessionState.agentStepsRemaining <= 0) {
+  if (sessionState.mainAgentState.stepsRemaining <= 0) {
     logger.warn(
       `Detected too many consecutive assistant messages without user prompt`
     )
@@ -335,15 +336,18 @@ export const mainPrompt = async (
     return {
       sessionState: {
         ...sessionState,
-        messageHistory: [
-          ...expireMessages(messagesWithToolResultsAndUser, 'userPrompt'),
-          {
-            role: 'user',
-            content: asSystemMessage(
-              `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in ${codebuffConfigFile}.`
-            ),
-          },
-        ],
+        mainAgentState: {
+          ...sessionState.mainAgentState,
+          messageHistory: [
+            ...expireMessages(messagesWithToolResultsAndUser, 'userPrompt'),
+            {
+              role: 'user',
+              content: asSystemMessage(
+                `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in ${codebuffConfigFile}.`
+              ),
+            },
+          ],
+        },
       },
       toolCalls: [],
       toolResults: [],
@@ -534,7 +538,7 @@ export const mainPrompt = async (
     {
       role: 'user',
       content: asSystemMessage(
-        `You have ${sessionState.agentStepsRemaining} more response(s) before you will be cut off and the turn will be ended automatically.${sessionState.agentStepsRemaining === 1 ? ' (This will be the last response.)' : ''}`
+        `You have ${sessionState.mainAgentState.stepsRemaining} more response(s) before you will be cut off and the turn will be ended automatically.${sessionState.mainAgentState.stepsRemaining === 1 ? ' (This will be the last response.)' : ''}`
       ),
       timeToLive: 'agentStep',
     },
@@ -1188,9 +1192,12 @@ export const mainPrompt = async (
 
   const newSessionState: SessionState = {
     ...sessionState,
-    messageHistory: finalMessageHistory,
-    agentContext: newAgentContext,
-    agentStepsRemaining: sessionState.agentStepsRemaining - 1,
+    mainAgentState: {
+      ...sessionState.mainAgentState,
+      messageHistory: finalMessageHistory,
+      stepsRemaining: sessionState.mainAgentState.stepsRemaining - 1,
+      agentContext: newAgentContext,
+    },
   }
 
   logger.debug(

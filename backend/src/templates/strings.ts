@@ -27,7 +27,7 @@ export function formatPrompt(
     [PLACEHOLDER.GIT_CHANGES_PROMPT]: getGitChangesPrompt(
       sessionState.fileContext
     ),
-    [PLACEHOLDER.REMAINING_STEPS]: `${sessionState.mainAgent?.stepsRemaining!}`,
+    [PLACEHOLDER.REMAINING_STEPS]: `${sessionState.mainAgentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: sessionState.fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(
       sessionState.fileContext

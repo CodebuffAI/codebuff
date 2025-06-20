@@ -17,22 +17,24 @@ export const toolResultSchema = z.object({
 })
 export type ToolResult = z.infer<typeof toolResultSchema>
 
-export const SubagentStateSchema: z.ZodType<{
+export const AgentStateSchema: z.ZodType<{
   agentId: string
-  agentType: AgentTemplateType
-  subagents: SubagentState[]
+  agentType: AgentTemplateType | null
+  agentContext: string
+  subagents: AgentState[]
   messageHistory: CodebuffMessage[]
   stepsRemaining: number
 }> = z.lazy(() =>
   z.object({
     agentId: z.string(),
-    agentType: agentTemplateTypeSchema,
-    subagents: SubagentStateSchema.array(),
+    agentType: agentTemplateTypeSchema.nullable(),
+    agentContext: z.string(),
+    subagents: AgentStateSchema.array(),
     messageHistory: CodebuffMessageSchema.array(),
     stepsRemaining: z.number(),
   })
 )
-export type SubagentState = z.infer<typeof SubagentStateSchema>
+export type AgentState = z.infer<typeof AgentStateSchema>
 
 const AgentTemplateTypeList = [
   'claude4_base',
@@ -48,11 +50,8 @@ const agentTemplateTypeSchema = z.enum(AgentTemplateTypeList)
 export type AgentTemplateType = z.infer<typeof agentTemplateTypeSchema>
 
 export const SessionStateSchema = z.object({
-  agentContext: z.string(),
   fileContext: ProjectFileContextSchema,
-  messageHistory: CodebuffMessageSchema.array(),
-  mainAgent: SubagentStateSchema.optional(),
-  agentStepsRemaining: z.number(),
+  mainAgentState: AgentStateSchema,
 })
 export type SessionState = z.infer<typeof SessionStateSchema>
 
@@ -60,10 +59,14 @@ export function getInitialSessionState(
   fileContext: ProjectFileContext
 ): SessionState {
   return {
-    agentContext: '',
-    messageHistory: [],
-    mainAgent: undefined,
+    mainAgentState: {
+      agentId: 'main-agent',
+      agentType: null,
+      agentContext: '',
+      subagents: [],
+      messageHistory: [],
+      stepsRemaining: 12,
+    },
     fileContext,
-    agentStepsRemaining: 12,
   }
 }

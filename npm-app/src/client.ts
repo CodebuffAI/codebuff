@@ -842,14 +842,15 @@ export class Client {
     }
 
     setMessages([
-      ...this.sessionState.messageHistory,
+      ...this.sessionState.mainAgentState.messageHistory,
       {
         role: 'user',
         content: prompt,
       },
     ])
 
-    this.sessionState.agentStepsRemaining = loadCodebuffConfig().maxAgentSteps
+    this.sessionState.mainAgentState.stepsRemaining =
+      loadCodebuffConfig().maxAgentSteps
     this.lastChanges = []
     this.filesChangedForHook = []
 
@@ -962,11 +963,16 @@ export class Client {
       ]
 
       // Update the agent state with just the assistant's response
-      const { messageHistory } = this.sessionState!
+      const {
+        mainAgentState: { messageHistory },
+      } = this.sessionState!
       const newMessages = [...messageHistory, ...additionalMessages]
       this.sessionState = {
         ...this.sessionState!,
-        messageHistory: newMessages,
+        mainAgentState: {
+          ...this.sessionState!.mainAgentState,
+          messageHistory: newMessages,
+        },
       }
       setMessages(newMessages)
 
@@ -1190,7 +1196,7 @@ Go to https://www.codebuff.com/config for more information.`) +
         }
 
         if (this.sessionState) {
-          setMessages(this.sessionState.messageHistory)
+          setMessages(this.sessionState.mainAgentState.messageHistory)
         }
 
         // Show total credits used for this prompt if significant
