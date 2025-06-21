@@ -20,6 +20,7 @@ interface CountDetectorOptions extends BaseDetectorOptions {
 interface TimeBetweenDetectorOptions extends BaseDetectorOptions {
   mode: 'TIME_BETWEEN'
   threshold: number
+  operator: 'lt' | 'gt' | 'eq' | 'gte' | 'lte'
 }
 
 interface RateDetectorOptions extends BaseDetectorOptions {
@@ -129,7 +130,28 @@ export function createTimeBetweenDetector(options: TimeBetweenDetectorOptions) {
     if (!startEvent || coolDownTimer) return
 
     const duration = Date.now() - startEvent.timestamp
-    if (duration < options.threshold) {
+    const operator = options.operator || 'lt' // Default to lt for backward compatibility
+
+    let shouldFire = false
+    switch (operator) {
+      case 'lt':
+        shouldFire = duration < options.threshold
+        break
+      case 'gt':
+        shouldFire = duration > options.threshold
+        break
+      case 'eq':
+        shouldFire = duration === options.threshold
+        break
+      case 'gte':
+        shouldFire = duration >= options.threshold
+        break
+      case 'lte':
+        shouldFire = duration <= options.threshold
+        break
+    }
+
+    if (shouldFire) {
       fireEvent(duration)
     }
     startEvent = null
@@ -140,6 +162,7 @@ export function createTimeBetweenDetector(options: TimeBetweenDetectorOptions) {
       reason: options.reason,
       duration,
       threshold: options.threshold,
+      operator: options.operator,
     })
 
     if (options.debounceMs) {

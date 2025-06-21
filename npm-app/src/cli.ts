@@ -42,10 +42,6 @@ import { Client } from './client'
 import { websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
 import { disableSquashNewlines, enableSquashNewlines } from './display'
-import {
-  createRageDetectors,
-  RageDetectors,
-} from './rage-detectors'
 import { loadCodebuffConfig } from './json-config/parser'
 import {
   displayGreeting,
@@ -58,6 +54,8 @@ import {
   getWorkingDirectory,
   initProjectFileContextWithWorker,
 } from './project-files'
+import { rageDetectors } from './rage-detectors'
+import { createRageDetectors, RageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import {
   clearScreen,
@@ -92,7 +90,6 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
-  private detectors: RageDetectors
 
   public rl!: readline.Interface
 
@@ -102,9 +99,6 @@ export class CLI {
   ) {
     this.git = git
     this.costMode = costMode
-
-    // Initialize rage detectors
-    this.detectors = createRageDetectors()
 
     this.setupSignalHandlers()
     this.initReadlineInterface()
@@ -132,8 +126,8 @@ export class CLI {
     this.setPrompt()
 
     process.on('unhandledRejection', (reason, promise) => {
-      this.detectors.exitAfterErrorDetector.start()
-      
+      rageDetectors.exitAfterErrorDetector.start()
+
       console.error('\nUnhandled Rejection at:', promise, 'reason:', reason)
       logger.error(
         {
@@ -147,8 +141,8 @@ export class CLI {
     })
 
     process.on('uncaughtException', (err, origin) => {
-      this.detectors.exitAfterErrorDetector.start()
-      
+      rageDetectors.exitAfterErrorDetector.start()
+
       console.error(
         `\nCaught exception: ${err}\n` + `Exception origin: ${origin}`
       )
@@ -531,7 +525,7 @@ export class CLI {
 
     // Record input for frustration detection before processing
     const cleanedInput = this.cleanCommandInput(userInput)
-    this.detectors.repeatInputDetector.recordEvent(
+    rageDetectors.repeatInputDetector.recordEvent(
       cleanedInput.toLowerCase().trim()
     )
 
@@ -844,7 +838,7 @@ export class CLI {
   }
 
   private onWebSocketError() {
-    this.detectors.exitAfterErrorDetector.start()
+    rageDetectors.exitAfterErrorDetector.start()
 
     Spinner.get().stop()
     this.isReceivingResponse = false
@@ -861,7 +855,7 @@ export class CLI {
     )
 
     // Start hang detection for persistent connection issues
-    this.detectors.webSocketHangDetector.start({
+    rageDetectors.webSocketHangDetector.start({
       connectionIssue: 'websocket_persistent_failure',
       url: websocketUrl,
     })
@@ -869,7 +863,7 @@ export class CLI {
 
   private onWebSocketReconnect() {
     // Stop hang detection on successful reconnection
-    this.detectors.webSocketHangDetector.stop()
+    rageDetectors.webSocketHangDetector.stop()
 
     console.log('\n' + green('Reconnected!'))
     this.freshPrompt()
@@ -887,9 +881,9 @@ export class CLI {
     // Control-C is a key mashing pattern we want to detect
     const isControlC = key?.ctrl && key?.name === 'c'
     if (isControlC) {
-      this.detectors.keyMashingDetector.recordEvent('ctrl-c')
+      rageDetectors.keyMashingDetector.recordEvent('ctrl-c')
     } else if (!isModifier && !isSpecialKey && key?.name) {
-      this.detectors.keyMashingDetector.recordEvent(key.name)
+      rageDetectors.keyMashingDetector.recordEvent(key.name)
     }
 
     if (key.name === 'escape') {
@@ -963,8 +957,11 @@ export class CLI {
   }
 
   private async handleExit() {
+    // Start exit time detector
+    rageDetectors.exitTimeDetector.start()
+
     // Call end() on the exit detector to check if user is exiting quickly after an error
-    this.detectors.exitAfterErrorDetector.end()
+    rageDetectors.exitAfterErrorDetector.end()
 
     Spinner.get().restoreCursor()
     process.removeAllListeners('unhandledRejection')
@@ -1015,6 +1012,9 @@ export class CLI {
         )
       }
     }
+
+    // End exit time detector right before process.exit
+    rageDetectors.exitTimeDetector.end()
 
     await flushAnalytics()
 

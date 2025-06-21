@@ -15,6 +15,7 @@ import {
   setProjectRoot,
   setWorkingDirectory,
 } from './project-files'
+import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/base'
 import { CliOptions } from './types'
@@ -41,6 +42,7 @@ async function codebuff(
   const processCleanupPromise = logAndHandleStartup()
 
   initAnalytics()
+  rageDetectors.startupTimeDetector.start()
 
   const updatePromise = updateCodebuff()
 
@@ -57,6 +59,8 @@ async function codebuff(
   const cli = CLI.getInstance()
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })
+
+  rageDetectors.startupTimeDetector.end()
 }
 
 if (require.main === module) {

@@ -187,14 +187,45 @@ describe('Rage Detectors', () => {
 
       expect(mockTrackEvent).toHaveBeenCalledTimes(1)
     })
+
+    test('should enforce history limit to prevent memory leaks', () => {
+      const detector = createCountDetector({
+        reason: 'key_mashing',
+        mode: 'COUNT',
+        threshold: 3,
+        timeWindow: 10000, // Long window to keep events
+        historyLimit: 5,
+      })
+
+      // Record more events than the history limit
+      for (let i = 0; i < 10; i++) {
+        detector.recordEvent(`key${i}`)
+        advanceTime(100)
+      }
+
+      // The detector should have trimmed old events
+      // We can't directly test the internal history, but we can test behavior
+      // Record 3 of the same key - should trigger since recent events are kept
+      detector.recordEvent('same')
+      detector.recordEvent('same')
+      detector.recordEvent('same')
+
+      expect(mockTrackEvent).toHaveBeenCalledWith(AnalyticsEvent.RAGE, {
+        reason: 'key_mashing',
+        count: 3,
+        timeWindow: 10000,
+        repeatedKey: 'same',
+      })
+    })
   })
 
   describe('createTimeBetweenDetector', () => {
-    test('should fire when end() is called within threshold', () => {
+    test('should fire when end() is called within threshold (default lt)', () => {
       const detector = createTimeBetweenDetector({
         reason: 'quick_cancel',
         mode: 'TIME_BETWEEN',
         threshold: 3000,
+        operator: 'lt',
       })
 
       detector.start()
@@ -205,14 +236,116 @@ describe('Rage Detectors', () => {
         reason: 'quick_cancel',
         duration: 2000,
         threshold: 3000,
+        operator: 'lt',
       })
     })
 
-    test('should NOT fire when end() is called after threshold', () => {
+    test('should fire when end() is called within threshold (explicit lt)', () => {
       const detector = createTimeBetweenDetector({
         reason: 'quick_cancel',
         mode: 'TIME_BETWEEN',
         threshold: 3000,
+        operator: 'lt',
+      })
+
+      detector.start()
+      advanceTime(2000) // 2 seconds < 3 second threshold
+      detector.end()
+
+      expect(mockTrackEvent).toHaveBeenCalledWith(AnalyticsEvent.RAGE, {
+        reason: 'quick_cancel',
+        duration: 2000,
+        threshold: 3000,
+        operator: 'lt',
+      })
+    })
+
+    test('should fire when end() is called after threshold (gt)', () => {
+      const detector = createTimeBetweenDetector({
+        reason: 'slow_operation',
+        mode: 'TIME_BETWEEN',
+        threshold: 3000,
+        operator: 'gt',
+      })
+
+      detector.start()
+      advanceTime(4000) // 4 seconds > 3 second threshold
+      detector.end()
+
+      expect(mockTrackEvent).toHaveBeenCalledWith(AnalyticsEvent.RAGE, {
+        reason: 'slow_operation',
+        duration: 4000,
+        threshold: 3000,
+        operator: 'gt',
+      })
+    })
+
+    test('should fire when end() is called exactly at threshold (eq)', () => {
+      const detector = createTimeBetweenDetector({
+        reason: 'exact_timing',
+        mode: 'TIME_BETWEEN',
+        threshold: 3000,
+        operator: 'eq',
+      })
+
+      detector.start()
+      advanceTime(3000) // exactly 3 seconds
+      detector.end()
+
+      expect(mockTrackEvent).toHaveBeenCalledWith(AnalyticsEvent.RAGE, {
+        reason: 'exact_timing',
+        duration: 3000,
+        threshold: 3000,
+        operator: 'eq',
+      })
+    })
+
+    test('should fire when end() is called at or after threshold (gte)', () => {
+      const detector = createTimeBetweenDetector({
+        reason: 'slow_or_exact',
+        mode: 'TIME_BETWEEN',
+        threshold: 3000,
+        operator: 'gte',
+      })
+
+      detector.start()
+      advanceTime(3000) // exactly 3 seconds
+      detector.end()
+
+      expect(mockTrackEvent).toHaveBeenCalledWith(AnalyticsEvent.RAGE, {
+        reason: 'slow_or_exact',
+        duration: 3000,
+        threshold: 3000,
+        operator: 'gte',
+      })
+    })
+
+    test('should fire when end() is called at or before threshold (lte)', () => {
+      const detector = createTimeBetweenDetector({
+        reason: 'quick_or_exact',
+        mode: 'TIME_BETWEEN',
+        threshold: 3000,
+        operator: 'lte',
+      })
+
+      detector.start()
+      advanceTime(3000) // exactly 3 seconds
+      detector.end()
+
+      expect(mockTrackEvent).toHaveBeenCalledWith(AnalyticsEvent.RAGE, {
+        reason: 'quick_or_exact',
+        duration: 3000,
+        threshold: 3000,
+        operator: 'lte',
+      })
+    })
+
+    test('should NOT fire when end() is called after threshold (default lt)', () => {
+      const detector = createTimeBetweenDetector({
+          reason: 'quick_cancel',
+          mode: 'TIME_BETWEEN',
+          threshold: 3000,
+          operator: 'lt'
       })
 
       detector.start()
@@ -222,11 +355,27 @@ describe('Rage Detectors', () => {
       expect(mockTrackEvent).not.toHaveBeenCalled()
     })
 
-    test('should NOT fire when end() is called without start()', () => {
+    test('should NOT fire when end() is called before threshold (gt)', () => {
       const detector = createTimeBetweenDetector({
-        reason: 'quick_cancel',
+        reason: 'slow_operation',
         mode: 'TIME_BETWEEN',
         threshold: 3000,
+        operator: 'gt',
+      })
+
+      detector.start()
+      advanceTime(2000) // 2 seconds < 3 second threshold
+      detector.end()
+
+      expect(mockTrackEvent).not.toHaveBeenCalled()
+    })
+
+    test('should NOT fire when end() is called without start()', () => {
+      const detector = createTimeBetweenDetector({
+          reason: 'quick_cancel',
+          mode: 'TIME_BETWEEN',
+          threshold: 3000,
+          operator: 'lt'
       })
 
       detector.end()
@@ -236,10 +385,11 @@ describe('Rage Detectors', () => {
 
     test('should respect cooldown period', () => {
       const detector = createTimeBetweenDetector({
-        reason: 'quick_cancel',
-        mode: 'TIME_BETWEEN',
-        threshold: 3000,
-        debounceMs: 10000,
+          reason: 'quick_cancel',
+          mode: 'TIME_BETWEEN',
+          threshold: 3000,
+          debounceMs: 10000,
+          operator: 'lt'
       })
 
       // First trigger
@@ -266,6 +416,44 @@ describe('Rage Detectors', () => {
       detector.end()
 
       expect(mockTrackEvent).toHaveBeenCalledTimes(1)
+    })
+
+    test('should handle multiple end() calls without start()', () => {
+      const detector = createTimeBetweenDetector({
+        reason: 'multiple_ends',
+        mode: 'TIME_BETWEEN',
+        threshold: 3000,
+        operator: 'lt',
+      })
+
+      // Call end() multiple times without start()
+      detector.end()
+      detector.end()
+      detector.end()
+
+      expect(mockTrackEvent).not.toHaveBeenCalled()
+    })
+
+    test('should handle multiple end() calls after single start()', () => {
+      const detector = createTimeBetweenDetector({
+        reason: 'multiple_ends',
+        mode: 'TIME_BETWEEN',
+        threshold: 3000,
+        operator: 'lt',
+      })
+
+      detector.start()
+      advanceTime(2000)
+      
+      // First end() should trigger
+      detector.end()
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1)
+      mockTrackEvent.mockClear()
+
+      // Subsequent end() calls should not trigger
+      detector.end()
+      detector.end()
+      expect(mockTrackEvent).not.toHaveBeenCalled()
     })
   })
 
@@ -337,6 +525,46 @@ describe('Rage Detectors', () => {
       advanceTime(30000)
 
       expect(mockTrackEvent).toHaveBeenCalledTimes(1)
+    })
+
+    test('should merge context from options and start() call', () => {
+      const detector = createTimeoutDetector({
+        reason: 'context_test',
+        timeoutMs: 60000,
+        context: { globalContext: 'global' },
+      })
+
+      detector.start({ localContext: 'local', overrideGlobal: 'fromLocal' })
+      advanceTime(60000)
+
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        AnalyticsEvent.RAGE,
+        expect.objectContaining({
+          reason: 'context_test',
+          globalContext: 'global',
+          localContext: 'local',
+          overrideGlobal: 'fromLocal',
+        })
+      )
+    })
+
+    test('should handle start() with no context when options context exists', () => {
+      const detector = createTimeoutDetector({
+        reason: 'context_test',
+        timeoutMs: 60000,
+        context: { globalOnly: 'global' },
+      })
+
+      detector.start()
+      advanceTime(60000)
+
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        AnalyticsEvent.RAGE,
+        expect.objectContaining({
+          reason: 'context_test',
+          globalOnly: 'global',
+        })
+      )
     })
   })
 })
