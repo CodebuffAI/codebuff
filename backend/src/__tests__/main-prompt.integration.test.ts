@@ -5,7 +5,7 @@ import { WebSocket } from 'ws'
 import { mainPrompt } from '../main-prompt'
 
 // Mock imports needed for setup within the test
-import { ClientToolCall } from '@/tools'
+import { ClientToolCall, CodebuffToolCall } from '@/tools'
 import { renderReadFilesResult } from '@/util/parse-tool-call-xml'
 import { getToolCallString } from 'common/constants/tools'
 import { ProjectFileContext } from 'common/util/file'
@@ -334,8 +334,12 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session-delete-function-integration',
-        onResponseChunk: (chunk: string) => {
-          process.stdout.write(chunk)
+        onResponseChunk: (chunk: string | CodebuffToolCall) => {
+          if (typeof chunk === 'string') {
+            process.stdout.write(chunk)
+          } else {
+            process.stdout.write(JSON.stringify(chunk))
+          }
         },
         selectedModel: undefined,
         readOnlyMode: false,
@@ -450,8 +454,12 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         {
           userId: TEST_USER_ID,
           clientSessionId: 'test-session-delete-function-integration',
-          onResponseChunk: (chunk: string) => {
-            process.stdout.write(chunk)
+          onResponseChunk: (chunk: string | CodebuffToolCall) => {
+            if (typeof chunk === 'string') {
+              process.stdout.write(chunk)
+            } else {
+              process.stdout.write(JSON.stringify(chunk))
+            }
           },
           selectedModel: undefined,
           readOnlyMode: false,

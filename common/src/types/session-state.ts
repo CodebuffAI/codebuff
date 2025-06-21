@@ -5,7 +5,7 @@ import { CodebuffMessage, CodebuffMessageSchema } from './message'
 
 export const toolCallSchema = z.object({
   toolName: z.string(),
-  args: z.record(z.string(), z.string()),
+  args: z.record(z.string(), z.any()),
   toolCallId: z.string(),
 })
 export type ToolCall = z.infer<typeof toolCallSchema>

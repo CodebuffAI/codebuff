@@ -114,7 +114,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('response-chunk'),
     userInputId: z.string(),
-    chunk: z.string(),
+    chunk: z.union([z.string(), toolCallSchema]),
   }),
   ResponseCompleteSchema,
   PromptResponseSchema,

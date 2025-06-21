@@ -6,6 +6,8 @@ import { bold, gray, strikethrough } from 'picocolors'
 import { getProjectRoot } from '../project-files'
 import { Spinner } from './spinner'
 
+export type ToolCallRendererValue = string | (() => void) | null
+
 /**
  * Interface for handling tool call rendering
  */
@@ -14,33 +16,30 @@ export interface ToolCallRenderer {
   onToolStart?: (
     toolName: string,
     attributes: Record<string, string>
-  ) => string | null | (() => void)
+  ) => ToolCallRendererValue
 
   // Called when a parameter tag is found within a tool
-  onParamStart?: (
-    paramName: string,
-    toolName: string
-  ) => string | null | (() => void)
+  onParamStart?: (paramName: string, toolName: string) => ToolCallRendererValue
 
   // Called when parameter content is received
   onParamChunk?: (
     content: string,
     paramName: string,
     toolName: string
-  ) => string | null | (() => void)
+  ) => ToolCallRendererValue
 
   // Called when a parameter tag ends
   onParamEnd?: (
     paramName: string,
     toolName: string,
     content: string
-  ) => string | null | (() => void)
+  ) => ToolCallRendererValue
 
   // Called when a tool tag ends
   onToolEnd?: (
     toolName: string,
     params: Record<string, string>
-  ) => string | null | (() => void)
+  ) => ToolCallRendererValue
 }
 
 let toolStart = true

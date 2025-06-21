@@ -64,7 +64,7 @@ const COLLECT_FULL_FILE_CONTEXT = false
 export interface MainPromptOptions {
   userId: string | undefined
   clientSessionId: string
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string | CodebuffToolCall) => void
   selectedModel: string | undefined
   readOnlyMode?: boolean
   modelConfig?: { agentModel?: Model; reasoningModel?: Model } // Used by the backend for automatic evals
@@ -376,6 +376,8 @@ export const mainPrompt = async (
       )
       continue
     }
+
+    onResponseChunk(toolCall)
 
     processSpecificToolCall: if (toolCall.toolName === 'think_deeply') {
       addToolCallWithResponse(toolCall, '')

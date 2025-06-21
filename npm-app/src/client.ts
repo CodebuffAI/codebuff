@@ -54,6 +54,7 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
+import { CodebuffMessage } from 'common/types/message'
 import { ToolResult } from 'common/types/session-state'
 import packageJson from '../package.json'
 import { getBackgroundProcessUpdates } from './background-process-manager'
@@ -81,8 +82,11 @@ import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
-import { toolRenderers } from './utils/tool-renderers'
-import { createXMLStreamParser } from './utils/xml-stream-parser'
+import {
+  defaultToolCallRenderer,
+  ToolCallRendererValue,
+  toolRenderers,
+} from './utils/tool-renderers'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
 const LOW_BALANCE_THRESHOLD = 100
@@ -146,7 +150,6 @@ export class Client {
   private hadFileChanges: boolean = false
   private git: GitCommand
   private responseComplete: boolean = false
-  private responseBuffer: string = ''
   private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
     Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
       (typeof ONE_TIME_LABELS)[number],
@@ -927,8 +930,15 @@ export class Client {
     prompt: string,
     startTime: number
   ) {
-    const rawChunkBuffer: string[] = []
-    this.responseBuffer = ''
+    const pendingResponse: CodebuffMessage[] = []
+    let textResponseBuffer = ''
+    function flushTextResponseBuffer() {
+      if (textResponseBuffer) {
+        pendingResponse.push({ role: 'assistant', content: textResponseBuffer })
+        textResponseBuffer = ''
+      }
+    }
+
     let streamStarted = false
     let responseStopped = false
     let resolveResponse: (
@@ -956,10 +966,7 @@ export class Client {
 
       const additionalMessages = [
         { role: 'user' as const, content: prompt },
-        {
-          role: 'user' as const,
-          content: `<system><assistant_message>${rawChunkBuffer.join('')}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
-        },
+        ...pendingResponse,
       ]
 
       // Update the agent state with just the assistant's response
@@ -986,49 +993,87 @@ export class Client {
       })
     }
 
-    const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
-      onChunk(chunk)
-    })
-
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
       const { chunk } = a
 
-      rawChunkBuffer.push(chunk)
-
-      const trimmed = chunk.trim()
-      for (const tag of ONE_TIME_TAGS) {
-        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)) {
-          if (this.oneTimeFlags[tag]) {
+      processChunk: if (typeof chunk === 'string') {
+        textResponseBuffer += chunk
+        for (const tag of ONE_TIME_TAGS) {
+          if (chunk.startsWith(`<${tag}>`) && chunk.endsWith(`</${tag}>`)) {
+            if (this.oneTimeFlags[tag]) {
+              return
+            }
+            Spinner.get().stop()
+            const warningMessage = chunk
+              .replace(`<${tag}>`, '')
+              .replace(`</${tag}>`, '')
+            process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
+            this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
             return
           }
-          Spinner.get().stop()
-          const warningMessage = trimmed
-            .replace(`<${tag}>`, '')
-            .replace(`</${tag}>`, '')
-          process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
-          this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
-          return
         }
-      }
 
-      if (chunk && chunk.trim()) {
-        if (!streamStarted && chunk.trim()) {
-          streamStarted = true
-          onStreamStart()
-        }
-      }
-
-      try {
-        xmlStreamParser.write(chunk, 'utf8')
-      } catch (e) {
-        logger.error(
+        onChunk(chunk)
+        break processChunk
+      } else {
+        flushTextResponseBuffer()
+        pendingResponse.push(
+          { role: 'assistant', content: [{ type: 'tool-call', ...chunk }] },
           {
-            errorMessage: e instanceof Error ? e.message : String(e),
-            errorStack: e instanceof Error ? e.stack : undefined,
-            chunk,
-          },
-          'Error writing chunk to XML stream parser'
+            role: 'tool',
+            content: [
+              {
+                type: 'tool-result',
+                toolCallId: chunk.toolCallId,
+                toolName: chunk.toolName,
+                result: 'Cancelled by user',
+              },
+            ],
+          }
+        )
+
+        // Render the tool call
+        const toolRenderer =
+          chunk.toolName in toolRenderers
+            ? toolRenderers[chunk.toolName as keyof typeof toolRenderers]
+            : defaultToolCallRenderer
+        function onChunkOrCall(c: ToolCallRendererValue) {
+          if (c === null) {
+            return
+          }
+          if (typeof c === 'string') {
+            onChunk(c)
+            return
+          }
+          c()
+        }
+        onChunkOrCall(
+          toolRenderer.onToolStart
+            ? toolRenderer.onToolStart(chunk.toolName, chunk.args)
+            : ''
+        )
+        for (const [param, value] of Object.entries(chunk.args)) {
+          onChunkOrCall(
+            toolRenderer.onParamStart
+              ? toolRenderer.onParamStart(param, chunk.toolName)
+              : ''
+          )
+          onChunkOrCall(
+            toolRenderer.onParamChunk
+              ? toolRenderer.onParamChunk(value, param, chunk.toolName)
+              : ''
+          )
+          onChunkOrCall(
+            toolRenderer.onParamEnd
+              ? toolRenderer.onParamEnd(param, chunk.toolName, value)
+              : ''
+          )
+        }
+        onChunkOrCall(
+          toolRenderer.onToolEnd
+            ? toolRenderer.onToolEnd(chunk.toolName, chunk.args)
+            : ''
         )
       }
     })
@@ -1183,7 +1228,6 @@ export class Client {
         })
 
         this.lastToolResults = toolResults
-        xmlStreamParser.end()
 
         askConfig: if (
           this.oneTimeFlags[SHOULD_ASK_CONFIG] &&
