@@ -33,7 +33,7 @@
     "start-nushell": "bun --cwd npm-app start-nushell",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "release:npm-app": "bun run --cwd npm-app release",
-    "typecheck": "bun --filter='*' run typecheck",
+    "typecheck": "bun --filter='*' run typecheck && echo '✅ All type checks passed!'",
     "test": "bun --filter='{@codebuff/backend,@codebuff/common,@codebuff/npm-app}' run test"
   },
   "dependencies": {
