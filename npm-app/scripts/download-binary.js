@@ -20,9 +20,9 @@ try {
 const targets = {
   'linux-x64': 'codebuff-linux-x64.tar.gz',
   'linux-arm64': 'codebuff-linux-arm64.tar.gz',
-  'darwin-x64': 'codebuff-darwin-x64.tar.gz', 
+  'darwin-x64': 'codebuff-darwin-x64.tar.gz',
   'darwin-arm64': 'codebuff-darwin-arm64.tar.gz',
-  'win32-x64': 'codebuff-win32-x64.zip'
+  'win32-x64': 'codebuff-win32-x64.zip',
 }
 
 const key = `${platform}-${arch}`
@@ -42,15 +42,13 @@ const binaryPath = path.join(manicodeDir, binaryName)
 
 // Check if binary already exists
 if (fs.existsSync(binaryPath)) {
-  console.log('✅ Binary already exists')
   process.exit(0)
 }
 
 // Create .config/manicode directory
 fs.mkdirSync(manicodeDir, { recursive: true })
 
-console.log(`⬇️  Downloading ${file} from GitHub releases...`)
-console.log(`📍 Installing to: ${manicodeDir}`)
+console.log(`Downloading...`)
 
 const request = https.get(url, (res) => {
   if (res.statusCode === 302 || res.statusCode === 301) {
@@ -87,10 +85,12 @@ function handleResponse(res) {
       const percentage = Math.round((downloaded / total) * 100)
       const downloadedMB = (downloaded / 1024 / 1024).toFixed(1)
       const totalMB = (total / 1024 / 1024).toFixed(1)
-      process.stderr.write(`\r📥 Downloaded ${downloadedMB}MB / ${totalMB}MB (${percentage}%)`)
+      process.stderr.write(
+        `\r${downloadedMB}MB / ${totalMB}MB (${percentage}%)`
+      )
     } else {
       const downloadedMB = (downloaded / 1024 / 1024).toFixed(1)
-      process.stderr.write(`\r📥 Downloaded ${downloadedMB}MB`)
+      process.stderr.write(`\r${downloadedMB}MB`)
     }
   }
 
@@ -103,18 +103,19 @@ function handleResponse(res) {
     // Handle zip files (Windows)
     const zipPath = path.join(manicodeDir, file)
     const writeStream = fs.createWriteStream(zipPath)
-    
+
     res.pipe(writeStream)
-    
+
     writeStream.on('finish', () => {
       process.stderr.write('\n') // New line after progress
       console.log('📦 Extracting...')
       // Extract zip file
       const { execSync } = require('child_process')
       try {
-        execSync(`cd "${manicodeDir}" && unzip -o "${file}"`, { stdio: 'inherit' })
+        execSync(`cd "${manicodeDir}" && unzip -o "${file}"`, {
+          stdio: 'inherit',
+        })
         fs.unlinkSync(zipPath) // Clean up zip file
-        console.log('✅ codebuff installed successfully!')
       } catch (error) {
         console.error('❌ Failed to extract zip:', error.message)
         process.exit(1)
@@ -124,30 +125,33 @@ function handleResponse(res) {
     // Handle tar.gz files (Unix)
     const zlib = require('zlib')
     const tar = require('tar')
-    
-    res.pipe(zlib.createGunzip())
-       .pipe(tar.extract({ cwd: manicodeDir }))
-       .on('finish', () => {
-         process.stderr.write('\n') // New line after progress
-         // The extracted binary will have the platform/arch in the name
-         const extractedBinaryName = file.replace('.tar.gz', '').replace('.zip', '')
-         const finalBinaryName = platform === 'win32' ? 'codebuff.exe' : 'codebuff'
-         const extractedBinaryPath = path.join(manicodeDir, extractedBinaryName)
-         const finalBinaryPath = path.join(manicodeDir, finalBinaryName)
-         
-         if (fs.existsSync(extractedBinaryPath)) {
-           fs.chmodSync(extractedBinaryPath, 0o755)
-           // Rename to the standard name
-           fs.renameSync(extractedBinaryPath, finalBinaryPath)
-           console.log('✅ codebuff installed successfully!')
-         } else {
-           console.error(`❌ Binary not found at ${extractedBinaryPath}`)
-           process.exit(1)
-         }
-       })
-       .on('error', (err) => {
-         console.error(`❌ Extraction failed: ${err.message}`)
-         process.exit(1)
-       })
+
+    res
+      .pipe(zlib.createGunzip())
+      .pipe(tar.extract({ cwd: manicodeDir }))
+      .on('finish', () => {
+        process.stderr.write('\n') // New line after progress
+        // The extracted binary will have the platform/arch in the name
+        const extractedBinaryName = file
+          .replace('.tar.gz', '')
+          .replace('.zip', '')
+        const finalBinaryName =
+          platform === 'win32' ? 'codebuff.exe' : 'codebuff'
+        const extractedBinaryPath = path.join(manicodeDir, extractedBinaryName)
+        const finalBinaryPath = path.join(manicodeDir, finalBinaryName)
+
+        if (fs.existsSync(extractedBinaryPath)) {
+          fs.chmodSync(extractedBinaryPath, 0o755)
+          // Rename to the standard name
+          fs.renameSync(extractedBinaryPath, finalBinaryPath)
+        } else {
+          console.error(`❌ Binary not found at ${extractedBinaryPath}`)
+          process.exit(1)
+        }
+      })
+      .on('error', (err) => {
+        console.error(`❌ Extraction failed: ${err.message}`)
+        process.exit(1)
+      })
   }
 }
