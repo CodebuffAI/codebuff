@@ -207,7 +207,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: codebuff-${{ matrix.target }}
-          path: npm-app/codebuff-${{ matrix.target }}.*
+          path: codebuff-${{ matrix.target }}.*
 
   # Create GitHub release with all binaries
   create-release:
