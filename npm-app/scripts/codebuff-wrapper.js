@@ -244,7 +244,7 @@ async function checkForUpdates(runningProcess, exitListener) {
     console.log(`Latest version: ${latestVersion}`)
 
     if (compareVersions(currentVersion, latestVersion) < 0) {
-      process.stdout.write(`Updating...`)
+      console.log(`Updating...`)
 
       // Remove the specific exit listener to prevent it from interfering with the update
       runningProcess.removeListener('exit', exitListener)
@@ -266,15 +266,20 @@ async function checkForUpdates(runningProcess, exitListener) {
 
       await downloadBinary(latestVersion)
 
-      // Restart with new binary
+      // Restart with new binary - this replaces the current process
       const newChild = spawn(CONFIG.binaryPath, process.argv.slice(2), {
         stdio: 'inherit',
         cwd: process.cwd(),
+        detached: false,
       })
 
+      // Set up exit handler for the new process
       newChild.on('exit', (code) => {
         process.exit(code || 0)
       })
+
+      // Don't return - keep this function running to maintain the wrapper
+      return new Promise(() => {}) // Never resolves, keeps wrapper alive
     }
   } catch (error) {
     // Silently ignore update check errors
