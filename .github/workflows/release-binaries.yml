@@ -187,17 +187,18 @@ jobs:
           fi
         shell: bash
 
-      - name: Create archive
+      - name: Zip on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          cd npm-app/bin
-          if [[ "${{ matrix.platform }}" == "win32" ]]; then
-            # Create zip for Windows
-            zip -r ../codebuff-${{ matrix.target }}.zip ${{ matrix.binary }}
-          else
-            # Create tar.gz for Unix systems
-            tar -czf ../codebuff-${{ matrix.target }}.tar.gz ${{ matrix.binary }}
-          fi
+          Compress-Archive -Path "npm-app/bin/${{ matrix.binary }}" `
+                           -DestinationPath "codebuff-${{ matrix.target }}.zip"
+
+      - name: Tar on Unix
+        if: runner.os != 'Windows'
         shell: bash
+        run: |
+          tar -czf codebuff-${{ matrix.target }}.tar.gz -C npm-app/bin ${{ matrix.binary }}
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
