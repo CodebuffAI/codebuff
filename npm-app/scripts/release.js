@@ -18,14 +18,12 @@ function error(message) {
 function formatTimestamp() {
   const now = new Date()
   const options = {
-    weekday: 'long',
-    year: 'numeric',
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    timeZoneName: 'short'
+    timeZoneName: 'short',
   }
   return now.toLocaleDateString('en-US', options)
 }
@@ -55,8 +53,6 @@ function generateGitHubToken() {
 }
 
 async function triggerWorkflow(versionType) {
-  log('Triggering GitHub Actions workflow...')
-
   if (!process.env.GITHUB_TOKEN) {
     error('GITHUB_TOKEN environment variable is required but not set')
   }
@@ -80,9 +76,9 @@ async function triggerWorkflow(versionType) {
         'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/release-binaries.yml'
       )
     } else {
-      log(
-        `Workflow trigger response: ${response || '(empty response - likely success)'}`
-      )
+      // log(
+      //   `Workflow trigger response: ${response || '(empty response - likely success)'}`
+      // )
       log('🎉 Release workflow triggered!')
     }
   } catch (err) {
@@ -94,7 +90,8 @@ async function triggerWorkflow(versionType) {
 }
 
 async function main() {
-  log(`Starting release process... (${formatTimestamp()})`)
+  log('🚀 Initiating release...')
+  log(`Date: ${formatTimestamp()}`)
 
   // Generate GitHub token first
   generateGitHubToken()
