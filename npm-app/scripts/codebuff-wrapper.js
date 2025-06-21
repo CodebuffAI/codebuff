@@ -232,7 +232,7 @@ async function ensureBinaryExists() {
   }
 }
 
-async function checkForUpdates(runningProcess) {
+async function checkForUpdates(runningProcess, exitListener) {
   try {
     const currentVersion = getCurrentVersion()
     if (!currentVersion) return
@@ -240,14 +240,29 @@ async function checkForUpdates(runningProcess) {
     const latestVersion = await getLatestVersion()
     if (!latestVersion) return
 
+    console.log(`Current version: ${currentVersion}`)
+    console.log(`Latest version: ${latestVersion}`)
+
     if (compareVersions(currentVersion, latestVersion) < 0) {
-      console.log(`Updating...\n`)
+      process.stdout.write(`Updating...`)
+
+      // Remove the specific exit listener to prevent it from interfering with the update
+      runningProcess.removeListener('exit', exitListener)
 
       // Kill the running process
       runningProcess.kill('SIGTERM')
 
-      // Wait for graceful shutdown
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      // Wait for the process to actually exit
+      await new Promise((resolve) => {
+        runningProcess.on('exit', resolve)
+        // Fallback timeout in case the process doesn't exit gracefully
+        setTimeout(() => {
+          if (!runningProcess.killed) {
+            runningProcess.kill('SIGKILL')
+          }
+          resolve()
+        }, 5000)
+      })
 
       await downloadBinary(latestVersion)
 
@@ -276,14 +291,17 @@ async function main() {
     cwd: process.cwd(),
   })
 
+  // Store reference to the exit listener so we can remove it during updates
+  const exitListener = (code) => {
+    process.exit(code || 0)
+  }
+
+  child.on('exit', exitListener)
+
   // Check for updates in background
   setTimeout(() => {
-    checkForUpdates(child)
+    checkForUpdates(child, exitListener)
   }, 100)
-
-  child.on('exit', (code) => {
-    process.exit(code || 0)
-  })
 }
 
 // Run the main function
