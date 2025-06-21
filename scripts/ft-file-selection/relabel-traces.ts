@@ -3,7 +3,7 @@ import {
   getTracesWithoutRelabels,
   insertRelabel,
 } from '@codebuff/bigquery'
-import { promptFlashWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from '@codebuff/backend/llm-apis/gemini-with-fallbacks'
 import { claudeModels, models, TEST_USER_ID } from '@codebuff/common/constants'
 import { Message } from '@codebuff/common/types/message'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -11,7 +11,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import {
   promptAiSdk,
   transformMessages,
-} from 'backend/llm-apis/vercel-ai-sdk/ai-sdk'
+} from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { System } from '../../backend/src/llm-apis/claude'
 
 // Models we want to test

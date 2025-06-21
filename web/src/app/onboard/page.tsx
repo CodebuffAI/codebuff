@@ -4,12 +4,12 @@ import { toast } from '@/components/ui/use-toast'
 import { getServerSession } from 'next-auth'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import { db } from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, eq, gt } from 'drizzle-orm'
 import { MAX_DATE } from '@codebuff/common/constants'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
-import { genAuthCode } from 'common/util/credentials'
+import { genAuthCode } from '@codebuff/common/util/credentials'
 import { env } from '@codebuff/internal'
 import CardWithBeams from '@/components/card-with-beams'
 import { redeemReferralCode } from '../api/referrals/helpers'
@@ -141,7 +141,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
   }
 
   // Add it to the db
-  const didInsert = await db.transaction(async (tx) => {
+  const didInsert = await db.transaction(async (tx: any) => {
     await tx
       .insert(schema.fingerprint)
       .values({
@@ -183,7 +183,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
       redeemReferralMessage = (
         <div className="flex flex-col space-y-2">
           <p>
-            Uh-oh, we couldn&apos;t apply your referral code. {error.message}
+            Uh-oh, we couldn't apply your referral code. {error.message}
           </p>
           <p>
             Please try again and reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if

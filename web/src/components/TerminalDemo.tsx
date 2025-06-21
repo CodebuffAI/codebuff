@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Terminal, { ColorMode, TerminalOutput } from './ui/terminal'
 import { cn } from '../lib/utils'
-import { sleep } from 'common/util/promise'
+import { sleep } from '@codebuff/common/util/promise'
 import { match, P } from 'ts-pattern'
 import posthog from 'posthog-js'
 import { useTheme } from 'next-themes'
@@ -291,7 +291,7 @@ const SAMPLE_RESPONSES = {
       "- Added safeguards for asynchronous state updates"
     ]
   }
-};
+}
 
 // Interactive typing animation component
 const TypingEffect = ({ text, delay = 25, onComplete }: { text: string, delay?: number, onComplete?: () => void }) => {
@@ -714,7 +714,7 @@ const TerminalDemo = () => {
                   </div>
                 </div>
                 <div style="width: 48%;">
-                  <p style="font-weight: bold; color: #10B981; margin-bottom: 8px;">After:</p>
+                  <p style="font-weight: bold; color: #10B981;">After:</p>
                   <div style="background: #1F2937; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 12px;">
                     <p style="color: #9CA3AF; margin: 0;">// Separated concerns</p>
                     <p style="color: #D1D5DB; margin: 0;">function useAuth() {</p>
@@ -999,3 +999,4 @@ const TerminalDemo = () => {
 }
 
 export default TerminalDemo
+

@@ -6,7 +6,7 @@ import {
   Relabel,
   setupBigQuery,
 } from '@codebuff/bigquery'
-import { castAssistantMessage } from 'backend/util/messages'
+import { castAssistantMessage } from '@codebuff/backend/util/messages'
 import {
   finetunedVertexModelNames,
   finetunedVertexModels,
@@ -19,7 +19,7 @@ import { System } from '../../backend/src/llm-apis/claude'
 import {
   promptAiSdk,
   transformMessages,
-} from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
+} from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { isValidationSample } from './collect-tuning-data'
 
 const isProd = process.argv.includes('--prod')

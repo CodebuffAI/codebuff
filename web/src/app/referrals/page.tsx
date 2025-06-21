@@ -1,8 +1,8 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { CREDITS_REFERRAL_BONUS } from 'common/constants'
-import { getReferralLink } from 'common/util/referral'
+import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/constants'
+import { getReferralLink } from '@codebuff/common/util/referral'
 import { CopyIcon, Forward } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { match, P } from 'ts-pattern'

@@ -1,4 +1,4 @@
-import { AgentTemplateNames } from 'common/types/agent-state'
+import { AgentTemplateNames } from '@codebuff/common/types/agent-state'
 import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
 
 export const claude4_base: AgentTemplate = {

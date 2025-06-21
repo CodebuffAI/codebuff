@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import type { GitEvalResultRequest } from 'common/db/schema'
+import type { GitEvalResultRequest } from '@codebuff/common/db/schema'
 import path from 'path'
 import { sendEvalResultsEmail } from './email-eval-results'
 import { analyzeEvalResults } from './post-eval-analysis'
