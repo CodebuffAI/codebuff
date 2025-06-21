@@ -1,10 +1,10 @@
 {
-  "name": "codebuff",
+  "name": "codecane",
   "version": "1.0.399",
   "description": "AI coding agent",
   "license": "MIT",
   "bin": {
-    "codebuff": "scripts/codebuff-wrapper.js"
+    "codecane": "scripts/codebuff-wrapper.js"
   },
   "files": [
     "scripts/codebuff-wrapper.js",
