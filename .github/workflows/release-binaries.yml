@@ -23,12 +23,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download updated package
-        uses: actions/download-artifact@v4
-        with:
-          name: updated-package
-          path: npm-app/
-
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -53,11 +47,11 @@ jobs:
         id: bump_version
         run: |
           cd npm-app
-          
+
           # Get current version from package.release.json
           CURRENT_VERSION=$(node -p "require('./package.release.json').version")
           echo "Current version: $CURRENT_VERSION"
-          
+
           # Calculate new version
           VERSION_TYPE="${{ inputs.version_type }}"
           if [[ "$VERSION_TYPE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -80,10 +74,10 @@ jobs:
                 ;;
             esac
           fi
-          
+
           echo "New version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          
+
           # Update package.release.json with new version
           node -e "
             const fs = require('fs');
@@ -91,7 +85,7 @@ jobs:
             pkg.version = '$NEW_VERSION';
             fs.writeFileSync('package.release.json', JSON.stringify(pkg, null, 2) + '\n');
           "
-          
+
       - name: Upload updated package
         uses: actions/upload-artifact@v4
         with:
@@ -137,6 +131,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-package
+          path: npm-app/
+
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -178,6 +178,7 @@ jobs:
         shell: bash
         env:
           VERBOSE: true
+          BUILD_VERSION: ${{ needs.prepare-release.outputs.new_version }}
           OVERRIDE_TARGET: ${{ matrix.bun_target }}
           OVERRIDE_PLATFORM: ${{ matrix.platform }}
           OVERRIDE_ARCH: ${{ matrix.arch }}
@@ -240,14 +241,14 @@ jobs:
           name: Release v${{ needs.prepare-release.outputs.new_version }}
           body: |
             ## Codebuff v${{ needs.prepare-release.outputs.new_version }}
-            
+
             Binary releases for all supported platforms.
-            
+
             ### Installation
             ```bash
             npm install -g codebuff
             ```
-            
+
             ### Platform Binaries
             - `codebuff-linux-x64.tar.gz` - Linux x64
             - `codebuff-linux-arm64.tar.gz` - Linux ARM64
