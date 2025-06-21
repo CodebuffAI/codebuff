@@ -1,5 +1,5 @@
 import { ClientAction } from 'common/actions'
-import { SessionState, ToolResult } from 'common/types/session-state'
+import { SessionState } from 'common/types/session-state'
 import { WebSocket } from 'ws'
 import { mainPrompt, MainPromptOptions } from './main-prompt'
 import { ClientToolCall } from './tools'
@@ -13,14 +13,9 @@ export async function loopMainPrompt(
 ): Promise<{
   sessionState: SessionState
   toolCalls: Array<ClientToolCall>
-  toolResults: Array<ToolResult>
 }> {
   const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS
-  let { sessionState, toolResults, toolCalls } = await mainPrompt(
-    ws,
-    action,
-    options
-  )
+  let { sessionState, toolCalls } = await mainPrompt(ws, action, options)
   let iterations = 0
   // Continue running as long as the agent is using tools and hasn't decided to end the turn.
   while (
@@ -30,12 +25,11 @@ export async function loopMainPrompt(
     const nextAction: Extract<ClientAction, { type: 'prompt' }> = {
       ...action,
       sessionState,
-      toolResults,
+      toolResults: [],
       prompt: undefined,
     }
     const result = await mainPrompt(ws, nextAction, options)
     sessionState = result.sessionState
-    toolResults = result.toolResults
     toolCalls = result.toolCalls
     iterations++
     if (iterations >= maxIterations) {
@@ -43,5 +37,5 @@ export async function loopMainPrompt(
     }
   }
 
-  return { sessionState, toolCalls, toolResults }
+  return { sessionState, toolCalls }
 }

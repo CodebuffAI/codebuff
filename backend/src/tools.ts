@@ -85,34 +85,7 @@ ${getToolCallString('add_subgoal', {
       .describe(
         `Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.`
       ),
-    description: `
-Examples:
-
-Usage 1 (update status):
-${getToolCallString('update_subgoal', {
-  id: '1',
-  status: 'COMPLETE',
-})}
-
-Usage 2 (update plan):
-${getToolCallString('update_subgoal', {
-  id: '3',
-  plan: 'Create file for endpoint in the api. Register it in the router.',
-})}
-
-Usage 3 (add log):
-${getToolCallString('update_subgoal', {
-  id: '1',
-  log: 'Found the error in the tests. Culprit: foo function.',
-})}
-
-Usage 4 (update status and add log):
-${getToolCallString('update_subgoal', {
-  id: '1',
-  status: 'COMPLETE',
-  log: 'Reran the tests (passed)',
-})}
-    `.trim(),
+    description: '',
   },
   write_file: {
     parameters: z
@@ -177,40 +150,6 @@ Notes for editing a file:
 - When editing a file, try not to change any user code that doesn't need to be changed. In particular, you must preserve pre-existing user comments exactly as they are.
 - You can also use this tool to create new files.
 - After you have written out a write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
-
-Examples:
-${getToolCallString('write_file', {
-  path: 'path/to/file',
-  instructions: 'How the file is being updated',
-  content: 'Your file content here',
-})}
-
-Example 1 - Simple file creation:
-${getToolCallString('write_file', {
-  path: 'new-file.ts',
-  instructions: 'Prints Hello, world',
-  content: 'console.log("Hello, world!");',
-})}
-
-Example 2 - Editing with placeholder comments:
-${getToolCallString('write_file', {
-  path: 'foo.ts',
-  instructions: 'Update foo and remove console.log',
-  content: `// ... existing code ...
-
-function foo() {
-  console.log('foo');
-  for (let i = 0; i < 10; i++) {
-    console.log(i);
-  }
-  doSomething();
-
-  // Delete the console.log line from here
-}
-
-// ... existing code ...`,
-})}
-
     `.trim(),
   },
   str_replace: {
@@ -239,15 +178,6 @@ function foo() {
 This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
 
 If you are making multiple edits row to a single file with this tool, use only one <str_replace> call (without closing the tool) with old_0, new_0, old_1, new_1, old_2, new_2, etc. instead of calling str_replace multiple times on the same file.
-
-Example:
-${getToolCallString('str_replace', {
-  path: 'path/to/file',
-  old_0: 'old',
-  new_0: 'new',
-  old_1: 'to_delete',
-  new_1: '',
-})}
     `.trim(),
   },
   read_files: {
@@ -265,11 +195,6 @@ ${getToolCallString('str_replace', {
       ),
     description: `
 Note: DO NOT call this tool for files you've already read! There's no need to read them again — any changes to the files will be surfaced to you as a file update tool result.
-
-Example:
-${getToolCallString('read_files', {
-  paths: 'path/to/file1.ts\npath/to/file2.ts',
-})}
     `.trim(),
   },
   find_files: {
@@ -338,10 +263,6 @@ The pattern supports regular expressions and will search recursively through all
 - Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
 
 Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
-
-Examples:
-${getToolCallString('code_search', { pattern: 'foo' })}
-${getToolCallString('code_search', { pattern: 'import.*foo' })}
     `.trim(),
   },
   run_terminal_command: {
@@ -403,12 +324,6 @@ Notes:
 - Commands can succeed without giving any output, e.g. if no type errors were found. So you may not always see output for successful executions.
 
 ${gitCommitGuidePrompt}
-
-Example:
-${getToolCallString('run_terminal_command', {
-  command: 'echo "hello world"',
-  process_type: 'SYNC',
-})}
     `.trim(),
   },
   research: {
@@ -421,15 +336,6 @@ ${getToolCallString('run_terminal_command', {
       ),
     description: `
 It is important to use this tool near the beginning of your response to make sure you know all the places in the codebase that will need to be updated. Always use it before using the create_plan tool.
-
-Example:
-${getToolCallString('research', {
-  prompts: JSON.stringify([
-    'What is the purpose of the `mainPrompt` function?',
-    'Find all usages of the `AgentState` type.',
-    'Look up potential LLM agent frameworks and recommend one.',
-  ]),
-})}
     `.trim(),
   },
   think_deeply: {
@@ -454,16 +360,6 @@ Use when user request:
 Avoid for simple changes (e.g., single functions, minor edits).
 
 This tool does not generate a tool result.
-
-Example:
-${getToolCallString('think_deeply', {
-  thought: [
-    '1. Check current user authentication',
-    '2. Refactor auth logic into module',
-    '3. Update imports across project',
-    '4. Add tests for new module',
-  ].join('\n'),
-})}
     `.trim(),
   },
   create_plan: {
@@ -513,20 +409,6 @@ Do not include any of the following sections in the plan:
 After creating than plan, you should end turn to let the user review the plan.
 
 Important: Use this tool sparingly. Do not use this tool more than once in a conversation, unless in ask mode.
-
-Examples:
-${getToolCallString('create_plan', {
-  path: 'feature-x-plan.md',
-  plan: [
-    '1. Create module `auth.ts` in `/src/auth/`.',
-    '```ts',
-    'export function authenticate(user: User): boolean { /* pseudo-code logic */ }',
-    '```',
-    '2. Refactor existing auth logic into this module.',
-    '3. Update imports across codebase.',
-    '4. Write integration tests covering new module logic.',
-  ].join('\n'),
-})}
     `.trim(),
   },
   browser_logs: {
@@ -593,13 +475,6 @@ Navigate:
    - \`type\`: (required) Must be equal to 'navigate'
    - \`url\`: (required) The URL to navigate to.
    - \`waitUntil\`: (required) One of 'load', 'domcontentloaded', 'networkidle0'
-
-Example:
-${getToolCallString('browser_logs', {
-  type: 'navigate',
-  url: 'localhost:3000',
-  waitUntil: 'domcontentloaded',
-})}
     `.trim(),
   },
   end_turn: {
@@ -612,10 +487,7 @@ ${getToolCallString('browser_logs', {
     description: `
 Purpose: Use this tool if you have fully responded to the user and want to get their feedback. This ignores any tool results (from write_file, run_terminal_command, etc.), so be sure you are done before using it.
 
-Make sure to use this tool if you want a response from the user and not the system. Otherwise, you may receive tool results from the previous tools. e.g. "Let me know if you need xyz!${getToolCallString('end_turn', {})}"
-
-Example:
-${getToolCallString('end_turn', {})}
+Make sure to use this tool if you want a response from the user and not the system. Otherwise, you may receive tool results from the previous tools.
     `.trim(),
   },
 } as const satisfies ToolSet
@@ -762,38 +634,8 @@ export function parseRawToolCall(
   while (schema instanceof z.ZodEffects) {
     schema = schema.innerType()
   }
-  const processedParameters: Record<string, any> = { ...rawToolCall.args }
 
-  const arrayParamPattern = /^(.+)_(\d+)$/
-  const arrayParamsCollector: Record<string, string[]> = {}
-
-  for (const [key, value] of Object.entries(rawToolCall.args)) {
-    const match = key.match(arrayParamPattern)
-    if (match) {
-      const [, paramNameBase, indexStr] = match
-      const index = parseInt(indexStr, 10)
-      const arraySchemaKey = `${paramNameBase}_vals`
-
-      const schemaShape = schema.shape
-      if (
-        schemaShape &&
-        schemaShape[arraySchemaKey] &&
-        schemaShape[arraySchemaKey] instanceof z.ZodArray
-      ) {
-        if (!arrayParamsCollector[arraySchemaKey]) {
-          arrayParamsCollector[arraySchemaKey] = []
-        }
-        arrayParamsCollector[arraySchemaKey][index] = value
-        delete processedParameters[key]
-      }
-    }
-  }
-
-  for (const [arrayKey, values] of Object.entries(arrayParamsCollector)) {
-    processedParameters[arrayKey] = values.filter((v) => v !== undefined)
-  }
-
-  const result = schema.safeParse(processedParameters)
+  const result = schema.safeParse(rawToolCall.args)
   if (!result.success) {
     return {
       toolName: validName,
@@ -803,7 +645,11 @@ export function parseRawToolCall(
     }
   }
 
-  return { toolName: validName, args: result.data } as CodebuffToolCall
+  return {
+    toolName: validName,
+    toolCallId: rawToolCall.toolCallId,
+    args: result.data,
+  } as CodebuffToolCall
 }
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
@@ -818,52 +664,6 @@ export const getToolsInstructions = (toolNames: readonly ToolName[]) => `
 # Tools
 
 You (Buffy) have access to the following tools. Call them when needed.
-
-## [CRITICAL] Formatting Requirements
-
-Tool calls use a specific XML-like format. Adhere *precisely* to this nested element structure:
-
-<tool_name>
-<parameter1_name>value1</parameter1_name>
-<parameter2_name>value2</parameter2_name>
-...
-</tool_name>
-
-### XML Entities
-
-**ALL** XML (inside or outside tool calls) will be interpreted as tool calls or tool parameters. You **MUST** use XML entities, e.g. \`&lt;some_tag>\` or \`</some_tag&gt;\` to:
-- Display XML to the user without executing a tool call
-- Have XML within a tool parameter's value such as writing to a file
-
-This also means that if you wish to write the literal string \`&lt;\` to a file or display that to a user, you MUST write \`&amp;lt;\`.
-
-### Commentary
-
-Provide commentary *around* your tool calls (explaining your actions).
-
-However, **DO NOT** narrate the tool or parameter names themselves.
-
-### Array Params
-
-Arrays with name "param_name_vals" should be formatted as individual parameters, each called "param_name_{i}". They must start with i=0 and increment by 1.
-
-### Example
-
-User: can you update the console logs in example/file.ts?
-Assistant: Sure thing! Let's update that file!
-
-${getToolCallString('write_file', {
-  path: 'path/to/example/file.ts',
-  instructions: 'Update the console logs',
-  content: "console.log('Hello from Buffy!');",
-  // old_0: '// Replace this line with a fun greeting',
-  // new_0: "console.log('Hello from Buffy!');",
-  // old_1: "console.log('Old console line to delete');\n",
-  // new_1: '',
-})}
-
-All done with the update!
-User: thanks it worked! :)
 
 ## Working Directory
 

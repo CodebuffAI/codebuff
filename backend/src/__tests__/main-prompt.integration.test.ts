@@ -328,19 +328,19 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       toolResults: [],
     }
 
-    const {
-      toolCalls,
-      toolResults,
-      sessionState: finalSessionState,
-    } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session-delete-function-integration',
-      onResponseChunk: (chunk: string) => {
-        process.stdout.write(chunk)
-      },
-      selectedModel: undefined,
-      readOnlyMode: false,
-    })
+    const { toolCalls, sessionState: finalSessionState } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      action,
+      {
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session-delete-function-integration',
+        onResponseChunk: (chunk: string) => {
+          process.stdout.write(chunk)
+        },
+        selectedModel: undefined,
+        readOnlyMode: false,
+      }
+    )
 
     // Find the write_file tool call
     const writeFileCall = toolCalls.find(
@@ -444,11 +444,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         toolResults: [],
       }
 
-      const {
-        toolCalls,
-        toolResults,
-        sessionState: finalSessionState,
-      } = await mainPrompt(
+      const { toolCalls, sessionState: finalSessionState } = await mainPrompt(
         new MockWebSocket() as unknown as WebSocket,
         action,
         {

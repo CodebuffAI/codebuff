@@ -96,6 +96,9 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
   let wasTruncated = false
   let prefix = ''
   for await (let chunk of stream) {
+    if (typeof chunk !== 'string') {
+      continue
+    }
     // Remove a prefix of the the think deeply tool call if it exists.
     prefix += chunk
     response += chunk
