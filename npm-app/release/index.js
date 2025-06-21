@@ -171,7 +171,6 @@ async function downloadBinary(version) {
   const totalSize = parseInt(res.headers['content-length'] || '0', 10)
   let downloadedSize = 0
   let lastProgressTime = Date.now()
-  let lastDownloadedSize = 0
 
   const chunks = []
 
@@ -181,25 +180,21 @@ async function downloadBinary(version) {
 
     const now = Date.now()
     if (now - lastProgressTime >= 100 || downloadedSize === totalSize) {
-      const elapsedSeconds = (now - lastProgressTime) / 1000
-      const bytesThisInterval = downloadedSize - lastDownloadedSize
-      const speed = bytesThisInterval / elapsedSeconds
-
       lastProgressTime = now
-      lastDownloadedSize = downloadedSize
 
       if (totalSize > 0) {
         const percentage = Math.round((downloadedSize / totalSize) * 100)
         const progressBar = createProgressBar(percentage)
-        // const sizeInfo = `${formatBytes(downloadedSize)}/${formatBytes(totalSize)}`
-        const speedInfo = speed > 0 ? formatSpeed(speed) : ''
 
-        term.write(`Downloading... ${progressBar} ${percentage}% ${speedInfo}`)
+        term.write(
+          `Downloading... ${progressBar} ${percentage}% of ${formatBytes(totalSize)}`
+        )
       } else {
         term.write(`Downloading... ${formatBytes(downloadedSize)}`)
       }
     }
   }
+  term.clearLine()
   console.log('Download complete!')
 
   term.write('Extracting...')
