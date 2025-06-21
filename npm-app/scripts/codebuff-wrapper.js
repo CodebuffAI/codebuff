@@ -30,6 +30,23 @@ const PLATFORM_TARGETS = {
   'win32-x64': 'codebuff-win32-x64.zip',
 }
 
+// Terminal utilities
+const term = {
+  clearLine: () => {
+    if (process.stderr.isTTY) {
+      process.stderr.write('\r\x1b[K')
+    }
+  },
+  write: (text) => {
+    term.clearLine()
+    process.stderr.write(text)
+  },
+  writeLine: (text) => {
+    term.clearLine()
+    process.stderr.write(text + '\n')
+  },
+}
+
 // Utility functions
 function httpGet(url, options = {}) {
   return new Promise((resolve, reject) => {
@@ -112,14 +129,22 @@ function compareVersions(v1, v2) {
   return 0
 }
 
-function showProgress(downloaded, total) {
-  if (total > 0) {
-    const percentage = Math.round((downloaded / total) * 100)
-    process.stderr.write(`\r${percentage}%`)
-  } else {
-    const downloadedMB = (downloaded / 1024 / 1024).toFixed(1)
-    process.stderr.write(`\r${downloadedMB} MB`)
-  }
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
+function formatSpeed(bytesPerSecond) {
+  return formatBytes(bytesPerSecond) + '/s'
+}
+
+function createProgressBar(percentage, width = 30) {
+  const filled = Math.round((width * percentage) / 100)
+  const empty = width - filled
+  return '[' + '█'.repeat(filled) + '░'.repeat(empty) + ']'
 }
 
 async function downloadBinary(version) {
@@ -135,7 +160,7 @@ async function downloadBinary(version) {
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
 
-  console.log(`Downloading codebuff v${version}...`)
+  term.write(`Downloading codebuff v${version}...`)
 
   const res = await httpGet(downloadUrl)
 
@@ -146,6 +171,7 @@ async function downloadBinary(version) {
   const totalSize = parseInt(res.headers['content-length'] || '0', 10)
   let downloadedSize = 0
   let lastProgressTime = Date.now()
+  let lastDownloadedSize = 0
 
   const chunks = []
 
@@ -155,13 +181,27 @@ async function downloadBinary(version) {
 
     const now = Date.now()
     if (now - lastProgressTime >= 100 || downloadedSize === totalSize) {
+      const elapsedSeconds = (now - lastProgressTime) / 1000
+      const bytesThisInterval = downloadedSize - lastDownloadedSize
+      const speed = bytesThisInterval / elapsedSeconds
+
       lastProgressTime = now
-      showProgress(downloadedSize, totalSize)
+      lastDownloadedSize = downloadedSize
+
+      if (totalSize > 0) {
+        const percentage = Math.round((downloadedSize / totalSize) * 100)
+        const progressBar = createProgressBar(percentage)
+        // const sizeInfo = `${formatBytes(downloadedSize)}/${formatBytes(totalSize)}`
+        const speedInfo = speed > 0 ? formatSpeed(speed) : ''
+
+        term.write(`Downloading... ${progressBar} ${percentage}% ${speedInfo}`)
+      } else {
+        term.write(`Downloading... ${formatBytes(downloadedSize)}`)
+      }
     }
   }
 
-  process.stderr.write('\n')
-  console.log('Extracting...')
+  term.write('Extracting...')
 
   const buffer = Buffer.concat(chunks)
 
@@ -200,6 +240,9 @@ async function downloadBinary(version) {
   } else {
     throw new Error(`Binary not found after extraction`)
   }
+
+  // Clear the line after successful download
+  term.clearLine()
 }
 
 async function ensureBinaryExists() {
@@ -214,6 +257,7 @@ async function ensureBinaryExists() {
     try {
       await downloadBinary(version)
     } catch (error) {
+      term.clearLine()
       console.error('❌ Failed to download codebuff:', error.message)
       console.error('Please try again later.')
       process.exit(1)
@@ -240,11 +284,9 @@ async function checkForUpdates(runningProcess, exitListener) {
     const latestVersion = await getLatestVersion()
     if (!latestVersion) return
 
-    console.log(`Current version: ${currentVersion}`)
-    console.log(`Latest version: ${latestVersion}`)
-
     if (compareVersions(currentVersion, latestVersion) < 0) {
-      console.log(`Updating...`)
+      term.clearLine()
+      console.log(`\nUpdate available: ${currentVersion} → ${latestVersion}`)
 
       // Remove the specific exit listener to prevent it from interfering with the update
       runningProcess.removeListener('exit', exitListener)
@@ -287,7 +329,6 @@ async function checkForUpdates(runningProcess, exitListener) {
 }
 
 async function main() {
-  // Ensure binary exists
   await ensureBinaryExists()
 
   // Start codebuff
