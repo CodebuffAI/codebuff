@@ -229,22 +229,17 @@ async function downloadBinary(version) {
       })
     }
 
-    // Rename extracted binary to standard name
-    const extractedName = fileName.replace(/\.(tar\.gz|zip)$/, '')
-    const extractedPath = path.join(CONFIG.configDir, extractedName)
+    // Find the extracted binary - it should be named "codebuff" or "codebuff.exe"
+    const files = fs.readdirSync(CONFIG.configDir)
+    const extractedPath = path.join(CONFIG.configDir, CONFIG.binaryName)
 
     if (fs.existsSync(extractedPath)) {
       if (process.platform !== 'win32') {
         fs.chmodSync(extractedPath, 0o755)
       }
-      // Remove existing binary if it exists
-      if (fs.existsSync(CONFIG.binaryPath)) {
-        fs.unlinkSync(CONFIG.binaryPath)
-      }
-      fs.renameSync(extractedPath, CONFIG.binaryPath)
     } else {
       throw new Error(
-        `Binary not found after extraction. Expected: ${extractedPath}.`
+        `Binary not found after extraction. Expected: ${extractedPath}, Available files: ${files.join(', ')}`
       )
     }
 
@@ -317,7 +312,7 @@ async function checkForUpdates(runningProcess, exitListener) {
         }, 5000)
       })
 
-      console.log(`\nUpdate available: ${currentVersion} → ${latestVersion}`)
+      console.log(`Update available: ${currentVersion} → ${latestVersion}`)
 
       await downloadBinary(latestVersion)
 
