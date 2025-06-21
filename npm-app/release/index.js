@@ -205,44 +205,56 @@ async function downloadBinary(version) {
 
   const buffer = Buffer.concat(chunks)
 
-  if (fileName.endsWith('.zip')) {
-    // Windows ZIP extraction
-    const AdmZip = require('adm-zip')
-    const zipPath = path.join(CONFIG.configDir, fileName)
+  try {
+    if (fileName.endsWith('.zip')) {
+      // Windows ZIP extraction
+      const AdmZip = require('adm-zip')
+      const zipPath = path.join(CONFIG.configDir, fileName)
 
-    fs.writeFileSync(zipPath, buffer)
+      fs.writeFileSync(zipPath, buffer)
 
-    const zip = new AdmZip(zipPath)
-    zip.extractAllTo(CONFIG.configDir, true)
+      const zip = new AdmZip(zipPath)
+      zip.extractAllTo(CONFIG.configDir, true)
 
-    fs.unlinkSync(zipPath)
-  } else {
-    // Unix tar.gz extraction
-    await new Promise((resolve, reject) => {
-      const gunzip = zlib.createGunzip()
-      const extract = tar.extract({ cwd: CONFIG.configDir })
+      fs.unlinkSync(zipPath)
+    } else {
+      // Unix tar.gz extraction
+      await new Promise((resolve, reject) => {
+        const gunzip = zlib.createGunzip()
+        const extract = tar.extract({ cwd: CONFIG.configDir })
 
-      gunzip.pipe(extract).on('finish', resolve).on('error', reject)
+        gunzip.pipe(extract).on('finish', resolve).on('error', reject)
 
-      gunzip.end(buffer)
-    })
-  }
-
-  // Rename extracted binary to standard name
-  const extractedName = fileName.replace(/\.(tar\.gz|zip)$/, '')
-  const extractedPath = path.join(CONFIG.configDir, extractedName)
-
-  if (fs.existsSync(extractedPath)) {
-    if (process.platform !== 'win32') {
-      fs.chmodSync(extractedPath, 0o755)
+        gunzip.end(buffer)
+      })
     }
-    fs.renameSync(extractedPath, CONFIG.binaryPath)
-  } else {
-    throw new Error(`Binary not found after extraction`)
-  }
 
-  // Clear the line after successful download
-  term.clearLine()
+    // Rename extracted binary to standard name
+    const extractedName = fileName.replace(/\.(tar\.gz|zip)$/, '')
+    const extractedPath = path.join(CONFIG.configDir, extractedName)
+
+    if (fs.existsSync(extractedPath)) {
+      if (process.platform !== 'win32') {
+        fs.chmodSync(extractedPath, 0o755)
+      }
+      // Remove existing binary if it exists
+      if (fs.existsSync(CONFIG.binaryPath)) {
+        fs.unlinkSync(CONFIG.binaryPath)
+      }
+      fs.renameSync(extractedPath, CONFIG.binaryPath)
+    } else {
+      throw new Error(
+        `Binary not found after extraction. Expected: ${extractedPath}.`
+      )
+    }
+
+    // Clear the line after successful download
+    term.clearLine()
+  } catch (error) {
+    term.clearLine()
+    console.error(`Extraction failed: ${error.message}`)
+    process.exit(1)
+  }
 }
 
 async function ensureBinaryExists() {
@@ -286,7 +298,6 @@ async function checkForUpdates(runningProcess, exitListener) {
 
     if (compareVersions(currentVersion, latestVersion) < 0) {
       term.clearLine()
-      console.log(`\nUpdate available: ${currentVersion} → ${latestVersion}`)
 
       // Remove the specific exit listener to prevent it from interfering with the update
       runningProcess.removeListener('exit', exitListener)
@@ -305,6 +316,8 @@ async function checkForUpdates(runningProcess, exitListener) {
           resolve()
         }, 5000)
       })
+
+      console.log(`\nUpdate available: ${currentVersion} → ${latestVersion}`)
 
       await downloadBinary(latestVersion)
 
