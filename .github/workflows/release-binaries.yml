@@ -23,6 +23,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-package
+          path: npm-app/
+
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
