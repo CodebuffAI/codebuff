@@ -7,7 +7,7 @@ const args = process.argv.slice(2)
 const versionType = args[0] || 'patch' // patch, minor, major, or specific version like 1.2.3
 
 function log(message) {
-  console.log(`🚀 ${message}`)
+  console.log(`${message}`)
 }
 
 function error(message) {
@@ -15,9 +15,22 @@ function error(message) {
   process.exit(1)
 }
 
-function generateGitHubToken() {
-  log('🔑 Generating GitHub App access token...')
+function formatTimestamp() {
+  const now = new Date()
+  const options = {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short'
+  }
+  return now.toLocaleDateString('en-US', options)
+}
 
+function generateGitHubToken() {
   try {
     // Run the generate-github-token script and capture its output
     const output = execSync('bun run scripts/generate-github-token.ts', {
@@ -30,7 +43,6 @@ function generateGitHubToken() {
     if (exportMatch && exportMatch[1]) {
       const token = exportMatch[1]
       process.env.GITHUB_TOKEN = token
-      log('✅ GitHub token generated and set successfully!')
       return token
     } else {
       error(
@@ -82,7 +94,7 @@ async function triggerWorkflow(versionType) {
 }
 
 async function main() {
-  log('Starting release process...', new Date().toISOString())
+  log(`Starting release process... (${formatTimestamp()})`)
 
   // Generate GitHub token first
   generateGitHubToken()
