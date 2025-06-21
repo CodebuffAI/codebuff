@@ -24,7 +24,8 @@
     "node": ">=16"
   },
   "dependencies": {
-    "tar": "^6.2.0"
+    "tar": "^6.2.0",
+    "adm-zip": "^0.5.10"
   },
   "repository": {
     "type": "git",
