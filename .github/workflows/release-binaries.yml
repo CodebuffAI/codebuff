@@ -310,7 +310,9 @@ jobs:
 
       - name: Commit and push version bump
         run: |
+          git stash
           git pull --rebase origin improve-build
+          git stash pop
           git add npm-app/package.release.json
           git commit -m "Bump version to ${{ needs.prepare-release.outputs.new_version }}"
           git push
