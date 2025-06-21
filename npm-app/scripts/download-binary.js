@@ -6,14 +6,14 @@ const path = require('path')
 const os = require('os')
 const { platform, arch } = process
 
-// Get version from package.json
-const packageJsonPath = path.join(__dirname, '..', 'package.json')
+// Get version from package.release.json
+const packageJsonPath = path.join(__dirname, '..', 'package.release.json')
 let version
 try {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
   version = packageJson.version
 } catch (error) {
-  console.error('❌ Could not read package.json version')
+  console.error('❌ Could not read package.release.json version')
   process.exit(1)
 }
 

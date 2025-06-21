@@ -3,17 +3,14 @@ import { execSync, spawn } from 'child_process'
 import { green, yellow } from 'picocolors'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import packageJson from '../package.json'
+import packageJson from '../package.release.json'
 import { killAllBackgroundProcesses } from './background-process-manager'
 import { isProduction } from './config'
 import { flushAnalytics } from './utils/analytics'
 import { logger } from './utils/logger'
 import { scrapeWebPage } from './web-scraper'
 
-const DISABLE_UPDATE_CHECK = true
 export async function updateCodebuff() {
-  // TODO: implement an update process for binary builds
-  if (DISABLE_UPDATE_CHECK) return
   if (!isProduction) return
 
   const latestVersion = await getCodebuffNpmVersion()
