@@ -5,42 +5,82 @@ const path = require('path')
 const os = require('os')
 const { spawn, execSync } = require('child_process')
 const https = require('https')
+const zlib = require('zlib')
+const tar = require('tar')
 
-const homeDir = os.homedir()
-const manicodeDir = path.join(homeDir, '.config', 'manicode')
-const binaryName = process.platform === 'win32' ? 'codebuff.exe' : 'codebuff'
-const binaryPath = path.join(manicodeDir, binaryName)
+// Configuration
+const CONFIG = {
+  homeDir: os.homedir(),
+  configDir: path.join(os.homedir(), '.config', 'manicode'),
+  binaryName: process.platform === 'win32' ? 'codebuff.exe' : 'codebuff',
+  githubRepo: 'CodebuffAI/codebuff-community',
+  userAgent: 'codebuff-cli',
+  requestTimeout: 10000,
+  updateCheckTimeout: 5000
+}
 
-// Check if binary exists
-if (!fs.existsSync(binaryPath)) {
-  console.log('🔄 Codebuff binary not found. Downloading...')
+CONFIG.binaryPath = path.join(CONFIG.configDir, CONFIG.binaryName)
+
+// Platform target mapping
+const PLATFORM_TARGETS = {
+  'linux-x64': 'codebuff-linux-x64.tar.gz',
+  'linux-arm64': 'codebuff-linux-arm64.tar.gz',
+  'darwin-x64': 'codebuff-darwin-x64.tar.gz',
+  'darwin-arm64': 'codebuff-darwin-arm64.tar.gz',
+  'win32-x64': 'codebuff-win32-x64.zip'
+}
+
+// Utility functions
+function httpGet(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url)
+    const reqOptions = {
+      hostname: parsedUrl.hostname,
+      path: parsedUrl.pathname + parsedUrl.search,
+      headers: {
+        'User-Agent': CONFIG.userAgent,
+        ...options.headers
+      }
+    }
+
+    const req = https.get(reqOptions, (res) => {
+      if (res.statusCode === 302 || res.statusCode === 301) {
+        return httpGet(res.headers.location, options).then(resolve).catch(reject)
+      }
+      resolve(res)
+    })
+
+    req.on('error', reject)
+    
+    const timeout = options.timeout || CONFIG.requestTimeout
+    req.setTimeout(timeout, () => {
+      req.destroy()
+      reject(new Error('Request timeout'))
+    })
+  })
+}
+
+async function getLatestVersion() {
+  try {
+    const res = await httpGet(`https://api.github.com/repos/${CONFIG.githubRepo}/releases/latest`)
+    
+    let data = ''
+    for await (const chunk of res) {
+      data += chunk
+    }
+    
+    const release = JSON.parse(data)
+    return release.tag_name?.replace(/^v/, '') || null
+  } catch (error) {
+    return null
+  }
+}
+
+function getCurrentVersion() {
+  if (!fs.existsSync(CONFIG.binaryPath)) return null
   
   try {
-    // Run the download script synchronously
-    const downloadScript = path.join(__dirname, 'download-binary.js')
-    execSync(`node "${downloadScript}"`, { stdio: 'inherit' })
-  } catch (error) {
-    console.error('❌ Failed to download codebuff binary')
-    console.error('Please try running: npm install -g codebuff')
-    process.exit(1)
-  }
-}
-
-// Check if binary is executable (Unix only)
-if (process.platform !== 'win32') {
-  try {
-    fs.accessSync(binaryPath, fs.constants.X_OK)
-  } catch (error) {
-    console.error(`❌ Codebuff binary is not executable: ${binaryPath}`)
-    console.error('Please try running: npm install -g codebuff')
-    process.exit(1)
-  }
-}
-
-// Get current version from binary
-function getCurrentVersion() {
-  try {
-    const result = execSync(`"${binaryPath}" --version`, { 
+    const result = execSync(`"${CONFIG.binaryPath}" --version`, {
       encoding: 'utf-8',
       stdio: 'pipe',
       timeout: 1000
@@ -51,147 +91,205 @@ function getCurrentVersion() {
   }
 }
 
-// Get latest version from GitHub releases
-function getLatestVersionFromGitHub() {
-  return new Promise((resolve) => {
-    const options = {
-      hostname: 'api.github.com',
-      path: '/repos/CodebuffAI/codebuff-community/releases/latest',
-      headers: {
-        'User-Agent': 'codebuff-wrapper'
-      }
-    }
-
-    const req = https.get(options, (res) => {
-      let data = ''
-      res.on('data', (chunk) => data += chunk)
-      res.on('end', () => {
-        try {
-          const release = JSON.parse(data)
-          const version = release.tag_name?.replace(/^v/, '') || null
-          resolve(version)
-        } catch (error) {
-          resolve(null)
-        }
-      })
-    })
-
-    req.on('error', () => resolve(null))
-    req.setTimeout(5000, () => {
-      req.destroy()
-      resolve(null)
-    })
-  })
-}
-
-// Compare versions (returns true if version1 < version2)
-function isVersionOlder(version1, version2) {
-  if (!version1 || !version2) return false
+function compareVersions(v1, v2) {
+  if (!v1 || !v2) return 0
   
-  const v1Parts = version1.split('.').map(Number)
-  const v2Parts = version2.split('.').map(Number)
+  const parts1 = v1.split('.').map(Number)
+  const parts2 = v2.split('.').map(Number)
   
-  for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
-    const v1Part = v1Parts[i] || 0
-    const v2Part = v2Parts[i] || 0
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || 0
+    const p2 = parts2[i] || 0
     
-    if (v1Part < v2Part) return true
-    if (v1Part > v2Part) return false
+    if (p1 < p2) return -1
+    if (p1 > p2) return 1
   }
   
-  return false
+  return 0
 }
 
-// Download and replace binary
-async function downloadAndReplaceBinary() {
-  console.log('🔄 Updating to latest version...')
+function showProgress(downloaded, total) {
+  if (total > 0) {
+    const percentage = Math.round((downloaded / total) * 100)
+    const downloadedMB = (downloaded / 1024 / 1024).toFixed(1)
+    const totalMB = (total / 1024 / 1024).toFixed(1)
+    process.stderr.write(`\rDownloading: ${percentage}% (${downloadedMB}/${totalMB} MB)`)
+  } else {
+    const downloadedMB = (downloaded / 1024 / 1024).toFixed(1)
+    process.stderr.write(`\rDownloading: ${downloadedMB} MB`)
+  }
+}
+
+async function downloadBinary(version) {
+  const platformKey = `${process.platform}-${process.arch}`
+  const fileName = PLATFORM_TARGETS[platformKey]
   
+  if (!fileName) {
+    throw new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
+  }
+  
+  const downloadUrl = `https://github.com/${CONFIG.githubRepo}/releases/download/v${version}/${fileName}`
+  
+  // Ensure config directory exists
+  fs.mkdirSync(CONFIG.configDir, { recursive: true })
+  
+  console.log(`Downloading codebuff v${version}...`)
+  
+  const res = await httpGet(downloadUrl)
+  
+  if (res.statusCode !== 200) {
+    throw new Error(`Download failed: HTTP ${res.statusCode}`)
+  }
+  
+  const totalSize = parseInt(res.headers['content-length'] || '0', 10)
+  let downloadedSize = 0
+  let lastProgressTime = Date.now()
+  
+  const chunks = []
+  
+  for await (const chunk of res) {
+    chunks.push(chunk)
+    downloadedSize += chunk.length
+    
+    const now = Date.now()
+    if (now - lastProgressTime >= 100 || downloadedSize === totalSize) {
+      lastProgressTime = now
+      showProgress(downloadedSize, totalSize)
+    }
+  }
+  
+  process.stderr.write('\n')
+  console.log('Extracting...')
+  
+  const buffer = Buffer.concat(chunks)
+  
+  if (fileName.endsWith('.zip')) {
+    // Windows ZIP extraction
+    const AdmZip = require('adm-zip')
+    const zipPath = path.join(CONFIG.configDir, fileName)
+    
+    fs.writeFileSync(zipPath, buffer)
+    
+    const zip = new AdmZip(zipPath)
+    zip.extractAllTo(CONFIG.configDir, true)
+    
+    fs.unlinkSync(zipPath)
+  } else {
+    // Unix tar.gz extraction
+    await new Promise((resolve, reject) => {
+      const gunzip = zlib.createGunzip()
+      const extract = tar.extract({ cwd: CONFIG.configDir })
+      
+      gunzip.pipe(extract)
+        .on('finish', resolve)
+        .on('error', reject)
+      
+      gunzip.end(buffer)
+    })
+  }
+  
+  // Rename extracted binary to standard name
+  const extractedName = fileName.replace(/\.(tar\.gz|zip)$/, '')
+  const extractedPath = path.join(CONFIG.configDir, extractedName)
+  
+  if (fs.existsSync(extractedPath)) {
+    if (process.platform !== 'win32') {
+      fs.chmodSync(extractedPath, 0o755)
+    }
+    fs.renameSync(extractedPath, CONFIG.binaryPath)
+  } else {
+    throw new Error(`Binary not found after extraction`)
+  }
+}
+
+async function ensureBinaryExists() {
+  if (!fs.existsSync(CONFIG.binaryPath)) {
+    const version = await getLatestVersion()
+    if (!version) {
+      console.error('❌ Failed to determine latest version')
+      console.error('Please check your internet connection and try again')
+      process.exit(1)
+    }
+    
+    try {
+      await downloadBinary(version)
+    } catch (error) {
+      console.error('❌ Failed to download codebuff:', error.message)
+      console.error('Please try again later.')
+      process.exit(1)
+    }
+  }
+  
+  // Verify binary is executable (Unix only)
+  if (process.platform !== 'win32') {
+    try {
+      fs.accessSync(CONFIG.binaryPath, fs.constants.X_OK)
+    } catch (error) {
+      console.error(`❌ Binary is not executable: ${CONFIG.binaryPath}`)
+      console.error('Run: chmod +x', CONFIG.binaryPath)
+      process.exit(1)
+    }
+  }
+}
+
+async function checkForUpdates(runningProcess) {
   try {
-    const downloadScript = path.join(__dirname, 'download-binary.js')
+    const currentVersion = getCurrentVersion()
+    if (!currentVersion) return
     
-    // Remove existing binary first
-    if (fs.existsSync(binaryPath)) {
-      fs.unlinkSync(binaryPath)
+    const latestVersion = await getLatestVersion()
+    if (!latestVersion) return
+    
+    if (compareVersions(currentVersion, latestVersion) < 0) {
+      console.log(`Updating...`)
+      
+      // Kill the running process
+      runningProcess.kill('SIGTERM')
+      
+      // Wait for graceful shutdown
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      await downloadBinary(latestVersion)
+      
+      console.log('Restarting...\n')
+      
+      // Restart with new binary
+      const newChild = spawn(CONFIG.binaryPath, process.argv.slice(2), {
+        stdio: 'inherit',
+        cwd: process.cwd()
+      })
+      
+      newChild.on('exit', (code) => {
+        process.exit(code || 0)
+      })
     }
-    
-    // Download new binary
-    execSync(`node "${downloadScript}"`, { stdio: 'inherit' })
-    
-    console.log('✅ Update complete!')
-    return true
   } catch (error) {
-    console.error('❌ Failed to update binary:', error.message)
-    return false
+    // Silently ignore update check errors
   }
 }
 
-// Main execution
 async function main() {
-  // Start codebuff immediately
-  const child = spawn(binaryPath, process.argv.slice(2), {
+  // Ensure binary exists
+  await ensureBinaryExists()
+  
+  // Start codebuff
+  const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
     stdio: 'inherit',
     cwd: process.cwd()
   })
-
-  // Check for updates in parallel (don't await)
-  checkForUpdatesInBackground(child)
-
+  
+  // Check for updates in background
+  setTimeout(() => {
+    checkForUpdates(child)
+  }, 100)
+  
   child.on('exit', (code) => {
     process.exit(code || 0)
   })
 }
 
-async function checkForUpdatesInBackground(runningProcess) {
-  try {
-    const currentVersion = getCurrentVersion()
-    if (!currentVersion) return
-
-    const latestVersion = await getLatestVersionFromGitHub()
-    if (!latestVersion) return
-
-    if (isVersionOlder(currentVersion, latestVersion)) {
-      // Kill the running process
-      runningProcess.kill('SIGTERM')
-
-      console.log('')
-
-      // Wait a moment for graceful shutdown
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      console.log(`\n🔄 New version available: ${latestVersion} (current: ${currentVersion})`)
-      
-      
-      // Download new version
-      const success = await downloadAndReplaceBinary()
-      
-      if (success) {
-        console.log('Restarting...\n')
-        
-        // Restart with new binary
-        const newChild = spawn(binaryPath, process.argv.slice(2), {
-          stdio: 'inherit',
-          cwd: process.cwd()
-        })
-        
-        newChild.on('exit', (code) => {
-          process.exit(code || 0)
-        })
-      } else {
-        // If update failed, restart with old binary
-        console.log('⚠️  Update failed, continuing with current version...\n')
-        const fallbackChild = spawn(binaryPath, process.argv.slice(2), {
-          stdio: 'inherit',
-          cwd: process.cwd()
-        })
-        
-        fallbackChild.on('exit', (code) => {
-          process.exit(code || 0)
-        })
-      }
-    }
-  } catch (error) {
-    // Silently ignore update check errors to avoid disrupting user experience
-  }
-}
-
-main()
+// Run the main function
+main().catch(error => {
+  console.error('❌ Unexpected error:', error.message)
+  process.exit(1)
+})

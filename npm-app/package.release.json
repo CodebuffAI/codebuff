@@ -8,7 +8,6 @@
   },
   "files": [
     "scripts/codebuff-wrapper.js",
-    "scripts/download-binary.js",
     "README.md"
   ],
   "os": [
