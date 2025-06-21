@@ -18,7 +18,6 @@ import {
 import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/base'
 import { CliOptions } from './types'
-import { updateCodebuff } from './update-codebuff'
 import { initAnalytics } from './utils/analytics'
 import { findGitRoot } from './utils/git'
 import { logger } from './utils/logger'
@@ -43,13 +42,10 @@ async function codebuff(
 
   initAnalytics()
 
-  const updatePromise = updateCodebuff()
-
   const initFileContextPromise = initProjectFileContextWithWorker(projectRoot)
 
   const readyPromise = Promise.all([
     initFileContextPromise,
-    updatePromise,
     processCleanupPromise,
   ])
 

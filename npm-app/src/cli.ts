@@ -92,7 +92,7 @@ export class CLI {
   public rl!: readline.Interface
 
   private constructor(
-    readyPromise: Promise<[ProjectFileContext, void, void]>,
+    readyPromise: Promise<[ProjectFileContext, void]>,
     { git, costMode, model }: CliOptions
   ) {
     this.git = git
@@ -113,8 +113,7 @@ export class CLI {
     })
 
     this.readyPromise = Promise.all([
-      readyPromise.then((results) => {
-        const [fileContext, ,] = results
+      readyPromise.then(([fileContext]) => {
         Client.getInstance().initAgentState(fileContext)
         return Client.getInstance().warmContextCache()
       }),
@@ -154,7 +153,7 @@ export class CLI {
   }
 
   public static initialize(
-    readyPromise: Promise<[ProjectFileContext, void, void]>,
+    readyPromise: Promise<[ProjectFileContext, void]>,
     options: CliOptions
   ): void {
     if (CLI.instance) {
