@@ -16,7 +16,7 @@ const CONFIG = {
   githubRepo: 'CodebuffAI/codebuff-community',
   userAgent: 'codebuff-cli',
   requestTimeout: 10000,
-  updateCheckTimeout: 5000
+  updateCheckTimeout: 5000,
 }
 
 CONFIG.binaryPath = path.join(CONFIG.configDir, CONFIG.binaryName)
@@ -27,7 +27,7 @@ const PLATFORM_TARGETS = {
   'linux-arm64': 'codebuff-linux-arm64.tar.gz',
   'darwin-x64': 'codebuff-darwin-x64.tar.gz',
   'darwin-arm64': 'codebuff-darwin-arm64.tar.gz',
-  'win32-x64': 'codebuff-win32-x64.zip'
+  'win32-x64': 'codebuff-win32-x64.zip',
 }
 
 // Utility functions
@@ -39,19 +39,21 @@ function httpGet(url, options = {}) {
       path: parsedUrl.pathname + parsedUrl.search,
       headers: {
         'User-Agent': CONFIG.userAgent,
-        ...options.headers
-      }
+        ...options.headers,
+      },
     }
 
     const req = https.get(reqOptions, (res) => {
       if (res.statusCode === 302 || res.statusCode === 301) {
-        return httpGet(res.headers.location, options).then(resolve).catch(reject)
+        return httpGet(res.headers.location, options)
+          .then(resolve)
+          .catch(reject)
       }
       resolve(res)
     })
 
     req.on('error', reject)
-    
+
     const timeout = options.timeout || CONFIG.requestTimeout
     req.setTimeout(timeout, () => {
       req.destroy()
@@ -62,13 +64,15 @@ function httpGet(url, options = {}) {
 
 async function getLatestVersion() {
   try {
-    const res = await httpGet(`https://api.github.com/repos/${CONFIG.githubRepo}/releases/latest`)
-    
+    const res = await httpGet(
+      `https://api.github.com/repos/${CONFIG.githubRepo}/releases/latest`
+    )
+
     let data = ''
     for await (const chunk of res) {
       data += chunk
     }
-    
+
     const release = JSON.parse(data)
     return release.tag_name?.replace(/^v/, '') || null
   } catch (error) {
@@ -78,12 +82,12 @@ async function getLatestVersion() {
 
 function getCurrentVersion() {
   if (!fs.existsSync(CONFIG.binaryPath)) return null
-  
+
   try {
     const result = execSync(`"${CONFIG.binaryPath}" --version`, {
       encoding: 'utf-8',
       stdio: 'pipe',
-      timeout: 1000
+      timeout: 1000,
     })
     return result.trim()
   } catch (error) {
@@ -93,105 +97,101 @@ function getCurrentVersion() {
 
 function compareVersions(v1, v2) {
   if (!v1 || !v2) return 0
-  
+
   const parts1 = v1.split('.').map(Number)
   const parts2 = v2.split('.').map(Number)
-  
+
   for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
     const p1 = parts1[i] || 0
     const p2 = parts2[i] || 0
-    
+
     if (p1 < p2) return -1
     if (p1 > p2) return 1
   }
-  
+
   return 0
 }
 
 function showProgress(downloaded, total) {
   if (total > 0) {
     const percentage = Math.round((downloaded / total) * 100)
-    const downloadedMB = (downloaded / 1024 / 1024).toFixed(1)
-    const totalMB = (total / 1024 / 1024).toFixed(1)
-    process.stderr.write(`\rDownloading: ${percentage}% (${downloadedMB}/${totalMB} MB)`)
+    process.stderr.write(`\r${percentage}%`)
   } else {
     const downloadedMB = (downloaded / 1024 / 1024).toFixed(1)
-    process.stderr.write(`\rDownloading: ${downloadedMB} MB`)
+    process.stderr.write(`\r${downloadedMB} MB`)
   }
 }
 
 async function downloadBinary(version) {
   const platformKey = `${process.platform}-${process.arch}`
   const fileName = PLATFORM_TARGETS[platformKey]
-  
+
   if (!fileName) {
     throw new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
   }
-  
+
   const downloadUrl = `https://github.com/${CONFIG.githubRepo}/releases/download/v${version}/${fileName}`
-  
+
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
-  
+
   console.log(`Downloading codebuff v${version}...`)
-  
+
   const res = await httpGet(downloadUrl)
-  
+
   if (res.statusCode !== 200) {
     throw new Error(`Download failed: HTTP ${res.statusCode}`)
   }
-  
+
   const totalSize = parseInt(res.headers['content-length'] || '0', 10)
   let downloadedSize = 0
   let lastProgressTime = Date.now()
-  
+
   const chunks = []
-  
+
   for await (const chunk of res) {
     chunks.push(chunk)
     downloadedSize += chunk.length
-    
+
     const now = Date.now()
     if (now - lastProgressTime >= 100 || downloadedSize === totalSize) {
       lastProgressTime = now
       showProgress(downloadedSize, totalSize)
     }
   }
-  
+
   process.stderr.write('\n')
   console.log('Extracting...')
-  
+
   const buffer = Buffer.concat(chunks)
-  
+
   if (fileName.endsWith('.zip')) {
     // Windows ZIP extraction
     const AdmZip = require('adm-zip')
     const zipPath = path.join(CONFIG.configDir, fileName)
-    
+
     fs.writeFileSync(zipPath, buffer)
-    
+
     const zip = new AdmZip(zipPath)
     zip.extractAllTo(CONFIG.configDir, true)
-    
+
     fs.unlinkSync(zipPath)
   } else {
     // Unix tar.gz extraction
     await new Promise((resolve, reject) => {
       const gunzip = zlib.createGunzip()
       const extract = tar.extract({ cwd: CONFIG.configDir })
-      
-      gunzip.pipe(extract)
-        .on('finish', resolve)
-        .on('error', reject)
-      
+
+      gunzip.pipe(extract).on('finish', resolve).on('error', reject)
+
       gunzip.end(buffer)
     })
   }
-  
+
   // Rename extracted binary to standard name
   const extractedName = fileName.replace(/\.(tar\.gz|zip)$/, '')
   const extractedPath = path.join(CONFIG.configDir, extractedName)
-  
+
   if (fs.existsSync(extractedPath)) {
     if (process.platform !== 'win32') {
       fs.chmodSync(extractedPath, 0o755)
@@ -210,7 +210,7 @@ async function ensureBinaryExists() {
       console.error('Please check your internet connection and try again')
       process.exit(1)
     }
-    
+
     try {
       await downloadBinary(version)
     } catch (error) {
@@ -219,7 +219,7 @@ async function ensureBinaryExists() {
       process.exit(1)
     }
   }
-  
+
   // Verify binary is executable (Unix only)
   if (process.platform !== 'win32') {
     try {
@@ -236,29 +236,27 @@ async function checkForUpdates(runningProcess) {
   try {
     const currentVersion = getCurrentVersion()
     if (!currentVersion) return
-    
+
     const latestVersion = await getLatestVersion()
     if (!latestVersion) return
-    
+
     if (compareVersions(currentVersion, latestVersion) < 0) {
-      console.log(`Updating...`)
-      
+      console.log(`Updating...\n`)
+
       // Kill the running process
       runningProcess.kill('SIGTERM')
-      
+
       // Wait for graceful shutdown
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
       await downloadBinary(latestVersion)
-      
-      console.log('Restarting...\n')
-      
+
       // Restart with new binary
       const newChild = spawn(CONFIG.binaryPath, process.argv.slice(2), {
         stdio: 'inherit',
-        cwd: process.cwd()
+        cwd: process.cwd(),
       })
-      
+
       newChild.on('exit', (code) => {
         process.exit(code || 0)
       })
@@ -271,25 +269,25 @@ async function checkForUpdates(runningProcess) {
 async function main() {
   // Ensure binary exists
   await ensureBinaryExists()
-  
+
   // Start codebuff
   const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
     stdio: 'inherit',
-    cwd: process.cwd()
+    cwd: process.cwd(),
   })
-  
+
   // Check for updates in background
   setTimeout(() => {
     checkForUpdates(child)
   }, 100)
-  
+
   child.on('exit', (code) => {
     process.exit(code || 0)
   })
 }
 
 // Run the main function
-main().catch(error => {
+main().catch((error) => {
   console.error('❌ Unexpected error:', error.message)
   process.exit(1)
 })
