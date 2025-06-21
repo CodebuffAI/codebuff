@@ -4,6 +4,7 @@
 export enum AnalyticsEvent {
   // CLI
   APP_LAUNCHED = 'cli.app_launched',
+  APP_HUNG = 'cli.app_hung',
   BACKGROUND_PROCESS_CONTINUE = 'cli.background_process_continue',
   BACKGROUND_PROCESS_END = 'cli.background_process_end',
   BACKGROUND_PROCESS_LEFTOVER_DETECTED = 'cli.background_process_leftover_detected',
@@ -19,6 +20,7 @@ export enum AnalyticsEvent {
   SLASH_MENU_ACTIVATED = 'cli.slash_menu_activated',
   SLASH_COMMAND_USED = 'cli.slash_command_used',
   INVALID_COMMAND = 'cli.invalid_command',
+  RAGE = 'cli.rage',
 
   // Backend
   USER_INPUT = 'backend.user_input',

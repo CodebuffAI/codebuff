@@ -40,7 +40,13 @@ import { showEasterEgg } from './cli-handlers/easter-egg'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
 import { Client } from './client'
 import { websocketUrl } from './config'
+import { CONFIG_DIR } from './credentials'
 import { disableSquashNewlines, enableSquashNewlines } from './display'
+import {
+  createRageDetectors,
+  RageDetectors,
+} from './rage-detectors'
+import { loadCodebuffConfig } from './json-config/parser'
 import {
   displayGreeting,
   displayMenu,
@@ -52,6 +58,7 @@ import {
   getWorkingDirectory,
   initProjectFileContextWithWorker,
 } from './project-files'
+import { logAndHandleStartup } from './startup-process-handler'
 import {
   clearScreen,
   isCommandRunning,
@@ -61,12 +68,9 @@ import {
 } from './terminal/base'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
-import { Spinner } from './utils/spinner'
-
-import { CONFIG_DIR } from './credentials'
-import { loadCodebuffConfig } from './json-config/parser'
-import { logAndHandleStartup } from './startup-process-handler'
 import { logger } from './utils/logger'
+import { Spinner } from './utils/spinner'
+import { withHangDetection } from './utils/with-hang-detection'
 
 const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
 
@@ -88,6 +92,7 @@ export class CLI {
   private pastedContent: string = ''
   private isPasting: boolean = false
   private shouldReconnectWhenIdle: boolean = false
+  private detectors: RageDetectors
 
   public rl!: readline.Interface
 
@@ -97,6 +102,9 @@ export class CLI {
   ) {
     this.git = git
     this.costMode = costMode
+
+    // Initialize rage detectors
+    this.detectors = createRageDetectors()
 
     this.setupSignalHandlers()
     this.initReadlineInterface()
@@ -123,6 +131,8 @@ export class CLI {
     this.setPrompt()
 
     process.on('unhandledRejection', (reason, promise) => {
+      this.detectors.exitAfterErrorDetector.start()
+      
       console.error('\nUnhandled Rejection at:', promise, 'reason:', reason)
       logger.error(
         {
@@ -136,6 +146,8 @@ export class CLI {
     })
 
     process.on('uncaughtException', (err, origin) => {
+      this.detectors.exitAfterErrorDetector.start()
+      
       console.error(
         `\nCaught exception: ${err}\n` + `Exception origin: ${origin}`
       )
@@ -180,6 +192,12 @@ export class CLI {
       const isHomeDir = getProjectRoot() === os.homedir()
       if (!isHomeDir) {
         console.log(green('Codebuff out!'))
+      }
+      if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
+        logger.info(
+          '[dev] active handles on close',
+          (process as any)._getActiveHandles()
+        )
       }
     })
     for (const signal of ['SIGTERM', 'SIGHUP']) {
@@ -510,7 +528,15 @@ export class CLI {
     }
     userInput = userInput.trim()
 
-    const processedResult = await this.processCommand(userInput)
+    // Record input for frustration detection before processing
+    const cleanedInput = this.cleanCommandInput(userInput)
+    this.detectors.repeatInputDetector.recordEvent(
+      cleanedInput.toLowerCase().trim()
+    )
+
+    const processedResult = await withHangDetection(userInput, () =>
+      this.processCommand(userInput)
+    )
 
     if (processedResult === null) {
       // Command was fully handled by processCommand
@@ -817,6 +843,8 @@ export class CLI {
   }
 
   private onWebSocketError() {
+    this.detectors.exitAfterErrorDetector.start()
+
     Spinner.get().stop()
     this.isReceivingResponse = false
     if (this.stopResponse) {
@@ -830,14 +858,39 @@ export class CLI {
       },
       'WebSocket connection error'
     )
+
+    // Start hang detection for persistent connection issues
+    this.detectors.webSocketHangDetector.start({
+      connectionIssue: 'websocket_persistent_failure',
+      url: websocketUrl,
+    })
   }
 
   private onWebSocketReconnect() {
+    // Stop hang detection on successful reconnection
+    this.detectors.webSocketHangDetector.stop()
+
     console.log('\n' + green('Reconnected!'))
     this.freshPrompt()
   }
 
   private handleKeyPress(str: string, key: any) {
+    // Track key mashing on repeated normal keys
+    const isModifier = key?.meta || key?.alt || key?.shift
+    const isSpecialKey =
+      key?.name === 'backspace' ||
+      key?.name === 'space' ||
+      key?.name === 'enter' ||
+      key?.name === 'tab'
+
+    // Control-C is a key mashing pattern we want to detect
+    const isControlC = key?.ctrl && key?.name === 'c'
+    if (isControlC) {
+      this.detectors.keyMashingDetector.recordEvent('ctrl-c')
+    } else if (!isModifier && !isSpecialKey && key?.name) {
+      this.detectors.keyMashingDetector.recordEvent(key.name)
+    }
+
     if (key.name === 'escape') {
       this.handleEscKey()
     }
@@ -909,6 +962,9 @@ export class CLI {
   }
 
   private async handleExit() {
+    // Call end() on the exit detector to check if user is exiting quickly after an error
+    this.detectors.exitAfterErrorDetector.end()
+
     Spinner.get().restoreCursor()
     process.removeAllListeners('unhandledRejection')
     process.removeAllListeners('uncaughtException')

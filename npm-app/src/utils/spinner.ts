@@ -3,12 +3,17 @@ import * as readline from 'readline'
 import { green } from 'picocolors'
 
 import { getPrevious, setPrevious } from '../display'
+import { createTimeoutDetector } from './rage-detector'
 
 const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
 export class Spinner {
   private static instance: Spinner | null = null
   private loadingInterval: NodeJS.Timeout | null = null
+  private hangDetector = createTimeoutDetector({
+    reason: 'spinner_hung',
+    timeoutMs: 60_000,
+  })
   private previous: string | null = null
   private text: string = 'Thinking'
 
@@ -28,6 +33,10 @@ export class Spinner {
     }
 
     this.previous = getPrevious()
+
+    // Set up hang detection
+    this.hangDetector.start({ spinnerText: this.text })
+
     let i = 0
     // Hide cursor while spinner is active
     process.stdout.write('\u001B[?25l')
@@ -38,12 +47,16 @@ export class Spinner {
   }
 
   stop() {
+    // Clear hang detection
+    this.hangDetector.stop()
+
     if (!this.loadingInterval) {
       return
     }
 
     clearInterval(this.loadingInterval)
     this.loadingInterval = null
+
     this.rewriteLine('') // Clear the spinner line
     this.restoreCursor() // Show cursor after spinner stops
     if (this.previous) {

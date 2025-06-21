@@ -1,7 +1,13 @@
-// @ts-ignore: bun:test types aren't available
-import { test } from 'bun:test'
-// @ts-ignore: bun:test types aren't available
-import { afterEach, beforeEach, describe, expect, mock, spyOn } from 'bun:test'
+// @ts-ignore
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from 'bun:test'
 
 // Import only the type, not the implementation
 import type { BackgroundProcessInfo } from '../../background-process-manager'
@@ -13,14 +19,16 @@ const mockChildProcess = {
 } as any
 
 // Check if we are in CI/CD
-const isCI = process.env.CODEBUFF_GITHUB_ACTIONS === 'true';
+const isCI = process.env.CODEBUFF_GITHUB_ACTIONS === 'true'
 
 // Skip tests entirely in CI
 if (!isCI) {
   // Wrap the dynamic import and tests in an async IIFE to avoid top-level await
-  (async () => {
+  ;(async () => {
     // Only import the implementation if not in CI
-    const { getBackgroundProcessInfoString } = await import('../../background-process-manager.js');
+    const { getBackgroundProcessInfoString } = await import(
+      '../../background-process-manager'
+    )
 
     describe('getBackgroundProcessInfoString', () => {
       let dateNowSpy: ReturnType<typeof spyOn>
@@ -357,6 +365,6 @@ if (!isCI) {
 } else {
   // Add a skipped describe block for clarity in test reports
   describe.skip('getBackgroundProcessInfoString (skipped in CI)', () => {
-    test.skip('skipped', () => {});
-  });
+    test.skip('skipped', () => {})
+  })
 }
