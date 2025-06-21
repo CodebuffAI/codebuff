@@ -1,17 +1,14 @@
 {
-  "name": "codecane",
-  "version": "1.0.398",
-  "description": "AI dev assistant",
+  "name": "codebuff",
+  "version": "1.0.399",
+  "description": "AI coding agent",
   "license": "MIT",
   "bin": {
-    "codecane": "scripts/codebuff-wrapper.js"
-  },
-  "scripts": {
-    "postinstall": "node scripts/install.js"
+    "codebuff": "scripts/codebuff-wrapper.js"
   },
   "files": [
     "scripts/codebuff-wrapper.js",
-    "scripts/install.js",
+    "scripts/download-binary.js",
     "README.md"
   ],
   "os": [
@@ -33,5 +30,8 @@
     "type": "git",
     "url": "https://github.com/CodebuffAI/codebuff-community.git"
   },
-  "homepage": "https://codebuff.com"
+  "homepage": "https://codebuff.com",
+  "publishConfig": {
+    "access": "public"
+  }
 }

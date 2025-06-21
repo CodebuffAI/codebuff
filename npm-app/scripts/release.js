@@ -4,8 +4,7 @@ const { execSync } = require('child_process')
 
 // Parse command line arguments
 const args = process.argv.slice(2)
-const packageName = args[0] || 'codebuff' // codebuff or codecane
-const versionType = args[1] || 'patch' // patch, minor, major, or specific version like 1.2.3
+const versionType = args[0] || 'patch' // patch, minor, major, or specific version like 1.2.3
 
 function log(message) {
   console.log(`🚀 ${message}`)
@@ -43,7 +42,7 @@ function generateGitHubToken() {
   }
 }
 
-async function triggerWorkflow(versionType, packageName) {
+async function triggerWorkflow(versionType) {
   log('Triggering GitHub Actions workflow...')
 
   if (!process.env.GITHUB_TOKEN) {
@@ -57,7 +56,7 @@ async function triggerWorkflow(versionType, packageName) {
       -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Content-Type: application/json" \
       https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/release-binaries.yml/dispatches \
-      -d '{"ref":"improve-build","inputs":{"version_type":"${versionType}","package_name":"${packageName}"}}'`
+      -d '{"ref":"improve-build","inputs":{"version_type":"${versionType}"}}'`
 
     const response = execSync(triggerCmd, { encoding: 'utf8' })
 
@@ -89,10 +88,9 @@ async function main() {
   generateGitHubToken()
 
   log(`Version bump type: ${versionType}`)
-  log(`Package name: ${packageName}`)
 
   // Trigger the workflow
-  await triggerWorkflow(versionType, packageName)
+  await triggerWorkflow(versionType)
 
   log('')
   log('Monitor progress at: https://github.com/CodebuffAI/codebuff/actions')

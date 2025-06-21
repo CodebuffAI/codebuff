@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 
-// Force output to show even when npm suppresses stdout
-const originalLog = console.log
-console.log = (...args) => {
-  process.stderr.write(args.join(' ') + '\n')
-}
-
 const https = require('https')
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
 const { platform, arch } = process
-const packageJson = require('../package.json')
-const ver = packageJson.version
+
+// Get version from package.json
+const packageJsonPath = path.join(__dirname, '..', 'package.json')
+let version
+try {
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+  version = packageJson.version
+} catch (error) {
+  console.error('❌ Could not read package.json version')
+  process.exit(1)
+}
 
 const targets = {
   'linux-x64': 'codebuff-linux-x64.tar.gz',
@@ -31,9 +34,17 @@ if (!file) {
   process.exit(1)
 }
 
-const url = `https://github.com/CodebuffAI/codebuff-community/releases/download/v${ver}/${file}`
+const url = `https://github.com/CodebuffAI/codebuff-community/releases/download/v${version}/${file}`
 const homeDir = os.homedir()
 const manicodeDir = path.join(homeDir, '.config', 'manicode')
+const binaryName = platform === 'win32' ? 'codebuff.exe' : 'codebuff'
+const binaryPath = path.join(manicodeDir, binaryName)
+
+// Check if binary already exists
+if (fs.existsSync(binaryPath)) {
+  console.log('✅ Binary already exists')
+  process.exit(0)
+}
 
 // Create .config/manicode directory
 fs.mkdirSync(manicodeDir, { recursive: true })
