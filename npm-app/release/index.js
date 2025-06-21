@@ -200,6 +200,7 @@ async function downloadBinary(version) {
       }
     }
   }
+  console.log('Download complete!')
 
   term.write('Extracting...')
 
@@ -230,8 +231,7 @@ async function downloadBinary(version) {
       )
     }
 
-    // Clear the line after successful download
-    term.clearLine()
+    term.write('Starting Codebuff...')
   } catch (error) {
     term.clearLine()
     console.error(`Extraction failed: ${error.message}`)
@@ -254,17 +254,6 @@ async function ensureBinaryExists() {
       term.clearLine()
       console.error('❌ Failed to download codebuff:', error.message)
       console.error('Please try again later.')
-      process.exit(1)
-    }
-  }
-
-  // Verify binary is executable (Unix only)
-  if (process.platform !== 'win32') {
-    try {
-      fs.accessSync(CONFIG.binaryPath, fs.constants.X_OK)
-    } catch (error) {
-      console.error(`❌ Binary is not executable: ${CONFIG.binaryPath}`)
-      console.error('Run: chmod +x', CONFIG.binaryPath)
       process.exit(1)
     }
   }
