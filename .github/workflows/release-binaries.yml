@@ -197,15 +197,7 @@ jobs:
           fi
         shell: bash
 
-      - name: Zip on Windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "npm-app/bin/${{ matrix.binary }}" `
-                           -DestinationPath "codebuff-${{ matrix.target }}.zip"
-
-      - name: Tar on Unix
-        if: runner.os != 'Windows'
+      - name: Create tarball
         shell: bash
         run: |
           tar -czf codebuff-${{ matrix.target }}.tar.gz -C npm-app/bin ${{ matrix.binary }}
@@ -254,7 +246,7 @@ jobs:
             - `codebuff-linux-arm64.tar.gz` - Linux ARM64
             - `codebuff-darwin-x64.tar.gz` - macOS Intel
             - `codebuff-darwin-arm64.tar.gz` - macOS Apple Silicon
-            - `codebuff-win32-x64.zip` - Windows x64
+            - `codebuff-win32-x64.tar.gz` - Windows x64
           files: |
             binaries/*/codebuff-*
           repository: CodebuffAI/codebuff-community

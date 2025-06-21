@@ -27,7 +27,7 @@ const PLATFORM_TARGETS = {
   'linux-arm64': 'codebuff-linux-arm64.tar.gz',
   'darwin-x64': 'codebuff-darwin-x64.tar.gz',
   'darwin-arm64': 'codebuff-darwin-arm64.tar.gz',
-  'win32-x64': 'codebuff-win32-x64.zip',
+  'win32-x64': 'codebuff-win32-x64.tar.gz',
 }
 
 // Terminal utilities
@@ -206,28 +206,15 @@ async function downloadBinary(version) {
   const buffer = Buffer.concat(chunks)
 
   try {
-    if (fileName.endsWith('.zip')) {
-      // Windows ZIP extraction
-      const AdmZip = require('adm-zip')
-      const zipPath = path.join(CONFIG.configDir, fileName)
+    // Unix tar.gz extraction for all platforms
+    await new Promise((resolve, reject) => {
+      const gunzip = zlib.createGunzip()
+      const extract = tar.extract({ cwd: CONFIG.configDir })
 
-      fs.writeFileSync(zipPath, buffer)
+      gunzip.pipe(extract).on('finish', resolve).on('error', reject)
 
-      const zip = new AdmZip(zipPath)
-      zip.extractAllTo(CONFIG.configDir, true)
-
-      fs.unlinkSync(zipPath)
-    } else {
-      // Unix tar.gz extraction
-      await new Promise((resolve, reject) => {
-        const gunzip = zlib.createGunzip()
-        const extract = tar.extract({ cwd: CONFIG.configDir })
-
-        gunzip.pipe(extract).on('finish', resolve).on('error', reject)
-
-        gunzip.end(buffer)
-      })
-    }
+      gunzip.end(buffer)
+    })
 
     // Find the extracted binary - it should be named "codebuff" or "codebuff.exe"
     const files = fs.readdirSync(CONFIG.configDir)
