@@ -4,7 +4,7 @@ import { type CostMode } from '@codebuff/common/constants'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'
 
-import packageJson from '../package.release.json'
+import packageJson from '../release/package.json'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { createTemplateProject } from './create-template-project'

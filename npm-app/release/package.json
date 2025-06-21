@@ -4,10 +4,10 @@
   "description": "AI coding agent",
   "license": "MIT",
   "bin": {
-    "codecane": "scripts/codebuff-wrapper.js"
+    "codecane": "index.js"
   },
   "files": [
-    "scripts/codebuff-wrapper.js",
+    "index.js",
     "README.md"
   ],
   "os": [

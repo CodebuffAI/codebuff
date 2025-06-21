@@ -46,10 +46,10 @@ jobs:
       - name: Calculate and update version
         id: bump_version
         run: |
-          cd npm-app
+          cd npm-app/release
 
-          # Get current version from package.release.json
-          CURRENT_VERSION=$(node -p "require('./package.release.json').version")
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current version: $CURRENT_VERSION"
 
           # Calculate new version
@@ -78,19 +78,19 @@ jobs:
           echo "New version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-          # Update package.release.json with new version
+          # Update package.json with new version
           node -e "
             const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.release.json', 'utf8'));
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             pkg.version = '$NEW_VERSION';
-            fs.writeFileSync('package.release.json', JSON.stringify(pkg, null, 2) + '\n');
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
 
       - name: Upload updated package
         uses: actions/upload-artifact@v4
         with:
           name: updated-package
-          path: npm-app/package.release.json
+          path: npm-app/release/
 
   build-binaries:
     needs: prepare-release
@@ -135,7 +135,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: updated-package
-          path: npm-app/
+          path: npm-app/release/
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -232,7 +232,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: updated-package
-          path: ./
+          path: npm-app/release/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -260,7 +260,7 @@ jobs:
           repository: CodebuffAI/codebuff-community
           token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
 
-  # Publish npm package using package.release.json
+  # Publish npm package using package.json from release directory
   publish-npm:
     needs: [prepare-release, create-release]
     runs-on: ubuntu-latest
@@ -274,7 +274,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: updated-package
-          path: npm-app/
+          path: npm-app/release/
 
       - name: Set up Node.js for npm publishing
         uses: actions/setup-node@v4
@@ -282,15 +282,9 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
 
-      - name: Prepare package for publishing
-        run: |
-          cd npm-app
-          # Replace package.json with package.release.json for publishing
-          cp package.release.json package.json
-
       - name: Publish to npm
         run: |
-          cd npm-app
+          cd npm-app/release
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -308,7 +302,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: updated-package
-          path: npm-app/
+          path: npm-app/release/
 
       - name: Configure git
         run: |
@@ -320,7 +314,7 @@ jobs:
           git stash
           git pull --rebase origin improve-build
           git stash pop
-          git add npm-app/package.release.json
+          git add npm-app/release/package.json
           git commit -m "Bump version to ${{ needs.prepare-release.outputs.new_version }}"
           git push
 
