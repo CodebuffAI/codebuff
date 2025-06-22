@@ -1,10 +1,10 @@
 {
-  "name": "codecane",
-  "version": "1.0.413",
+  "name": "codebuff",
+  "version": "1.0.334",
   "description": "AI coding agent",
   "license": "MIT",
   "bin": {
-    "codecane": "index.js"
+    "codebuff": "index.js"
   },
   "files": [
     "index.js",
