@@ -1,8 +1,8 @@
-import { CostMode, models } from 'common/constants'
+import { CostMode, models } from '@codebuff/common/constants'
 import {
   createMarkdownFileBlock,
   createSearchReplaceBlock,
-} from 'common/util/file'
+} from '@codebuff/common/util/file'
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 

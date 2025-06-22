@@ -1,10 +1,10 @@
-import { models } from 'common/constants'
+import { models } from '@codebuff/common/constants'
 import {
   createMarkdownFileBlock,
   parseMarkdownCodeBlock,
-} from 'common/util/file'
+} from '@codebuff/common/util/file'
 
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { logger } from '../util/logger'
 import { countTokens } from '../util/token-counter'
@@ -201,7 +201,7 @@ export async function rerank(
       )
     }
 
-    const rankings: string[] = await response.json()
+    const rankings = (await response.json()) as string[]
     if (!rankings || !Array.isArray(rankings)) {
       throw new Error('Invalid response format from Relace API')
     }

@@ -1,5 +1,5 @@
-import { Saxy, TagCloseNode, TagOpenNode, TextNode } from 'common/util/saxy'
-import { includesMatch } from 'common/util/string'
+import { Saxy, TagCloseNode, TagOpenNode, TextNode } from '@codebuff/common/util/saxy'
+import { includesMatch } from '@codebuff/common/util/string'
 
 interface PendingState {
   currentTool: null
@@ -285,7 +285,7 @@ export async function* processStreamWithTags<T extends string>(
     parser.end()
   }
 
-  for await (const chunk of stream) {
+  for await (const chunk of stream as AsyncIterable<T>) {
     if (streamCompleted) {
       break
     }

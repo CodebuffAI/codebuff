@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from 'react'
 import posthog from 'posthog-js'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 
 type PostHogContextType = {
   reinitialize: () => void

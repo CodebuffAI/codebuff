@@ -1,20 +1,36 @@
 {
-  "name": "common",
+  "name": "@codebuff/common",
   "version": "1.0.0",
   "description": "Common utilities for Codebuff",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "private": true,
   "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    "./db": {
+      "bun": "./src/db/index.ts",
+      "import": "./src/db/index.ts",
+      "types": "./src/db/index.ts",
+      "default": "./src/db/index.ts"
+    },
+    "./*": {
+      "bun": "./src/*.ts",
+      "import": "./src/*.ts",
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
   "scripts": {
-    "prebuild": "bun run clean",
-    "build": "tsc",
-    "typecheck-this-package": "tsc --noEmit",
-    "typecheck": "bun run typecheck-this-package",
-    "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
-    "db:generate": "nx run common:db-generate",
-    "db:migrate": "nx run common:db-migrate",
+    "inf": "$(git rev-parse --show-toplevel)/inf",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun run inf bun test",
+    "db:generate": "bun run inf drizzle-kit generate --config=./src/db/drizzle.config.ts",
+    "db:migrate": "bun run inf drizzle-kit push --config=./src/db/drizzle.config.ts",
     "db:start": "docker compose -f ./src/db/docker-compose.yml up --wait && bun run db:generate && (timeout 1 || sleep 1) && bun run db:migrate",
-    "db:studio": "nx run common:db-studio"
+    "db:studio": "drizzle-kit studio --config=./src/db/drizzle.config.ts"
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": ">=1.2.11"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.5.0",
@@ -30,11 +46,6 @@
     "readable-stream": "^4.7.0",
     "seedrandom": "^3.0.5",
     "stripe": "^16.11.0"
-  },
-  "peerDependencies": {
-    "@types/node": "*",
-    "@types/lodash": "*",
-    "typescript": "*"
   },
   "devDependencies": {
     "@types/parse-path": "^7.1.0"

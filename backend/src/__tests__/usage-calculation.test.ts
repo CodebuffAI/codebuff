@@ -1,10 +1,22 @@
-import { calculateUsageAndBalance } from '@codebuff/billing'
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import { GrantType } from 'common/db/schema'
-import { GRANT_PRIORITIES } from 'common/src/constants/grant-priorities'
+import { GrantType } from '@codebuff/common/db/schema'
+import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 
-// Mock logger - this is needed because @codebuff/billing likely uses the logger
-mock.module('common/util/logger', () => ({
+// Mock the database module before importing the function
+mock.module('@codebuff/common/db', () => ({
+  default: {
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          orderBy: () => Promise.resolve([]),
+        }),
+      }),
+    }),
+  },
+}))
+
+// Mock logger
+mock.module('@codebuff/common/util/logger', () => ({
   logger: {
     debug: () => {},
     error: () => {},
@@ -14,13 +26,16 @@ mock.module('common/util/logger', () => ({
   withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
 }))
 
+// Now import the function after mocking
+import { calculateUsageAndBalance } from '@codebuff/billing'
+
 describe('Usage Calculation System', () => {
   beforeEach(() => {
-    // Reset the mock between tests
+    // Clear all mocks between tests
     mock.restore()
-
-    // Re-mock logger after restore
-    mock.module('common/util/logger', () => ({
+    
+    // Re-establish the logger mock
+    mock.module('@codebuff/common/util/logger', () => ({
       logger: {
         debug: () => {},
         error: () => {},
@@ -55,8 +70,8 @@ describe('Usage Calculation System', () => {
       },
     ]
 
-    // Mock the database module
-    mock.module('common/db', () => ({
+    // Mock the database module with the test data
+    mock.module('@codebuff/common/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -91,8 +106,8 @@ describe('Usage Calculation System', () => {
       },
     ]
 
-    // Mock the database module
-    mock.module('common/db', () => ({
+    // Mock the database module with the test data
+    mock.module('@codebuff/common/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -137,8 +152,8 @@ describe('Usage Calculation System', () => {
       },
     ]
 
-    // Mock the database module
-    mock.module('common/db', () => ({
+    // Mock the database module with the test data
+    mock.module('@codebuff/common/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -192,8 +207,8 @@ describe('Usage Calculation System', () => {
       },
     ]
 
-    // Mock the database module
-    mock.module('common/db', () => ({
+    // Mock the database module with the test data
+    mock.module('@codebuff/common/db', () => ({
       default: {
         select: () => ({
           from: () => ({

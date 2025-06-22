@@ -1,15 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node", "bun"],
-    "typeRoots": ["node_modules/@types", "../../node_modules/@types"],
-    "outDir": "./dist",
-    "esModuleInterop": true
+    "rootDir": "src",
+    "types": ["bun", "node"]
   },
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "__tests__"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__"]
 }

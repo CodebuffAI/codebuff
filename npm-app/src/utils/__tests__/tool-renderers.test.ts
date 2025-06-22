@@ -1,19 +1,19 @@
 import { Writable } from 'stream'
-
-// @ts-ignore
-import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
-import { getToolCallString } from 'common/constants/tools'
-import * as projectFileTree from 'common/project-file-tree'
+import { createXMLStreamParser } from '../xml-stream-parser'
+import { toolRenderers } from '../../utils/tool-renderers'
 import stripAnsi from 'strip-ansi'
 
 import * as projectFiles from '../../project-files'
-import { toolRenderers } from '../tool-renderers'
-import { createXMLStreamParser } from '../xml-stream-parser'
+
+// @ts-ignore
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import { getToolCallString } from '@codebuff/common/constants/tools'
+import * as projectFileTree from '@codebuff/common/project-file-tree'
 
 describe('Tool renderers with XML parser', () => {
   beforeEach(() => {
     spyOn(projectFileTree, 'isFileIgnored').mockImplementation(() => false)
-    spyOn(projectFiles, 'getProjectRoot').mockImplementation(() => false)
+    spyOn(projectFiles, 'getProjectRoot').mockImplementation(() => '/test/path')
   })
 
   afterEach(() => {

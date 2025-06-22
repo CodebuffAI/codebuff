@@ -1,4 +1,4 @@
-import { Model } from 'common/constants'
+import { Model } from '@codebuff/common/constants'
 import { z } from 'zod'
 import { AgentStep } from '../scaffolding'
 import { PostEvalAnalysis } from './post-eval-analysis'

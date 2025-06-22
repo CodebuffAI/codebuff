@@ -7,7 +7,7 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { Message } from 'common/types/message'
+import { Message } from '@codebuff/common/types/message'
 
 import {
   trimMessagesToFitTokenLimit,

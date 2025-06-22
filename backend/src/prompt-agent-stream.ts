@@ -3,8 +3,8 @@ import {
   AnthropicModel,
   CostMode,
   Model,
-  providerModelNames,
-} from 'common/constants'
+  providerModelNames
+} from '@codebuff/common/constants'
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 

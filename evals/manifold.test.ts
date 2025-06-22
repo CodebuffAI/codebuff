@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { ClientToolCall } from 'backend/tools'
+import { ClientToolCall } from '@codebuff/backend/tools'
 import { PROMPT_PREFIX } from './constants'
 import { loopMainPrompt } from './scaffolding'
 import { createInitialAgentState, setupTestEnvironment } from './test-setup'

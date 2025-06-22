@@ -1,6 +1,6 @@
 'use client'
 
-import { finetunedVertexModels } from 'common/constants'
+import { finetunedVertexModels } from '@codebuff/common/constants'
 import { Info, Settings } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
@@ -414,7 +414,7 @@ export default function FilePicker() {
                                   max={100}
                                   value={limit}
                                   onChange={(e) =>
-                                    setLimit(Number(e.target.value))
+                                    setLimit(parseInt(e.target.value) || 1)
                                   }
                                   className="w-24"
                                 />

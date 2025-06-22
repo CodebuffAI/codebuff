@@ -1,4 +1,4 @@
-import { AgentTemplateName } from 'common/types/agent-state'
+import { AgentTemplateName } from '@codebuff/common/types/agent-state'
 
 import { claude4_base } from './agents/claude4base'
 import { gemini25flash_base } from './agents/gemini25flash_base'

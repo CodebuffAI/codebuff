@@ -6,19 +6,7 @@ if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
   console.log('Using environment:', process.env.NEXT_PUBLIC_CB_ENVIRONMENT)
 }
 
-function createValidatedEnv(opts: Parameters<typeof createEnv>[0]) {
-  try {
-    return createEnv(opts)
-  } catch (error) {
-    console.error(
-      "\nERROR: Environment variables not loaded. It looks like you're missing some required environment variables.\nPlease run commands using the project's runner (e.g., 'infisical run -- <your-command>') to load them automatically."
-    )
-
-    throw error
-  }
-}
-
-export const env = createValidatedEnv({
+const envSchema = {
   server: {
     // Backend variables
     ANTHROPIC_API_KEY: z.string().min(1),
@@ -111,4 +99,15 @@ export const env = createValidatedEnv({
     NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID:
       process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID,
   },
-})
+}
+let envTemp
+try {
+  envTemp = createEnv(envSchema)
+} catch (error) {
+  console.error(
+    "\nERROR: Environment variables not loaded. It looks like you're missing some required environment variables.\nPlease run commands using the project's runner (e.g., 'infisical run -- <your-command>') to load them automatically."
+  )
+
+  throw error
+}
+export const env = envTemp

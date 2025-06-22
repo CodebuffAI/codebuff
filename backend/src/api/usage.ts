@@ -4,14 +4,14 @@ import {
   NextFunction,
 } from 'express'
 import { z } from 'zod'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 
 import { checkAuth } from '../util/check-auth'
 import { genUsageResponse } from '../websockets/websocket-action'
 import { getOrganizationUsageResponse } from '@codebuff/billing'
-import { logger } from '@/util/logger'
+import { logger } from '../util/logger'
 
 const usageRequestSchema = z.object({
   fingerprintId: z.string(),

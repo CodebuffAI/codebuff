@@ -1,18 +1,20 @@
-import { ChildProcessWithoutNullStreams, execSync, spawn } from 'child_process'
+import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import * as os from 'os'
 import path from 'path'
+import { green } from 'picocolors'
 
-import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
-import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { buildArray } from 'common/util/array'
+import { bunPty } from '../native/pty'
+type IPty = ReturnType<typeof bunPty.spawn>
+
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { buildArray } from '@codebuff/common/util/array'
 import {
   stripColors,
   suffixPrefixOverlap,
   truncateStringWithMessage,
-} from 'common/util/string'
-import { green } from 'picocolors'
+} from '@codebuff/common/util/string'
+import { isSubdir } from '@codebuff/common/util/file'
 
-import { isSubdir } from 'common/util/file'
 import {
   getProjectRoot,
   getWorkingDirectory,
@@ -20,18 +22,8 @@ import {
 } from '../project-files'
 import { trackEvent } from '../utils/analytics'
 import { detectShell } from '../utils/detect-shell'
-import { logger } from '../utils/logger'
 import { runBackgroundCommand } from './background'
-
-let pty: typeof import('@homebridge/node-pty-prebuilt-multiarch') | undefined
-const tempConsoleError = console.error
-console.error = () => {}
-try {
-  pty = require('@homebridge/node-pty-prebuilt-multiarch')
-} catch (error) {
-} finally {
-  console.error = tempConsoleError
-}
+import { logger } from '../utils/logger'
 
 const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
@@ -61,7 +53,7 @@ const createPersistantProcess = (
   dir: string,
   forceChildProcess = false
 ): PersistentProcess => {
-  if (pty && process.env.NODE_ENV !== 'test' && !forceChildProcess) {
+  if (process.env.NODE_ENV !== 'test' && !forceChildProcess) {
     const isWindows = os.platform() === 'win32'
     const currShell = detectShell()
     const shell = isWindows
@@ -107,13 +99,13 @@ const createPersistantProcess = (
       )
     }
 
-    const persistentPty = pty.spawn(shell, isWindows ? [] : ['--login'], {
+    const persistentPty = bunPty.spawn(shell, isWindows ? [] : ['--login'], {
       name: 'xterm-256color',
       cols: process.stdout.columns || 80,
       rows: process.stdout.rows || 24,
       cwd: dir,
       env: {
-        ...process.env,
+        ...(process.env as any),
         PAGER: 'cat',
         GIT_PAGER: 'cat',
         GIT_TERMINAL_PROMPT: '0',
@@ -358,7 +350,7 @@ function getNeedlePattern(middlePattern: string = '.*'): RegExp {
  * 3. Detecting command completion markers (promptIdentifier)
  */
 function runSinglePtyCommand(
-  ptyProcess: IPty,
+  ptyProcess: any,
   command: string,
   onChunk: (data: string) => void
 ): Promise<{ filteredOutput: string; fullOutput: string }> {
@@ -433,8 +425,8 @@ export const runCommandPty = (
   const ptyProcess = persistentProcess.pty
 
   if (command.trim() === 'clear') {
-    // `clear` needs access to the main process stdout. This is a workaround.
-    execSync('clear', { stdio: 'inherit' })
+    // Use direct terminal escape sequence to clear the screen
+    process.stdout.write('\u001b[2J\u001b[0;0H')
     resolve({
       result: formatResult(command, '', `Complete`),
       stdout: '',

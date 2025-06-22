@@ -1,5 +1,5 @@
-import { TOOL_LIST, ToolName, toolSchema } from 'common/constants/tools'
-import { Saxy } from 'common/util/saxy'
+import { TOOL_LIST, ToolName, toolSchema } from '@codebuff/common/constants/tools'
+import { Saxy } from '@codebuff/common/util/saxy'
 
 import { ToolCallRenderer, defaultToolCallRenderer } from './tool-renderers'
 

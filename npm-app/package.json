@@ -1,55 +1,61 @@
 {
-  "name": "codebuff",
-  "version": "1.0.334",
-  "description": "AI dev assistant",
+  "name": "@codebuff/npm-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "cli for codebuff",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "bun": "./src/*.ts",
+      "import": "./src/*.ts",
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
   "bin": {
     "codebuff": "dist/index.js"
   },
   "scripts": {
-    "prepublishOnly": "nx clean npm-app && nx build npm-app && nx run npm-app:prepublish",
-    "postpublish": "echo \"const fs=require('fs');fs.copyFileSync('temp.package.json','package.json');fs.unlinkSync('temp.package.json');\" | bun run -",
+    "inf": "$(git rev-parse --show-toplevel)/inf",
+    "typecheck": "tsc --noEmit -p .",
+    "echo-test": "bun run inf -- printenv",
+    "build": "bun run inf --env=prod -- bun run scripts/build-binary.js",
+    "release": "bun run inf -- bun run scripts/release.js",
+    "start-bin": "bun run build && ./bin/codebuff ..",
+    "start": "bun run inf bun run src/index.ts ..",
+    "start-max": "bun run inf bun run src/index.ts .. --max",
+    "start-lite": "bun run inf bun run src/index.ts .. --lite",
+    "start-ask": "bun run inf bun run src/index.ts .. --ask",
+    "start-superagent": "bun run inf bun run src/index.ts .. --superagent",
+    "start-dir": "bun run inf bun run src/index.ts",
+    "start-experimental": "bun run inf bun run src/index.ts .. --experimental",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "test": "jest",
-    "start": "nx run npm-app:start",
-    "start-js": "nx clean npm-app && nx build npm-app && nx run npm-app:start-js",
-    "start-max": "nx run npm-app:start-max",
-    "start-lite": "nx run npm-app:start-lite",
-    "start-ask": "nx run npm-app:start-ask",
-    "start-dir": "nx run npm-app:start-dir",
-    "start-experimental": "nx run npm-app:start-experimental",
-    "start-manifold": "nx run npm-app:start-manifold",
-    "start-litestar": "nx run npm-app:start-litestar",
-    "start-jpcsp": "nx run npm-app:start-jpcsp",
-    "start-vscode": "nx run npm-app:start-vscode",
-    "start-nushell": "nx run npm-app:start-nushell",
-    "start-prod": "nx run npm-app:start-prod",
-    "typecheck-this-package": "tsc --noEmit && tsc-alias",
-    "typecheck": "npm run build",
-    "build": "nx build npm-app"
+    "test": "bun run inf test",
+    "postinstall": "bun scripts/patch-bun-pty.ts && bun scripts/patch-web-tree-sitter.ts"
   },
   "files": [
-    "dist",
     "README.md"
   ],
   "engines": {
-    "node": ">=18"
+    "bun": ">=1.2.11"
   },
   "dependencies": {
+    "@codebuff/code-map": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "@types/diff": "5.2.1",
     "@types/micromatch": "^4.0.9",
     "@vscode/ripgrep": "1.15.9",
     "ai": "4.3.16",
     "axios": "1.7.4",
-    "code-map": "1.0.0",
+    "bun-pty": "0.3.1",
     "commander": "^13.1.0",
     "diff": "5.2.0",
     "git-url-parse": "^16.1.0",
     "ignore": "7.0.3",
     "isomorphic-git": "^1.29.0",
-    "jsonc-parser": "^3.3.1",
     "lodash": "*",
     "micromatch": "^4.0.8",
     "nanoid": "5.0.7",
@@ -59,27 +65,8 @@
     "posthog-node": "4.17.2",
     "puppeteer-core": "^24.2.0",
     "systeminformation": "5.23.4",
-    "tree-sitter": "0.21.1",
-    "tree-sitter-c": "0.23.0",
-    "tree-sitter-c-sharp": "0.23.0",
-    "tree-sitter-cpp": "0.23.0",
-    "tree-sitter-go": "0.23.1",
-    "tree-sitter-java": "0.23.2",
-    "tree-sitter-javascript": "0.23.0",
-    "tree-sitter-php": "0.23.2",
-    "tree-sitter-python": "0.23.2",
-    "tree-sitter-ruby": "0.23.0",
-    "tree-sitter-rust": "0.23.0",
-    "tree-sitter-typescript": "0.23.0",
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
     "zod": "3.23.8"
-  },
-  "optionalDependencies": {
-    "@homebridge/node-pty-prebuilt-multiarch": "0.12.0"
-  },
-  "trustedDependencies": [
-    "@homebridge/node-pty-prebuilt-multiarch",
-    "@vscode/ripgrep"
-  ]
+  }
 }

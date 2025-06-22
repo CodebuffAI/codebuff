@@ -1,16 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "composite": true,
-    "declaration": true,
-    "declarationMap": true,
-    "types": ["node", "bun"],
-    "skipLibCheck": true
+    "types": ["bun", "node"]
   },
-  "include": ["src/**/*"],
-  "references": [
-    { "path": "../../common" }
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__"]
 }

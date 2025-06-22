@@ -5,9 +5,9 @@ import {
   Interaction,
   ChatInputCommandInteraction,
 } from 'discord.js'
-import { env } from '@/env'
-import db from 'common/db'
-import { user } from 'common/db/schema'
+import { env } from '@codebuff/internal'
+import db from '@codebuff/common/db'
+import { user } from '@codebuff/common/db/schema'
 import { eq, or } from 'drizzle-orm'
 import { logger } from '@/util/logger'
 import { isRateLimited } from './rate-limiter'

@@ -1,6 +1,6 @@
 'use client'
 
-import { sleep } from 'common/util/promise'
+import { sleep } from '@codebuff/common/util/promise'
 import { OAuthProviderType } from 'next-auth/providers/oauth-types'
 import { signIn } from 'next-auth/react'
 import { usePathname, useSearchParams } from 'next/navigation'

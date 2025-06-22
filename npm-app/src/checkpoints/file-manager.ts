@@ -4,21 +4,18 @@ import fs from 'fs'
 import os from 'os'
 import path, { join } from 'path'
 
-import {
-  add,
-  checkout,
-  commit,
-  init,
-  remove,
-  resetIndex,
-  resolveRef,
-  statusMatrix,
-} from 'isomorphic-git'
-
-import { buildArray } from 'common/util/array'
+import { buildArray } from '@codebuff/common/util/array'
 import { getProjectDataDir } from '../project-files'
 import { gitCommandIsAvailable } from '../utils/git'
 import { logger } from '../utils/logger'
+
+// Dynamic import for isomorphic-git
+async function getIsomorphicGit() {
+  const git = await import('isomorphic-git')
+  return git
+}
+
+const maxBuffer = 50 * 1024 * 1024  // 50 MB
 
 /**
  * Generates a unique path for storing the bare git repository based on the project directory.
@@ -58,10 +55,7 @@ function exposeSubmodules({
         ':(exclude)**/*.codebuffbackup',
         ':(exclude)**/*.codebuffbackup/**',
       ],
-      {
-        stdio: ['ignore', 'pipe', 'ignore'],
-        maxBuffer: 1024 * 1024 * 50,
-      }
+      { stdio: ['ignore', 'pipe', 'inherit'], maxBuffer }
     ).toString()
     const submodules = buildArray(
       submodulesOutput
@@ -110,7 +104,7 @@ function exposeSubmodules({
           '--cached',
           ...submodules,
         ],
-        { stdio: 'ignore' }
+        { stdio: 'ignore', maxBuffer }
       )
     } catch (error) {
       logger.error(
@@ -190,7 +184,7 @@ export async function hasUnsavedChanges({
           ':(exclude)**/*.codebuffbackup',
           ':(exclude)**/*.codebuffbackup/**',
         ],
-        { stdio: ['ignore', 'pipe', 'ignore'] }
+        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
       ).toString()
       return !!output
     } catch (error) {
@@ -225,7 +219,7 @@ export async function getLatestCommit({
       return execFileSync(
         'git',
         ['--git-dir', bareRepoPath, 'rev-parse', 'HEAD'],
-        { stdio: ['ignore', 'pipe', 'ignore'] }
+        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
       )
         .toString()
         .trim()
@@ -240,6 +234,7 @@ export async function getLatestCommit({
       )
     }
   }
+  const { resolveRef } = await getIsomorphicGit()
   return await resolveRef({
     fs,
     gitdir: bareRepoPath,
@@ -269,6 +264,7 @@ export async function initializeCheckpointFileManager({
   // Create the bare repo directory if it doesn't exist
   fs.mkdirSync(bareRepoPath, { recursive: true })
 
+  const { resolveRef, init } = await getIsomorphicGit()
   try {
     // Check if it's already a valid Git repo
     await resolveRef({ fs, gitdir: bareRepoPath, ref: 'HEAD' })
@@ -324,7 +320,7 @@ async function gitAddAll({
           ':!**/*.codebuffbackup',
           ':!**/*.codebuffbackup/**',
         ],
-        { stdio: 'ignore' }
+        { stdio: 'ignore', maxBuffer }
       )
       return
     } catch (error) {
@@ -341,6 +337,7 @@ async function gitAddAll({
   }
 
   // Stage files with isomorphic-git
+  const { statusMatrix, add, remove } = await getIsomorphicGit()
 
   // Get status of all files in the project directory
   const currStatusMatrix =
@@ -418,7 +415,7 @@ async function gitAddAllIgnoringNestedRepos({
           'status',
           '--porcelain',
         ],
-        { stdio: ['ignore', 'pipe', 'ignore'] }
+        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
       ).toString()
     } catch (error) {
       logger.error(
@@ -455,7 +452,7 @@ async function gitAddAllIgnoringNestedRepos({
           '-rf',
           ...modifiedFiles,
         ],
-        { stdio: 'ignore' }
+        { stdio: 'ignore', maxBuffer }
       )
     } catch (error) {
       logger.error({ error }, 'Failed to run git rm --cached')
@@ -489,7 +486,7 @@ async function gitCommit({
           '-m',
           message,
         ],
-        { stdio: 'ignore' }
+        { stdio: 'ignore', maxBuffer }
       )
       return await getLatestCommit({ bareRepoPath })
     } catch (error) {
@@ -506,6 +503,7 @@ async function gitCommit({
     }
   }
 
+  const { commit, checkout } = await getIsomorphicGit()
   const commitHash: string = await commit({
     fs,
     dir: projectDir,
@@ -527,7 +525,7 @@ async function gitCommit({
           'checkout',
           'master',
         ],
-        { stdio: 'ignore' }
+        { stdio: 'ignore', maxBuffer }
       )
       return commitHash
     } catch (error) {
@@ -607,7 +605,7 @@ export async function restoreFileState({
         'reset',
         '--hard',
         commit,
-      ])
+      ], { maxBuffer })
       return
     } catch (error) {
       logger.error(
@@ -623,6 +621,7 @@ export async function restoreFileState({
     }
   }
 
+  const { checkout, resetIndex } = await getIsomorphicGit()
   // Update the working directory to reflect the specified commit
   await checkout({
     fs,

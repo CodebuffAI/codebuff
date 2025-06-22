@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { CostMode } from 'common/constants'
+import { CostMode } from '@codebuff/common/constants'
 
 import { checkNewFilesNecessary } from '../find-files/check-new-files-necessary'
 

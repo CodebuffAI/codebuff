@@ -1,8 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
-
 import { uniq } from 'lodash'
-import Parser from 'tree-sitter'
+import { Parser, Query } from 'web-tree-sitter'
 
 import { LanguageConfig, getLanguageConfig } from './languages'
 
@@ -151,14 +150,15 @@ export async function parseTokens(
   try {
     const sourceCode = fs.readFileSync(filePath, 'utf8')
     const numLines = sourceCode.match(/\n/g)?.length ?? 0 + 1
+    if (!parser || !query) {
+      throw new Error('Parser or query not found')
+    }
     const parseResults = parseFile(parser, query, sourceCode)
     const identifiers = uniq(parseResults.identifier)
     const calls = uniq(parseResults['call.identifier'])
 
     if (DEBUG_PARSING) {
       console.log(`\nParsing ${filePath}:`)
-      console.log('Source:', sourceCode)
-      console.log('Parse results:', parseResults)
       console.log('Identifiers:', identifiers)
       console.log('Calls:', calls)
     }
@@ -183,18 +183,15 @@ export async function parseTokens(
 
 function parseFile(
   parser: Parser,
-  query: Parser.Query,
+  query: Query,
   sourceCode: string
 ): { [key: string]: string[] } {
-  const tree = parser.parse(sourceCode, undefined, {
-    bufferSize: 1024 * 1024,
-  })
+  const tree = parser.parse(sourceCode)
+  if (!tree) {
+    return {}
+  }
   const captures = query.captures(tree.rootNode)
   const result: { [key: string]: string[] } = {}
-
-  if (DEBUG_PARSING) {
-    console.log('\nCaptures:', captures)
-  }
 
   for (const capture of captures) {
     const { name, node } = capture

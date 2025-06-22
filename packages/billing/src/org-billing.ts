@@ -1,14 +1,13 @@
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
-import { GrantType } from 'common/db/schema'
-import { logger } from 'common/util/logger'
-import { GRANT_PRIORITIES } from 'common/constants/grant-priorities'
-import { withSerializableTransaction } from 'common/db/transaction'
-import { GrantTypeValues } from 'common/types/grant'
-import { stripeServer } from 'common/util/stripe'
-import { getNextQuotaReset } from 'common/util/dates'
-import { env } from '@/env'
+import { GrantType } from '@codebuff/common/db/schema'
+import { logger } from '@codebuff/common/util/logger'
+import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
+import { withSerializableTransaction } from '@codebuff/common/db/transaction'
+import { GrantTypeValues } from '@codebuff/common/types/grant'
+import { stripeServer } from '@codebuff/common/util/stripe'
+import { env } from '@codebuff/internal/env'
 import {
   CreditBalance,
   CreditUsageAndBalance,
@@ -465,15 +464,16 @@ export async function updateStripeSubscriptionQuantity({
   orgId,
   userId,
   context,
-  addedCount
+  addedCount,
 }: UpdateSubscriptionQuantityParams): Promise<void> {
   try {
-    const subscription = await stripeServer.subscriptions.retrieve(stripeSubscriptionId)
-    
+    const subscription =
+      await stripeServer.subscriptions.retrieve(stripeSubscriptionId)
+
     const teamFeeItem = subscription.items.data.find(
-      item => item.price.id === env.STRIPE_TEAM_FEE_PRICE_ID
+      (item) => item.price.id === env.STRIPE_TEAM_FEE_PRICE_ID
     )
-    
+
     if (teamFeeItem && teamFeeItem.quantity !== actualQuantity) {
       await stripeServer.subscriptionItems.update(teamFeeItem.id, {
         quantity: actualQuantity,
@@ -481,30 +481,33 @@ export async function updateStripeSubscriptionQuantity({
         proration_date: Math.floor(Date.now() / 1000),
       })
 
-      const logData: any = { 
-        orgId, 
-        actualQuantity, 
+      const logData: any = {
+        orgId,
+        actualQuantity,
         previousQuantity: teamFeeItem.quantity,
-        context
+        context,
       }
-      
+
       if (userId) logData.userId = userId
       if (addedCount !== undefined) logData.addedCount = addedCount
 
       logger.info(logData, `Updated Stripe subscription quantity: ${context}`)
     }
   } catch (stripeError) {
-    const logData: any = { 
-      orgId, 
+    const logData: any = {
+      orgId,
       actualQuantity,
       context,
-      error: stripeError 
+      error: stripeError,
     }
-    
+
     if (userId) logData.userId = userId
     if (addedCount !== undefined) logData.addedCount = addedCount
 
-    logger.error(logData, `Failed to update Stripe subscription quantity: ${context}`)
+    logger.error(
+      logData,
+      `Failed to update Stripe subscription quantity: ${context}`
+    )
     // Don't throw - we don't want Stripe failures to break the core functionality
   }
 }

@@ -5,10 +5,10 @@ import { X, Gift } from 'lucide-react'
 import { Suspense, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { CREDITS_REFERRAL_BONUS } from 'common/constants'
+import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/constants'
 import { useSearchParams } from 'next/navigation'
 import posthog from 'posthog-js'
-import { capitalize } from 'common/util/string'
+import { capitalize } from '@codebuff/common/util/string'
 
 function BannerContent() {
   const [isVisible, setIsVisible] = useState(true)

@@ -1,5 +1,5 @@
-import { ToolResult } from 'common/types/agent-state'
-import { generateCompactId } from 'common/util/string'
+import { ToolResult } from '@codebuff/common/types/agent-state'
+import { generateCompactId } from '@codebuff/common/util/string'
 import micromatch from 'micromatch'
 
 import { getProjectRoot } from '../project-files'

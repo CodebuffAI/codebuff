@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
-import { OrganizationDetailsResponse } from 'common/types/organization'
+import { OrganizationDetailsResponse } from '@codebuff/common/types/organization'
 import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
-import { stripeServer } from 'common/util/stripe'
+import { stripeServer } from '@codebuff/common/util/stripe'
 import { logger } from '@/util/logger'
 
 interface RouteParams {

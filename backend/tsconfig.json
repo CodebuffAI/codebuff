@@ -1,34 +1,14 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "allowJs": true,
-    "composite": true,
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "target": "esnext",
-    "esModuleInterop": true,
-    "strict": true,
-    "sourceMap": true,
-    "incremental": true,
-    "skipLibCheck": true,
-    "types": ["node", "bun"],
-    "baseUrl": ".",
-    "paths": {
-      "@/env": ["../env.ts"],
-      "common/*": ["./src/common/*", "../common/src/*"],
-      "@/*": ["./src/*"],
-      "@codebuff/billing": ["../packages/billing/src"],
-      "@codebuff/bigquery": ["../packages/bigquery/src"],
-      "@codebuff/internal": ["../packages/internal/src"]
-    },
-    "outDir": "./dist"
+    "types": ["bun", "node"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["src/**/__mock-data__/**/*"],
-  "references": [
-    { "path": "../common" },
-    { "path": "../packages/billing" },
-    { "path": "../packages/bigquery" },
-    { "path": "../packages/internal" }
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "__tests__",
+    "src/**/__mock-data__/**/*"
   ]
 }

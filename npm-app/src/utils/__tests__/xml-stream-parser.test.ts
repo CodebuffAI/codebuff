@@ -4,7 +4,7 @@ import { Writable } from 'stream'
 
 // @ts-ignore
 import { describe, expect, test } from 'bun:test'
-import { getToolCallString } from 'common/constants/tools'
+import { getToolCallString } from '@codebuff/common/constants/tools'
 import stripAnsi from 'strip-ansi'
 
 import { defaultToolCallRenderer } from '../tool-renderers'
@@ -16,7 +16,7 @@ const toolRenderers = {
   read_files: defaultToolCallRenderer,
 }
 
-describe('Saxy Stream Processor', () => {
+describe('createXMLStreamParser', () => {
   test('pipes output to writable stream', async () => {
     const xml = getToolCallString('run_terminal_command', {
       command: 'echo hello',

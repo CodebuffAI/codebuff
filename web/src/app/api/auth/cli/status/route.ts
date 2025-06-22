@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { and, eq, gt, or, isNull } from 'drizzle-orm'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { logger } from '@/util/logger'
-import { genAuthCode } from 'common/util/credentials'
-import { env } from '@/env'
+import { genAuthCode } from '@codebuff/common/util/credentials'
+import { env } from '@codebuff/internal'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)

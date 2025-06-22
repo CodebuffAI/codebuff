@@ -10,8 +10,8 @@ import {
 
 // Import the entire module to spy on its exports
 import { CoreMessage } from 'ai'
-import { CostMode, finetunedVertexModels } from 'common/constants'
-import { ProjectFileContext } from 'common/util/file'
+import { CostMode, finetunedVertexModels } from '@codebuff/common/constants'
+import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as checkNewFilesNecessaryModule from '../find-files/check-new-files-necessary'
 import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
 import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'

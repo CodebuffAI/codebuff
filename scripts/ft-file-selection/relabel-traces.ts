@@ -3,15 +3,15 @@ import {
   getTracesWithoutRelabels,
   insertRelabel,
 } from '@codebuff/bigquery'
-import { promptFlashWithFallbacks } from 'backend/llm-apis/gemini-with-fallbacks'
-import { claudeModels, models, TEST_USER_ID } from 'common/constants'
-import { Message } from 'common/types/message'
-import { generateCompactId } from 'common/util/string'
+import { promptFlashWithFallbacks } from '@codebuff/backend/llm-apis/gemini-with-fallbacks'
+import { claudeModels, models, TEST_USER_ID } from '@codebuff/common/constants'
+import { Message } from '@codebuff/common/types/message'
+import { generateCompactId } from '@codebuff/common/util/string'
 
 import {
   promptAiSdk,
   transformMessages,
-} from 'backend/llm-apis/vercel-ai-sdk/ai-sdk'
+} from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { System } from '../../backend/src/llm-apis/claude'
 
 // Models we want to test
@@ -62,16 +62,17 @@ async function runTraces() {
               const system = payload.system
 
               if (model.startsWith('claude')) {
-                output = await promptAiSdk(
-                  transformMessages(messages as Message[], system as System),
-                  {
-                    model: model as typeof claudeModels.sonnet,
-                    clientSessionId: 'relabel-trace-run',
-                    fingerprintId: 'relabel-trace-run',
-                    userInputId: 'relabel-trace-run',
-                    userId: TEST_USER_ID,
-                  }
-                )
+                output = await promptAiSdk({
+                  messages: transformMessages(
+                    messages as Message[],
+                    system as System
+                  ),
+                  model: model as typeof claudeModels.sonnet,
+                  clientSessionId: 'relabel-trace-run',
+                  fingerprintId: 'relabel-trace-run',
+                  userInputId: 'relabel-trace-run',
+                  userId: TEST_USER_ID,
+                })
               } else {
                 output = await promptFlashWithFallbacks(
                   transformMessages(messages as Message[], system as System),

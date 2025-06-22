@@ -11,7 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { DEFAULT_FREE_CREDITS_GRANT } from 'common/constants'
+import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/constants'
 
 function CreditVisual() {
   return (

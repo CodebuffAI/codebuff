@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 
-import { FileChanges } from '../actions'
+import type { FileChanges } from '../actions'
 import { isFileIgnored } from '../project-file-tree'
 import { applyPatch } from './patch'
 

@@ -1,8 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 
-import { buildArray } from 'common/util/array'
-import { ProjectFileContext } from 'common/util/file'
+import { buildArray } from '@codebuff/common/util/array'
+import { ProjectFileContext } from '@codebuff/common/util/file'
 import { countTokens } from 'gpt-tokenizer'
 
 import { getFilteredToolsInstructions } from '../tools'

@@ -6,7 +6,7 @@ import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { UsageDisplay, UsageDisplaySkeleton } from './usage-display'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
@@ -18,7 +18,7 @@ import { useSession } from 'next-auth/react'
 import {
   convertCreditsToUsdCents,
   convertStripeGrantAmountToCredits,
-} from 'common/util/currency'
+} from '@codebuff/common/util/currency'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
 import { cn, clamp } from '@/lib/utils'
 import {

@@ -22,19 +22,9 @@
       }
     ],
     "paths": {
-      "@/env": ["../env.ts"],
-      "@/*": ["./src/*"],
-      "common/*": ["../common/src/*"],
-      "@codebuff/billing": ["../packages/billing/src"],
-      "@codebuff/internal": ["../packages/internal/src"]
+      "@/*": ["./src/*"]
     }
   },
-  "references": [
-    { "path": "../tsconfig.env.json" },
-    { "path": "../common" },
-    { "path": "../packages/billing" },
-    { "path": "../packages/internal" }
-  ],
   "include": [
     "next-env.d.ts",
     "**/*.ts",

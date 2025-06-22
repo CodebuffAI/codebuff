@@ -1,4 +1,4 @@
-import { ensureUrlProtocol } from 'common/util/string'
+import { ensureUrlProtocol } from '@codebuff/common/util/string'
 import { logger } from './utils/logger'
 
 // Global cache for scraped web pages

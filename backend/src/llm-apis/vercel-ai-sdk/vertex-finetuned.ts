@@ -10,7 +10,7 @@ const VERTEX_LOCATION = 'us-west1'
 // Notably: this keeps the same {location}, {project}, and {model}
 
 function patchedFetchForFinetune(
-  requestInfo: RequestInfo | URL,
+  requestInfo: string | URL | Request,
   requestInit?: RequestInit
 ): Promise<Response> {
   function patchString(str: string) {

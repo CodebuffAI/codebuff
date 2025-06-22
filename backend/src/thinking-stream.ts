@@ -1,4 +1,4 @@
-import { CostMode, geminiModels, Model, models } from 'common/constants'
+import { CostMode, geminiModels, Model, models } from '@codebuff/common/constants'
 
 import { CoreMessage } from 'ai'
 import { getAgentStream } from './prompt-agent-stream'

@@ -3,7 +3,7 @@
 import { spawn, ChildProcess } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { sleep } from 'common/util/promise'
+import { sleep } from '@codebuff/common/util/promise'
 
 const BACKEND_PORT = 3001
 const BACKEND_READY_TIMEOUT = 30000 // 30 seconds

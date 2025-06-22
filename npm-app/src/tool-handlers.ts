@@ -2,14 +2,14 @@ import { spawn } from 'child_process'
 import * as path from 'path'
 
 import { rgPath } from '@vscode/ripgrep'
-import { FileChangeSchema } from 'common/actions'
-import { BrowserActionSchema, BrowserResponse } from 'common/browser-actions'
-import { applyChanges } from 'common/util/changes'
-import { truncateStringWithMessage } from 'common/util/string'
+import { FileChangeSchema } from '@codebuff/common/actions'
+import { BrowserActionSchema, BrowserResponse } from '@codebuff/common/browser-actions'
+import { applyChanges } from '@codebuff/common/util/changes'
+import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import { cyan, green, red, yellow } from 'picocolors'
 import { logger } from './utils/logger'
 
-import { ToolCall } from 'common/types/agent-state'
+import { ToolCall } from '@codebuff/common/types/agent-state'
 import { handleBrowserInstruction } from './browser-runner'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/base'
@@ -134,8 +134,9 @@ export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
   _id
 ) => {
   const projectPath = getProjectRoot()
+
   return new Promise((resolve) => {
-    let stdout = '            const toolResult = await h'
+    let stdout = ''
     let stderr = ''
 
     const basename = path.basename(projectPath)

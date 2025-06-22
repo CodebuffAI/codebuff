@@ -1,5 +1,5 @@
 import { encode } from 'gpt-tokenizer/esm/model/gpt-4o'
-import { LRUCache } from 'common/util/lru-cache'
+import { LRUCache } from '@codebuff/common/util/lru-cache'
 
 const ANTHROPIC_TOKEN_FUDGE_FACTOR = 1.35
 

@@ -1,13 +1,13 @@
-import { CodebuffConfigSchema } from 'common/json-config/constants'
-import { stringifySchema } from 'common/json-config/stringify-schema'
-import { AgentState, AgentTemplateName } from 'common/types/agent-state'
+import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
+import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
+import { AgentState, AgentTemplateName } from '@codebuff/common/types/agent-state'
 
 import {
   getGitChangesPrompt,
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
-} from '@/system-prompt/prompts'
-import { getToolsInstructions, ToolName } from '@/tools'
+} from '../system-prompt/prompts'
+import { getToolsInstructions, ToolName } from '../tools'
 
 import { agentTemplates } from './agent-list'
 import { PLACEHOLDER, PlaceholderValue, placeholderValues } from './types'

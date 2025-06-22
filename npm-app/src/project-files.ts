@@ -5,22 +5,26 @@ import path, { isAbsolute } from 'path'
 import { promisify } from 'util'
 import { Worker } from 'worker_threads'
 
-import { getFileTokenScores } from 'code-map/parse'
-import { FILE_READ_STATUS, toOptionalFile } from 'common/constants'
+import { getFileTokenScores } from '@codebuff/code-map'
+import { FILE_READ_STATUS, toOptionalFile } from '@codebuff/common/constants'
+
 import {
   flattenTree,
   getProjectFileTree,
   parseGitignore,
-} from 'common/project-file-tree'
-import { ensureDirectoryExists, ProjectFileContext } from 'common/util/file'
-import { filterObject } from 'common/util/object'
+} from '@codebuff/common/project-file-tree'
+import {
+  ensureDirectoryExists,
+  ProjectFileContext,
+} from '@codebuff/common/util/file'
+import { filterObject } from '@codebuff/common/util/object'
 import { createPatch } from 'diff'
 import { green } from 'picocolors'
 
 import {
   codebuffConfigFile,
   codebuffConfigFileBackup,
-} from 'common/json-config/constants'
+} from '@codebuff/common/json-config/constants'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
 import { gitCommandIsAvailable } from './utils/git'
@@ -173,18 +177,24 @@ export function initProjectFileContextWithWorker(
   if (resetCache) {
     cachedProjectFileContext = undefined
   }
-  // NOTE: Uses the built worker-script-project-context.js within dist.
-  // So you need to run `bun run build` before running locally.
-  const workerPath = __filename.endsWith('.ts')
-    ? path.join(__dirname, '..', 'dist', 'workers/project-context.js')
-    : path.join(__dirname, 'workers/project-context.js')
-  const worker = new Worker(workerPath as any)
+
+  const workerRelativePath = './workers/project-context.ts'
+  const worker = new Worker(
+    process.env.IS_BINARY
+      ? // Use relative path for compiled binary.
+        workerRelativePath
+      : // Use absolute path for dev (via bun URL).
+        new URL(workerRelativePath, import.meta.url).href
+  )
 
   // Pass the current chat ID to the worker to ensure consistency
   const mainThreadChatId = getCurrentChatId()
   worker.postMessage({ dir, chatId: mainThreadChatId })
 
   return new Promise<ProjectFileContext>((resolve, reject) => {
+    worker.on('error', (error) => {
+      reject(error)
+    })
     worker.on('message', (initFileContext) => {
       worker.terminate()
       cachedProjectFileContext = initFileContext
@@ -251,6 +261,7 @@ export const getProjectFileContext = async (
       await addScrapedContentToFiles(userKnowledgeFiles)
 
     const shellConfigFiles = loadShellConfigFiles()
+
     const { tokenScores, tokenCallers } = await getFileTokenScores(
       projectRoot,
       allFilePaths

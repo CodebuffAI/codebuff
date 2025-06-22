@@ -2,17 +2,17 @@ import { spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { FileChange } from 'common/actions'
-import { models, TEST_USER_ID } from 'common/constants'
+import { FileChange } from '@codebuff/common/actions'
+import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import {
   getToolCallString,
   ToolName as GlobalToolNameImport,
-} from 'common/src/constants/tools'
+} from '@codebuff/common/constants/tools'
 import { z } from 'zod'
 
 import { ToolCallPart, ToolSet } from 'ai'
-import { buildArray } from 'common/util/array'
-import { generateCompactId } from 'common/util/string'
+import { buildArray } from '@codebuff/common/util/array'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 

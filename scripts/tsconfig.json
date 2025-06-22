@@ -1,20 +1,8 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "target": "esnext",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
-    "paths": {
-      "backend/*": ["../backend/src/*"],
-      "common/*": ["../common/src/*"]
-    },
-    "types": ["bun"]
+    "types": ["bun", "node"]
   },
-  "include": ["**/*"],
-  "exclude": ["node_modules"],
-  "references": [{ "path": "../backend" }, { "path": "../common" }]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__", "generate-ci-env.js"]
 }

@@ -1,22 +1,44 @@
 {
   "name": "@codebuff/internal",
   "version": "1.0.0",
+  "private": true,
   "license": "UNLICENSED",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "import": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./loops": {
+      "bun": "./src/loops/index.ts",
+      "import": "./src/loops/index.ts",
+      "types": "./src/loops/index.ts",
+      "default": "./src/loops/index.ts"
+    },
+    "./*": {
+      "bun": "./src/*.ts",
+      "import": "./src/*.ts",
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
   "scripts": {
-    "build": "tsc --build",
-    "clean": "rm -rf dist && (rm tsconfig.tsbuildinfo || true)",
-    "typecheck": "tsc --noEmit",
-    "typecheck-this-package": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test"
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": ">=1.2.11"
   },
   "dependencies": {
-    "common": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "drizzle-orm": "*",
     "loops": "^5.0.1"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "*"
+    "@types/node": "22",
+    "@types/bun": "^1.2.11"
   }
 }

@@ -1,16 +1,30 @@
 {
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true, // don't place JS everywhere while hacking
+    "baseUrl": ".", // Bun & editors see the aliases
+    "paths": {
+      "@codebuff/common/*": ["./common/src/*"],
+      "@codebuff/backend/*": ["./backend/src/*"],
+      "@codebuff/web/*": ["./web/src/*"],
+      "@codebuff/evals/*": ["./evals/*"],
+      "@codebuff/billing/*": ["./packages/billing/src/*"],
+      "@codebuff/bigquery/*": ["./packages/bigquery/src/*"],
+      "@codebuff/internal/*": ["./packages/internal/src/*"],
+      "@codebuff/code-map/*": ["./packages/code-map/*"]
+    }
+  },
   "files": [],
   "references": [
-    { "path": "./tsconfig.env.json" },
-    { "path": "common" },
-    { "path": "backend" },
-    { "path": "common" },
-    { "path": "npm-app" },
-    { "path": "web" },
-    { "path": "evals" },
-    { "path": "packages/billing" },
-    { "path": "packages/bigquery" },
-    { "path": "packages/internal" },
-    { "path": "packages/code-map" }
+    { "path": "./common" },
+    { "path": "./backend" },
+    { "path": "./npm-app" },
+    { "path": "./web" },
+    { "path": "./evals" },
+    { "path": "./packages/billing" },
+    { "path": "./packages/bigquery" },
+    { "path": "./packages/internal" },
+    { "path": "./packages/code-map" },
+    { "path": "./scripts" }
   ]
 }

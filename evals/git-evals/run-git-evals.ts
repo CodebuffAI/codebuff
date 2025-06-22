@@ -3,10 +3,10 @@ import fs from 'fs'
 import pLimit from 'p-limit'
 import path from 'path'
 
-import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
-import { claudeModels } from '../../common/src/constants'
-import { withTimeout } from '../../common/src/util/promise'
-import { generateCompactId } from '../../common/src/util/string'
+import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { claudeModels } from '@codebuff/common/constants'
+import { withTimeout } from '@codebuff/common/util/promise'
+import { generateCompactId } from '@codebuff/common/util/string'
 import {
   createFileReadingMock,
   loopMainPrompt,

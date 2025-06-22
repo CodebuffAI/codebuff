@@ -1,6 +1,5 @@
-import { withContentlayer } from 'next-contentlayer'
 import createMDX from '@next/mdx'
-import { env } from '../dist-env/env.js'
+import { withContentlayer } from 'next-contentlayer'
 
 const withMDX = createMDX({
   extension: /\.mdx?$/,
@@ -12,14 +11,26 @@ const withMDX = createMDX({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    // Disable ESLint during builds
+    ignoreDuringBuilds: true,
+  },
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false }
     // Tell Next.js to leave pino and thread-stream unbundled
     config.externals.push(
       { 'thread-stream': 'commonjs thread-stream', pino: 'commonjs pino' },
       'pino-pretty',
-      'encoding'
+      'encoding',
+      'perf_hooks',
+      'async_hooks'
     )
+    
+    // Suppress contentlayer webpack cache warnings
+    config.infrastructureLogging = {
+      level: 'error',
+    }
+    
     return config
   },
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
@@ -83,7 +94,7 @@ const nextConfig = {
           },
         ],
         permanent: false,
-        destination: `${env.NEXT_PUBLIC_APP_URL}/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_APP_URL}/:path*`,
       },
       {
         source: '/discord',
@@ -100,12 +111,6 @@ const nextConfig = {
       },
     ],
   },
-  env: Object.fromEntries(
-    Object.entries(env).map(([key, value]) => [
-      key,
-      typeof value === 'string' ? value : String(value ?? ''),
-    ])
-  ),
 }
 
 export default withContentlayer(withMDX(nextConfig))

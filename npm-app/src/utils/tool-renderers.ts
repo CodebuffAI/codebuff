@@ -1,6 +1,6 @@
-import { ToolName } from 'common/constants/tools'
-import { isFileIgnored } from 'common/project-file-tree'
-import { capitalize, snakeToTitleCase } from 'common/util/string'
+import { ToolName } from '@codebuff/common/constants/tools'
+import { isFileIgnored } from '@codebuff/common/project-file-tree'
+import { capitalize, snakeToTitleCase } from '@codebuff/common/util/string'
 import { bold, gray, strikethrough } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'

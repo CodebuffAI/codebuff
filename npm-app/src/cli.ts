@@ -4,11 +4,11 @@ import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
-import { type ApiKeyType } from 'common/api-keys/constants'
-import type { CostMode } from 'common/constants'
-import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { isDir, ProjectFileContext } from 'common/util/file'
-import { pluralize } from 'common/util/string'
+import { type ApiKeyType } from '@codebuff/common/api-keys/constants'
+import type { CostMode } from '@codebuff/common/constants'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { isDir, ProjectFileContext } from '@codebuff/common/util/file'
+import { pluralize } from '@codebuff/common/util/string'
 import {
   blueBright,
   bold,
@@ -94,7 +94,7 @@ export class CLI {
   public rl!: readline.Interface
 
   private constructor(
-    readyPromise: Promise<[ProjectFileContext, void, void]>,
+    readyPromise: Promise<[ProjectFileContext, void]>,
     { git, costMode, model }: CliOptions
   ) {
     this.git = git
@@ -115,8 +115,7 @@ export class CLI {
     })
 
     this.readyPromise = Promise.all([
-      readyPromise.then((results) => {
-        const [fileContext, ,] = results
+      readyPromise.then(([fileContext]) => {
         Client.getInstance().initAgentState(fileContext)
         return Client.getInstance().warmContextCache()
       }),
@@ -160,7 +159,7 @@ export class CLI {
   }
 
   public static initialize(
-    readyPromise: Promise<[ProjectFileContext, void, void]>,
+    readyPromise: Promise<[ProjectFileContext, void]>,
     options: CliOptions
   ): void {
     if (CLI.instance) {

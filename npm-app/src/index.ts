@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
+import { type CostMode } from '@codebuff/common/constants'
 import { Command, Option } from 'commander'
-import { type CostMode } from 'common/constants'
 import { red } from 'picocolors'
 
-import packageJson from '../package.json'
+import packageJson from '../release/package.json'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { createTemplateProject } from './create-template-project'
-import { enableSquashNewlines } from './display'
+import { enableSquashNewlines, initSquashNewLines } from './display'
 import {
   getStartingDirectory,
   initProjectFileContextWithWorker,
@@ -19,7 +19,6 @@ import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/base'
 import { CliOptions } from './types'
-import { updateCodebuff } from './update-codebuff'
 import { initAnalytics } from './utils/analytics'
 import { findGitRoot } from './utils/git'
 import { logger } from './utils/logger'
@@ -28,6 +27,7 @@ async function codebuff(
   projectDir: string | undefined,
   { initialInput, git, costMode, runInitFlow, model }: CliOptions
 ) {
+  initSquashNewLines()
   enableSquashNewlines()
 
   // Initialize starting directory
@@ -44,13 +44,10 @@ async function codebuff(
   initAnalytics()
   rageDetectors.startupTimeDetector.start()
 
-  const updatePromise = updateCodebuff()
-
   const initFileContextPromise = initProjectFileContextWithWorker(projectRoot)
 
   const readyPromise = Promise.all([
     initFileContextPromise,
-    updatePromise,
     processCleanupPromise,
   ])
 

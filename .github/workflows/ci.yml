@@ -48,12 +48,19 @@ jobs:
           ' >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Build and typecheck
+      - name: Build web
         run: |
-          bun run build
+          cd web && bun run build
+
+      - name: Typecheck
+        run: |
+          bun run typecheck
+
+      - name: Build
+        run: |
+          cd npm-app && bun run build
 
       # - name: Open interactive debug shell
       #   if: ${{ failure() }}

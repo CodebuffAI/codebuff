@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next'
 
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [

@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from 'bun:test'
-import { TEST_USER_ID } from 'common/constants'
-import { cleanMarkdownCodeBlock } from 'common/util/file'
-import { applyPatch } from 'common/util/patch'
+import { TEST_USER_ID } from '@codebuff/common/constants'
+import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
+import { applyPatch } from '@codebuff/common/util/patch'
 
 import { processFileBlock } from '../process-file-block'
 

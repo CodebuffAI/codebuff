@@ -16,6 +16,7 @@
   "scripts": {
     "start-db": "bun --cwd common db:start",
     "start-client": "bun --cwd npm-app start",
+    "start-bin": "bun --cwd npm-app start-bin",
     "start-experimental": "bun --cwd npm-app start-experimental",
     "start-max": "bun --cwd npm-app start-max",
     "start-lite": "bun --cwd npm-app start-lite",
@@ -31,16 +32,17 @@
     "start-vscode": "bun --cwd npm-app start-vscode",
     "start-nushell": "bun --cwd npm-app start-nushell",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "bump": "bun run scripts/bump-version.ts",
-    "deploy:npm-app": "bun run bump && cd npm-app && npm publish",
-    "test:patch": "bun test test/__src__/patch.test.ts",
-    "clean": "nx run-many --target=clean --all",
-    "build": "nx reset && nx run-many --target=build --all",
-    "test": "nx run-many --target=test --projects=npm-app,backend,common --output-style=stream --skip-nx-cache",
-    "typecheck": "bun run build"
+    "release:npm-app": "bun run --cwd npm-app release",
+    "typecheck": "bun --filter='*' run typecheck && echo '✅ All type checks passed!'",
+    "test": "bun --filter='{@codebuff/backend,@codebuff/common,@codebuff/npm-app}' run test"
+  },
+  "dependencies": {
+    "@t3-oss/env-nextjs": "^0.7.3",
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.59.16",
+    "@types/bun": "^1.2.11",
     "@types/lodash": "4.17.7",
     "@types/node": "^22.9.0",
     "@types/node-fetch": "^2.6.12",
@@ -50,7 +52,6 @@
     "eslint-plugin-import": "^2.29.1",
     "ignore": "^6.0.2",
     "lodash": "4.17.21",
-    "nx": "^20.8.1",
     "prettier": "3.3.2",
     "ts-node": "^10.9.2",
     "ts-pattern": "^5.5.0",
@@ -62,26 +63,6 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  },
-  "trustedDependencies": [
-    "@homebridge/node-pty-prebuilt-multiarch",
-    "@vscode/ripgrep",
-    "tree-sitter-c",
-    "tree-sitter-c-sharp",
-    "tree-sitter-cpp",
-    "tree-sitter-go",
-    "tree-sitter-java",
-    "tree-sitter-javascript",
-    "tree-sitter-php",
-    "tree-sitter-python",
-    "tree-sitter-ruby",
-    "tree-sitter-rust"
-  ],
-  "dependencies": {
-    "@google-cloud/bigquery": "^7.9.4",
-    "@t3-oss/env-nextjs": "^0.7.3",
-    "codebuff": "^1.0.119",
-    "zod": "3.23.8"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

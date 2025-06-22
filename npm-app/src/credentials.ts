@@ -1,4 +1,4 @@
-import { User, userSchema } from 'common/util/credentials'
+import { User, userSchema } from '@codebuff/common/util/credentials'
 import path from 'node:path'
 import os from 'os'
 import { z } from 'zod'
@@ -32,7 +32,7 @@ export const userFromJson = (
   }
 }
 
-import { ensureDirectoryExists } from 'common/util/file'
+import { ensureDirectoryExists } from '@codebuff/common/util/file'
 
 export const CONFIG_DIR = path.join(
   os.homedir(),

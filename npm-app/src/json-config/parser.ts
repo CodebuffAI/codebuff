@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 
-import { parse as parseJsonc } from 'jsonc-parser'
 import { yellow } from 'picocolors'
 
 import {
@@ -9,9 +8,64 @@ import {
   codebuffConfigFile,
   codebuffConfigFileBackup,
   CodebuffConfigSchema,
-} from 'common/json-config/constants'
-import { getDefaultConfig } from 'common/json-config/default'
+} from '@codebuff/common/json-config/constants'
+import { getDefaultConfig } from '@codebuff/common/json-config/default'
 import { getProjectRoot } from '../project-files'
+
+/**
+ * Simple JSONC parser that strips comments and trailing commas
+ * This is a lightweight alternative to jsonc-parser that works better with Bun's bundler
+ */
+function parseJsonc(text: string): any {
+  // Simple state machine to track if we're inside a string
+  let result = ''
+  let inString = false
+  let escaped = false
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    const nextChar = text[i + 1]
+
+    if (inString) {
+      result += char
+      if (escaped) {
+        escaped = false
+      } else if (char === '\\') {
+        escaped = true
+      } else if (char === '"') {
+        inString = false
+      }
+    } else {
+      if (char === '"') {
+        inString = true
+        result += char
+      } else if (char === '/' && nextChar === '/') {
+        // Skip single-line comment
+        while (i < text.length && text[i] !== '\n') {
+          i++
+        }
+        if (i < text.length) result += text[i] // Add the newline
+      } else if (char === '/' && nextChar === '*') {
+        // Skip multi-line comment
+        i += 2
+        while (
+          i < text.length - 1 &&
+          !(text[i] === '*' && text[i + 1] === '/')
+        ) {
+          i++
+        }
+        i++ // Skip the closing '/'
+      } else {
+        result += char
+      }
+    }
+  }
+
+  // Remove trailing commas before closing brackets/braces
+  result = result.replace(/,(\s*[}\]])/g, '$1')
+
+  return JSON.parse(result)
+}
 
 /**
  * Loads and validates the configuration file from the project directory.

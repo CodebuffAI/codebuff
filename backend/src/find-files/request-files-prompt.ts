@@ -12,13 +12,13 @@ import {
   models,
   type CostMode,
   type FinetunedVertexModel,
-} from 'common/constants'
-import { getAllFilePaths } from 'common/project-file-tree'
+} from '@codebuff/common/constants'
+import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import {
   cleanMarkdownCodeBlock,
   createMarkdownFileBlock,
   ProjectFileContext,
-} from 'common/util/file'
+} from '@codebuff/common/util/file'
 import { range, shuffle, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
@@ -28,18 +28,18 @@ import { countTokens } from '../util/token-counter'
 import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
-import { promptFlashWithFallbacks } from '@/llm-apis/gemini-with-fallbacks'
-import { promptAiSdk } from '@/llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
+import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import {
   castAssistantMessage,
   coreMessagesWithSystem,
   getCoreMessagesSubset,
-} from '@/util/messages'
+} from '../util/messages'
 import { CoreMessage } from 'ai'
 
 import { getRequestContext } from '../websockets/request-context'
-import db from 'common/db'
-import * as schema from 'common/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import {
   CustomFilePickerConfig,
@@ -799,5 +799,3 @@ const validateFilePaths = (filePaths: string[]) => {
     })
     .map((p) => (p.startsWith('/') ? p.slice(1) : p))
 }
-
-// Removed unused import: import { getRequestContext } from '../websockets/request-context'

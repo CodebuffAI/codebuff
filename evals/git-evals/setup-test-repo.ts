@@ -35,7 +35,7 @@ export function extractRepoNameFromUrl(repoUrl: string): string {
 export async function setupTestRepo(
   repoUrl: string,
   customRepoName: string,
-  commitSha: string
+  commitSha: string = 'HEAD'
 ): Promise<string> {
   const repoName = customRepoName || extractRepoNameFromUrl(repoUrl)
   console.log(`Setting up test repository: ${repoName}...`)

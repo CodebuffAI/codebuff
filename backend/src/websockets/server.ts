@@ -3,9 +3,9 @@ import { Server as HttpServer } from 'node:http'
 import {
   CLIENT_MESSAGE_SCHEMA,
   ServerMessage,
-} from 'common/websockets/websocket-schema'
+} from '@codebuff/common/websockets/websocket-schema'
 import { isError } from 'lodash'
-import { RawData, WebSocket, Server as WebSocketServer } from 'ws'
+import { RawData, WebSocket, WebSocketServer } from 'ws'
 
 import { logger } from '../util/logger'
 import { Switchboard } from './switchboard'
@@ -83,7 +83,7 @@ async function processMessage(
 export function listen(server: HttpServer, path: string) {
   logger.info(`Listening on websocket path: ${path}`)
   const wss = new WebSocketServer({ server, path })
-  let deadConnectionCleaner: any | undefined
+  let deadConnectionCleaner: NodeJS.Timeout | undefined
   wss.on('listening', () => {
     logger.info(`Web socket server listening on ${path}.`)
     deadConnectionCleaner = setInterval(function ping() {
@@ -116,33 +116,35 @@ export function listen(server: HttpServer, path: string) {
       }
     }, CONNECTION_TIMEOUT_MS)
   })
-  wss.on('error', (err) => {
+  wss.on('error', (err: Error) => {
     logger.error({ error: err }, 'Error on websocket server.')
   })
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws: WebSocket) => {
     // todo: should likely kill connections that haven't sent any ping for a long time
     // logger.info('WS client connected.')
     SWITCHBOARD.connect(ws)
     const clientSessionId =
       SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'
-    ws.on('message', async (data) => {
+    ws.on('message', async (data: RawData) => {
       const result = await processMessage(ws, clientSessionId, data)
       // mqp: check ws.readyState before sending?
       ws.send(JSON.stringify(result))
     })
-    ws.on('close', (code, reason) => {
+    ws.on('close', (code: number, reason: Buffer) => {
       // logger.debug(
       //   { code, reason: reason.toString() },
       //   'WS client disconnected.'
       // )
       SWITCHBOARD.disconnect(ws)
     })
-    ws.on('error', (err) => {
+    ws.on('error', (err: Error) => {
       logger.error({ error: err }, 'Error on websocket connection.')
     })
   })
   wss.on('close', function close() {
-    clearInterval(deadConnectionCleaner)
+    if (deadConnectionCleaner) {
+      clearInterval(deadConnectionCleaner)
+    }
   })
   return wss
 }

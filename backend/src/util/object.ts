@@ -1,4 +1,4 @@
-import { stripNullChars } from 'common/util/string'
+import { stripNullChars } from '@codebuff/common/util/string'
 
 /**
  * Recursively traverses an object or array and removes null characters (\u0000)

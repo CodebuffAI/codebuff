@@ -1,7 +1,7 @@
 import fs from 'fs'
 import { stripeServer } from '../common/src/util/stripe'
 import Stripe from 'stripe'
-import db from '../common/src/db/index'
+import { db } from '@codebuff/common/db'
 import * as schema from '../common/src/db/schema'
 import { eq } from 'drizzle-orm'
 

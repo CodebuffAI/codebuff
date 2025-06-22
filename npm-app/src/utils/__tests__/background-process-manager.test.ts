@@ -1,5 +1,13 @@
 // @ts-ignore
-import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from 'bun:test'
 
 // Import only the type, not the implementation
 import type { BackgroundProcessInfo } from '../../background-process-manager'

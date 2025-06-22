@@ -1,19 +1,20 @@
-import crypto from 'node:crypto'
-
+import crypto from 'crypto'
 import { and, eq } from 'drizzle-orm'
 
-import db from '../db'
+import { db } from '../db'
+import { encryptedApiKeys } from '../db/schema'
+import { logger } from '../util/logger'
+
 import {
   ALGORITHM,
+  type ApiKeyType,
   AUTH_TAG_LENGTH,
   IV_LENGTH,
-  KEY_PREFIXES,
   KEY_LENGTHS,
-  type ApiKeyType,
+  KEY_PREFIXES,
 } from './constants'
-import * as schema from '../db/schema'
-import { env } from '@/env'
-import { logger } from '../util/logger'
+
+import { env } from '@codebuff/internal'
 
 /**
  * Encrypts an API key using the secret from environment variables.
@@ -112,10 +113,10 @@ export async function encryptAndStoreApiKey(
 
     // Use upsert logic based on the composite primary key (user_id, type)
     await db
-      .insert(schema.encryptedApiKeys)
+      .insert(encryptedApiKeys)
       .values({ user_id: userId, type: keyType, api_key: encryptedValue })
       .onConflictDoUpdate({
-        target: [schema.encryptedApiKeys.user_id, schema.encryptedApiKeys.type],
+        target: [encryptedApiKeys.user_id, encryptedApiKeys.type],
         set: { api_key: encryptedValue },
       })
     logger.info(
@@ -148,8 +149,8 @@ export async function retrieveAndDecryptApiKey(
   try {
     const result = await db.query.encryptedApiKeys.findFirst({
       where: and(
-        eq(schema.encryptedApiKeys.user_id, userId),
-        eq(schema.encryptedApiKeys.type, keyType)
+        eq(encryptedApiKeys.user_id, userId),
+        eq(encryptedApiKeys.type, keyType)
       ),
       columns: {
         api_key: true, // Select only the encrypted key column
@@ -210,11 +211,11 @@ export async function clearApiKey(
   logger.info({ userId, keyType }, 'Attempting to clear API key')
   try {
     const result = await db
-      .delete(schema.encryptedApiKeys)
+      .delete(encryptedApiKeys)
       .where(
         and(
-          eq(schema.encryptedApiKeys.user_id, userId),
-          eq(schema.encryptedApiKeys.type, keyType)
+          eq(encryptedApiKeys.user_id, userId),
+          eq(encryptedApiKeys.type, keyType)
         )
       )
       .returning() // Return the deleted row to check if something was deleted

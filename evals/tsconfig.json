@@ -1,22 +1,9 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node", "bun"],
-    "rootDir": ".",
-    "paths": {
-      "common/*": ["../common/src/*"],
-      "backend/*": ["../backend/src/*"],
-      "npm-app/*": ["../npm-app/src/*"],
-      "@codebuff/internal/*": ["../packages/internal/src/*"]
-    },
-    "typeRoots": ["./node_modules/@types", "../node_modules/@types"]
+    "types": ["bun", "node"],
+    "baseUrl": "."
   },
-  "references": [
-    { "path": "../common" },
-    { "path": "../backend" },
-    { "path": "../npm-app" },
-    { "path": "../packages/internal" }
-  ],
-  "exclude": ["test-repos"],
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__", "test-repos"]
 }

@@ -1,34 +1,11 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "noImplicitReturns": true,
-    "sourceMap": true,
-    "strict": true,
-    "target": "esnext",
-    "incremental": true,
-    "isolatedModules": true,
-    "skipLibCheck": true,
-    "types": ["node", "jest"],
-    "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
-    "baseUrl": ".",
+    "types": ["bun", "node"],
     "paths": {
-      "common/*": ["../common/src/*"],
-      "code-map/*": ["../code-map/*"]
-    },
-    "preserveSymlinks": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "resolveJsonModule": true
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["src/**/*", "package.json"],
-  "references": [
-    { "path": "../common" },
-    { "path": "../packages/code-map" }
-  ],
-  "ts-node": {
-    "require": ["tsconfig-paths/register"]
-  }
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__"]
 }

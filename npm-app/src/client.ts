@@ -9,7 +9,7 @@ import {
   ServerAction,
   UsageReponseSchema,
   UsageResponse,
-} from 'common/actions'
+} from '@codebuff/common/actions'
 import {
   existsSync,
   mkdirSync,
@@ -19,7 +19,7 @@ import {
 } from 'fs'
 import os from 'os'
 
-import { ApiKeyType, READABLE_NAME } from 'common/api-keys/constants'
+import { ApiKeyType, READABLE_NAME } from '@codebuff/common/api-keys/constants'
 import {
   ASKED_CONFIG,
   CostMode,
@@ -29,15 +29,15 @@ import {
   REQUEST_CREDIT_SHOW_THRESHOLD,
   SHOULD_ASK_CONFIG,
   UserState,
-} from 'common/constants'
-import { AnalyticsEvent } from 'common/constants/analytics-events'
-import { codebuffConfigFile as CONFIG_FILE_NAME } from 'common/json-config/constants'
-import { AgentState, getInitialAgentState } from 'common/types/agent-state'
-import { buildArray } from 'common/util/array'
-import { User } from 'common/util/credentials'
-import { ProjectFileContext } from 'common/util/file'
-import { generateCompactId, pluralize } from 'common/util/string'
-import { APIRealtimeClient } from 'common/websockets/websocket-client'
+} from '@codebuff/common/constants'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
+import { AgentState, getInitialAgentState } from '@codebuff/common/types/agent-state'
+import { buildArray } from '@codebuff/common/util/array'
+import { User } from '@codebuff/common/util/credentials'
+import { ProjectFileContext } from '@codebuff/common/util/file'
+import { generateCompactId, pluralize } from '@codebuff/common/util/string'
+import { APIRealtimeClient } from '@codebuff/common/websockets/websocket-client'
 import path from 'path'
 import {
   blue,
@@ -51,7 +51,7 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
-import { ToolResult } from 'common/types/agent-state'
+import { ToolResult } from '@codebuff/common/types/agent-state'
 import packageJson from '../package.json'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
@@ -353,7 +353,7 @@ export class Client {
           this.storedApiKeyTypes.push(keyType)
         }
       } else {
-        throw new Error(respJson.message)
+        throw new Error((respJson as any).message)
       }
     } catch (e) {
       Spinner.get().stop()
@@ -394,14 +394,14 @@ export class Client {
           console.log(
             [
               green(
-                `Noice, you've earned an extra ${respJson.credits_redeemed} credits!`
+                `Noice, you've earned an extra ${(respJson as any).credits_redeemed} credits!`
               ),
               `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
             ].join('\n')
           )
           this.getUsage()
         } else {
-          throw new Error(respJson.error)
+          throw new Error((respJson as any).error)
         }
       } catch (e) {
         const error = e as Error
@@ -517,7 +517,12 @@ export class Client {
         this.freshPrompt()
         return
       }
-      const { loginUrl, fingerprintHash, expiresAt } = await response.json()
+      const { loginUrl, fingerprintHash, expiresAt } =
+        (await response.json()) as {
+          loginUrl: string
+          fingerprintHash: string
+          expiresAt: string
+        }
 
       const responseToUser = [
         '\n',
@@ -579,7 +584,10 @@ export class Client {
             return
           }
 
-          const { user, message } = await statusResponse.json()
+          const { user, message } = (await statusResponse.json()) as {
+            user: any
+            message: string
+          }
           if (user) {
             shouldRequestLogin = false
             this.user = user
@@ -1259,11 +1267,11 @@ Go to https://www.codebuff.com/config for more information.`) +
       // Use zod schema to validate response
       const parsedResponse = UsageReponseSchema.parse(data)
 
-      if (data.type === 'action-error') {
-        console.error(red(data.message))
+      if ((data as any).type === 'action-error') {
+        console.error(red((data as any).message))
         logger.error(
           {
-            errorMessage: data.message,
+            errorMessage: (data as any).message,
           },
           'Action error'
         )
@@ -1452,12 +1460,12 @@ Go to https://www.codebuff.com/config for more information.`) +
         return {
           isCovered: false,
           error:
-            errorData.error ||
+            (errorData as any).error ||
             `HTTP ${response.status}: ${response.statusText}`,
         }
       }
 
-      const data = await response.json()
+      const data: any = await response.json()
       return {
         isCovered: data.isCovered || false,
         organizationName: data.organizationName,

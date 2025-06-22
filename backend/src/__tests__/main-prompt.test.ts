@@ -8,9 +8,9 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import * as analytics from 'common/analytics'
-import { TEST_USER_ID } from 'common/constants'
-import { getInitialAgentState } from 'common/types/agent-state'
+import * as analytics from '@codebuff/common/analytics'
+import { TEST_USER_ID } from '@codebuff/common/constants'
+import { getInitialAgentState } from '@codebuff/common/types/agent-state'
 import { WebSocket } from 'ws'
 
 // Mock imports
@@ -20,7 +20,7 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
-import { ProjectFileContext } from 'common/util/file'
+import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import { asUserMessage } from '../util/messages'
 import { renderToolResults } from '../util/parse-tool-call-xml'

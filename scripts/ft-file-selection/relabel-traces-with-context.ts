@@ -4,7 +4,7 @@ import {
   getTracesAndAllDataForUser,
   setupBigQuery,
 } from '@codebuff/bigquery'
-import { claudeModels } from 'common/constants'
+import { claudeModels } from '@codebuff/common/constants'
 import { relabelWithClaudeWithFullFileContext } from '../../backend/src/admin/relabelRuns'
 
 // Model we want to test - focusing on Claude 4 Opus

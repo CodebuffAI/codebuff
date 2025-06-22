@@ -12,7 +12,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import CardWithBeams from '@/components/card-with-beams'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
-import { env } from '@/env'
+import { env } from '@codebuff/internal'
 import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import { useFormState, useFormStatus } from 'react-dom'
@@ -24,7 +24,7 @@ import { useToast } from '@/components/ui/use-toast'
 import {
   CREDITS_REFERRAL_BONUS,
   AFFILIATE_USER_REFFERAL_LIMIT,
-} from 'common/constants'
+} from '@codebuff/common/constants'
 
 function SubmitButton() {
   const { pending } = useFormStatus()

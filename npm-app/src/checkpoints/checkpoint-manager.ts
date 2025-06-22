@@ -3,8 +3,11 @@ import os from 'os'
 import { join } from 'path'
 import { Worker } from 'worker_threads'
 
-import { DEFAULT_MAX_FILES, getAllFilePaths } from 'common/project-file-tree'
-import { AgentState, ToolResult } from 'common/types/agent-state'
+import {
+  DEFAULT_MAX_FILES,
+  getAllFilePaths,
+} from '@codebuff/common/project-file-tree'
+import { AgentState, ToolResult } from '@codebuff/common/types/agent-state'
 import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
@@ -94,12 +97,14 @@ export class CheckpointManager {
    */
   private initWorker(): Worker {
     if (!this.worker) {
-      // NOTE: Uses the built workers/checkpoint-worker.js within dist.
-      // So you need to run `bun run build` before running locally.
-      const workerPath = __filename.endsWith('.ts')
-        ? join(__dirname, '../../dist', 'workers/checkpoint-worker.js')
-        : join(__dirname, '../workers/checkpoint-worker.js')
-      this.worker = new Worker(workerPath)
+      const workerRelativePath = './workers/checkpoint-worker.ts'
+      this.worker = new Worker(
+        process.env.IS_BINARY
+          ? // Use relative path for compiled binary.
+            workerRelativePath
+          : // Use absolute path for dev (via bun URL).
+            new URL(workerRelativePath, import.meta.url).href
+      )
     }
     return this.worker
   }
@@ -129,6 +134,9 @@ export class CheckpointManager {
       }
 
       worker.on('message', handler)
+      worker.on('error', (error) => {
+        reject(error)
+      })
       worker.postMessage(message)
 
       // Add timeout

@@ -1,6 +1,6 @@
 'use client'
 
-import * as schema from 'common/db/schema'
+import * as schema from '@codebuff/common/db/schema'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
-
 
 type GitEvalResult = typeof schema.gitEvalResults.$inferSelect & {
     metadata: schema.GitEvalMetadata | null

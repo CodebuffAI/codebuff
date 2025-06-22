@@ -3,7 +3,7 @@ import { createWriteStream, mkdirSync, WriteStream } from 'fs'
 import * as os from 'os'
 import path, { dirname } from 'path'
 
-import { stripColors } from 'common/util/string'
+import { stripColors } from '@codebuff/common/util/string'
 import { green } from 'picocolors'
 
 import {

@@ -1,4 +1,3 @@
-// @ts-ignore
 import { describe, expect, it } from 'bun:test'
 import { gray } from 'picocolors'
 

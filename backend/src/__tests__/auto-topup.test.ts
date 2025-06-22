@@ -60,7 +60,7 @@ describe('Auto Top-up System', () => {
       grantCreditsMock = mock(() => Promise.resolve())
 
       // Mock the database
-      mock.module('common/db', () => ({
+      mock.module('@codebuff/common/db', () => ({
         default: {
           query: {
             user: {
@@ -84,7 +84,7 @@ describe('Auto Top-up System', () => {
       )
 
       // Mock Stripe payment intent creation
-      mock.module('common/src/util/stripe', () => ({
+      mock.module('@codebuff/common/util/stripe', () => ({
         stripeServer: {
           paymentIntents: {
             create: mock(() =>
