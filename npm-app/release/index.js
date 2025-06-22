@@ -62,7 +62,7 @@ function httpGet(url, options = {}) {
 
     const req = https.get(reqOptions, (res) => {
       if (res.statusCode === 302 || res.statusCode === 301) {
-        return httpGet(res.headers.location, options)
+        return httpGet(new URL(res.headers.location, url).href, options)
           .then(resolve)
           .catch(reject)
       }
@@ -102,6 +102,7 @@ function getCurrentVersion() {
 
   try {
     const result = execSync(`"${CONFIG.binaryPath}" --version`, {
+      cwd: os.homedir(),
       encoding: 'utf-8',
       stdio: 'pipe',
       timeout: 1000,
@@ -137,10 +138,6 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-function formatSpeed(bytesPerSecond) {
-  return formatBytes(bytesPerSecond) + '/s'
-}
-
 function createProgressBar(percentage, width = 30) {
   const filled = Math.round((width * percentage) / 100)
   const empty = width - filled
@@ -172,46 +169,37 @@ async function downloadBinary(version) {
   let downloadedSize = 0
   let lastProgressTime = Date.now()
 
-  const chunks = []
-
-  for await (const chunk of res) {
-    chunks.push(chunk)
+  res.on('data', (chunk) => {
     downloadedSize += chunk.length
-
     const now = Date.now()
     if (now - lastProgressTime >= 100 || downloadedSize === totalSize) {
       lastProgressTime = now
-
       if (totalSize > 0) {
-        const percentage = Math.round((downloadedSize / totalSize) * 100)
-        const progressBar = createProgressBar(percentage)
-
+        const pct = Math.round((downloadedSize / totalSize) * 100)
         term.write(
-          `Downloading... ${progressBar} ${percentage}% of ${formatBytes(totalSize)}`
+          `Downloading... ${createProgressBar(pct)} ${pct}% of ${formatBytes(
+            totalSize
+          )}`
         )
       } else {
         term.write(`Downloading... ${formatBytes(downloadedSize)}`)
       }
     }
-  }
+  })
+
+  term.write('Downloading…')
+
+  await new Promise((resolve, reject) => {
+    res
+      .pipe(zlib.createGunzip())
+      .pipe(tar.x({ cwd: CONFIG.configDir }))
+      .on('finish', resolve)
+      .on('error', reject)
+  })
   term.clearLine()
-  console.log('Download complete!')
-
-  term.write('Extracting...')
-
-  const buffer = Buffer.concat(chunks)
+  console.log('Download and extract complete!')
 
   try {
-    // Unix tar.gz extraction for all platforms
-    await new Promise((resolve, reject) => {
-      const gunzip = zlib.createGunzip()
-      const extract = tar.extract({ cwd: CONFIG.configDir })
-
-      gunzip.pipe(extract).on('finish', resolve).on('error', reject)
-
-      gunzip.end(buffer)
-    })
-
     // Find the extracted binary - it should be named "codebuff" or "codebuff.exe"
     const files = fs.readdirSync(CONFIG.configDir)
     const extractedPath = path.join(CONFIG.configDir, CONFIG.binaryName)
@@ -290,7 +278,6 @@ async function checkForUpdates(runningProcess, exitListener) {
       // Restart with new binary - this replaces the current process
       const newChild = spawn(CONFIG.binaryPath, process.argv.slice(2), {
         stdio: 'inherit',
-        cwd: process.cwd(),
         detached: false,
       })
 
@@ -313,7 +300,6 @@ async function main() {
   // Start codebuff
   const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
     stdio: 'inherit',
-    cwd: process.cwd(),
   })
 
   // Store reference to the exit listener so we can remove it during updates
