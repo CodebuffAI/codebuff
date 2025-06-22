@@ -16,7 +16,6 @@ const CONFIG = {
   githubRepo: 'CodebuffAI/codebuff-community',
   userAgent: 'codebuff-cli',
   requestTimeout: 10000,
-  updateCheckTimeout: 5000,
 }
 
 CONFIG.binaryPath = path.join(CONFIG.configDir, CONFIG.binaryName)
@@ -60,6 +59,13 @@ function httpGet(url, options = {}) {
       },
     }
 
+    // Add GitHub token if available
+    const token = process.env.GITHUB_TOKEN
+    if (token) {
+      console.log('Using your GITHUB_TOKEN to download the latest version.')
+      reqOptions.headers.Authorization = `Bearer ${token}`
+    }
+
     const req = https.get(reqOptions, (res) => {
       if (res.statusCode === 302 || res.statusCode === 301) {
         return httpGet(new URL(res.headers.location, url).href, options)
@@ -80,21 +86,34 @@ function httpGet(url, options = {}) {
 }
 
 async function getLatestVersion() {
-  try {
-    const res = await httpGet(
-      `https://api.github.com/repos/${CONFIG.githubRepo}/releases/latest`
+  const res = await httpGet(
+    `https://api.github.com/repos/${CONFIG.githubRepo}/releases/latest`
+  )
+
+  /* ── simple rate-limit fallback ─────────────────────────── */
+  if (
+    res.statusCode === 403 &&
+    res.headers['x-ratelimit-remaining'] === '0'
+  ) {
+    term.writeLine(
+      'GitHub API rate-limit reached. Skipping version check – either wait an hour or set GITHUB_TOKEN and try again.'
     )
-
-    let data = ''
-    for await (const chunk of res) {
-      data += chunk
-    }
-
-    const release = JSON.parse(data)
-    return release.tag_name?.replace(/^v/, '') || null
-  } catch (error) {
     return null
   }
+
+  if (res.statusCode !== 200) return null               // other errors
+
+  const body = await streamToString(res)
+  return JSON.parse(body).tag_name?.replace(/^v/, '') || null
+}
+
+function streamToString(stream) {
+  return new Promise((resolve, reject) => {
+    let data = ''
+    stream.on('data', chunk => (data += chunk))
+    stream.on('end', () => resolve(data))
+    stream.on('error', reject)
+  })
 }
 
 function getCurrentVersion() {
@@ -157,7 +176,7 @@ async function downloadBinary(version) {
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
 
-  term.write(`Downloading codebuff v${version}...`)
+  term.write('Downloading...')
 
   const res = await httpGet(downloadUrl)
 
@@ -186,8 +205,6 @@ async function downloadBinary(version) {
       }
     }
   })
-
-  term.write('Downloading…')
 
   await new Promise((resolve, reject) => {
     res
