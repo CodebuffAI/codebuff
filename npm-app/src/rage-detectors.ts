@@ -9,6 +9,8 @@ export interface RageDetectors {
   repeatInputDetector: ReturnType<typeof createCountDetector>
   exitAfterErrorDetector: ReturnType<typeof createTimeBetweenDetector>
   webSocketHangDetector: ReturnType<typeof createTimeoutDetector>
+  startupTimeDetector: ReturnType<typeof createTimeBetweenDetector>
+  exitTimeDetector: ReturnType<typeof createTimeBetweenDetector>
 }
 
 export function createRageDetectors(): RageDetectors {
@@ -35,11 +37,34 @@ export function createRageDetectors(): RageDetectors {
       reason: 'exit_after_error',
       mode: 'TIME_BETWEEN',
       threshold: 10_000,
+      operator: 'lt',
     }),
 
     webSocketHangDetector: createTimeoutDetector({
       reason: 'websocket_persistent_failure',
       timeoutMs: 60_000,
     }),
+
+    startupTimeDetector: createTimeBetweenDetector({
+      reason: 'slow_startup',
+      mode: 'TIME_BETWEEN',
+      threshold: 5_000,
+      operator: 'gte',
+      debounceMs: 30_000,
+    }),
+
+    exitTimeDetector: createTimeBetweenDetector({
+      reason: 'slow_exit',
+      mode: 'TIME_BETWEEN',
+      threshold: 10_000,
+      operator: 'gte',
+      debounceMs: 30_000,
+    }),
   }
 }
+
+/**
+ * Global singleton instance of rage detectors.
+ * This allows rage detection to be used anywhere in the application.
+ */
+export const rageDetectors: RageDetectors = createRageDetectors()
