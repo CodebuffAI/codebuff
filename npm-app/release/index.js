@@ -8,7 +8,6 @@ const https = require('https')
 const zlib = require('zlib')
 const tar = require('tar')
 
-// Configuration
 const CONFIG = {
   homeDir: os.homedir(),
   configDir: path.join(os.homedir(), '.config', 'manicode'),
@@ -91,17 +90,14 @@ async function getLatestVersion() {
   )
 
   /* ── simple rate-limit fallback ─────────────────────────── */
-  if (
-    res.statusCode === 403 &&
-    res.headers['x-ratelimit-remaining'] === '0'
-  ) {
+  if (res.statusCode === 403 && res.headers['x-ratelimit-remaining'] === '0') {
     term.writeLine(
       'GitHub API rate-limit reached. Skipping version check – either wait an hour or set GITHUB_TOKEN and try again.'
     )
     return null
   }
 
-  if (res.statusCode !== 200) return null               // other errors
+  if (res.statusCode !== 200) return null // other errors
 
   const body = await streamToString(res)
   return JSON.parse(body).tag_name?.replace(/^v/, '') || null
@@ -110,7 +106,7 @@ async function getLatestVersion() {
 function streamToString(stream) {
   return new Promise((resolve, reject) => {
     let data = ''
-    stream.on('data', chunk => (data += chunk))
+    stream.on('data', (chunk) => (data += chunk))
     stream.on('end', () => resolve(data))
     stream.on('error', reject)
   })
@@ -213,8 +209,6 @@ async function downloadBinary(version) {
       .on('finish', resolve)
       .on('error', reject)
   })
-  term.clearLine()
-  console.log('Download and extract complete!')
 
   try {
     // Find the extracted binary - it should be named "codebuff" or "codebuff.exe"
@@ -230,13 +224,14 @@ async function downloadBinary(version) {
         `Binary not found after extraction. Expected: ${extractedPath}, Available files: ${files.join(', ')}`
       )
     }
-
-    term.write('Starting Codebuff...')
   } catch (error) {
     term.clearLine()
     console.error(`Extraction failed: ${error.message}`)
     process.exit(1)
   }
+
+  term.clearLine()
+  console.log('Download complete! Starting Codebuff...')
 }
 
 async function ensureBinaryExists() {
