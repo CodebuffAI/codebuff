@@ -64,7 +64,7 @@ async function triggerWorkflow(versionType) {
       -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Content-Type: application/json" \
       https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/release-binaries.yml/dispatches \
-      -d '{"ref":"improve-build","inputs":{"version_type":"${versionType}"}}'`
+      -d '{"ref":"main","inputs":{"version_type":"${versionType}"}}'`
 
     const response = execSync(triggerCmd, { encoding: 'utf8' })
 
