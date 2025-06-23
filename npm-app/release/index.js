@@ -79,11 +79,7 @@ function httpGet(url, options = {}) {
     const timeout = options.timeout || CONFIG.requestTimeout
     req.setTimeout(timeout, () => {
       req.destroy()
-      reject(
-        new Error(
-          'Request timeout. Please check your internet connection and try again.'
-        )
-      )
+      reject(new Error('Request timeout.'))
     })
   })
 }
@@ -252,7 +248,7 @@ async function ensureBinaryExists() {
     } catch (error) {
       term.clearLine()
       console.error('❌ Failed to download codebuff:', error.message)
-      console.error('Please try again later.')
+      console.error('Please check your internet connection and try again')
       process.exit(1)
     }
   }
