@@ -42,6 +42,8 @@ const AgentTemplateTypeList = [
   'gemini25flash_base',
 
   'gemini25pro_thinking',
+
+  'gemini25pro_readonly',
 ] as const
 export const AgentTemplateTypes = Object.fromEntries(
   AgentTemplateTypeList.map((name) => [name, name])
