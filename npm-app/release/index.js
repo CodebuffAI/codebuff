@@ -85,22 +85,27 @@ function httpGet(url, options = {}) {
 }
 
 async function getLatestVersion() {
-  const res = await httpGet(
-    `https://api.github.com/repos/${CONFIG.githubRepo}/releases/latest`
-  )
-
-  /* ── simple rate-limit fallback ─────────────────────────── */
-  if (res.statusCode === 403 && res.headers['x-ratelimit-remaining'] === '0') {
-    console.log(
-      'GitHub API rate-limit reached. Skipping version check – either wait an hour or set GITHUB_TOKEN and try again.'
+  try {
+    const res = await httpGet(
+      `https://github.com/${CONFIG.githubRepo}/releases.atom`
     )
+
+    if (res.statusCode !== 200) return null
+
+    const body = await streamToString(res)
+
+    // Parse the Atom XML to extract the latest release tag
+    const tagMatch = body.match(
+      /<id>tag:github\.com,2008:Repository\/\d+\/([^<]+)<\/id>/
+    )
+    if (tagMatch && tagMatch[1]) {
+      return tagMatch[1].replace(/^v/, '')
+    }
+
+    return null
+  } catch (error) {
     return null
   }
-
-  if (res.statusCode !== 200) return null // other errors
-
-  const body = await streamToString(res)
-  return JSON.parse(body).tag_name?.replace(/^v/, '') || null
 }
 
 function streamToString(stream) {
