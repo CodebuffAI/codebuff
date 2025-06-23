@@ -1173,7 +1173,10 @@ export class Client {
         }
         stepsCount++
         toolCallsCount += a.toolCalls.length
-        if (a.toolCalls.length === 0 && a.toolResults.length === 0) {
+        if (
+          typeof a.sessionState.mainAgentState.messageHistory[-1]?.content ===
+          'string'
+        ) {
           this.responseComplete = true
           isComplete = true
         }
