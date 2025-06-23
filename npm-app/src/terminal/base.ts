@@ -4,16 +4,15 @@ import path from 'path'
 import { green } from 'picocolors'
 
 import { bunPty } from '../native/pty'
-type IPty = ReturnType<typeof bunPty.spawn>
-
+type IPty = ReturnType<NonNullable<typeof bunPty>['spawn']>
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { buildArray } from '@codebuff/common/util/array'
+import { isSubdir } from '@codebuff/common/util/file'
 import {
   stripColors,
   suffixPrefixOverlap,
   truncateStringWithMessage,
 } from '@codebuff/common/util/string'
-import { isSubdir } from '@codebuff/common/util/file'
 
 import {
   getProjectRoot,
@@ -22,8 +21,8 @@ import {
 } from '../project-files'
 import { trackEvent } from '../utils/analytics'
 import { detectShell } from '../utils/detect-shell'
-import { runBackgroundCommand } from './background'
 import { logger } from '../utils/logger'
+import { runBackgroundCommand } from './background'
 
 const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
@@ -53,7 +52,7 @@ const createPersistantProcess = (
   dir: string,
   forceChildProcess = false
 ): PersistentProcess => {
-  if (process.env.NODE_ENV !== 'test' && !forceChildProcess) {
+  if (bunPty && process.env.NODE_ENV !== 'test' && !forceChildProcess) {
     const isWindows = os.platform() === 'win32'
     const currShell = detectShell()
     const shell = isWindows
