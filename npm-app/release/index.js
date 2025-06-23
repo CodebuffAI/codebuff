@@ -3,7 +3,7 @@
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
-const { spawn, execSync } = require('child_process')
+const { spawn } = require('child_process')
 const https = require('https')
 const zlib = require('zlib')
 const tar = require('tar')
@@ -121,15 +121,49 @@ function getCurrentVersion() {
   if (!fs.existsSync(CONFIG.binaryPath)) return null
 
   try {
-    const result = execSync(`"${CONFIG.binaryPath}" --version`, {
-      cwd: os.homedir(),
-      encoding: 'utf-8',
-      stdio: 'pipe',
-      timeout: 1000,
+    return new Promise((resolve, reject) => {
+      const child = spawn(CONFIG.binaryPath, ['--version'], {
+        cwd: os.homedir(),
+        stdio: 'pipe',
+      })
+
+      let output = ''
+      let errorOutput = ''
+
+      child.stdout.on('data', (data) => {
+        output += data.toString()
+      })
+
+      child.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      const timeout = setTimeout(() => {
+        child.kill('SIGTERM')
+        setTimeout(() => {
+          if (!child.killed) {
+            child.kill('SIGKILL')
+          }
+        }, 1000)
+        resolve('error')
+      }, 1000)
+
+      child.on('exit', (code) => {
+        clearTimeout(timeout)
+        if (code === 0) {
+          resolve(output.trim())
+        } else {
+          resolve('error')
+        }
+      })
+
+      child.on('error', () => {
+        clearTimeout(timeout)
+        resolve('error')
+      })
     })
-    return result.trim()
   } catch (error) {
-    return null
+    return 'error'
   }
 }
 
@@ -176,6 +210,10 @@ async function downloadBinary(version) {
 
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
+
+  if (fs.existsSync(CONFIG.binaryPath)) {
+    fs.unlinkSync(CONFIG.binaryPath)
+  }
 
   term.write('Downloading...')
 
@@ -261,13 +299,17 @@ async function ensureBinaryExists() {
 
 async function checkForUpdates(runningProcess, exitListener) {
   try {
-    const currentVersion = getCurrentVersion()
+    const currentVersion = await getCurrentVersion()
     if (!currentVersion) return
 
     const latestVersion = await getLatestVersion()
     if (!latestVersion) return
 
-    if (compareVersions(currentVersion, latestVersion) < 0) {
+    if (
+      // Download new version if current binary errors.
+      currentVersion === 'error' ||
+      compareVersions(currentVersion, latestVersion) < 0
+    ) {
       term.clearLine()
 
       // Remove the specific exit listener to prevent it from interfering with the update
