@@ -24,23 +24,20 @@ export const checkAuth = async ({
 
   if (!authResult.success) {
     const errorMessage = authResult.error?.message || 'Authentication failed'
-    logger.error(
-      { clientSessionId, error: errorMessage },
-      errorMessage
-    )
+    logger.error({ clientSessionId, error: errorMessage }, errorMessage)
     return {
       type: 'action-error',
       message: errorMessage,
     }
   }
 
-  if (authResult.user) {
-    // Log successful authentication if we have a user
-    logger.debug(
-      { clientSessionId, userId: authResult.user.id },
-      'Authentication successful'
-    )
-  }
+  // if (authResult.user) {
+  //   // Log successful authentication if we have a user
+  //   logger.debug(
+  //     { clientSessionId, userId: authResult.user.id },
+  //     'Authentication successful'
+  //   )
+  // }
 
   return
 }

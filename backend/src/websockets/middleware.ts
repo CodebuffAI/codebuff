@@ -244,18 +244,18 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       isRepoApprovedForUserInOrg: orgLookup.found,
     })
 
-    logger.debug(
-      {
-        userId,
-        repoUrl,
-        owner,
-        repo,
-        isApproved: orgLookup.found,
-        organizationId: orgLookup.organizationId,
-        organizationName: orgLookup.organizationName,
-      },
-      'Organization repository coverage processed'
-    )
+    // logger.debug(
+    //   {
+    //     userId,
+    //     repoUrl,
+    //     owner,
+    //     repo,
+    //     isApproved: orgLookup.found,
+    //     organizationId: orgLookup.organizationId,
+    //     organizationName: orgLookup.organizationName,
+    //   },
+    //   'Organization repository coverage processed'
+    // )
   } catch (error) {
     logger.error(
       { userId, repoUrl, error },
