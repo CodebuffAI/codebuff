@@ -2,7 +2,6 @@ import { CostMode, geminiModels, Model, models } from 'common/constants'
 
 import { CoreMessage } from 'ai'
 import { getAgentStream } from './prompt-agent-stream'
-import { TOOL_LIST } from './tools'
 import { logger } from './util/logger'
 
 export async function getThinkingStream(
@@ -24,8 +23,7 @@ export async function getThinkingStream(
     stopSequences: [
       '</think_deeply>',
       '<think_deeply>',
-      '<read_files>',
-      '<write_file>',
+      '</thought>',
       '<end_turn>',
     ],
     clientSessionId: options.clientSessionId,
@@ -91,9 +89,7 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
   const stream = getStream(agentMessages)
 
   let response = ''
-  onChunk(thinkDeeplyPrefix)
 
-  let wasTruncated = false
   let prefix = ''
   for await (let chunk of stream) {
     if (typeof chunk !== 'string') {
@@ -110,33 +106,7 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
       chunk = chunk.slice(chunk.length - response.length)
     }
 
-    // Check for any complete tool tag
-    for (const tool of TOOL_LIST) {
-      const toolTag = `<${tool}>`
-      const tagIndex = response.indexOf(toolTag)
-      if (tagIndex !== -1) {
-        // Found a tool tag - truncate the response to remove it and everything after
-        response = response.slice(0, tagIndex)
-        wasTruncated = true
-        break
-      }
-    }
-    if (wasTruncated) {
-      break
-    }
-
     onChunk(chunk)
-  }
-
-  response = thinkDeeplyPrefix + response
-
-  if (!response.includes('</thought>')) {
-    onChunk('</thought>\n')
-    response += '</thought>\n'
-  }
-  if (!response.includes('</think_deeply>')) {
-    onChunk('</think_deeply>')
-    response += '</think_deeply>'
   }
 
   logger.debug({ response: response }, 'Thinking stream')

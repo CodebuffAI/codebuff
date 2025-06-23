@@ -13,7 +13,10 @@ import {
 } from 'common/constants'
 import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { trackEvent } from 'common/src/analytics'
-import { SessionState } from 'common/types/session-state'
+import {
+  SessionState,
+  type AgentTemplateType,
+} from 'common/types/session-state'
 import { buildArray } from 'common/util/array'
 import { parseFileBlocks, ProjectFileContext } from 'common/util/file'
 import { toContentString } from 'common/util/messages'
@@ -36,6 +39,7 @@ import { research } from './research'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentTemplates } from './templates/agent-list'
 import { getAgentPrompt } from './templates/strings'
+import { getThinkingStream } from './thinking-stream'
 import {
   ClientToolCall,
   CodebuffToolCall,
@@ -106,7 +110,15 @@ export const mainPrompt = async (
   const requestContext = getRequestContext()
   const repoName = requestContext?.processedRepoId
 
-  const agentType = agentState.agentType ?? 'gemini25pro_base'
+  const agentType = (
+    {
+      ask: 'gemini25pro_readonly',
+      lite: 'gemini25flash_base',
+      normal: 'claude4_base',
+      max: 'claude4_base',
+      experimental: 'gemini25pro_base',
+    } satisfies Record<CostMode, AgentTemplateType>
+  )[costMode]
   agentState.agentType = agentType
 
   const template = agentTemplates[agentType]
@@ -273,6 +285,37 @@ export const mainPrompt = async (
       timeToLive: 'agentStep',
     },
   ])
+
+  // vvv TEMPORARY FOR PRE-AGENT SPAWNING vvv
+  // Think deeply at the start of every response
+  if (costMode === 'max') {
+    let response = await getThinkingStream(
+      [
+        {
+          role: 'system',
+          content: getAgentPrompt(
+            'gemini25pro_thinking',
+            'systemPrompt',
+            sessionState.fileContext,
+            sessionState.mainAgentState
+          ),
+        },
+        ...messagesWithEphemeralMessages,
+      ],
+      (chunk) => {
+        onResponseChunk(chunk)
+      },
+      {
+        costMode,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      }
+    )
+    messagesWithEphemeralMessages.push({ role: 'assistant', content: response })
+  }
+  // ^^^ TEMPORARY FOR PRE-AGENT SPAWNING ^^^
 
   // Accumulators for stream
   const fullResponse: CodebuffMessage[] = []
