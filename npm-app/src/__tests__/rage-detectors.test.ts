@@ -90,14 +90,20 @@ describe('createRageDetectors', () => {
 
     // Simulate user mashing the 'd' key 5 times quickly
     for (let i = 0; i < 5; i++) {
-      detectors.keyMashingDetector.recordEvent('d')
+      detectors.keyMashingDetector.recordEvent({ 
+        str: 'd', 
+        key: { name: 'd', ctrl: false, meta: false, alt: false, shift: false } 
+      })
     }
 
     expect(mockTrackEvent).toHaveBeenCalledWith(AnalyticsEvent.RAGE, {
       reason: 'key_mashing',
       count: 5,
       timeWindow: 1000,
-      repeatedKey: 'd',
+      repeatedKey: { 
+        str: 'd', 
+        key: { name: 'd', ctrl: false, meta: false, alt: false, shift: false } 
+      },
     })
   })
 

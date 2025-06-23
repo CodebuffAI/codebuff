@@ -15,6 +15,7 @@ interface CountDetectorOptions extends BaseDetectorOptions {
   threshold: number
   timeWindow: number
   historyLimit: number
+  filter?: (value: any) => boolean // Optional filter function to determine what counts
 }
 
 interface TimeBetweenDetectorOptions extends BaseDetectorOptions {
@@ -50,6 +51,11 @@ export function createCountDetector(options: CountDetectorOptions) {
   let debounceTimer: NodeJS.Timeout | null = null
 
   const recordEvent = (value?: any) => {
+    // Apply filter if provided
+    if (options.filter && !options.filter(value)) {
+      return // Skip this event
+    }
+
     const now = Date.now()
     history.push({ timestamp: now, value })
 
@@ -78,7 +84,12 @@ export function createCountDetector(options: CountDetectorOptions) {
     let repeatedEvents: EventRecord[] = []
 
     for (const event of recentEvents) {
-      if (event.value === lastValue) {
+      // Custom comparison for objects (like key events)
+      const isSameValue = typeof event.value === 'object' && typeof lastValue === 'object'
+        ? JSON.stringify(event.value) === JSON.stringify(lastValue)
+        : event.value === lastValue
+
+      if (isSameValue) {
         repeatCount++
         repeatedEvents.push(event)
       } else {

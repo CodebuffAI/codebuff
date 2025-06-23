@@ -869,21 +869,7 @@ export class CLI {
   }
 
   private handleKeyPress(str: string, key: any) {
-    // Track key mashing on repeated normal keys
-    const isModifier = key?.meta || key?.alt || key?.shift
-    const isSpecialKey =
-      key?.name === 'backspace' ||
-      key?.name === 'space' ||
-      key?.name === 'enter' ||
-      key?.name === 'tab'
-
-    // Control-C is a key mashing pattern we want to detect
-    const isControlC = key?.ctrl && key?.name === 'c'
-    if (isControlC) {
-      rageDetectors.keyMashingDetector.recordEvent('ctrl-c')
-    } else if (!isModifier && !isSpecialKey && key?.name) {
-      rageDetectors.keyMashingDetector.recordEvent(key.name)
-    }
+    rageDetectors.keyMashingDetector.recordEvent({ str, key })
 
     if (key.name === 'escape') {
       this.handleEscKey()

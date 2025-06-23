@@ -22,6 +22,30 @@ export function createRageDetectors(): RageDetectors {
       timeWindow: 1000,
       historyLimit: 20,
       debounceMs: 5_000,
+      filter: ({ str, key }) => {
+        // Skip modifier keys and special keys
+        const isModifier = key?.meta || key?.alt || key?.shift
+        const isSpecialKey =
+          key?.name === 'backspace' ||
+          key?.name === 'space' ||
+          key?.name === 'enter' ||
+          key?.name === 'tab'
+
+        // Ignore the following:
+        if (isModifier || isSpecialKey || !key?.name) {
+          return false
+        }
+        if (key?.ctrl && key?.name === 'w') {
+          return false
+        }
+
+        // Count the following:
+        if (key?.ctrl && key?.name === 'c') {
+          return true
+        }
+
+        return true
+      },
     }),
 
     repeatInputDetector: createCountDetector({
