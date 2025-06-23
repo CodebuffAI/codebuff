@@ -9,7 +9,7 @@ import linuxX64 from 'bun-pty/rust-pty/target/release/librust_pty.so' with { typ
 // @ts-ignore
 import winX64 from 'bun-pty/rust-pty/target/release/rust_pty.dll' with { type: 'file' }
 
-import { logger } from '@/utils/logger'
+import { logger } from '../utils/logger'
 
 const platform = process.platform
 const arch = process.arch
