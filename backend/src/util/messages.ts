@@ -7,7 +7,6 @@ import { buildArray } from 'common/util/array'
 import { System } from '../llm-apis/claude'
 import { OpenAIMessage } from '../llm-apis/openai-api'
 import { logger } from './logger'
-import { simplifyTerminalCommandResults } from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
 
 /**
@@ -112,7 +111,7 @@ function simplifyTerminalHelper(
   text: string,
   numKept: number
 ): { result: string; numKept: number } {
-  const simplifiedText = simplifyTerminalCommandResults(text)
+  const simplifiedText = '[Output omitted]'
 
   // Keep the full output for the N most recent commands
   if (numKept < numTerminalCommandsToKeep && simplifiedText !== text) {

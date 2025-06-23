@@ -47,13 +47,21 @@ import {
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
-import { asSystemMessage, asUserMessage, expireMessages } from './util/messages'
+import {
+  asSystemInstruction,
+  asSystemMessage,
+  asUserMessage,
+  expireMessages,
+  getCoreMessagesSubset,
+} from './util/messages'
 import {
   isToolResult,
   parseReadFilesResult,
   parseToolResults,
+  renderReadFilesResult,
   renderToolResults,
 } from './util/parse-tool-call-xml'
+import { simplifyReadFileResults } from './util/simplify-tool-results'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 import {
@@ -256,13 +264,126 @@ export const mainPrompt = async (
     }
   }
 
+  const fileRequestMessagesTokens = countTokensJson(
+    messagesWithToolResultsAndUser
+  )
+  const searchSystem = getSearchSystemPrompt(
+    fileContext,
+    costMode,
+    fileRequestMessagesTokens,
+    {
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId: userId,
+    }
+  )
+  const {
+    addedFiles,
+    updatedFilePaths,
+    printedPaths,
+    clearReadFileToolResults,
+  } = await getFileReadingUpdates(
+    ws,
+    messagesWithToolResultsAndUser,
+    searchSystem,
+    fileContext,
+    null,
+    {
+      skipRequestingFiles: !prompt,
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      costMode,
+      repoId: repoName,
+    }
+  )
+  const [updatedFiles, newFiles] = partition(addedFiles, (f) =>
+    updatedFilePaths.includes(f.path)
+  )
+  if (clearReadFileToolResults) {
+    // Update message history.
+    for (const message of messageHistory) {
+      if (message.role === 'tool') {
+        message.content = simplifyReadFileResults(message.content)
+      }
+    }
+    // Update tool results.
+    for (let i = 0; i < toolResults.length; i++) {
+      const toolResult = toolResults[i]
+      if (toolResult.toolName === 'read_files') {
+        toolResults[i].result = `Read the following files: ${
+          typeof toolResult.result === 'string'
+            ? toolResult.result
+            : (toolResult.result as { path: string }[])
+                .map(({ path }) => path)
+                .join('\n')
+        }`
+      }
+    }
+  }
+
+  if (updatedFiles.length > 0) {
+    toolResults.push({
+      toolName: 'file_updates',
+      toolCallId: generateCompactId(),
+      result:
+        `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes:\n` +
+        renderReadFilesResult(updatedFiles, fileContext.tokenCallers ?? {}),
+    })
+  }
+
+  const readFileMessages: CodebuffMessage[] = []
+  if (newFiles.length > 0) {
+    const toolCallId = generateCompactId()
+
+    readFileMessages.push(
+      {
+        role: 'user' as const,
+        content: asSystemInstruction(
+          'Before continuing with the user request, read some relevant files first.'
+        ),
+        timeToLive: 'userPrompt',
+      },
+      {
+        role: 'assistant' as const,
+        content: [
+          {
+            type: 'tool-call',
+            toolName: 'read_files',
+            toolCallId,
+            args: newFiles.map((file) => file.path).join('\n'),
+          },
+        ],
+      },
+      {
+        role: 'tool' as const,
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId,
+            toolName: 'read_files',
+            result: newFiles,
+          },
+        ],
+      }
+    )
+  }
+
   const messagesWithEphemeralMessages = buildArray<CodebuffMessage>([
-    ...expireMessages(
-      messagesWithToolResults,
-      prompt ? 'userPrompt' : 'agentStep'
-    ),
+    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
+    toolResults.length > 0 && {
+      role: 'user' as const,
+      content: asSystemMessage(renderToolResults(toolResults)),
+    },
     prompt && [
-      { role: 'user' as const, content: asUserMessage(prompt) },
+      {
+        role: 'user' as const,
+        content: asUserMessage(prompt),
+      },
       {
         role: 'user' as const,
         content: getAgentPrompt(
@@ -289,18 +410,22 @@ export const mainPrompt = async (
   // vvv TEMPORARY FOR PRE-AGENT SPAWNING vvv
   // Think deeply at the start of every response
   if (costMode === 'max') {
+    const systemPrompt = getAgentPrompt(
+      'gemini25pro_thinking',
+      'systemPrompt',
+      sessionState.fileContext,
+      sessionState.mainAgentState
+    )
     let response = await getThinkingStream(
       [
         {
           role: 'system',
-          content: getAgentPrompt(
-            'gemini25pro_thinking',
-            'systemPrompt',
-            sessionState.fileContext,
-            sessionState.mainAgentState
-          ),
+          content: systemPrompt,
         },
-        ...messagesWithEphemeralMessages,
+        ...getCoreMessagesSubset(
+          messagesWithEphemeralMessages,
+          countTokens(systemPrompt)
+        ),
       ],
       (chunk) => {
         onResponseChunk(chunk)
@@ -375,17 +500,21 @@ export const mainPrompt = async (
   })[] = []
 
   // Process stream
+  const systemPrompt = getAgentPrompt(
+    agentType,
+    'systemPrompt',
+    fileContext,
+    agentState
+  )
   for await (const chunk of getStreamWithTools([
     {
       role: 'system',
-      content: getAgentPrompt(
-        agentType,
-        'systemPrompt',
-        fileContext,
-        agentState
-      ),
+      content: systemPrompt,
     },
-    ...messagesWithEphemeralMessages,
+    ...getCoreMessagesSubset(
+      messagesWithEphemeralMessages,
+      countTokens(systemPrompt)
+    ),
   ])) {
     if (typeof chunk === 'string') {
       if (

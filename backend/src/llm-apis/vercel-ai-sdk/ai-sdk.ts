@@ -93,9 +93,13 @@ export const promptAiSdkStream = async function* (
   let finishedReasoning = false
 
   for await (const chunk of response.fullStream) {
+    if (chunk.type === 'step-finish' || chunk.type === 'step-start') {
+      continue
+    }
     console.log({ chunk }, 'asdf')
     if (chunk.type === 'error') {
       console.log('error asdf', { options })
+
       logger.error({ chunk, model: options.model }, 'Error from AI SDK')
       if (process.env.ENVIRONMENT !== 'prod') {
         throw chunk.error instanceof Error
