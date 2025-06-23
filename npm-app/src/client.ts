@@ -724,6 +724,38 @@ export class Client {
       })
     })
 
+    // Handle backend-initiated tool call requests
+    this.webSocket.subscribe('tool-call-request', async (action) => {
+      const { requestId, toolName, args, timeout } = action
+      
+      try {
+        // Execute the tool call using existing tool handlers
+        const toolCall = {
+          toolCallId: requestId,
+          toolName,
+          args,
+        }
+        
+        const toolResult = await handleToolCall(toolCall as any)
+        
+        // Send successful response back to backend
+        this.webSocket.sendAction({
+          type: 'tool-call-response',
+          requestId,
+          success: true,
+          result: toolResult.result,
+        })
+      } catch (error) {
+        // Send error response back to backend
+        this.webSocket.sendAction({
+          type: 'tool-call-response',
+          requestId,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    })
+
     this.webSocket.subscribe('npm-version-status', (action) => {
       const { isUpToDate } = action
       if (!isUpToDate) {
