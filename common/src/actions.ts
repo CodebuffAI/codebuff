@@ -49,7 +49,15 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     authToken: z.string().optional(),
     stagedChanges: z.string(),
   }),
+  z.object({
+    type: z.literal('tool-call-response'),
+    requestId: z.string(),
+    success: z.boolean(),
+    result: z.any().optional(), // Tool execution result
+    error: z.string().optional(), // Error message if execution failed
+  }),
 ])
+
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
 export const UsageReponseSchema = z.object({
@@ -122,6 +130,13 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),
     requestId: z.string(),
+  }),
+  z.object({
+    type: z.literal('tool-call-request'),
+    requestId: z.string(),
+    toolName: z.string(),
+    args: z.record(z.any()),
+    timeout: z.number().optional().default(30000), // Timeout in milliseconds
   }),
   z.object({
     type: z.literal('tool-call'),
