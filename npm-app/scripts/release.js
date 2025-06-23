@@ -58,6 +58,15 @@ async function triggerWorkflow(versionType) {
   }
 
   try {
+    // First, get the current workflow runs to compare after triggering
+    const preRunsCmd = `curl -s -H "Accept: application/vnd.github.v3+json" \
+      -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
+      https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/release-binaries.yml/runs?per_page=1`
+
+    const preRunsResponse = execSync(preRunsCmd, { encoding: 'utf8' })
+    const preRuns = JSON.parse(preRunsResponse)
+    const lastRunId = preRuns.workflow_runs?.[0]?.id
+
     // Use workflow filename instead of ID
     const triggerCmd = `curl -s -w "HTTP Status: %{http_code}" -X POST \
       -H "Accept: application/vnd.github.v3+json" \
@@ -76,10 +85,30 @@ async function triggerWorkflow(versionType) {
         'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/release-binaries.yml'
       )
     } else {
-      // log(
-      //   `Workflow trigger response: ${response || '(empty response - likely success)'}`
-      // )
       log('🎉 Release workflow triggered!')
+
+      // Wait a moment for the new run to appear, then get the latest run
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      log('')
+
+      try {
+        const postRunsResponse = execSync(preRunsCmd, { encoding: 'utf8' })
+        const postRuns = JSON.parse(postRunsResponse)
+        const newRunId = postRuns.workflow_runs?.[0]?.id
+
+        if (newRunId && newRunId !== lastRunId) {
+          const runUrl = `https://github.com/CodebuffAI/codebuff/actions/runs/${newRunId}`
+          log(`📋 View workflow progress: ${runUrl}`)
+        } else {
+          log(
+            'Monitor progress at: https://github.com/CodebuffAI/codebuff/actions'
+          )
+        }
+      } catch (err) {
+        log(
+          'Monitor progress at: https://github.com/CodebuffAI/codebuff/actions'
+        )
+      }
     }
   } catch (err) {
     log(`⚠️  Failed to trigger workflow automatically: ${err.message}`)
@@ -100,9 +129,6 @@ async function main() {
 
   // Trigger the workflow
   await triggerWorkflow(versionType)
-
-  log('')
-  log('Monitor progress at: https://github.com/CodebuffAI/codebuff/actions')
 }
 
 main().catch((err) => {
