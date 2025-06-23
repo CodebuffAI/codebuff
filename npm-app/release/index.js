@@ -14,7 +14,7 @@ const CONFIG = {
   binaryName: process.platform === 'win32' ? 'codebuff.exe' : 'codebuff',
   githubRepo: 'CodebuffAI/codebuff-community',
   userAgent: 'codebuff-cli',
-  requestTimeout: 10000,
+  requestTimeout: 20000,
 }
 
 CONFIG.binaryPath = path.join(CONFIG.configDir, CONFIG.binaryName)
@@ -79,7 +79,11 @@ function httpGet(url, options = {}) {
     const timeout = options.timeout || CONFIG.requestTimeout
     req.setTimeout(timeout, () => {
       req.destroy()
-      reject(new Error('Request timeout'))
+      reject(
+        new Error(
+          'Request timeout. Please check your internet connection and try again.'
+        )
+      )
     })
   })
 }
