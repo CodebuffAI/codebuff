@@ -91,7 +91,7 @@ async function getLatestVersion() {
 
   /* ── simple rate-limit fallback ─────────────────────────── */
   if (res.statusCode === 403 && res.headers['x-ratelimit-remaining'] === '0') {
-    term.writeLine(
+    console.log(
       'GitHub API rate-limit reached. Skipping version check – either wait an hour or set GITHUB_TOKEN and try again.'
     )
     return null
