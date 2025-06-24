@@ -1,7 +1,7 @@
 import { spawn } from 'child_process'
 import * as path from 'path'
 
-import { rgPath } from '@vscode/ripgrep'
+import { getRgPath } from './native/ripgrep'
 import { FileChangeSchema } from '@codebuff/common/actions'
 import { BrowserActionSchema, BrowserResponse } from '@codebuff/common/browser-actions'
 import { applyChanges } from '@codebuff/common/util/changes'
@@ -134,6 +134,7 @@ export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
   _id
 ) => {
   const projectPath = getProjectRoot()
+  const rgPath = await getRgPath()
 
   return new Promise((resolve) => {
     let stdout = ''

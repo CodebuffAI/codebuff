@@ -106,7 +106,8 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
 
   const defineFlags = Object.entries(flags)
     .map(([key, value]) => {
-      const stringValue = typeof value === 'string' ? value : String(value)
+      const stringValue =
+        typeof value === 'string' ? `'${value}'` : String(value)
       return `--define process.env.${key}=${JSON.stringify(stringValue)}`
     })
     .join(' ')
