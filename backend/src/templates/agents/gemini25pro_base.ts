@@ -1,5 +1,10 @@
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
+import {
+  AgentTemplate,
+  baseAgentStopSequences,
+  baseAgentToolNames,
+  PLACEHOLDER,
+} from '../types'
 
 export const gemini25pro_base: AgentTemplate = {
   type: AgentTemplateTypes.gemini25pro_base,
@@ -7,6 +12,7 @@ export const gemini25pro_base: AgentTemplate = {
     'Experimental agent using Gemini 2.5 Pro Preview with advanced reasoning',
   model: 'gemini-2.5-pro-preview-06-05',
   toolNames: baseAgentToolNames,
+  stopSequences: baseAgentStopSequences,
   spawnableAgents: [],
   initialAssistantMessage: null,
   initialAssistantPrefix: null,
