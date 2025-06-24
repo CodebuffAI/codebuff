@@ -24,7 +24,7 @@
     "echo-test": "bun run inf -- printenv",
     "build": "bun run inf --env=prod -- bun run scripts/build-binary.js",
     "release": "bun run inf -- bun run scripts/release.js",
-    "start-bin": "bun run build && ./bin/codebuff ..",
+    "start-bin": "bun run inf --env=dev -- bun run scripts/build-binary.js && ./bin/codebuff ..",
     "start": "bun run inf bun run src/index.ts ..",
     "start-max": "bun run inf bun run src/index.ts .. --max",
     "start-lite": "bun run inf bun run src/index.ts .. --lite",
