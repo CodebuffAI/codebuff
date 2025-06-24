@@ -30,7 +30,7 @@ export const claude4_gemini_thinking: AgentTemplate = {
       },
     ]),
   }),
-  initialAssistantPrefix: null,
+  initialAssistantPrefix: '',
 
   systemPrompt: baseAgentSystemPrompt(model),
   userInputPrompt: baseAgentUserInputPrompt(model),

@@ -18,7 +18,7 @@ export const gemini25pro_thinking: AgentTemplate = {
     '<end_turn>',
   ],
   spawnableAgents: [],
-  initialAssistantMessage: null,
+  initialAssistantMessage: '',
   initialAssistantPrefix: `<think_deeply>`,
 
   systemPrompt: baseAgentSystemPrompt(model),
