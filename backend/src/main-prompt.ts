@@ -81,6 +81,7 @@ import { getRequestContext } from './websockets/request-context'
 import {
   requestFiles,
   requestOptionalFile,
+  requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
 
@@ -1217,6 +1218,31 @@ export const mainPrompt = async (
     },
   }
 
+  for (const clientToolCall of clientToolCalls) {
+    const result = await requestToolCall(
+      ws,
+      clientToolCall.toolName,
+      clientToolCall.args
+    )
+    if (!result.success) {
+      logger.error({ error: result.error }, 'Error executing tool call')
+      serverToolResults.push({
+        toolName: clientToolCall.toolName,
+        toolCallId: clientToolCall.toolCallId,
+        result: result.error ?? 'Unknown error',
+      })
+    } else {
+      serverToolResults.push({
+        toolName: clientToolCall.toolName,
+        toolCallId: clientToolCall.toolCallId,
+        result: result.result,
+      })
+    }
+  }
+  const maybeEndTurn = clientToolCalls.filter(
+    (toolCall) => toolCall.toolName === 'end_turn'
+  )
+
   logger.debug(
     {
       iteration: iterationNum,
@@ -1234,7 +1260,7 @@ export const mainPrompt = async (
   )
   return {
     sessionState: newSessionState,
-    toolCalls: clientToolCalls,
+    toolCalls: maybeEndTurn,
     toolResults: serverToolResults,
   }
 }
