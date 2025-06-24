@@ -1,5 +1,6 @@
 'use client'
 
+import { claudeModels, getLogoForModel } from '@codebuff/common/constants'
 import * as schema from '@codebuff/common/db/schema'
 import { useState } from 'react'
 
@@ -23,6 +24,7 @@ type BenchmarkResult = {
     reasoner_model: string | null
     avgScore: number
     avgDuration: number
+    avgTurns: number
     totalCases: number
     suiteCount: number
 }
@@ -75,6 +77,7 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
         modelGroups.forEach((suiteResults, modelKey) => {
             let totalWeightedScore = 0
             let totalWeightedDuration = 0
+            let totalWeightedTurns = 0
             let totalCases = 0
             let totalWeight = 0
 
@@ -82,10 +85,12 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
                 const cases = result.metadata?.numCases ?? 0
                 const score = result.metadata?.avgScore ?? 0
                 const duration = result.metadata?.avgDuration ?? 0
+                const turns = result.metadata?.avgTurns ?? 0
 
                 if (cases > 0) {
                     totalWeightedScore += score * cases
                     totalWeightedDuration += duration * cases
+                    totalWeightedTurns += turns * cases
                     totalCases += cases
                     totalWeight += cases
                 }
@@ -99,6 +104,7 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
                     reasoner_model: reasonerModel,
                     avgScore: totalWeightedScore / totalWeight,
                     avgDuration: totalWeightedDuration / totalWeight,
+                    avgTurns: totalWeightedTurns / totalWeight,
                     totalCases: totalCases,
                     suiteCount: suiteResults.length
                 })
@@ -111,46 +117,82 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
 
     const benchmarkResults = getBenchmarkResults()
 
+    // Model name mappings
+    const modelDisplayNames: Record<string, string> = {
+        'gemini-2.5-pro-preview-06-05': 'Gemini 2.5 Pro',
+        'claude-opus-4-20250514': 'Claude 4 Opus',
+        'claude-sonnet-4-20250514': 'Claude 4 Sonnet',
+        'o3-2025-04-16': 'o3',
+        'gemini-2.5-flash-preview-05-20': 'Gemini 2.5 Flash',
+        'Default': 'Claude 4 Sonnet'
+    }
+
     // Helper function to get model name
     const getModelName = (result: GitEvalResult) => {
         if (result.agent_model && result.reasoner_model) {
+            const agentDisplay = modelDisplayNames[result.agent_model] || result.agent_model
+            const reasonerDisplay = modelDisplayNames[result.reasoner_model] || result.reasoner_model
             return (
                 <div className="space-y-1">
-                    <div>{result.agent_model} (agent)</div>
-                    <div>{result.reasoner_model} (reasoner)</div>
+                    <div>{agentDisplay} (agent)</div>
+                    <div>{reasonerDisplay} (reasoner)</div>
                 </div>
             )
         }
         const modelName = result.agent_model || result.reasoner_model || 'Default'
-        return modelName
+        return modelDisplayNames[modelName] || modelName
     }
 
     // Helper function to get benchmark model name
     const getBenchmarkModelName = (result: BenchmarkResult) => {
+        const logo = getLogoForModel(result.agent_model || result.reasoner_model || claudeModels.sonnet)
+
         if (result.agent_model && result.reasoner_model) {
+            const agentDisplay = modelDisplayNames[result.agent_model] || result.agent_model
+            const reasonerDisplay = modelDisplayNames[result.reasoner_model] || result.reasoner_model
             return (
-                <div className="space-y-1">
-                    <div>{result.agent_model} (agent)</div>
-                    <div>{result.reasoner_model} (reasoner)</div>
+                <div className="flex items-center space-x-2">
+                    {logo && <img src={logo} alt="Provider logo" className="w-4 h-4" />}
+                    <div>{agentDisplay} with {reasonerDisplay} reasoning</div>
                 </div>
             )
         }
+
         const modelName = result.agent_model || result.reasoner_model || 'Default'
-        return modelName
+        const displayName = modelDisplayNames[modelName] || modelName
+
+        return (
+            <div className="flex items-center space-x-2">
+                {logo && <img src={logo} alt="Provider logo" className="w-4 h-4" />}
+                <div>{displayName}</div>
+            </div>
+        )
     }
 
-    // Helper function to format score as percentage
+    // Helper function to format score out of 10
     const formatScore = (score?: number) => {
         if (score === undefined || score === null) return 'N/A'
-        return `${(score * 10).toFixed(1)}%` // Convert 0-10 scale to percentage
+        return score.toFixed(1)
     }
 
-    // Helper function to format duration - from ms
+    // Helper function to format duration as friendly time
     const formatDuration = (duration?: number) => {
         if (duration === undefined || duration === null) return 'N/A'
-        if (duration < 1000) return `${duration.toFixed(1)}ms`
-        if (duration < 1_000_000) return `${(duration / 1000).toFixed(1)}s`
-        return `${(duration / 60000).toFixed(1)}m`
+
+        const totalSeconds = Math.round(duration / 1000)
+
+        if (totalSeconds < 60) {
+            return `${totalSeconds} sec`
+        }
+
+        const minutes = Math.floor(totalSeconds / 60)
+        const seconds = totalSeconds % 60
+
+        if (seconds === 0) {
+            return `${minutes} min`
+        }
+
+        return `${minutes} min ${seconds} sec`
     }
 
     // Helper function to format date and time
@@ -199,7 +241,7 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
             )}
 
             {/* Public Buffbench Leaderboard */}
-            <Card>
+            <Card className="max-w-4xl mx-auto">
                 <CardHeader>
                     <CardTitle className="text-2xl font-bold">
                         Buffbench
@@ -215,40 +257,47 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Model</TableHead>
-                                            <TableHead>Score</TableHead>
-                                            <TableHead>Avg Task Time</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {benchmarkResults.map((result, index) => (
-                                            <TableRow key={`${result.agent_model}-${result.reasoner_model}`}>
-                                                <TableCell className="font-medium align-top">
-                                                    {getBenchmarkModelName(result)}
-                                                </TableCell>
-                                                <TableCell className="align-top">
-                                                    <div className="flex items-center space-x-2">
-                                                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${result.avgScore >= 8
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : result.avgScore >= 6
-                                                                ? 'bg-yellow-100 text-yellow-800'
-                                                                : 'bg-red-100 text-red-800'
-                                                            }`}>
-                                                            {formatScore(result.avgScore)}
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="align-top">
-                                                    {formatDuration(result.avgDuration)}
-                                                </TableCell>
+                            <div className="mx-auto">
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Model</TableHead>
+                                                <TableHead>Score</TableHead>
+                                                <TableHead>Avg Task Time</TableHead>
+                                                <TableHead>Avg Turns</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {benchmarkResults.map((result, index) => (
+                                                <TableRow key={`${result.agent_model}-${result.reasoner_model}`}>
+                                                    <TableCell className="font-medium align-top">
+                                                        {getBenchmarkModelName(result)}
+                                                    </TableCell>
+                                                    <TableCell className="align-top">
+                                                        <div className="relative w-32 h-6">
+                                                            <div
+                                                                className="h-full bg-[#7CFF3F]"
+                                                                style={{ width: `${(result.avgScore / 10) * 100}%` }}
+                                                            />
+                                                            <div className="absolute left-1 top-0 h-full flex items-center">
+                                                                <span className="text-xs font-medium bg-black bg-opacity-10 px-1 rounded text-gray-900">
+                                                                    {formatScore(result.avgScore)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="align-top">
+                                                        {formatDuration(result.avgDuration)}
+                                                    </TableCell>
+                                                    <TableCell className="align-top">
+                                                        {result.avgTurns ? result.avgTurns.toFixed(1) : 'N/A'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </div>
                         </div>
                     )}

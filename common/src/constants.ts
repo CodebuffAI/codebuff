@@ -277,3 +277,27 @@ export function getModelFromShortName(
 
   return shortModelNames[modelName as keyof typeof shortModelNames]
 }
+
+export const providerDomains = {
+  google: 'google.com',
+  anthropic: 'anthropic.com',
+  openai: 'chatgpt.com',
+  deepseek: 'deepseek.com',
+} as const
+
+export function getLogoForModel(modelName: string): string | undefined {
+  let domain: string | undefined
+
+  if (Object.values(geminiModels).includes(modelName as GeminiModel))
+    domain = providerDomains.google
+  else if (Object.values(claudeModels).includes(modelName as AnthropicModel))
+    domain = providerDomains.anthropic
+  else if (Object.values(openaiModels).includes(modelName as OpenAIModel))
+    domain = providerDomains.openai
+  else if (Object.values(deepseekModels).includes(modelName as DeepseekModel))
+    domain = providerDomains.deepseek
+
+  return domain
+    ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16`
+    : undefined
+}
