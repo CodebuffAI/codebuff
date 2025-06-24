@@ -1,5 +1,6 @@
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { AgentTemplate, PLACEHOLDER } from '../types'
+import { getToolCallString } from '@codebuff/common/constants/tools'
 
 export const file_picker: AgentTemplate = {
   type: AgentTemplateTypes.file_picker,
@@ -15,6 +16,10 @@ The goal is to find *all* files that could possibly be relevant to the user prom
       PLACEHOLDER.SYSTEM_INFO_PROMPT,
       PLACEHOLDER.GIT_CHANGES_PROMPT,
     ].join('\n\n'),
+  initialAssistantMessage: getToolCallString('find_files', {
+    prompt: PLACEHOLDER.INITIAL_AGENT_PROMPT,
+  }),
+  initialAssistantPrefix: null,
   userInputPrompt: ``,
   agentStepPrompt: ``,
 }

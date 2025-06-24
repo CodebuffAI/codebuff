@@ -8,6 +8,8 @@ export const gemini25flash_base: AgentTemplate = {
   model: 'gemini-2.5-flash-preview-05-20',
   toolNames: baseAgentToolNames,
   spawnableAgents: [],
+  initialAssistantMessage: null,
+  initialAssistantPrefix: null,
 
   systemPrompt: `# Persona: Buffy - The Enthusiastic Coding Assistant
 

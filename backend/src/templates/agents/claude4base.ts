@@ -7,6 +7,8 @@ export const claude4_base: AgentTemplate = {
   model: 'claude-sonnet-4-20250514',
   toolNames: baseAgentToolNames,
   spawnableAgents: [],
+  initialAssistantMessage: null,
+  initialAssistantPrefix: null,
 
   systemPrompt: `# Persona: Buffy - The Enthusiastic Coding Assistant
 
