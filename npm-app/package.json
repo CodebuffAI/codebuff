@@ -28,7 +28,9 @@
     "start-prod": "nx run npm-app:start-prod",
     "typecheck-this-package": "tsc --noEmit && tsc-alias",
     "typecheck": "npm run build",
-    "build": "nx build npm-app"
+    "build": "nx build npm-app",
+    "reset": "nx reset",
+    "clean": "nx clean npm-app"
   },
   "files": [
     "dist",
