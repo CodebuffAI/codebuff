@@ -2,6 +2,10 @@ import { SessionState } from 'common/types/session-state'
 import { toContentString } from 'common/util/messages'
 import { WebSocket } from 'ws'
 import { loopMainPrompt } from './loop-main-prompt'
+import { requestRelevantFiles } from './find-files/request-files-prompt'
+import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
+import { requestFiles } from './websockets/websocket-action'
+import { renderReadFilesResult } from './util/parse-tool-call-xml'
 
 export async function research(
   ws: WebSocket,
@@ -17,7 +21,50 @@ export async function research(
   const { userId, clientSessionId, fingerprintId, promptId } = options
   const maxIterations = 10
   const maxPrompts = 10
-  const researchPromises = prompts.slice(0, maxPrompts).map((prompt) => {
+  const { fileContext } = initialSessionState
+  const researchPromises = prompts.slice(0, maxPrompts).map(async (prompt) => {
+    const relevantFiles = await requestRelevantFiles(
+      {
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        system: getSearchSystemPrompt(fileContext, 'lite', 0, {
+          agentStepId: 'research',
+          clientSessionId,
+          fingerprintId,
+          userInputId: promptId,
+          userId,
+        }),
+      },
+      fileContext,
+      null,
+      'research',
+      clientSessionId,
+      fingerprintId,
+      promptId,
+      userId,
+      'lite',
+      undefined
+    )
+    const files = relevantFiles ? await requestFiles(ws, relevantFiles) : {}
+    const filteredFiles = Object.entries(files)
+      .filter(([_, content]) => content !== null)
+      .map(([path, content]) => ({ path, content: content! }))
+
+    const messages = [
+      {
+        role: 'user' as const,
+        content: prompt,
+      },
+      {
+        role: 'user' as const,
+        content: `Here are some potentially relevant files. Make sure to tell me which of these file paths I should read to get a complete picture.: ${renderReadFilesResult(filteredFiles, fileContext.tokenCallers ?? {})}`,
+      },
+    ]
+
     // Each research prompt runs in 'lite' mode and can only use read-only tools.
     const researchSessionState: SessionState = {
       ...{
@@ -25,14 +72,14 @@ export async function research(
         mainAgentState: {
           ...initialSessionState.mainAgentState,
           stepsRemaining: maxIterations,
-          messageHistory: [],
+          messageHistory: messages,
         },
       },
     }
 
     const action = {
       type: 'prompt' as const,
-      prompt,
+      prompt: undefined,
       sessionState: researchSessionState,
       costMode: 'lite' as const,
       toolResults: [],
@@ -40,7 +87,7 @@ export async function research(
       promptId,
     }
 
-    return loopMainPrompt(ws, action, {
+    return await loopMainPrompt(ws, action, {
       userId,
       clientSessionId,
       onResponseChunk: () => {
