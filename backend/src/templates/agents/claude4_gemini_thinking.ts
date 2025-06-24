@@ -1,4 +1,5 @@
-import { claudeModels } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/constants'
+import { getToolCallString } from '@codebuff/common/constants/tools'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import {
   baseAgentAgentStepPrompt,
@@ -11,16 +12,23 @@ import {
   baseAgentToolNames,
 } from '../types'
 
-const model = claudeModels.sonnet
+const model = models.sonnet
 
-export const claude4_base: AgentTemplate = {
-  type: AgentTemplateTypes.claude4_base,
-  description: 'Base agent using Claude Sonnet 4',
+export const claude4_gemini_thinking: AgentTemplate = {
+  type: AgentTemplateTypes.claude4_gemini_thinking,
+  description: 'Max agent using Claude Sonnet for highest quality responses',
   model,
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
   spawnableAgents: [],
-  initialAssistantMessage: null,
+  initialAssistantMessage: getToolCallString('spawn_agents', {
+    agents: JSON.stringify([
+      {
+        agent_type: AgentTemplateTypes.gemini25pro_thinking,
+        prompt: '',
+      },
+    ]),
+  }),
   initialAssistantPrefix: null,
 
   systemPrompt: baseAgentSystemPrompt(model),
