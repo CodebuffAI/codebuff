@@ -1,12 +1,10 @@
-import { models } from '@codebuff/common/constants'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { Model } from '@codebuff/common/constants'
 import { baseAgentSystemPrompt } from '../base-prompts'
 import { AgentTemplate, baseAgentToolNames } from '../types'
 
-const model = models.sonnet
-
-export const gemini25pro_thinking: AgentTemplate = {
-  type: AgentTemplateTypes.gemini25pro_thinking,
+export const thinker = (
+  model: Model
+): Omit<AgentTemplate, 'type'> => ({
   description: 'Does thinking before a response',
   model,
   toolNames: baseAgentToolNames,
@@ -44,4 +42,4 @@ The next step is to read src/foo.ts and src/bar.ts
 </thought>
 </think_deeply>`,
   agentStepPrompt: '',
-}
+})

@@ -1,12 +1,10 @@
-import { geminiModels } from '@codebuff/common/constants'
+import { Model } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
-export const file_picker: AgentTemplate = {
-  type: AgentTemplateTypes.file_picker,
+export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   description: 'File picker agent',
-  model: geminiModels.gemini2_5_flash,
+  model,
   toolNames: ['find_files', 'code_search', 'read_files'],
   stopSequences: [],
   spawnableAgents: [],
@@ -24,4 +22,4 @@ The goal is to find *all* files that could possibly be relevant to the user prom
   initialAssistantPrefix: '',
   userInputPrompt: ``,
   agentStepPrompt: ``,
-}
+})
