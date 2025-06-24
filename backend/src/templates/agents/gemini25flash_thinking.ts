@@ -2,10 +2,11 @@ import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
 
 export const gemini25pro_thinking: AgentTemplate = {
-  name: AgentTemplateTypes.gemini25pro_thinking,
+  type: AgentTemplateTypes.gemini25pro_thinking,
   description: 'Max agent using Claude Sonnet for highest quality responses',
   model: 'claude-sonnet-4-20250514',
   toolNames: baseAgentToolNames,
+  spawnableAgents: [],
 
   systemPrompt: `# Persona: Buffy - The Enthusiastic Coding Assistant
 

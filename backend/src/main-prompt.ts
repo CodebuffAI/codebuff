@@ -43,6 +43,7 @@ import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
+import { agentTemplates } from './templates/agent-list'
 import { getThinkingStream } from './thinking-stream'
 import {
   ClientToolCall,
@@ -947,18 +948,16 @@ export const mainPrompt = async (
       parameters,
     })
     if (
-      [
-        'write_file',
-        'str_replace',
-        'add_subgoal',
-        'update_subgoal',
-        'code_search',
-        'run_terminal_command',
-        'browser_logs',
-        'think_deeply',
-        'create_plan',
-        'end_turn',
-      ].includes(name)
+      toolCall.toolName === 'write_file' ||
+      toolCall.toolName === 'str_replace' ||
+      toolCall.toolName === 'add_subgoal' ||
+      toolCall.toolName === 'update_subgoal' ||
+      toolCall.toolName === 'code_search' ||
+      toolCall.toolName === 'run_terminal_command' ||
+      toolCall.toolName === 'browser_logs' ||
+      toolCall.toolName === 'think_deeply' ||
+      toolCall.toolName === 'create_plan' ||
+      toolCall.toolName === 'end_turn'
     ) {
       // Handled above
     } else if (toolCall.toolName === 'read_files') {
@@ -1113,7 +1112,25 @@ export const mainPrompt = async (
         toolCallId: generateCompactId(),
         result: formattedResult,
       })
+    } else if (toolCall.toolName === 'spawn_agents') {
+      const { agents } = toolCall.args
+      for (const { agent_type: agentType, prompt } of agents) {
+        // TODO also check if current agent is able to spawn this agent
+        if (!(agentType in agentTemplates)) {
+          serverToolResults.push({
+            toolName: 'spawn_agents',
+            toolCallId: toolCall.toolCallId,
+            result: `Agent type ${agentType} not found.`,
+          })
+          continue
+        }
+
+        const agentTemplate =
+          agentTemplates[agentType as keyof typeof agentTemplates]
+        // TODO: call appropriate agent
+      }
     } else {
+      toolCall satisfies never
       throw new Error(`Unknown tool: ${name}`)
     }
   }

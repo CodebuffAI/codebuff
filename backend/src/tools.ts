@@ -11,9 +11,9 @@ import {
 } from '@codebuff/common/constants/tools'
 import { z } from 'zod'
 
-import { ToolCallPart, ToolSet } from 'ai'
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { ToolCallPart, ToolSet } from 'ai'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 
@@ -601,6 +601,19 @@ ${getToolCallString('browser_logs', {
   waitUntil: 'domcontentloaded',
 })}
     `.trim(),
+  },
+  spawn_agents: {
+    parameters: z
+      .object({
+        agents: z
+          .object({
+            agent_type: z.string().describe('Agent to spawn'),
+            prompt: z.string().describe('Prompt to send to the agent'),
+          })
+          .array(),
+      })
+      .describe(`Spawn multiple agents and send a prompt to each of them.`),
+    description: '',
   },
   end_turn: {
     parameters: z
