@@ -976,7 +976,7 @@ export const mainPrompt = async (
       })
     } else if (toolCall.toolName === 'spawn_agents') {
       const { agents } = toolCall.args
-      for (const { agent_type: agentType, prompt } of agents) {
+      for (const { agent_type: agentType, prompt, include_message_history } of agents) {
         // TODO also check if current agent is able to spawn this agent
         if (!(agentType in agentTemplates)) {
           serverToolResults.push({

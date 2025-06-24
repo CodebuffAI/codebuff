@@ -26,6 +26,7 @@ export const claude4_gemini_thinking: AgentTemplate = {
       {
         agent_type: AgentTemplateTypes.gemini25pro_thinking,
         prompt: '',
+        include_message_history: true,
       },
     ]),
   }),
