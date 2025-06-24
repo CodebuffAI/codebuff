@@ -1,4 +1,9 @@
-import { CostMode, geminiModels, Model, models } from '@codebuff/common/constants'
+import {
+  CostMode,
+  geminiModels,
+  Model,
+  models,
+} from '@codebuff/common/constants'
 
 import { CoreMessage } from 'ai'
 import { getAgentStream } from './prompt-agent-stream'
@@ -22,10 +27,10 @@ export async function getThinkingStream(
     costMode: options.costMode,
     selectedModel: model,
     stopSequences: [
+      '</thought>',
       '</think_deeply>',
-      '<think_deeply>',
       '<read_files>',
-      '<write_file>',
+      '<write_files>',
       '<end_turn>',
     ],
     clientSessionId: options.clientSessionId,
@@ -81,6 +86,7 @@ Misc Guidelines:
 Important: Keep your thinking as short as possible! Just a few words suffices. Especially in simple cases or when the next action is clear.`
 
   const thinkDeeplyPrefix = '<think_deeply>\n<thought>'
+  const thinkDeeplySuffix = '</thought>\n</think_deeply>'
 
   const agentMessages: CoreMessage[] = [
     ...messages,
@@ -125,16 +131,9 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
     onChunk(chunk)
   }
 
-  response = thinkDeeplyPrefix + response
+  onChunk(thinkDeeplySuffix)
 
-  if (!response.includes('</thought>')) {
-    onChunk('</thought>\n')
-    response += '</thought>\n'
-  }
-  if (!response.includes('</think_deeply>')) {
-    onChunk('</think_deeply>')
-    response += '</think_deeply>'
-  }
+  response = thinkDeeplyPrefix + response + thinkDeeplySuffix
 
   logger.debug({ response: response }, 'Thinking stream')
   return response

@@ -2,15 +2,6 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import {
-  CoreAssistantMessage,
-  CoreMessage,
-  CoreUserMessage,
-  generateObject,
-  generateText,
-  LanguageModelV1,
-  streamText,
-} from 'ai'
-import {
   AnthropicModel,
   claudeModels,
   finetunedVertexModels,
@@ -20,16 +11,25 @@ import {
   openaiModels,
   type GeminiModel,
 } from '@codebuff/common/constants'
+import {
+  CoreAssistantMessage,
+  CoreMessage,
+  CoreUserMessage,
+  generateObject,
+  generateText,
+  LanguageModelV1,
+  streamText,
+} from 'ai'
 
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { Message } from '@codebuff/common/types/message'
+import { logger } from '@codebuff/common/util/logger'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
-import { logger } from '@codebuff/common/util/logger'
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
@@ -91,6 +91,7 @@ export const promptAiSdkStream = async function* (
   let finishedReasoning = false
 
   for await (const chunk of response.fullStream) {
+    console.log({ chunk }, 'asdf')
     if (chunk.type === 'error') {
       logger.error({ chunk, model: options.model }, 'Error from AI SDK')
       if (process.env.ENVIRONMENT !== 'prod') {

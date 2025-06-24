@@ -8,6 +8,7 @@ export type AgentTemplate = {
   description: string
   model: Model
   toolNames: ToolName[]
+  stopSequences: string[]
   spawnableAgents: AgentTemplateType[]
 
   systemPrompt: string

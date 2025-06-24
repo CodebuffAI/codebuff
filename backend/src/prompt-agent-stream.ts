@@ -1,12 +1,10 @@
+import { AnthropicModel, providerModelNames } from '@codebuff/common/constants'
 import { CoreMessage } from 'ai'
-import {
-  AnthropicModel,
-  CostMode,
-  Model,
-  providerModelNames
-} from '@codebuff/common/constants'
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
+import { AgentTemplate } from './templates/types'
+
+import { CostMode, Model } from '@codebuff/common/constants'
 
 export const getAgentStream = (params: {
   costMode: CostMode
@@ -67,6 +65,55 @@ export const getAgentStream = (params: {
           throw new Error(
             `Unknown model/provider: ${selectedModel}/${model}/${provider}`
           )
+        })()
+  }
+
+  return getStream
+}
+
+export const getAgentStreamFromTemplate = (params: {
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+
+  template: AgentTemplate
+}) => {
+  const { clientSessionId, fingerprintId, userInputId, userId, template } =
+    params
+  const { model, stopSequences } = template
+
+  const provider = providerModelNames[model as keyof typeof providerModelNames]
+
+  const getStream = (messages: CoreMessage[]) => {
+    const options: Parameters<typeof promptAiSdkStream>[0] = {
+      messages,
+      model: model as AnthropicModel,
+      stopSequences,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      maxTokens: 32_000,
+    }
+
+    if (provider === 'gemini') {
+      if (!options.providerOptions) {
+        options.providerOptions = {}
+      }
+      if (!options.providerOptions.gemini) {
+        options.providerOptions.gemini = {}
+      }
+      if (!options.providerOptions.gemini.thinkingConfig) {
+        options.providerOptions.gemini.thinkingConfig = { thinkingBudget: 128 }
+      }
+    }
+    return provider === 'anthropic' ||
+      provider === 'openai' ||
+      provider === 'gemini'
+      ? promptAiSdkStream(options)
+      : (() => {
+          throw new Error(`Unknown model/provider: ${model}/${provider}`)
         })()
   }
 

@@ -8,15 +8,16 @@ import { ClientAction } from '@codebuff/common/actions'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getToolCallString, toolSchema } from '@codebuff/common/constants/tools'
-import { SessionState, ToolResult } from '@codebuff/common/types/session-state'
+import {
+  SessionState,
+  ToolResult,
+  type AgentTemplateType,
+} from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
 import { parseFileBlocks, ProjectFileContext } from '@codebuff/common/util/file'
 import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import {
-  geminiModels,
-  getModelForMode,
-  getModelFromShortName,
   HIDDEN_FILE_READ_STATUS,
   Model,
   models,
@@ -26,7 +27,6 @@ import {
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
-import { codebuffConfigFile } from '@codebuff/common/json-config/constants'
 import { CodebuffMessage } from '@codebuff/common/types/message'
 import { CoreMessage } from 'ai'
 import { checkTerminalCommand } from './check-terminal-command'
@@ -34,25 +34,22 @@ import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
-import { getDocumentationForQuery } from './get-documentation-for-query'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
-import { getAgentStream } from './prompt-agent-stream'
+import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { research } from './research'
-import { getAgentSystemPrompt } from './system-prompt/agent-system-prompt'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentTemplates } from './templates/agent-list'
+import { getAgentPrompt } from './templates/strings'
 import { getThinkingStream } from './thinking-stream'
 import {
   ClientToolCall,
   CodebuffToolCall,
-  getFilteredToolsInstructions,
   parseRawToolCall,
   TOOL_LIST,
   ToolName,
-  TOOLS_WHICH_END_THE_RESPONSE,
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
@@ -126,6 +123,7 @@ export const mainPrompt = async (
   } = action
   const { fileContext, mainAgentState } = sessionState
   const { agentContext } = mainAgentState
+
   const startTime = Date.now()
   let messageHistory = sessionState.mainAgentState.messageHistory
 
@@ -133,20 +131,24 @@ export const mainPrompt = async (
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
-  const model =
-    modelConfig?.agentModel ??
-    getModelFromShortName(selectedModel) ??
-    getModelForMode(costMode, 'agent')
+  const agentType = (
+    {
+      ask: 'claude4_base',
+      lite: 'gemini25flash_base',
+      normal: 'claude4_base',
+      max: 'claude4_base',
+      experimental: 'gemini25pro_base',
+    } satisfies Record<CostMode, AgentTemplateType>
+  )[costMode]
+  const agentTemplate = agentTemplates[agentType]
+  const { model } = agentTemplate
 
-  const getStream = getAgentStream({
-    costMode,
-    selectedModel: model,
-    stopSequences: TOOLS_WHICH_END_THE_RESPONSE.map((tool) => `</${tool}>`),
+  const getStream = getAgentStreamFromTemplate({
     clientSessionId,
     fingerprintId,
     userInputId: promptId,
     userId,
-    modelConfig,
+    template: agentTemplate,
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
@@ -163,97 +165,9 @@ export const mainPrompt = async (
     })
   }
 
-  const hasKnowledgeFiles =
-    Object.keys(fileContext.knowledgeFiles).length > 0 ||
-    Object.keys(fileContext.userKnowledgeFiles ?? {}).length > 0
-  const isNotFirstUserMessage =
-    messageHistory.filter((m) => m.role === 'user').length > 0
-  const justRanTerminalCommand = toolResults.some(
-    (t) => t.toolName === 'run_terminal_command'
-  )
-  const isAskMode = costMode === 'ask'
   const isExporting =
     prompt &&
     (prompt.toLowerCase() === '/export' || prompt.toLowerCase() === 'export')
-  const thinkingEnabled =
-    costMode === 'max' || modelConfig?.reasoningModel !== undefined
-  const isLiteMode = costMode === 'lite'
-  const isGeminiPro = model === models.gemini2_5_pro_preview
-  const isFlash =
-    (model as Model) === geminiModels.gemini2_5_flash_thinking ||
-    model === geminiModels.gemini2_5_flash
-  const toolsInstructions = getFilteredToolsInstructions(costMode, readOnlyMode)
-  const userInstructions = buildArray(
-    isAskMode &&
-      'You are a coding agent in "ASK" mode so the user can ask questions, which means you do not have access to tools that can modify files or run terminal commands. You should instead answer the user\'s questions and come up with brilliant plans which can later be implemented.',
-    'Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. You must finally use the end_turn tool at the end of your response.',
-
-    'If the user asks a question, use the research tool to gather information and answer the question, and do not make changes to the code!',
-
-    'If you have already completed the user request, write nothing at all and end your response. If you have already made 1 attempt at fixing an error, you should stop and end_turn to wait for user feedback. Err on the side of ending your response early!',
-
-    "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool. If the user specifies that you don't ask questions, make your best assumption and skip this step.",
-
-    'You must use the research tool for all requests, except the most trivial in order make sure you have all the information you need!',
-
-    'Be extremely concise in your replies. Example: If asked what 2+2 equals, respond simply: "4". No need to even write a full sentence.',
-
-    "The tool results will be provided by the user's *system* (and **NEVER** by the assistant).",
-
-    'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ...", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area.',
-
-    isGeminiPro
-      ? toolsInstructions
-      : `Any tool calls will be run from the project root (${sessionState.fileContext.projectRoot}) unless otherwise specified`,
-
-    'You must read additional files with the read_files tool whenever it could possibly improve your response. Before you use write_file to edit an existing file, make sure to read it if you have not already!',
-
-    (isFlash || isGeminiPro) &&
-      'Important: When mentioning a file path, for example for <write_file> or <read_files>, make sure to include all the directories in the path to the file from the project root. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts! Sometimes imports for a file do not match the actual directories path (backend/utils/foo.ts for example).',
-
-    !isLiteMode &&
-      'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
-
-    'Please preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
-
-    'If you are trying to kill background processes, make sure to kill the entire process GROUP (or tree in Windows), and always prefer SIGTERM signals. If you restart the process, make sure to do so with process_type=BACKGROUND',
-
-    !isLiteMode &&
-      `To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.`,
-
-    (isFlash || isGeminiPro) &&
-      "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply> or <write_file> <path> </path> <content> </content> </write_file>!",
-
-    (isFlash || isGeminiPro) &&
-      'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area. Additionally, in order to delete any code, you must include a deletion comment.',
-
-    thinkingEnabled
-      ? 'Start your response with the think_deeply tool call to decide how to proceed.'
-      : 'If the user request is very complex, consider invoking think_deeply.',
-
-    'If the user is starting a new feature or refactoring, consider invoking the create_plan tool.',
-    "Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
-    'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
-
-    hasKnowledgeFiles &&
-      'If the knowledge files (or CLAUDE.md) say to run specific terminal commands after every change, e.g. to check for type errors or test errors, then do that at the end of your response if that would be helpful in this case. No need to run these checks for simple changes.',
-
-    isNotFirstUserMessage &&
-      'If you have learned something useful for the future that is not derivable from the code, consider updating a knowledge file at the end of your response to add this condensed information.',
-
-    'Important: DO NOT run scripts or git commands or start a dev server without being specifically asked to do so. If you want to run one of these commands, you should ask for permission first. This can prevent costly accidents!',
-
-    'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
-
-    'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
-
-    'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.'
-  ).join('\n\n')
-
-  const toolInstructions = buildArray(
-    justRanTerminalCommand &&
-      `If the tool result above is of a terminal command succeeding and you have completed the user's request, please do not write anything else and end your response.`
-  ).join('\n\n')
 
   const messagesWithToolResultsAndUser = buildArray<CodebuffMessage>(
     ...messageHistory,
@@ -264,14 +178,7 @@ export const mainPrompt = async (
     prompt && [
       {
         role: 'user' as const,
-        content: asSystemMessage(
-          `Assistant cwd (project root): ${sessionState.fileContext.projectRoot}\nUser cwd: ${sessionState.fileContext.cwd}`
-        ),
-        timeToLive: 'agentStep',
-      },
-      {
-        role: 'user' as const,
-        content: prompt,
+        content: asUserMessage(prompt),
       },
     ]
   )
@@ -322,7 +229,7 @@ export const mainPrompt = async (
   }
 
   // Check number of assistant messages since last user message with prompt
-  if (sessionState.mainAgentState.stepsRemaining <= 0) {
+  if (mainAgentState.stepsRemaining <= 0) {
     logger.warn(
       `Detected too many consecutive assistant messages without user prompt`
     )
@@ -339,13 +246,13 @@ export const mainPrompt = async (
       sessionState: {
         ...sessionState,
         mainAgentState: {
-          ...sessionState.mainAgentState,
+          ...mainAgentState,
           messageHistory: [
             ...expireMessages(messagesWithToolResultsAndUser, 'userPrompt'),
             {
               role: 'user',
               content: asSystemMessage(
-                `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in ${codebuffConfigFile}.`
+                `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json.`
               ),
             },
           ],
@@ -355,16 +262,6 @@ export const mainPrompt = async (
       toolResults: [],
     }
   }
-
-  const relevantDocumentationPromise = prompt
-    ? getDocumentationForQuery(prompt, {
-        tokens: 5000,
-        clientSessionId,
-        userInputId: promptId,
-        fingerprintId,
-        userId,
-      })
-    : Promise.resolve(null)
 
   const fileRequestMessagesTokens = countTokensJson(
     messagesWithToolResultsAndUser
@@ -395,7 +292,7 @@ export const mainPrompt = async (
     fileContext,
     null,
     {
-      skipRequestingFiles: !prompt,
+      skipRequestingFiles: true,
       agentStepId,
       clientSessionId,
       fingerprintId,
@@ -460,9 +357,8 @@ export const mainPrompt = async (
       {
         role: 'user' as const,
         content: asSystemInstruction(
-          'Before continuing with the user request, read some relevant files first.'
+          `Before continuing with the user request, read the following files:\n${newFiles.map((file) => file.path).join('\n')}`
         ),
-        timeToLive: 'userPrompt',
       },
       {
         role: 'assistant' as const,
@@ -477,15 +373,8 @@ export const mainPrompt = async (
     )
   }
 
-  const relevantDocumentation = await relevantDocumentationPromise
-
-  const hasAssistantMessage = messageHistory.some((m) => m.role === 'assistant')
   const messagesWithUserMessage = buildArray<CodebuffMessage>(
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
-    /*
-    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep').map(
-      (m) => castAssistantMessage(m)
-    ),*/
 
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -510,59 +399,24 @@ export const mainPrompt = async (
 
     ...readFileMessages,
 
-    prompt && [
-      relevantDocumentation && {
-        role: 'user' as const,
-        content: asSystemMessage(
-          `Relevant context from web documentation:\n${relevantDocumentation}`
-        ),
-      },
-      agentContext && {
-        role: 'user' as const,
-        content: asSystemMessage(agentContext.trim()),
-        timeToLive: 'userPrompt',
-      },
-      /*
-      hasAssistantMessage && {
-        role: 'user' as const,
-        content: asSystemInstruction(
-          "All <previous_assistant_message>messages</previous_assistant_message> were from some less intelligent assistant. Your task is to identify any mistakes the previous assistant has made or if they have gone off track. Reroute the conversation back toward the user request, correct the previous assistant's mistakes (including errors from the system), identify potential issues in the code, etc.\nSeamlessly continue the conversation as if you are the same assistant, because that is what the user sees. e.g. when correcting the previous assistant, use language as if you were correcting yourself.\nIf you cannot identify any mistakes, that's great! Simply continue the conversation as if you are the same assistant. The user has seen the previous assistant's messages, so do not repeat what was already said."
-        ),
-        timeToLive: 'userPrompt',
-      },*/
-      {
-        role: 'user' as const,
-        content: asSystemInstruction(userInstructions),
-        timeToLive: 'userPrompt',
-      },
-    ],
+    prompt && {
+      role: 'user',
+      content: getAgentPrompt(
+        agentType,
+        'userInputPrompt',
+        fileContext,
+        mainAgentState
+      ),
+      timeToLive: 'userPrompt',
+    },
 
     {
       role: 'user',
-      content: asSystemMessage(
-        `You have ${sessionState.mainAgentState.stepsRemaining} more response(s) before you will be cut off and the turn will be ended automatically.${sessionState.mainAgentState.stepsRemaining === 1 ? ' (This will be the last response.)' : ''}`
-      ),
-      timeToLive: 'agentStep',
-    },
-
-    prompt && {
-      role: 'user' as const,
-      content: asSystemMessage(
-        `Assistant cwd (project root): ${sessionState.fileContext.projectRoot}\nUser cwd: ${sessionState.fileContext.cwd}`
-      ),
-      timeToLive: 'agentStep',
-    },
-    !prompt &&
-      toolInstructions && {
-        role: 'user' as const,
-        content: asSystemInstruction(toolInstructions),
-        timeToLive: 'agentStep' as const,
-      },
-
-    (isAskMode || readOnlyMode) && {
-      role: 'user',
-      content: asSystemMessage(
-        `You have been switched to ${readOnlyMode ? 'READ-ONLY' : 'ASK'} mode. As such, you can no longer use the write_file tool or run_terminal_command tool. Do not attempt to use them because they will not work!`
+      content: getAgentPrompt(
+        agentType,
+        'agentStepPrompt',
+        fileContext,
+        mainAgentState
       ),
       timeToLive: 'agentStep',
     }
@@ -570,13 +424,18 @@ export const mainPrompt = async (
 
   const iterationNum = messagesWithUserMessage.length
 
-  const system = getAgentSystemPrompt(fileContext, readOnlyMode, costMode)
+  const system = getAgentPrompt(
+    agentType,
+    'systemPrompt',
+    fileContext,
+    mainAgentState
+  )
   const systemTokens = countTokensJson(system)
 
   // Possibly truncated messagesWithUserMessage + cache.
   const agentMessages = getCoreMessagesSubset(
     messagesWithUserMessage,
-    systemTokens + countTokensJson({ agentContext, userInstructions })
+    systemTokens
   )
 
   const debugPromptCaching = false
@@ -621,8 +480,9 @@ export const mainPrompt = async (
     >[]
   > = {}
 
+  // vvv TEMPORARY FOR PRE-AGENT SPAWNING vvv
   // Think deeply at the start of every response
-  if (thinkingEnabled) {
+  if (costMode === 'max') {
     let response = await getThinkingStream(
       coreMessagesWithSystem(agentMessages, system),
       (chunk) => {
@@ -643,6 +503,7 @@ export const mainPrompt = async (
     }
     fullResponse += response
   }
+  // ^^^ TEMPORARY FOR PRE-AGENT SPAWNING ^^^
 
   const stream = getStream(
     coreMessagesWithSystem(
@@ -701,7 +562,7 @@ export const mainPrompt = async (
 
         // Filter out restricted tools in ask mode unless exporting summary
         if (
-          (isAskMode || readOnlyMode) &&
+          (costMode === 'ask' || readOnlyMode) &&
           !isExporting &&
           buildArray<ToolName>(
             'write_file',
@@ -987,7 +848,7 @@ export const mainPrompt = async (
         fileContext,
         null,
         {
-          skipRequestingFiles: false,
+          skipRequestingFiles: true,
           requestedFiles: paths,
           agentStepId,
           clientSessionId,
@@ -1211,9 +1072,9 @@ export const mainPrompt = async (
   const newSessionState: SessionState = {
     ...sessionState,
     mainAgentState: {
-      ...sessionState.mainAgentState,
+      ...mainAgentState,
       messageHistory: finalMessageHistory,
-      stepsRemaining: sessionState.mainAgentState.stepsRemaining - 1,
+      stepsRemaining: mainAgentState.stepsRemaining - 1,
       agentContext: newAgentContext,
     },
   }
