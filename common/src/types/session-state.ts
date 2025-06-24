@@ -36,7 +36,7 @@ export const AgentStateSchema: z.ZodType<{
 )
 export type AgentState = z.infer<typeof AgentStateSchema>
 
-const AgentTemplateTypeList = [
+export const AgentTemplateTypeList = [
   'claude4_base',
   'gemini25pro_base',
   'gemini25flash_base',

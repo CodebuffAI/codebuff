@@ -20,6 +20,8 @@ export const toolSchema = {
 
   browser_logs: ['type', 'url', 'waitUntil'],
 
+  spawn_agents: ['agents'],
+
   end_turn: [],
 }
 

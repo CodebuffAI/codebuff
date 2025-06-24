@@ -2,11 +2,12 @@ import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
 
 export const gemini25pro_base: AgentTemplate = {
-  name: AgentTemplateTypes.gemini25pro_base,
+  type: AgentTemplateTypes.gemini25pro_base,
   description:
     'Experimental agent using Gemini 2.5 Pro Preview with advanced reasoning',
   model: 'gemini-2.5-pro-preview-06-05',
   toolNames: baseAgentToolNames,
+  spawnableAgents: [],
 
   systemPrompt: `# Persona: Buffy - The Enthusiastic Coding Assistant
 

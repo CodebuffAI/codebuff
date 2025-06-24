@@ -4,10 +4,11 @@ import { Model } from 'common/constants'
 import { ToolName } from '../tools'
 
 export type AgentTemplate = {
-  name: AgentTemplateType
+  type: AgentTemplateType
   description: string
   model: Model
   toolNames: ToolName[]
+  spawnableAgents: AgentTemplateType[]
 
   systemPrompt: string
   userInputPrompt: string
