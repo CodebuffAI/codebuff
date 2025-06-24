@@ -67,10 +67,10 @@ If you want to set up Codebuff for local development:
 1. Clone the repository and navigate to the project directory.
 
 2. Set up your [Infisical](https://infisical.com/) user. Ask one of us to add you to the project. Then:
-  a. Install the Infisical CLI: `npm install -g @infisical/cli`
-  b. Log in to Infisical: `infisical login`
-  c. When prompted, select the "US" region.
-  d. Run `infisical secrets` to make sure your secrets are set up correctly.
+   1. Install the Infisical CLI: `npm install -g @infisical/cli`
+   2. Log in to Infisical: `infisical login`
+   3. When prompted, select the "US" region.
+   4. Run `infisical secrets` to make sure your secrets are set up correctly.
 
 3. Run `bun install` in the root directory to install remaining dependencies. (See [here](https://bun.sh/docs/installation) for instructions on how to install Bun.)
 
