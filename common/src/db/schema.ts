@@ -117,10 +117,8 @@ export const creditLedger = pgTable(
 export const syncFailure = pgTable(
   'sync_failure',
   {
-    message_id: text('message_id')
-      .primaryKey()
-      .references(() => message.id, { onDelete: 'cascade' }),
-    provider: text('provider').notNull().default('stripe'),
+    id: text('id').primaryKey(),
+    provider: text('provider').notNull(),
     created_at: timestamp('created_at', {
       mode: 'date',
       withTimezone: true,
