@@ -65,3 +65,11 @@ export const baseAgentToolNames: ToolName[] = [
   ...editingToolNames,
   ...readOnlyToolNames,
 ] as const
+
+export const baseAgentStopSequences: string[] = [
+  '</read_files>',
+  '</find_files>',
+  '</run_terminal_command>',
+  '</code_search>',
+  '</research>',
+] as const

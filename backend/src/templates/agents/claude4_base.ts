@@ -1,11 +1,17 @@
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
+import {
+  AgentTemplate,
+  baseAgentStopSequences,
+  baseAgentToolNames,
+  PLACEHOLDER,
+} from '../types'
 
 export const claude4_base: AgentTemplate = {
   type: AgentTemplateTypes.claude4_base,
   description: 'Base agent using Claude Sonnet 4',
   model: 'claude-sonnet-4-20250514',
   toolNames: baseAgentToolNames,
+  stopSequences: baseAgentStopSequences,
   spawnableAgents: [],
   initialAssistantMessage: null,
   initialAssistantPrefix: null,

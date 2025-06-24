@@ -6,6 +6,13 @@ export const gemini25pro_thinking: AgentTemplate = {
   description: 'Max agent using Claude Sonnet for highest quality responses',
   model: 'claude-sonnet-4-20250514',
   toolNames: baseAgentToolNames,
+  stopSequences: [
+    '</thought>',
+    '</think_deeply>',
+    '<read_files>',
+    '<write_files>',
+    '<end_turn>',
+  ],
   spawnableAgents: [],
   initialAssistantMessage: null,
   initialAssistantPrefix: null,
