@@ -4,11 +4,12 @@ import fs from 'fs'
 import path from 'path'
 
 import { mock } from 'bun:test'
+import { CodebuffMessage } from 'common/types/message'
 import { SessionState, ToolResult } from 'common/types/session-state'
 import { blue } from 'picocolors'
 import { WebSocket } from 'ws'
 import * as mainPromptModule from '../backend/src/main-prompt'
-import { ClientToolCall } from '../backend/src/tools'
+import { ClientToolCall, CodebuffToolCall } from '../backend/src/tools'
 import { FileChanges } from '../common/src/actions'
 import { TEST_USER_ID } from '../common/src/constants'
 import {
@@ -26,7 +27,7 @@ import { ModelConfig } from './git-evals/types'
 const DEBUG_MODE = true
 
 export type AgentStep = {
-  response: string
+  response: CodebuffMessage[]
   toolCalls: ClientToolCall[]
   toolResults: ToolResult[]
 }
@@ -113,21 +114,41 @@ export async function runMainPrompt(
     toolResults,
   }
 
-  let fullResponse = ''
+  let fullResponse: CodebuffMessage[] = []
+  let textBuffer = ''
+  function flushTextBuffer() {
+    if (textBuffer) {
+      fullResponse.push({ role: 'assistant', content: textBuffer })
+      textBuffer = ''
+    }
+  }
 
   const result = await mainPromptModule.mainPrompt(mockWs, promptAction, {
     userId: TEST_USER_ID,
     clientSessionId: sessionId,
-    onResponseChunk: (chunk: string) => {
+    onResponseChunk: (chunk: string | CodebuffToolCall) => {
       if (DEBUG_MODE) {
-        process.stdout.write(chunk)
+        if (typeof chunk === 'string') {
+          process.stdout.write(chunk)
+        } else {
+          console.log(chunk)
+        }
       }
-      fullResponse += chunk
+      if (typeof chunk === 'string') {
+        textBuffer += chunk
+      } else {
+        flushTextBuffer()
+        fullResponse.push({
+          role: 'assistant',
+          content: [{ type: 'tool-call', ...chunk }],
+        })
+      }
     },
     selectedModel: undefined,
     readOnlyMode: false, // readOnlyMode = false for evals
     modelConfig: options.modelConfig,
   })
+  flushTextBuffer()
 
   return {
     ...result,
@@ -135,13 +156,28 @@ export async function runMainPrompt(
   }
 }
 
-export async function runToolCalls(toolCalls: ClientToolCall[]) {
-  const toolResults: ToolResult[] = []
+export async function runToolCalls(
+  toolCalls: ClientToolCall[]
+): Promise<CodebuffMessage[]> {
+  const callsAndResults: CodebuffMessage[] = []
   for (const toolCall of toolCalls) {
     const toolResult = await handleToolCall(toolCall)
-    toolResults.push(toolResult)
+    callsAndResults.push(
+      { role: 'assistant', content: [{ type: 'tool-call', ...toolCall }] },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolName: toolCall.toolName,
+            toolCallId: toolCall.toolCallId,
+            result: toolResult,
+          },
+        ],
+      }
+    )
   }
-  return toolResults
+  return callsAndResults
 }
 
 export async function loopMainPrompt({
@@ -180,6 +216,9 @@ export async function loopMainPrompt({
 
   for (; iterations < maxIterations; iterations++) {
     console.log('\nIteration', iterations)
+    if (iterations === 1) {
+      currentSessionState.mainAgentState.stepsRemaining = maxIterations
+    }
     let {
       sessionState: newSessionState,
       toolCalls: newToolCalls,
@@ -198,13 +237,11 @@ export async function loopMainPrompt({
     const stop = stopCondition && stopCondition(currentSessionState, toolCalls)
     if (stop) break
 
-    toolResults = [
-      ...newToolResults,
-      ...(await runToolCalls(newToolCalls)),
-    ].filter((tool) => tool.toolName !== 'end_turn')
+    const toolCallMessages = await runToolCalls(newToolCalls)
+    currentSessionState.mainAgentState.messageHistory.push(...toolCallMessages)
 
     steps.push({
-      response: fullResponse,
+      response: [...fullResponse, ...toolCallMessages],
       toolCalls: newToolCalls,
       toolResults: newToolResults,
     })
@@ -213,7 +250,11 @@ export async function loopMainPrompt({
       (call) => call.toolName === 'end_turn'
     )
 
-    if (containsEndTurn || toolResults.length === 0) {
+    if (
+      containsEndTurn ||
+      (toolCalls.length === 0 &&
+        typeof fullResponse[fullResponse.length - 1]?.content === 'string')
+    ) {
       break
     }
   }

@@ -3,8 +3,8 @@ import fs from 'fs'
 import pLimit from 'p-limit'
 import path from 'path'
 
+import { models } from 'common/constants'
 import { promptAiSdkStructured } from '../../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
-import { claudeModels } from '../../common/src/constants'
 import { withTimeout } from '../../common/src/util/promise'
 import { generateCompactId } from '../../common/src/util/string'
 import {
@@ -29,7 +29,7 @@ import {
 } from './types'
 
 // Try Gemini!
-const COST_MODE = 'normal' as const
+const COST_MODE = 'experimental' as const
 
 export async function runSingleEval(
   evalCommit: EvalCommit,
@@ -82,7 +82,7 @@ export async function runSingleEval(
       const renderedTrace = trace
         .map(
           ({ prompt, steps }) =>
-            `You: ${prompt}\n\nCodebuff:${steps.map(({ response, toolCalls, toolResults }) => `${response}\n\nTool calls: ${JSON.stringify(toolCalls)}\n\nTool results: ${JSON.stringify(toolResults)}`).join('\n\n')}`
+            `You: ${prompt}\n\nCodebuff:${steps.map(({ response, toolCalls, toolResults }) => `${JSON.stringify(response)}\n\nTool calls: ${JSON.stringify(toolCalls)}\n\nTool results: ${JSON.stringify(toolResults)}`).join('\n\n')}`
         )
         .join('\n\n')
 
@@ -111,7 +111,7 @@ Explain your reasoning in detail.`,
             },
           ],
           schema: AgentDecisionSchema,
-          model: claudeModels.sonnet,
+          model: models.gemini2_5_flash,
           clientSessionId,
           fingerprintId,
           userInputId: generateCompactId(),

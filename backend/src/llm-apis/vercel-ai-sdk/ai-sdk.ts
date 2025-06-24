@@ -7,6 +7,7 @@ import {
   CoreUserMessage,
   generateObject,
   generateText,
+  InvalidToolArgumentsError,
   LanguageModelV1,
   streamText,
   ToolCallPart,
@@ -96,10 +97,16 @@ export const promptAiSdkStream = async function* (
     if (chunk.type === 'step-finish' || chunk.type === 'step-start') {
       continue
     }
-    console.log({ chunk }, 'asdf')
     if (chunk.type === 'error') {
-      console.log('error asdf', { options })
-
+      if (InvalidToolArgumentsError.isInstance(chunk.error)) {
+        yield {
+          type: 'tool-call',
+          toolName: chunk.error.toolName,
+          toolCallId: generateCompactId(),
+          args: JSON.parse(chunk.error.toolArgs),
+        }
+        continue
+      }
       logger.error({ chunk, model: options.model }, 'Error from AI SDK')
       if (process.env.ENVIRONMENT !== 'prod') {
         throw chunk.error instanceof Error

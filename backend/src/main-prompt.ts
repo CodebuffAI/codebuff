@@ -15,6 +15,7 @@ import { AnalyticsEvent } from 'common/constants/analytics-events'
 import { trackEvent } from 'common/src/analytics'
 import {
   SessionState,
+  ToolResult,
   type AgentTemplateType,
 } from 'common/types/session-state'
 import { buildArray } from 'common/util/array'
@@ -89,6 +90,7 @@ export const mainPrompt = async (
 ): Promise<{
   sessionState: SessionState
   toolCalls: Array<ClientToolCall>
+  toolResults: ToolResult[]
 }> => {
   const {
     userId: maybeUserId,
@@ -168,19 +170,10 @@ export const mainPrompt = async (
     prompt && [
       {
         role: 'user' as const,
-        content: asSystemMessage(
-          `Assistant cwd (project root): ${fileContext.projectRoot}\nUser cwd: ${fileContext.cwd}`
-        ),
-        timeToLive: 'agentStep',
-      },
-      {
-        role: 'user' as const,
         content: asUserMessage(prompt),
       },
     ]
   )
-
-  console.log('asdf', { messagesWithToolResultsAndUser })
 
   if (prompt) {
     // Check if this is a direct terminal command
@@ -225,6 +218,7 @@ export const mainPrompt = async (
             },
           },
         ],
+        toolResults: [],
       }
     }
   }
@@ -261,6 +255,7 @@ export const mainPrompt = async (
         },
       },
       toolCalls: [],
+      toolResults: [],
     }
   }
 
@@ -451,6 +446,7 @@ export const mainPrompt = async (
       responseBuffer = ''
     }
   }
+  const serverToolResults: ToolResult[] = []
   function addToolCallWithResponse(
     toolCall: CodebuffToolCall,
     toolResult: any
@@ -470,6 +466,11 @@ export const mainPrompt = async (
         ],
       }
     )
+    serverToolResults.push({
+      toolName: toolCall.toolName,
+      toolCallId: toolCall.toolCallId,
+      result: toolResult,
+    })
   }
   const fileProcessingPromisesByPath: Record<
     string,
@@ -558,6 +559,7 @@ export const mainPrompt = async (
       toolCall.toolName === 'add_subgoal' ||
       toolCall.toolName === 'update_subgoal'
     ) {
+      addToolCallWithResponse(toolCall, 'Successfully updated subgoal.')
       subgoalToolCalls.push(toolCall)
     } else if (
       toolCall.toolName === 'code_search' ||
@@ -968,6 +970,7 @@ export const mainPrompt = async (
   return {
     sessionState: newSessionState,
     toolCalls: clientToolCalls,
+    toolResults: serverToolResults,
   }
 }
 

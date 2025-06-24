@@ -37,7 +37,7 @@ ${toolResults
   .map(
     (result) => `<tool_result>
 <tool>${result.toolName}</tool>
-<result>${result.result}</result>
+<result>${JSON.stringify(result.result)}</result>
 </tool_result>`
   )
   .join('\n\n')}

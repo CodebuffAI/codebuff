@@ -54,7 +54,7 @@ async function main() {
       fingerprintId,
       modelConfig
     )
-    console.log('Final result:', { result })
+    console.log(`Final result: ${JSON.stringify({ result }, null, 2)}`)
     if (process.send) {
       process.send({ type: 'result', result })
     }
