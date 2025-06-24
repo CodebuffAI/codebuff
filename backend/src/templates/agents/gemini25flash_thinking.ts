@@ -1,10 +1,11 @@
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { AgentTemplate, baseAgentToolNames, PLACEHOLDER } from '../types'
+import { claudeModels } from '@codebuff/common/constants'
 
 export const gemini25pro_thinking: AgentTemplate = {
   type: AgentTemplateTypes.gemini25pro_thinking,
   description: 'Max agent using Claude Sonnet for highest quality responses',
-  model: 'claude-sonnet-4-20250514',
+  model: claudeModels.sonnet,
   toolNames: baseAgentToolNames,
   stopSequences: [
     '</thought>',

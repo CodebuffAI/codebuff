@@ -5,12 +5,13 @@ import {
   baseAgentToolNames,
   PLACEHOLDER,
 } from '../types'
+import { geminiModels } from '@codebuff/common/constants'
 
 export const gemini25pro_base: AgentTemplate = {
   type: AgentTemplateTypes.gemini25pro_base,
   description:
     'Experimental agent using Gemini 2.5 Pro Preview with advanced reasoning',
-  model: 'gemini-2.5-pro-preview-06-05',
+  model: geminiModels.gemini2_5_pro_preview,
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
   spawnableAgents: [],

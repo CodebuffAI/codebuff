@@ -5,12 +5,13 @@ import {
   baseAgentToolNames,
   PLACEHOLDER,
 } from '../types'
+import { geminiModels } from '@codebuff/common/constants'
 
 export const gemini25flash_base: AgentTemplate = {
   type: AgentTemplateTypes.gemini25flash_base,
   description:
     'Lite agent using Gemini 2.5 Flash for fast and efficient responses',
-  model: 'gemini-2.5-flash-preview-05-20',
+  model: geminiModels.gemini2_5_flash,
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
   spawnableAgents: [],
