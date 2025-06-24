@@ -298,6 +298,6 @@ export function getLogoForModel(modelName: string): string | undefined {
     domain = providerDomains.deepseek
 
   return domain
-    ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16`
+    ? `https://www.google.com/s2/favicons?domain=${domain}&sz=256`
     : undefined
 }

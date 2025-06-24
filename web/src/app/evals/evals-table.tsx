@@ -123,6 +123,7 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
         'claude-opus-4-20250514': 'Claude 4 Opus',
         'claude-sonnet-4-20250514': 'Claude 4 Sonnet',
         'o3-2025-04-16': 'o3',
+        'o3-pro-2025-06-10': 'o3 Pro',
         'gemini-2.5-flash-preview-05-20': 'Gemini 2.5 Flash',
         'Default': 'Claude 4 Sonnet'
     }
@@ -151,8 +152,8 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
             const agentDisplay = modelDisplayNames[result.agent_model] || result.agent_model
             const reasonerDisplay = modelDisplayNames[result.reasoner_model] || result.reasoner_model
             return (
-                <div className="flex items-center space-x-2">
-                    {logo && <img src={logo} alt="Provider logo" className="w-4 h-4" />}
+                <div className="flex items-center space-x-3">
+                    {logo && <img src={logo} alt="Provider logo" className="w-6 h-6" />}
                     <div>{agentDisplay} with {reasonerDisplay} reasoning</div>
                 </div>
             )
@@ -162,8 +163,8 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
         const displayName = modelDisplayNames[modelName] || modelName
 
         return (
-            <div className="flex items-center space-x-2">
-                {logo && <img src={logo} alt="Provider logo" className="w-4 h-4" />}
+            <div className="flex items-center space-x-3">
+                {logo && <img src={logo} alt="Provider logo" className="w-6 h-6" />}
                 <div>{displayName}</div>
             </div>
         )
@@ -275,13 +276,13 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
                                                         {getBenchmarkModelName(result)}
                                                     </TableCell>
                                                     <TableCell className="align-top">
-                                                        <div className="relative w-32 h-6">
+                                                        <div className="relative w-36 h-8">
                                                             <div
                                                                 className="h-full bg-[#7CFF3F]"
                                                                 style={{ width: `${(result.avgScore / 10) * 100}%` }}
                                                             />
                                                             <div className="absolute left-1 top-0 h-full flex items-center">
-                                                                <span className="text-xs font-medium bg-black bg-opacity-10 px-1 rounded text-gray-900">
+                                                                <span className="text-sm font-medium bg-black bg-opacity-10 px-1 rounded text-gray-900">
                                                                     {formatScore(result.avgScore)}
                                                                 </span>
                                                             </div>
