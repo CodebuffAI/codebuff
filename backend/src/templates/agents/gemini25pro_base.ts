@@ -21,8 +21,8 @@ export const gemini25pro_base: AgentTemplate = {
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
   spawnableAgents: [],
-  initialAssistantMessage: null,
-  initialAssistantPrefix: null,
+  initialAssistantMessage: '',
+  initialAssistantPrefix: '',
 
   systemPrompt: baseAgentSystemPrompt(model),
   userInputPrompt: baseAgentUserInputPrompt(model),

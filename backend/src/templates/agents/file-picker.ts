@@ -1,13 +1,14 @@
+import { geminiModels } from '@codebuff/common/constants'
+import { getToolCallString } from '@codebuff/common/constants/tools'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { AgentTemplate, PLACEHOLDER } from '../types'
-import { getToolCallString } from '@codebuff/common/constants/tools'
-import { geminiModels } from '@codebuff/common/constants'
 
 export const file_picker: AgentTemplate = {
   type: AgentTemplateTypes.file_picker,
   description: 'File picker agent',
   model: geminiModels.gemini2_5_flash,
   toolNames: ['find_files', 'code_search', 'read_files'],
+  stopSequences: [],
   spawnableAgents: [],
   systemPrompt:
     `You are an expert at finding relevant files in a codebase. Provide a short analysis of all the locations in the codebase that could be helpful. You should leverage the find_files tool primarily as the first way to locate files, but you can also use code_search and read_files tools.
@@ -20,8 +21,7 @@ The goal is to find *all* files that could possibly be relevant to the user prom
   initialAssistantMessage: getToolCallString('find_files', {
     description: PLACEHOLDER.INITIAL_AGENT_PROMPT,
   }),
-  initialAssistantPrefix: null,
+  initialAssistantPrefix: '',
   userInputPrompt: ``,
   agentStepPrompt: ``,
-  stopSequences: [],
 }
