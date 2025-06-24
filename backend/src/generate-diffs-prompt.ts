@@ -1,4 +1,4 @@
-import { CostMode, models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/constants'
 import {
   createMarkdownFileBlock,
   createSearchReplaceBlock,
@@ -131,7 +131,6 @@ export const tryToDoStringReplacementWithExtraIndentation = (
 export async function retryDiffBlocksPrompt(
   filePath: string,
   oldContent: string,
-  costMode: CostMode,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,

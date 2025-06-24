@@ -8,9 +8,7 @@ import {
 } from '@codebuff/bigquery'
 import {
   finetunedVertexModels,
-  finetunedVertexModelNames,
   models,
-  type CostMode,
   type FinetunedVertexModel,
 } from '@codebuff/common/constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
@@ -28,6 +26,7 @@ import { countTokens } from '../util/token-counter'
 import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
+import { CoreMessage } from 'ai'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import {
@@ -35,12 +34,11 @@ import {
   coreMessagesWithSystem,
   getCoreMessagesSubset,
 } from '../util/messages'
-import { CoreMessage } from 'ai'
 
-import { getRequestContext } from '../websockets/request-context'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
+import { getRequestContext } from '../websockets/request-context'
 import {
   CustomFilePickerConfig,
   CustomFilePickerConfigSchema,
@@ -147,7 +145,6 @@ export async function requestRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode,
   repoId: string | undefined
 ) {
   // Check for organization custom file picker feature
@@ -158,18 +155,7 @@ export async function requestRelevantFiles(
     requestContext?.isRepoApprovedForUserInOrg
   )
 
-  const defaultCountPerRequest = {
-    lite: 8,
-    normal: 12,
-    max: 14,
-    experimental: 14,
-    ask: 12,
-  }
-
-  // Use custom file counts if available, otherwise use defaults
-  const countPerRequest =
-    customFilePickerConfig?.customFileCounts?.[costMode] ??
-    defaultCountPerRequest[costMode]
+  const countPerRequest = 12
 
   // Use custom max files per request if specified, otherwise default to 30
   const maxFilesPerRequest =
@@ -194,8 +180,7 @@ export async function requestRelevantFiles(
         fingerprintId,
         userInputId,
         userPrompt,
-        userId,
-        costMode
+        userId
       ).catch((error) => {
         logger.error({ error }, 'Error checking new files necessary')
         return { newFilesNecessary: true, response: 'N/A', duration: 0 }
@@ -254,7 +239,6 @@ export async function requestRelevantFiles(
     fingerprintId,
     userInputId,
     userId,
-    costMode,
     repoId,
     modelIdForRequest
   ).catch((error) => {
@@ -297,7 +281,6 @@ export async function requestRelevantFilesForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode,
   repoId: string | undefined
 ) {
   const COUNT = 50
@@ -337,7 +320,6 @@ export async function requestRelevantFilesForTraining(
     fingerprintId,
     userInputId,
     userId,
-    costMode,
     repoId
   )
 
@@ -353,7 +335,6 @@ export async function requestRelevantFilesForTraining(
     fingerprintId,
     userInputId,
     userId,
-    costMode,
     repoId
   )
 
@@ -381,7 +362,6 @@ async function getRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode,
   repoId: string | undefined,
   modelId?: FinetunedVertexModel
 ) {
@@ -416,7 +396,6 @@ async function getRelevantFiles(
     userInputId,
     model: models.gemini2flash,
     userId,
-    costMode,
     useFinetunedModel: finetunedModel,
     fingerprintId,
   })
@@ -436,7 +415,6 @@ async function getRelevantFiles(
       system,
       output: response,
       request_type: requestType,
-      cost_mode: costMode,
       user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
@@ -467,7 +445,6 @@ async function getRelevantFilesForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode,
   repoId: string | undefined
 ) {
   const bufferTokens = 100_000
@@ -508,7 +485,6 @@ async function getRelevantFilesForTraining(
       system,
       output: response,
       request_type: requestType,
-      cost_mode: costMode,
       user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,

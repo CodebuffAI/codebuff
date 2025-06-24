@@ -4,12 +4,11 @@ import {
   GetExpandedFileContextForTrainingBlobTrace,
   insertTrace,
 } from '@codebuff/bigquery'
-import { ClientAction } from '@codebuff/common/actions'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getToolCallString, toolSchema } from '@codebuff/common/constants/tools'
 import {
-  SessionState,
+  AgentState,
   ToolResult,
   type AgentTemplateType,
 } from '@codebuff/common/types/session-state'
@@ -17,19 +16,12 @@ import { buildArray } from '@codebuff/common/util/array'
 import { parseFileBlocks, ProjectFileContext } from '@codebuff/common/util/file'
 import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
-import {
-  HIDDEN_FILE_READ_STATUS,
-  Model,
-  models,
-  ONE_TIME_LABELS,
-  type CostMode,
-} from 'common/constants'
+import { HIDDEN_FILE_READ_STATUS, ONE_TIME_LABELS } from 'common/constants'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { CodebuffMessage } from '@codebuff/common/types/message'
 import { CoreMessage } from 'ai'
-import { checkTerminalCommand } from './check-terminal-command'
 import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
@@ -43,7 +35,6 @@ import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentTemplates } from './templates/agent-list'
 import { getAgentPrompt } from './templates/strings'
-import { getThinkingStream } from './thinking-stream'
 import {
   ClientToolCall,
   CodebuffToolCall,
@@ -69,10 +60,7 @@ import {
   renderReadFilesResult,
   renderToolResults,
 } from './util/parse-tool-call-xml'
-import {
-  simplifyReadFileResults,
-  simplifyReadFileToolResult,
-} from './util/simplify-tool-results'
+import { simplifyReadFileResults } from './util/simplify-tool-results'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 import {
@@ -86,67 +74,54 @@ import { processStreamWithTags } from './xml-stream-parser'
 // TODO: We might want to be able to turn this on on a per-repo basis.
 const COLLECT_FULL_FILE_CONTEXT = false
 
-export interface MainPromptOptions {
+export interface AgentOptions {
   userId: string | undefined
+  userInputId: string
   clientSessionId: string
+  fingerprintId: string
   onResponseChunk: (chunk: string) => void
-  selectedModel: string | undefined
-  readOnlyMode?: boolean
-  modelConfig?: { agentModel?: Model; reasoningModel?: Model } // Used by the backend for automatic evals
+
+  agentType: AgentTemplateType
+  fileContext: ProjectFileContext
+  agentState: AgentState
+  prompt: string | undefined
 }
 
-export const mainPrompt = async (
+export const runAgentStep = async (
   ws: WebSocket,
-  action: Extract<ClientAction, { type: 'prompt' }>,
-  options: MainPromptOptions
+  options: AgentOptions
 ): Promise<{
-  sessionState: SessionState
-  toolCalls: Array<ClientToolCall>
-  toolResults: Array<ToolResult>
+  agentState: AgentState
+  fullResponse: string
 }> => {
   const {
     userId,
+    userInputId,
+    fingerprintId,
     clientSessionId,
     onResponseChunk,
-    selectedModel,
-    readOnlyMode = false,
-    modelConfig,
+    fileContext,
+    agentType,
+    agentState,
+    prompt,
   } = options
 
-  const {
-    prompt,
-    sessionState: sessionState,
-    fingerprintId,
-    costMode,
-    promptId,
-    toolResults,
-  } = action
-  const { fileContext, mainAgentState } = sessionState
-  const { agentContext } = mainAgentState
+  const { agentContext } = agentState
 
   const startTime = Date.now()
-  let messageHistory = sessionState.mainAgentState.messageHistory
+  let messageHistory = agentState.messageHistory
 
   // Get the extracted repo ID from request context
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
-  const agentType = (
-    {
-      ask: 'claude4_base',
-      lite: 'gemini25flash_base',
-      normal: 'claude4_base',
-      max: 'claude4_base',
-      experimental: 'gemini25pro_base',
-    } satisfies Record<CostMode, AgentTemplateType>
-  )[costMode]
   const agentTemplate = agentTemplates[agentType]
   const { model } = agentTemplate
 
   const getStream = getAgentStreamFromTemplate({
     clientSessionId,
     fingerprintId,
-    userInputId: promptId,
+    userInputId,
     userId,
     template: agentTemplate,
   })
@@ -154,16 +129,14 @@ export const mainPrompt = async (
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
   // This is used to link logs within a single agent loop
   const agentStepId = crypto.randomUUID()
-  if (!readOnlyMode) {
-    trackEvent(AnalyticsEvent.AGENT_STEP, userId ?? '', {
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
-      repoName: repoId,
-    })
-  }
+  trackEvent(AnalyticsEvent.AGENT_STEP, userId ?? '', {
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    repoName: repoId,
+  })
 
   const isExporting =
     prompt &&
@@ -171,10 +144,6 @@ export const mainPrompt = async (
 
   const messagesWithToolResultsAndUser = buildArray<CodebuffMessage>(
     ...messageHistory,
-    toolResults.length > 0 && {
-      role: 'user' as const,
-      content: renderToolResults(toolResults),
-    },
     prompt && [
       {
         role: 'user' as const,
@@ -183,53 +152,8 @@ export const mainPrompt = async (
     ]
   )
 
-  if (prompt) {
-    // Check if this is a direct terminal command
-    const startTime = Date.now()
-    const terminalCommand = await checkTerminalCommand(prompt, {
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
-    })
-    const duration = Date.now() - startTime
-
-    if (terminalCommand) {
-      logger.debug(
-        {
-          duration,
-          prompt,
-        },
-        `Detected terminal command in ${duration}ms, executing directly: ${prompt}`
-      )
-      const newSessionState = {
-        ...sessionState,
-        messageHistory: expireMessages(
-          messagesWithToolResultsAndUser,
-          'userPrompt'
-        ),
-      }
-      return {
-        sessionState: newSessionState,
-        toolCalls: [
-          {
-            toolName: 'run_terminal_command',
-            toolCallId: generateCompactId(),
-            args: {
-              command: terminalCommand,
-              mode: 'user',
-              process_type: 'SYNC',
-              timeout_seconds: '-1',
-            },
-          },
-        ],
-        toolResults: [],
-      }
-    }
-  }
-
   // Check number of assistant messages since last user message with prompt
-  if (mainAgentState.stepsRemaining <= 0) {
+  if (agentState.stepsRemaining <= 0) {
     logger.warn(
       `Detected too many consecutive assistant messages without user prompt`
     )
@@ -243,23 +167,19 @@ export const mainPrompt = async (
     onResponseChunk(`${warningString}\n\n`)
 
     return {
-      sessionState: {
-        ...sessionState,
-        mainAgentState: {
-          ...mainAgentState,
-          messageHistory: [
-            ...expireMessages(messagesWithToolResultsAndUser, 'userPrompt'),
-            {
-              role: 'user',
-              content: asSystemMessage(
-                `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json.`
-              ),
-            },
-          ],
-        },
+      agentState: {
+        ...agentState,
+        messageHistory: [
+          ...expireMessages(messagesWithToolResultsAndUser, 'userPrompt'),
+          {
+            role: 'user',
+            content: asSystemMessage(
+              `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json.`
+            ),
+          },
+        ],
       },
-      toolCalls: [],
-      toolResults: [],
+      fullResponse: warningString,
     }
   }
 
@@ -275,8 +195,8 @@ export const mainPrompt = async (
       agentStepId,
       clientSessionId,
       fingerprintId,
-      userInputId: promptId,
-      userId: userId,
+      userInputId,
+      userId,
     }
   )
   const {
@@ -295,9 +215,8 @@ export const mainPrompt = async (
       agentStepId,
       clientSessionId,
       fingerprintId,
-      userInputId: promptId,
+      userInputId,
       userId,
-      costMode,
       repoId,
     }
   )
@@ -309,13 +228,6 @@ export const mainPrompt = async (
     for (const message of messageHistory) {
       if (isToolResult(message)) {
         message.content = simplifyReadFileResults(message.content)
-      }
-    }
-    // Update tool results.
-    for (let i = 0; i < toolResults.length; i++) {
-      const toolResult = toolResults[i]
-      if (toolResult.toolName === 'read_files') {
-        toolResults[i] = simplifyReadFileToolResult(toolResult)
       }
     }
 
@@ -334,6 +246,7 @@ export const mainPrompt = async (
     onResponseChunk(`${readFileToolCall}\n\n`)
   }
 
+  const toolResults = []
   if (updatedFiles.length > 0) {
     toolResults.push({
       toolName: 'file_updates',
@@ -404,7 +317,7 @@ export const mainPrompt = async (
         agentType,
         { type: 'userInputPrompt' },
         fileContext,
-        mainAgentState
+        agentState
       ),
       timeToLive: 'userPrompt',
     },
@@ -415,7 +328,7 @@ export const mainPrompt = async (
         agentType,
         { type: 'agentStepPrompt' },
         fileContext,
-        mainAgentState
+        agentState
       ),
       timeToLive: 'agentStep',
     }
@@ -427,7 +340,7 @@ export const mainPrompt = async (
     agentType,
     { type: 'systemPrompt' },
     fileContext,
-    mainAgentState
+    agentState
   )
   const systemTokens = countTokensJson(system)
 
@@ -442,7 +355,7 @@ export const mainPrompt = async (
     // Store the agent request to a file for debugging
     await saveAgentRequest(
       coreMessagesWithSystem(agentMessages, system),
-      promptId
+      userInputId
     )
   }
 
@@ -478,31 +391,6 @@ export const mainPrompt = async (
       )
     >[]
   > = {}
-
-  // vvv TEMPORARY FOR PRE-AGENT SPAWNING vvv
-  // Think deeply at the start of every response
-  if (costMode === 'max') {
-    let response = await getThinkingStream(
-      coreMessagesWithSystem(agentMessages, system),
-      (chunk) => {
-        onResponseChunk(chunk)
-      },
-      {
-        costMode,
-        clientSessionId,
-        fingerprintId,
-        userInputId: promptId,
-        userId,
-        model: modelConfig?.reasoningModel,
-      }
-    )
-    if (model === models.gpt4_1) {
-      onResponseChunk('\n')
-      response += '\n'
-    }
-    fullResponse += response
-  }
-  // ^^^ TEMPORARY FOR PRE-AGENT SPAWNING ^^^
 
   const stream = getStream(
     coreMessagesWithSystem(
@@ -560,20 +448,11 @@ export const mainPrompt = async (
         }
 
         // Filter out restricted tools in ask mode unless exporting summary
-        if (
-          (costMode === 'ask' || readOnlyMode) &&
-          !isExporting &&
-          buildArray<ToolName>(
-            'write_file',
-            'str_replace',
-            'run_terminal_command',
-            readOnlyMode && 'create_plan'
-          ).includes(tool)
-        ) {
+        if (!agentTemplate.toolNames.includes(toolCall.toolName)) {
           serverToolResults.push({
             toolName: tool,
             toolCallId: generateCompactId(),
-            result: `Tool ${tool} is not available in ${readOnlyMode ? 'read-only' : 'ask'} mode. You can only use tools that read information or provide analysis.`,
+            result: `Tool \`${tool}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
           })
           return
         }
@@ -648,7 +527,7 @@ export const mainPrompt = async (
               agentStepId,
               clientSessionId,
               fingerprintId,
-              userInputId: promptId,
+              userInputId,
               userId,
               repoName: repoId,
             })
@@ -696,7 +575,7 @@ export const mainPrompt = async (
           prompt,
           clientSessionId,
           fingerprintId,
-          promptId,
+          userInputId,
           userId
         ).catch((error) => {
           logger.error(error, 'Error processing write_file block')
@@ -780,7 +659,7 @@ export const mainPrompt = async (
     id: crypto.randomUUID(),
     payload: {
       output: fullResponse,
-      user_input_id: promptId,
+      user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
     },
@@ -835,7 +714,7 @@ export const mainPrompt = async (
           agentStepId,
           clientSessionId,
           fingerprintId,
-          userInputId: promptId,
+          userInputId,
           userId,
         }),
         fileContext,
@@ -846,9 +725,8 @@ export const mainPrompt = async (
           agentStepId,
           clientSessionId,
           fingerprintId,
-          userInputId: promptId,
+          userInputId,
           userId,
-          costMode,
           repoId,
         }
       )
@@ -881,7 +759,7 @@ export const mainPrompt = async (
             agentStepId,
             clientSessionId,
             fingerprintId,
-            userInputId: promptId,
+            userInputId,
             userId,
           }),
           fileContext,
@@ -891,9 +769,8 @@ export const mainPrompt = async (
             agentStepId,
             clientSessionId,
             fingerprintId,
-            userInputId: promptId,
+            userInputId,
             userId,
-            costMode,
             repoId,
           }
         )
@@ -939,12 +816,17 @@ export const mainPrompt = async (
 
       let formattedResult: string
       try {
-        const researchResults = await research(ws, prompts, sessionState, {
-          userId,
-          clientSessionId,
-          fingerprintId,
-          promptId,
-        })
+        const researchResults = await research(
+          ws,
+          prompts,
+          { fileContext, mainAgentState: agentState },
+          {
+            userId,
+            clientSessionId,
+            fingerprintId,
+            promptId: userInputId,
+          }
+        )
         formattedResult = researchResults
           .map(
             (result, i) =>
@@ -964,7 +846,7 @@ export const mainPrompt = async (
       })
     } else if (toolCall.toolName === 'spawn_agents') {
       const { agents } = toolCall.args
-      for (const { agent_type: agentType, prompt, include_message_history } of agents) {
+      for (const { agent_type: agentType, prompt } of agents) {
         // TODO also check if current agent is able to spawn this agent
         if (!(agentType in agentTemplates)) {
           serverToolResults.push({
@@ -1057,16 +939,6 @@ export const mainPrompt = async (
     logger.debug({ summary: fullResponse }, 'Compacted messages')
   }
 
-  const newSessionState: SessionState = {
-    ...sessionState,
-    mainAgentState: {
-      ...mainAgentState,
-      messageHistory: finalMessageHistory,
-      stepsRemaining: mainAgentState.stepsRemaining - 1,
-      agentContext: newAgentContext,
-    },
-  }
-
   for (const clientToolCall of clientToolCalls) {
     const result = await requestToolCall(
       ws,
@@ -1088,9 +960,10 @@ export const mainPrompt = async (
       })
     }
   }
-  const maybeEndTurn = clientToolCalls.filter(
-    (toolCall) => toolCall.toolName === 'end_turn'
-  )
+  finalMessageHistory.push({
+    role: 'user',
+    content: asSystemMessage(renderToolResults(serverToolResults)),
+  })
 
   logger.debug(
     {
@@ -1108,9 +981,13 @@ export const mainPrompt = async (
     `Main prompt response ${iterationNum}`
   )
   return {
-    sessionState: newSessionState,
-    toolCalls: maybeEndTurn,
-    toolResults: serverToolResults,
+    agentState: {
+      ...agentState,
+      messageHistory: finalMessageHistory,
+      stepsRemaining: agentState.stepsRemaining - 1,
+      agentContext: newAgentContext,
+    },
+    fullResponse,
   }
 }
 
@@ -1148,7 +1025,6 @@ async function getFileReadingUpdates(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
-    costMode: CostMode
     repoId: string | undefined
   }
 ) {
@@ -1160,7 +1036,6 @@ async function getFileReadingUpdates(
     fingerprintId,
     userInputId,
     userId,
-    costMode,
     repoId,
   } = options
 
@@ -1211,7 +1086,6 @@ async function getFileReadingUpdates(
       fingerprintId,
       userInputId,
       userId,
-      costMode,
       repoId
     ).catch((error) => {
       logger.error(
@@ -1360,7 +1234,6 @@ async function uploadExpandedFileContextForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode,
   repoId: string | undefined
 ) {
   const files = await requestRelevantFilesForTraining(

@@ -34,7 +34,6 @@ export interface GetRelevantFilesPayload extends BasePayload {
   system: unknown
   output: string
   request_type: string
-  cost_mode: string
   model?: string
   repo_name?: string
 }

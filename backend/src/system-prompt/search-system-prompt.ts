@@ -1,5 +1,4 @@
 import { insertTrace } from '@codebuff/bigquery'
-import { CostMode } from '@codebuff/common/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 
@@ -13,7 +12,6 @@ import {
 
 export function getSearchSystemPrompt(
   fileContext: ProjectFileContext,
-  costMode: CostMode,
   messagesTokens: number,
   options: {
     agentStepId: string
