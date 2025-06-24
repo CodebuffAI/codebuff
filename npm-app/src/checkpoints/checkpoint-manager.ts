@@ -105,6 +105,8 @@ export class CheckpointManager {
           : // Use absolute path for dev (via bun URL).
             new URL(workerRelativePath, import.meta.url).href
       )
+      // Set max listeners to prevent warnings
+      this.worker.setMaxListeners(50)
     }
     return this.worker
   }
@@ -120,28 +122,41 @@ export class CheckpointManager {
 
     return new Promise<T>((resolve, reject) => {
       const timeoutMs = 30000 // 30 seconds timeout
+      let timeoutHandle: NodeJS.Timeout | null = null
 
-      const handler = (response: WorkerResponse) => {
+      const cleanup = () => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle)
+          timeoutHandle = null
+        }
+        worker.off('message', messageHandler)
+        worker.off('error', errorHandler)
+      }
+
+      const messageHandler = (response: WorkerResponse) => {
         if (response.id !== message.id) {
           return
         }
+        cleanup()
         if (response.success) {
           resolve(response.result as T)
         } else {
           reject(new Error(response.error))
         }
-        worker.off('message', handler)
       }
 
-      worker.on('message', handler)
-      worker.on('error', (error) => {
+      const errorHandler = (error: Error) => {
+        cleanup()
         reject(error)
-      })
+      }
+
+      worker.on('message', messageHandler)
+      worker.on('error', errorHandler)
       worker.postMessage(message)
 
       // Add timeout
-      setTimeout(() => {
-        worker.off('message', handler)
+      timeoutHandle = setTimeout(() => {
+        cleanup()
         reject(new Error('Worker operation timed out'))
       }, timeoutMs)
     })
