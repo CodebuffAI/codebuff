@@ -1,4 +1,4 @@
-import { anthropic } from '@ai-sdk/anthropic'
+import { createAnthropic } from '@ai-sdk/anthropic'
 import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import {
@@ -53,6 +53,11 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
     return openai.languageModel(model)
   }
   if (Object.values(claudeModels).includes(model as AnthropicModel)) {
+    const anthropic = createAnthropic({
+      headers: {
+        'anthropic-beta': 'interleaved-thinking-2025-05-14',
+      },
+    })
     return anthropic.languageModel(model)
   }
   throw new Error('Unknown model: ' + model)
