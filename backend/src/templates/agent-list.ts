@@ -3,7 +3,7 @@ import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { claude4_base } from './agents/claude4_base'
 import { file_picker } from './agents/file-picker'
 import { gemini25flash_base } from './agents/gemini25flash_base'
-import { gemini25pro_thinking } from './agents/gemini25flash_thinking'
+import { gemini25pro_thinking } from './agents/gemini25pro_thinking'
 import { gemini25pro_base } from './agents/gemini25pro_base'
 import { AgentTemplate } from './types'
 
