@@ -40,6 +40,7 @@ export const AgentTemplateTypeList = [
   'claude4_base',
   'gemini25pro_base',
   'gemini25flash_base',
+  'claude4_gemini_thinking',
 
   'gemini25pro_thinking',
   'file_picker',

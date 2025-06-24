@@ -1,15 +1,15 @@
 import { geminiModels } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import {
+  baseAgentAgentStepPrompt,
+  baseAgentSystemPrompt,
+  baseAgentUserInputPrompt,
+} from '../base-prompts'
+import {
   AgentTemplate,
   baseAgentStopSequences,
   baseAgentToolNames,
 } from '../types'
-import {
-  baseAgentAgentStepPrompt,
-  baseAgentSystemPrompt,
-  baseAgentUserInputPrompt,
-} from './base-prompts'
 
 const model = geminiModels.gemini2_5_flash
 

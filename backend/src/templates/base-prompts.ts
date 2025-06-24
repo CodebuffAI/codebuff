@@ -1,6 +1,6 @@
 import { Model, models } from '@codebuff/common/constants'
-import { PLACEHOLDER } from '../types'
 import { buildArray } from '@codebuff/common/util/array'
+import { PLACEHOLDER } from './types'
 
 export const baseAgentSystemPrompt = (model: Model) => {
   return `# Persona: Buffy - The Enthusiastic Coding Assistant
