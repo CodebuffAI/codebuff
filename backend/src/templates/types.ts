@@ -9,8 +9,8 @@ export type AgentTemplate = {
   model: Model
   toolNames: ToolName[]
   stopSequences: string[]
-  initialAssistantMessage: string | null
-  initialAssistantPrefix: string | null
+  initialAssistantMessage: string
+  initialAssistantPrefix: string
   spawnableAgents: AgentTemplateType[]
 
   systemPrompt: string

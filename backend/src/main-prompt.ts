@@ -403,7 +403,7 @@ export const mainPrompt = async (
       role: 'user',
       content: getAgentPrompt(
         agentType,
-        'userInputPrompt',
+        { type: 'userInputPrompt' },
         fileContext,
         mainAgentState
       ),
@@ -414,7 +414,7 @@ export const mainPrompt = async (
       role: 'user',
       content: getAgentPrompt(
         agentType,
-        'agentStepPrompt',
+        { type: 'agentStepPrompt' },
         fileContext,
         mainAgentState
       ),
@@ -426,7 +426,7 @@ export const mainPrompt = async (
 
   const system = getAgentPrompt(
     agentType,
-    'systemPrompt',
+    { type: 'systemPrompt' },
     fileContext,
     mainAgentState
   )

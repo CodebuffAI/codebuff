@@ -21,7 +21,7 @@ export function formatPrompt(
   fileContext: ProjectFileContext,
   agentState: AgentState,
   tools: ToolName[],
-  intitialAgentPrompt: string
+  intitialAgentPrompt: string | null
 ): string {
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
@@ -36,7 +36,7 @@ export function formatPrompt(
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
     [PLACEHOLDER.USER_CWD]: fileContext.cwd,
-    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: intitialAgentPrompt,
+    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: intitialAgentPrompt ?? '',
   }
 
   for (const varName of placeholderValues) {
@@ -48,19 +48,22 @@ export function formatPrompt(
   return prompt
 }
 
-export function getAgentPrompt(
+type StringField = 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt'
+type RequirePrompt = 'initialAssistantMessage' | 'initialAssistantPrefix'
+
+export function getAgentPrompt<T extends StringField | RequirePrompt>(
   agentTemplateName: AgentTemplateType,
-  promptType: 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt',
+  promptType: T extends StringField ? { type: T } : { type: T; prompt: string },
   fileContext: ProjectFileContext,
-  agentState: AgentState,
-  intitialAgentPrompt: string,
+  agentState: AgentState
 ): string {
   const agentTemplate = agentTemplates[agentTemplateName]
+
   return formatPrompt(
-    agentTemplate[promptType],
+    agentTemplate[promptType.type],
     fileContext,
     agentState,
     agentTemplate.toolNames,
-    intitialAgentPrompt
+    'prompt' in promptType ? promptType.prompt : ''
   )
 }
