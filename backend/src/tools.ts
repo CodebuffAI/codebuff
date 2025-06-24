@@ -609,6 +609,11 @@ ${getToolCallString('browser_logs', {
           .object({
             agent_type: z.string().describe('Agent to spawn'),
             prompt: z.string().describe('Prompt to send to the agent'),
+            include_message_history: z
+              .boolean()
+              .describe(
+                "Whether to include the spawner's message history in the prompt"
+              ),
           })
           .array(),
       })
