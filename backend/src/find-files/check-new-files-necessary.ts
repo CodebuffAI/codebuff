@@ -1,9 +1,9 @@
-import { CostMode, models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/constants'
 
+import { CoreMessage } from 'ai'
 import { System } from '../llm-apis/claude'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { getCoreMessagesSubset } from '../util/messages'
-import { CoreMessage } from 'ai'
 
 const systemIntro = `
 You are assisting the user with their software project, in the application Codebuff. Codebuff is a coding agent that helps developers write code or perform utility tasks.
@@ -16,8 +16,7 @@ export const checkNewFilesNecessary = async (
   fingerprintId: string,
   userInputId: string,
   userPrompt: string,
-  userId: string | undefined,
-  costMode: CostMode
+  userId: string | undefined
 ) => {
   const startTime = Date.now()
   const systemString =
@@ -66,7 +65,6 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
       fingerprintId,
       userInputId,
       userId,
-      costMode,
     }
   )
   const endTime = Date.now()

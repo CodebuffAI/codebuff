@@ -1,4 +1,4 @@
-import { CostMode, models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/constants'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { hasLazyEdit } from '@codebuff/common/util/string'
 import { createPatch } from 'diff'
@@ -24,8 +24,7 @@ export async function processFileBlock(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined,
-  costMode: CostMode
+  userId: string | undefined
 ): Promise<
   | {
       tool: 'write_file'
@@ -98,8 +97,7 @@ export async function processFileBlock(
       fingerprintId,
       userInputId,
       userId,
-      path,
-      costMode
+      path
     )
 
     if (!largeFileContent) {
@@ -207,8 +205,7 @@ export async function handleLargeFile(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  filePath: string,
-  costMode: CostMode
+  filePath: string
 ): Promise<string | null> {
   const startTime = Date.now()
 
@@ -282,7 +279,6 @@ Please output just the SEARCH/REPLACE blocks like this:
       await retryDiffBlocksPrompt(
         filePath,
         updatedContent,
-        costMode,
         clientSessionId,
         fingerprintId,
         userInputId,
