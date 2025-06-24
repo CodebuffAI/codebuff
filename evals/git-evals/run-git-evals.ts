@@ -4,9 +4,9 @@ import pLimit from 'p-limit'
 import path from 'path'
 
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { claudeModels } from '@codebuff/common/constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { models } from 'common/constants'
 import {
   createFileReadingMock,
   loopMainPrompt,
@@ -29,7 +29,7 @@ import {
 } from './types'
 
 // Try Gemini!
-const COST_MODE = 'normal' as const
+const COST_MODE = 'experimental' as const
 
 export async function runSingleEval(
   evalCommit: EvalCommit,
@@ -111,7 +111,7 @@ Explain your reasoning in detail.`,
             },
           ],
           schema: AgentDecisionSchema,
-          model: claudeModels.sonnet,
+          model: models.gemini2_5_flash,
           clientSessionId,
           fingerprintId,
           userInputId: generateCompactId(),
