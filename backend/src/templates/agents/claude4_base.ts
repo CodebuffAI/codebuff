@@ -5,11 +5,12 @@ import {
   baseAgentToolNames,
   PLACEHOLDER,
 } from '../types'
+import { claudeModels } from '@codebuff/common/constants'
 
 export const claude4_base: AgentTemplate = {
   type: AgentTemplateTypes.claude4_base,
   description: 'Base agent using Claude Sonnet 4',
-  model: 'claude-sonnet-4-20250514',
+  model: claudeModels.sonnet,
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
   spawnableAgents: [],
