@@ -37,13 +37,15 @@ export const AgentStateSchema: z.ZodType<{
 export type AgentState = z.infer<typeof AgentStateSchema>
 
 export const AgentTemplateTypeList = [
+  // Base agents
   'claude4_base',
   'gemini25pro_base',
   'gemini25flash_base',
   'claude4_gemini_thinking',
 
+  // Other agents
   'gemini25pro_thinking',
-  'file_picker',
+  'gemini25flash_file_picker',
 ] as const
 export const AgentTemplateTypes = Object.fromEntries(
   AgentTemplateTypeList.map((name) => [name, name])
