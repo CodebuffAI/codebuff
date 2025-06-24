@@ -9,6 +9,8 @@ export type AgentTemplate = {
   model: Model
   toolNames: ToolName[]
   stopSequences: string[]
+  initialAssistantMessage: string | null
+  initialAssistantPrefix: string | null
   spawnableAgents: AgentTemplateType[]
 
   systemPrompt: string
@@ -25,6 +27,7 @@ const placeholderNames = [
   'SYSTEM_INFO_PROMPT',
   'TOOLS_PROMPT',
   'USER_CWD',
+  'INITIAL_AGENT_PROMPT',
 ] as const
 
 type PlaceholderType<T extends typeof placeholderNames> = {

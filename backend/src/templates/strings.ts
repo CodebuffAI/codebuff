@@ -20,7 +20,8 @@ export function formatPrompt(
   prompt: string,
   fileContext: ProjectFileContext,
   agentState: AgentState,
-  tools: ToolName[]
+  tools: ToolName[],
+  intitialAgentPrompt: string
 ): string {
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
@@ -35,6 +36,7 @@ export function formatPrompt(
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
     [PLACEHOLDER.USER_CWD]: fileContext.cwd,
+    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: intitialAgentPrompt,
   }
 
   for (const varName of placeholderValues) {
@@ -50,13 +52,15 @@ export function getAgentPrompt(
   agentTemplateName: AgentTemplateType,
   promptType: 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt',
   fileContext: ProjectFileContext,
-  agentState: AgentState
+  agentState: AgentState,
+  intitialAgentPrompt: string,
 ): string {
   const agentTemplate = agentTemplates[agentTemplateName]
   return formatPrompt(
     agentTemplate[promptType],
     fileContext,
     agentState,
-    agentTemplate.toolNames
+    agentTemplate.toolNames,
+    intitialAgentPrompt
   )
 }
