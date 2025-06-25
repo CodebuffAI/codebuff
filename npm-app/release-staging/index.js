@@ -404,10 +404,9 @@ async function checkForUpdates(runningProcess, exitListener) {
             runningProcess.kill('SIGKILL')
           }
           resolve()
+        }, 5000)
       })
 
-    // Find the extracted binary - it should be named "codecane" or "codecane.exe"
-        }, 5000)
       console.log(`Update available: ${currentVersion} → ${latestVersion}`)
 
       await downloadBinary(latestVersion)
@@ -426,12 +425,11 @@ async function checkForUpdates(runningProcess, exitListener) {
       newChild.on('exit', (code) => {
         process.exit(code || 0)
       })
-  } catch (error) {
-      console.error('❌ Failed to download codecane:', error.message)
 
       // Don't return - keep this function running to maintain the wrapper
       return new Promise(() => {}) // Never resolves, keeps wrapper alive
     }
+  } catch (error) {
     // Silently ignore update check errors
   }
 }
