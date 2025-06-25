@@ -13,8 +13,8 @@ permissions:
   contents: write
 
 jobs:
-  # First job: Calculate new version and update package files
-  prepare-release:
+  # First job: Commit current state and version bump to lock in what's being released
+  prepare-and-commit-release:
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
@@ -86,6 +86,29 @@ jobs:
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
 
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit release state
+        run: |
+          # Add all changes (current state + version bump)
+          git add -A
+          git commit -m "Release v${{ steps.bump_version.outputs.new_version }}
+
+          This commit captures the complete state being released,
+          including any uncommitted changes and the version bump.
+          
+          🤖 Generated with Codebuff
+          Co-Authored-By: Codebuff <noreply@codebuff.com>"
+          git push
+
+      - name: Create and push tag
+        run: |
+          git tag "v${{ steps.bump_version.outputs.new_version }}"
+          git push origin "v${{ steps.bump_version.outputs.new_version }}"
+
       - name: Upload updated package
         uses: actions/upload-artifact@v4
         with:
@@ -93,7 +116,7 @@ jobs:
           path: npm-app/release/
 
   build-binaries:
-    needs: prepare-release
+    needs: prepare-and-commit-release
     strategy:
       matrix:
         include:
@@ -178,7 +201,7 @@ jobs:
         shell: bash
         env:
           VERBOSE: true
-          BUILD_VERSION: ${{ needs.prepare-release.outputs.new_version }}
+          BUILD_VERSION: ${{ needs.prepare-and-commit-release.outputs.new_version }}
           OVERRIDE_TARGET: ${{ matrix.bun_target }}
           OVERRIDE_PLATFORM: ${{ matrix.platform }}
           OVERRIDE_ARCH: ${{ matrix.arch }}
@@ -210,7 +233,7 @@ jobs:
 
   # Create GitHub release with all binaries
   create-release:
-    needs: [prepare-release, build-binaries]
+    needs: [prepare-and-commit-release, build-binaries]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -229,10 +252,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ needs.prepare-release.outputs.new_version }}
-          name: Release v${{ needs.prepare-release.outputs.new_version }}
+          tag_name: v${{ needs.prepare-and-commit-release.outputs.new_version }}
+          name: Release v${{ needs.prepare-and-commit-release.outputs.new_version }}
           body: |
-            ## Codebuff v${{ needs.prepare-release.outputs.new_version }}
+            ## Codebuff v${{ needs.prepare-and-commit-release.outputs.new_version }}
 
             Binary releases for all supported platforms.
 
@@ -254,7 +277,7 @@ jobs:
 
   # Publish npm package using package.json from release directory
   publish-npm:
-    needs: [prepare-release, create-release]
+    needs: [prepare-and-commit-release, create-release]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -281,36 +304,4 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  # Commit version changes only after successful publishing
-  commit-release:
-    needs: [prepare-release, publish-npm]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download updated package
-        uses: actions/download-artifact@v4
-        with:
-          name: updated-package
-          path: npm-app/release/
-
-      - name: Configure git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Commit and push version bump
-        run: |
-          git stash
-          git pull --rebase origin main
-          git stash pop
-          git add npm-app/release/package.json
-          git commit -m "Bump version to ${{ needs.prepare-release.outputs.new_version }}"
-          git push
-
-      - name: Create and push tag
-        run: |
-          git tag "v${{ needs.prepare-release.outputs.new_version }}"
-          git push origin "v${{ needs.prepare-release.outputs.new_version }}"
