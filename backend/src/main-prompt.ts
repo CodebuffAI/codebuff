@@ -100,27 +100,46 @@ export const mainPrompt = async (
     } satisfies Record<CostMode, AgentTemplateType>
   )[costMode]
 
-  const { agentState: newAgentState, fullResponse } = await runAgentStep(ws, {
-    userId,
-    userInputId: promptId,
-    clientSessionId,
-    fingerprintId,
-    onResponseChunk,
+  let currentPrompt = prompt
+  let currentAgentState = mainAgentState
+  while (true) {
+    const {
+      agentState: newAgentState,
+      fullResponse,
+      shouldEndTurn,
+    } = await runAgentStep(ws, {
+      userId,
+      userInputId: promptId,
+      clientSessionId,
+      fingerprintId,
+      onResponseChunk,
 
-    agentType,
-    fileContext,
-    agentState: mainAgentState,
-    prompt,
-  })
-
-  return {
-    sessionState: {
+      agentType,
       fileContext,
-      mainAgentState: newAgentState,
-    },
-    toolCalls: fullResponse.includes(getToolCallString('end_turn', {}))
-      ? [{ toolName: 'end_turn', toolCallId: generateCompactId(), args: {} }]
-      : [],
-    toolResults: [],
+      agentState: currentAgentState,
+      prompt: currentPrompt,
+    })
+
+    if (shouldEndTurn) {
+      return {
+        sessionState: {
+          fileContext,
+          mainAgentState: newAgentState,
+        },
+        toolCalls: fullResponse.includes(getToolCallString('end_turn', {}))
+          ? [
+              {
+                toolName: 'end_turn',
+                toolCallId: generateCompactId(),
+                args: {},
+              },
+            ]
+          : [],
+        toolResults: [],
+      }
+    }
+
+    currentPrompt = undefined
+    currentAgentState = newAgentState
   }
 }

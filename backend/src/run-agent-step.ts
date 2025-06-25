@@ -93,6 +93,7 @@ export const runAgentStep = async (
 ): Promise<{
   agentState: AgentState
   fullResponse: string
+  shouldEndTurn: boolean
 }> => {
   const {
     userId,
@@ -176,6 +177,7 @@ export const runAgentStep = async (
         ],
       },
       fullResponse: warningString,
+      shouldEndTurn: true,
     }
   }
 
@@ -963,6 +965,8 @@ export const runAgentStep = async (
       agentContext: newAgentContext,
     },
     fullResponse,
+    shouldEndTurn:
+      clientToolCalls.length === 0 && serverToolResults.length === 0,
   }
 }
 
