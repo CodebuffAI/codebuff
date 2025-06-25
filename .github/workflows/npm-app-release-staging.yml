@@ -162,6 +162,28 @@ jobs:
           repository: CodebuffAI/codebuff-community
           token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
 
+      - name: Clean up old prereleases
+        run: |
+          # Calculate date one week ago
+          ONE_WEEK_AGO=$(date -d '7 days ago' -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "Cleaning up prereleases older than: $ONE_WEEK_AGO"
+          
+          # Get all prereleases
+          RELEASES=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/CodebuffAI/codebuff-community/releases?per_page=100")
+          
+          # Filter and delete old prereleases
+          echo "$RELEASES" | jq -r '.[] | select(.prerelease == true and .created_at < "'$ONE_WEEK_AGO'") | .id' | while read release_id; do
+            if [ -n "$release_id" ]; then
+              echo "Deleting old prerelease with ID: $release_id"
+              curl -s -X DELETE \
+                -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/CodebuffAI/codebuff-community/releases/$release_id"
+            fi
+          done
+          
+          echo "Cleanup completed"
+
   # Publish npm package as prerelease
   publish-staging-npm:
     needs: [prepare-and-commit-staging, create-staging-release]
