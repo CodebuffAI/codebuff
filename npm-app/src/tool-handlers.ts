@@ -239,6 +239,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
       const action = BrowserActionSchema.parse(params)
       response = await handleBrowserInstruction(action)
     } catch (error) {
+      Spinner.get().stop()
       const errorMessage =
         error instanceof Error ? error.message : String(error)
       console.log('Small hiccup, one sec...')

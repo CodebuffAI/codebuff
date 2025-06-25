@@ -966,7 +966,8 @@ export const runAgentStep = async (
     },
     fullResponse,
     shouldEndTurn:
-      clientToolCalls.length === 0 && serverToolResults.length === 0,
+      clientToolCalls.some((call) => call.toolName === 'end_turn') ||
+      (clientToolCalls.length === 0 && serverToolResults.length === 0),
   }
 }
 

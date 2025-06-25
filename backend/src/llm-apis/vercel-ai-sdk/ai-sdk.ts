@@ -87,12 +87,15 @@ export const promptAiSdkStream = async function* (
   })
 
   let content = ''
-  let hasReasoning = false
-  let finishedReasoning = false
+  let reasoning = false
 
   for await (const chunk of response.fullStream) {
-    if (chunk.type !== 'step-finish' && chunk.type !== 'step-start') {
-      console.log({ chunk }, 'asdf')
+    if (
+      chunk.type !== 'step-finish' &&
+      chunk.type !== 'step-start' &&
+      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
+    ) {
+      console.log('received chunk', { chunk })
     }
     if (chunk.type === 'error') {
       logger.error({ chunk, model: options.model }, 'Error from AI SDK')
@@ -111,16 +114,16 @@ export const promptAiSdkStream = async function* (
       }
     }
     if (chunk.type === 'reasoning') {
-      if (!hasReasoning) {
-        hasReasoning = true
+      if (!reasoning) {
+        reasoning = true
         yield '<think_deeply>\n<thought>'
       }
       yield chunk.textDelta
     }
     if (chunk.type === 'text-delta') {
-      if (hasReasoning && !finishedReasoning) {
-        finishedReasoning = true
-        yield '</thought>\n</think_deeply>'
+      if (reasoning) {
+        reasoning = false
+        yield '</thought>\n</think_deeply>\n\n'
       }
       content += chunk.textDelta
       yield chunk.textDelta
