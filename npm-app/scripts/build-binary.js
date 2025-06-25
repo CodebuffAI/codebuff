@@ -9,6 +9,9 @@ const { patchWebTreeSitter } = require('./patch-web-tree-sitter.js')
 // Configuration
 const VERBOSE = process.env.VERBOSE === 'true'
 
+// Get package name from command line argument or environment variable
+const packageName = process.argv[2] || process.env.PACKAGE_NAME || 'codebuff'
+
 // Logging helper
 function log(message) {
   if (VERBOSE) {
@@ -82,7 +85,8 @@ async function main() {
   patchWebTreeSitter(VERBOSE)
 
   const targetInfo = getTargetInfo()
-  const outputName = currentPlatform === 'win32' ? 'codebuff.exe' : 'codebuff'
+  const outputName =
+    currentPlatform === 'win32' ? `${packageName}.exe` : packageName
 
   await buildTarget(targetInfo.bunTarget, outputName, targetInfo)
 }

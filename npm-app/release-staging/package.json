@@ -1,0 +1,39 @@
+{
+  "name": "codecane",
+  "version": "1.0.341",
+  "description": "AI coding agent (staging)",
+  "license": "MIT",
+  "bin": {
+    "codecane": "index.js"
+  },
+  "scripts": {
+    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'codecane.exe' : 'codecane'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\""
+  },
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {
+    "tar": "^6.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodebuffAI/codebuff-community.git"
+  },
+  "homepage": "https://codebuff.com",
+  "publishConfig": {
+    "access": "public"
+  }
+}
