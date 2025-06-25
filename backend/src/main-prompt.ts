@@ -9,8 +9,11 @@ import { WebSocket } from 'ws'
 
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { checkTerminalCommand } from './check-terminal-command'
 import { runAgentStep } from './run-agent-step'
 import { ClientToolCall } from './tools'
+import { logger } from './util/logger'
+import { expireMessages } from './util/messages'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
@@ -41,6 +44,51 @@ export const mainPrompt = async (
     promptId,
   } = action
   const { fileContext, mainAgentState } = sessionState
+
+  if (prompt) {
+    // Check if this is a direct terminal command
+    const startTime = Date.now()
+    const terminalCommand = await checkTerminalCommand(prompt, {
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+    })
+    const duration = Date.now() - startTime
+
+    if (terminalCommand) {
+      logger.debug(
+        {
+          duration,
+          prompt,
+        },
+        `Detected terminal command in ${duration}ms, executing directly: ${prompt}`
+      )
+      const newSessionState = {
+        ...sessionState,
+        messageHistory: expireMessages(
+          mainAgentState.messageHistory,
+          'userPrompt'
+        ),
+      }
+      return {
+        sessionState: newSessionState,
+        toolCalls: [
+          {
+            toolName: 'run_terminal_command',
+            toolCallId: generateCompactId(),
+            args: {
+              command: terminalCommand,
+              mode: 'user',
+              process_type: 'SYNC',
+              timeout_seconds: '-1',
+            },
+          },
+        ],
+        toolResults: [],
+      }
+    }
+  }
 
   const agentType = (
     {
