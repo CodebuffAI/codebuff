@@ -7,17 +7,12 @@ import {
 import { type CostMode } from 'common/constants'
 import { WebSocket } from 'ws'
 
-import { getToolCallString } from '@codebuff/common/constants/tools'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { checkTerminalCommand } from './check-terminal-command'
-import { runAgentStep } from './run-agent-step'
+import { loopAgentSteps } from './run-agent-step'
 import { ClientToolCall } from './tools'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
-
-// Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
-// TODO: We might want to be able to turn this on on a per-repo basis.
-const COLLECT_FULL_FILE_CONTEXT = false
 
 export interface MainPromptOptions {
   userId: string | undefined
@@ -100,46 +95,33 @@ export const mainPrompt = async (
     } satisfies Record<CostMode, AgentTemplateType>
   )[costMode]
 
-  let currentPrompt = prompt
-  let currentAgentState = mainAgentState
-  while (true) {
-    const {
-      agentState: newAgentState,
-      fullResponse,
-      shouldEndTurn,
-    } = await runAgentStep(ws, {
-      userId,
-      userInputId: promptId,
-      clientSessionId,
-      fingerprintId,
-      onResponseChunk,
+  const { agentState, hasEndTurn } = await loopAgentSteps(ws, {
+    userInputId: promptId,
+    prompt,
+    agentType,
+    agentState: mainAgentState,
+    fingerprintId,
+    fileContext,
+    toolResults: [],
+    userId,
+    clientSessionId,
+    onResponseChunk,
+  })
 
-      agentType,
+  return {
+    sessionState: {
       fileContext,
-      agentState: currentAgentState,
-      prompt: currentPrompt,
-    })
-
-    if (shouldEndTurn) {
-      return {
-        sessionState: {
-          fileContext,
-          mainAgentState: newAgentState,
-        },
-        toolCalls: fullResponse.includes(getToolCallString('end_turn', {}))
-          ? [
-              {
-                toolName: 'end_turn',
-                toolCallId: generateCompactId(),
-                args: {},
-              },
-            ]
-          : [],
-        toolResults: [],
-      }
-    }
-
-    currentPrompt = undefined
-    currentAgentState = newAgentState
+      mainAgentState: agentState,
+    },
+    toolCalls: hasEndTurn
+      ? [
+          {
+            toolName: 'end_turn' as const,
+            toolCallId: generateCompactId(),
+            args: {},
+          },
+        ]
+      : [],
+    toolResults: [],
   }
 }
