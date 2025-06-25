@@ -51,7 +51,7 @@ jobs:
 
           # Get latest beta version from npm to check if we need to increment
           echo "Fetching latest beta version from npm..."
-          LATEST_BETA=$(npm view codecane@beta version 2>/dev/null || echo "")
+          LATEST_BETA=$(npm view codecane@latest version 2>/dev/null || echo "")
 
           if [ -z "$LATEST_BETA" ]; then
             echo "No beta version found on npm, using current version as base"
@@ -107,11 +107,11 @@ jobs:
           # Show current commit info for debugging
           echo "Current HEAD commit:"
           git log -1 --format="%H %ci %s"
-          
+
           # Create tag on current HEAD (the commit we just made)
           git tag "v${{ steps.bump_version.outputs.new_version }}"
           git push origin "v${{ steps.bump_version.outputs.new_version }}"
-          
+
           echo "Tag created on commit:"
           git show "v${{ steps.bump_version.outputs.new_version }}" --format="%H %ci %s" -s
 
@@ -151,30 +151,30 @@ jobs:
           echo "Fetching releases from GitHub API..."
           RELEASES=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
             "https://api.github.com/repos/CodebuffAI/codebuff-community/releases?per_page=100")
-          
+
           # Check if we got a valid response
           if echo "$RELEASES" | jq -e . >/dev/null 2>&1; then
             echo "Successfully fetched releases JSON"
-            
+
             # Count total releases and prereleases
             TOTAL_RELEASES=$(echo "$RELEASES" | jq '. | length')
             PRERELEASE_COUNT=$(echo "$RELEASES" | jq '[.[] | select(.prerelease == true)] | length')
             echo "Total releases: $TOTAL_RELEASES"
             echo "Total prereleases: $PRERELEASE_COUNT"
-            
+
             # Show some example release dates for debugging
             echo "Sample release dates:"
             echo "$RELEASES" | jq -r '.[] | select(.prerelease == true) | "\(.tag_name): \(.created_at)"' | head -5
-            
+
             # Filter and show old prereleases before deleting
             OLD_PRERELEASES=$(echo "$RELEASES" | jq -r '.[] | select(.prerelease == true and .created_at < "'$ONE_WEEK_AGO'") | "\(.id):\(.tag_name):\(.created_at)"')
-            
+
             if [ -z "$OLD_PRERELEASES" ]; then
               echo "No old prereleases found to delete"
             else
               echo "Found old prereleases to delete:"
               echo "$OLD_PRERELEASES"
-              
+
               # Delete old prereleases
               echo "$RELEASES" | jq -r '.[] | select(.prerelease == true and .created_at < "'$ONE_WEEK_AGO'") | .id' | while read release_id; do
                 if [ -n "$release_id" ]; then
@@ -190,7 +190,7 @@ jobs:
             echo "Failed to fetch releases or invalid JSON response:"
             echo "$RELEASES" | head -10
           fi
-          
+
           echo "Cleanup completed"
 
       - name: Download all binary artifacts
@@ -209,7 +209,7 @@ jobs:
           # Get current timestamp in ISO format
           CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           echo "Publishing release at: $CURRENT_TIME"
-          
+
           # Create release with current timestamp
           curl -s -X POST \
             -H "Accept: application/vnd.github.v3+json" \
@@ -230,9 +230,9 @@ jobs:
           RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
             "https://api.github.com/repos/CodebuffAI/codebuff-community/releases/tags/v${{ needs.prepare-and-commit-staging.outputs.new_version }}" | \
             jq -r '.id')
-          
+
           echo "Release ID: $RELEASE_ID"
-          
+
           # Upload all binary assets
           for file in binaries/*/codecane-*; do
             if [ -f "$file" ]; then

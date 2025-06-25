@@ -3,7 +3,6 @@ import * as os from 'os'
 import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 
-// Trivial change to test staging workflow
 import { type ApiKeyType } from '@codebuff/common/api-keys/constants'
 
 import { CostMode } from '@codebuff/common/constants'
@@ -252,7 +251,7 @@ To get started:
 
   console.log(
     `\n${bold(yellow('🧪 STAGING BUILD - For testing purposes only'))}` +
-    `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do?`
+      `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do?`
   )
 }
 
