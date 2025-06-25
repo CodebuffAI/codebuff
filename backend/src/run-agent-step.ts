@@ -138,10 +138,6 @@ export const runAgentStep = async (
     repoName: repoId,
   })
 
-  const isExporting =
-    prompt &&
-    (prompt.toLowerCase() === '/export' || prompt.toLowerCase() === 'export')
-
   const messagesWithToolResultsAndUser = buildArray<CodebuffMessage>(
     ...messageHistory,
     prompt && [
@@ -187,27 +183,20 @@ export const runAgentStep = async (
     messagesWithToolResultsAndUser
   )
 
-  const {
-    addedFiles,
-    updatedFilePaths,
-    printedPaths,
-    clearReadFileToolResults,
-  } = await getFileReadingUpdates(
-    ws,
-    messagesWithToolResultsAndUser,
-    fileContext,
-    {
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      repoId,
-    }
-  )
-  const [updatedFiles, newFiles] = partition(addedFiles, (f) =>
-    updatedFilePaths.includes(f.path)
-  )
+  const { addedFiles, updatedFilePaths, clearReadFileToolResults } =
+    await getFileReadingUpdates(
+      ws,
+      messagesWithToolResultsAndUser,
+      fileContext,
+      {
+        agentStepId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+        repoId,
+      }
+    )
   if (clearReadFileToolResults) {
     // Update message history.
     for (const message of messageHistory) {
@@ -224,14 +213,12 @@ export const runAgentStep = async (
     })
   }
 
-  if (printedPaths.length > 0) {
-    const readFileToolCall = getToolCallString('read_files', {
-      paths: printedPaths.join('\n'),
-    })
-    onResponseChunk(`${readFileToolCall}\n\n`)
-  }
-
   const toolResults = []
+
+  const updatedFiles = addedFiles.filter((f) =>
+    updatedFilePaths.includes(f.path)
+  )
+
   if (updatedFiles.length > 0) {
     toolResults.push({
       toolName: 'file_updates',
@@ -240,34 +227,6 @@ export const runAgentStep = async (
         `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes:\n` +
         renderReadFilesResult(updatedFiles, fileContext.tokenCallers ?? {}),
     })
-  }
-
-  const readFileMessages: CodebuffMessage[] = []
-  if (newFiles.length > 0) {
-    const readFilesToolResult: ToolResult = {
-      toolCallId: generateCompactId(),
-      toolName: 'read_files',
-      result: renderReadFilesResult(newFiles, fileContext.tokenCallers ?? {}),
-    }
-
-    readFileMessages.push(
-      {
-        role: 'user' as const,
-        content: asSystemInstruction(
-          `Before continuing with the user request, read the following files:\n${newFiles.map((file) => file.path).join('\n')}`
-        ),
-      },
-      {
-        role: 'assistant' as const,
-        content: getToolCallString('read_files', {
-          paths: newFiles.map((file) => file.path).join('\n'),
-        }),
-      },
-      {
-        role: 'user' as const,
-        content: asSystemMessage(renderToolResults([readFilesToolResult])),
-      }
-    )
   }
 
   const messagesWithUserMessage = buildArray<CodebuffMessage>(
@@ -293,8 +252,6 @@ export const runAgentStep = async (
         ),
       },
     ],
-
-    ...readFileMessages,
 
     prompt && {
       role: 'user',
