@@ -48,21 +48,21 @@ jobs:
           # Use the current package.json version as base
           CURRENT_VERSION=$(node -e "console.log(require('./package.json').version)")
           echo "Current package.json version: $CURRENT_VERSION"
-          
+
           # Get latest beta version from npm to check if we need to increment
           echo "Fetching latest beta version from npm..."
           LATEST_BETA=$(npm view codecane@beta version 2>/dev/null || echo "")
-          
+
           if [ -z "$LATEST_BETA" ]; then
             echo "No beta version found on npm, using current version as base"
             NEW_VERSION="$CURRENT_VERSION-beta.1"
           else
             echo "Latest beta version: $LATEST_BETA"
-            
+
             # Extract base version and beta number from npm
             NPM_BASE_VERSION=$(echo "$LATEST_BETA" | sed 's/-beta\..*$//')
             BETA_NUM=$(echo "$LATEST_BETA" | sed 's/.*-beta\.//')
-            
+
             # Compare base versions
             if [ "$CURRENT_VERSION" = "$NPM_BASE_VERSION" ]; then
               # Same base version, increment beta number
@@ -176,21 +176,52 @@ jobs:
         run: |
           # Calculate date one week ago
           ONE_WEEK_AGO=$(date -d '7 days ago' -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "Current date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           echo "Cleaning up prereleases older than: $ONE_WEEK_AGO"
-          
+
           # Get all prereleases
+          echo "Fetching releases from GitHub API..."
           RELEASES=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
             "https://api.github.com/repos/CodebuffAI/codebuff-community/releases?per_page=100")
           
-          # Filter and delete old prereleases
-          echo "$RELEASES" | jq -r '.[] | select(.prerelease == true and .created_at < "'$ONE_WEEK_AGO'") | .id' | while read release_id; do
-            if [ -n "$release_id" ]; then
-              echo "Deleting old prerelease with ID: $release_id"
-              curl -s -X DELETE \
-                -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
-                "https://api.github.com/repos/CodebuffAI/codebuff-community/releases/$release_id"
+          # Check if we got a valid response
+          if echo "$RELEASES" | jq -e . >/dev/null 2>&1; then
+            echo "Successfully fetched releases JSON"
+            
+            # Count total releases and prereleases
+            TOTAL_RELEASES=$(echo "$RELEASES" | jq '. | length')
+            PRERELEASE_COUNT=$(echo "$RELEASES" | jq '[.[] | select(.prerelease == true)] | length')
+            echo "Total releases: $TOTAL_RELEASES"
+            echo "Total prereleases: $PRERELEASE_COUNT"
+            
+            # Show some example release dates for debugging
+            echo "Sample release dates:"
+            echo "$RELEASES" | jq -r '.[] | select(.prerelease == true) | "\(.tag_name): \(.created_at)"' | head -5
+            
+            # Filter and show old prereleases before deleting
+            OLD_PRERELEASES=$(echo "$RELEASES" | jq -r '.[] | select(.prerelease == true and .created_at < "'$ONE_WEEK_AGO'") | "\(.id):\(.tag_name):\(.created_at)"')
+            
+            if [ -z "$OLD_PRERELEASES" ]; then
+              echo "No old prereleases found to delete"
+            else
+              echo "Found old prereleases to delete:"
+              echo "$OLD_PRERELEASES"
+              
+              # Delete old prereleases
+              echo "$RELEASES" | jq -r '.[] | select(.prerelease == true and .created_at < "'$ONE_WEEK_AGO'") | .id' | while read release_id; do
+                if [ -n "$release_id" ]; then
+                  echo "Deleting prerelease with ID: $release_id"
+                  DELETE_RESPONSE=$(curl -s -w "HTTP Status: %{http_code}" -X DELETE \
+                    -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
+                    "https://api.github.com/repos/CodebuffAI/codebuff-community/releases/$release_id")
+                  echo "Delete response: $DELETE_RESPONSE"
+                fi
+              done
             fi
-          done
+          else
+            echo "Failed to fetch releases or invalid JSON response:"
+            echo "$RELEASES" | head -10
+          fi
           
           echo "Cleanup completed"
 
@@ -221,6 +252,6 @@ jobs:
       - name: Publish staging to npm
         run: |
           cd npm-app/release-staging
-          npm publish --access public --tag beta
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
