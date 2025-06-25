@@ -258,4 +258,14 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       }
     },
   },
+  spawn_agents: {
+    onToolStart: (toolName) => {
+      return '\n\n' + gray(`[${bold('Enlist Help')}]`) + '\n'
+    },
+    onToolEnd: () => {
+      return () => {
+        Spinner.get().start('Waiting...')
+      }
+    },
+  },
 }

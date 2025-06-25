@@ -4,23 +4,23 @@ import {
   ServerAction,
   UsageResponse,
 } from '@codebuff/common/actions'
+import { trackEvent } from '@codebuff/common/analytics'
 import { toOptionalFile } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import { trackEvent } from '@codebuff/common/analytics'
-import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { buildArray } from '@codebuff/common/util/array'
+import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import { eq } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 
 import { mainPrompt } from '../main-prompt'
-import { protec } from './middleware'
-import { sendMessage } from './server'
 import { logger, withLoggerContext } from '../util/logger'
 import { renderToolResults } from '../util/parse-tool-call-xml'
+import { protec } from './middleware'
+import { sendMessage } from './server'
 
 /**
  * Sends an action to the client via WebSocket
@@ -165,8 +165,6 @@ const onPrompt = async (
                 userInputId: promptId,
                 chunk,
               }),
-            selectedModel: model,
-            readOnlyMode: false, // readOnlyMode = false for normal prompts
           }
         )
 
