@@ -56,7 +56,6 @@ export const readOnlyToolNames: ToolName[] = [
   'end_turn',
   'find_files',
   'read_files',
-  'research',
   'think_deeply',
   'update_subgoal',
 ] as const
