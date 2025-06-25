@@ -85,7 +85,10 @@ export interface AgentOptions {
   agentType: AgentTemplateType
   fileContext: ProjectFileContext
   agentState: AgentState
+
   prompt: string | undefined
+  assistantMessage: string | undefined
+  assistantPrefix: string | undefined
 }
 
 export const runAgentStep = async (
@@ -106,6 +109,8 @@ export const runAgentStep = async (
     agentType,
     agentState,
     prompt,
+    assistantMessage,
+    assistantPrefix,
   } = options
 
   const { agentContext } = agentState
@@ -140,7 +145,7 @@ export const runAgentStep = async (
     repoName: repoId,
   })
 
-  const messagesWithToolResultsAndUser = buildArray<CodebuffMessage>(
+  const messagesWithUserPrompt = buildArray<CodebuffMessage>(
     ...messageHistory,
     prompt && [
       {
@@ -168,7 +173,7 @@ export const runAgentStep = async (
       agentState: {
         ...agentState,
         messageHistory: [
-          ...expireMessages(messagesWithToolResultsAndUser, 'userPrompt'),
+          ...expireMessages(messagesWithUserPrompt, 'userPrompt'),
           {
             role: 'user',
             content: asSystemMessage(
@@ -182,24 +187,17 @@ export const runAgentStep = async (
     }
   }
 
-  const fileRequestMessagesTokens = countTokensJson(
-    messagesWithToolResultsAndUser
-  )
+  const fileRequestMessagesTokens = countTokensJson(messagesWithUserPrompt)
 
   const { addedFiles, updatedFilePaths, clearReadFileToolResults } =
-    await getFileReadingUpdates(
-      ws,
-      messagesWithToolResultsAndUser,
-      fileContext,
-      {
-        agentStepId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-        repoId,
-      }
-    )
+    await getFileReadingUpdates(ws, messagesWithUserPrompt, fileContext, {
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      repoId,
+    })
   if (clearReadFileToolResults) {
     // Update message history.
     for (const message of messageHistory) {
@@ -232,7 +230,7 @@ export const runAgentStep = async (
     })
   }
 
-  const messagesWithUserMessage = buildArray<CodebuffMessage>(
+  const agentMessagesUntruncated = buildArray<CodebuffMessage>(
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
 
     toolResults.length > 0 && {
@@ -276,10 +274,15 @@ export const runAgentStep = async (
         agentState
       ),
       timeToLive: 'agentStep',
+    },
+
+    assistantPrefix?.trim() && {
+      role: 'assistant' as const,
+      content: assistantPrefix.trim(),
     }
   )
 
-  const iterationNum = messagesWithUserMessage.length
+  const iterationNum = agentMessagesUntruncated.length
 
   const system = getAgentPrompt(
     agentType,
@@ -291,7 +294,7 @@ export const runAgentStep = async (
 
   // Possibly truncated messagesWithUserMessage + cache.
   const agentMessages = getCoreMessagesSubset(
-    messagesWithUserMessage,
+    agentMessagesUntruncated,
     systemTokens
   )
 
@@ -318,7 +321,7 @@ export const runAgentStep = async (
     `Main prompt ${iterationNum}`
   )
 
-  let fullResponse = ''
+  let fullResponse = `${assistantPrefix?.trim() ?? ''}`
   const fileProcessingPromisesByPath: Record<
     string,
     Promise<
@@ -337,19 +340,23 @@ export const runAgentStep = async (
     >[]
   > = {}
 
-  const stream = getStream(
-    coreMessagesWithSystem(
-      buildArray(
-        ...agentMessages,
-        // Add prefix of the response from fullResponse if it exists
-        fullResponse && {
-          role: 'assistant' as const,
-          content: fullResponse.trim(),
-        }
-      ),
-      system
-    )
-  )
+  const stream = assistantMessage
+    ? (async function* () {
+        yield assistantMessage.trim()
+      })()
+    : getStream(
+        coreMessagesWithSystem(
+          buildArray(
+            ...agentMessages,
+            // Add prefix of the response from fullResponse if it exists
+            fullResponse && {
+              role: 'assistant' as const,
+              content: fullResponse.trim(),
+            }
+          ),
+          system
+        )
+      )
 
   const allToolCalls: CodebuffToolCall[] = []
   const clientToolCalls: ClientToolCall[] = []
@@ -515,7 +522,7 @@ export const runAgentStep = async (
           instructions,
           latestContentPromise,
           fileContentWithoutStartNewline,
-          messagesWithUserMessage,
+          agentMessagesUntruncated,
           fullResponse,
           prompt,
           clientSessionId,
@@ -796,7 +803,9 @@ export const runAgentStep = async (
             )
           }
 
-          // TODO: Flesh out agent state based on agent template.
+          const { initialAssistantMessage, initialAssistantPrefix } =
+            agentTemplate
+
           const agentId = generateCompactId()
           const agentState: AgentState = {
             agentId,
@@ -811,6 +820,8 @@ export const runAgentStep = async (
           return await loopAgentSteps(ws, {
             userInputId: `${userInputId}-${agentType}${agentId}`,
             prompt,
+            assistantMessage: initialAssistantMessage,
+            assistantPrefix: initialAssistantPrefix,
             agentType: agentTemplate.type,
             agentState,
             fingerprintId,
@@ -1221,9 +1232,11 @@ export const loopAgentSteps = async (
   ws: WebSocket,
   options: {
     userInputId: string
-    prompt: string | undefined
     agentType: AgentTemplateType
     agentState: AgentState
+    prompt: string | undefined
+    assistantMessage: string | undefined
+    assistantPrefix: string | undefined
     fingerprintId: string
     fileContext: ProjectFileContext
     toolResults: ToolResult[]
@@ -1236,6 +1249,8 @@ export const loopAgentSteps = async (
   const {
     agentState,
     prompt,
+    assistantMessage,
+    assistantPrefix,
     userId,
     clientSessionId,
     onResponseChunk,
@@ -1245,6 +1260,9 @@ export const loopAgentSteps = async (
     agentType,
   } = options
   let currentPrompt = prompt
+  let currentAssistantMessage = assistantMessage
+  // NOTE: If the assistant message is set, we run one step with it, and then the next step will use the assistant prefix.
+  let currentAssistantPrefix = assistantMessage ? undefined : assistantPrefix
   let currentAgentState = agentState
   while (true) {
     const {
@@ -1262,6 +1280,8 @@ export const loopAgentSteps = async (
       fileContext,
       agentState: currentAgentState,
       prompt: currentPrompt,
+      assistantMessage: currentAssistantMessage,
+      assistantPrefix: currentAssistantPrefix,
     })
 
     if (shouldEndTurn) {
@@ -1275,6 +1295,12 @@ export const loopAgentSteps = async (
     }
 
     currentPrompt = undefined
+    if (currentAssistantMessage) {
+      currentAssistantMessage = undefined
+      currentAssistantPrefix = assistantPrefix
+    } else {
+      currentAssistantPrefix = undefined
+    }
     currentAgentState = newAgentState
   }
 }
