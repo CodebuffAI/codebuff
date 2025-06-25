@@ -36,7 +36,7 @@ async function codebuff(
   const projectRoot = setProjectRoot(gitRoot)
   setWorkingDirectory(cwd)
 
-  recreateShell(cwd)
+  await recreateShell(cwd)
 
   // Kill all processes we failed to kill before
   const processCleanupPromise = logAndHandleStartup()

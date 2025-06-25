@@ -3,8 +3,10 @@ import * as os from 'os'
 import path from 'path'
 import { green } from 'picocolors'
 
-import { bunPty } from '../native/pty'
-type IPty = ReturnType<NonNullable<typeof bunPty>['spawn']>
+import { loadBunPty } from '../native/pty'
+type IPty = ReturnType<
+  NonNullable<Awaited<ReturnType<typeof loadBunPty>>>['spawn']
+>
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { buildArray } from '@codebuff/common/util/array'
 import { isSubdir } from '@codebuff/common/util/file'
@@ -48,10 +50,12 @@ type PersistentProcess =
       globalOutputLastReadLength: number
     }
 
-const createPersistantProcess = (
+const createPersistantProcess = async (
   dir: string,
   forceChildProcess = false
-): PersistentProcess => {
+): Promise<PersistentProcess> => {
+  const bunPty = await loadBunPty()
+
   if (bunPty && process.env.NODE_ENV !== 'test' && !forceChildProcess) {
     const isWindows = os.platform() === 'win32'
     const currShell = detectShell()
@@ -184,8 +188,8 @@ const createPersistantProcess = (
   }
 }
 
-export let persistentProcess: ReturnType<
-  typeof createPersistantProcess
+export let persistentProcess: Awaited<
+  ReturnType<typeof createPersistantProcess>
 > | null = null
 
 process.stdout.on('resize', () => {
@@ -201,11 +205,11 @@ export const isCommandRunning = () => {
   return commandIsRunning
 }
 
-export const recreateShell = (cwd: string, forceChildProcess = false) => {
-  persistentProcess = createPersistantProcess(cwd, forceChildProcess)
+export const recreateShell = async (cwd: string, forceChildProcess = false) => {
+  persistentProcess = await createPersistantProcess(cwd, forceChildProcess)
 }
 
-export const resetShell = (cwd: string) => {
+export const resetShell = async (cwd: string) => {
   commandIsRunning = false
   if (persistentProcess) {
     if (persistentProcess.timerId) {
@@ -215,7 +219,7 @@ export const resetShell = (cwd: string) => {
 
     if (persistentProcess.type === 'pty') {
       persistentProcess.pty.kill()
-      recreateShell(cwd)
+      await recreateShell(cwd)
     } else {
       persistentProcess.childProcess?.kill()
       persistentProcess = {
@@ -622,7 +626,7 @@ If you want to change the project root:
 }
 
 const runCommandChildProcess = (
-  persistentProcess: ReturnType<typeof createPersistantProcess> & {
+  persistentProcess: PersistentProcess & {
     type: 'process'
   },
   command: string,
@@ -656,15 +660,16 @@ const runCommandChildProcess = (
       },
     }
   )
-  persistentProcess = {
-    ...persistentProcess,
-    childProcess,
+
+  // Update the persistent process with the new child process
+  if (persistentProcess.type === 'process') {
+    persistentProcess.childProcess = childProcess
   }
 
   let timer: NodeJS.Timeout | null = null
   if (maybeTimeoutSeconds !== null) {
-    timer = setTimeout(() => {
-      resetShell(cwd)
+    timer = setTimeout(async () => {
+      await resetShell(cwd)
       if (mode === 'assistant') {
         resolve({
           result: formatResult(
@@ -679,7 +684,9 @@ const runCommandChildProcess = (
     }, maybeTimeoutSeconds * 1000)
   }
 
-  persistentProcess.timerId = timer
+  if (persistentProcess.type === 'process') {
+    persistentProcess.timerId = timer
+  }
 
   childProcess.stdout.on('data', (data: Buffer) => {
     const output = data.toString()
