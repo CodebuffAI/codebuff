@@ -9,6 +9,7 @@ import { filePicker } from './agents/file-picker'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
 import { AgentTemplate } from './types'
+import { planner } from './agents/planner'
 
 export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   claude4_base: {
@@ -28,12 +29,16 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
     ...thinkingBase(models.sonnet),
   },
 
-  gemini25pro_thinking: {
-    type: AgentTemplateTypes.gemini25pro_thinking,
+  gemini25pro_thinker: {
+    type: AgentTemplateTypes.gemini25pro_thinker,
     ...thinker(models.gemini2_5_pro_preview),
   },
   gemini25flash_file_picker: {
     type: AgentTemplateTypes.gemini25flash_file_picker,
     ...filePicker(models.gemini2_5_flash),
+  },
+  gemini25pro_planner: {
+    type: AgentTemplateTypes.gemini25pro_planner,
+    ...planner(models.gemini2_5_pro_preview),
   },
 }

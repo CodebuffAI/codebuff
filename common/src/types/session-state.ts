@@ -44,8 +44,9 @@ export const AgentTemplateTypeList = [
   'claude4_gemini_thinking',
 
   // Other agents
-  'gemini25pro_thinking',
+  'gemini25pro_thinker',
   'gemini25flash_file_picker',
+  'gemini25pro_planner',
 ] as const
 export const AgentTemplateTypes = Object.fromEntries(
   AgentTemplateTypeList.map((name) => [name, name])
