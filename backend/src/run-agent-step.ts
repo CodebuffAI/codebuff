@@ -73,6 +73,8 @@ import { processStreamWithTags } from './xml-stream-parser'
 // TODO: We might want to be able to turn this on on a per-repo basis.
 const COLLECT_FULL_FILE_CONTEXT = false
 
+const MAX_AGENT_STEPS = 20
+
 export interface AgentOptions {
   userId: string | undefined
   userInputId: string
@@ -778,21 +780,45 @@ export const runAgentStep = async (
       }
     } else if (toolCall.toolName === 'spawn_agents') {
       const { agents } = toolCall.args
-      for (const { agent_type: agentType, prompt } of agents) {
-        // TODO also check if current agent is able to spawn this agent
-        if (!(agentType in agentTemplates)) {
-          serverToolResults.push({
-            toolName: 'spawn_agents',
-            toolCallId: toolCall.toolCallId,
-            result: `Agent type ${agentType} not found.`,
-          })
-          continue
-        }
+      await Promise.allSettled(
+        agents.map(async ({ agent_type: agentType, prompt }) => {
+          // TODO also check if current agent is able to spawn this agent
+          if (!(agentType in agentTemplates)) {
+            serverToolResults.push({
+              toolName: 'spawn_agents',
+              toolCallId: toolCall.toolCallId,
+              result: `Agent type ${agentType} not found.`,
+            })
+            return
+          }
+          const agentTemplate =
+            agentTemplates[agentType as keyof typeof agentTemplates]
 
-        const agentTemplate =
-          agentTemplates[agentType as keyof typeof agentTemplates]
-        // TODO: call appropriate agent
-      }
+          // TODO: Flesh out agent state based on agent template.
+          const agentId = generateCompactId()
+          const agentState: AgentState = {
+            agentId,
+            agentType: agentType as AgentTemplateType,
+            agentContext: '',
+            subagents: [],
+            messageHistory: [],
+            stepsRemaining: MAX_AGENT_STEPS,
+          }
+
+          await loopAgentSteps(ws, {
+            userInputId: `${userInputId}-${agentType}${agentId}`,
+            prompt,
+            agentType: agentTemplate.type,
+            agentState,
+            fingerprintId,
+            fileContext,
+            toolResults: [],
+            userId,
+            clientSessionId,
+            onResponseChunk: () => {},
+          })
+        })
+      )
     } else {
       toolCall satisfies never
       throw new Error(`Unknown tool: ${name}`)
@@ -1170,4 +1196,66 @@ async function uploadExpandedFileContextForTraining(
 
   // Upload the files to bigquery
   await insertTrace(trace)
+}
+
+export const loopAgentSteps = async (
+  ws: WebSocket,
+  options: {
+    userInputId: string
+    prompt: string | undefined
+    agentType: AgentTemplateType
+    agentState: AgentState
+    fingerprintId: string
+    fileContext: ProjectFileContext
+    toolResults: ToolResult[]
+
+    userId: string | undefined
+    clientSessionId: string
+    onResponseChunk: (chunk: string) => void
+  }
+) => {
+  const {
+    agentState,
+    prompt,
+    userId,
+    clientSessionId,
+    onResponseChunk,
+    userInputId,
+    fingerprintId,
+    fileContext,
+    agentType,
+  } = options
+  let currentPrompt = prompt
+  let currentAgentState = agentState
+  while (true) {
+    const {
+      agentState: newAgentState,
+      fullResponse,
+      shouldEndTurn,
+    } = await runAgentStep(ws, {
+      userId,
+      userInputId,
+      clientSessionId,
+      fingerprintId,
+      onResponseChunk,
+
+      agentType,
+      fileContext,
+      agentState: currentAgentState,
+      prompt: currentPrompt,
+    })
+
+    if (shouldEndTurn) {
+      const hasEndTurn = fullResponse.includes(
+        getToolCallString('end_turn', {})
+      )
+      return {
+        agentState: newAgentState,
+        hasEndTurn,
+      }
+    }
+
+    currentPrompt = undefined
+    currentAgentState = newAgentState
+  }
 }
