@@ -1,4 +1,4 @@
-import { AgentTemplateType } from '@codebuff/common/types/session-state'
+import { AgentTemplateType, AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { Model } from 'common/constants'
 
 import { ToolName } from '../tools'
@@ -70,4 +70,10 @@ export const baseAgentStopSequences: string[] = [
   '</find_files>',
   '</run_terminal_command>',
   '</code_search>',
+] as const
+
+export const baseAgentSpawnableAgents: AgentTemplateType[] = [
+  AgentTemplateTypes.gemini25pro_thinker,
+  AgentTemplateTypes.gemini25flash_file_picker,
+  AgentTemplateTypes.gemini25pro_planner,
 ] as const

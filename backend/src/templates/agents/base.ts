@@ -7,6 +7,7 @@ import {
 } from '../base-prompts'
 import {
   AgentTemplate,
+  baseAgentSpawnableAgents,
   baseAgentStopSequences,
   baseAgentToolNames,
 } from '../types'
@@ -16,7 +17,7 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
-  spawnableAgents: [],
+  spawnableAgents: baseAgentSpawnableAgents,
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
 
