@@ -11,39 +11,22 @@ jobs:
   # First job: Check PR title and prepare staging release
   prepare-and-commit-staging:
     runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.title, '[codecane]')
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
-      should_run: ${{ steps.check_pr_title.outputs.should_run }}
     steps:
-      - name: Check PR title
-        id: check_pr_title
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          shopt -s nocasematch
-          if [[ "$PR_TITLE" == *"[codecane]"* ]]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-            echo "PR title contains [codecane] - will run staging release"
-          else
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "PR title does not contain [codecane] - skipping staging release"
-          fi
-
       - uses: actions/checkout@v4
-        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Bun
-        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.2.16'
 
       # Cache dependencies for speed
       - name: Cache dependencies
-        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -55,11 +38,9 @@ jobs:
             ${{ runner.os }}-deps-
 
       - name: Install dependencies
-        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
         run: bun install --frozen-lockfile
 
       - name: Calculate and update staging version
-        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
         id: bump_version
         run: |
           cd npm-app/release-staging
@@ -95,13 +76,11 @@ jobs:
           "
 
       - name: Configure git
-        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Commit staging release state
-        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
         run: |
           # Add all changes (current state + version bump)
           git add -A
@@ -114,13 +93,11 @@ jobs:
           Co-Authored-By: Codebuff <noreply@codebuff.com>"
 
       - name: Create and push staging tag
-        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
         run: |
           git tag "v${{ steps.bump_version.outputs.new_version }}"
           git push origin "v${{ steps.bump_version.outputs.new_version }}"
 
       - name: Upload updated package
-        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: updated-staging-package
@@ -128,7 +105,6 @@ jobs:
 
   build-staging-binaries:
     needs: prepare-and-commit-staging
-    if: ${{ needs.prepare-and-commit-staging.outputs.should_run == 'true' }}
     uses: ./.github/workflows/npm-app-release-build.yml
     with:
       binary-name: codecane
@@ -140,7 +116,6 @@ jobs:
   # Create GitHub prerelease with all binaries
   create-staging-release:
     needs: [prepare-and-commit-staging, build-staging-binaries]
-    if: ${{ needs.prepare-and-commit-staging.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -190,7 +165,6 @@ jobs:
   # Publish npm package as prerelease
   publish-staging-npm:
     needs: [prepare-and-commit-staging, create-staging-release]
-    if: ${{ needs.prepare-and-commit-staging.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
