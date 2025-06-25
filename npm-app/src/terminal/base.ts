@@ -98,81 +98,89 @@ const createPersistantProcess = (
       )
     }
 
-    const persistentPty = bunPty.spawn(shell, isWindows ? [] : ['--login'], {
-      name: 'xterm-256color',
-      cols: process.stdout.columns || 80,
-      rows: process.stdout.rows || 24,
-      cwd: dir,
-      env: {
-        ...(process.env as any),
-        PAGER: 'cat',
-        GIT_PAGER: 'cat',
-        GIT_TERMINAL_PROMPT: '0',
-        ...(isWindows
-          ? {
-              TERM: 'cygwin',
-              ANSICON: '1',
-              PROMPT: promptIdentifier,
-            }
-          : {
-              TERM: 'xterm-256color',
-              // Preserve important environment variables
-              PATH: process.env.PATH,
-              HOME: process.env.HOME,
-              USER: process.env.USER,
-              SHELL: shellWithoutExe,
-            }),
-        LESS: '-FRX',
-        TERM_PROGRAM: 'mintty',
-        FORCE_COLOR: '1',
-        // Locale settings for consistent output
-        LANG: 'en_US.UTF-8',
-        LC_ALL: 'en_US.UTF-8',
-      },
-    })
+    try {
+      const persistentPty = bunPty.spawn(shell, isWindows ? [] : ['--login'], {
+        name: 'xterm-256color',
+        cols: process.stdout.columns || 80,
+        rows: process.stdout.rows || 24,
+        cwd: dir,
+        env: {
+          ...(process.env as any),
+          PAGER: 'cat',
+          GIT_PAGER: 'cat',
+          GIT_TERMINAL_PROMPT: '0',
+          ...(isWindows
+            ? {
+                TERM: 'cygwin',
+                ANSICON: '1',
+                PROMPT: promptIdentifier,
+              }
+            : {
+                TERM: 'xterm-256color',
+                // Preserve important environment variables
+                PATH: process.env.PATH,
+                HOME: process.env.HOME,
+                USER: process.env.USER,
+                SHELL: shellWithoutExe,
+              }),
+          LESS: '-FRX',
+          TERM_PROGRAM: 'mintty',
+          FORCE_COLOR: '1',
+          // Locale settings for consistent output
+          LANG: 'en_US.UTF-8',
+          LC_ALL: 'en_US.UTF-8',
+        },
+      })
 
-    const setupPromise = new Promise<void>(async (resolve) => {
-      for (const command of shellInitCommands) {
-        await runSinglePtyCommand(persistentPty, command, () => {})
+      const setupPromise = new Promise<void>(async (resolve) => {
+        for (const command of shellInitCommands) {
+          await runSinglePtyCommand(persistentPty, command, () => {})
+        }
+        resolve()
+      })
+
+      const persistentProcessInfo: PersistentProcess = {
+        type: 'pty',
+        shell,
+        pty: persistentPty,
+        timerId: null,
+        globalOutputBuffer: '',
+        globalOutputLastReadLength: 0,
+        setupPromise,
       }
-      resolve()
-    })
 
-    const persistentProcessInfo: PersistentProcess = {
-      type: 'pty',
-      shell,
-      pty: persistentPty,
-      timerId: null,
-      globalOutputBuffer: '',
-      globalOutputLastReadLength: 0,
-      setupPromise,
+      persistentPty.onData((data: string) => {
+        if (persistentProcessInfo.type === 'pty') {
+          persistentProcessInfo.globalOutputBuffer += data.toString() // Should we use stripColors(...)?
+        }
+      })
+
+      return persistentProcessInfo
+    } catch (error) {
+      logger.error(
+        { error, platform: os.platform(), arch: os.arch() },
+        'Failed to create PTY process, falling back to child_process'
+      )
+      // Fall through to child_process fallback
     }
+  }
 
-    persistentPty.onData((data: string) => {
-      if (persistentProcessInfo.type === 'pty') {
-        persistentProcessInfo.globalOutputBuffer += data.toString() // Should we use stripColors(...)?
-      }
-    })
-
-    return persistentProcessInfo
-  } else {
-    // Fallback to child_process
-    const isWindows = os.platform() === 'win32'
-    const currShell = detectShell()
-    const shell = isWindows
-      ? currShell === 'powershell'
-        ? 'powershell.exe'
-        : 'cmd.exe'
-      : 'bash'
-    const childProcess = null as ChildProcessWithoutNullStreams | null
-    return {
-      type: 'process',
-      shell,
-      childProcess,
-      timerId: null,
-      globalOutputBuffer: '',
-      globalOutputLastReadLength: 0,
-    }
+  // Fallback to child_process
+  const isWindows = os.platform() === 'win32'
+  const currShell = detectShell()
+  const shell = isWindows
+    ? currShell === 'powershell'
+      ? 'powershell.exe'
+      : 'cmd.exe'
+    : 'bash'
+  const childProcess = null as ChildProcessWithoutNullStreams | null
+  return {
+    type: 'process',
+    shell,
+    childProcess,
+    timerId: null,
+    globalOutputBuffer: '',
+    globalOutputLastReadLength: 0,
   }
 }
 
