@@ -175,7 +175,7 @@ export async function runAgentStepScaffolding(
 export async function runToolCalls(toolCalls: ClientToolCall[]) {
   const toolResults: ToolResult[] = []
   for (const toolCall of toolCalls) {
-    if (toolCall.toolName === 'spawn_agents') {
+    if (toolCall.toolName === 'spawn_agents' || toolCall.toolName === 'update_report') {
       // should never happen
       continue
     }
