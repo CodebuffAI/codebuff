@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger'
+import { suppressConsoleOutput } from '../utils/suppress-console'
 
 // Native library imports - these are bundled as file assets
 // @ts-ignore
@@ -68,9 +69,16 @@ export async function loadBunPty(): Promise<BunPty | undefined> {
     // Set the environment variable that bun-pty reads
     process.env.BUN_PTY_LIB = libPath
 
+    const removeConsoleSuppression = suppressConsoleOutput('all', (args) => {
+      return JSON.stringify(args).includes('ERR_DLOPEN_FAILED')
+    })
+
     // Dynamic require to load after environment variable is set
     // Using require instead of import ensures synchronous execution order
+    // Open bug in loading a rust binary: https://github.com/oven-sh/bun/issues/11598
     bunPtyModule = await import('bun-pty')
+
+    removeConsoleSuppression()
 
     logger.info(
       {

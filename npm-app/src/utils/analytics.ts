@@ -2,6 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { PostHog } from 'posthog-node'
 
 import { logger } from './logger'
+import { suppressConsoleOutput } from './suppress-console'
 
 // Prints the events to console
 // It's very noisy, so recommended you set this to true
@@ -14,38 +15,14 @@ let client: PostHog | undefined
 
 export let identified: boolean = false
 
-// Store original console methods
-const originalConsoleError = console.error
-const originalConsoleWarn = console.warn
-
-// Wrap console methods to suppress PostHog errors
-function wrapConsoleMethod(originalMethod: typeof console.error) {
-  return function (...args: any[]) {
-    // Check for error name in any of the arguments
-    let errorName = ''
-    for (const arg of args) {
-      if (arg instanceof Error) {
-        errorName = arg.name
-        break
-      } else if (arg && typeof arg === 'object' && arg.constructor) {
-        errorName = arg.constructor.name
-        break
-      }
-    }
-
-    if (errorName.toLowerCase().includes('posthog')) {
-      return
-    }
-
-    // For non-PostHog errors, use the original method
-    originalMethod.apply(console, args)
-  }
-}
-
 // Apply console wrapping when PostHog is initialized
 function suppressPostHogConsoleErrors() {
-  console.error = wrapConsoleMethod(originalConsoleError)
-  console.warn = wrapConsoleMethod(originalConsoleWarn)
+  suppressConsoleOutput('error', (args, errorName) =>
+    errorName.toLowerCase().includes('posthog')
+  )
+  suppressConsoleOutput('warn', (args, errorName) =>
+    errorName.toLowerCase().includes('posthog')
+  )
 }
 
 export function initAnalytics() {
