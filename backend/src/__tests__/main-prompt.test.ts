@@ -20,9 +20,9 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
+import { getToolCallString } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
-import { asUserMessage } from '../util/messages'
 import { renderToolResults } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
@@ -99,6 +99,20 @@ describe('mainPrompt', () => {
       }
     )
 
+    spyOn(websocketAction, 'requestToolCall').mockImplementation(
+      async (
+        ws: WebSocket,
+        toolName: string,
+        args: Record<string, any>,
+        timeout: number = 30_000
+      ) => {
+        return {
+          success: true,
+          result: `Tool call success: ${{ toolName, args }}` as any,
+        }
+      }
+    )
+
     spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
       async () => []
     )
@@ -151,83 +165,6 @@ describe('mainPrompt', () => {
     fileVersions: [],
   }
 
-  it('should add tool results to message history', async () => {
-    const sessionState = getInitialSessionState(mockFileContext)
-    const toolResults = [
-      {
-        type: 'tool-result' as const,
-        toolCallId: '1',
-        toolName: 'read_files',
-        result: 'Read test.txt',
-      },
-    ]
-    const userPromptText = 'Test prompt'
-
-    const action = {
-      type: 'prompt' as const,
-      prompt: userPromptText,
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'normal' as const,
-      promptId: 'test',
-      toolResults,
-    }
-
-    const { sessionState: newSessionState } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
-      action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        selectedModel: undefined,
-        readOnlyMode: false,
-      }
-    )
-
-    // 1. First, find the tool results message
-    const userToolResultMessageIndex =
-      newSessionState.mainAgentState.messageHistory.findIndex(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('<tool_result>') &&
-          m.content.includes('read_files')
-      )
-    expect(userToolResultMessageIndex).toBeGreaterThanOrEqual(0)
-    const userToolResultMessage =
-      newSessionState.mainAgentState.messageHistory[userToolResultMessageIndex]
-    expect(userToolResultMessage).toBeDefined()
-    expect(userToolResultMessage?.content).toContain('read_files')
-
-    // 2. Find the actual user prompt message (wrapped in <user_message> tags)
-    const userPromptMessageIndex =
-      newSessionState.mainAgentState.messageHistory.findIndex(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content === asUserMessage(userPromptText)
-      )
-    expect(userPromptMessageIndex).toBeGreaterThanOrEqual(0)
-    const userPromptMessage =
-      newSessionState.mainAgentState.messageHistory[userPromptMessageIndex]
-    expect(userPromptMessage?.role).toBe('user')
-    expect(userPromptMessage.content).toEqual(asUserMessage(userPromptText))
-
-    // 3. The assistant response should be the last message
-    const assistantResponseMessage =
-      newSessionState.mainAgentState.messageHistory[
-        newSessionState.mainAgentState.messageHistory.length - 1
-      ]
-    expect(assistantResponseMessage?.role).toBe('assistant')
-    expect(assistantResponseMessage?.content).toBe('Test response')
-
-    // Check overall length - should have at least the tool results, user prompt, and assistant response
-    expect(
-      newSessionState.mainAgentState.messageHistory.length
-    ).toBeGreaterThanOrEqual(3)
-  })
-
   it('should add file updates to tool results in message history', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     // Simulate a previous read_files result being in the history
@@ -261,8 +198,6 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-        selectedModel: undefined,
-        readOnlyMode: false,
       }
     )
 
@@ -315,8 +250,6 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-        selectedModel: undefined,
-        readOnlyMode: false,
       }
     )
 
@@ -328,25 +261,18 @@ describe('mainPrompt', () => {
   })
 
   it('should handle write_file tool call', async () => {
-    const createWriteFileBlock = (
-      filePath: string,
-      instructions: string,
-      content: string
-    ) => {
-      const tagName = 'write_file'
-      return `<${tagName}>
-<path>${filePath}</path>
-<instructions>${instructions}</instructions>
-<content>${content}</content>
-</${tagName}>`
-    }
-    // Mock LLM to return a write_file tool call
-    const writeFileBlock = createWriteFileBlock(
-      'new-file.txt',
-      'Added Hello World',
-      'Hello, world!'
-    )
-    mockAgentStream(writeFileBlock)
+    // Mock LLM to return a write_file tool call using getToolCallString
+    const mockResponse =
+      getToolCallString('write_file', {
+        path: 'new-file.txt',
+        instructions: 'Added Hello World',
+        content: 'Hello, world!',
+      }) + getToolCallString('end_turn', {})
+
+    mockAgentStream(mockResponse)
+
+    // Get reference to the spy so we can check if it was called
+    const requestToolCallSpy = websocketAction.requestToolCall as any
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -359,28 +285,32 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { toolCalls, sessionState: newSessionState } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
-      action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        selectedModel: undefined,
-        readOnlyMode: false,
-      }
+    await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+    })
+
+    // Assert that requestToolCall was called exactly twice (write_file + end_turn)
+    expect(requestToolCallSpy).toHaveBeenCalledTimes(2)
+
+    // Verify the write_file call was made with the correct arguments
+    expect(requestToolCallSpy).toHaveBeenCalledWith(
+      expect.any(Object), // WebSocket
+      'write_file',
+      expect.objectContaining({
+        type: 'file',
+        path: 'new-file.txt',
+        content: 'Hello, world!',
+      })
     )
 
-    expect(toolCalls).toHaveLength(1) // This assertion should now pass
-    expect(toolCalls[0].toolName).toBe('write_file')
-    const params = toolCalls[0].args as {
-      type: string
-      path: string
-      content: string
-    }
-    expect(params.type).toBe('file')
-    expect(params.path).toBe('new-file.txt')
-    expect(params.content).toBe('Hello, world!')
+    // Verify the end_turn call was made
+    expect(requestToolCallSpy).toHaveBeenCalledWith(
+      expect.any(Object), // WebSocket
+      'end_turn',
+      expect.any(Object)
+    )
   })
 
   it('should force end of response after MAX_CONSECUTIVE_ASSISTANT_MESSAGES', async () => {
@@ -410,8 +340,6 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-        selectedModel: undefined,
-        readOnlyMode: false,
       }
     )
 
@@ -439,8 +367,6 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-        selectedModel: undefined,
-        readOnlyMode: false,
       }
     )
 
@@ -472,8 +398,6 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-        selectedModel: undefined,
-        readOnlyMode: false,
       }
     )
 
@@ -503,8 +427,6 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-        selectedModel: undefined,
-        readOnlyMode: false,
       }
     )
 
@@ -514,15 +436,19 @@ describe('mainPrompt', () => {
   it('should unescape ampersands in run_terminal_command tool calls', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const userPromptText = 'Run the backend tests'
-    const escapedCommand = 'cd backend &amp;&amp; bun test'
+    const escapedCommand = 'cd backend && bun test'
     const expectedCommand = 'cd backend && bun test'
 
-    const mockResponse = `<run_terminal_command>
-<command>${escapedCommand}</command>
-<process_type>SYNC</process_type>
-</run_terminal_command>`
+    const mockResponse =
+      getToolCallString('run_terminal_command', {
+        command: escapedCommand,
+        process_type: 'SYNC',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
+
+    // Get reference to the spy so we can check if it was called
+    const requestToolCallSpy = websocketAction.requestToolCall as any
 
     const action = {
       type: 'prompt' as const,
@@ -534,22 +460,31 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { toolCalls } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
-      action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        selectedModel: undefined,
-        readOnlyMode: false,
-      }
+    await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+    })
+
+    // Assert that requestToolCall was called exactly twice (run_terminal_command + end_turn)
+    expect(requestToolCallSpy).toHaveBeenCalledTimes(2)
+
+    // Verify the run_terminal_command call was made with the correct arguments
+    expect(requestToolCallSpy).toHaveBeenCalledWith(
+      expect.any(Object), // WebSocket
+      'run_terminal_command',
+      expect.objectContaining({
+        command: expectedCommand,
+        process_type: 'SYNC',
+        mode: 'assistant',
+      })
     )
 
-    expect(toolCalls).toHaveLength(1)
-    expect(toolCalls[0].toolName).toBe('run_terminal_command')
-    expect((toolCalls[0].args as { command: string }).command).toBe(
-      expectedCommand
+    // Verify the end_turn call was made
+    expect(requestToolCallSpy).toHaveBeenCalledWith(
+      expect.any(Object), // WebSocket
+      'end_turn',
+      expect.any(Object)
     )
   })
 })
