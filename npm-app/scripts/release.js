@@ -63,7 +63,7 @@ async function triggerWorkflow(versionType) {
       -H "Accept: application/vnd.github.v3+json" \
       -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Content-Type: application/json" \
-      https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/release-binaries.yml/dispatches \
+      https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/releases/prod.yml/dispatches \
       -d '{"ref":"main","inputs":{"version_type":"${versionType}"}}'`
 
     const response = execSync(triggerCmd, { encoding: 'utf8' })
@@ -73,7 +73,7 @@ async function triggerWorkflow(versionType) {
       log(`⚠️  Workflow dispatch failed: ${response}`)
       log('The workflow may need to be updated on GitHub. Continuing anyway...')
       log(
-        'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/release-binaries.yml'
+        'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/releases/prod.yml'
       )
     } else {
       // log(
@@ -84,7 +84,7 @@ async function triggerWorkflow(versionType) {
   } catch (err) {
     log(`⚠️  Failed to trigger workflow automatically: ${err.message}`)
     log(
-      'You may need to trigger it manually at: https://github.com/CodebuffAI/codebuff/actions/workflows/release-binaries.yml'
+      'You may need to trigger it manually at: https://github.com/CodebuffAI/codebuff/actions/workflows/releases/prod.yml'
     )
   }
 }

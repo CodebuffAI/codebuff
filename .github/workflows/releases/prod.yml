@@ -117,119 +117,12 @@ jobs:
 
   build-binaries:
     needs: prepare-and-commit-release
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: linux-x64
-            binary: codebuff
-            bun_target: bun-linux-x64
-            platform: linux
-            arch: x64
-          - os: ubuntu-latest
-            target: linux-arm64
-            binary: codebuff
-            bun_target: bun-linux-arm64
-            platform: linux
-            arch: arm64
-          - os: macos-13
-            target: darwin-x64
-            binary: codebuff
-            bun_target: bun-darwin-x64
-            platform: darwin
-            arch: x64
-          - os: macos-14
-            target: darwin-arm64
-            binary: codebuff
-            bun_target: bun-darwin-arm64
-            platform: darwin
-            arch: arm64
-          - os: windows-latest
-            target: win32-x64
-            binary: codebuff.exe
-            bun_target: bun-windows-x64
-            platform: win32
-            arch: x64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download updated package
-        uses: actions/download-artifact@v4
-        with:
-          name: updated-package
-          path: npm-app/release/
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.2.16'
-
-      # Cache dependencies for speed
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            */node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb', '**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
-            ${{ runner.os }}-deps-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set environment variables
-        env:
-          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
-        shell: bash
-        run: |
-          VAR_NAMES=$(node scripts/generate-ci-env.js)
-          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
-            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
-          ' >> $GITHUB_ENV
-          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_CB_ENVIRONMENT=prod" >> $GITHUB_ENV
-          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
-
-      - name: Build binary
-        run: bun run scripts/build-binary.js
-        working-directory: npm-app
-        shell: bash
-        env:
-          VERBOSE: true
-          BUILD_VERSION: ${{ needs.prepare-and-commit-release.outputs.new_version }}
-          OVERRIDE_TARGET: ${{ matrix.bun_target }}
-          OVERRIDE_PLATFORM: ${{ matrix.platform }}
-          OVERRIDE_ARCH: ${{ matrix.arch }}
-
-      - name: Test binary
-        run: |
-          cd npm-app/bin
-          echo "Testing binary..."
-          # Only test if we're building for the native architecture
-          if [[ "${{ matrix.platform }}" == "linux" && "${{ matrix.arch }}" == "arm64" && "${{ runner.arch }}" != "ARM64" ]]; then
-            echo "Skipping test for cross-compiled ARM64 binary"
-          elif [[ "${{ runner.os }}" == "Windows" ]]; then
-            ./codebuff.exe --version
-          else
-            ./codebuff --version
-          fi
-        shell: bash
-
-      - name: Create tarball
-        shell: bash
-        run: |
-          tar -czf codebuff-${{ matrix.target }}.tar.gz -C npm-app/bin ${{ matrix.binary }}
-
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: codebuff-${{ matrix.target }}
-          path: codebuff-${{ matrix.target }}.*
+    uses: ./.github/workflows/releases/build.yml
+    with:
+      binary-name: codebuff
+      new-version: ${{ needs.prepare-and-commit-release.outputs.new_version }}
+      artifact-name: updated-package
+    secrets: inherit
 
   # Create GitHub release with all binaries
   create-release:
@@ -303,5 +196,3 @@ jobs:
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-
