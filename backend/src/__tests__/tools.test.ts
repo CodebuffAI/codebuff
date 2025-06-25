@@ -11,7 +11,6 @@ describe('getFilteredToolsInstructions', () => {
     'find_files',
     'code_search',
     'run_terminal_command',
-    'research',
     'think_deeply',
     'create_plan',
     'browser_logs',
@@ -24,7 +23,6 @@ describe('getFilteredToolsInstructions', () => {
     'read_files',
     'find_files',
     'code_search',
-    'research',
     'think_deeply',
     'create_plan',
     'browser_logs',
@@ -46,10 +44,5 @@ describe('getFilteredToolsInstructions', () => {
     expect(instructions).not.toInclude(`### write_file`)
     expect(instructions).not.toInclude(`### str_replace`)
     expect(instructions).not.toInclude(`### run_terminal_command`)
-  })
-
-  test('should not include research if readOnlyMode is true', () => {
-    const instructions = getFilteredToolsInstructions('normal', true)
-    expect(instructions).not.toInclude(`### research`)
   })
 })

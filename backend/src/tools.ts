@@ -411,27 +411,6 @@ ${getToolCallString('run_terminal_command', {
 })}
     `.trim(),
   },
-  research: {
-    parameters: z
-      .object({
-        prompts: z.string().describe('A JSON array of research prompts'),
-      })
-      .describe(
-        'Run a series of research prompts in parallel to gather information about your codebase.'
-      ),
-    description: `
-It is important to use this tool near the beginning of your response to make sure you know all the places in the codebase that will need to be updated. Always use it before using the create_plan tool.
-
-Example:
-${getToolCallString('research', {
-  prompts: JSON.stringify([
-    'What is the purpose of the `mainPrompt` function?',
-    'Find all usages of the `AgentState` type.',
-    'Look up potential LLM agent frameworks and recommend one.',
-  ]),
-})}
-    `.trim(),
-  },
   think_deeply: {
     parameters: z
       .object({
@@ -486,8 +465,6 @@ Use when:
 - User explicitly requests a detailed plan.  
 - Task involves significant architectural or multi-file changes.
 - Use this tool to overwrite a previous plan by using the exact same file name.
-
-Before using this tool, use the research tool to gather information.
 
 Don't include:
 - Goals, timelines, benefits, next steps.  
@@ -829,7 +806,6 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'find_files',
   'run_terminal_command',
   'code_search',
-  'research',
 ]
 
 export const getToolsInstructions = (toolNames: readonly ToolName[]) => `
@@ -1246,7 +1222,7 @@ export function getFilteredToolsInstructions(
 
   if (readOnlyMode) {
     allowedTools = allowedTools.filter(
-      (tool) => !['create_plan', 'research'].includes(tool)
+      (tool) => !['create_plan'].includes(tool)
     )
   }
 

@@ -29,7 +29,6 @@ import {
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
-import { research } from './research'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
@@ -777,50 +776,6 @@ export const runAgentStep = async (
           result: `No relevant files found for description: ${description}`,
         })
       }
-    } else if (toolCall.toolName === 'research') {
-      const { prompts: promptsStr } = toolCall.args as { prompts: string }
-      let prompts: string[]
-      try {
-        prompts = JSON.parse(promptsStr)
-      } catch (e) {
-        serverToolResults.push({
-          toolName: 'research',
-          toolCallId: generateCompactId(),
-          result: `Failed to parse prompts: ${e}`,
-        })
-        continue
-      }
-
-      let formattedResult: string
-      try {
-        const researchResults = await research(
-          ws,
-          prompts,
-          { fileContext, mainAgentState: agentState },
-          {
-            userId,
-            clientSessionId,
-            fingerprintId,
-            promptId: userInputId,
-          }
-        )
-        formattedResult = researchResults
-          .map(
-            (result, i) =>
-              `<research_result>\n<prompt>${prompts[i]}</prompt>\n<result>${result}</result>\n</research_result>`
-          )
-          .join('\n\n')
-
-        logger.debug({ prompts, researchResults }, 'Ran research')
-      } catch (e) {
-        formattedResult = `Error running research, consider retrying?: ${e instanceof Error ? e.message : 'Unknown error'}`
-      }
-
-      serverToolResults.push({
-        toolName: 'research',
-        toolCallId: generateCompactId(),
-        result: formattedResult,
-      })
     } else if (toolCall.toolName === 'spawn_agents') {
       const { agents } = toolCall.args
       for (const { agent_type: agentType, prompt } of agents) {
