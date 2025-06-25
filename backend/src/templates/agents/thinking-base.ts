@@ -8,6 +8,7 @@ import {
 } from '../base-prompts'
 import {
   AgentTemplate,
+  baseAgentSpawnableAgents,
   baseAgentStopSequences,
   baseAgentToolNames,
 } from '../types'
@@ -17,7 +18,7 @@ export const thinkingBase = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
-  spawnableAgents: [AgentTemplateTypes.gemini25pro_thinker],
+  spawnableAgents: baseAgentSpawnableAgents,
   initialAssistantMessage: getToolCallString('spawn_agents', {
     agents: JSON.stringify([
       {
