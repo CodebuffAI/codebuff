@@ -4,6 +4,7 @@ import pLimit from 'p-limit'
 import path from 'path'
 
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { models } from '@codebuff/common/constants'
@@ -29,7 +30,7 @@ import {
 } from './types'
 
 // Try Gemini!
-const COST_MODE = 'experimental' as const
+const AGENT_TYPE = AgentTemplateTypes.gemini25pro_base
 
 export async function runSingleEval(
   evalCommit: EvalCommit,
@@ -82,7 +83,7 @@ export async function runSingleEval(
       const renderedTrace = trace
         .map(
           ({ prompt, steps }) =>
-            `You: ${prompt}\n\nCodebuff:${steps.map(({ response, toolCalls, toolResults }) => `${response}\n\nTool calls: ${JSON.stringify(toolCalls)}\n\nTool results: ${JSON.stringify(toolResults)}`).join('\n\n')}`
+            `You: ${prompt}\n\nCodebuff:${steps.map(({ response }) => response).join('\n\n')}`
         )
         .join('\n\n')
 
@@ -142,16 +143,13 @@ Explain your reasoning in detail.`,
             prompt,
             projectPath,
             maxIterations: 20,
-            options: {
-              costMode: COST_MODE,
-              modelConfig,
-            },
+            agentType: AGENT_TYPE,
           }),
           // Timeout after 30 minutes
           60_000 * 30
         )
 
-        sessionState = codeBuffResult.sessionState
+        sessionState.mainAgentState = codeBuffResult.agentState
         trace.push({ prompt, steps: codeBuffResult.steps })
       }
 
@@ -387,6 +385,8 @@ export async function runGitEvals(
 
             child.stdout?.pipe(logStream)
             child.stderr?.pipe(logStream)
+            child.stdout?.pipe(process.stdout) // asdf
+            child.stderr?.pipe(process.stderr) // asdf
 
             child.on(
               'message',
