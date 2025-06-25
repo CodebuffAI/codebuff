@@ -10,10 +10,10 @@ import { WebSocket } from 'ws'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
+import { agentTemplates } from './templates/agent-list'
 import { ClientToolCall } from './tools'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
-import { agentTemplates } from './templates/agent-list'
 
 export interface MainPromptOptions {
   userId: string | undefined
@@ -97,13 +97,20 @@ export const mainPrompt = async (
   )[costMode]
 
   const agentTemplate = agentTemplates[agentType]
-  const { initialAssistantMessage, initialAssistantPrefix } = agentTemplate
+  const {
+    initialAssistantMessage,
+    initialAssistantPrefix,
+    stepAssistantMessage,
+    stepAssistantPrefix,
+  } = agentTemplate
 
   const { agentState, hasEndTurn } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,
-    assistantMessage: initialAssistantMessage,
-    assistantPrefix: initialAssistantPrefix,
+    initialAssistantMessage,
+    initialAssistantPrefix,
+    stepAssistantMessage,
+    stepAssistantPrefix,
     agentType,
     agentState: mainAgentState,
     fingerprintId,

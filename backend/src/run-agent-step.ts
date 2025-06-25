@@ -790,48 +790,64 @@ export const runAgentStep = async (
       const parentAgentTemplate = agentTemplate
 
       const results = await Promise.allSettled(
-        agents.map(async ({ agent_type: agentTypeStr, prompt }) => {
-          if (!(agentTypeStr in agentTemplates)) {
-            throw new Error(`Agent type ${agentTypeStr} not found.`)
-          }
-          const agentType = agentTypeStr as AgentTemplateType
-          const agentTemplate = agentTemplates[agentType]
-
-          if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
-            throw new Error(
-              `Agent type ${parentAgentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
-            )
-          }
-
-          const { initialAssistantMessage, initialAssistantPrefix } =
-            agentTemplate
-
-          const agentId = generateCompactId()
-          const agentState: AgentState = {
-            agentId,
-            agentType,
-            agentContext: '',
-            subagents: [],
-            messageHistory,
-            stepsRemaining: MAX_AGENT_STEPS,
-            report: {},
-          }
-
-          return await loopAgentSteps(ws, {
-            userInputId: `${userInputId}-${agentType}${agentId}`,
+        agents.map(
+          async ({
+            agent_type: agentTypeStr,
             prompt,
-            assistantMessage: initialAssistantMessage,
-            assistantPrefix: initialAssistantPrefix,
-            agentType: agentTemplate.type,
-            agentState,
-            fingerprintId,
-            fileContext,
-            toolResults: [],
-            userId,
-            clientSessionId,
-            onResponseChunk: () => {},
-          })
-        })
+            include_message_history,
+          }) => {
+            if (!(agentTypeStr in agentTemplates)) {
+              throw new Error(`Agent type ${agentTypeStr} not found.`)
+            }
+            const agentType = agentTypeStr as AgentTemplateType
+            const agentTemplate = agentTemplates[agentType]
+
+            if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
+              throw new Error(
+                `Agent type ${parentAgentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
+              )
+            }
+
+            const {
+              initialAssistantMessage,
+              initialAssistantPrefix,
+              stepAssistantMessage,
+              stepAssistantPrefix,
+            } = agentTemplate
+
+            const subAgentMessages = include_message_history
+              ? messageHistory
+              : []
+
+            const agentId = generateCompactId()
+            const agentState: AgentState = {
+              agentId,
+              agentType,
+              agentContext: '',
+              subagents: [],
+              messageHistory: subAgentMessages,
+              stepsRemaining: MAX_AGENT_STEPS,
+              report: {},
+            }
+
+            return await loopAgentSteps(ws, {
+              userInputId: `${userInputId}-${agentType}${agentId}`,
+              prompt,
+              initialAssistantMessage,
+              initialAssistantPrefix,
+              stepAssistantMessage,
+              stepAssistantPrefix,
+              agentType: agentTemplate.type,
+              agentState,
+              fingerprintId,
+              fileContext,
+              toolResults: [],
+              userId,
+              clientSessionId,
+              onResponseChunk: () => {},
+            })
+          }
+        )
       )
 
       const reports = results.map((result) => {
@@ -1246,8 +1262,10 @@ export const loopAgentSteps = async (
     agentType: AgentTemplateType
     agentState: AgentState
     prompt: string | undefined
-    assistantMessage: string | undefined
-    assistantPrefix: string | undefined
+    initialAssistantMessage: string
+    initialAssistantPrefix: string
+    stepAssistantMessage: string
+    stepAssistantPrefix: string
     fingerprintId: string
     fileContext: ProjectFileContext
     toolResults: ToolResult[]
@@ -1260,8 +1278,10 @@ export const loopAgentSteps = async (
   const {
     agentState,
     prompt,
-    assistantMessage,
-    assistantPrefix,
+    initialAssistantMessage,
+    initialAssistantPrefix,
+    stepAssistantMessage,
+    stepAssistantPrefix,
     userId,
     clientSessionId,
     onResponseChunk,
@@ -1270,10 +1290,13 @@ export const loopAgentSteps = async (
     fileContext,
     agentType,
   } = options
+  let isFirstStep = true
   let currentPrompt = prompt
-  let currentAssistantMessage = assistantMessage
+  let currentAssistantMessage = initialAssistantMessage
   // NOTE: If the assistant message is set, we run one step with it, and then the next step will use the assistant prefix.
-  let currentAssistantPrefix = assistantMessage ? undefined : assistantPrefix
+  let currentAssistantPrefix = initialAssistantMessage
+    ? undefined
+    : initialAssistantPrefix
   let currentAgentState = agentState
   while (true) {
     const {
@@ -1306,12 +1329,22 @@ export const loopAgentSteps = async (
     }
 
     currentPrompt = undefined
-    if (currentAssistantMessage) {
-      currentAssistantMessage = undefined
-      currentAssistantPrefix = assistantPrefix
-    } else {
-      currentAssistantPrefix = undefined
+
+    // Toggle assistant message between the injected step message and nothing.
+    currentAssistantMessage = currentAssistantMessage
+      ? ''
+      : stepAssistantMessage
+
+    // Only set the assistant prefix when no assistant message is injected.
+    if (!currentAssistantMessage) {
+      if (isFirstStep) {
+        currentAssistantPrefix = initialAssistantPrefix
+      } else {
+        currentAssistantPrefix = stepAssistantPrefix
+      }
     }
+
     currentAgentState = newAgentState
+    isFirstStep = false
   }
 }

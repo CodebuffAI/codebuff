@@ -22,6 +22,8 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   ],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
+  stepAssistantMessage: '',
+  stepAssistantPrefix: '',
 
   systemPrompt: `Create a comprehensive plan to tackle the user request using update_report. Spawn a file picker agent to explore more files. Spawn a thinker agent to consider specific problems in depth.
 

@@ -10,6 +10,8 @@ export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   spawnableAgents: [],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
+  stepAssistantMessage: '',
+  stepAssistantPrefix: '',
 
   systemPrompt: baseAgentSystemPrompt(model),
   userInputPrompt: `You are an expert programmer. Think deeply about the user request and how to best approach it. Consider edge cases, potential issues, and alternative approaches.
