@@ -1,9 +1,14 @@
-import { mainPrompt } from '@codebuff/backend/main-prompt'
+import { runAgentStep } from '@codebuff/backend/run-agent-step'
 import { ClientToolCall } from '@codebuff/backend/tools'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { FileChanges } from '@codebuff/common/actions'
 import { TEST_USER_ID } from '@codebuff/common/constants'
-import { SessionState, ToolResult } from '@codebuff/common/types/session-state'
+import {
+  AgentState,
+  AgentTemplateType,
+  SessionState,
+  ToolResult,
+} from '@codebuff/common/types/session-state'
 import { applyAndRevertChanges } from '@codebuff/common/util/changes'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -20,7 +25,6 @@ import {
   getAllFilePaths,
   getProjectFileTree,
 } from '../common/src/project-file-tree'
-import { ModelConfig } from './git-evals/types'
 
 const DEBUG_MODE = true
 
@@ -39,6 +43,8 @@ function readMockFile(projectRoot: string, filePath: string): string | null {
   }
 }
 
+let toolCalls: ClientToolCall[] = []
+let toolResults: ToolResult[] = []
 export function createFileReadingMock(projectRoot: string) {
   mock.module('backend/websockets/websocket-action', () => ({
     requestFiles: (ws: WebSocket, filePaths: string[]) => {
@@ -47,6 +53,47 @@ export function createFileReadingMock(projectRoot: string) {
         files[filePath] = readMockFile(projectRoot, filePath)
       }
       return Promise.resolve(files)
+    },
+    requestToolCall: async (
+      ws: WebSocket,
+      toolName: string,
+      args: Record<string, any>,
+      timeout: number = 30_000
+    ) => {
+      // Execute the tool call using existing tool handlers
+      const toolCall = {
+        toolCallId: generateCompactId(),
+        toolName,
+        args,
+      }
+      toolCalls.push(toolCall as ClientToolCall)
+      try {
+        const toolResult = await handleToolCall(toolCall as any)
+        toolResults.push({
+          toolName: toolCall.toolName,
+          toolCallId: toolCall.toolCallId,
+          result: toolResult.result,
+        })
+
+        // Send successful response back to backend
+        return {
+          success: true,
+          result: toolResult.result,
+        }
+      } catch (error) {
+        // Send error response back to backend
+        const resultString =
+          error instanceof Error ? error.message : String(error)
+        toolResults.push({
+          toolName: toolCall.toolName,
+          toolCallId: toolCall.toolCallId,
+          result: resultString,
+        })
+        return {
+          success: false,
+          error: resultString,
+        }
+      }
     },
   }))
 }
@@ -87,42 +134,34 @@ export async function getProjectFileContext(
   }
 }
 
-export async function runMainPrompt(
-  sessionState: SessionState,
+export async function runAgentStepScaffolding(
+  agentState: AgentState,
+  fileContext: ProjectFileContext,
   prompt: string | undefined,
-  toolResults: ToolResult[],
   sessionId: string,
-  options: {
-    costMode: 'lite' | 'normal' | 'max' | 'experimental'
-    modelConfig: ModelConfig
-  }
+  agentType: AgentTemplateType
 ) {
   const mockWs = new EventEmitter() as WebSocket
   mockWs.send = mock()
   mockWs.close = mock()
 
-  // Create a prompt action that matches the new structure
-  const promptAction = {
-    type: 'prompt' as const,
-    promptId: generateCompactId(),
-    prompt,
-    fingerprintId: 'test-fingerprint-id',
-    costMode: options.costMode,
-    sessionState,
-    toolResults,
-  }
-
   let fullResponse = ''
 
-  const result = await mainPrompt(mockWs, promptAction, {
+  const result = await runAgentStep(mockWs, {
     userId: TEST_USER_ID,
+    userInputId: generateCompactId(),
     clientSessionId: sessionId,
+    fingerprintId: 'test-fingerprint-id',
     onResponseChunk: (chunk: string) => {
       if (DEBUG_MODE) {
         process.stdout.write(chunk)
       }
       fullResponse += chunk
     },
+    agentType,
+    fileContext,
+    agentState,
+    prompt,
   })
 
   return {
@@ -150,70 +189,51 @@ export async function loopMainPrompt({
   projectPath,
   maxIterations,
   stopCondition,
-  options = {
-    costMode: 'normal',
-    modelConfig: {},
-  },
+  agentType,
 }: {
   sessionState: SessionState
   prompt: string
   projectPath: string
   maxIterations: number
-  stopCondition?: (
-    sessionState: SessionState,
-    toolCalls: ClientToolCall[]
-  ) => boolean
-  options: {
-    costMode: 'lite' | 'normal' | 'max' | 'experimental'
-    modelConfig: ModelConfig
-  }
+  stopCondition?: (sessionState: AgentState) => boolean
+  agentType: AgentTemplateType
 }) {
   console.log(blue(prompt))
 
   const startTime = Date.now()
   const sessionId = 'test-session-id-' + generateCompactId()
-  let currentSessionState = sessionState
-  let toolResults: ToolResult[] = []
-  let toolCalls: ClientToolCall[] = []
+  let currentAgentState = sessionState.mainAgentState
   let iterations = 1
   const steps: AgentStep[] = []
 
   for (; iterations < maxIterations; iterations++) {
     console.log('\nIteration', iterations)
     let {
-      sessionState: newSessionState,
-      toolCalls: newToolCalls,
-      toolResults: newToolResults,
+      agentState: newAgentState,
       fullResponse,
-    } = await runMainPrompt(
-      currentSessionState,
+      shouldEndTurn,
+    } = await runAgentStepScaffolding(
+      currentAgentState,
+      sessionState.fileContext,
       iterations === 1 ? prompt : undefined,
-      toolResults,
       sessionId,
-      options
+      agentType
     )
-    currentSessionState = newSessionState
-    toolCalls = newToolCalls
+    currentAgentState = newAgentState
 
-    const stop = stopCondition && stopCondition(currentSessionState, toolCalls)
+    const stop = stopCondition && stopCondition(currentAgentState)
     if (stop) break
-
-    toolResults = [
-      ...newToolResults,
-      ...(await runToolCalls(newToolCalls)),
-    ].filter((tool) => tool.toolName !== 'end_turn')
 
     steps.push({
       response: fullResponse,
-      toolCalls: newToolCalls,
-      toolResults: newToolResults,
+      toolCalls,
+      toolResults,
     })
 
-    const containsEndTurn = toolCalls.some(
-      (call) => call.toolName === 'end_turn'
-    )
+    toolCalls = []
+    toolResults = []
 
-    if (containsEndTurn || toolResults.length === 0) {
+    if (shouldEndTurn) {
       break
     }
   }
@@ -227,9 +247,7 @@ export async function loopMainPrompt({
   )
 
   return {
-    sessionState: currentSessionState,
-    toolCalls,
-    toolResults,
+    agentState: currentAgentState,
     iterations: iterations - 1,
     steps,
     duration: Date.now() - startTime,
@@ -296,7 +314,7 @@ export function resetRepoToCommit(projectPath: string, commit: string) {
 export default {
   createFileReadingMock,
   getProjectFileContext,
-  runMainPrompt,
+  runAgentStepScaffolding,
   runToolCalls,
   loopMainPrompt,
   extractErrorFiles,
