@@ -385,8 +385,6 @@ export async function runGitEvals(
 
             child.stdout?.pipe(logStream)
             child.stderr?.pipe(logStream)
-            child.stdout?.pipe(process.stdout) // asdf
-            child.stderr?.pipe(process.stderr) // asdf
 
             child.on(
               'message',
