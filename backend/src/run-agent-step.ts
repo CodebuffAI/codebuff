@@ -780,32 +780,35 @@ export const runAgentStep = async (
       }
     } else if (toolCall.toolName === 'spawn_agents') {
       const { agents } = toolCall.args
-      await Promise.allSettled(
-        agents.map(async ({ agent_type: agentType, prompt }) => {
-          // TODO also check if current agent is able to spawn this agent
-          if (!(agentType in agentTemplates)) {
-            serverToolResults.push({
-              toolName: 'spawn_agents',
-              toolCallId: toolCall.toolCallId,
-              result: `Agent type ${agentType} not found.`,
-            })
-            return
+      const parentAgentTemplate = agentTemplate
+
+      const results = await Promise.allSettled(
+        agents.map(async ({ agent_type: agentTypeStr, prompt }) => {
+          if (!(agentTypeStr in agentTemplates)) {
+            throw new Error(`Agent type ${agentTypeStr} not found.`)
           }
-          const agentTemplate =
-            agentTemplates[agentType as keyof typeof agentTemplates]
+          const agentType = agentTypeStr as AgentTemplateType
+          const agentTemplate = agentTemplates[agentType]
+
+          if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
+            throw new Error(
+              `Agent type ${parentAgentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
+            )
+          }
 
           // TODO: Flesh out agent state based on agent template.
           const agentId = generateCompactId()
           const agentState: AgentState = {
             agentId,
-            agentType: agentType as AgentTemplateType,
+            agentType,
             agentContext: '',
             subagents: [],
-            messageHistory: [],
+            messageHistory,
             stepsRemaining: MAX_AGENT_STEPS,
+            report: {},
           }
 
-          await loopAgentSteps(ws, {
+          return await loopAgentSteps(ws, {
             userInputId: `${userInputId}-${agentType}${agentId}`,
             prompt,
             agentType: agentTemplate.type,
@@ -819,6 +822,22 @@ export const runAgentStep = async (
           })
         })
       )
+
+      const reports = results.map((result) => {
+        if (result.status === 'fulfilled') {
+          return JSON.stringify(result.value.agentState.report, null, 2)
+        } else {
+          return `Error spawning agent: ${result.reason}`
+        }
+      })
+
+      serverToolResults.push({
+        toolName: 'spawn_agents',
+        toolCallId: toolCall.toolCallId,
+        result: reports
+          .map((report) => `<agent_report>${report}</agent_report>`)
+          .join('\n'),
+      })
     } else {
       toolCall satisfies never
       throw new Error(`Unknown tool: ${name}`)
