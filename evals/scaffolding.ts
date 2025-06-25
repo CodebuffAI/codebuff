@@ -1,3 +1,4 @@
+import { mainPrompt } from '@codebuff/backend/main-prompt'
 import { ClientToolCall } from '@codebuff/backend/tools'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { FileChanges } from '@codebuff/common/actions'
@@ -122,9 +123,6 @@ export async function runMainPrompt(
       }
       fullResponse += chunk
     },
-    selectedModel: undefined,
-    readOnlyMode: false, // readOnlyMode = false for evals
-    modelConfig: options.modelConfig,
   })
 
   return {
@@ -136,6 +134,10 @@ export async function runMainPrompt(
 export async function runToolCalls(toolCalls: ClientToolCall[]) {
   const toolResults: ToolResult[] = []
   for (const toolCall of toolCalls) {
+    if (toolCall.toolName === 'spawn_agents') {
+      // should never happen
+      continue
+    }
     const toolResult = await handleToolCall(toolCall)
     toolResults.push(toolResult)
   }
