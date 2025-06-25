@@ -1,6 +1,6 @@
 {
   "name": "codecane",
-  "version": "1.0.341",
+  "version": "1.0.0-beta.2",
   "description": "AI coding agent (staging)",
   "license": "MIT",
   "bin": {
