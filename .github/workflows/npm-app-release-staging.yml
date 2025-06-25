@@ -129,7 +129,7 @@ jobs:
   build-staging-binaries:
     needs: prepare-and-commit-staging
     if: ${{ needs.prepare-and-commit-staging.outputs.should_run == 'true' }}
-    uses: ./.github/workflows/releases/build.yml
+    uses: ./.github/workflows/npm-app-release-build.yml
     with:
       binary-name: codecane
       new-version: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
