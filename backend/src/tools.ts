@@ -597,6 +597,34 @@ ${getToolCallString('browser_logs', {
       .describe(`Spawn multiple agents and send a prompt to each of them.`),
     description: '',
   },
+  update_report: {
+    parameters: z
+      .object({
+        jsonUpdate: z
+          .record(z.string(), z.any())
+          .describe(
+            'JSON object with keys and values to overwrite the existing report. This can be any JSON object with keys and values. Note the values are JSON values, so they can be a nested object or array.'
+          ),
+      })
+      .describe(
+        `Update the report of the current agent, which is a JSON object that is initially empty.`
+      ),
+    description: `
+You must use this tool as it is the only way to report any findings to the user. Nothing else you write will be shown to the user.
+
+Please update the report with all the information and analysis you want to pass on to the user. If you just want to send a simple message, use an object with the key "message" and value of the message you want to send.
+Example:
+${getToolCallString('update_report', {
+  jsonUpdate: JSON.stringify(
+    {
+      message: 'I found a bug in the code!',
+    },
+    null,
+    2
+  ),
+})}
+    `.trim(),
+  },
   end_turn: {
     parameters: z
       .object({})

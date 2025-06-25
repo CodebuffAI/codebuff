@@ -849,6 +849,17 @@ export const runAgentStep = async (
           .map((report) => `<agent_report>${report}</agent_report>`)
           .join('\n'),
       })
+    } else if (toolCall.toolName === 'update_report') {
+      const { jsonUpdate } = toolCall.args
+      agentState.report = {
+        ...agentState.report,
+        ...jsonUpdate,
+      }
+      serverToolResults.push({
+        toolName: 'update_report',
+        toolCallId: toolCall.toolCallId,
+        result: 'Report updated',
+      })
     } else {
       toolCall satisfies never
       throw new Error(`Unknown tool: ${name}`)
