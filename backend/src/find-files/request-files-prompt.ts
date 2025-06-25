@@ -13,17 +13,11 @@ import {
 } from '@codebuff/common/constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import {
-  cleanMarkdownCodeBlock,
-  createMarkdownFileBlock,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
 import { range, shuffle, uniq } from 'lodash'
-import { WebSocket } from 'ws'
 
-import { System } from '../llm-apis/claude'
 import { logger } from '../util/logger'
-import { countTokens } from '../util/token-counter'
-import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
 import { CoreMessage } from 'ai'
@@ -637,124 +631,6 @@ That means every file that is not at the project root should start with one of t
 ${topLevelDirectories(fileContext).join('\n')}
 
 Please limit your response just the file paths on new lines. Do not write anything else.
-`.trim()
-}
-
-async function secondPassFindAdditionalFiles(
-  system: System,
-  candidateFiles: string[],
-  messagesExcludingLastIfByUser: CoreMessage[],
-  userRequest: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  ws: WebSocket,
-  maxFiles: number
-): Promise<{ additionalFiles: string[]; duration: number }> {
-  const startTime = performance.now()
-
-  const fileContents = await requestFiles(ws, candidateFiles)
-
-  // Filter out large files and build content string
-  const filteredContents: Record<string, string> = {}
-  for (const [file, content] of Object.entries(fileContents)) {
-    if (typeof content === 'string') {
-      // Check length first since it's cheaper than counting tokens
-      if (content.length > 200_000) {
-        logger.info(
-          { file, length: content.length },
-          'Skipping large file based on length'
-        )
-        continue
-      }
-
-      const tokens = countTokens(content)
-      if (tokens > 50_000) {
-        logger.info(
-          { file, tokens },
-          'Skipping large file based on token count'
-        )
-        continue
-      }
-
-      filteredContents[file] = content
-    }
-  }
-
-  let fileListString = ''
-  for (const [file, content] of Object.entries(filteredContents)) {
-    fileListString += createMarkdownFileBlock(file, content) + '\n\n'
-  }
-
-  const messages = [
-    {
-      role: 'user' as const,
-      content: generateAdditionalFilesPrompt(
-        fileListString,
-        userRequest,
-        messagesExcludingLastIfByUser,
-        maxFiles
-      ),
-    },
-  ]
-  const additionalFilesResponse = await promptFlashWithFallbacks(
-    coreMessagesWithSystem(messages, system),
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: models.gemini2flash,
-      userId,
-      costMode: 'max',
-    }
-  ).catch((error) => {
-    logger.error(error, 'Error filtering files with Gemini')
-    return candidateFiles.join('\n')
-  })
-
-  const secondPassFiles = cleanMarkdownCodeBlock(additionalFilesResponse)
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-
-  return {
-    additionalFiles: secondPassFiles,
-    duration: performance.now() - startTime,
-  }
-}
-
-function generateAdditionalFilesPrompt(
-  fileListString: string,
-  userRequest: string,
-  messagesExcludingLastIfByUser: CoreMessage[],
-  maxFiles: number
-): string {
-  return `
-<message_history>
-${messagesExcludingLastIfByUser.map((m) => `${m.role}: ${m.content}`).join('\n')}
-</message_history>
-
-Given the below files and the user request, choose up to ${maxFiles} new files that are not in the current_files list, but that are directly relevant to fulfilling the user's request.
-
-For example, include files that:
-- Need to be modified to implement the request
-- Contain code that will be referenced or copied
-- Define types, interfaces, or constants needed
-- Contain dependencies, utilities, helpers that are relevant
-- Show similar implementations or patterns even if not directly related
-- Provide important context about the system or codebase architecture
-- Contain tests that should be updated or run
-- Define configuration that may need to change
-
-<current_files>
-${fileListString}
-</current_files>
-
-<user_request>${userRequest}</user_request>
-
-List only the file paths of new files, in order of relevance (most relevant first!), with new lines between each file path. Use the project file tree to choose new files.
-Do not write any commentary.
 `.trim()
 }
 
