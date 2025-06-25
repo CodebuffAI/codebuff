@@ -70,5 +70,4 @@ export const baseAgentStopSequences: string[] = [
   '</find_files>',
   '</run_terminal_command>',
   '</code_search>',
-  '</research>',
 ] as const
