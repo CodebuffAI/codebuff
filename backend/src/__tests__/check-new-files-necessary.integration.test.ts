@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'bun:test'
 import { CostMode } from '@codebuff/common/constants'
+import { describe, expect, it } from 'bun:test'
 
 import { checkNewFilesNecessary } from '../find-files/check-new-files-necessary'
 
-import { System } from '@/llm-apis/claude'
+import { System } from '../llm-apis/claude'
 
 describe('checkNewFilesNecessary', () => {
   const mockSystem: System = 'You are a helpful assistant.'
@@ -32,8 +32,7 @@ describe('checkNewFilesNecessary', () => {
         defaultParams.fingerprintId,
         defaultParams.userInputId,
         userPrompt,
-        defaultParams.userId,
-        defaultParams.costMode
+        defaultParams.userId
       )
 
       expect(result.newFilesNecessary).toBe(true)
@@ -75,8 +74,7 @@ describe('checkNewFilesNecessary', () => {
         defaultParams.fingerprintId,
         defaultParams.userInputId,
         userPrompt,
-        defaultParams.userId,
-        defaultParams.costMode
+        defaultParams.userId
       )
 
       expect(result.newFilesNecessary).toBe(false)
@@ -99,8 +97,7 @@ describe('checkNewFilesNecessary', () => {
         defaultParams.fingerprintId,
         defaultParams.userInputId,
         userPrompt,
-        defaultParams.userId,
-        defaultParams.costMode
+        defaultParams.userId
       )
 
       expect(result.newFilesNecessary).toBe(false)
@@ -124,8 +121,7 @@ describe('checkNewFilesNecessary', () => {
         defaultParams.fingerprintId,
         defaultParams.userInputId,
         userPrompt,
-        defaultParams.userId,
-        defaultParams.costMode
+        defaultParams.userId
       )
 
       expect(result.newFilesNecessary).toBe(true)
@@ -149,8 +145,7 @@ describe('checkNewFilesNecessary', () => {
         defaultParams.fingerprintId,
         defaultParams.userInputId,
         userPrompt,
-        defaultParams.userId,
-        defaultParams.costMode
+        defaultParams.userId
       )
 
       expect(result.newFilesNecessary).toBe(true)
@@ -174,8 +169,7 @@ describe('checkNewFilesNecessary', () => {
         defaultParams.fingerprintId,
         defaultParams.userInputId,
         userPrompt,
-        defaultParams.userId,
-        defaultParams.costMode
+        defaultParams.userId
       )
 
       expect(result.newFilesNecessary).toBe(true)
