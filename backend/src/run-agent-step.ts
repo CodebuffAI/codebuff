@@ -187,18 +187,6 @@ export const runAgentStep = async (
     messagesWithToolResultsAndUser
   )
 
-  // Step 1: Read more files.
-  const searchSystem = getSearchSystemPrompt(
-    fileContext,
-    fileRequestMessagesTokens,
-    {
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-    }
-  )
   const {
     addedFiles,
     updatedFilePaths,
@@ -207,11 +195,8 @@ export const runAgentStep = async (
   } = await getFileReadingUpdates(
     ws,
     messagesWithToolResultsAndUser,
-    searchSystem,
     fileContext,
-    null,
     {
-      skipRequestingFiles: true,
       agentStepId,
       clientSessionId,
       fingerprintId,
@@ -710,17 +695,8 @@ export const runAgentStep = async (
       const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
         ws,
         messagesWithResponse,
-        getSearchSystemPrompt(fileContext, fileRequestMessagesTokens, {
-          agentStepId,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-        }),
         fileContext,
-        null,
         {
-          skipRequestingFiles: true,
           requestedFiles: paths,
           agentStepId,
           clientSessionId,
@@ -751,54 +727,96 @@ export const runAgentStep = async (
       const description = (
         toolCall as Extract<CodebuffToolCall, { toolName: 'find_files' }>
       ).args.description
-      const { addedFiles, updatedFilePaths, printedPaths } =
-        await getFileReadingUpdates(
-          ws,
-          messagesWithResponse,
-          getSearchSystemPrompt(fileContext, fileRequestMessagesTokens, {
-            agentStepId,
-            clientSessionId,
-            fingerprintId,
-            userInputId,
-            userId,
-          }),
-          fileContext,
-          description,
-          {
-            skipRequestingFiles: false,
+
+      const system = getSearchSystemPrompt(
+        fileContext,
+        fileRequestMessagesTokens,
+        {
+          agentStepId,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+        }
+      )
+      const messages = messagesWithResponse
+      const requestedFiles = await requestRelevantFiles(
+        { messages, system },
+        fileContext,
+        description,
+        agentStepId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+        repoId
+      )
+      if (requestedFiles && requestedFiles.length > 0) {
+        const { addedFiles, updatedFilePaths, printedPaths } =
+          await getFileReadingUpdates(ws, messages, fileContext, {
+            requestedFiles,
             agentStepId,
             clientSessionId,
             fingerprintId,
             userInputId,
             userId,
             repoId,
-          }
-        )
-      logger.debug(
-        {
-          content: description,
-          description: description,
-          addedFilesPaths: addedFiles.map((f) => f.path),
-          updatedFilePaths,
-          printedPaths,
-        },
-        'find_files tool call'
-      )
-      serverToolResults.push({
-        toolName: 'find_files',
-        toolCallId: generateCompactId(),
-        result:
-          addedFiles.length > 0
-            ? renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
-            : `No new files found for description: ${description}`,
-      })
-      if (printedPaths.length > 0) {
-        onResponseChunk('\n\n')
-        onResponseChunk(
-          getToolCallString('read_files', {
-            paths: printedPaths.join('\n'),
           })
+        logger.debug(
+          {
+            content: description,
+            description: description,
+            addedFilesPaths: addedFiles.map((f) => f.path),
+            updatedFilePaths,
+            printedPaths,
+          },
+          'find_files tool call'
         )
+        serverToolResults.push({
+          toolName: 'find_files',
+          toolCallId: generateCompactId(),
+          result:
+            addedFiles.length > 0
+              ? renderReadFilesResult(
+                  addedFiles,
+                  fileContext.tokenCallers ?? {}
+                )
+              : `No new relevant files found for description: ${description}`,
+        })
+        if (printedPaths.length > 0) {
+          onResponseChunk('\n\n')
+          onResponseChunk(
+            getToolCallString('read_files', {
+              paths: printedPaths.join('\n'),
+            })
+          )
+        }
+
+        if (COLLECT_FULL_FILE_CONTEXT) {
+          uploadExpandedFileContextForTraining(
+            ws,
+            { messages, system },
+            fileContext,
+            description,
+            agentStepId,
+            clientSessionId,
+            fingerprintId,
+            userInputId,
+            userId,
+            repoId
+          ).catch((error) => {
+            logger.error(
+              { error },
+              'Error uploading expanded file context for training'
+            )
+          })
+        }
+      } else {
+        serverToolResults.push({
+          toolName: 'find_files',
+          toolCallId: toolCall.toolCallId,
+          result: `No relevant files found for description: ${description}`,
+        })
       }
     } else if (toolCall.toolName === 'research') {
       const { prompts: promptsStr } = toolCall.args as { prompts: string }
@@ -1014,11 +1032,8 @@ const getInitialFiles = (fileContext: ProjectFileContext) => {
 async function getFileReadingUpdates(
   ws: WebSocket,
   messages: CoreMessage[],
-  system: string | Array<TextBlockParam>,
   fileContext: ProjectFileContext,
-  prompt: string | null,
   options: {
-    skipRequestingFiles: boolean
     requestedFiles?: string[]
     agentStepId: string
     clientSessionId: string
@@ -1029,15 +1044,6 @@ async function getFileReadingUpdates(
   }
 ) {
   const FILE_TOKEN_BUDGET = 100_000
-  const {
-    skipRequestingFiles,
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoId,
-  } = options
 
   const toolResults = messages
     .filter(isToolResult)
@@ -1058,42 +1064,7 @@ async function getFileReadingUpdates(
     .flatMap((content) => Object.keys(parseFileBlocks(content)))
     .filter((path) => path !== undefined)
 
-  const requestedFiles = skipRequestingFiles
-    ? []
-    : options.requestedFiles ??
-      (await requestRelevantFiles(
-        { messages, system },
-        fileContext,
-        prompt,
-        agentStepId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-        repoId
-      )) ??
-      []
-
-  // Only record training data if we requested files
-  if (requestedFiles.length > 0 && COLLECT_FULL_FILE_CONTEXT) {
-    uploadExpandedFileContextForTraining(
-      ws,
-      { messages, system },
-      fileContext,
-      prompt,
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      repoId
-    ).catch((error) => {
-      logger.error(
-        { error },
-        'Error uploading expanded file context for training'
-      )
-    })
-  }
+  const requestedFiles = options.requestedFiles ?? []
 
   const isFirstRead = previousFileList.length === 0
   const initialFiles = getInitialFiles(fileContext)
