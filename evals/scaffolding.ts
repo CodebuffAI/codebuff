@@ -162,6 +162,8 @@ export async function runAgentStepScaffolding(
     fileContext,
     agentState,
     prompt,
+    assistantMessage: undefined,
+    assistantPrefix: undefined,
   })
 
   return {

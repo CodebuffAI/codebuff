@@ -13,6 +13,7 @@ import { loopAgentSteps } from './run-agent-step'
 import { ClientToolCall } from './tools'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
+import { agentTemplates } from './templates/agent-list'
 
 export interface MainPromptOptions {
   userId: string | undefined
@@ -95,9 +96,14 @@ export const mainPrompt = async (
     } satisfies Record<CostMode, AgentTemplateType>
   )[costMode]
 
+  const agentTemplate = agentTemplates[agentType]
+  const { initialAssistantMessage, initialAssistantPrefix } = agentTemplate
+
   const { agentState, hasEndTurn } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,
+    assistantMessage: initialAssistantMessage,
+    assistantPrefix: initialAssistantPrefix,
     agentType,
     agentState: mainAgentState,
     fingerprintId,
