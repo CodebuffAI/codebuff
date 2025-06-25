@@ -4,6 +4,7 @@ import pLimit from 'p-limit'
 import path from 'path'
 
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { getDefaultConfig } from '@codebuff/common/json-config/default'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -150,6 +151,8 @@ Explain your reasoning in detail.`,
         )
 
         sessionState.mainAgentState = codeBuffResult.agentState
+        sessionState.mainAgentState.stepsRemaining =
+          getDefaultConfig().maxAgentSteps
         trace.push({ prompt, steps: codeBuffResult.steps })
       }
 
