@@ -104,8 +104,16 @@ jobs:
 
       - name: Create and push staging tag
         run: |
+          # Show current commit info for debugging
+          echo "Current HEAD commit:"
+          git log -1 --format="%H %ci %s"
+          
+          # Create tag on current HEAD (the commit we just made)
           git tag "v${{ steps.bump_version.outputs.new_version }}"
           git push origin "v${{ steps.bump_version.outputs.new_version }}"
+          
+          echo "Tag created on commit:"
+          git show "v${{ steps.bump_version.outputs.new_version }}" --format="%H %ci %s" -s
 
       - name: Upload updated package
         uses: actions/upload-artifact@v4
@@ -131,46 +139,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Download all binary artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: binaries/
-
-      - name: Download updated package
-        uses: actions/download-artifact@v4
-        with:
-          name: updated-staging-package
-          path: npm-app/release-staging/
-
-      - name: Create GitHub Prerelease
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.prepare-and-commit-staging.outputs.new_version }}
-          name: Staging Release v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Codecane)
-          prerelease: true
-          body: |
-            ## Codecane v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Staging)
-
-            **⚠️ This is a staging/beta release for testing purposes.**
-
-            Binary releases for all supported platforms.
-
-            ### Installation
-            ```bash
-            npm install -g codecane
-            ```
-
-            ### Platform Binaries
-            - `codecane-linux-x64.tar.gz` - Linux x64
-            - `codecane-linux-arm64.tar.gz` - Linux ARM64
-            - `codecane-darwin-x64.tar.gz` - macOS Intel
-            - `codecane-darwin-arm64.tar.gz` - macOS Apple Silicon
-            - `codecane-win32-x64.tar.gz` - Windows x64
-          files: |
-            binaries/*/codecane-*
-          repository: CodebuffAI/codebuff-community
-          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
 
       - name: Clean up old prereleases
         run: |
@@ -224,6 +192,46 @@ jobs:
           fi
           
           echo "Cleanup completed"
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries/
+
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-staging-package
+          path: npm-app/release-staging/
+
+      - name: Create GitHub Prerelease
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare-and-commit-staging.outputs.new_version }}
+          name: Staging Release v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Codecane)
+          prerelease: true
+          body: |
+            ## Codecane v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Staging)
+
+            **⚠️ This is a staging/beta release for testing purposes.**
+
+            Binary releases for all supported platforms.
+
+            ### Installation
+            ```bash
+            npm install -g codecane
+            ```
+
+            ### Platform Binaries
+            - `codecane-linux-x64.tar.gz` - Linux x64
+            - `codecane-linux-arm64.tar.gz` - Linux ARM64
+            - `codecane-darwin-x64.tar.gz` - macOS Intel
+            - `codecane-darwin-arm64.tar.gz` - macOS Apple Silicon
+            - `codecane-win32-x64.tar.gz` - Windows x64
+          files: |
+            binaries/*/codecane-*
+          repository: CodebuffAI/codebuff-community
+          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
 
   # Publish npm package as prerelease
   publish-staging-npm:
