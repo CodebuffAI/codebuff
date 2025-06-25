@@ -16,6 +16,8 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { ToolCallPart, ToolSet } from 'ai'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
+import { AgentTemplateType } from '@codebuff/common/types/session-state'
+import { agentTemplates } from './templates/agent-list'
 
 // Define Zod schemas for parameter validation
 const toolConfigs = {
@@ -836,7 +838,10 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'code_search',
 ]
 
-export const getToolsInstructions = (toolNames: readonly ToolName[]) => `
+export const getToolsInstructions = (
+  toolNames: readonly ToolName[],
+  spawnableAgents: AgentTemplateType[]
+) => `
 # Tools
 
 You (Buffy) have access to the following tools. Call them when needed.
@@ -913,8 +918,21 @@ The user does not need to know about the exact results of these tools, especiall
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
 
-${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}
-`
+${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}`
+
++
+`\n\n${
+  spawnableAgents.length > 0
+    ? `## Spawnable Agents
+
+Use the spawn_agents tool to spawn subagents to help you complete the user request. Here are the available agents by their agent_type:
+
+${spawnableAgents.map((agentType) => {
+  const agentTemplate = agentTemplates[agentType]
+  return `- ${agentType}: ${agentTemplate.description}`
+}).join('\n\n')}`
+    : ''
+}`
 
 export async function updateContext(
   context: string,
@@ -1232,6 +1250,7 @@ function renderSubgoalUpdate(subgoal: {
   return getToolCallString('add_subgoal', params)
 }
 
+// TODO: Remove this function
 // Function to get filtered tools based on cost mode and agent mode
 export function getFilteredToolsInstructions(
   costMode: string,
@@ -1254,5 +1273,5 @@ export function getFilteredToolsInstructions(
     )
   }
 
-  return getToolsInstructions(allowedTools)
+  return getToolsInstructions(allowedTools, [])
 }

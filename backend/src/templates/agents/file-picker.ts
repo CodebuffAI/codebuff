@@ -3,7 +3,7 @@ import { getToolCallString } from '@codebuff/common/constants/tools'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
-  description: 'File picker agent',
+  description: 'Expert at finding relevant files in a codebase.',
   model,
   toolNames: [
     'find_files',

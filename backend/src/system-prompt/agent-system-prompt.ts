@@ -16,6 +16,7 @@ import {
   knowledgeFilesPrompt,
 } from './prompts'
 
+// TODO: Delete this file.
 export const getAgentSystemPrompt = (
   fileContext: ProjectFileContext,
   readOnlyMode: boolean,

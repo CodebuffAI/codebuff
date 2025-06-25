@@ -21,6 +21,7 @@ export function formatPrompt(
   fileContext: ProjectFileContext,
   agentState: AgentState,
   tools: ToolName[],
+  spawnableAgents: AgentTemplateType[],
   intitialAgentPrompt: string | null
 ): string {
   const toInject: Record<PlaceholderValue, string> = {
@@ -34,7 +35,7 @@ export function formatPrompt(
     [PLACEHOLDER.REMAINING_STEPS]: `${agentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
-    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
+    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools, spawnableAgents),
     [PLACEHOLDER.USER_CWD]: fileContext.cwd,
     [PLACEHOLDER.INITIAL_AGENT_PROMPT]: intitialAgentPrompt ?? '',
   }
@@ -64,6 +65,7 @@ export function getAgentPrompt<T extends StringField | RequirePrompt>(
     fileContext,
     agentState,
     agentTemplate.toolNames,
+    agentTemplate.spawnableAgents,
     'prompt' in promptType ? promptType.prompt : ''
   )
 }
