@@ -1,0 +1,198 @@
+name: Release Binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type (patch, minor, major, or specific version like 1.2.3)'
+        required: true
+        type: string
+        default: 'patch'
+
+permissions:
+  contents: write
+
+jobs:
+  # First job: Commit current state and version bump to lock in what's being released
+  prepare-and-commit-release:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump_version.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.2.16'
+
+      # Cache dependencies for speed
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+            ${{ runner.os }}-deps-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Calculate and update version
+        id: bump_version
+        run: |
+          cd npm-app/release
+
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+
+          # Calculate new version
+          VERSION_TYPE="${{ inputs.version_type }}"
+          if [[ "$VERSION_TYPE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            NEW_VERSION="$VERSION_TYPE"
+          else
+            IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+            MAJOR=${VERSION_PARTS[0]}
+            MINOR=${VERSION_PARTS[1]}
+            PATCH=${VERSION_PARTS[2]}
+            
+            case "$VERSION_TYPE" in
+              "major")
+                NEW_VERSION="$((MAJOR + 1)).0.0"
+                ;;
+              "minor")
+                NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+                ;;
+              "patch"|*)
+                NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+                ;;
+            esac
+          fi
+
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+          # Update package.json with new version
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$NEW_VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit release state
+        run: |
+          # Add all changes (current state + version bump)
+          git add -A
+          git commit -m "Release v${{ steps.bump_version.outputs.new_version }}
+
+          This commit captures the complete state being released,
+          including any uncommitted changes and the version bump.
+          
+          🤖 Generated with Codebuff
+          Co-Authored-By: Codebuff <noreply@codebuff.com>"
+          git push
+
+      - name: Create and push tag
+        run: |
+          git tag "v${{ steps.bump_version.outputs.new_version }}"
+          git push origin "v${{ steps.bump_version.outputs.new_version }}"
+
+      - name: Upload updated package
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-package
+          path: npm-app/release/
+
+  build-binaries:
+    needs: prepare-and-commit-release
+    uses: ./.github/workflows/releases/build.yml
+    with:
+      binary-name: codebuff
+      new-version: ${{ needs.prepare-and-commit-release.outputs.new_version }}
+      artifact-name: updated-package
+    secrets: inherit
+
+  # Create GitHub release with all binaries
+  create-release:
+    needs: [prepare-and-commit-release, build-binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries/
+
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-package
+          path: npm-app/release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare-and-commit-release.outputs.new_version }}
+          name: Release v${{ needs.prepare-and-commit-release.outputs.new_version }}
+          body: |
+            ## Codebuff v${{ needs.prepare-and-commit-release.outputs.new_version }}
+
+            Binary releases for all supported platforms.
+
+            ### Installation
+            ```bash
+            npm install -g codebuff
+            ```
+
+            ### Platform Binaries
+            - `codebuff-linux-x64.tar.gz` - Linux x64
+            - `codebuff-linux-arm64.tar.gz` - Linux ARM64
+            - `codebuff-darwin-x64.tar.gz` - macOS Intel
+            - `codebuff-darwin-arm64.tar.gz` - macOS Apple Silicon
+            - `codebuff-win32-x64.tar.gz` - Windows x64
+          files: |
+            binaries/*/codebuff-*
+          repository: CodebuffAI/codebuff-community
+          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
+
+  # Publish npm package using package.json from release directory
+  publish-npm:
+    needs: [prepare-and-commit-release, create-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-package
+          path: npm-app/release/
+
+      - name: Set up Node.js for npm publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+
+      - name: Publish to npm
+        run: |
+          cd npm-app/release
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

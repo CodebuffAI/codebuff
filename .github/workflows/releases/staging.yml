@@ -1,0 +1,220 @@
+name: Release Staging (Codecane)
+
+on:
+  pull_request:
+    branches: ['main']
+
+permissions:
+  contents: write
+
+jobs:
+  # First job: Check PR title and prepare staging release
+  prepare-and-commit-staging:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump_version.outputs.new_version }}
+      should_run: ${{ steps.check_pr_title.outputs.should_run }}
+    steps:
+      - name: Check PR title
+        id: check_pr_title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          shopt -s nocasematch
+          if [[ "$PR_TITLE" == *"[codecane]"* ]]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "PR title contains [codecane] - will run staging release"
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "PR title does not contain [codecane] - skipping staging release"
+          fi
+
+      - uses: actions/checkout@v4
+        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Bun
+        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.2.16'
+
+      # Cache dependencies for speed
+      - name: Cache dependencies
+        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+            ${{ runner.os }}-deps-
+
+      - name: Install dependencies
+        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
+        run: bun install --frozen-lockfile
+
+      - name: Calculate and update staging version
+        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
+        id: bump_version
+        run: |
+          cd npm-app/release-staging
+
+          # Get latest beta version from npm
+          echo "Fetching latest beta version from npm..."
+          LATEST_BETA=$(npm view codecane@beta version 2>/dev/null || echo "")
+          
+          if [ -z "$LATEST_BETA" ]; then
+            echo "No beta version found on npm, starting with 1.0.0-beta.1"
+            NEW_VERSION="1.0.0-beta.1"
+          else
+            echo "Latest beta version: $LATEST_BETA"
+            
+            # Extract base version and beta number
+            BASE_VERSION=$(echo "$LATEST_BETA" | sed 's/-beta\..*$//')
+            BETA_NUM=$(echo "$LATEST_BETA" | sed 's/.*-beta\.//')
+            
+            # Increment beta number
+            NEW_BETA_NUM=$((BETA_NUM + 1))
+            NEW_VERSION="$BASE_VERSION-beta.$NEW_BETA_NUM"
+          fi
+
+          echo "New staging version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+          # Update package.json with new version
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$NEW_VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+      - name: Configure git
+        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit staging release state
+        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
+        run: |
+          # Add all changes (current state + version bump)
+          git add -A
+          git commit -m "Staging Release v${{ steps.bump_version.outputs.new_version }} (codecane)
+
+          This commit captures the complete state being released for staging,
+          including any uncommitted changes and the version bump.
+
+          🤖 Generated with Codebuff
+          Co-Authored-By: Codebuff <noreply@codebuff.com>"
+
+      - name: Create and push staging tag
+        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
+        run: |
+          git tag "v${{ steps.bump_version.outputs.new_version }}"
+          git push origin "v${{ steps.bump_version.outputs.new_version }}"
+
+      - name: Upload updated package
+        if: ${{ steps.check_pr_title.outputs.should_run == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-staging-package
+          path: npm-app/release-staging/
+
+  build-staging-binaries:
+    needs: prepare-and-commit-staging
+    if: ${{ needs.prepare-and-commit-staging.outputs.should_run == 'true' }}
+    uses: ./.github/workflows/releases/build.yml
+    with:
+      binary-name: codecane
+      new-version: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
+      artifact-name: updated-staging-package
+      checkout-ref: ${{ github.event.pull_request.head.sha }}
+    secrets: inherit
+
+  # Create GitHub prerelease with all binaries
+  create-staging-release:
+    needs: [prepare-and-commit-staging, build-staging-binaries]
+    if: ${{ needs.prepare-and-commit-staging.outputs.should_run == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries/
+
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-staging-package
+          path: npm-app/release-staging/
+
+      - name: Create GitHub Prerelease
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare-and-commit-staging.outputs.new_version }}
+          name: Staging Release v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Codecane)
+          prerelease: true
+          body: |
+            ## Codecane v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Staging)
+
+            **⚠️ This is a staging/beta release for testing purposes.**
+
+            Binary releases for all supported platforms.
+
+            ### Installation
+            ```bash
+            npm install -g codecane
+            ```
+
+            ### Platform Binaries
+            - `codecane-linux-x64.tar.gz` - Linux x64
+            - `codecane-linux-arm64.tar.gz` - Linux ARM64
+            - `codecane-darwin-x64.tar.gz` - macOS Intel
+            - `codecane-darwin-arm64.tar.gz` - macOS Apple Silicon
+            - `codecane-win32-x64.tar.gz` - Windows x64
+          files: |
+            binaries/*/codecane-*
+          repository: CodebuffAI/codebuff-community
+          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
+
+  # Publish npm package as prerelease
+  publish-staging-npm:
+    needs: [prepare-and-commit-staging, create-staging-release]
+    if: ${{ needs.prepare-and-commit-staging.outputs.should_run == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-staging-package
+          path: npm-app/release-staging/
+
+      - name: Set up Node.js for npm publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+
+      - name: Publish staging to npm
+        run: |
+          cd npm-app/release-staging
+          npm publish --access public --tag beta
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
