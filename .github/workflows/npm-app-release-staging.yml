@@ -45,23 +45,33 @@ jobs:
         run: |
           cd npm-app/release-staging
 
-          # Get latest beta version from npm
+          # Use the current package.json version as base
+          CURRENT_VERSION=$(node -e "console.log(require('./package.json').version)")
+          echo "Current package.json version: $CURRENT_VERSION"
+          
+          # Get latest beta version from npm to check if we need to increment
           echo "Fetching latest beta version from npm..."
           LATEST_BETA=$(npm view codecane@beta version 2>/dev/null || echo "")
           
           if [ -z "$LATEST_BETA" ]; then
-            echo "No beta version found on npm, starting with 1.0.0-beta.1"
-            NEW_VERSION="1.0.0-beta.1"
+            echo "No beta version found on npm, using current version as base"
+            NEW_VERSION="$CURRENT_VERSION-beta.1"
           else
             echo "Latest beta version: $LATEST_BETA"
             
-            # Extract base version and beta number
-            BASE_VERSION=$(echo "$LATEST_BETA" | sed 's/-beta\..*$//')
+            # Extract base version and beta number from npm
+            NPM_BASE_VERSION=$(echo "$LATEST_BETA" | sed 's/-beta\..*$//')
             BETA_NUM=$(echo "$LATEST_BETA" | sed 's/.*-beta\.//')
             
-            # Increment beta number
-            NEW_BETA_NUM=$((BETA_NUM + 1))
-            NEW_VERSION="$BASE_VERSION-beta.$NEW_BETA_NUM"
+            # Compare base versions
+            if [ "$CURRENT_VERSION" = "$NPM_BASE_VERSION" ]; then
+              # Same base version, increment beta number
+              NEW_BETA_NUM=$((BETA_NUM + 1))
+              NEW_VERSION="$CURRENT_VERSION-beta.$NEW_BETA_NUM"
+            else
+              # Different base version, start with beta.1
+              NEW_VERSION="$CURRENT_VERSION-beta.1"
+            fi
           fi
 
           echo "New staging version: $NEW_VERSION"
