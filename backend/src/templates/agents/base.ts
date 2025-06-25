@@ -20,6 +20,8 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   spawnableAgents: baseAgentSpawnableAgents,
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
+  stepAssistantMessage: '',
+  stepAssistantPrefix: '',
 
   systemPrompt: baseAgentSystemPrompt(model),
   userInputPrompt: baseAgentUserInputPrompt(model),
