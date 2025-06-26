@@ -917,7 +917,7 @@ export const runAgentStep = async (
         })
       )
 
-      const reports = results.map((result: PromiseSettledResult<any>) => {
+      const reports = results.map((result) => {
         if (result.status === 'fulfilled') {
           return JSON.stringify(result.value.agentState.report, null, 2)
         } else {
@@ -938,6 +938,14 @@ export const runAgentStep = async (
         ...agentState.report,
         ...jsonUpdate,
       }
+      logger.debug(
+        {
+          jsonUpdate,
+          agentType: agentState.agentType,
+          agentId: agentState.agentId,
+        },
+        'update_report tool call'
+      )
       serverToolResults.push({
         toolName: 'update_report',
         toolCallId: toolCall.toolCallId,
