@@ -7,6 +7,7 @@ import {
   AgentState,
   AgentTemplateType,
   SessionState,
+  ToolCall,
   ToolResult,
 } from '@codebuff/common/types/session-state'
 import { applyAndRevertChanges } from '@codebuff/common/util/changes'
@@ -179,7 +180,18 @@ export async function runToolCalls(toolCalls: ClientToolCall[]) {
       // should never happen
       continue
     }
-    const toolResult = await handleToolCall(toolCall)
+    // Convert ClientToolCall to ToolCall format expected by handleToolCall
+    const convertedToolCall: ToolCall = {
+      toolName: toolCall.toolName,
+      toolCallId: toolCall.toolCallId,
+      args: Object.fromEntries(
+        Object.entries(toolCall.args).map(([key, value]) => [
+          key,
+          typeof value === 'string' ? value : JSON.stringify(value)
+        ])
+      )
+    }
+    const toolResult = await handleToolCall(convertedToolCall)
     toolResults.push(toolResult)
   }
   return toolResults
