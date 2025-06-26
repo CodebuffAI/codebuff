@@ -8,7 +8,7 @@ import { getDefaultConfig } from '@codebuff/common/json-config/default'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { models } from 'common/constants'
+import { models } from '@codebuff/common/constants'
 import {
   createFileReadingMock,
   loopMainPrompt,

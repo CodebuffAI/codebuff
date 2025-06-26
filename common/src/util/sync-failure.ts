@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm'
+
 import db from '../db'
-import * as schema from '../db/schema'
 import { logger } from './logger'
+import * as schema from '../db/schema'
 
 export async function logSyncFailure(
   id: string,
@@ -12,13 +13,13 @@ export async function logSyncFailure(
     await db
       .insert(schema.syncFailure)
       .values({
-        message_id: id,
+        id,
         provider,
         last_error: errorMessage,
         last_attempt_at: new Date(),
       })
       .onConflictDoUpdate({
-        target: schema.syncFailure.message_id,
+        target: schema.syncFailure.id,
         set: {
           last_error: errorMessage,
           last_attempt_at: new Date(),

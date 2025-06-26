@@ -115,6 +115,15 @@ export async function grantCreditOperation(
 
   const now = new Date()
 
+  // If the grant already exists, we can safely ignore this error since
+  // the operation is idempotent - the grant was already created successfully
+  const isUniqueConstraintError = (error: any): boolean => {
+    return (
+      error.code === '23505' ||
+      (error.message && error.message.includes('already exists'))
+    )
+  }
+
   // First check for any negative balances
   const negativeGrants = await dbClient
     .select()
@@ -159,18 +168,14 @@ export async function grantCreditOperation(
           created_at: now,
         })
       } catch (error: any) {
-        // Check if this is a unique constraint violation on operation_id
-        if (
-          error.code === '23505' &&
-          error.constraint === 'credit_ledger_pkey'
-        ) {
+        if (isUniqueConstraintError(error)) {
           logger.info(
             { userId, operationId, type, amount },
             'Skipping duplicate credit grant due to idempotency check'
           )
-          return // Exit successfully, another concurrent request already created this grant
+          return
         }
-        throw error // Re-throw any other error
+        throw error
       }
     }
   } else {
@@ -188,15 +193,14 @@ export async function grantCreditOperation(
         created_at: now,
       })
     } catch (error: any) {
-      // Check if this is a unique constraint violation on operation_id
-      if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
+      if (isUniqueConstraintError(error)) {
         logger.info(
           { userId, operationId, type, amount },
           'Skipping duplicate credit grant due to idempotency check'
         )
-        return // Exit successfully, another concurrent request already created this grant
+        return
       }
-      throw error // Re-throw any other error
+      throw error
     }
   }
 

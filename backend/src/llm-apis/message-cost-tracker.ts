@@ -9,6 +9,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { withRetry } from '@codebuff/common/util/promise'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { Message } from '@codebuff/common/types/message'
+import { logSyncFailure } from '@codebuff/common/util/sync-failure'
 import { eq, sql } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { WebSocket } from 'ws'
@@ -218,7 +219,7 @@ async function syncMessageToStripe(messageData: {
 
       await db
         .delete(schema.syncFailure)
-        .where(eq(schema.syncFailure.message_id, messageId))
+        .where(eq(schema.syncFailure.id, messageId))
         .catch((err) =>
           logger.error(
             { ...logContext, error: err },
@@ -257,33 +258,7 @@ async function syncMessageToStripe(messageData: {
       { ...logContext, error: errorMessage },
       'Failed to sync usage to Stripe after retries.'
     )
-    await logSyncFailure(messageId, errorMessage)
-  }
-}
-
-async function logSyncFailure(messageId: string, errorMessage: string) {
-  try {
-    await db
-      .insert(schema.syncFailure)
-      .values({
-        message_id: messageId,
-        last_error: errorMessage,
-        last_attempt_at: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: schema.syncFailure.message_id,
-        set: {
-          last_error: errorMessage,
-          last_attempt_at: new Date(),
-          retry_count: sql`${schema.syncFailure.retry_count} + 1`,
-        },
-      })
-    logger.info({ messageId }, 'Logged sync failure to database.')
-  } catch (dbError) {
-    logger.error(
-      { messageId, error: dbError },
-      'Failed to log sync failure to database.'
-    )
+    await logSyncFailure(messageId, errorMessage, 'stripe')
   }
 }
 

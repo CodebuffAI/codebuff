@@ -47,7 +47,7 @@ function CreditVisual() {
 
       <div className="mt-8 text-sm text-white/90 max-w-sm border border-white/20 rounded-md p-3 bg-white/5">
         <span>{DEFAULT_FREE_CREDITS_GRANT} credits is typically enough for</span>{' '}
-        <span>a day of intense coding on a new project</span>
+        <span>a few hours of intense coding on a new project</span>
       </div>
     </div>
   )

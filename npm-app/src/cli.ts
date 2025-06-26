@@ -908,7 +908,7 @@ export class CLI {
 
   private async handleSigint() {
     if (isCommandRunning()) {
-      resetShell(getProjectRoot())
+      await resetShell(getProjectRoot())
     }
 
     if (this.isReceivingResponse) {

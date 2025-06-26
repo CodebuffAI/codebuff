@@ -4,9 +4,9 @@ import { type CostMode } from '@codebuff/common/constants'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'
 
-import packageJson from '../release/package.json'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
+import { npmAppVersion } from './config'
 import { createTemplateProject } from './create-template-project'
 import { enableSquashNewlines, initSquashNewLines } from './display'
 import {
@@ -36,7 +36,7 @@ async function codebuff(
   const projectRoot = setProjectRoot(gitRoot)
   setWorkingDirectory(cwd)
 
-  recreateShell(cwd)
+  await recreateShell(cwd)
 
   // Kill all processes we failed to kill before
   const processCleanupPromise = logAndHandleStartup()
@@ -63,7 +63,7 @@ async function codebuff(
 if (require.main === module) {
   const program = new Command()
 
-  program.name('codebuff').version(packageJson.version)
+  program.name('codebuff').version(npmAppVersion || '0.0.0')
 
   // Add arguments from shared definitions
   cliArguments.forEach((arg) => {

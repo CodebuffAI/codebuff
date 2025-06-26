@@ -1,0 +1,176 @@
+name: Release Production (Codebuff)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  # First job: Prepare production release
+  prepare-and-commit-prod:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump_version.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.2.16'
+
+      # Cache dependencies for speed
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+            ${{ runner.os }}-deps-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Calculate and update production version
+        id: bump_version
+        run: |
+          cd npm-app/release
+
+          # Get current version and bump it
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Bump version based on input
+          npm version ${{ inputs.version_type }} --no-git-tag-version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          
+          echo "New production version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit production release state
+        run: |
+          # Add all changes (current state + version bump)
+          git add -A
+          git commit -m "Production Release v${{ steps.bump_version.outputs.new_version }} (codebuff)
+
+          This commit captures the complete state being released for production,
+          including any uncommitted changes and the version bump.
+
+          🤖 Generated with Codebuff
+          Co-Authored-By: Codebuff <noreply@codebuff.com>"
+
+      - name: Create and push production tag
+        run: |
+          git tag "v${{ steps.bump_version.outputs.new_version }}"
+          git push origin "v${{ steps.bump_version.outputs.new_version }}"
+
+      - name: Upload updated package
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-package
+          path: npm-app/release/
+
+  build-prod-binaries:
+    needs: prepare-and-commit-prod
+    uses: ./.github/workflows/npm-app-release-build.yml
+    with:
+      binary-name: codebuff
+      new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
+      artifact-name: updated-package
+      checkout-ref: ${{ github.sha }}
+    secrets: inherit
+
+  # Create GitHub release with all binaries
+  create-prod-release:
+    needs: [prepare-and-commit-prod, build-prod-binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries/
+
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-package
+          path: npm-app/release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare-and-commit-prod.outputs.new_version }}
+          name: Release v${{ needs.prepare-and-commit-prod.outputs.new_version }}
+          prerelease: false
+          body: |
+            ## Codebuff v${{ needs.prepare-and-commit-prod.outputs.new_version }}
+
+            Binary releases for all supported platforms.
+
+            ### Installation
+            ```bash
+            npm install -g codebuff
+            ```
+
+            ### Platform Binaries
+            - `codebuff-linux-x64.tar.gz` - Linux x64
+            - `codebuff-linux-arm64.tar.gz` - Linux ARM64
+            - `codebuff-darwin-x64.tar.gz` - macOS Intel
+            - `codebuff-darwin-arm64.tar.gz` - macOS Apple Silicon
+            - `codebuff-win32-x64.tar.gz` - Windows x64
+          files: |
+            binaries/*/codebuff-*
+          repository: CodebuffAI/codebuff-community
+          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
+
+  # Publish npm package
+  publish-prod-npm:
+    needs: [prepare-and-commit-prod, create-prod-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-package
+          path: npm-app/release/
+
+      - name: Set up Node.js for npm publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+
+      - name: Publish to npm
+        run: |
+          cd npm-app/release
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

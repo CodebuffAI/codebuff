@@ -9,6 +9,22 @@ const { patchWebTreeSitter } = require('./patch-web-tree-sitter.js')
 // Configuration
 const VERBOSE = process.env.VERBOSE === 'true'
 
+// Get package name and npm app version from command line arguments
+const packageName = process.argv[2] || 'codebuff'
+const npmAppVersion = process.argv[3]
+
+if (!packageName) {
+  console.error('Error: Package name is required as first argument')
+  console.error('Usage: build-binary.js <packageName> <npmAppVersion>')
+  process.exit(1)
+}
+
+if (!npmAppVersion) {
+  console.error('Error: NPM app version is required as second argument')
+  console.error('Usage: build-binary.js <packageName> <npmAppVersion>')
+  process.exit(1)
+}
+
 // Logging helper
 function log(message) {
   if (VERBOSE) {
@@ -82,7 +98,8 @@ async function main() {
   patchWebTreeSitter(VERBOSE)
 
   const targetInfo = getTargetInfo()
-  const outputName = currentPlatform === 'win32' ? 'codebuff.exe' : 'codebuff'
+  const outputName =
+    currentPlatform === 'win32' ? `${packageName}.exe` : packageName
 
   await buildTarget(targetInfo.bunTarget, outputName, targetInfo)
 }
@@ -102,6 +119,7 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
 
   const flags = {
     IS_BINARY: 'true',
+    NEXT_PUBLIC_NPM_APP_VERSION: npmAppVersion,
   }
 
   const defineFlags = Object.entries(flags)
