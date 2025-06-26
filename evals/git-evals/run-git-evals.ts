@@ -6,7 +6,7 @@ import path from 'path'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { models } from 'common/constants'
+import { models } from '@codebuff/common/constants'
 import {
   createFileReadingMock,
   loopMainPrompt,
