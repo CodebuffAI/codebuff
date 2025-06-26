@@ -4,6 +4,11 @@ on:
   pull_request:
     branches: ['main']
 
+# Ensure only one staging release runs at a time
+concurrency:
+  group: staging-release
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
