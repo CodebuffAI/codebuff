@@ -543,10 +543,7 @@ export const runAgentStep = async (
         return
       }),
       str_replace: toolCallback('str_replace', (toolCall) => {
-        const { path, old_vals, new_vals } = toolCall.args
-        if (!old_vals || !Array.isArray(old_vals)) {
-          return
-        }
+        const { path, replacements } = toolCall.args
 
         if (!fileProcessingPromisesByPath[path]) {
           fileProcessingPromisesByPath[path] = []
@@ -564,8 +561,7 @@ export const runAgentStep = async (
 
         const newPromise = processStrReplace(
           path,
-          old_vals,
-          new_vals || [],
+          replacements,
           latestContentPromise
         ).catch((error: any) => {
           logger.error(error, 'Error processing str_replace block')
@@ -655,9 +651,6 @@ export const runAgentStep = async (
       const paths = (
         toolCall as Extract<CodebuffToolCall, { toolName: 'read_files' }>
       ).args.paths
-        .split(/\s+/)
-        .map((path: string) => path.trim())
-        .filter(Boolean)
 
       const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
         ws,
@@ -866,7 +859,7 @@ export const runAgentStep = async (
           .join('\n'),
       })
     } else if (toolCall.toolName === 'update_report') {
-      const { jsonUpdate } = toolCall.args
+      const { json_update: jsonUpdate } = toolCall.args
       agentState.report = {
         ...agentState.report,
         ...jsonUpdate,
