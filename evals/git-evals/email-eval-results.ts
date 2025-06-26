@@ -8,7 +8,7 @@ import { FullEvalLog } from './types'
 function formatEvalSummaryForEmail(
   evalResults: FullEvalLog[],
   analyses: PostEvalAnalysis[],
-  title: string
+  title?: string
 ): {
   subject: string
   message: string
@@ -43,7 +43,7 @@ function formatEvalSummaryForEmail(
       0
     ) / evalResults.length
 
-  const subject = `${title} - Overall Score: ${avgOverallScore.toFixed(1)}/10`
+  const subject = `Codebuf Eval Results - ${title ? title : new Date().toLocaleDateString()} - Overall Score: ${avgOverallScore.toFixed(1)}/10`
 
   // Build the complete message as a single string
   const summary = analyses.map((analysis) => analysis.summary).join('\n\n')
@@ -129,7 +129,7 @@ export async function sendEvalResultsEmail(
   analyses: PostEvalAnalysis[],
   recipientEmail: string = process.env.EVAL_RESULTS_EMAIL ||
     'team@codebuff.com',
-  title: string
+  title?: string
 ): Promise<boolean> {
   console.log(`📧 Sending eval results email to ${recipientEmail}...`)
   const emailContent = formatEvalSummaryForEmail(evalResults, analyses, title)

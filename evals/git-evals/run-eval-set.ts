@@ -56,7 +56,6 @@ class RunEvalSetCommand extends Command {
     title: Flags.string({
       char: 't',
       description: 'Custom title for email subject',
-      default: 'Codebuff Eval Results',
     }),
     help: Flags.help({ char: 'h' }),
   }
@@ -74,7 +73,7 @@ async function runEvalSet(options: {
   analysis: boolean
   mock: boolean
   insert: boolean
-  title: string
+  title?: string
 }): Promise<void> {
   const {
     'output-dir': outputDir,
