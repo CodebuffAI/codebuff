@@ -67,6 +67,6 @@
     "systeminformation": "5.23.4",
     "ts-pattern": "5.3.1",
     "ws": "8.18.0",
-    "zod": "3.23.8"
+    "zod": "3.25.67"
   }
 }
