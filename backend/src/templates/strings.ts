@@ -2,8 +2,8 @@ import {
   AgentState,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
-import { CodebuffConfigSchema } from 'common/json-config/constants'
-import { stringifySchema } from 'common/json-config/stringify-schema'
+import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
+import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
 
 import {
   getGitChangesPrompt,

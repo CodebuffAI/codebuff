@@ -7,8 +7,8 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { TEST_USER_ID } from 'common/constants'
-import { getInitialSessionState } from 'common/types/session-state'
+import { TEST_USER_ID } from '@codebuff/common/constants'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { WebSocket } from 'ws'
 import { mainPrompt } from '../main-prompt'
 
@@ -461,7 +461,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 @@ -689,6 +689,4 @@
    });
  }
- 
+
  init().catch(console.error);
 -
 -}
