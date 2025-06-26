@@ -1,6 +1,5 @@
 import { Model } from '@codebuff/common/constants'
-import { baseAgentSystemPrompt } from '../base-prompts'
-import { AgentTemplate } from '../types'
+import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
@@ -17,15 +16,14 @@ export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
     'update_report',
     'end_turn',
   ],
-  stopSequences: ['<read_files>', '<write_files>', '<end_turn>'],
+  stopSequences: ['</read_files>', '</find_files>', '</code_search>'],
   spawnableAgents: [],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt: baseAgentSystemPrompt(model),
-  userInputPrompt: `You are an expert programmer. Think deeply about the user request and how to best approach it. Consider edge cases, potential issues, and alternative approaches.
+  systemPrompt: `You are an expert programmer. Think deeply about the user request and how to best approach it. Consider edge cases, potential issues, and alternative approaches.
 
 Log all your thoughts in the report for the user to see.
 
@@ -40,6 +38,9 @@ Guidelines:
 - Show key snippets of code to guide the implementation to be as clean as possible.
 - Figure out the solution to any errors or bugs and give instructions on how to fix them.
 - Use end_turn to end your response.
+
+${PLACEHOLDER.TOOLS_PROMPT}
 `,
+  userInputPrompt: '',
   agentStepPrompt: '',
 })
