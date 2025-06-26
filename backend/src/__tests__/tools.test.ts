@@ -14,6 +14,7 @@ describe('getFilteredToolsInstructions', () => {
     'think_deeply',
     'create_plan',
     'browser_logs',
+    'read_docs',
     'end_turn',
   ]
 
@@ -26,6 +27,7 @@ describe('getFilteredToolsInstructions', () => {
     'think_deeply',
     'create_plan',
     'browser_logs',
+    'read_docs',
     'end_turn',
   ]
 
@@ -44,5 +46,13 @@ describe('getFilteredToolsInstructions', () => {
     expect(instructions).not.toInclude(`### write_file`)
     expect(instructions).not.toInclude(`### str_replace`)
     expect(instructions).not.toInclude(`### run_terminal_command`)
+  })
+
+  test('should include read_docs tool in both modes', () => {
+    const normalInstructions = getFilteredToolsInstructions('normal', false)
+    const askInstructions = getFilteredToolsInstructions('ask', false)
+    
+    expect(normalInstructions).toInclude(`### read_docs`)
+    expect(askInstructions).toInclude(`### read_docs`)
   })
 })

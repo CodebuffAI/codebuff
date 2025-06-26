@@ -62,6 +62,7 @@ export const readOnlyToolNames: ToolName[] = [
   'code_search',
   'end_turn',
   'find_files',
+  'read_docs',
   'read_files',
   'think_deeply',
   'update_subgoal',

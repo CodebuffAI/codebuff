@@ -22,6 +22,9 @@ export const toolSchema = {
   spawn_agents: ['agents'],
   update_report: ['json_update'],
 
+  // Documentation tool
+  read_docs: ['query', 'topic', 'max_tokens'],
+
   end_turn: [],
 }
 

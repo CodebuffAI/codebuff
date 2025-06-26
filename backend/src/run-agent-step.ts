@@ -29,6 +29,7 @@ import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
+import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -580,6 +581,51 @@ export const runAgentStep = async (
 
         return
       }),
+      read_docs: toolCallback('read_docs', async (toolCall) => {
+        const { query, topic, max_tokens } = (
+          toolCall as Extract<CodebuffToolCall, { toolName: 'read_docs' }>
+        ).args
+
+        logger.debug(
+          {
+            query,
+            topic,
+            max_tokens,
+          },
+          'read_docs tool call'
+        )
+
+        try {
+          const documentation = await fetchContext7LibraryDocumentation(query, {
+            topic,
+            tokens: max_tokens,
+          })
+
+          if (documentation) {
+            serverToolResults.push({
+              toolName: 'read_docs',
+              toolCallId: toolCall.toolCallId,
+              result: documentation,
+            })
+          } else {
+            serverToolResults.push({
+              toolName: 'read_docs',
+              toolCallId: toolCall.toolCallId,
+              result: `No documentation found for "${query}"${topic ? ` with topic "${topic}"` : ''}. The library may not be available in Context7's database or the query may need to be more specific.`,
+            })
+          }
+        } catch (error) {
+          logger.error(
+            { error, query, topic, max_tokens },
+            'Error fetching documentation from Context7'
+          )
+          serverToolResults.push({
+            toolName: 'read_docs',
+            toolCallId: toolCall.toolCallId,
+            result: `Error fetching documentation for "${query}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+          })
+        }
+      }),
     },
     (toolName, error) => {
       foundParsingError = true
@@ -873,6 +919,50 @@ export const runAgentStep = async (
         toolCallId: toolCall.toolCallId,
         result: 'Report updated',
       })
+    } else if (toolCall.toolName === 'read_docs') {
+      const { query, topic, max_tokens } = (
+        toolCall as Extract<CodebuffToolCall, { toolName: 'read_docs' }>
+      ).args
+
+      logger.debug(
+        {
+          query,
+          topic,
+          max_tokens,
+        },
+        'read_docs tool call'
+      )
+
+      try {
+        const documentation = await fetchContext7LibraryDocumentation(query, {
+          topic,
+          tokens: max_tokens,
+        })
+
+        if (documentation) {
+          serverToolResults.push({
+            toolName: 'read_docs',
+            toolCallId: toolCall.toolCallId,
+            result: documentation,
+          })
+        } else {
+          serverToolResults.push({
+            toolName: 'read_docs',
+            toolCallId: toolCall.toolCallId,
+            result: `No documentation found for "${query}"${topic ? ` with topic "${topic}"` : ''}. The library may not be available in Context7's database or the query may need to be more specific.`,
+          })
+        }
+      } catch (error) {
+        logger.error(
+          { error, query, topic, max_tokens },
+          'Error fetching documentation from Context7'
+        )
+        serverToolResults.push({
+          toolName: 'read_docs',
+          toolCallId: toolCall.toolCallId,
+          result: `Error fetching documentation for "${query}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+        })
+      }
     } else {
       toolCall satisfies never
       throw new Error(`Unknown tool: ${name}`)
