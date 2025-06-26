@@ -740,7 +740,7 @@ export function parseRawToolCall(
   const validName = toolName as GlobalToolNameImport
 
   const processedParameters: Record<string, any> = {}
-  for (const [param, val] of Object.entries(rawToolCall)) {
+  for (const [param, val] of Object.entries(rawToolCall.args)) {
     try {
       processedParameters[param] = JSON.parse(val)
     } catch (error) {
