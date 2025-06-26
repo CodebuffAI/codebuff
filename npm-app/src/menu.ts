@@ -250,8 +250,7 @@ To get started:
   }
 
   console.log(
-    `\n${bold(yellow('🧪 STAGING BUILD - For testing purposes only'))}` +
-      `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do?`
+    `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do?`
   )
 }
 

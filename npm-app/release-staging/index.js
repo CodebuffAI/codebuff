@@ -14,8 +14,9 @@ const packageName = 'codecane'
 function createConfig(packageName) {
   const homeDir = os.homedir()
   const configDir = path.join(homeDir, '.config', 'manicode')
-  const binaryName = process.platform === 'win32' ? `${packageName}.exe` : packageName
-  
+  const binaryName =
+    process.platform === 'win32' ? `${packageName}.exe` : packageName
+
   return {
     homeDir,
     configDir,
@@ -435,6 +436,15 @@ async function checkForUpdates(runningProcess, exitListener) {
 }
 
 async function main() {
+  // Bold, bright warning for staging environment
+  console.log('\x1b[1m\x1b[91m' + '='.repeat(60) + '\x1b[0m')
+  console.log('\x1b[1m\x1b[93m❄️ CODECANE STAGING ENVIRONMENT ❄️\x1b[0m')
+  console.log(
+    '\x1b[1m\x1b[91mFOR TESTING PURPOSES ONLY - NOT FOR PRODUCTION USE\x1b[0m'
+  )
+  console.log('\x1b[1m\x1b[91m' + '='.repeat(60) + '\x1b[0m')
+  console.log('')
+
   await ensureBinaryExists()
 
   // Start the binary with codecane argument
