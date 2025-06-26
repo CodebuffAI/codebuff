@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Common bun installation paths to check
+BUN_PATHS=(
+    "/opt/homebrew/bin/bun"
+    "/usr/local/bin/bun"
+    "$HOME/.bun/bin/bun"
+)
+
+# Find the real bun executable
+REAL_BUN=""
+for path in "${BUN_PATHS[@]}"; do
+    if [ -f "$path" ]; then
+        REAL_BUN="$path"
+        break
+    fi
+done
+
+# Fallback: try to find bun in PATH excluding our directory
+if [ -z "$REAL_BUN" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    REAL_BUN=$(PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "^$SCRIPT_DIR$" | tr '\n' ':') which bun)
+fi
+
+# Commands that need secrets
+case "$1" in
+  "test")
+    # Tests often need database/API access
+    exec infisical run -- "$REAL_BUN" "$@"
+    ;;
+  "dev"|"start")
+    # Development servers need secrets
+    exec infisical run -- "$REAL_BUN" "$@"
+    ;;
+  "run")
+    # Check if the script needs secrets
+    case "$2" in
+      "dev"|"start"|"start-"*|"db:"*|"typecheck")
+        exec infisical run -- "$REAL_BUN" "$@"
+        ;;
+      *)
+        # Scripts like format, build (static), etc. don't need secrets
+        exec "$REAL_BUN" "$@"
+        ;;
+    esac
+    ;;
+  *)
+    # For install, add, remove, format, etc. - no secrets needed
+    exec "$REAL_BUN" "$@"
+    ;;
+esac
