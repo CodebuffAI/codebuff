@@ -5,8 +5,12 @@ import {
   insertTrace,
 } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
+import {
+  HIDDEN_FILE_READ_STATUS,
+  ONE_TIME_LABELS,
+} from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { getToolCallString, toolSchema } from '@codebuff/common/constants/tools'
+import { getToolCallString } from '@codebuff/common/constants/tools'
 import {
   AgentState,
   ToolResult,
@@ -16,10 +20,6 @@ import { buildArray } from '@codebuff/common/util/array'
 import { parseFileBlocks, ProjectFileContext } from '@codebuff/common/util/file'
 import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
-import {
-  HIDDEN_FILE_READ_STATUS,
-  ONE_TIME_LABELS,
-} from '@codebuff/common/constants'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
@@ -44,6 +44,7 @@ import {
   parseRawToolCall,
   TOOL_LIST,
   ToolName,
+  toolParams,
   updateContextFromToolCalls,
 } from './tools'
 import { logger } from './util/logger'
@@ -377,7 +378,7 @@ export const runAgentStep = async (
     tool: T,
     after: (toolCall: Extract<CodebuffToolCall, { toolName: T }>) => void
   ): {
-    params: (string | RegExp)[]
+    params: string[]
     onTagStart: () => void
     onTagEnd: (
       name: string,
@@ -385,7 +386,7 @@ export const runAgentStep = async (
     ) => Promise<void>
   } {
     return {
-      params: toolSchema[tool],
+      params: toolParams[tool],
       onTagStart: () => {},
       onTagEnd: async (_: string, args: Record<string, string>) => {
         const toolCall = parseRawToolCall({

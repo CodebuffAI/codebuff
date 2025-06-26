@@ -5,10 +5,7 @@ import path from 'path'
 
 import { FileChange } from '@codebuff/common/actions'
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
-import {
-  getToolCallString,
-  ToolName as GlobalToolNameImport,
-} from '@codebuff/common/constants/tools'
+import { getToolCallString } from '@codebuff/common/constants/tools'
 import { z } from 'zod/v4'
 
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
@@ -378,8 +375,8 @@ ${getToolCallString('code_search', { pattern: 'import.*foo' })}
             `The working directory to run the command in. Default is the project root.`
           ),
         timeout_seconds: z
-          .string()
-          .default('30')
+          .number()
+          .default(30)
           .describe(
             `Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30`
           ),
@@ -712,6 +709,13 @@ const toolConfigsList = Object.entries(toolConfigs).map(
 export type ToolName = keyof typeof toolConfigs
 export const TOOL_LIST = Object.keys(toolConfigs) as ToolName[]
 
+export const toolParams = Object.fromEntries(
+  toolConfigsList.map((config) => [
+    config.name satisfies ToolName,
+    Object.keys(z.toJSONSchema(config.parameters).properties ?? {}),
+  ])
+) as Record<ToolName, string[]>
+
 // Helper function to build the full tool description markdown
 function buildToolDescription(
   toolName: string,
@@ -740,15 +744,6 @@ function buildToolDescription(
     description,
   ]).join('\n\n')
 }
-
-export const tools = toolConfigsList.map((config) => ({
-  name: config.name,
-  description: buildToolDescription(
-    config.name,
-    config.parameters,
-    config.description
-  ),
-})) as { name: GlobalToolNameImport; description: string }[]
 
 const toolDescriptions = Object.fromEntries(
   Object.entries(toolConfigs).map(([name, config]) => [
