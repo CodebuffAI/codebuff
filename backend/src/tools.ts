@@ -879,10 +879,6 @@ Provide commentary *around* your tool calls (explaining your actions).
 
 However, **DO NOT** narrate the tool or parameter names themselves.
 
-### Array Params
-
-Arrays with name "param_name_vals" should be formatted as individual parameters, each called "param_name_{i}". They must start with i=0 and increment by 1.
-
 ### Example
 
 User: can you update the console logs in example/file.ts?
@@ -935,8 +931,11 @@ ${spawnableAgents
     const agentTemplate = agentTemplates[agentType]
     const { promptSchema } = agentTemplate
     const { prompt, params } = promptSchema
-    const promptString = prompt === true ? 'required' : prompt === false ? 'n/a' : 'optional'
-    const paramsString = params ? JSON.stringify(z.toJSONSchema(params), null, 2) : 'n/a'
+    const promptString =
+      prompt === true ? 'required' : prompt === false ? 'n/a' : 'optional'
+    const paramsString = params
+      ? JSON.stringify(z.toJSONSchema(params), null, 2)
+      : 'n/a'
     return `- ${agentType}: ${agentTemplate.description}\nprompt: ${promptString}\nparams: ${paramsString}`
   })
   .join('\n\n')}`
