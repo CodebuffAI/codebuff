@@ -9,7 +9,7 @@ import {
   getToolCallString,
   ToolName as GlobalToolNameImport,
 } from '@codebuff/common/constants/tools'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -222,33 +222,40 @@ function foo() {
           .string()
           .min(1, 'Path cannot be empty')
           .describe(`The path to the file to edit.`),
-        old_vals: z
-          .array(z.string())
-          .describe(
-            `The strings to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.`
-          ),
-        new_vals: z
-          .array(z.string())
-          .describe(
-            `The strings to replace the corresponding old string with. Can be empty to delete.`
-          ),
-      })
-      .refine((data) => data.old_vals.length === data.new_vals.length, {
-        message: 'old_vals and new_vals must have the same number of elements.',
+        replacements: z
+          .array(
+            z
+              .object({
+                old: z
+                  .string()
+                  .min(1, 'Old cannot be empty')
+                  .describe(
+                    `The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.`
+                  ),
+                new: z
+                  .string()
+                  .describe(
+                    `The string to replace the corresponding old string with. Can be empty to delete.`
+                  ),
+              })
+              .describe('Pair of old and new strings.')
+          )
+          .min(1, 'Replacements cannot be empty')
+          .describe('Array of replacements to make.'),
       })
       .describe(`Replace strings in a file with new strings.`),
     description: `
 This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
 
-If you are making multiple edits row to a single file with this tool, use only one <str_replace> call (without closing the tool) with old_0, new_0, old_1, new_1, old_2, new_2, etc. instead of calling str_replace multiple times on the same file.
+If you are making multiple edits row to a single file with this tool, use only one <str_replace> call (without closing the tool) instead of calling str_replace multiple times on the same file.
 
 Example:
 ${getToolCallString('str_replace', {
   path: 'path/to/file',
-  old_0: 'old',
-  new_0: 'new',
-  old_1: 'to_delete',
-  new_1: '',
+  replacements: [
+    { old: 'old', new: 'new' },
+    { old: 'to_delete', new: '' },
+  ],
 })}
     `.trim(),
   },
@@ -256,11 +263,15 @@ ${getToolCallString('str_replace', {
     parameters: z
       .object({
         paths: z
-          .string()
-          .min(1, 'Paths cannot be empty')
-          .describe(
-            `List of file paths to read relative to the **project root**, separated by newlines. Absolute file paths will not work.`
-          ),
+          .array(
+            z
+              .string()
+              .min(1, 'Paths cannot be empty')
+              .describe(
+                `File path to read relative to the **project root**. Absolute file paths will not work.`
+              )
+          )
+          .describe('List of file paths to read.'),
       })
       .describe(
         `Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`
@@ -602,7 +613,7 @@ ${getToolCallString('browser_logs', {
   update_report: {
     parameters: z
       .object({
-        jsonUpdate: z
+        json_update: z
           .record(z.string(), z.any())
           .describe(
             'JSON object with keys and values to overwrite the existing report. This can be any JSON object with keys and values. Note the values are JSON values, so they can be a nested object or array.'
@@ -617,20 +628,15 @@ You must use this tool as it is the only way to report any findings to the user.
 Please update the report with all the information and analysis you want to pass on to the user. If you just want to send a simple message, use an object with the key "message" and value of the message you want to send.
 Example:
 ${getToolCallString('update_report', {
-  jsonUpdate: JSON.stringify(
-    {
-      message: 'I found a bug in the code!',
-    },
-    null,
-    2
-  ),
+  jsonUpdate: {
+    message: 'I found a bug in the code!',
+  },
 })}
     `.trim(),
   },
   end_turn: {
     parameters: z
       .object({})
-      .transform(() => ({}))
       .describe(
         `End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.`
       ),
@@ -658,74 +664,25 @@ const toolConfigsList = Object.entries(toolConfigs).map(
 export type ToolName = keyof typeof toolConfigs
 export const TOOL_LIST = Object.keys(toolConfigs) as ToolName[]
 
-// Helper function to generate markdown for parameter list
-function generateParamsList(
-  toolName: string,
-  schema: z.ZodType<any, any, any>
-): string[] {
-  const params: string[] = []
-  let shape = null
-
-  if (schema instanceof z.ZodObject) {
-    shape = schema.shape
-  } else if (
-    schema instanceof z.ZodEffects &&
-    schema._def.schema instanceof z.ZodObject
-  ) {
-    shape = schema._def.schema.shape
-  }
-
-  if (shape) {
-    for (const key in shape) {
-      const paramSchema = shape[key] as z.ZodTypeAny
-      let paramMarkdownName = `\`${key}\``
-
-      if (
-        toolName === 'str_replace' &&
-        (key === 'old_vals' || key === 'new_vals')
-      ) {
-        paramMarkdownName = `\`${key.replace('_vals', '')}_{i}\``
-      }
-
-      let paramLine = `- ${paramMarkdownName}: `
-
-      let requiredOptionalMarker = '(required)'
-      if (
-        paramSchema instanceof z.ZodOptional ||
-        paramSchema._def.typeName === 'ZodDefault'
-      ) {
-        requiredOptionalMarker = '(optional)'
-      }
-
-      const descriptionText =
-        paramSchema.description ||
-        `(${paramSchema._def.typeName || 'parameter'})`
-      paramLine += `${requiredOptionalMarker} ${descriptionText}`
-      params.push(paramLine)
-    }
-  }
-
-  if (params.length === 0) {
-    return ['None']
-  }
-
-  return params
-}
-
 // Helper function to build the full tool description markdown
 function buildToolDescription(
   toolName: string,
-  schema: z.ZodType<any, any, any>,
+  schema: z.ZodTypeAny,
   description: string = ''
 ): string {
   const mainDescription = schema.description || ''
-  const paramsArray = generateParamsList(toolName, schema)
+  const jsonSchema = z.toJSONSchema(schema)
+  delete jsonSchema.description
+  delete jsonSchema['$schema']
+  const paramsDescription = Object.keys(jsonSchema.properties ?? {}).length
+    ? JSON.stringify(jsonSchema, null, 2)
+    : 'None'
 
   let paramsSection = ''
-  if (paramsArray.length === 1 && paramsArray[0] === 'None') {
+  if (paramsDescription.length === 1 && paramsDescription[0] === 'None') {
     paramsSection = 'Params: None'
-  } else if (paramsArray.length > 0) {
-    paramsSection = `Params:\n${paramsArray.join('\n')}`
+  } else if (paramsDescription.length > 0) {
+    paramsSection = `Params:\n${paramsDescription}`
   }
 
   return buildArray([
@@ -736,7 +693,7 @@ function buildToolDescription(
   ]).join('\n\n')
 }
 
-const tools = toolConfigsList.map((config) => ({
+export const tools = toolConfigsList.map((config) => ({
   name: config.name,
   description: buildToolDescription(
     config.name,
@@ -782,43 +739,22 @@ export function parseRawToolCall(
   }
   const validName = toolName as GlobalToolNameImport
 
-  let schema: z.ZodObject<any> | z.ZodEffects<any> =
-    toolConfigs[validName].parameters
-  while (schema instanceof z.ZodEffects) {
-    schema = schema.innerType()
-  }
-  const processedParameters: Record<string, any> = { ...rawToolCall.args }
-
-  const arrayParamPattern = /^(.+)_(\d+)$/
-  const arrayParamsCollector: Record<string, string[]> = {}
-
-  for (const [key, value] of Object.entries(rawToolCall.args)) {
-    const match = key.match(arrayParamPattern)
-    if (match) {
-      const [, paramNameBase, indexStr] = match
-      const index = parseInt(indexStr, 10)
-      const arraySchemaKey = `${paramNameBase}_vals`
-
-      const schemaShape = schema.shape
-      if (
-        schemaShape &&
-        schemaShape[arraySchemaKey] &&
-        schemaShape[arraySchemaKey] instanceof z.ZodArray
-      ) {
-        if (!arrayParamsCollector[arraySchemaKey]) {
-          arrayParamsCollector[arraySchemaKey] = []
-        }
-        arrayParamsCollector[arraySchemaKey][index] = value
-        delete processedParameters[key]
+  const processedParameters: Record<string, any> = {}
+  for (const [param, val] of Object.entries(rawToolCall)) {
+    try {
+      processedParameters[param] = JSON.parse(val)
+    } catch (error) {
+      return {
+        toolName: validName,
+        toolCallId: generateCompactId(),
+        args: rawToolCall.args,
+        error: `Failed to parse parameter ${param} as JSON: ${error}`,
       }
     }
   }
 
-  for (const [arrayKey, values] of Object.entries(arrayParamsCollector)) {
-    processedParameters[arrayKey] = values.filter((v) => v !== undefined)
-  }
-
-  const result = schema.safeParse(processedParameters)
+  const result =
+    toolConfigs[validName].parameters.safeParse(processedParameters)
   if (!result.success) {
     return {
       toolName: validName,
@@ -883,10 +819,6 @@ ${getToolCallString('write_file', {
   path: 'path/to/example/file.ts',
   instructions: 'Update the console logs',
   content: "console.log('Hello from Buffy!');",
-  // old_0: '// Replace this line with a fun greeting',
-  // new_0: "console.log('Hello from Buffy!');",
-  // old_1: "console.log('Old console line to delete');\n",
-  // new_1: '',
 })}
 
 All done with the update!

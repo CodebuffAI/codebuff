@@ -4,8 +4,7 @@ import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-p
 
 export async function processStrReplace(
   path: string,
-  oldStrs: string[],
-  newStrs: string[],
+  replacements: { old: string; new: string }[],
   initialContentPromise: Promise<string | null>
 ) {
   const initialContent = await initialContentPromise
@@ -14,10 +13,7 @@ export async function processStrReplace(
   let currentContent = initialContent
   let allPatches: string[] = []
 
-  for (let i = 0; i < oldStrs.length; i++) {
-    const oldStr = oldStrs[i]
-    const newStr = newStrs[i] || ''
-
+  for (const { old: oldStr, new: newStr } of replacements) {
     // Special case: if oldStr is empty and file doesn't exist, create the file
     if (currentContent === null && !oldStr) {
       const patch = createPatch(path, '', newStr)

@@ -5,7 +5,7 @@ export const toolSchema = {
 
   // File operations
   write_file: ['path', 'instructions', 'content'],
-  str_replace: ['path', /old_\d+/, /new_\d+/],
+  str_replace: ['path', 'replacements'],
   read_files: ['paths'],
   find_files: ['description'],
 
@@ -20,7 +20,7 @@ export const toolSchema = {
   browser_logs: ['type', 'url', 'waitUntil'],
 
   spawn_agents: ['agents'],
-  update_report: ['jsonUpdate'],
+  update_report: ['json_update'],
 
   end_turn: [],
 }
@@ -32,7 +32,7 @@ export const TOOL_LIST = Object.keys(toolSchema) as ToolName[]
 
 export const getToolCallString = (
   toolName: ToolName,
-  params: Record<string, string>
+  params: Record<string, any>
 ) => {
   const openTag = `<${toolName}>`
   const closeTag = `</${toolName}>`
@@ -43,12 +43,12 @@ export const getToolCallString = (
   // Create an array of parameter strings in the correct order
   const orderedParams = paramOrder
     .filter((param) => param in params) // Only include params that are actually provided
-    .map((param) => `<${param}>${params[param]}</${param}>`)
+    .map((param) => `<${param}>${JSON.stringify(params[param])}</${param}>`)
 
   // Get any additional parameters not in the schema order
   const additionalParams = Object.entries(params)
     .filter(([param]) => !paramOrder.includes(param))
-    .map(([param, value]) => `<${param}>${value}</${param}>`)
+    .map(([param, value]) => `<${param}>${JSON.stringify(value)}</${param}>`)
 
   // Combine ordered and additional parameters
   const paramsString = [...orderedParams, ...additionalParams].join('\n')
