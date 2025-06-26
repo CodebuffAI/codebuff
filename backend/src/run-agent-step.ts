@@ -310,6 +310,7 @@ export const runAgentStep = async (
   logger.debug(
     {
       agentMessages,
+      system,
       prompt,
       agentContext,
       iteration: iterationNum,

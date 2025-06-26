@@ -1,4 +1,7 @@
-import { AgentTemplateType, AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import {
+  AgentTemplateType,
+  AgentTemplateTypes,
+} from '@codebuff/common/types/session-state'
 import { Model } from 'common/constants'
 
 import { ToolName } from '../tools'
@@ -50,6 +53,7 @@ export const editingToolNames: ToolName[] = [
   'run_terminal_command',
   'str_replace',
   'write_file',
+  'spawn_agents',
 ] as const
 
 export const readOnlyToolNames: ToolName[] = [
@@ -73,6 +77,7 @@ export const baseAgentStopSequences: string[] = [
   '</find_files>',
   '</run_terminal_command>',
   '</code_search>',
+  '</spawn_agents>',
 ] as const
 
 export const baseAgentSpawnableAgents: AgentTemplateType[] = [
