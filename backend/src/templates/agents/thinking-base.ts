@@ -14,8 +14,13 @@ import {
 } from '../types'
 
 export const thinkingBase = (model: Model): Omit<AgentTemplate, 'type'> => ({
-  description: 'Base agent that thinks before each response',
   model,
+  description: 'Base agent that thinks before each response',
+  promptSchema: {
+    prompt: true,
+    params: null,
+  },
+  includeMessageHistory: false,
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
   spawnableAgents: baseAgentSpawnableAgents,

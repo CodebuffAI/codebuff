@@ -1,5 +1,4 @@
 import { Model } from '@codebuff/common/constants'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import {
   baseAgentAgentStepPrompt,
   baseAgentSystemPrompt,
@@ -13,8 +12,13 @@ import {
 } from '../types'
 
 export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
-  description: 'Base agent that orchestrates the full response.',
   model,
+  description: 'Base agent that orchestrates the full response.',
+  promptSchema: {
+    prompt: true,
+    params: null,
+  },
+  includeMessageHistory: false,
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
   spawnableAgents: baseAgentSpawnableAgents,

@@ -595,17 +595,34 @@ ${getToolCallString('browser_logs', {
         agents: z
           .object({
             agent_type: z.string().describe('Agent to spawn'),
-            prompt: z.string().describe('Prompt to send to the agent'),
-            include_message_history: z
-              .boolean()
-              .describe(
-                "Whether to include the spawner's message history in the prompt"
-              ),
+            prompt: z
+              .string()
+              .optional()
+              .describe('Prompt to send to the agent'),
+            params: z
+              .record(z.string(), z.any())
+              .optional()
+              .describe('Parameters object for the agent (if any)'),
           })
           .array(),
       })
       .describe(`Spawn multiple agents and send a prompt to each of them.`),
-    description: '',
+    description: `
+Use this tool to spawn subagents to help you complete the user request. Each agent has specific requirements for prompt and params based on their promptSchema.
+
+The prompt field is a simple string, while params is a JSON object that gets validated against the agent's schema.
+
+Example:
+${getToolCallString('spawn_agents', {
+  agents: JSON.stringify([
+    {
+      agent_type: 'gemini25pro_planner',
+      prompt: 'Create a plan for implementing user authentication',
+      params: { filePaths: ['src/auth.ts', 'src/user.ts'] },
+    },
+  ]),
+})}
+    `.trim(),
   },
   update_report: {
     parameters: z
@@ -916,7 +933,11 @@ Use the spawn_agents tool to spawn subagents to help you complete the user reque
 ${spawnableAgents
   .map((agentType) => {
     const agentTemplate = agentTemplates[agentType]
-    return `- ${agentType}: ${agentTemplate.description}`
+    const { promptSchema } = agentTemplate
+    const { prompt, params } = promptSchema
+    const promptString = prompt === true ? 'required' : prompt === false ? 'n/a' : 'optional'
+    const paramsString = params ? JSON.stringify(z.toJSONSchema(params), null, 2) : 'n/a'
+    return `- ${agentType}: ${agentTemplate.description}\nprompt: ${promptString}\nparams: ${paramsString}`
   })
   .join('\n\n')}`
       : ''

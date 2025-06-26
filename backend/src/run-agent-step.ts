@@ -92,6 +92,7 @@ export interface AgentOptions {
   agentState: AgentState
 
   prompt: string | undefined
+  params: Record<string, any> | undefined
   assistantMessage: string | undefined
   assistantPrefix: string | undefined
 }
@@ -114,6 +115,7 @@ export const runAgentStep = async (
     agentType,
     agentState,
     prompt,
+    params,
     assistantMessage,
     assistantPrefix,
   } = options
@@ -235,6 +237,8 @@ export const runAgentStep = async (
     })
   }
 
+  const hasPrompt = Boolean(prompt || params)
+
   const agentMessagesUntruncated = buildArray<CodebuffMessage>(
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
 
@@ -243,23 +247,26 @@ export const runAgentStep = async (
       content: asSystemMessage(renderToolResults(toolResults)),
     },
 
-    prompt && [
+    hasPrompt && [
       {
         // Actual user prompt!
         role: 'user' as const,
-        content: asUserMessage(prompt),
-      },
-      prompt in additionalSystemPrompts && {
-        role: 'user' as const,
-        content: asSystemInstruction(
-          additionalSystemPrompts[
-            prompt as keyof typeof additionalSystemPrompts
-          ]
+        content: asUserMessage(
+          `${prompt ?? ''}${params ? `\n\n${JSON.stringify(params, null, 2)}` : ''}`
         ),
       },
+      prompt &&
+        prompt in additionalSystemPrompts && {
+          role: 'user' as const,
+          content: asSystemInstruction(
+            additionalSystemPrompts[
+              prompt as keyof typeof additionalSystemPrompts
+            ]
+          ),
+        },
     ],
 
-    prompt && {
+    hasPrompt && {
       role: 'user',
       content: getAgentPrompt(
         agentType,
@@ -317,6 +324,7 @@ export const runAgentStep = async (
       agentMessages,
       system,
       prompt,
+      params,
       agentContext,
       iteration: iterationNum,
       toolResults,
@@ -324,7 +332,7 @@ export const runAgentStep = async (
       model,
       duration: Date.now() - startTime,
     },
-    `Main prompt ${iterationNum}`
+    `Agent step ${agentType} - ${iterationNum}`
   )
 
   let fullResponse = `${assistantPrefix?.trim() ?? ''}`
@@ -834,67 +842,82 @@ export const runAgentStep = async (
       const parentAgentTemplate = agentTemplate
 
       const results = await Promise.allSettled(
-        agents.map(
-          async ({
-            agent_type: agentTypeStr,
-            prompt,
-            include_message_history,
-          }) => {
-            if (!(agentTypeStr in agentTemplates)) {
-              throw new Error(`Agent type ${agentTypeStr} not found.`)
-            }
-            const agentType = agentTypeStr as AgentTemplateType
-            const agentTemplate = agentTemplates[agentType]
+        agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
+          if (!(agentTypeStr in agentTemplates)) {
+            throw new Error(`Agent type ${agentTypeStr} not found.`)
+          }
+          const agentType = agentTypeStr as AgentTemplateType
+          const agentTemplate = agentTemplates[agentType]
 
-            if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
+          if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
+            throw new Error(
+              `Agent type ${parentAgentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
+            )
+          }
+
+          // Validate prompt and params against agent's schema
+          const { promptSchema } = agentTemplate
+
+          // Validate prompt requirement
+          if (promptSchema.prompt === true && !prompt) {
+            throw new Error(
+              `Agent ${agentType} requires a prompt but none was provided.`
+            )
+          }
+
+          // Validate params if schema exists
+          if (promptSchema.params && params) {
+            const result = promptSchema.params.safeParse(params)
+            if (!result.success) {
               throw new Error(
-                `Agent type ${parentAgentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
+                `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
               )
             }
-
-            const {
-              initialAssistantMessage,
-              initialAssistantPrefix,
-              stepAssistantMessage,
-              stepAssistantPrefix,
-            } = agentTemplate
-
-            const subAgentMessages = include_message_history
-              ? messageHistory
-              : []
-
-            const agentId = generateCompactId()
-            const agentState: AgentState = {
-              agentId,
-              agentType,
-              agentContext: '',
-              subagents: [],
-              messageHistory: subAgentMessages,
-              stepsRemaining: MAX_AGENT_STEPS,
-              report: {},
-            }
-
-            return await loopAgentSteps(ws, {
-              userInputId: `${userInputId}-${agentType}${agentId}`,
-              prompt,
-              initialAssistantMessage,
-              initialAssistantPrefix,
-              stepAssistantMessage,
-              stepAssistantPrefix,
-              agentType: agentTemplate.type,
-              agentState,
-              fingerprintId,
-              fileContext,
-              toolResults: [],
-              userId,
-              clientSessionId,
-              onResponseChunk: () => {},
-            })
           }
-        )
+
+          const {
+            initialAssistantMessage,
+            initialAssistantPrefix,
+            stepAssistantMessage,
+            stepAssistantPrefix,
+          } = agentTemplate
+
+          const subAgentMessages = agentTemplate.includeMessageHistory
+            ? messageHistory
+            : []
+
+          const agentId = generateCompactId()
+          const agentState: AgentState = {
+            agentId,
+            agentType,
+            agentContext: '',
+            subagents: [],
+            messageHistory: subAgentMessages,
+            stepsRemaining: MAX_AGENT_STEPS,
+            report: {},
+          }
+
+          return await loopAgentSteps(ws, {
+            userInputId: `${userInputId}-${agentType}${agentId}`,
+            prompt: prompt || '',
+            params,
+            initialAssistantMessage,
+            initialAssistantPrefix,
+            stepAssistantMessage,
+            stepAssistantPrefix,
+            agentType: agentTemplate.type,
+            agentState,
+            fingerprintId,
+            fileContext,
+            toolResults: [],
+            userId,
+            clientSessionId,
+            onResponseChunk: () => {},
+          })
+        })
       )
 
-      const reports = results.map((result) => {
+      const reports = results.map((result: PromiseSettledResult<any>) => {
         if (result.status === 'fulfilled') {
           return JSON.stringify(result.value.agentState.report, null, 2)
         } else {
@@ -906,7 +929,7 @@ export const runAgentStep = async (
         toolName: 'spawn_agents',
         toolCallId: toolCall.toolCallId,
         result: reports
-          .map((report) => `<agent_report>${report}</agent_report>`)
+          .map((report: string) => `<agent_report>${report}</agent_report>`)
           .join('\n'),
       })
     } else if (toolCall.toolName === 'update_report') {
@@ -1081,7 +1104,7 @@ export const runAgentStep = async (
       model,
       duration: Date.now() - startTime,
     },
-    `Main prompt response ${iterationNum}`
+    `Agent step complete ${agentType} - ${iterationNum}`
   )
   return {
     agentState: {
@@ -1350,6 +1373,7 @@ export const loopAgentSteps = async (
     agentType: AgentTemplateType
     agentState: AgentState
     prompt: string | undefined
+    params: Record<string, any> | undefined
     initialAssistantMessage: string
     initialAssistantPrefix: string
     stepAssistantMessage: string
@@ -1366,6 +1390,7 @@ export const loopAgentSteps = async (
   const {
     agentState,
     prompt,
+    params,
     initialAssistantMessage,
     initialAssistantPrefix,
     stepAssistantMessage,
@@ -1380,6 +1405,7 @@ export const loopAgentSteps = async (
   } = options
   let isFirstStep = true
   let currentPrompt = prompt
+  let currentParams = params
   let currentAssistantMessage = initialAssistantMessage
   // NOTE: If the assistant message is set, we run one step with it, and then the next step will use the assistant prefix.
   let currentAssistantPrefix = initialAssistantMessage
@@ -1402,6 +1428,7 @@ export const loopAgentSteps = async (
       fileContext,
       agentState: currentAgentState,
       prompt: currentPrompt,
+      params: currentParams,
       // TODO: format the prompt in runAgentStep
       assistantMessage: currentAssistantMessage
         ? formatPrompt(
@@ -1436,7 +1463,7 @@ export const loopAgentSteps = async (
     }
 
     currentPrompt = undefined
-
+    currentParams = undefined
     // Toggle assistant message between the injected step message and nothing.
     currentAssistantMessage = currentAssistantMessage
       ? ''

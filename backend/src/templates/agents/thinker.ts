@@ -3,9 +3,20 @@ import { baseAgentSystemPrompt } from '../base-prompts'
 import { AgentTemplate } from '../types'
 
 export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
-  description: 'Does thinking before a response',
   model,
-  toolNames: ['read_files', 'find_files', 'code_search', 'update_report', 'end_turn'],
+  description: 'Does thinking before a response',
+  promptSchema: {
+    prompt: 'optional',
+    params: null,
+  },
+  includeMessageHistory: true,
+  toolNames: [
+    'read_files',
+    'find_files',
+    'code_search',
+    'update_report',
+    'end_turn',
+  ],
   stopSequences: ['<read_files>', '<write_files>', '<end_turn>'],
   spawnableAgents: [],
   initialAssistantMessage: '',

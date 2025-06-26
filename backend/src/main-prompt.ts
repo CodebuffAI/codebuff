@@ -107,6 +107,7 @@ export const mainPrompt = async (
   const { agentState, hasEndTurn } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,
+    params: undefined,
     initialAssistantMessage,
     initialAssistantPrefix,
     stepAssistantMessage,

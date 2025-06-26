@@ -1,10 +1,23 @@
 import { Model } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { z } from 'zod/v4'
 import { AgentTemplate, baseAgentStopSequences } from '../types'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
-  description: 'Agent that formulates a comprehensive plan to a prompt.',
   model,
+  description: 'Agent that formulates a comprehensive plan to a prompt.',
+  promptSchema: {
+    prompt: true,
+    params: z.object({
+      filePaths: z
+        .array(z.string())
+        .optional()
+        .describe(
+          'Optional list of relevant file paths to consider in the planning'
+        ),
+    }),
+  },
+  includeMessageHistory: false,
   toolNames: [
     'read_files',
     'find_files',

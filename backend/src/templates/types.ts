@@ -1,8 +1,9 @@
+import { Model } from '@codebuff/common/constants'
 import {
   AgentTemplateType,
   AgentTemplateTypes,
 } from '@codebuff/common/types/session-state'
-import { Model } from '@codebuff/common/constants'
+import { z } from 'zod/v4'
 
 import { ToolName } from '../tools'
 
@@ -10,6 +11,12 @@ export type AgentTemplate = {
   type: AgentTemplateType
   description: string
   model: Model
+  // Required parameters for spawning this agent.
+  promptSchema: {
+    prompt: boolean | 'optional'
+    params: z.ZodSchema<any> | null
+  }
+  includeMessageHistory: boolean
   toolNames: ToolName[]
   stopSequences: string[]
   spawnableAgents: AgentTemplateType[]

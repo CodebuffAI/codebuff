@@ -24,6 +24,26 @@ export function formatPrompt(
   spawnableAgents: AgentTemplateType[],
   intitialAgentPrompt: string | null
 ): string {
+  // Handle structured prompt data
+  let processedPrompt = intitialAgentPrompt ?? ''
+  
+  try {
+    // Try to parse as JSON to extract structured data
+    const promptData = JSON.parse(intitialAgentPrompt ?? '{}')
+    if (typeof promptData === 'object' && promptData !== null) {
+      // If it's structured data, extract the main prompt
+      processedPrompt = promptData.prompt || intitialAgentPrompt || ''
+      
+      // Handle file paths for planner agent
+      if (promptData.filePaths && Array.isArray(promptData.filePaths)) {
+        processedPrompt += `\n\nRelevant files to consider:\n${promptData.filePaths.map((path: string) => `- ${path}`).join('\n')}`
+      }
+    }
+  } catch {
+    // If not JSON, use as-is
+    processedPrompt = intitialAgentPrompt ?? ''
+  }
+
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
@@ -37,7 +57,7 @@ export function formatPrompt(
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools, spawnableAgents),
     [PLACEHOLDER.USER_CWD]: fileContext.cwd,
-    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: intitialAgentPrompt ?? '',
+    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: processedPrompt,
   }
 
   for (const varName of placeholderValues) {

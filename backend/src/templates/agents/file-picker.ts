@@ -1,10 +1,16 @@
 import { Model } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
+import { z } from 'zod'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
-  description: 'Expert at finding relevant files in a codebase.',
   model,
+  description: 'Expert at finding relevant files in a codebase.',
+  promptSchema: {
+    prompt: true,
+    params: null,
+  },
+  includeMessageHistory: false,
   toolNames: [
     'find_files',
     'code_search',
