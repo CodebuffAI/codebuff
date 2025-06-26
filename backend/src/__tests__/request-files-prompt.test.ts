@@ -45,7 +45,7 @@ bunMockFn.module('../util/logger', () => ({
   },
 }))
 
-bunMockFn.module('common/db', () => ({
+bunMockFn.module('@codebuff/common/db', () => ({
   default: {
     insert: bunMockFn(() => ({
       values: bunMockFn(() => ({

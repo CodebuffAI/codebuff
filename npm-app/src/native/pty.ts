@@ -1,5 +1,9 @@
+import path from 'path'
+import { mkdirSync } from 'fs'
+import { spawnSync } from 'bun'
+
+import { CONFIG_DIR } from '../credentials'
 import { logger } from '../utils/logger'
-import { suppressConsoleOutput } from '../utils/suppress-console'
 
 // Native library imports - these are bundled as file assets
 // @ts-ignore
@@ -17,13 +21,11 @@ type BunPty = typeof import('bun-pty')
 
 // State management for lazy loading
 let bunPtyModule: BunPty | undefined = undefined
-let loadAttempted = false
-let loadError: Error | undefined = undefined
 
 /**
  * Get the native library path for the current platform
  */
-function getNativeLibraryPath(): string | undefined {
+function getBunLibraryPath(): string | undefined {
   const platform = process.platform
   const arch = process.arch
 
@@ -47,19 +49,93 @@ function getNativeLibraryPath(): string | undefined {
 }
 
 /**
+ * Extract the PTY library to the same directory as the codebuff executable
+ *
+ * NOTE: Open bug in loading a rust binary forces us to go this route: https://github.com/oven-sh/bun/issues/11598
+ */
+const getPtyLibraryPath = async (): Promise<string | undefined> => {
+  // In dev mode, use the embedded library path directly
+  if (!process.env.IS_BINARY) {
+    return getBunLibraryPath()
+  }
+
+  // Compiled mode - self-extract the embedded binary to cache directory
+  const platform = process.platform
+  const arch = process.arch
+
+  let libFileName: string
+  if (platform === 'darwin' && arch === 'arm64') {
+    libFileName = 'bun-pty.dylib'
+  } else if (platform === 'darwin' && arch === 'x64') {
+    libFileName = 'bun-pty.dylib'
+  } else if (platform === 'linux' && arch === 'arm64') {
+    libFileName = 'bun-pty.so'
+  } else if (platform === 'linux' && arch === 'x64') {
+    libFileName = 'bun-pty.so'
+  } else if (platform === 'win32' && arch === 'x64') {
+    libFileName = 'bun-pty.dll'
+  } else {
+    logger.warn(
+      { platform, arch },
+      'Unsupported platform/architecture combination for bun-pty'
+    )
+    return undefined
+  }
+
+  const outPath = path.join(CONFIG_DIR, libFileName)
+
+  // Check if already extracted
+  if (await Bun.file(outPath).exists()) {
+    return outPath
+  }
+
+  // Extract the embedded binary
+  try {
+    const embeddedLibPath = getBunLibraryPath()
+    if (!embeddedLibPath) {
+      return undefined
+    }
+
+    // Create cache directory
+    mkdirSync(path.dirname(outPath), { recursive: true })
+
+    // Copy embedded binary to cache location
+    await Bun.write(outPath, await Bun.file(embeddedLibPath).arrayBuffer())
+
+    // Make executable on Unix systems
+    if (process.platform !== 'win32') {
+      spawnSync(['chmod', '+x', outPath])
+    }
+
+    return outPath
+  } catch (error) {
+    logger.error({ error }, 'Failed to extract PTY library binary')
+    // Fallback to embedded library path if extraction fails
+    return getBunLibraryPath()
+  }
+}
+
+// Cache the promise to avoid multiple extractions
+let ptyLibPathPromise: Promise<string | undefined> | null = null
+
+const getPtyLibPath = (): Promise<string | undefined> => {
+  if (!ptyLibPathPromise) {
+    ptyLibPathPromise = getPtyLibraryPath()
+  }
+  return ptyLibPathPromise
+}
+
+/**
  * Dynamically load bun-pty module when first needed
  * This prevents startup failures if the native library is missing
  */
 export async function loadBunPty(): Promise<BunPty | undefined> {
-  // Return cached result if we've already attempted to load
-  if (loadAttempted) {
+  if (bunPtyModule) {
     return bunPtyModule
   }
 
-  loadAttempted = true
-
   try {
-    const libPath = getNativeLibraryPath()
+    const libPath = await getPtyLibPath()
 
     if (!libPath) {
       // logger.warn('No native library available for current platform')
@@ -69,16 +145,8 @@ export async function loadBunPty(): Promise<BunPty | undefined> {
     // Set the environment variable that bun-pty reads
     process.env.BUN_PTY_LIB = libPath
 
-    const removeConsoleSuppression = suppressConsoleOutput('all', (args) => {
-      return JSON.stringify(args).includes('ERR_DLOPEN_FAILED')
-    })
-
     // Dynamic require to load after environment variable is set
-    // Using require instead of import ensures synchronous execution order
-    // Open bug in loading a rust binary: https://github.com/oven-sh/bun/issues/11598
     bunPtyModule = await import('bun-pty')
-
-    removeConsoleSuppression()
 
     logger.info(
       {
@@ -91,8 +159,6 @@ export async function loadBunPty(): Promise<BunPty | undefined> {
 
     return bunPtyModule
   } catch (error) {
-    loadError = error as Error
-
     logger.error(
       {
         error,

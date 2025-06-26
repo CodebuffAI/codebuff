@@ -46,12 +46,12 @@ When a refund is issued in Stripe:
     1. Expiring soonest first (never-expiring last)
     2. Within same expiry, by priority (free -> referral -> purchase -> admin)
     3. Within same priority, oldest first (by created_at)
-    
+
   Example:
     debt: -20
     referral (2024-02-01): 30
     free (2024-03-01): 50
-    
+
     netBalance = (30 + 50) - 20 = 60
     Request allowed, will consume from referral first
 
@@ -71,7 +71,7 @@ When testing balance calculation:
 - Pass explicit 'now' parameter to control when grants expire
 - Example:
   ```typescript
-  mock.module('common/db', () => ({
+  mock.module('@codebuff/common/db', () => ({
     default: {
       select: () => ({
         from: () => ({
@@ -103,7 +103,7 @@ When testing balance calculation:
 
 Lower number = higher priority:
 - free (20): Monthly free credits
-- referral (40): Referral bonus credits  
+- referral (40): Referral bonus credits
 - purchase (60): Purchased credits
 - admin (80): Admin-granted credits
 

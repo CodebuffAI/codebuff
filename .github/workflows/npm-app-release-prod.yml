@@ -55,11 +55,11 @@ jobs:
           # Get current version and bump it
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current version: $CURRENT_VERSION"
-          
+
           # Bump version based on input
           npm version ${{ inputs.version_type }} --no-git-tag-version
           NEW_VERSION=$(node -p "require('./package.json').version")
-          
+
           echo "New production version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
@@ -68,17 +68,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Commit production release state
+      - name: Commit and push version bumpAdd commentMore actions
         run: |
-          # Add all changes (current state + version bump)
-          git add -A
-          git commit -m "Production Release v${{ steps.bump_version.outputs.new_version }} (codebuff)
-
-          This commit captures the complete state being released for production,
-          including any uncommitted changes and the version bump.
-
-          🤖 Generated with Codebuff
-          Co-Authored-By: Codebuff <noreply@codebuff.com>"
+          git stash
+          git pull --rebase origin main
+          git stash pop
+          git add npm-app/release/package.json
+          git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }}"
+          git push
 
       - name: Create and push production tag
         run: |
