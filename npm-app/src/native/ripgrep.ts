@@ -4,6 +4,7 @@ import { mkdirSync } from 'fs'
 import { spawnSync } from 'bun'
 import { rgPath as vscodeRgPath } from '@vscode/ripgrep'
 
+import { CONFIG_DIR } from '../credentials'
 import { logger } from '../utils/logger'
 
 const getRipgrepPath = async (): Promise<string> => {
@@ -13,9 +14,8 @@ const getRipgrepPath = async (): Promise<string> => {
   }
 
   // Compiled mode - self-extract the embedded binary
-  const cacheDir = path.join(os.homedir(), '.config', 'manicode')
   const rgFileName = process.platform === 'win32' ? 'rg.exe' : 'rg'
-  const outPath = path.join(cacheDir, rgFileName)
+  const outPath = path.join(CONFIG_DIR, rgFileName)
 
   // Check if already extracted
   if (await Bun.file(outPath).exists()) {
