@@ -29,11 +29,13 @@
     "bun": ">=1.2.11"
   },
   "dependencies": {
-    "@codebuff/common": "workspace:*",
     "@codebuff/backend": "workspace:*",
-    "@codebuff/internal": "workspace:*",
     "@codebuff/code-map": "workspace:*",
+    "@codebuff/common": "workspace:*",
+    "@codebuff/internal": "workspace:*",
     "@codebuff/npm-app": "workspace:*",
+    "@oclif/core": "^4.4.0",
+    "@oclif/parser": "^3.8.17",
     "async": "^3.2.6",
     "lodash": "^4.17.21",
     "p-limit": "^6.2.0"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import type { GitEvalResultRequest } from '@codebuff/common/db/schema'
+import { Command, Flags } from '@oclif/core'
 import path from 'path'
 import { sendEvalResultsEmail } from './email-eval-results'
 import { analyzeEvalResults } from './post-eval-analysis'
@@ -14,6 +15,58 @@ import { EvalConfig, EvalResult } from './types'
 const DEFAULT_OUTPUT_DIR = 'git-evals'
 const MOCK_PATH = 'git-evals/eval-result-codebuff-mock.json'
 const API_BASE = 'https://www.codebuff.com/'
+
+class RunEvalSetCommand extends Command {
+  static description = 'Run evaluation sets for Codebuff'
+
+  static examples = [
+    '$ bun run run-eval-set',
+    '$ bun run run-eval-set --output-dir custom-output',
+    '$ bun run run-eval-set --no-email --no-analysis',
+    '$ bun run run-eval-set --mock --no-insert',
+  ]
+
+  static flags = {
+    'output-dir': Flags.string({
+      char: 'o',
+      description: 'Output directory for evaluation results',
+      default: DEFAULT_OUTPUT_DIR,
+    }),
+    email: Flags.boolean({
+      description: 'Send email summary',
+      default: true,
+      allowNo: true,
+    }),
+    analysis: Flags.boolean({
+      description: 'Post-evaluation analysis',
+      default: true,
+      allowNo: true,
+    }),
+    mock: Flags.boolean({
+      description: 'Run with mock data for testing',
+      default: false,
+      allowNo: true,
+    }),
+    insert: Flags.boolean({
+      description: 'Insert results into database',
+      default: true,
+      allowNo: true,
+    }),
+    help: Flags.help({ char: 'h' }),
+  }
+
+  async run(): Promise<void> {
+    const { flags } = await this.parse(RunEvalSetCommand)
+
+    await runEvalSet(
+      flags['output-dir'],
+      flags.email,
+      flags.analysis,
+      flags.mock,
+      flags.insert
+    )
+  }
+}
 
 async function runEvalSet(
   outputDir: string = DEFAULT_OUTPUT_DIR,
@@ -320,21 +373,10 @@ async function runEvalSet(
 
 // CLI handling
 if (require.main === module) {
-  const args = process.argv.slice(2)
-  console.info('Usage: bun run run-eval-set [output-dir] [--no-email]')
-
-  const outputDir = args[0] || DEFAULT_OUTPUT_DIR
-
-  runEvalSet(
-    outputDir,
-    !args.includes('--no-email'),
-    !args.includes('--no-analysis'),
-    args.includes('--mock'),
-    !args.includes('--no-insert')
-  ).catch((err) => {
+  RunEvalSetCommand.run().catch((err) => {
     console.error('Error running eval set:', err)
     process.exit(1)
   })
 }
 
-export { runEvalSet }
+export { runEvalSet, RunEvalSetCommand }
