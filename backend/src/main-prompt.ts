@@ -1,10 +1,10 @@
 import { ClientAction } from '@codebuff/common/actions'
+import { type CostMode } from '@codebuff/common/constants'
 import {
   SessionState,
   ToolResult,
   type AgentTemplateType,
 } from '@codebuff/common/types/session-state'
-import { type CostMode } from '@codebuff/common/constants'
 import { WebSocket } from 'ws'
 
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -77,7 +77,7 @@ export const mainPrompt = async (
               command: terminalCommand,
               mode: 'user',
               process_type: 'SYNC',
-              timeout_seconds: '-1',
+              timeout_seconds: -1,
             },
           },
         ],

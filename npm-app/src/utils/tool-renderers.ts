@@ -117,6 +117,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       return '\n\n'
     },
   },
+  read_docs: {
+    ...defaultToolCallRenderer,
+  },
   find_files: {
     ...defaultToolCallRenderer,
   },
