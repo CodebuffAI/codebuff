@@ -46,12 +46,21 @@ export const getToolCallString = (
   // Create an array of parameter strings in the correct order
   const orderedParams = paramOrder
     .filter((param) => param in params) // Only include params that are actually provided
-    .map((param) => `<${param}>${JSON.stringify(params[param])}</${param}>`)
+    .map((param) => {
+      const val =
+        typeof params[param] === 'string'
+          ? params[param]
+          : JSON.stringify(params[param])
+      return `<${param}>${val}</${param}>`
+    })
 
   // Get any additional parameters not in the schema order
   const additionalParams = Object.entries(params)
     .filter(([param]) => !paramOrder.includes(param))
-    .map(([param, value]) => `<${param}>${JSON.stringify(value)}</${param}>`)
+    .map(([param, value]) => {
+      const val = typeof value === 'string' ? value : JSON.stringify(value)
+      return `<${param}>${val}</${param}>`
+    })
 
   // Combine ordered and additional parameters
   const paramsString = [...orderedParams, ...additionalParams].join('\n')

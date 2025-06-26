@@ -785,10 +785,22 @@ export function parseRawToolCall(
       error: `Tool ${toolName} not found`,
     }
   }
-  const validName = toolName as GlobalToolNameImport
+  const validName = toolName as keyof typeof toolConfigs
+  const schemaProperties = z.toJSONSchema(
+    toolConfigs[validName].parameters
+  ).properties!
 
   const processedParameters: Record<string, any> = {}
   for (const [param, val] of Object.entries(rawToolCall.args)) {
+    if (
+      schemaProperties[param] &&
+      typeof schemaProperties[param] !== 'boolean' &&
+      'type' in schemaProperties[param] &&
+      schemaProperties[param].type === 'string'
+    ) {
+      processedParameters[param] = val
+      continue
+    }
     try {
       processedParameters[param] = JSON.parse(val)
     } catch (error) {
