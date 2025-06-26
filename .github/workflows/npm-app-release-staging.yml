@@ -134,6 +134,7 @@ jobs:
       new-version: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
       artifact-name: updated-staging-package
       checkout-ref: ${{ github.event.pull_request.head.sha }}
+
     secrets: inherit
 
   # Create GitHub prerelease with all binaries
