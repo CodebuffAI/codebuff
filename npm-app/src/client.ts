@@ -52,7 +52,7 @@ import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
 import { ToolResult } from '@codebuff/common/types/agent-state'
-import packageJson from '../package.json'
+import { npmAppVersion } from './config'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -268,7 +268,7 @@ export class Client {
     loggerContext.repoAuthorsLast30Days = repoMetrics.authorsLast30Days
 
     if (this.user) {
-      identifyUser(this.user?.id, {
+      identifyUser(this.user.id, {
         repoName: loggerContext.repoName,
         repoAgeDays: loggerContext.repoAgeDays,
         repoTrackedFiles: loggerContext.repoTrackedFiles,
@@ -291,10 +291,8 @@ export class Client {
         name: user.name,
         fingerprintId: this.fingerprintId,
         platform: os.platform(),
-        version: packageJson.version,
+        version: npmAppVersion || '0.0.0',
         hasGit: gitCommandIsAvailable(),
-        costMode: this.costMode,
-        model: this.model,
       })
       loggerContext.userId = user.id
       loggerContext.userEmail = user.email
@@ -597,7 +595,7 @@ export class Client {
               name: user.name,
               fingerprintId: fingerprintId,
               platform: os.platform(),
-              version: packageJson.version,
+              version: npmAppVersion || '0.0.0',
               hasGit: gitCommandIsAvailable(),
             })
             loggerContext.userId = user.id

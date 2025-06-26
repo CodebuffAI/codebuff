@@ -99,7 +99,7 @@ jobs:
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Build binary
-        run: bun run scripts/build-binary.js ${{ inputs.binary-name }}
+        run: bun run scripts/build-binary.js ${{ inputs.binary-name }} ${{ inputs.new-version }}
         working-directory: npm-app
         shell: bash
         env:
