@@ -74,7 +74,7 @@ jobs:
           git pull --rebase origin main
           git stash pop
           git add npm-app/release/package.json
-          git commit -m "Bump version to ${{ needs.prepare-release.outputs.new_version }}"
+          git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }}"
           git push
 
       - name: Create and push production tag
