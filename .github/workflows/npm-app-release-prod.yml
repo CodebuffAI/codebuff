@@ -96,6 +96,7 @@ jobs:
       new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
       artifact-name: updated-package
       checkout-ref: ${{ github.sha }}
+      env-overrides: '{"NEXT_PUBLIC_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
     secrets: inherit
 
   # Create GitHub release with all binaries
