@@ -2,7 +2,7 @@ import {
   AgentTemplateType,
   AgentTemplateTypes,
 } from '@codebuff/common/types/session-state'
-import { Model } from 'common/constants'
+import { Model } from '@codebuff/common/constants'
 
 import { ToolName } from '../tools'
 

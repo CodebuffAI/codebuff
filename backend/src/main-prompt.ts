@@ -4,7 +4,7 @@ import {
   ToolResult,
   type AgentTemplateType,
 } from '@codebuff/common/types/session-state'
-import { type CostMode } from 'common/constants'
+import { type CostMode } from '@codebuff/common/constants'
 import { WebSocket } from 'ws'
 
 import { generateCompactId } from '@codebuff/common/util/string'
