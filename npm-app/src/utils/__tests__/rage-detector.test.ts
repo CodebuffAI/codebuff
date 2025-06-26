@@ -1,7 +1,7 @@
 // @ts-ignore
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 
-import { AnalyticsEvent } from 'common/constants/analytics-events'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import {
   createCountDetector,
@@ -342,10 +342,10 @@ describe('Rage Detectors', () => {
 
     test('should NOT fire when end() is called after threshold (default lt)', () => {
       const detector = createTimeBetweenDetector({
-          reason: 'quick_cancel',
-          mode: 'TIME_BETWEEN',
-          threshold: 3000,
-          operator: 'lt'
+        reason: 'quick_cancel',
+        mode: 'TIME_BETWEEN',
+        threshold: 3000,
+        operator: 'lt',
       })
 
       detector.start()
@@ -372,10 +372,10 @@ describe('Rage Detectors', () => {
 
     test('should NOT fire when end() is called without start()', () => {
       const detector = createTimeBetweenDetector({
-          reason: 'quick_cancel',
-          mode: 'TIME_BETWEEN',
-          threshold: 3000,
-          operator: 'lt'
+        reason: 'quick_cancel',
+        mode: 'TIME_BETWEEN',
+        threshold: 3000,
+        operator: 'lt',
       })
 
       detector.end()
@@ -385,11 +385,11 @@ describe('Rage Detectors', () => {
 
     test('should respect cooldown period', () => {
       const detector = createTimeBetweenDetector({
-          reason: 'quick_cancel',
-          mode: 'TIME_BETWEEN',
-          threshold: 3000,
-          debounceMs: 10000,
-          operator: 'lt'
+        reason: 'quick_cancel',
+        mode: 'TIME_BETWEEN',
+        threshold: 3000,
+        debounceMs: 10000,
+        operator: 'lt',
       })
 
       // First trigger
@@ -444,7 +444,7 @@ describe('Rage Detectors', () => {
 
       detector.start()
       advanceTime(2000)
-      
+
       // First end() should trigger
       detector.end()
       expect(mockTrackEvent).toHaveBeenCalledTimes(1)
