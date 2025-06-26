@@ -201,7 +201,7 @@ export const promptAiSdk = async function (
 // Copied over exactly from promptAiSdk but with a schema
 export const promptAiSdkStructured = async function <T>(options: {
   messages: CoreMessage[]
-  schema: z.ZodType<T>
+  schema: z.ZodType<T, z.ZodTypeDef, any>
   clientSessionId: string
   fingerprintId: string
   userInputId: string
@@ -215,9 +215,10 @@ export const promptAiSdkStructured = async function <T>(options: {
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
-  const responsePromise = generateObject({
+  const responsePromise = generateObject<T>({
     ...options,
     model: aiSDKModel,
+    output: 'object',
   })
 
   const response = await (options.timeout === undefined

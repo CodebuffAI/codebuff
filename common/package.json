@@ -45,7 +45,8 @@
     "pg": "^8.14.1",
     "readable-stream": "^4.7.0",
     "seedrandom": "^3.0.5",
-    "stripe": "^16.11.0"
+    "stripe": "^16.11.0",
+    "zod": "3.25.67"
   },
   "devDependencies": {
     "@types/parse-path": "^7.1.0"
