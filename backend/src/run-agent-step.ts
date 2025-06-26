@@ -16,7 +16,10 @@ import { buildArray } from '@codebuff/common/util/array'
 import { parseFileBlocks, ProjectFileContext } from '@codebuff/common/util/file'
 import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { HIDDEN_FILE_READ_STATUS, ONE_TIME_LABELS } from 'common/constants'
+import {
+  HIDDEN_FILE_READ_STATUS,
+  ONE_TIME_LABELS,
+} from '@codebuff/common/constants'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
