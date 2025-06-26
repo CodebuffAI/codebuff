@@ -19,32 +19,32 @@ mock.module('../org-billing', () => ({
 }))
 
 // Mock common dependencies
-mock.module('common/db', () => ({
+mock.module('@codebuff/common/db', () => ({
   default: {
     select: mock(() => ({
       from: mock(() => ({
         innerJoin: mock(() => ({
-          where: mock(() => Promise.resolve([
-            { orgId: 'org-123', orgName: 'CodebuffAI' }
-          ]))
-        }))
-      }))
-    }))
-  }
+          where: mock(() =>
+            Promise.resolve([{ orgId: 'org-123', orgName: 'CodebuffAI' }])
+          ),
+        })),
+      })),
+    })),
+  },
 }))
 
-mock.module('common/db/schema', () => ({
+mock.module('@codebuff/common/db/schema', () => ({
   orgMember: { org_id: 'org_id', user_id: 'user_id' },
   org: { id: 'id', name: 'name' },
-  orgRepo: { org_id: 'org_id', repo_url: 'repo_url', is_active: 'is_active' }
+  orgRepo: { org_id: 'org_id', repo_url: 'repo_url', is_active: 'is_active' },
 }))
 
-mock.module('common/util/logger', () => ({
+mock.module('@codebuff/common/util/logger', () => ({
   logger: {
     debug: mock(() => {}),
     info: mock(() => {}),
-    error: mock(() => {})
-  }
+    error: mock(() => {}),
+  },
 }))
 
 describe('Credit Delegation', () => {

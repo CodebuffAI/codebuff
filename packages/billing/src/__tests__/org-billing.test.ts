@@ -35,7 +35,7 @@ const mockGrants = [
   },
 ]
 
-mock.module('common/db', () => ({
+mock.module('@codebuff/common/db', () => ({
   default: {
     select: () => ({
       from: () => ({
@@ -55,21 +55,22 @@ mock.module('common/db', () => ({
   },
 }))
 
-mock.module('common/db/transaction', () => ({
-  withSerializableTransaction: (fn: any) => fn({
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          orderBy: () => mockGrants,
+mock.module('@codebuff/common/db/transaction', () => ({
+  withSerializableTransaction: (fn: any) =>
+    fn({
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () => mockGrants,
+          }),
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => Promise.resolve(),
         }),
       }),
     }),
-    update: () => ({
-      set: () => ({
-        where: () => Promise.resolve(),
-      }),
-    }),
-  }),
 }))
 
 describe('Organization Billing', () => {
@@ -102,7 +103,7 @@ describe('Organization Billing', () => {
 
     it('should handle organization with no grants', async () => {
       // Mock empty grants
-      mock.module('common/db', () => ({
+      mock.module('@codebuff/common/db', () => ({
         default: {
           select: () => ({
             from: () => ({
@@ -133,38 +134,48 @@ describe('Organization Billing', () => {
 
   describe('normalizeRepositoryUrl', () => {
     it('should normalize GitHub URLs correctly', () => {
-      expect(normalizeRepositoryUrl('https://github.com/user/repo.git'))
-        .toBe('https://github.com/user/repo')
-      
-      expect(normalizeRepositoryUrl('git@github.com:user/repo.git'))
-        .toBe('https://github.com/user/repo')
-      
-      expect(normalizeRepositoryUrl('github.com/user/repo'))
-        .toBe('https://github.com/user/repo')
-      
-      expect(normalizeRepositoryUrl('HTTPS://GITHUB.COM/USER/REPO'))
-        .toBe('https://github.com/user/repo')
+      expect(normalizeRepositoryUrl('https://github.com/user/repo.git')).toBe(
+        'https://github.com/user/repo'
+      )
+
+      expect(normalizeRepositoryUrl('git@github.com:user/repo.git')).toBe(
+        'https://github.com/user/repo'
+      )
+
+      expect(normalizeRepositoryUrl('github.com/user/repo')).toBe(
+        'https://github.com/user/repo'
+      )
+
+      expect(normalizeRepositoryUrl('HTTPS://GITHUB.COM/USER/REPO')).toBe(
+        'https://github.com/user/repo'
+      )
     })
 
     it('should handle various URL formats', () => {
-      expect(normalizeRepositoryUrl('https://gitlab.com/user/repo.git'))
-        .toBe('https://gitlab.com/user/repo')
-      
-      expect(normalizeRepositoryUrl('  https://github.com/user/repo  '))
-        .toBe('https://github.com/user/repo')
+      expect(normalizeRepositoryUrl('https://gitlab.com/user/repo.git')).toBe(
+        'https://gitlab.com/user/repo'
+      )
+
+      expect(normalizeRepositoryUrl('  https://github.com/user/repo  ')).toBe(
+        'https://github.com/user/repo'
+      )
     })
   })
 
   describe('validateAndNormalizeRepositoryUrl', () => {
     it('should validate and normalize valid URLs', () => {
-      const result = validateAndNormalizeRepositoryUrl('https://github.com/user/repo')
+      const result = validateAndNormalizeRepositoryUrl(
+        'https://github.com/user/repo'
+      )
       expect(result.isValid).toBe(true)
       expect(result.normalizedUrl).toBe('https://github.com/user/repo')
       expect(result.error).toBeUndefined()
     })
 
     it('should reject invalid domains', () => {
-      const result = validateAndNormalizeRepositoryUrl('https://example.com/user/repo')
+      const result = validateAndNormalizeRepositoryUrl(
+        'https://example.com/user/repo'
+      )
       expect(result.isValid).toBe(false)
       expect(result.error).toBe('Repository domain not allowed')
     })
@@ -177,9 +188,11 @@ describe('Organization Billing', () => {
 
     it('should accept allowed domains', () => {
       const domains = ['github.com', 'gitlab.com', 'bitbucket.org']
-      
-      domains.forEach(domain => {
-        const result = validateAndNormalizeRepositoryUrl(`https://${domain}/user/repo`)
+
+      domains.forEach((domain) => {
+        const result = validateAndNormalizeRepositoryUrl(
+          `https://${domain}/user/repo`
+        )
         expect(result.isValid).toBe(true)
         expect(result.normalizedUrl).toBe(`https://${domain}/user/repo`)
       })
@@ -191,8 +204,11 @@ describe('Organization Billing', () => {
       const organizationId = 'org-123'
       const creditsToConsume = 100
 
-      const result = await consumeOrganizationCredits(organizationId, creditsToConsume)
-      
+      const result = await consumeOrganizationCredits(
+        organizationId,
+        creditsToConsume
+      )
+
       expect(result.consumed).toBe(100)
       expect(result.fromPurchased).toBe(0) // Organization credits are not "purchased" type
     })
@@ -207,18 +223,20 @@ describe('Organization Billing', () => {
       const description = 'Test organization credits'
 
       // Should not throw
-      await expect(grantOrganizationCredits(
-        organizationId,
-        userId,
-        amount,
-        operationId,
-        description
-      )).resolves.toBeUndefined()
+      await expect(
+        grantOrganizationCredits(
+          organizationId,
+          userId,
+          amount,
+          operationId,
+          description
+        )
+      ).resolves.toBeUndefined()
     })
 
     it('should handle duplicate operation IDs gracefully', async () => {
       // Mock database constraint error
-      mock.module('common/db', () => ({
+      mock.module('@codebuff/common/db', () => ({
         default: {
           insert: () => ({
             values: () => {
@@ -238,13 +256,15 @@ describe('Organization Billing', () => {
       const description = 'Duplicate test'
 
       // Should not throw, should handle gracefully
-      await expect(grantOrganizationCredits(
-        organizationId,
-        userId,
-        amount,
-        operationId,
-        description
-      )).resolves.toBeUndefined()
+      await expect(
+        grantOrganizationCredits(
+          organizationId,
+          userId,
+          amount,
+          operationId,
+          description
+        )
+      ).resolves.toBeUndefined()
     })
   })
 })
