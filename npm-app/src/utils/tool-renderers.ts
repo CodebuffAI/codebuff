@@ -236,11 +236,27 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   },
   spawn_agents: {
     onToolStart: (toolName) => {
-      return '\n\n' + gray(`[${bold('Enlist Help')}]`) + '\n'
+      return '\n\n' + gray(`[${bold('Spawn Agents')}]`) + '\n'
+    },
+    onParamEnd: (paramName, toolName, content) => {
+      if (paramName === 'agents') {
+        let agents = []
+        try {
+          agents = JSON.parse(content)
+        } catch (e) {
+          return null
+        }
+        if (agents.length > 0) {
+          return gray(
+            agents.map((props: any) => props?.prompt).join('\n\n') + '\n'
+          )
+        }
+      }
+      return null
     },
     onToolEnd: () => {
       return () => {
-        Spinner.get().start('Waiting...')
+        Spinner.get().start('Agents running...')
       }
     },
   },
