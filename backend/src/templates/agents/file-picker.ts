@@ -31,5 +31,5 @@ The goal is to find *all* files that could possibly be relevant to the user prom
       PLACEHOLDER.GIT_CHANGES_PROMPT,
     ].join('\n\n'),
   userInputPrompt: ``,
-  agentStepPrompt: ``,
+  agentStepPrompt: `Make sure to report your findings using the update_report tool. Nothing outside of the update_report tool call will be shown to the user.\n\n${PLACEHOLDER.TOOLS_PROMPT}`,
 })

@@ -33,7 +33,7 @@ import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentTemplates } from './templates/agent-list'
-import { getAgentPrompt } from './templates/strings'
+import { formatPrompt, getAgentPrompt } from './templates/strings'
 import {
   ClientToolCall,
   CodebuffToolCall,
@@ -1308,8 +1308,27 @@ export const loopAgentSteps = async (
       fileContext,
       agentState: currentAgentState,
       prompt: currentPrompt,
-      assistantMessage: currentAssistantMessage,
-      assistantPrefix: currentAssistantPrefix,
+      // TODO: format the prompt in runAgentStep
+      assistantMessage: currentAssistantMessage
+        ? formatPrompt(
+            currentAssistantMessage,
+            fileContext,
+            currentAgentState,
+            agentTemplates[agentType].toolNames,
+            agentTemplates[agentType].spawnableAgents,
+            prompt ?? ''
+          )
+        : '',
+      assistantPrefix: currentAssistantPrefix
+        ? formatPrompt(
+            currentAssistantPrefix,
+            fileContext,
+            currentAgentState,
+            agentTemplates[agentType].toolNames,
+            agentTemplates[agentType].spawnableAgents,
+            prompt ?? ''
+          )
+        : '',
     })
 
     if (shouldEndTurn) {
