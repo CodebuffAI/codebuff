@@ -1,13 +1,14 @@
 import { sendBasicEmail } from '@codebuff/internal/loops'
-import { FullEvalLog } from './types'
 import { PostEvalAnalysis } from './post-eval-analysis'
+import { FullEvalLog } from './types'
 
 /**
  * Formats eval results and analysis into email-friendly content
  */
 function formatEvalSummaryForEmail(
   evalResults: FullEvalLog[],
-  analyses: PostEvalAnalysis[]
+  analyses: PostEvalAnalysis[],
+  title: string
 ): {
   subject: string
   message: string
@@ -42,7 +43,7 @@ function formatEvalSummaryForEmail(
       0
     ) / evalResults.length
 
-  const subject = `Codebuff Eval Results - ${new Date().toLocaleDateString()} - Overall Score: ${avgOverallScore.toFixed(1)}/10`
+  const subject = `${title} - Overall Score: ${avgOverallScore.toFixed(1)}/10`
 
   // Build the complete message as a single string
   const summary = analyses.map((analysis) => analysis.summary).join('\n\n')
@@ -126,11 +127,12 @@ Total Runs: ${totalRuns}`
 export async function sendEvalResultsEmail(
   evalResults: FullEvalLog[],
   analyses: PostEvalAnalysis[],
-  recipientEmail: string = process.env.EVAL_RESULTS_EMAIL || 'team@codebuff.com'
+  recipientEmail: string = process.env.EVAL_RESULTS_EMAIL ||
+    'team@codebuff.com',
+  title: string
 ): Promise<boolean> {
-  const emailContent = formatEvalSummaryForEmail(evalResults, analyses)
-
   console.log(`📧 Sending eval results email to ${recipientEmail}...`)
+  const emailContent = formatEvalSummaryForEmail(evalResults, analyses, title)
   const result = await sendBasicEmail(recipientEmail, emailContent)
   return result.success
 }

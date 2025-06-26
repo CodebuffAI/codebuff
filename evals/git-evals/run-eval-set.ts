@@ -24,6 +24,7 @@ class RunEvalSetCommand extends Command {
     '$ bun run run-eval-set --output-dir custom-output',
     '$ bun run run-eval-set --no-email --no-analysis',
     '$ bun run run-eval-set --mock --no-insert',
+    '$ bun run run-eval-set --title "Weekly Performance Test"',
   ]
 
   static flags = {
@@ -52,29 +53,38 @@ class RunEvalSetCommand extends Command {
       default: true,
       allowNo: true,
     }),
+    title: Flags.string({
+      char: 't',
+      description: 'Custom title for email subject',
+      default: 'Codebuff Eval Results',
+    }),
     help: Flags.help({ char: 'h' }),
   }
 
   async run(): Promise<void> {
     const { flags } = await this.parse(RunEvalSetCommand)
 
-    await runEvalSet(
-      flags['output-dir'],
-      flags.email,
-      flags.analysis,
-      flags.mock,
-      flags.insert
-    )
+    await runEvalSet(flags)
   }
 }
 
-async function runEvalSet(
-  outputDir: string = DEFAULT_OUTPUT_DIR,
-  sendEmail: boolean = true,
-  postEvalAnalysis: boolean = true,
-  mockEval: boolean = false,
-  shouldInsert: boolean = true
-): Promise<void> {
+async function runEvalSet(options: {
+  'output-dir': string
+  email: boolean
+  analysis: boolean
+  mock: boolean
+  insert: boolean
+  title: string
+}): Promise<void> {
+  const {
+    'output-dir': outputDir,
+    email: sendEmail,
+    analysis: postEvalAnalysis,
+    mock: mockEval,
+    insert: shouldInsert,
+    title,
+  } = options
+
   console.log('Starting eval set run...')
   console.log(`Output directory: ${outputDir}`)
 
@@ -249,14 +259,17 @@ async function runEvalSet(
     if (successfulResults.length > 0) {
       console.log('\n📧 Sending eval results email...')
       try {
-        const evalResults = successfulResults
-          .map((r) => r.result!)
-          .filter(Boolean)
+        const evalResults = successfulResults.map((r) => r.result!)
         const analyses = successfulResults
           .map((r) => r.analysis!)
           .filter(Boolean)
 
-        const emailSent = await sendEvalResultsEmail(evalResults, analyses)
+        const emailSent = await sendEvalResultsEmail(
+          evalResults,
+          analyses,
+          undefined,
+          title
+        )
         if (emailSent) {
           console.log('✅ Eval results email sent successfully!')
         } else {
