@@ -68,7 +68,6 @@ export const readOnlyToolNames: ToolName[] = [
   'browser_logs',
   'code_search',
   'end_turn',
-  'find_files',
   'read_docs',
   'read_files',
   'think_deeply',
@@ -89,6 +88,7 @@ export const baseAgentStopSequences: string[] = [
 ] as const
 
 export const baseAgentSpawnableAgents: AgentTemplateType[] = [
-  AgentTemplateTypes.gemini25pro_thinker,
   AgentTemplateTypes.gemini25flash_file_picker,
+  AgentTemplateTypes.gemini25pro_thinker,
+  AgentTemplateTypes.gemini25pro_reviewer,
 ] as const

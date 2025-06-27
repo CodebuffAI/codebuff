@@ -10,6 +10,7 @@ import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
 import { AgentTemplate } from './types'
 import { planner } from './agents/planner'
+import { reviewer } from './agents/reviewer'
 
 export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   claude4_base: {
@@ -40,5 +41,9 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   gemini25pro_planner: {
     type: AgentTemplateTypes.gemini25pro_planner,
     ...planner(models.gemini2_5_pro_preview),
+  },
+  gemini25pro_reviewer: {
+    type: AgentTemplateTypes.gemini25pro_reviewer,
+    ...reviewer(models.gemini2_5_pro_preview),
   },
 }

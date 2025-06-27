@@ -49,6 +49,7 @@ export const AgentTemplateTypeList = [
   'gemini25pro_thinker',
   'gemini25flash_file_picker',
   'gemini25pro_planner',
+  'gemini25pro_reviewer',
 ] as const
 export const AgentTemplateTypes = Object.fromEntries(
   AgentTemplateTypeList.map((name) => [name, name])
