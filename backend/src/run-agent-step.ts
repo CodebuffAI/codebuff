@@ -875,14 +875,36 @@ export const runAgentStep = async (
             }
           }
 
-          const subAgentMessages = agentTemplate.includeMessageHistory
-            ? [
-                {
-                  role: 'user' as const,
-                  content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(messageHistory, null, 2)}`,
-                },
-              ]
-            : []
+          logger.debug(
+            { agentTemplate, prompt, params },
+            `Spawning agent — ${agentType}`
+          )
+          const subAgentMessages = []
+          if (agentTemplate.includeMessageHistory) {
+            // We want to include all the latest file changes and other tool results in the passed-on message history.
+            const fileProcessingPromises = Object.values(
+              fileProcessingPromisesByPath
+            ).flat()
+            const fileChanges = await Promise.all(fileProcessingPromises)
+            const fileChangeToolResults = fileChanges.map((result) => ({
+              toolName: result.tool,
+              toolCallId: generateCompactId(),
+              result: 'error' in result ? result.error : JSON.stringify(result),
+            }))
+            const toolResults = [...serverToolResults, ...fileChangeToolResults]
+            const toolResultMessage = {
+              role: 'user' as const,
+              content: renderToolResults(toolResults),
+            }
+            const messageHistory = [
+              ...expireMessages(messagesWithResponse, 'userPrompt'),
+              toolResultMessage,
+            ]
+            subAgentMessages.push({
+              role: 'user' as const,
+              content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(messageHistory, null, 2)}`,
+            })
+          }
 
           const agentId = generateCompactId()
           const agentState: AgentState = {
