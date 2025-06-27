@@ -128,10 +128,11 @@ export const handleRunTerminalCommand = async (
   )
 }
 
-export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
-  parameters,
-  _id
-) => {
+export const handleCodeSearch: ToolHandler<{
+  pattern: string
+  flags?: string
+  cwd?: string
+}> = async (parameters, _id) => {
   const projectPath = getProjectRoot()
   const rgPath = await getRgPath()
 
@@ -140,13 +141,33 @@ export const handleCodeSearch: ToolHandler<{ pattern: string }> = async (
     let stderr = ''
 
     const basename = path.basename(projectPath)
-    const pattern = JSON.stringify(parameters.pattern)
-    const command = `${path.resolve(rgPath)} ${pattern} .`
+    const pattern = parameters.pattern
+
+    const flags = (parameters.flags || '').split(' ').filter(Boolean)
+    let searchCwd = projectPath
+    if (parameters.cwd) {
+      const requestedPath = path.resolve(projectPath, parameters.cwd)
+      // Ensure the search path is within the project directory
+      if (!requestedPath.startsWith(projectPath)) {
+        resolve(
+          `<terminal_command_error>Invalid cwd: Path '${parameters.cwd}' is outside the project directory.</terminal_command_error>`
+        )
+        return
+      }
+      searchCwd = requestedPath
+    }
+    const args = [...flags, pattern, '.']
+
     console.log()
-    console.log(green(`Searching ${basename} for ${pattern}:`))
-    const childProcess = spawn(command, {
-      cwd: projectPath,
-      shell: true,
+    console.log(
+      green(
+        `Searching ${parameters.cwd ? `${basename}/${parameters.cwd}` : basename} for "${pattern}"${flags.length > 0 ? ` with flags: ${flags.join(' ')}` : ''}:`
+      )
+    )
+
+    const childProcess = spawn(rgPath, args, {
+      cwd: searchCwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     childProcess.stdout.on('data', (data) => {

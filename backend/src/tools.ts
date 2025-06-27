@@ -322,6 +322,18 @@ This tool is not guaranteed to find the correct file. In general, prefer using r
           .string()
           .min(1, 'Pattern cannot be empty')
           .describe(`The pattern to search for.`),
+        flags: z
+          .string()
+          .optional()
+          .describe(
+            `Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not test" to exclude test files).`
+          ),
+        cwd: z
+          .string()
+          .optional()
+          .describe(
+            `Optional working directory to search within, relative to the project root. Defaults to searching the entire project.`
+          ),
       })
       .describe(
         `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`
@@ -344,14 +356,26 @@ The pattern supports regular expressions and will search recursively through all
 - Use word boundaries (\\b) to match whole words only
 - Searches file content and filenames
 - Automatically ignores binary files, hidden files, and files in .gitignore
-- Case-sensitive by default. Use -i to make it case insensitive.
-- Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
+
+Advanced ripgrep flags (use the flags parameter):
+- Case sensitivity: "-i" for case-insensitive search
+- File type filtering: "-t ts" (TypeScript), "-t js" (JavaScript), "-t py" (Python), etc.
+- Exclude file types: "--type-not test" to exclude test files
+- Context lines: "-A 3" (3 lines after), "-B 2" (2 lines before), "-C 2" (2 lines before and after)
+- Line numbers: "-n" to show line numbers
+- Count matches: "-c" to count matches per file
+- Only filenames: "-l" to show only filenames with matches
+- Invert match: "-v" to show lines that don't match
+- Word boundaries: "-w" to match whole words only
+- Fixed strings: "-F" to treat pattern as literal string (not regex)
 
 Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
 
 Examples:
 ${getToolCallString('code_search', { pattern: 'foo' })}
-${getToolCallString('code_search', { pattern: 'import.*foo' })}
+${getToolCallString('code_search', { pattern: 'import.*foo', cwd: 'src' })}
+${getToolCallString('code_search', { pattern: 'function.*authenticate', flags: '-i -t ts' })}
+${getToolCallString('code_search', { pattern: 'TODO', flags: '-n --type-not test' })}
     `.trim(),
   },
   run_terminal_command: {
