@@ -27,11 +27,10 @@ import {
   EvalRunLog,
   FullEvalLog,
   GitRepoEvalData,
-  ModelConfig,
 } from './types'
 
 // Try Gemini!
-const AGENT_TYPE = AgentTemplateTypes.gemini25pro_base
+const AGENT_TYPE = AgentTemplateTypes.claude4_base
 
 export async function runSingleEval(
   evalCommit: EvalCommit,
@@ -509,7 +508,9 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
 // CLI handling
 if (require.main === module) {
   const args = process.argv.slice(2)
-  console.info('Usage: bun run run-git-eval [eval-data-path] [output-dir] [agent-type]')
+  console.info(
+    'Usage: bun run run-git-eval [eval-data-path] [output-dir] [agent-type]'
+  )
 
   const evalDataPath = args[0] || 'git-evals/git-evals.json'
   const outputDir = args[1] || 'git-evals'
