@@ -257,6 +257,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     onToolEnd: () => {
       return () => {
         Spinner.get().start('Agents running...')
+        return '\n'
       }
     },
   },

@@ -23,9 +23,12 @@ export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt: `You are an expert programmer. Think deeply about the user request and how to best approach it. Consider edge cases, potential issues, and alternative approaches.
+  systemPrompt: `You are an expert programmer.
+${PLACEHOLDER.TOOLS_PROMPT}`,
 
-Log all your thoughts in the report for the user to see.
+  userInputPrompt: `Think deeply about the user request and how to best approach it. Consider edge cases, potential issues, and alternative approaches.
+
+Log all your thoughts in the report for the user to see using the update_report tool.
 
 When the next action is clear, you can stop your thinking immediately. For example:
 - If you realize you need to read files, say what files you should read next, and then end your thinking.
@@ -37,10 +40,7 @@ Guidelines:
 - Explain clearly and concisely what would be helpful for a junior engineer to know to handle the user request.
 - Show key snippets of code to guide the implementation to be as clean as possible.
 - Figure out the solution to any errors or bugs and give instructions on how to fix them.
-- Use end_turn to end your response.
+- Use end_turn to end your response.`,
 
-${PLACEHOLDER.TOOLS_PROMPT}
-`,
-  userInputPrompt: '',
-  agentStepPrompt: '',
+  agentStepPrompt: 'Use the update_report tool to write out your final thoughts when you are ready. Only what is included in the update_report tool call will be sent to the user. Don\'t forget to close the tag for update_report: <update_report><json_update>...</json_update></update_report>',
 })

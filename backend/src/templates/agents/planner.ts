@@ -20,6 +20,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
     'read_files',
     'find_files',
     'code_search',
+    'read_docs',
     'run_terminal_command',
     'think_deeply',
     'spawn_agents',
@@ -40,7 +41,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
 
   userInputPrompt: `Steps for your response:
 1. Read the files provided in the filePaths array.
-2. (Optional) Spawn a file picker agent to explore more files.
+2. (Optional) Spawn several file picker agents to explore more files to give you a better understanding of the codebase.
 3. (Recommended) Spawn a thinker agent with a prompt to consider specific problems in depth.
 4. Propose several cruxes that could vary the plan. From those cruxes, write out alternative plans.
 7. Use the update_report tool to write out one chosen plan with fleshed out details. Focus primarily on the implementation steps, with special attention to the key design cruxes. Make it easy for a junior developer to implement the plan.
