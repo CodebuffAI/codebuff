@@ -73,6 +73,7 @@ export const readOnlyToolNames: ToolName[] = [
   'read_files',
   'think_deeply',
   'update_subgoal',
+  'web_search',
 ] as const
 
 export const baseAgentToolNames: ToolName[] = [

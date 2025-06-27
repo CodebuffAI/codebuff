@@ -30,6 +30,7 @@ import {
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
 import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
+import { searchWeb } from './llm-apis/linkup-api'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -551,11 +552,62 @@ export const runAgentStep = async (
             error: `Error: Failed to process the write_file block. ${typeof error === 'string' ? error : error.msg}`,
           }
         })
-
         fileProcessingPromisesByPath[path].push(newPromise)
 
         return
       }),
+      web_search: toolCallback('web_search', async (toolCall) => {
+        const { query, depth, max_results } = (
+          toolCall as Extract<CodebuffToolCall, { toolName: 'web_search' }>
+        ).args
+
+        logger.debug(
+          {
+            query,
+            depth,
+            max_results,
+          },
+          'web_search tool call'
+        )
+
+        try {
+          const searchResults = await searchWeb(query, {
+            depth,
+            maxResults: max_results,
+          })
+
+          if (searchResults && searchResults.length > 0) {
+            const formattedResults = searchResults
+              .map((result, index) => 
+                `${index + 1}. **${result.title}**\n   URL: ${result.url}\n   ${result.content}\n`
+              )
+              .join('\n')
+
+            serverToolResults.push({
+              toolName: 'web_search',
+              toolCallId: toolCall.toolCallId,
+              result: `Found ${searchResults.length} search results for "${query}":\n\n${formattedResults}`,
+            })
+          } else {
+            serverToolResults.push({
+              toolName: 'web_search',
+              toolCallId: toolCall.toolCallId,
+              result: `No search results found for "${query}". Try refining your search query or using different keywords.`,
+            })
+          }
+        } catch (error) {
+          logger.error(
+            { error, query, depth, max_results },
+            'Error performing web search with Linkup API'
+          )
+          serverToolResults.push({
+            toolName: 'web_search',
+            toolCallId: toolCall.toolCallId,
+            result: `Error performing web search for "${query}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+          })
+        }
+      }),
+
       str_replace: toolCallback('str_replace', (toolCall) => {
         const { path, replacements } = toolCall.args
 
@@ -703,7 +755,8 @@ export const runAgentStep = async (
       toolCall.toolName === 'browser_logs' ||
       toolCall.toolName === 'think_deeply' ||
       toolCall.toolName === 'create_plan' ||
-      toolCall.toolName === 'end_turn'
+      toolCall.toolName === 'end_turn' ||
+      toolCall.toolName === 'web_search'
     ) {
       // Handled above
     } else if (toolCall.toolName === 'read_files') {

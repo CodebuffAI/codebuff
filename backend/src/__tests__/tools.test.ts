@@ -15,6 +15,7 @@ describe('getFilteredToolsInstructions', () => {
     'create_plan',
     'browser_logs',
     'read_docs',
+    'web_search',
     'end_turn',
   ]
 
@@ -28,6 +29,7 @@ describe('getFilteredToolsInstructions', () => {
     'create_plan',
     'browser_logs',
     'read_docs',
+    'web_search',
     'end_turn',
   ]
 
@@ -54,5 +56,13 @@ describe('getFilteredToolsInstructions', () => {
     
     expect(normalInstructions).toInclude(`### read_docs`)
     expect(askInstructions).toInclude(`### read_docs`)
+  })
+
+  test('should include web_search tool in both modes', () => {
+    const normalInstructions = getFilteredToolsInstructions('normal', false)
+    const askInstructions = getFilteredToolsInstructions('ask', false)
+    
+    expect(normalInstructions).toInclude(`### web_search`)
+    expect(askInstructions).toInclude(`### web_search`)
   })
 })

@@ -25,6 +25,9 @@ export const toolSchema = {
   // Documentation tool
   read_docs: ['query', 'topic', 'max_tokens'],
 
+  // Web search tool
+  web_search: ['query', 'depth', 'max_results'],
+
   end_turn: [],
 }
 
