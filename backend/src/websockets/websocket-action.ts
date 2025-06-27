@@ -16,6 +16,11 @@ import { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import { eq } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 
+import {
+  checkLiveUserInput,
+  endUserInput,
+  startUserInput,
+} from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
 import { logger, withLoggerContext } from '../util/logger'
 import { asSystemMessage } from '../util/messages'
@@ -152,6 +157,8 @@ const onPrompt = async (
         })
       }
 
+      startUserInput(userId, promptId)
+
       try {
         const { sessionState, toolCalls, toolResults } = await mainPrompt(
           ws,
@@ -159,12 +166,15 @@ const onPrompt = async (
           {
             userId,
             clientSessionId,
-            onResponseChunk: (chunk) =>
-              sendAction(ws, {
-                type: 'response-chunk',
-                userInputId: promptId,
-                chunk,
-              }),
+            onResponseChunk: (chunk) => {
+              if (checkLiveUserInput(userId, promptId)) {
+                sendAction(ws, {
+                  type: 'response-chunk',
+                  userInputId: promptId,
+                  chunk,
+                })
+              }
+            },
           }
         )
 
@@ -215,6 +225,7 @@ const onPrompt = async (
           })
         }, 100)
       } finally {
+        endUserInput(userId, promptId)
         const usageResponse = await genUsageResponse(
           fingerprintId,
           userId,
@@ -268,6 +279,18 @@ const onInit = async (
       type: 'init-response',
     })
   })
+}
+
+const onCancelUserInput = async ({
+  authToken,
+  promptId,
+}: Extract<ClientAction, { type: 'cancel-user-input' }>) => {
+  const userId = await getUserIdFromAuthToken(authToken)
+  if (!userId) {
+    logger.error({ authToken }, 'User id not found for authToken')
+    return
+  }
+  endUserInput(userId, promptId)
 }
 
 /**
@@ -338,6 +361,7 @@ export const onWebsocketAction = async (
 // Register action handlers
 subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
+subscribeToAction('cancel-user-input', protec.run(onCancelUserInput))
 
 /**
  * Requests multiple files from the client

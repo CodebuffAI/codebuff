@@ -56,6 +56,11 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     result: z.any().optional(), // Tool execution result
     error: z.string().optional(), // Error message if execution failed
   }),
+  z.object({
+    type: z.literal('cancel-user-input'),
+    authToken: z.string(),
+    promptId: z.string(),
+  }),
 ])
 
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>

@@ -27,6 +27,7 @@ import { Message } from '@codebuff/common/types/message'
 import { logger } from '@codebuff/common/util/logger'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
+import { checkLiveUserInput } from '../../live-user-inputs'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
@@ -70,6 +71,10 @@ export const promptAiSdkStream = async function* (
     thinkingBudget?: number
   } & Omit<Parameters<typeof streamText>[0], 'model'>
 ) {
+  if (!checkLiveUserInput(options.userId, options.userInputId)) {
+    yield ''
+    return
+  }
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
@@ -167,6 +172,10 @@ export const promptAiSdk = async function (
     chargeUser?: boolean
   } & Omit<Parameters<typeof generateText>[0], 'model'>
 ): Promise<string> {
+  if (!checkLiveUserInput(options.userId, options.userInputId)) {
+    return ''
+  }
+
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
@@ -212,6 +221,9 @@ export const promptAiSdkStructured = async function <T>(options: {
   timeout?: number
   chargeUser?: boolean
 }): Promise<T> {
+  if (!checkLiveUserInput(options.userId, options.userInputId)) {
+    return {} as T
+  }
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 

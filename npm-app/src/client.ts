@@ -141,6 +141,7 @@ export class Client {
   private fingerprintId!: string | Promise<string>
   private costMode: CostMode
   private responseComplete: boolean = false
+  private userInputId: string | undefined
 
   public usageData: UsageData = {
     usage: 0,
@@ -894,12 +895,18 @@ export class Client {
 
     const { responsePromise, stopResponse } = f(
       (chunk) => {
+        if (this.userInputId !== userInputId) {
+          return
+        }
         Spinner.get().stop()
         DiffManager.receivedResponse()
         process.stdout.write(chunk)
       },
       userInputId,
       () => {
+        if (this.userInputId !== userInputId) {
+          return
+        }
         Spinner.get().stop()
         process.stdout.write('\n' + green(underline('Codebuff') + ': '))
       },
@@ -976,10 +983,18 @@ export class Client {
       rejectResponse = reject
     })
 
+    this.userInputId = userInputId
+
     const stopResponse = () => {
       responseStopped = true
       unsubscribeChunks()
       unsubscribeComplete()
+      this.webSocket.sendAction({
+        type: 'cancel-user-input',
+        promptId: userInputId,
+        authToken: this.user!.authToken,
+      })
+      this.userInputId = undefined
 
       const additionalMessages = [
         { role: 'user' as const, content: prompt },
