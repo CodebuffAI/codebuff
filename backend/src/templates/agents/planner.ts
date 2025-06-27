@@ -15,6 +15,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
         .describe('List of relevant file paths to consider in the planning'),
     }),
   },
+  outputMode: 'report',
   includeMessageHistory: false,
   toolNames: [
     'read_files',

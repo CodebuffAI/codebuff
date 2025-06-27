@@ -16,6 +16,7 @@ export type AgentTemplate = {
     prompt: boolean | 'optional'
     params: z.ZodSchema<any> | null
   }
+  outputMode: 'last_message' | 'report'
   includeMessageHistory: boolean
   toolNames: ToolName[]
   stopSequences: string[]

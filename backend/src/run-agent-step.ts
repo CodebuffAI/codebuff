@@ -908,7 +908,20 @@ export const runAgentStep = async (
 
       const reports = results.map((result) => {
         if (result.status === 'fulfilled') {
-          return JSON.stringify(result.value.agentState.report, null, 2)
+          if (agentTemplate.outputMode === 'report') {
+            return JSON.stringify(result.value.agentState.report, null, 2)
+          } else {
+            const { agentState } = result.value
+            const assistantMessages = agentState.messageHistory.filter(
+              (message) => message.role === 'assistant'
+            )
+            const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
+            if (typeof lastAssistantMessage.content === 'string') {
+              return lastAssistantMessage.content
+            } else {
+              return JSON.stringify(lastAssistantMessage.content, null, 2)
+            }
+          }
         } else {
           return `Error spawning agent: ${result.reason}`
         }

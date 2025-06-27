@@ -18,6 +18,7 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
     prompt: true,
     params: null,
   },
+  outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,

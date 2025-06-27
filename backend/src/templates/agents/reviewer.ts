@@ -9,12 +9,13 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
     prompt: false,
     params: null,
   },
+  outputMode: 'last_message',
   includeMessageHistory: true,
-  toolNames: ['update_report', 'end_turn'],
+  toolNames: ['end_turn'],
   stopSequences: ['</end_turn>'],
   spawnableAgents: [],
   initialAssistantMessage: '',
-  initialAssistantPrefix: '<update_report>\n<json_update>',
+  initialAssistantPrefix: '',
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
@@ -24,6 +25,8 @@ ${PLACEHOLDER.TOOLS_PROMPT}`,
   userInputPrompt: '',
 
   agentStepPrompt: `Review the above conversation between a user and an assistant. Your task is to provide helpful feedback on the final file changes made by the assistant.
+
+NOTE: You cannot make any changes! You can only suggest changes.
   
 Think deeply about what requirements the user had and how the assistant fulfilled them. Consider edge cases, potential issues, and alternative approaches.
 
@@ -38,7 +41,7 @@ Then, provide hyper-specific feedback on the file changes made by the assistant,
 - Make sure no sections were deleted that weren't supposed to be deleted.
 - Make sure the new code matches the style of the existing code.
 
-Use the update_report tool to compile all your feedback. Then, use the end_turn tool to end your response.
+After providing all your feedback, use the end_turn tool to end your response. Do not attempt to use any tools. You are only providing feedback.
 
-IMPORTANT: Don't forget to close the tag for update_report and then end_turn: <update_report><json_update>...</json_update></update_report><end_turn></end_turn>`,
+IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
 })
