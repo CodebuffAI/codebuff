@@ -4,9 +4,9 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
   description:
-    'Reviews all the file changes made by the assistant and responds with critical feedback. Use this after making any significant change to the codebase.',
+    'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   promptSchema: {
-    prompt: false,
+    prompt: true,
     params: null,
   },
   outputMode: 'last_message',
@@ -22,9 +22,7 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   systemPrompt: `You are an expert programmer who can articulate very clear feedback on code changes.
 ${PLACEHOLDER.TOOLS_PROMPT}`,
 
-  userInputPrompt: '',
-
-  agentStepPrompt: `Review the above conversation between a user and an assistant. Your task is to provide helpful feedback on the final file changes made by the assistant.
+  userInputPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critque the code changes made recently in the above conversation.
 
 NOTE: You cannot make any changes! You can only suggest changes.
   
@@ -41,7 +39,7 @@ Then, provide hyper-specific feedback on the file changes made by the assistant,
 - Make sure no sections were deleted that weren't supposed to be deleted.
 - Make sure the new code matches the style of the existing code.
 
-After providing all your feedback, use the end_turn tool to end your response. Do not attempt to use any tools. You are only providing feedback.
+After providing all your feedback, use the end_turn tool to end your response. Do not attempt to use any tools. You are only providing feedback.`,
 
-IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
+  agentStepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
 })

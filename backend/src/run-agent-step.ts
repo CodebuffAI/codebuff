@@ -876,7 +876,12 @@ export const runAgentStep = async (
           }
 
           const subAgentMessages = agentTemplate.includeMessageHistory
-            ? messageHistory
+            ? [
+                {
+                  role: 'user' as const,
+                  content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(messageHistory, null, 2)}`,
+                },
+              ]
             : []
 
           const agentId = generateCompactId()
@@ -915,7 +920,8 @@ export const runAgentStep = async (
             const assistantMessages = agentState.messageHistory.filter(
               (message) => message.role === 'assistant'
             )
-            const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
+            const lastAssistantMessage =
+              assistantMessages[assistantMessages.length - 1]
             if (typeof lastAssistantMessage.content === 'string') {
               return lastAssistantMessage.content
             } else {
