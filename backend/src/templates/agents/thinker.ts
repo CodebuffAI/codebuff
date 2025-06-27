@@ -3,9 +3,9 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  description: 'Does thinking before a response',
+  description: 'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   promptSchema: {
-    prompt: 'optional',
+    prompt: true,
     params: null,
   },
   includeMessageHistory: true,

@@ -91,5 +91,4 @@ export const baseAgentStopSequences: string[] = [
 export const baseAgentSpawnableAgents: AgentTemplateType[] = [
   AgentTemplateTypes.gemini25pro_thinker,
   AgentTemplateTypes.gemini25flash_file_picker,
-  AgentTemplateTypes.gemini25pro_planner,
 ] as const
