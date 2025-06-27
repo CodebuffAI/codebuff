@@ -266,6 +266,9 @@ export const baseAgentUserInputPrompt = (model: Model) => {
 
       'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
 
+      (isFlash || isGeminiPro) &&
+        'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a few file picker agents first to explore the codebase, and then the planner agent if you need more analysis.',
+
       'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.'
     ).join('\n\n') +
     '</system_instructions>'

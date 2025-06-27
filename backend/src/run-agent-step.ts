@@ -875,13 +875,6 @@ export const runAgentStep = async (
             }
           }
 
-          const {
-            initialAssistantMessage,
-            initialAssistantPrefix,
-            stepAssistantMessage,
-            stepAssistantPrefix,
-          } = agentTemplate
-
           const subAgentMessages = agentTemplate.includeMessageHistory
             ? messageHistory
             : []
@@ -901,10 +894,6 @@ export const runAgentStep = async (
             userInputId: `${userInputId}-${agentType}${agentId}`,
             prompt: prompt || '',
             params,
-            initialAssistantMessage,
-            initialAssistantPrefix,
-            stepAssistantMessage,
-            stepAssistantPrefix,
             agentType: agentTemplate.type,
             agentState,
             fingerprintId,
@@ -1382,10 +1371,6 @@ export const loopAgentSteps = async (
     agentState: AgentState
     prompt: string | undefined
     params: Record<string, any> | undefined
-    initialAssistantMessage: string
-    initialAssistantPrefix: string
-    stepAssistantMessage: string
-    stepAssistantPrefix: string
     fingerprintId: string
     fileContext: ProjectFileContext
     toolResults: ToolResult[]
@@ -1399,10 +1384,6 @@ export const loopAgentSteps = async (
     agentState,
     prompt,
     params,
-    initialAssistantMessage,
-    initialAssistantPrefix,
-    stepAssistantMessage,
-    stepAssistantPrefix,
     userId,
     clientSessionId,
     onResponseChunk,
@@ -1411,6 +1392,13 @@ export const loopAgentSteps = async (
     fileContext,
     agentType,
   } = options
+  const agentTemplate = agentTemplates[agentType]
+  const {
+    initialAssistantMessage,
+    initialAssistantPrefix,
+    stepAssistantMessage,
+    stepAssistantPrefix,
+  } = agentTemplate
   let isFirstStep = true
   let currentPrompt = prompt
   let currentParams = params

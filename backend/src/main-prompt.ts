@@ -96,22 +96,10 @@ export const mainPrompt = async (
     } satisfies Record<CostMode, AgentTemplateType>
   )[costMode]
 
-  const agentTemplate = agentTemplates[agentType]
-  const {
-    initialAssistantMessage,
-    initialAssistantPrefix,
-    stepAssistantMessage,
-    stepAssistantPrefix,
-  } = agentTemplate
-
   const { agentState, hasEndTurn } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,
     params: undefined,
-    initialAssistantMessage,
-    initialAssistantPrefix,
-    stepAssistantMessage,
-    stepAssistantPrefix,
     agentType,
     agentState: mainAgentState,
     fingerprintId,
