@@ -162,6 +162,7 @@ export async function runAgentStepScaffolding(
     fileContext,
     agentState,
     prompt,
+    params: undefined,
     assistantMessage: undefined,
     assistantPrefix: undefined,
   })
@@ -175,7 +176,10 @@ export async function runAgentStepScaffolding(
 export async function runToolCalls(toolCalls: ClientToolCall[]) {
   const toolResults: ToolResult[] = []
   for (const toolCall of toolCalls) {
-    if (toolCall.toolName === 'spawn_agents' || toolCall.toolName === 'update_report') {
+    if (
+      toolCall.toolName === 'spawn_agents' ||
+      toolCall.toolName === 'update_report'
+    ) {
       // should never happen
       continue
     }

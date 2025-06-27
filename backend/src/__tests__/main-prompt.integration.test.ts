@@ -1,3 +1,5 @@
+import { TEST_USER_ID } from '@codebuff/common/constants'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterEach,
   beforeEach,
@@ -7,8 +9,6 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { TEST_USER_ID } from '@codebuff/common/constants'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { WebSocket } from 'ws'
 import { mainPrompt } from '../main-prompt'
 
@@ -432,21 +432,13 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         toolResults: [],
       }
 
-      const {
-        toolCalls,
-        toolResults,
-        sessionState: finalSessionState,
-      } = await mainPrompt(
-        new MockWebSocket() as unknown as WebSocket,
-        action,
-        {
-          userId: TEST_USER_ID,
-          clientSessionId: 'test-session-delete-function-integration',
-          onResponseChunk: (chunk: string) => {
-            process.stdout.write(chunk)
-          },
-        }
-      )
+      await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session-delete-function-integration',
+        onResponseChunk: (chunk: string) => {
+          process.stdout.write(chunk)
+        },
+      })
 
       const requestToolCallSpy = websocketAction.requestToolCall as any
 
@@ -461,7 +453,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 @@ -689,6 +689,4 @@
    });
  }
-
+ 
  init().catch(console.error);
 -
 -}
