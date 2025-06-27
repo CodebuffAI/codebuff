@@ -3,10 +3,6 @@ import * as os from 'os'
 import path from 'path'
 import { green } from 'picocolors'
 
-import { loadBunPty } from '../native/pty'
-type IPty = ReturnType<
-  NonNullable<Awaited<ReturnType<typeof loadBunPty>>>['spawn']
->
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { buildArray } from '@codebuff/common/util/array'
 import { isSubdir } from '@codebuff/common/util/file'
@@ -16,6 +12,7 @@ import {
   truncateStringWithMessage,
 } from '@codebuff/common/util/string'
 
+import { loadBunPty } from '../native/pty'
 import {
   getProjectRoot,
   getWorkingDirectory,
@@ -25,6 +22,10 @@ import { trackEvent } from '../utils/analytics'
 import { detectShell } from '../utils/detect-shell'
 import { logger } from '../utils/logger'
 import { runBackgroundCommand } from './background'
+
+type IPty = ReturnType<
+  NonNullable<Awaited<ReturnType<typeof loadBunPty>>>['spawn']
+>
 
 const COMMAND_OUTPUT_LIMIT = 10_000
 const promptIdentifier = '@36261@'
@@ -459,11 +460,14 @@ export const runCommandPty = (
   let commandOutput = ''
 
   let timer: NodeJS.Timeout | null = null
+  let fullCombinedOutput = ''
   if (maybeTimeoutSeconds !== null) {
     timer = setTimeout(() => {
       if (mode === 'assistant') {
         // Kill and recreate PTY
         resetShell(cwd)
+
+        logger.error({ fullCombinedOutput }, 'Terminal command timeout')
 
         resolve({
           result: formatResult(
@@ -482,8 +486,6 @@ export const runCommandPty = (
 
   new Promise(async () => {
     await persistentProcess.setupPromise
-
-    let fullCombinedOutput = ''
 
     const cdCommand = `cd ${cwd}`
     const { fullOutput: cdOutput } = await runSinglePtyCommand(
