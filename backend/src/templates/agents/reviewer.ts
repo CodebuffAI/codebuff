@@ -11,10 +11,10 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   },
   includeMessageHistory: true,
   toolNames: ['update_report', 'end_turn'],
-  stopSequences: [],
+  stopSequences: ['</end_turn>'],
   spawnableAgents: [],
   initialAssistantMessage: '',
-  initialAssistantPrefix: '',
+  initialAssistantPrefix: '<update_report>\n<json_update>',
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
@@ -36,8 +36,9 @@ Then, provide hyper-specific feedback on the file changes made by the assistant,
 - Make sure that no new dead code is introduced.
 - Make sure there are no missing imports.
 - Make sure no sections were deleted that weren't supposed to be deleted.
+- Make sure the new code matches the style of the existing code.
 
-Write down some thoughts and analysis first, and finally use the update_report tool to compile all your feedback. Use the end_turn tool to end your response.
+Use the update_report tool to compile all your feedback. Then, use the end_turn tool to end your response.
 
-IMPORTANT: Use the update_report tool to write out your final report when you are ready. Only what is included in the update_report tool call will be sent to the user. Don't forget to close the tag for update_report: <update_report><json_update>...</json_update></update_report>`,
+IMPORTANT: Don't forget to close the tag for update_report and then end_turn: <update_report><json_update>...</json_update></update_report><end_turn></end_turn>`,
 })

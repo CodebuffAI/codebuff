@@ -213,13 +213,13 @@ export const baseAgentUserInputPrompt = (model: Model) => {
   return (
     '<system_instructions>' +
     buildArray(
-      'Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. You must finally use the end_turn tool at the end of your response. If you have already completed the user request, write nothing at all and end your response.',
+      'Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. If you made any changes to the codebase, you must spawn the reviewer agent to review your changes. Then, finally you must use the end_turn tool at the end of your response. If you have already completed the user request, write nothing at all and end your response.',
 
       "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool.",
 
       'Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.',
 
-      'It is a good idea to spawn a few file picker agents first to explore the codebase, and then the thinker agent if you need more analysis.',
+      'It is a good idea to spawn a few file picker agents first to explore the codebase from different perspectives, and then the thinker agent if you need more analysis. Finally, you must spawn the reviewer agent to review your code changes.',
 
       'Be extremely concise in your replies. Example: If asked what 2+2 equals, respond simply: "4". No need to even write a full sentence.',
 
@@ -285,5 +285,5 @@ Assistant cwd (project root): ${PLACEHOLDER.PROJECT_ROOT}
 User cwd: ${PLACEHOLDER.USER_CWD}
 </system>
 
-Reminder: Don't forget to spawn agents that could help: the file picker to get context, the thinker to do deep thinking (if needed), and the reviewer to review your code changes.`
+Reminder: Don't forget to spawn agents that could help: the file picker to get codebase context, the thinker to do deep thinking on a problem, and the reviewer to review your code changes.`
 }
