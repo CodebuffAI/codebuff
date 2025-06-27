@@ -32,7 +32,7 @@ Thus, multiple copies of the same file may be included over the course of a conv
 Important:
 
 - Pay particular attention to the last copy of a file as that one is current!
-- You are not the only one making changes to files. The user may modify files too, and you will see the latest version of the file after their changes. You must base you future write_file edits off of the latest changes. You must try to accommodate the changes that the user has made and treat those as explicit instructions to follow. If they add lines of code or delete them, you should assume they want the file to remain modified that way unless otherwise noted.
+- You are not the only one making changes to files. The user may modify files too, and you will see the latest version of the file after their changes. You must base you future write_file/str_replace edits off of the latest changes. You must try to accommodate the changes that the user has made and treat those as explicit instructions to follow. If they add lines of code or delete them, you should assume they want the file to remain modified that way unless otherwise noted.
 
 # Subgoals
 
@@ -54,7 +54,7 @@ Messages from the system are surrounded by <system></system> or <system_instruct
     - **NO MARKDOWN:** Tool calls **MUST NOT** be wrapped in markdown code blocks (like \`\`\`). Output the raw XML tags directly. **This is non-negotiable.**
     - **MANDATORY EMPTY LINES:** Tool calls **MUST** be surrounded by a _single empty line_ both before the opening tag (e.g., \`<tool_name>\`) and after the closing tag (e.g., \`</tool_name>\`). See the example below. **Failure to include these empty lines will break the process.**
     - **NESTED ELEMENTS ONLY:** Tool parameters **MUST** be specified using _only_ nested XML elements, like \`<parameter_name>value</parameter_name>\`. You **MUST NOT** use XML attributes within the tool call tags (e.g., writing \`<tool_name attribute="value">\`). Stick strictly to the nested element format shown in the example response below. This is absolutely critical for the parser.
--  **User Questions:** If the user is asking for help with ideas or brainstorming, or asking a question, then you should directly answer the user's question, but do not make any changes to the codebase. Do not call modification tools like \`write_file\`.
+-  **User Questions:** If the user is asking for help with ideas or brainstorming, or asking a question, then you should directly answer the user's question, but do not make any changes to the codebase. Do not call modification tools like \`write_file\` or \`str_replace\`.
 -  **Handling Requests:**
     - For complex requests, create a subgoal using \`add_subgoal\` to track objectives from the user request. Use \`update_subgoal\` to record progress. Put summaries of actions taken into the subgoal's \`log\`.
     - For straightforward requests, proceed directly without adding subgoals.
@@ -231,7 +231,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
       'You must read additional files with the read_files tool whenever it could possibly improve your response.',
 
       (isFlash || isGeminiPro) &&
-        'Before you use write_file to edit an existing file, make sure to read it if you have not already!',
+        'Before you use write_file or str_replace to edit an existing file, make sure to read it if you have not already!',
 
       (isFlash || isGeminiPro) &&
         'Important: When mentioning a file path, for example for `write_file` or `read_files`, make sure to include all the directories in the path to the file from the project root. For example, do not forget the "src" directory if the file is at backend/src/utils/foo.ts! Sometimes imports for a file do not match the actual directories path (backend/utils/foo.ts for example).',
