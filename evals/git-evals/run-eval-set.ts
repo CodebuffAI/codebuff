@@ -96,20 +96,20 @@ async function runEvalSet(options: {
       name: 'codebuff',
       evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
       outputDir,
-      modelConfig: {},
+      agentType: undefined,
     },
     {
       name: 'manifold',
       evalDataPath: path.join(__dirname, 'eval-manifold.json'),
       outputDir,
-      modelConfig: {},
+      agentType: undefined,
     },
   ]
 
   console.log(`Running ${evalConfigs.length} evaluations:`)
   evalConfigs.forEach((config) => {
     console.log(
-      `  - ${config.name}: ${config.evalDataPath} -> ${config.outputDir}`
+      `  - ${config.name}: ${config.evalDataPath} -> ${config.outputDir} (${config.agentType})`
     )
   })
 
@@ -127,9 +127,10 @@ async function runEvalSet(options: {
         : await runGitEvals(
             config.evalDataPath,
             config.outputDir,
-            config.modelConfig,
+            config.agentType,
             config.limit
           )
+      
       const evalDuration = Date.now() - evalStartTime
       console.log(
         `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`
@@ -310,8 +311,8 @@ async function runEvalSet(options: {
           // Map the eval result data to the database schema
           const payload: GitEvalResultRequest = {
             cost_mode: 'normal', // You can modify this based on your needs
-            reasoner_model: config?.modelConfig?.reasoningModel,
-            agent_model: config?.modelConfig?.agentModel,
+            reasoner_model: undefined, // No longer using model config
+            agent_model: config?.agentType,
             metadata: {
               numCases: evalResult?.overall_metrics?.total_runs,
               avgScore: evalResult?.overall_metrics?.average_overall,

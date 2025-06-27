@@ -38,7 +38,7 @@ export async function runSingleEval(
   projectPath: string,
   clientSessionId: string,
   fingerprintId: string,
-  modelConfig: ModelConfig
+  agentType: string = AGENT_TYPE
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -144,7 +144,7 @@ Explain your reasoning in detail.`,
             prompt,
             projectPath,
             maxIterations: 20,
-            agentType: AGENT_TYPE,
+            agentType: agentType as any,
           }),
           // Timeout after 30 minutes
           60_000 * 30
@@ -299,7 +299,7 @@ export function setGlobalConcurrencyLimit(limit: number) {
 export async function runGitEvals(
   evalDataPath: string,
   outputDir: string,
-  modelConfig: ModelConfig,
+  agentType: string = AGENT_TYPE,
   limit?: number
 ): Promise<FullEvalLog> {
   const evalData = JSON.parse(
@@ -381,7 +381,7 @@ export async function runGitEvals(
                 projectPath,
                 clientSessionId,
                 fingerprintId,
-                JSON.stringify(modelConfig),
+                agentType,
               ],
               { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] }
             )
@@ -509,12 +509,13 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
 // CLI handling
 if (require.main === module) {
   const args = process.argv.slice(2)
-  console.info('Usage: bun run run-git-eval [eval-data-path] [output-dir]')
+  console.info('Usage: bun run run-git-eval [eval-data-path] [output-dir] [agent-type]')
 
   const evalDataPath = args[0] || 'git-evals/git-evals.json'
   const outputDir = args[1] || 'git-evals'
+  const agentType = args[2] || AGENT_TYPE
 
-  runGitEvals(evalDataPath, outputDir, {})
+  runGitEvals(evalDataPath, outputDir, agentType)
     .then(() => {
       console.log('Done!')
       process.exit(0)

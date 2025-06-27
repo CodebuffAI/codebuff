@@ -155,7 +155,6 @@ async function runSingleEvalTask(options: {
       projectPath,
       clientSessionId,
       fingerprintId,
-      modelConfig
     )
 
     const duration = Date.now() - startTime
