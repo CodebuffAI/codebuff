@@ -40,6 +40,7 @@ export type AgentState = z.infer<typeof AgentStateSchema>
 
 export const AgentTemplateTypeList = [
   // Base agents
+  'opus4_base',
   'claude4_base',
   'gemini25pro_base',
   'gemini25flash_base',

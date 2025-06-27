@@ -88,10 +88,10 @@ export const mainPrompt = async (
 
   const agentType = (
     {
-      ask: 'claude4_base',
+      ask: 'gemini25pro_base',
       lite: 'gemini25flash_base',
       normal: 'claude4_base',
-      max: 'claude4_base',
+      max: 'opus4_base',
       experimental: 'gemini25pro_base',
     } satisfies Record<CostMode, AgentTemplateType>
   )[costMode]

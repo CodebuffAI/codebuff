@@ -13,6 +13,10 @@ import { planner } from './agents/planner'
 import { reviewer } from './agents/reviewer'
 
 export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
+  opus4_base: {
+    type: AgentTemplateTypes.opus4_base,
+    ...base(models.opus4),
+  },
   claude4_base: {
     type: AgentTemplateTypes.claude4_base,
     ...base(models.sonnet),
