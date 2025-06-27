@@ -187,19 +187,23 @@ export function createTimeBetweenDetector(options: TimeBetweenDetectorOptions) {
 }
 
 // Factory function for TIMEOUT-based detectors
-export function createTimeoutDetector(options: {
+export function createTimeoutDetector<TContext extends Record<string, any> = Record<string, any>>(options: {
   reason: string
   timeoutMs: number
-  onHang?: () => void // Optional callback
-  context?: Record<string, any>
+  onHang?: () => void
+  context?: TContext
+  shouldFire?: (context?: TContext) => boolean | Promise<boolean>
 }) {
   let timeoutHandle: NodeJS.Timeout | null = null
 
-  const start = (context?: Record<string, any>) => {
+  const start = (context?: TContext) => {
     stop() // Clear any existing timeout
 
     const startTime = Date.now()
-    timeoutHandle = setTimeout(() => {
+    timeoutHandle = setTimeout(async () => {
+      if (options.shouldFire && !(await options.shouldFire(context))) {
+        return
+      }
       const duration = Date.now() - startTime
       trackEvent(AnalyticsEvent.RAGE, {
         reason: options.reason,

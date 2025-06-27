@@ -805,7 +805,7 @@ export class CLI {
     const cleanedInput = this.cleanCommandInput(promptContent)
 
     await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
-    
+
     // Ensure spinner is properly stopped before starting "Thinking..."
     Spinner.get().stop()
     Spinner.get().start('Thinking...')
@@ -857,6 +857,7 @@ export class CLI {
     rageDetectors.webSocketHangDetector.start({
       connectionIssue: 'websocket_persistent_failure',
       url: websocketUrl,
+      getWebsocketState: () => Client.getInstance().webSocket.state,
     })
   }
 
