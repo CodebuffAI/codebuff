@@ -1,3 +1,7 @@
+import type { ReadyState } from '@codebuff/common/websockets/websocket-client'
+import { WebSocket } from 'ws'
+import { sleep } from '@codebuff/common/util/promise'
+
 import {
   createCountDetector,
   createTimeBetweenDetector,
@@ -8,9 +12,18 @@ export interface RageDetectors {
   keyMashingDetector: ReturnType<typeof createCountDetector>
   repeatInputDetector: ReturnType<typeof createCountDetector>
   exitAfterErrorDetector: ReturnType<typeof createTimeBetweenDetector>
-  webSocketHangDetector: ReturnType<typeof createTimeoutDetector>
+  webSocketHangDetector: ReturnType<
+    typeof createTimeoutDetector<WebSocketHangDetectorContext>
+  >
   startupTimeDetector: ReturnType<typeof createTimeBetweenDetector>
   exitTimeDetector: ReturnType<typeof createTimeBetweenDetector>
+}
+
+// Define the specific context type for WebSocket hang detector
+interface WebSocketHangDetectorContext {
+  connectionIssue?: string
+  url?: string
+  getWebsocketState: () => ReadyState
 }
 
 export function createRageDetectors(): RageDetectors {
@@ -64,9 +77,21 @@ export function createRageDetectors(): RageDetectors {
       operator: 'lt',
     }),
 
-    webSocketHangDetector: createTimeoutDetector({
+    webSocketHangDetector: createTimeoutDetector<WebSocketHangDetectorContext>({
       reason: 'websocket_persistent_failure',
       timeoutMs: 60_000,
+      shouldFire: async (context) => {
+        if (!context || !context.getWebsocketState) {
+          return false
+        }
+
+        // Add a 2-second grace period for reconnection
+        await sleep(2000)
+
+        // Only fire if the websocket is still not connected.
+        // This prevents firing if the connection is restored right before the timeout.
+        return context.getWebsocketState() !== WebSocket.OPEN
+      },
     }),
 
     startupTimeDetector: createTimeBetweenDetector({

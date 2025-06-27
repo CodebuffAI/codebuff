@@ -135,7 +135,7 @@ interface ClientOptions {
 
 export class Client {
   private static instance: Client
-  private webSocket: APIRealtimeClient
+  public webSocket: APIRealtimeClient
   private freshPrompt: () => void
   private reconnectWhenNextIdle: () => void
   private fingerprintId!: string | Promise<string>
