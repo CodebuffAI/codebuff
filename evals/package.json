@@ -20,6 +20,7 @@
     "test:swe-bench": "bun test swe-bench.test.ts",
     "test:e2e-cat-app": "bun run e2e-cat-app-script.ts",
     "gen-git-evals": "bun run inf bun run git-evals/gen-evals.ts",
+    "run-single-eval": "bun run inf bun run git-evals/run-single-eval.ts --eval-file git-evals/eval-manifold.json --commit-sha ebabf7796a92ce8ece8e2452b0f3f896a513ba0e",
     "run-git-evals": "bun run inf bun run git-evals/run-git-evals.ts",
     "run-eval-set": "bun run inf bun run git-evals/run-eval-set.ts",
     "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
