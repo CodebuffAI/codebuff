@@ -385,24 +385,30 @@ export async function requestOptionalFile(ws: WebSocket, filePath: string) {
  * Requests a tool call execution from the client with timeout support
  * @param ws - The WebSocket connection
  * @param toolName - Name of the tool to execute
- * @param args - Arguments for the tool
- * @param timeout - Timeout in milliseconds (default: 30000)
+ * @param args - Arguments for the tool (can include timeout)
  * @returns Promise resolving to the tool execution result
  */
 export async function requestToolCall<T = any>(
   ws: WebSocket,
   toolName: string,
-  args: Record<string, any>,
-  timeout: number = 30000
+  args: Record<string, any> & { timeout_seconds?: number }
 ): Promise<{ success: boolean; result?: T; error?: string }> {
   return new Promise((resolve, reject) => {
     const requestId = generateCompactId()
+    const timeoutInSeconds = args.timeout_seconds || 30
 
     // Set up timeout
-    const timeoutHandle = setTimeout(() => {
-      unsubscribe()
-      reject(new Error(`Tool call '${toolName}' timed out after ${timeout}ms`))
-    }, timeout)
+    const timeoutHandle = setTimeout(
+      () => {
+        unsubscribe()
+        reject(
+          new Error(
+            `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`
+          )
+        )
+      },
+      timeoutInSeconds * 1000 + 5000 // Convert to ms and add a small buffer
+    )
 
     // Subscribe to response
     const unsubscribe = subscribeToAction('tool-call-response', (action) => {
@@ -423,7 +429,7 @@ export async function requestToolCall<T = any>(
       requestId,
       toolName,
       args,
-      timeout,
+      timeout: timeoutInSeconds * 1000, // Send timeout in milliseconds
     })
   })
 }
