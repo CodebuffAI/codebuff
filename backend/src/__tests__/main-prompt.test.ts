@@ -243,7 +243,7 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { toolCalls } = await mainPrompt(
+    const { toolCalls, sessionState: newSessionState } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -253,11 +253,29 @@ describe('mainPrompt', () => {
       }
     )
 
-    expect(toolCalls).toHaveLength(1)
-    expect(toolCalls[0].toolName).toBe('run_terminal_command')
-    const params = toolCalls[0].args as { command: string; mode: string }
-    expect(params.command).toBe('ls -la')
-    expect(params.mode).toBe('user')
+    // Verify that requestToolCall was called with the terminal command
+    const requestToolCallSpy = websocketAction.requestToolCall as any
+    expect(requestToolCallSpy).toHaveBeenCalledTimes(1)
+    expect(requestToolCallSpy).toHaveBeenCalledWith(
+      expect.any(Object), // WebSocket
+      'run_terminal_command',
+      expect.objectContaining({
+        command: 'ls -la',
+        mode: 'user',
+        process_type: 'SYNC',
+        timeout_seconds: -1,
+      })
+    )
+
+    // Verify that a tool result was added to message history
+    const toolResultMessages =
+      newSessionState.mainAgentState.messageHistory.filter(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.includes('<tool_result>')
+      )
+    expect(toolResultMessages.length).toBeGreaterThan(0)
   })
 
   it('should handle write_file tool call', async () => {

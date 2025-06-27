@@ -12,8 +12,12 @@ import { cyan, green, red, yellow } from 'picocolors'
 import { getRgPath } from './native/ripgrep'
 import { logger } from './utils/logger'
 
+import { SHOULD_ASK_CONFIG } from '@codebuff/common/constants'
 import { ToolCall } from '@codebuff/common/types/session-state'
 import { handleBrowserInstruction } from './browser-runner'
+import { waitForPreviousCheckpoint } from './cli-handlers/checkpoint'
+import { Client } from './client'
+import { DiffManager } from './diff-manager'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/base'
 import { Spinner } from './utils/spinner'
@@ -33,9 +37,13 @@ export const handleUpdateFile: ToolHandler<{
   const projectPath = getProjectRoot()
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
+
+  await waitForPreviousCheckpoint()
   const { created, modified, ignored, invalid } = applyChanges(projectPath, [
     fileChange,
   ])
+  DiffManager.addChange(fileChange)
+
   let result: string[] = []
 
   for (const file of created) {
@@ -93,7 +101,7 @@ export const handleRunTerminalCommand = async (
     mode?: 'user' | 'assistant'
     process_type?: 'SYNC' | 'BACKGROUND'
     cwd?: string
-    timeout_seconds?: string
+    timeout_seconds?: number
   },
   id: string
 ): Promise<{ result: string; stdout: string }> => {
@@ -102,24 +110,12 @@ export const handleRunTerminalCommand = async (
     mode = 'assistant',
     process_type = 'SYNC',
     cwd,
-    timeout_seconds = '30',
+    timeout_seconds = 30,
   } = parameters
-  let timeout_seconds_num: number
-  try {
-    timeout_seconds_num = parseInt(timeout_seconds)
-  } catch (error) {
-    logger.error(
-      {
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-        timeout_seconds,
-      },
-      'Failed to parse timeout_seconds'
-    )
-    return {
-      result: `Could not parse timeout_seconds: ${error instanceof Error ? error.message : error}`,
-      stdout: '',
-    }
+
+  await waitForPreviousCheckpoint()
+  if (mode === 'assistant' && process_type === 'BACKGROUND') {
+    Client.getInstance().oneTimeFlags[SHOULD_ASK_CONFIG] = true
   }
 
   return runTerminalCommand(
@@ -127,7 +123,7 @@ export const handleRunTerminalCommand = async (
     command,
     mode,
     process_type.toUpperCase() as 'SYNC' | 'BACKGROUND',
-    timeout_seconds_num,
+    timeout_seconds,
     cwd
   )
 }

@@ -41,6 +41,7 @@ import { handleInitializationFlowLocally } from './cli-handlers/inititalization-
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
+import { DiffManager } from './diff-manager'
 import { disableSquashNewlines, enableSquashNewlines } from './display'
 import { loadCodebuffConfig } from './json-config/parser'
 import {
@@ -495,11 +496,6 @@ export class CLI {
     }
   }
 
-  public async printDiff() {
-    handleDiff(Client.getInstance().lastChanges)
-    this.freshPrompt()
-  }
-
   private async handleLine(line: string) {
     this.detectPasting()
     if (this.isPasting) {
@@ -712,7 +708,7 @@ export class CLI {
       return null
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {
-      handleDiff(Client.getInstance().lastChanges)
+      handleDiff()
       this.freshPrompt()
       return null
     }
@@ -812,6 +808,8 @@ export class CLI {
     Spinner.get().start('Thinking...')
 
     this.isReceivingResponse = true
+
+    DiffManager.startUserInput()
 
     const { responsePromise, stopResponse } =
       await Client.getInstance().sendUserInput(cleanedInput)

@@ -7,13 +7,13 @@ import {
 } from '@codebuff/common/types/session-state'
 import { WebSocket } from 'ws'
 
-import { generateCompactId } from '@codebuff/common/util/string'
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
-import { agentTemplates } from './templates/agent-list'
 import { ClientToolCall } from './tools'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
+import { renderToolResults } from './util/parse-tool-call-xml'
+import { requestToolCall } from './websockets/websocket-action'
 
 export interface MainPromptOptions {
   userId: string | undefined
@@ -60,6 +60,22 @@ export const mainPrompt = async (
         },
         `Detected terminal command in ${duration}ms, executing directly: ${prompt}`
       )
+
+      const response = await requestToolCall(ws, 'run_terminal_command', {
+        command: terminalCommand,
+        mode: 'user',
+        process_type: 'SYNC',
+        timeout_seconds: -1,
+      })
+
+      const toolResult = response.success ? response.result : response.error
+      if (response.success) {
+        mainAgentState.messageHistory.push({
+          role: 'user',
+          content: renderToolResults([toolResult]),
+        })
+      }
+
       const newSessionState = {
         ...sessionState,
         messageHistory: expireMessages(
@@ -67,20 +83,10 @@ export const mainPrompt = async (
           'userPrompt'
         ),
       }
+
       return {
         sessionState: newSessionState,
-        toolCalls: [
-          {
-            toolName: 'run_terminal_command',
-            toolCallId: generateCompactId(),
-            args: {
-              command: terminalCommand,
-              mode: 'user',
-              process_type: 'SYNC',
-              timeout_seconds: -1,
-            },
-          },
-        ],
+        toolCalls: [],
         toolResults: [],
       }
     }
@@ -96,7 +102,7 @@ export const mainPrompt = async (
     } satisfies Record<CostMode, AgentTemplateType>
   )[costMode]
 
-  const { agentState, hasEndTurn } = await loopAgentSteps(ws, {
+  const { agentState } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,
     params: undefined,
@@ -115,15 +121,7 @@ export const mainPrompt = async (
       fileContext,
       mainAgentState: agentState,
     },
-    toolCalls: hasEndTurn
-      ? [
-          {
-            toolName: 'end_turn' as const,
-            toolCallId: generateCompactId(),
-            args: {},
-          },
-        ]
-      : [],
+    toolCalls: [],
     toolResults: [],
   }
 }

@@ -1,7 +1,8 @@
-import { FileChange } from '@codebuff/common/actions'
 import { bold, cyan, green, red, yellow } from 'picocolors'
+import { DiffManager } from '../diff-manager'
 
-export function handleDiff(lastChanges: FileChange[]) {
+export function handleDiff() {
+  const lastChanges = DiffManager.getChanges()
   if (lastChanges.length === 0) {
     console.log(yellow('No changes found in the last assistant response.'))
     return

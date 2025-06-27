@@ -9,6 +9,7 @@ import {
 import { SessionState, ToolResult } from '@codebuff/common/types/session-state'
 import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 
+import { DiffManager } from '../diff-manager'
 import { getProjectRoot } from '../project-files'
 import { gitCommandIsAvailable } from '../utils/git'
 import { logger } from '../utils/logger'
@@ -63,6 +64,7 @@ interface WorkerResponse {
 export interface Checkpoint {
   sessionStateString: string
   lastToolResultsString: string
+  userInputChangesString: string
   /** Promise resolving to the git commit hash for this checkpoint */
   fileStateIdPromise: Promise<string>
   /** Number of messages in the agent's history at checkpoint time */
@@ -244,6 +246,7 @@ export class CheckpointManager {
     const checkpoint: Checkpoint = {
       sessionStateString: JSON.stringify(sessionState),
       lastToolResultsString: JSON.stringify(lastToolResults),
+      userInputChangesString: JSON.stringify(DiffManager.getChanges()),
       fileStateIdPromise,
       historyLength: sessionState.mainAgentState.messageHistory.length,
       id,
@@ -313,6 +316,8 @@ export class CheckpointManager {
     if (resetUndoIds) {
       this.undoIds = []
     }
+
+    DiffManager.setChanges(JSON.parse(checkpoint.userInputChangesString))
   }
 
   async restoreUndoCheckpoint(): Promise<void> {

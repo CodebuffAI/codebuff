@@ -1,7 +1,5 @@
 import {
   ClientAction,
-  FileChanges,
-  FileChangeSchema,
   InitResponseSchema,
   MessageCostResponseSchema,
   PromptResponseSchema,
@@ -60,9 +58,9 @@ import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CLI } from './cli'
-import { waitForPreviousCheckpoint } from './cli-handlers/checkpoint'
 import { backendUrl, npmAppVersion, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
+import { DiffManager } from './diff-manager'
 import { calculateFingerprint } from './fingerprint'
 import { runFileChangeHooks } from './json-config/hooks'
 import { loadCodebuffConfig } from './json-config/parser'
@@ -142,15 +140,7 @@ export class Client {
   private reconnectWhenNextIdle: () => void
   private fingerprintId!: string | Promise<string>
   private costMode: CostMode
-  private hadFileChanges: boolean = false
-  private git: GitCommand
   private responseComplete: boolean = false
-  private responseBuffer: string = ''
-  private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
-    Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
-      (typeof ONE_TIME_LABELS)[number],
-      boolean
-    >
 
   public usageData: UsageData = {
     usage: 0,
@@ -160,8 +150,6 @@ export class Client {
   }
   public pendingTopUpMessageAmount: number = 0
   public fileContext: ProjectFileContext | undefined
-  public lastChanges: FileChanges = []
-  public filesChangedForHook: string[] = []
   public sessionState: SessionState | undefined
   public originalFileVersions: Record<string, string | null> = {}
   public creditsByPromptId: Record<string, number[]> = {}
@@ -170,6 +158,11 @@ export class Client {
   public storedApiKeyTypes: ApiKeyType[] = []
   public lastToolResults: ToolResult[] = []
   public model: string | undefined
+  public oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
+    Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
+      (typeof ONE_TIME_LABELS)[number],
+      boolean
+    >
 
   private constructor({
     websocketUrl,
@@ -178,12 +171,10 @@ export class Client {
     freshPrompt,
     reconnectWhenNextIdle,
     costMode,
-    git,
     model,
   }: ClientOptions) {
     this.costMode = costMode
     this.model = model
-    this.git = git
     this.webSocket = new APIRealtimeClient(
       websocketUrl,
       onWebSocketError,
@@ -244,7 +235,7 @@ export class Client {
     if (!this.fileContext) return
     this.initSessionState(this.fileContext)
     this.lastToolResults = []
-    this.lastChanges = []
+    DiffManager.clearAllChanges()
     this.creditsByPromptId = {}
     checkpointManager.clearCheckpoints(true)
     setMessages([])
@@ -727,7 +718,7 @@ export class Client {
     // Handle backend-initiated tool call requests
     this.webSocket.subscribe('tool-call-request', async (action) => {
       const { requestId, toolName, args, timeout } = action
-      
+
       try {
         // Execute the tool call using existing tool handlers
         const toolCall = {
@@ -735,9 +726,9 @@ export class Client {
           toolName,
           args,
         }
-        
+
         const toolResult = await handleToolCall(toolCall as any)
-        
+
         // Send successful response back to backend
         this.webSocket.sendAction({
           type: 'tool-call-response',
@@ -888,8 +879,8 @@ export class Client {
 
     this.sessionState.mainAgentState.stepsRemaining =
       loadCodebuffConfig().maxAgentSteps
-    this.lastChanges = []
-    this.filesChangedForHook = []
+
+    this.sessionState.fileContext.cwd = getWorkingDirectory()
 
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
@@ -904,6 +895,7 @@ export class Client {
     const { responsePromise, stopResponse } = f(
       (chunk) => {
         Spinner.get().stop()
+        DiffManager.receivedResponse()
         process.stdout.write(chunk)
       },
       userInputId,
@@ -942,7 +934,6 @@ export class Client {
       authToken: this.user?.authToken,
       costMode: this.costMode,
       model: this.model,
-      cwd: getWorkingDirectory(),
       repoUrl: loggerContext.repoUrl,
       repoName: loggerContext.repoName,
     }
@@ -965,7 +956,6 @@ export class Client {
     startTime: number
   ) {
     const rawChunkBuffer: string[] = []
-    this.responseBuffer = ''
     let streamStarted = false
     let responseStopped = false
     let resolveResponse: (
@@ -1095,91 +1085,35 @@ export class Client {
         }
         if (action.promptId !== userInputId) return
         const a = parsedAction.data
-        let isComplete = false
+        this.responseComplete = true
 
         Spinner.get().stop()
 
         this.sessionState = a.sessionState
-        const toolResults: ToolResult[] = [...a.toolResults]
+        const toolResults: ToolResult[] = []
 
-        for (const toolCall of a.toolCalls) {
-          try {
-            if (toolCall.toolName === 'end_turn') {
-              this.responseComplete = true
-              isComplete = true
-              continue
-            }
-            if (
-              toolCall.toolName === 'write_file' ||
-              toolCall.toolName === 'str_replace' ||
-              toolCall.toolName === 'create_plan'
-            ) {
-              await waitForPreviousCheckpoint()
-              // Save lastChanges for `diff` command
-              this.lastChanges.push(FileChangeSchema.parse(toolCall.args))
-              this.hadFileChanges = true
-              // Track the changed file path
-              this.filesChangedForHook.push(toolCall.args.path)
-            }
-            if (toolCall.toolName === 'run_terminal_command') {
-              await waitForPreviousCheckpoint()
-              if (toolCall.args.mode === 'user') {
-                // Special case: when terminal command is run as a user command, then no need to reprompt assistant.
-                this.responseComplete = true
-                isComplete = true
-              }
-              if (
-                toolCall.args.mode === 'assistant' &&
-                toolCall.args.process_type === 'BACKGROUND'
-              ) {
-                this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
-              }
-            }
-            const toolResult = await handleToolCall(toolCall)
-            toolResults.push(toolResult)
-          } catch (error) {
-            logger.error(
-              {
-                errorMessage:
-                  error instanceof Error ? error.message : String(error),
-                errorStack: error instanceof Error ? error.stack : undefined,
-                toolCallName: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-              },
-              'Error parsing tool call'
-            )
-            console.error(
-              '\n\n' +
-                red(`Error parsing tool call ${toolCall.toolName}:\n${error}`) +
-                '\n'
-            )
-          }
-        }
         stepsCount++
-        toolCallsCount += a.toolCalls.length
-        if (a.toolCalls.length === 0 && a.toolResults.length === 0) {
-          this.responseComplete = true
-          isComplete = true
-        }
         console.log('\n')
 
         // If we had any file changes, update the project context
-        if (this.hadFileChanges) {
+        if (DiffManager.getChanges().length > 0) {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
         }
 
-        if (this.filesChangedForHook.length > 0 && isComplete) {
+        const hookFiles = DiffManager.getHookFiles()
+        if (hookFiles.length > 0 && this.responseComplete) {
           // Run file change hooks with the actual changed files
           const { toolResults: hookToolResults, someHooksFailed } =
-            await runFileChangeHooks(this.filesChangedForHook)
+            await runFileChangeHooks(hookFiles)
           toolResults.push(...hookToolResults)
           if (someHooksFailed) {
-            isComplete = false
+            this.responseComplete = false
           }
-          this.filesChangedForHook = []
+          // Clear the hook files from the manager
+          DiffManager.clearHookFiles()
         }
 
-        if (!isComplete) {
+        if (!this.responseComplete) {
           // Append process updates to existing tool results
           toolResults.push(...getBackgroundProcessUpdates())
           this.sessionState.fileContext.cwd = getWorkingDirectory()
@@ -1245,7 +1179,7 @@ Go to https://www.codebuff.com/config for more information.`) +
           )
         }
 
-        if (this.hadFileChanges) {
+        if (DiffManager.getChanges().length > 0) {
           let checkpointAddendum = ''
           try {
             checkpointAddendum = ` or "checkpoint ${checkpointManager.getLatestCheckpoint().id}" to revert`
@@ -1263,7 +1197,6 @@ Go to https://www.codebuff.com/config for more information.`) +
           console.log(
             `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n`
           )
-          this.hadFileChanges = false
           this.freshPrompt()
         }
 
