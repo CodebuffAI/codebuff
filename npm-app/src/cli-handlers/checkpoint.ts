@@ -258,6 +258,7 @@ export async function saveCheckpoint(
 
   Spinner.get().start('Loading Files...')
   await readyPromise
+  Spinner.get().stop()
 
   Spinner.get().start('Saving...')
   await waitForPreviousCheckpoint()

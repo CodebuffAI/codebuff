@@ -810,6 +810,9 @@ export class CLI {
     const cleanedInput = this.cleanCommandInput(promptContent)
 
     await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
+    
+    // Ensure spinner is properly stopped before starting "Thinking..."
+    Spinner.get().stop()
     Spinner.get().start('Thinking...')
 
     this.isReceivingResponse = true
