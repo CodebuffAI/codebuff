@@ -18,7 +18,7 @@ import { WebSocket } from 'ws'
 
 import { mainPrompt } from '../main-prompt'
 import { logger, withLoggerContext } from '../util/logger'
-import { renderToolResults } from '../util/parse-tool-call-xml'
+import { asSystemMessage } from '../util/messages'
 import { protec } from './middleware'
 import { sendMessage } from './server'
 
@@ -187,13 +187,9 @@ const onPrompt = async (
             role: 'user' as const,
             content: prompt,
           },
-          toolResults.length > 0 && {
-            role: 'user' as const,
-            content: renderToolResults(toolResults),
-          },
           {
-            role: 'assistant' as const,
-            content: response,
+            role: 'user' as const,
+            content: asSystemMessage(`Received error from server: ${response}`),
           }
         )
 
