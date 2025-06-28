@@ -141,7 +141,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     requestId: z.string(),
     toolName: z.string(),
     args: z.record(z.any()),
-    timeout: z.number().optional().default(30000), // Timeout in milliseconds
+    timeout: z.number().optional(),
   }),
   z.object({
     type: z.literal('tool-call'),

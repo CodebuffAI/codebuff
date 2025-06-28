@@ -419,20 +419,24 @@ export async function requestToolCall<T = any>(
 ): Promise<{ success: boolean; result?: T; error?: string }> {
   return new Promise((resolve, reject) => {
     const requestId = generateCompactId()
-    const timeoutInSeconds = args.timeout_seconds || 30
+    const timeoutInSeconds =
+      (args.timeout_seconds || 30) < 0 ? undefined : args.timeout_seconds || 30
 
     // Set up timeout
-    const timeoutHandle = setTimeout(
-      () => {
-        unsubscribe()
-        reject(
-          new Error(
-            `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`
+    const timeoutHandle =
+      timeoutInSeconds === undefined
+        ? undefined
+        : setTimeout(
+            () => {
+              unsubscribe()
+              reject(
+                new Error(
+                  `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`
+                )
+              )
+            },
+            timeoutInSeconds * 1000 + 5000 // Convert to ms and add a small buffer
           )
-        )
-      },
-      timeoutInSeconds * 1000 + 5000 // Convert to ms and add a small buffer
-    )
 
     // Subscribe to response
     const unsubscribe = subscribeToAction('tool-call-response', (action) => {
@@ -453,7 +457,8 @@ export async function requestToolCall<T = any>(
       requestId,
       toolName,
       args,
-      timeout: timeoutInSeconds * 1000, // Send timeout in milliseconds
+      timeout:
+        timeoutInSeconds === undefined ? undefined : timeoutInSeconds * 1000, // Send timeout in milliseconds
     })
   })
 }
