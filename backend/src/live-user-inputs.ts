@@ -16,5 +16,5 @@ export function checkLiveUserInput(
   if (!userId) {
     return false
   }
-  return live[userId] === userInputId
+  return userInputId.startsWith(live[userId])
 }
