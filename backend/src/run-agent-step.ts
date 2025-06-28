@@ -998,6 +998,9 @@ export const runAgentStep = async (
             )
             const lastAssistantMessage =
               assistantMessages[assistantMessages.length - 1]
+            if (!lastAssistantMessage) {
+              return 'No response from agent'
+            }
             if (typeof lastAssistantMessage.content === 'string') {
               return lastAssistantMessage.content
             } else {
