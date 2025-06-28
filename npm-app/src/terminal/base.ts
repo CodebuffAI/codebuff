@@ -208,6 +208,7 @@ export const isCommandRunning = () => {
 
 export const recreateShell = async (cwd: string, forceChildProcess = false) => {
   persistentProcess = await createPersistantProcess(cwd, forceChildProcess)
+  trackEvent(AnalyticsEvent.SHELL_RECREATED, { persistentProcess })
 }
 
 export const resetShell = async (cwd: string) => {
