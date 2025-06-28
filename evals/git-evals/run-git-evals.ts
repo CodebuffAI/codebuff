@@ -28,6 +28,9 @@ import {
   FullEvalLog,
   GitRepoEvalData,
 } from './types'
+import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
+
+disableLiveUserInputCheck()
 
 // Try Gemini!
 const AGENT_TYPE = AgentTemplateTypes.claude4_base

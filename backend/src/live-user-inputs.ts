@@ -1,3 +1,8 @@
+let liveUserInputCheckEnabled = true
+export const disableLiveUserInputCheck = () => {
+  liveUserInputCheckEnabled = false
+}
+
 /** Map from user_id to user_input_id */
 const live: Record<string, string> = {}
 
@@ -13,6 +18,9 @@ export function checkLiveUserInput(
   userId: string | undefined,
   userInputId: string
 ): boolean {
+  if (!liveUserInputCheckEnabled) {
+    return true
+  }
   if (!userId) {
     return false
   }
