@@ -120,6 +120,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   read_docs: {
     ...defaultToolCallRenderer,
   },
+  web_search: {
+    ...defaultToolCallRenderer,
+  },
   find_files: {
     ...defaultToolCallRenderer,
   },
