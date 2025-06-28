@@ -85,15 +85,17 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
 
     onParamEnd: (paramName, toolName, content) => {
-      const files = content
-        .trim()
-        .split('\n')
-        .filter(Boolean)
-        .map((fname) =>
-          isFileIgnored(fname, getProjectRoot())
-            ? strikethrough(fname) + ' (blocked)'
-            : fname
-        )
+      let files: string[] = []
+      try {
+        files = JSON.parse(content)
+      } catch (e) {
+        return null
+      }
+      files = files.map((fname) =>
+        isFileIgnored(fname, getProjectRoot())
+          ? strikethrough(fname) + ' (blocked)'
+          : fname
+      )
       const numFiles = files.length
       const maxInitialFiles = 3
 
