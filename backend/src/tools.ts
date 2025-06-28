@@ -658,8 +658,15 @@ ${getToolCallString('spawn_agents', {
       .object({
         json_update: z
           .record(z.string(), z.any())
+          .optional()
           .describe(
             'JSON object with keys and values to overwrite the existing report. This can be any JSON object with keys and values. Note the values are JSON values, so they can be a nested object or array.'
+          ),
+        add_files: z
+          .array(z.string())
+          .optional()
+          .describe(
+            'Paths to files to add to the report. These will be stored in the report under the keys of the file paths, with the last key being the file name and the value being the file content.'
           ),
       })
       .describe(
@@ -669,11 +676,15 @@ ${getToolCallString('spawn_agents', {
 You must use this tool as it is the only way to report any findings to the user. Nothing else you write will be shown to the user.
 
 Please update the report with all the information and analysis you want to pass on to the user. If you just want to send a simple message, use an object with the key "message" and value of the message you want to send.
-Example:
+Examples:
 ${getToolCallString('update_report', {
-  jsonUpdate: {
+  json_update: {
     message: 'I found a bug in the code!',
   },
+})}
+
+${getToolCallString('update_report', {
+  add_files: ['src/auth.ts', 'src/user.ts'],
 })}
     `.trim(),
   },

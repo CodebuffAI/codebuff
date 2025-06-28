@@ -42,6 +42,7 @@ import {
   ClientToolCall,
   CodebuffToolCall,
   parseRawToolCall,
+  readFiles,
   TOOL_LIST,
   ToolName,
   toolParams,
@@ -935,42 +936,178 @@ export const runAgentStep = async (
 
       const reports = results.map((result) => {
         if (result.status === 'fulfilled') {
-          if (agentTemplate.outputMode === 'report') {
-            return JSON.stringify(result.value.agentState.report, null, 2)
+          const { agentState } = result.value
+          return agentState.report
+        }
+        return {}
+      }) as Record<string, any>[]
+
+      // Implement deduplication logic
+      const seenFiles = new Set<string>()
+      const deduplicatedReports = reports.map((report) => {
+        if (!report.FILES || !Array.isArray(report.FILES.fileList))
+          return report
+
+        const deduplicatedReport = { ...report }
+        const currentFileList = report.FILES.fileList as string[]
+
+        // Check for duplicates and replace with stub messages
+        for (const filePath of currentFileList) {
+          if (seenFiles.has(filePath)) {
+            // Replace duplicate file content with stub message
+            const pathParts = filePath.split('/')
+            let current: any = deduplicatedReport.FILES.structure
+
+            // Navigate to the file location in the report structure
+            for (let i = 0; i < pathParts.length - 1; i++) {
+              const part = pathParts[i]
+              if (current[part] && typeof current[part] === 'object') {
+                current = current[part]
+              }
+            }
+
+            // Replace the file content with a stub message
+            const fileName = pathParts[pathParts.length - 1]
+            if (current[fileName]) {
+              current[fileName] =
+                `[File content omitted - already included in previous agent report]`
+            }
           } else {
-            const { agentState } = result.value
+            seenFiles.add(filePath)
+          }
+        }
+
+        return deduplicatedReport
+      })
+
+      const renderedReports = results.map((result, i) => {
+        if (result.status === 'fulfilled') {
+          const { agentState } = result.value
+          const report = deduplicatedReports[i]
+          if (agentTemplate.outputMode === 'report') {
+            return JSON.stringify(report, null, 2)
+          } else {
             const assistantMessages = agentState.messageHistory.filter(
               (message) => message.role === 'assistant'
             )
             const lastAssistantMessage =
               assistantMessages[assistantMessages.length - 1]
-            if (typeof lastAssistantMessage.content === 'string') {
-              return lastAssistantMessage.content
-            } else {
-              return JSON.stringify(lastAssistantMessage.content, null, 2)
+            const lastResponse =
+              typeof lastAssistantMessage.content === 'string'
+                ? lastAssistantMessage.content
+                : JSON.stringify(lastAssistantMessage.content, null, 2)
+            if (Object.keys(report).length > 0) {
+              return `${lastResponse}\n\n${JSON.stringify(report, null, 2)}`
             }
+            return lastResponse
           }
         } else {
           return `Error spawning agent: ${result.reason}`
         }
       })
+      logger.debug({ reports: renderedReports }, 'Spawn agents results')
+      const allFiles = deduplicatedReports
+        .flatMap((report: Record<string, any>) => {
+          if (report.FILES && report.FILES.fileList) {
+            return report.FILES.fileList
+          }
+          return []
+        })
+        .filter(Boolean) as string[]
+
+      if (allFiles.length > 0) {
+        onResponseChunk(
+          `\n\n ${getToolCallString('read_files', {
+            paths: allFiles.join('\n'),
+          })}`
+        )
+      }
 
       serverToolResults.push({
         toolName: 'spawn_agents',
         toolCallId: toolCall.toolCallId,
-        result: reports
+        result: renderedReports
           .map((report: string) => `<agent_report>${report}</agent_report>`)
           .join('\n'),
       })
     } else if (toolCall.toolName === 'update_report') {
-      const { json_update: jsonUpdate } = toolCall.args
+      const { json_update: jsonUpdate, add_files: addFiles } = toolCall.args
+
+      // Parse addFiles if it's a string, otherwise use it directly
+      let filePaths: string[] = []
+      if (addFiles) {
+        if (typeof addFiles === 'string') {
+          try {
+            filePaths = JSON.parse(addFiles)
+          } catch (error) {
+            logger.error(
+              { error, addFiles },
+              'Failed to parse add_files as JSON'
+            )
+            filePaths = []
+          }
+        } else if (Array.isArray(addFiles)) {
+          filePaths = addFiles
+        }
+      }
+
+      // Read files if add_files is provided
+      const files =
+        filePaths.length > 0
+          ? await readFiles(filePaths, fileContext.projectRoot)
+          : {}
+
+      // Get existing FILES structure or create new one
+      const existingFiles = (agentState.report as any).FILES || {}
+      const fileStructure: Record<string, any> = {
+        ...(existingFiles.structure || {}),
+      }
+      const fileList: string[] = [...(existingFiles.fileList || [])]
+
+      for (const [filePath, content] of Object.entries(files)) {
+        if (content !== null) {
+          fileList.push(filePath)
+
+          // Create nested structure based on path directories
+          const pathParts = filePath.split('/')
+          let current = fileStructure
+
+          // Navigate/create the directory structure
+          for (let i = 0; i < pathParts.length - 1; i++) {
+            const part = pathParts[i]
+            if (!current[part]) {
+              current[part] = {}
+            }
+            current = current[part]
+          }
+
+          // Store the file content at the final key (filename)
+          const fileName = pathParts[pathParts.length - 1]
+          current[fileName] = content
+        }
+      }
+
+      // Update the report with json_update and FILES structure
       agentState.report = {
         ...agentState.report,
         ...jsonUpdate,
+        ...(Object.keys(fileStructure).length > 0 || fileList.length > 0
+          ? {
+              FILES: {
+                structure: fileStructure,
+                fileList,
+              },
+            }
+          : {}),
       }
+
       logger.debug(
         {
           jsonUpdate,
+          addFiles,
+          filePaths,
+          fileList,
+          newReport: agentState.report,
           agentType: agentState.agentType,
           agentId: agentState.agentId,
         },
