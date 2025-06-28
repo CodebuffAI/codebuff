@@ -12,6 +12,9 @@ import * as analytics from '@codebuff/common/analytics'
 import * as linkupApi from '../llm-apis/linkup-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import * as websocketAction from '../websockets/websocket-action'
+import * as checkTerminalCommandModule from '../check-terminal-command'
+import * as requestFilesPrompt from '../find-files/request-files-prompt'
+import * as liveUserInputs from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
 
 // Mock logger
@@ -26,6 +29,12 @@ mock.module('../util/logger', () => ({
 }))
 
 describe('web_search tool', () => {
+  const mockAgentStream = (streamOutput: string) => {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield streamOutput
+    })
+  }
+
   beforeEach(() => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
@@ -43,6 +52,22 @@ describe('web_search tool', () => {
 
     // Mock LLM APIs
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() => Promise.resolve('Test response'))
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield 'Test response'
+      return
+    })
+
+    // Mock other required modules
+    spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
+      async () => []
+    )
+    spyOn(
+      checkTerminalCommandModule,
+      'checkTerminalCommand'
+    ).mockImplementation(async () => null)
+    
+    // Mock live user inputs
+    spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
   })
 
   afterEach(() => {
@@ -103,9 +128,7 @@ describe('web_search tool', () => {
       query: 'Next.js 15 new features',
     }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -138,10 +161,9 @@ describe('web_search tool', () => {
 
     // Check that the search results were added to the message history
     const toolResultMessages = newSessionState.mainAgentState.messageHistory.filter(
-      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('web_search')
+      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('Found 2 search results')
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain('Found 2 search results')
     expect(toolResultMessages[0].content).toContain('Next.js 15 Release Notes')
     expect(toolResultMessages[0].content).toContain('https://nextjs.org/blog/next-15')
   })
@@ -165,9 +187,7 @@ describe('web_search tool', () => {
       max_results: 3,
     }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -208,9 +228,7 @@ describe('web_search tool', () => {
       query: 'very obscure search query that returns nothing',
     }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -235,7 +253,7 @@ describe('web_search tool', () => {
 
     // Check that the "no results found" message was added
     const toolResultMessages = newSessionState.mainAgentState.messageHistory.filter(
-      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('web_search')
+      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('No search results found')
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[0].content).toContain('No search results found for "very obscure search query that returns nothing"')
@@ -255,9 +273,7 @@ describe('web_search tool', () => {
       query: 'test query',
     }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -282,7 +298,7 @@ describe('web_search tool', () => {
 
     // Check that the error message was added
     const toolResultMessages = newSessionState.mainAgentState.messageHistory.filter(
-      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('web_search')
+      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('Error performing web search')
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[0].content).toContain('Error performing web search for "test query"')
@@ -298,9 +314,7 @@ describe('web_search tool', () => {
       query: 'test query',
     }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -325,7 +339,7 @@ describe('web_search tool', () => {
 
     // Check that the "no results found" message was added
     const toolResultMessages = newSessionState.mainAgentState.messageHistory.filter(
-      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('web_search')
+      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('No search results found')
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[0].content).toContain('No search results found for "test query"')
@@ -342,9 +356,7 @@ describe('web_search tool', () => {
       query: 'test query',
     }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -369,7 +381,7 @@ describe('web_search tool', () => {
 
     // Check that the generic error message was added
     const toolResultMessages = newSessionState.mainAgentState.messageHistory.filter(
-      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('web_search')
+      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('Error performing web search')
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[0].content).toContain('Error performing web search for "test query"')
@@ -398,9 +410,7 @@ describe('web_search tool', () => {
       query: 'test formatting',
     }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -424,9 +434,10 @@ describe('web_search tool', () => {
     )
 
     const toolResultMessages = newSessionState.mainAgentState.messageHistory.filter(
-      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('web_search')
+      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('Found 2 search results')
     )
     
+    expect(toolResultMessages.length).toBeGreaterThan(0)
     const resultContent = toolResultMessages[0].content
     
     // Check formatting

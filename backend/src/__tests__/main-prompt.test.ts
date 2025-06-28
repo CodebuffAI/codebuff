@@ -16,6 +16,7 @@ import { WebSocket } from 'ws'
 // Mock imports
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
+import * as liveUserInputs from '../live-user-inputs'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
@@ -126,6 +127,9 @@ describe('mainPrompt', () => {
       getDocumentationForQueryModule,
       'getDocumentationForQuery'
     ).mockImplementation(async () => null)
+
+    // Mock live user inputs
+    spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
   })
 
   afterEach(() => {

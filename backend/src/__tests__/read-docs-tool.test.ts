@@ -9,6 +9,9 @@ import * as analytics from '@codebuff/common/analytics'
 import * as context7Api from '../llm-apis/context7-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import * as websocketAction from '../websockets/websocket-action'
+import * as checkTerminalCommandModule from '../check-terminal-command'
+import * as requestFilesPrompt from '../find-files/request-files-prompt'
+import * as liveUserInputs from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
 
 // Mock logger
@@ -40,6 +43,22 @@ describe('read_docs tool', () => {
 
     // Mock LLM APIs
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() => Promise.resolve('Test response'))
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield 'Test response'
+      return
+    })
+
+    // Mock other required modules
+    spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
+      async () => []
+    )
+    spyOn(
+      checkTerminalCommandModule,
+      'checkTerminalCommand'
+    ).mockImplementation(async () => null)
+    
+    // Mock live user inputs
+    spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
   })
 
   afterEach(() => {
