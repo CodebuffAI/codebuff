@@ -3,10 +3,6 @@ import * as os from 'os'
 import path from 'path'
 import { green } from 'picocolors'
 
-import { loadBunPty } from '../native/pty'
-type IPty = ReturnType<
-  NonNullable<Awaited<ReturnType<typeof loadBunPty>>>['spawn']
->
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { buildArray } from '@codebuff/common/util/array'
 import { isSubdir } from '@codebuff/common/util/file'
@@ -15,6 +11,10 @@ import {
   suffixPrefixOverlap,
   truncateStringWithMessage,
 } from '@codebuff/common/util/string'
+import { loadBunPty } from '../native/pty'
+type IPty = ReturnType<
+  NonNullable<Awaited<ReturnType<typeof loadBunPty>>>['spawn']
+>
 
 import {
   getProjectRoot,
@@ -410,6 +410,10 @@ function runSinglePtyCommand(
         dataDisposable.dispose()
 
         resolve({ filteredOutput, fullOutput })
+        trackEvent(AnalyticsEvent.TERMINAL_COMMAND_COMPLETED_SINGLE, {
+          command,
+          persistentProcess,
+        })
       }
     })
   })
