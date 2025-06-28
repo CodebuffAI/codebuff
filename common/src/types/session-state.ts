@@ -24,7 +24,7 @@ export const AgentStateSchema: z.ZodType<{
   subagents: AgentState[]
   messageHistory: CodebuffMessage[]
   stepsRemaining: number
-  report: Record<string, string>
+  report: Record<string, any>
 }> = z.lazy(() =>
   z.object({
     agentId: z.string(),
