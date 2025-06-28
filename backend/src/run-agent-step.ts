@@ -29,6 +29,7 @@ import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
+import { checkLiveUserInput } from './live-user-inputs'
 import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
 import { searchWeb } from './llm-apis/linkup-api'
 import { processFileBlock } from './process-file-block'
@@ -1157,6 +1158,9 @@ export const runAgentStep = async (
   }
 
   for (const clientToolCall of clientToolCalls) {
+    if (!checkLiveUserInput(userId, userInputId)) {
+      return { agentState, fullResponse: '', shouldEndTurn: true }
+    }
     const result = await requestToolCall(
       ws,
       clientToolCall.toolName,
@@ -1502,7 +1506,7 @@ export const loopAgentSteps = async (
     ? undefined
     : initialAssistantPrefix
   let currentAgentState = agentState
-  while (true) {
+  while (checkLiveUserInput(userId, userInputId)) {
     const {
       agentState: newAgentState,
       fullResponse,
@@ -1571,4 +1575,6 @@ export const loopAgentSteps = async (
     currentAgentState = newAgentState
     isFirstStep = false
   }
+
+  return { agentState }
 }
