@@ -579,8 +579,9 @@ export const runAgentStep = async (
 
           if (searchResults && searchResults.length > 0) {
             const formattedResults = searchResults
-              .map((result, index) => 
-                `${index + 1}. **${result.title}**\n   URL: ${result.url}\n   ${result.content}\n`
+              .map(
+                (result, index) =>
+                  `${index + 1}. **${result.title}**\n   URL: ${result.url}\n   ${result.content}\n`
               )
               .join('\n')
 
@@ -991,7 +992,7 @@ export const runAgentStep = async (
         if (result.status === 'fulfilled') {
           if (agentTemplate.outputMode === 'report') {
             return JSON.stringify(result.value.agentState.report, null, 2)
-          } else {
+          } else if (agentTemplate.outputMode === 'last_message') {
             const { agentState } = result.value
             const assistantMessages = agentState.messageHistory.filter(
               (message) => message.role === 'assistant'
@@ -1006,7 +1007,15 @@ export const runAgentStep = async (
             } else {
               return JSON.stringify(lastAssistantMessage.content, null, 2)
             }
+          } else if (agentTemplate.outputMode === 'all_messages') {
+            const { agentState } = result.value
+            const preExistingMessageCount = agentMessages.length
+            const newMessages = agentState.messageHistory.slice(
+              preExistingMessageCount
+            )
+            return `Agent messages:\n\n${JSON.stringify(newMessages, null, 2)}`
           }
+          throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
         } else {
           return `Error spawning agent: ${result.reason}`
         }
