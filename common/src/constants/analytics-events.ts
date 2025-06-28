@@ -20,6 +20,7 @@ export enum AnalyticsEvent {
   SLASH_MENU_ACTIVATED = 'cli.slash_menu_activated',
   SLASH_COMMAND_USED = 'cli.slash_command_used',
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
+  TERMINAL_COMMAND_COMPLETED_SINGLE = 'cli.terminal_command_completed_single',
   USER_INPUT_COMPLETE = 'cli.user_input_complete',
   UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',
 

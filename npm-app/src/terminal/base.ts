@@ -11,6 +11,10 @@ import {
   suffixPrefixOverlap,
   truncateStringWithMessage,
 } from '@codebuff/common/util/string'
+import { loadBunPty } from '../native/pty'
+type IPty = ReturnType<
+  NonNullable<Awaited<ReturnType<typeof loadBunPty>>>['spawn']
+>
 
 import { loadBunPty } from '../native/pty'
 import {
@@ -411,6 +415,10 @@ function runSinglePtyCommand(
         dataDisposable.dispose()
 
         resolve({ filteredOutput, fullOutput })
+        trackEvent(AnalyticsEvent.TERMINAL_COMMAND_COMPLETED_SINGLE, {
+          command,
+          persistentProcess,
+        })
       }
     })
   })
