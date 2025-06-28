@@ -415,7 +415,7 @@ async function checkForUpdates(runningProcess, exitListener) {
       // Restart with new binary - this replaces the current process
       const newChild = spawn(
         CONFIG.binaryPath,
-        [packageName, ...process.argv.slice(2)],
+        process.argv.slice(2),
         {
           stdio: 'inherit',
           detached: false,
@@ -450,7 +450,7 @@ async function main() {
   // Start the binary with codecane argument
   const child = spawn(
     CONFIG.binaryPath,
-    [packageName, ...process.argv.slice(2)],
+    process.argv.slice(2),
     {
       stdio: 'inherit',
     }
