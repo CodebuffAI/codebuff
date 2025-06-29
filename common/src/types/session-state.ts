@@ -46,10 +46,13 @@ export const AgentTemplateTypeList = [
   'gemini25flash_base',
   'claude4_gemini_thinking',
 
-  // Other agents
-  'gemini25pro_thinker',
-  'gemini25flash_file_picker',
+  // Planning / Thinking
   'gemini25pro_planner',
+  'gemini25flash_dry_run',
+  'gemini25pro_thinker',
+
+  // Other agents
+  'gemini25flash_file_picker',
   'gemini25pro_reviewer',
 ] as const
 export const AgentTemplateTypes = Object.fromEntries(

@@ -39,6 +39,8 @@ Then, provide hyper-specific feedback on the file changes made by the assistant,
 - Make sure no sections were deleted that weren't supposed to be deleted.
 - Make sure the new code matches the style of the existing code.
 
+Throughout, you must be very concise and to the point. Do not use unnecessary words.
+
 After providing all your feedback, use the end_turn tool to end your response. Do not attempt to use any tools. You are only providing feedback.`,
 
   agentStepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,

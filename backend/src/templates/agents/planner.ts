@@ -1,38 +1,20 @@
 import { Model } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { z } from 'zod/v4'
 import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  description: 'Agent that formulates a comprehensive plan to a prompt.',
+  description:
+    'Agent that formulates a comprehensive plan to a prompt. Please prompt it with a few ideas and suggestions for the plan.',
   promptSchema: {
     prompt: true,
-    params: z.object({
-      filePaths: z
-        .array(z.string())
-        .optional()
-        .describe('List of relevant file paths to consider in the planning'),
-    }),
+    params: null,
   },
-  outputMode: 'report',
-  includeMessageHistory: false,
-  toolNames: [
-    'read_files',
-    'find_files',
-    'code_search',
-    'read_docs',
-    'run_terminal_command',
-    'think_deeply',
-    'spawn_agents',
-    'update_report',
-    'end_turn',
-  ],
+  outputMode: 'last_message',
+  includeMessageHistory: true,
+  toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
   stopSequences: baseAgentStopSequences,
-  spawnableAgents: [
-    AgentTemplateTypes.gemini25pro_thinker,
-    AgentTemplateTypes.gemini25flash_file_picker,
-  ],
+  spawnableAgents: [AgentTemplateTypes.gemini25flash_dry_run],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
   stepAssistantMessage: '',
@@ -41,12 +23,10 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   systemPrompt: `You are an expert software architect. You are good at creating comprehensive plans to tackle the user request.\n\n${PLACEHOLDER.TOOLS_PROMPT}`,
 
   userInputPrompt: `Steps for your response:
-1. Read the files provided in the filePaths array.
-2. (Optional) Spawn several file picker agents to explore more files to give you a better understanding of the codebase.
-3. (Recommended) Spawn a thinker agent with a prompt to consider specific problems in depth.
-4. Propose several cruxes that could vary the plan. From those cruxes, write out alternative plans.
-7. Use the update_report tool to write out one chosen plan with fleshed out details. Focus primarily on the implementation steps, with special attention to the key design cruxes. Make it easy for a junior developer to implement the plan.
-8. Use the end_turn tool to end your response.`,
-  agentStepPrompt:
-    'Use the update_report tool to write out your final plan when you are ready. Only what is included in the update_report tool call will be sent to the user. Don\'t forget to close the tag for update_report: <update_report><json_update>...</json_update></update_report>',
+1. Use the <think_deeply> tool to think through cruxes for the plan, and tricky cases. Consider alternative approaches. Be sure to close the tool call with </think_deeply>.
+2. Write out your plan in a concise way.
+3. Spawn 1-5 dry run agents to sketch portions of the implementation of the plan. (Important: do not forget to close the tool call with "</spawn_agents>"!)
+4. Synthesize all the information and rewrite the full plan to be the best it can be. Use the end_turn tool.`,
+
+  agentStepPrompt: 'Do not forget to use the end_turn tool to end your response. Make sure the final plan is the best it can be.',
 })

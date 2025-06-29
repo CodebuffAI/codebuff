@@ -896,6 +896,38 @@ export const runAgentStep = async (
       const { agents } = toolCall.args
       const parentAgentTemplate = agentTemplate
 
+      let userMessageWithConversationHistory: CoreMessage | undefined
+
+      const getUserMessageWithConversationHistory = async () => {
+        if (userMessageWithConversationHistory) {
+          return userMessageWithConversationHistory
+        }
+        // We want to include all the latest file changes and other tool results in the passed-on message history.
+        const fileProcessingPromises = Object.values(
+          fileProcessingPromisesByPath
+        ).flat()
+        const fileChanges = await Promise.all(fileProcessingPromises)
+        const fileChangeToolResults = fileChanges.map((result) => ({
+          toolName: result.tool,
+          toolCallId: generateCompactId(),
+          result: 'error' in result ? result.error : JSON.stringify(result),
+        }))
+        const toolResults = [...serverToolResults, ...fileChangeToolResults]
+        const toolResultMessage = {
+          role: 'user' as const,
+          content: renderToolResults(toolResults),
+        }
+        const messageHistory = [
+          ...expireMessages(messagesWithResponse, 'userPrompt'),
+          toolResultMessage,
+        ]
+        userMessageWithConversationHistory = {
+          role: 'user' as const,
+          content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(messageHistory, null, 2)}`,
+        }
+        return userMessageWithConversationHistory
+      }
+
       const results = await Promise.allSettled(
         agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
           if (!(agentTypeStr in agentTemplates)) {
@@ -934,31 +966,9 @@ export const runAgentStep = async (
             { agentTemplate, prompt, params },
             `Spawning agent — ${agentType}`
           )
-          const subAgentMessages = []
+          const subAgentMessages: CoreMessage[] = []
           if (agentTemplate.includeMessageHistory) {
-            // We want to include all the latest file changes and other tool results in the passed-on message history.
-            const fileProcessingPromises = Object.values(
-              fileProcessingPromisesByPath
-            ).flat()
-            const fileChanges = await Promise.all(fileProcessingPromises)
-            const fileChangeToolResults = fileChanges.map((result) => ({
-              toolName: result.tool,
-              toolCallId: generateCompactId(),
-              result: 'error' in result ? result.error : JSON.stringify(result),
-            }))
-            const toolResults = [...serverToolResults, ...fileChangeToolResults]
-            const toolResultMessage = {
-              role: 'user' as const,
-              content: renderToolResults(toolResults),
-            }
-            const messageHistory = [
-              ...expireMessages(messagesWithResponse, 'userPrompt'),
-              toolResultMessage,
-            ]
-            subAgentMessages.push({
-              role: 'user' as const,
-              content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(messageHistory, null, 2)}`,
-            })
+            subAgentMessages.push(await getUserMessageWithConversationHistory())
           }
 
           const agentId = generateCompactId()
@@ -990,6 +1000,8 @@ export const runAgentStep = async (
 
       const reports = results.map((result) => {
         if (result.status === 'fulfilled') {
+          const { agentState } = result.value
+          const agentTemplate = agentTemplates[agentState.agentType!]
           if (agentTemplate.outputMode === 'report') {
             return JSON.stringify(result.value.agentState.report, null, 2)
           } else if (agentTemplate.outputMode === 'last_message') {
@@ -1009,11 +1021,9 @@ export const runAgentStep = async (
             }
           } else if (agentTemplate.outputMode === 'all_messages') {
             const { agentState } = result.value
-            const preExistingMessageCount = agentMessages.length
-            const newMessages = agentState.messageHistory.slice(
-              preExistingMessageCount
-            )
-            return `Agent messages:\n\n${JSON.stringify(newMessages, null, 2)}`
+            // Remove the first message, which includes the previous conversation history.
+            const agentMessages = agentState.messageHistory.slice(1)
+            return `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
           }
           throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
         } else {

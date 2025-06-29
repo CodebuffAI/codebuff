@@ -500,7 +500,6 @@ ${getToolCallString('think_deeply', {
     description: `
 Use when:  
 - User explicitly requests a detailed plan.  
-- Task involves significant architectural or multi-file changes.
 - Use this tool to overwrite a previous plan by using the exact same file name.
 
 Don't include:
@@ -524,7 +523,7 @@ Do not include any of the following sections in the plan:
 - benefits/key improvements
 - next steps
 
-After creating than plan, you should end turn to let the user review the plan.
+After creating the plan, you should end turn to let the user review the plan.
 
 Important: Use this tool sparingly. Do not use this tool more than once in a conversation, unless in ask mode.
 

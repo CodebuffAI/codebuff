@@ -219,7 +219,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
 
       'Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.',
 
-      'It is a good idea to spawn a few file picker agents first to explore the codebase from different perspectives, and then the thinker agent if you need more analysis. Finally, you must spawn the reviewer agent to review your code changes.',
+      'It is a good idea to spawn a few file picker agents first to explore the codebase from different perspectives, and then the planner agent for more analysis. Finally, you must spawn the reviewer agent to review your code changes.',
 
       'Be extremely concise in your replies. Example: If asked what 2+2 equals, respond simply: "4". No need to even write a full sentence.',
 
@@ -254,7 +254,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
 
       'If the user request is very complex, consider invoking think_deeply.',
 
-      "If the user is starting a new feature or refactoring, consider invoking the create_plan tool. Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
+      "If the user asks to create a plan, invoke the create_plan tool. Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
 
       'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
 
@@ -269,7 +269,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
       'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
 
       (isFlash || isGeminiPro) &&
-        'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a few file picker agents first to explore the codebase, and then the planner agent if you need more analysis.',
+        'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a few file picker agents first to explore the codebase, and then the planner agent for more analysis. Finally, you must spawn the reviewer agent to review your code changes.',
 
       'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.'
     ).join('\n\n') +

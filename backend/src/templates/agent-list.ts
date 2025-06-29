@@ -11,6 +11,7 @@ import { thinkingBase } from './agents/thinking-base'
 import { AgentTemplate } from './types'
 import { planner } from './agents/planner'
 import { reviewer } from './agents/reviewer'
+import { dryRun } from './agents/dry-run'
 
 export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   opus4_base: {
@@ -45,6 +46,10 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   gemini25pro_planner: {
     type: AgentTemplateTypes.gemini25pro_planner,
     ...planner(models.gemini2_5_pro_preview),
+  },
+  gemini25flash_dry_run: {
+    type: AgentTemplateTypes.gemini25flash_dry_run,
+    ...dryRun(models.gemini2_5_flash),
   },
   gemini25pro_reviewer: {
     type: AgentTemplateTypes.gemini25pro_reviewer,
