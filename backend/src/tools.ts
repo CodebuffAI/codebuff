@@ -167,7 +167,7 @@ Merely omitting the code block may or may not work. In order to guarantee the de
 
 #### Additional Info
 
-Prefer str_replace to write_file for tiny edits to a file, for deletions, or for editing large files (>1000 lines).
+Prefer str_replace to write_file for small-to-medium edits to a file, for deletions, or for editing large files (>1000 lines). Otherwise, prefer write_file for major edits to a file, or for creating new files.
 
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
@@ -242,21 +242,19 @@ function foo() {
       })
       .describe(`Replace strings in a file with new strings.`),
     description: `
-Use this tool to make edits within existing files, especially for:
-- making tiny edits to a file
-- deleting lines or deleting whole blocks of code
-- editing large files (>1000 lines)
+Use this tool to make edits within existing files. Prefer this tool over the write_file tool for existing files, unless you need to make major changes throughout the file, in which case use write_file.
 
-Otherwise, prefer to use the write_file tool.
+Important:
+If you are making multiple edits in a row to a file, use only one <str_replace> call with multiple replacements instead of multiple str_replace tool calls.
 
-If you are making multiple edits row to a single file with this tool, use only one <str_replace> call (without closing the tool) instead of calling str_replace multiple times on the same file.
+Don't forget to close the <str_replace> tag with </str_replace> after you have finished making all the replacements.
 
 Example:
 ${getToolCallString('str_replace', {
   path: 'path/to/file',
   replacements: [
-    { old: 'old', new: 'new' },
-    { old: 'to_delete', new: '' },
+    { old: 'This is the old string', new: 'This is the new string' },
+    { old: 'line to delete\n', new: '' },
   ],
 })}
     `.trim(),
@@ -698,9 +696,7 @@ ${getToolCallString('end_turn', {})}
         query: z
           .string()
           .min(1, 'Query cannot be empty')
-          .describe(
-            `The search query to find relevant web content`
-          ),
+          .describe(`The search query to find relevant web content`),
         depth: z
           .enum(['standard', 'deep'])
           .optional()
@@ -718,9 +714,7 @@ ${getToolCallString('end_turn', {})}
             `Maximum number of search results to return. Must be between 1 and 10. Default is 5.`
           ),
       })
-      .describe(
-        `Search the web for current information using Linkup API.`
-      ),
+      .describe(`Search the web for current information using Linkup API.`),
     description: `
 Purpose: Search the web for current, up-to-date information on any topic. This tool uses Linkup's web search API to find relevant content from across the internet.
 
