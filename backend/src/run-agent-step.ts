@@ -241,6 +241,13 @@ export const runAgentStep = async (
 
   const hasPrompt = Boolean(prompt || params)
 
+  const agentStepPrompt = getAgentPrompt(
+    agentType,
+    { type: 'agentStepPrompt' },
+    fileContext,
+    agentState
+  )
+
   const agentMessagesUntruncated = buildArray<CodebuffMessage>(
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
 
@@ -279,14 +286,9 @@ export const runAgentStep = async (
       timeToLive: 'userPrompt',
     },
 
-    {
+    agentStepPrompt && {
       role: 'user',
-      content: getAgentPrompt(
-        agentType,
-        { type: 'agentStepPrompt' },
-        fileContext,
-        agentState
-      ),
+      content: agentStepPrompt,
       timeToLive: 'agentStep',
     },
 
