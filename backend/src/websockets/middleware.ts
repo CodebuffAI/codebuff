@@ -1,5 +1,6 @@
 import { ClientAction, ServerAction } from '@codebuff/common/actions'
-import { WebSocket } from 'ws'
+import { ServerWebSocket } from 'bun'
+import { ClientState } from './switchboard'
 
 import { checkAuth } from '../util/check-auth'
 import { logger } from '../util/logger'
@@ -26,7 +27,7 @@ import { withAppContext } from '../context/app-context'
 type MiddlewareCallback = (
   action: ClientAction,
   clientSessionId: string,
-  ws: WebSocket,
+  ws: ServerWebSocket<ClientState>,
   userInfo: UserInfo | undefined
 ) => Promise<void | ServerAction>
 
@@ -37,7 +38,7 @@ export class WebSocketMiddleware {
     callback: (
       action: Extract<ClientAction, { type: T }>,
       clientSessionId: string,
-      ws: WebSocket,
+      ws: ServerWebSocket<ClientState>,
       userInfo: UserInfo | undefined
     ) => Promise<void | ServerAction>
   ) {
@@ -47,7 +48,7 @@ export class WebSocketMiddleware {
   async execute(
     action: ClientAction,
     clientSessionId: string,
-    ws: WebSocket,
+    ws: ServerWebSocket<ClientState>,
     options: { silent?: boolean } = {}
   ): Promise<boolean> {
     const userInfo =
@@ -84,14 +85,14 @@ export class WebSocketMiddleware {
     baseAction: (
       action: Extract<ClientAction, { type: T }>,
       clientSessionId: string,
-      ws: WebSocket
+      ws: ServerWebSocket<ClientState>
     ) => void,
     options: { silent?: boolean } = {}
   ) {
     return async (
       action: Extract<ClientAction, { type: T }>,
       clientSessionId: string,
-      ws: WebSocket
+      ws: ServerWebSocket<ClientState>
     ) => {
       const userInfo =
         'authToken' in action

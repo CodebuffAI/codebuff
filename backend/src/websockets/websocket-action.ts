@@ -14,7 +14,8 @@ import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import { eq } from 'drizzle-orm'
-import { WebSocket } from 'ws'
+import { ServerWebSocket } from 'bun'
+import { ClientState } from './switchboard'
 
 import {
   checkLiveUserInput,
@@ -32,7 +33,7 @@ import { sendMessage } from './server'
  * @param ws - The WebSocket connection to send the action to
  * @param action - The server action to send
  */
-export const sendAction = (ws: WebSocket, action: ServerAction) => {
+export const sendAction = (ws: ServerWebSocket<ClientState>, action: ServerAction) => {
   sendMessage(ws, {
     type: 'action',
     data: action,
@@ -129,7 +130,7 @@ export async function genUsageResponse(
 const onPrompt = async (
   action: Extract<ClientAction, { type: 'prompt' }>,
   clientSessionId: string,
-  ws: WebSocket
+  ws: ServerWebSocket<ClientState>
 ) => {
   const {
     fingerprintId,
@@ -252,7 +253,7 @@ const onInit = async (
     authToken,
   }: Extract<ClientAction, { type: 'init' }>,
   clientSessionId: string,
-  ws: WebSocket
+  ws: ServerWebSocket<ClientState>
 ) => {
   await withLoggerContext({ fingerprintId }, async () => {
     const userId = await getUserIdFromAuthToken(authToken)
@@ -298,7 +299,11 @@ const onCancelUserInput = async ({
  */
 const callbacksByAction = {} as Record<
   ClientAction['type'],
-  ((action: ClientAction, clientSessionId: string, ws: WebSocket) => void)[]
+  ((
+    action: ClientAction,
+    clientSessionId: string,
+    ws: ServerWebSocket<ClientState>
+  ) => void)[]
 >
 
 /**
@@ -312,14 +317,14 @@ export const subscribeToAction = <T extends ClientAction['type']>(
   callback: (
     action: Extract<ClientAction, { type: T }>,
     clientSessionId: string,
-    ws: WebSocket
+    ws: ServerWebSocket<ClientState>
   ) => void
 ) => {
   callbacksByAction[type] = (callbacksByAction[type] ?? []).concat(
     callback as (
       action: ClientAction,
       clientSessionId: string,
-      ws: WebSocket
+      ws: ServerWebSocket<ClientState>
     ) => void
   )
   return () => {
@@ -336,7 +341,7 @@ export const subscribeToAction = <T extends ClientAction['type']>(
  * @param msg - The action message from the client
  */
 export const onWebsocketAction = async (
-  ws: WebSocket,
+  ws: ServerWebSocket<ClientState>,
   clientSessionId: string,
   msg: ClientMessage & { type: 'action' }
 ) => {
@@ -369,7 +374,10 @@ subscribeToAction('cancel-user-input', protec.run(onCancelUserInput))
  * @param filePaths - Array of file paths to request
  * @returns Promise resolving to an object mapping file paths to their contents
  */
-export async function requestFiles(ws: WebSocket, filePaths: string[]) {
+export async function requestFiles(
+  ws: ServerWebSocket<ClientState>,
+  filePaths: string[]
+) {
   return new Promise<Record<string, string | null>>((resolve) => {
     const requestId = generateCompactId()
     const unsubscribe = subscribeToAction('read-files-response', (action) => {
@@ -395,12 +403,15 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
  * @param filePath - The path of the file to request
  * @returns Promise resolving to the file contents or null if not found
  */
-export async function requestFile(ws: WebSocket, filePath: string) {
+export async function requestFile(ws: ServerWebSocket<ClientState>, filePath: string) {
   const files = await requestFiles(ws, [filePath])
   return files[filePath] ?? null
 }
 
-export async function requestOptionalFile(ws: WebSocket, filePath: string) {
+export async function requestOptionalFile(
+  ws: ServerWebSocket<ClientState>,
+  filePath: string
+) {
   const file = await requestFile(ws, filePath)
   return toOptionalFile(file)
 }
@@ -413,7 +424,7 @@ export async function requestOptionalFile(ws: WebSocket, filePath: string) {
  * @returns Promise resolving to the tool execution result
  */
 export async function requestToolCall<T = any>(
-  ws: WebSocket,
+  ws: ServerWebSocket<ClientState>,
   toolName: string,
   args: Record<string, any> & { timeout_seconds?: number }
 ): Promise<{ success: boolean; result?: T; error?: string }> {

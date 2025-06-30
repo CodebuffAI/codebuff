@@ -6,7 +6,7 @@ import {
   ToolResult,
   type AgentTemplateType,
 } from '@codebuff/common/types/session-state'
-import { WebSocket } from 'ws'
+import { ServerWebSocket } from 'bun'
 
 import { renderToolResults } from '@codebuff/common/constants/tools'
 import { checkTerminalCommand } from './check-terminal-command'
@@ -23,7 +23,7 @@ export interface MainPromptOptions {
 }
 
 export const mainPrompt = async (
-  ws: WebSocket,
+  ws: ServerWebSocket<any>,
   action: Extract<ClientAction, { type: 'prompt' }>,
   options: MainPromptOptions
 ): Promise<{

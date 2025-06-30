@@ -13,7 +13,7 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 ## Key Technologies
 
 - **TypeScript**: The primary programming language used throughout the project.
-- **Node.js**: The runtime environment for executing the application.
+- **Bun**: The runtime environment for executing the application and package manager.
 - **WebSockets**: Used for real-time communication between the client and server.
 - **LLM's**: Different LLM providers (Anthropic, OpenAI, Gemini, etc.) are used for various coding sub-problems on the backend.
 

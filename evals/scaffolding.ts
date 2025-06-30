@@ -20,7 +20,7 @@ import { EventEmitter } from 'events'
 import fs from 'fs'
 import path from 'path'
 import { blue } from 'picocolors'
-import { WebSocket } from 'ws'
+import { ServerWebSocket } from 'bun'
 import {
   getAllFilePaths,
   getProjectFileTree,
@@ -47,7 +47,7 @@ let toolCalls: ClientToolCall[] = []
 let toolResults: ToolResult[] = []
 export function createFileReadingMock(projectRoot: string) {
   mock.module('backend/websockets/websocket-action', () => ({
-    requestFiles: (ws: WebSocket, filePaths: string[]) => {
+    requestFiles: (ws: ServerWebSocket<unknown>, filePaths: string[]) => {
       const files: Record<string, string | null> = {}
       for (const filePath of filePaths) {
         files[filePath] = readMockFile(projectRoot, filePath)
@@ -55,7 +55,7 @@ export function createFileReadingMock(projectRoot: string) {
       return Promise.resolve(files)
     },
     requestToolCall: async (
-      ws: WebSocket,
+      ws: ServerWebSocket<unknown>,
       toolName: string,
       args: Record<string, any>,
       timeout: number = 30_000
@@ -141,7 +141,7 @@ export async function runAgentStepScaffolding(
   sessionId: string,
   agentType: AgentTemplateType
 ) {
-  const mockWs = new EventEmitter() as WebSocket
+  const mockWs = new EventEmitter() as any as ServerWebSocket<unknown>
   mockWs.send = mock()
   mockWs.close = mock()
 

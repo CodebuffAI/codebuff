@@ -1,4 +1,4 @@
-import { WebSocket } from 'ws'
+import { ServerWebSocket } from 'bun'
 
 export type ClientState = {
   sessionId?: string
@@ -8,14 +8,14 @@ export type ClientState = {
 
 /** Tracks the relationship of clients to websockets and subscription lists. */
 export class Switchboard {
-  clients: Map<WebSocket, ClientState>
+  clients: Map<ServerWebSocket<ClientState>, ClientState>
   private allClientsDisconnectedPromise: Promise<true> | null = null
   private allClientsDisconnectedResolver: ((value: true) => void) | null = null
 
   constructor() {
     this.clients = new Map()
   }
-  getClient(ws: WebSocket) {
+  getClient(ws: ServerWebSocket<ClientState>) {
     const existing = this.clients.get(ws)
     if (existing == null) {
       throw new Error("Looking for a nonexistent client. Shouldn't happen.")
@@ -29,7 +29,7 @@ export class Switchboard {
     const entries = Array.from(this.clients.entries())
     return entries.filter(([_k, v]) => v.subscriptions.has(topic))
   }
-  connect(ws: WebSocket) {
+  connect(ws: ServerWebSocket<ClientState>) {
     const existing = this.clients.get(ws)
     if (existing != null) {
       throw new Error("Client already connected! Shouldn't happen.")
@@ -40,7 +40,7 @@ export class Switchboard {
       subscriptions: new Set(),
     })
   }
-  disconnect(ws: WebSocket) {
+  disconnect(ws: ServerWebSocket<ClientState>) {
     this.getClient(ws).sessionId = undefined
     this.clients.delete(ws)
 
@@ -52,17 +52,17 @@ export class Switchboard {
       this.allClientsDisconnectedPromise = Promise.resolve(true)
     }
   }
-  markSeen(ws: WebSocket) {
+  markSeen(ws: ServerWebSocket<ClientState>) {
     this.getClient(ws).lastSeen = Date.now()
   }
-  subscribe(ws: WebSocket, ...topics: string[]) {
+  subscribe(ws: ServerWebSocket<ClientState>, ...topics: string[]) {
     const client = this.getClient(ws)
     for (const topic of topics) {
       client.subscriptions.add(topic)
     }
     this.markSeen(ws)
   }
-  unsubscribe(ws: WebSocket, ...topics: string[]) {
+  unsubscribe(ws: ServerWebSocket<ClientState>, ...topics: string[]) {
     const client = this.getClient(ws)
     for (const topic of topics) {
       client.subscriptions.delete(topic)

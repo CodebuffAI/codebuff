@@ -1,14 +1,12 @@
-import { Server as HttpServer } from 'node:http'
-
 import {
   CLIENT_MESSAGE_SCHEMA,
   ServerMessage,
 } from '@codebuff/common/websockets/websocket-schema'
 import { isError } from 'lodash'
-import { RawData, WebSocket, WebSocketServer } from 'ws'
+import { ServerWebSocket } from 'bun'
 
 import { logger } from '../util/logger'
-import { Switchboard } from './switchboard'
+import { Switchboard, ClientState } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
 
 export const SWITCHBOARD = new Switchboard()
@@ -29,10 +27,11 @@ function serializeError(err: unknown) {
   return isError(err) ? err.message : 'Unexpected error.'
 }
 
-async function processMessage(
-  ws: WebSocket,
+// Message processing function for Bun ServerWebSocket
+export async function processMessage(
+  ws: ServerWebSocket<ClientState>,
   clientSessionId: string,
-  data: RawData
+  data: string | Buffer
 ): Promise<ServerMessage<'ack'>> {
   let messageObj: any
   try {
@@ -80,29 +79,19 @@ async function processMessage(
   }
 }
 
-export function listen(server: HttpServer, path: string) {
-  logger.info(`Listening on websocket path: ${path}`)
-  const wss = new WebSocketServer({ server, path })
-  let deadConnectionCleaner: NodeJS.Timeout | undefined
-  wss.on('listening', () => {
-    logger.info(`Web socket server listening on ${path}.`)
-    deadConnectionCleaner = setInterval(function ping() {
+// Bun-specific connection cleaner
+let deadConnectionCleaner: Timer | undefined
+
+export function startConnectionCleaner() {
+  if (!deadConnectionCleaner) {
+    deadConnectionCleaner = setInterval(() => {
       const now = Date.now()
       try {
-        for (const ws of wss.clients) {
+        for (const [ws, client] of SWITCHBOARD.clients.entries()) {
           try {
-            const client = SWITCHBOARD.getClient(ws)
-            if (!client) {
-              logger.warn(
-                'Client not found in switchboard, terminating connection'
-              )
-              ws.terminate()
-              continue
-            }
-
             const lastSeen = client.lastSeen
             if (lastSeen < now - CONNECTION_TIMEOUT_MS) {
-              ws.terminate()
+              ws.close(1000, 'Connection timeout')
             }
           } catch (err) {
             // logger.error(
@@ -115,41 +104,18 @@ export function listen(server: HttpServer, path: string) {
         logger.error({ error }, 'Error in deadConnectionCleaner outer loop')
       }
     }, CONNECTION_TIMEOUT_MS)
-  })
-  wss.on('error', (err: Error) => {
-    logger.error({ error: err }, 'Error on websocket server.')
-  })
-  wss.on('connection', (ws: WebSocket) => {
-    // todo: should likely kill connections that haven't sent any ping for a long time
-    // logger.info('WS client connected.')
-    SWITCHBOARD.connect(ws)
-    const clientSessionId =
-      SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'
-    ws.on('message', async (data: RawData) => {
-      const result = await processMessage(ws, clientSessionId, data)
-      // mqp: check ws.readyState before sending?
-      ws.send(JSON.stringify(result))
-    })
-    ws.on('close', (code: number, reason: Buffer) => {
-      // logger.debug(
-      //   { code, reason: reason.toString() },
-      //   'WS client disconnected.'
-      // )
-      SWITCHBOARD.disconnect(ws)
-    })
-    ws.on('error', (err: Error) => {
-      logger.error({ error: err }, 'Error on websocket connection.')
-    })
-  })
-  wss.on('close', function close() {
-    if (deadConnectionCleaner) {
-      clearInterval(deadConnectionCleaner)
-    }
-  })
-  return wss
+  }
 }
 
-export const sendMessage = (ws: WebSocket, server: ServerMessage) => {
+export function stopConnectionCleaner() {
+  if (deadConnectionCleaner) {
+    clearInterval(deadConnectionCleaner)
+    deadConnectionCleaner = undefined
+  }
+}
+
+// Message sending function for Bun ServerWebSocket
+export const sendMessage = (ws: ServerWebSocket<ClientState>, server: ServerMessage) => {
   ws.send(JSON.stringify(server))
 }
 

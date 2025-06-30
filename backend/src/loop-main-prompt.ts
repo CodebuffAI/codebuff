@@ -1,13 +1,13 @@
 import { ClientAction } from '@codebuff/common/actions'
 import { SessionState, ToolResult } from '@codebuff/common/types/session-state'
-import { WebSocket } from 'ws'
+import { ServerWebSocket } from 'bun'
 import { mainPrompt, MainPromptOptions } from './main-prompt'
 import { ClientToolCall } from './tools'
 
 const DEFAULT_MAX_ITERATIONS = 20
 
 export async function loopMainPrompt(
-  ws: WebSocket,
+  ws: ServerWebSocket<any>,
   action: Extract<ClientAction, { type: 'prompt' }>,
   options: MainPromptOptions & { maxIterations?: number }
 ): Promise<{

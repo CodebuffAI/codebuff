@@ -1,9 +1,8 @@
-import http from 'http'
-
 import { setupBigQuery } from '@codebuff/bigquery'
 import { flushAnalytics, initAnalytics } from '@codebuff/common/analytics'
 import cors from 'cors'
 import express from 'express'
+import type { ServerWebSocket } from 'bun'
 
 import {
   getTracesForUserHandler,
@@ -17,8 +16,13 @@ import { logger } from './util/logger'
 import {
   sendRequestReconnect,
   waitForAllClientsDisconnected,
-  listen as webSocketListen,
+  SWITCHBOARD,
+  processMessage,
+  sendMessage,
+  startConnectionCleaner,
+  stopConnectionCleaner,
 } from './websockets/server'
+import { ClientState } from './websockets/switchboard'
 
 const app = express()
 const port = env.PORT
@@ -91,23 +95,14 @@ setupBigQuery()
 logger.info('Initializing analytics...')
 initAnalytics()
 
-const server = http.createServer(app)
-
-server.listen(port, () => {
-  console.log(`🚀 Server is running on port ${port}`)
-})
-
-webSocketListen(server, '/ws')
-
 let shutdownInProgress = false
-// Graceful shutdown handler for both SIGTERM and SIGINT
-function handleShutdown(signal: string) {
+
+// Graceful shutdown handler
+function handleShutdown(signal: string, server: ReturnType<typeof Bun.serve>) {
   flushAnalytics()
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
     console.log('\nLocal environment detected. Not awaiting client exits.')
-    server.close((error) => {
-      console.log('Received error closing server', { error })
-    })
+    server.stop()
     process.exit(0)
   }
   if (shutdownInProgress) {
@@ -122,6 +117,7 @@ function handleShutdown(signal: string) {
 
   waitForAllClientsDisconnected().then(() => {
     console.log('All clients disconnected. Shutting down...')
+    stopConnectionCleaner()
     process.exit(0)
   })
 
@@ -135,8 +131,52 @@ function handleShutdown(signal: string) {
   }, 300000).unref()
 }
 
-process.on('SIGTERM', () => handleShutdown('SIGTERM'))
-process.on('SIGINT', () => handleShutdown('SIGINT'))
+// Bun server with native WebSocket support
+const server = Bun.serve({
+  port,
+  async fetch(req, server) {
+    // Handle WebSocket upgrade
+    if (server.upgrade(req)) {
+      return // WebSocket upgrade handled
+    }
+
+    // Handle regular HTTP requests through Express
+    return new Promise((resolve) => {
+      const mockRes = {
+        end: (body: any) => resolve(new Response(body)),
+        setHeader: () => {},
+        status: (code: number) => ({
+          json: (data: any) => resolve(new Response(JSON.stringify(data), { status: code, headers: { 'Content-Type': 'application/json' } })),
+          send: (data: any) => resolve(new Response(data, { status: code }))
+        }),
+        json: (data: any) => resolve(new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })),
+        send: (data: any) => resolve(new Response(data))
+      } as any
+      
+      app(req as any, mockRes)
+    })
+  },
+  websocket: {
+    open(ws: ServerWebSocket<ClientState>) {
+      logger.debug('WebSocket client connected')
+      SWITCHBOARD.connect(ws)
+      startConnectionCleaner()
+    },
+    async message(ws: ServerWebSocket<ClientState>, message) {
+      const clientSessionId = SWITCHBOARD.clients.get(ws)?.sessionId ?? 'bun-client-unknown'
+      const result = await processMessage(ws, clientSessionId, message)
+      sendMessage(ws, result)
+    },
+    close(ws: ServerWebSocket<ClientState>, code, reason) {
+      logger.debug({ code, reason }, 'WebSocket client disconnected')
+      SWITCHBOARD.disconnect(ws)
+    },
+  },
+})
+
+console.log(`🚀 Bun server is running on port ${port}`)
+process.on('SIGTERM', () => handleShutdown('SIGTERM', server))
+process.on('SIGINT', () => handleShutdown('SIGINT', server))
 
 process.on('unhandledRejection', (reason, promise) => {
   // Don't rethrow the error, just log it. Keep the server running.
@@ -175,9 +215,8 @@ process.on('uncaughtException', (err, origin) => {
     'uncaught exception detected'
   )
 
-  server.close(() => {
-    process.exit(1)
-  })
+  // Graceful shutdown attempt
+  process.exit(1)
 
   // If a graceful shutdown is not achieved after 1 second,
   // shut down the process completely

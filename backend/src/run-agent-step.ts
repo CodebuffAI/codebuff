@@ -25,7 +25,7 @@ import { parseFileBlocks, ProjectFileContext } from '@codebuff/common/util/file'
 import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { difference, partition, uniq } from 'lodash'
-import { WebSocket } from 'ws'
+import { ServerWebSocket } from 'bun'
 
 import { CodebuffMessage } from '@codebuff/common/types/message'
 import { CoreMessage } from 'ai'
@@ -104,7 +104,7 @@ export interface AgentOptions {
 }
 
 export const runAgentStep = async (
-  ws: WebSocket,
+  ws: ServerWebSocket<any>,
   options: AgentOptions
 ): Promise<{
   agentState: AgentState
@@ -1238,7 +1238,7 @@ const getInitialFiles = (fileContext: ProjectFileContext) => {
 }
 
 async function getFileReadingUpdates(
-  ws: WebSocket,
+  ws: ServerWebSocket<any>,
   messages: CoreMessage[],
   fileContext: ProjectFileContext,
   options: {
@@ -1398,7 +1398,7 @@ function getPrintedPaths(
 }
 
 async function uploadExpandedFileContextForTraining(
-  ws: WebSocket,
+  ws: ServerWebSocket<any>,
   {
     messages,
     system,
@@ -1464,7 +1464,7 @@ async function uploadExpandedFileContextForTraining(
 }
 
 export const loopAgentSteps = async (
-  ws: WebSocket,
+  ws: ServerWebSocket<any>,
   options: {
     userInputId: string
     agentType: AgentTemplateType

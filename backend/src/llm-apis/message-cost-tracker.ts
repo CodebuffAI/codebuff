@@ -15,7 +15,7 @@ import { logSyncFailure } from '@codebuff/common/util/sync-failure'
 import { CoreMessage } from 'ai'
 import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
-import { WebSocket } from 'ws'
+import { ServerWebSocket } from 'bun'
 
 import { getRequestContext } from '../context/app-context'
 import { stripNullCharsFromObject } from '../util/object'
@@ -367,13 +367,13 @@ async function sendCostResponseToClient(
 ): Promise<void> {
   try {
     const clientEntry = Array.from(SWITCHBOARD.clients.entries()).find(
-      ([_, state]: [WebSocket, ClientState]) =>
+      ([_, state]: [ServerWebSocket<any>, ClientState]) =>
         state.sessionId === clientSessionId
     )
 
     if (clientEntry) {
       const [ws] = clientEntry
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === 1) { // WebSocket.OPEN equivalent
         sendAction(ws, {
           type: 'message-cost-response',
           promptId: userInputId,
