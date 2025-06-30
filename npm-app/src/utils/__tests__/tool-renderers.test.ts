@@ -56,7 +56,7 @@ describe('Tool renderers with XML parser', () => {
 
   test('formats read_files tool call', async () => {
     const xml = getToolCallString('read_files', {
-      paths: 'file1.ts\nfile2.ts',
+      paths: ['file1.ts', 'file2.ts'],
     })
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
