@@ -33,10 +33,10 @@
     "@google-cloud/vertexai": "1.10.0",
     "@google/generative-ai": "0.24.1",
     "ai": "4.3.16",
-    "cors": "^2.8.5",
+
     "diff": "5.2.0",
     "dotenv": "16.4.5",
-    "express": "4.19.2",
+
     "gpt-tokenizer": "2.8.1",
     "ignore": "5.3.2",
     "lodash": "*",
@@ -48,8 +48,6 @@
     "zod": "3.25.67"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/diff": "^5.0.3",
-    "@types/express": "^4.17.13"
+    "@types/diff": "^5.0.3"
   }
 }

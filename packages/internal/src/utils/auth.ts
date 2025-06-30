@@ -146,3 +146,31 @@ export async function checkUserIsCodebuffAdmin(
     return null
   }
 }
+
+/**
+ * Check admin authentication for API endpoints
+ * Returns structured result for HTTP response handling
+ */
+export async function checkAdminAuth(authToken: string): Promise<{ success: boolean; error?: string; status?: number }> {
+  // First check basic auth
+  const authResult = await checkAuthToken({
+    authToken,
+  })
+
+  if (!authResult.success) {
+    const errorMessage = authResult.error?.message || 'Authentication failed'
+    return { success: false, error: errorMessage, status: 401 }
+  }
+
+  if (!authResult.user) {
+    return { success: false, error: 'Invalid session', status: 401 }
+  }
+
+  // Check admin status
+  const adminUser = await checkUserIsCodebuffAdmin(authResult.user.id)
+  if (!adminUser) {
+    return { success: false, error: 'Forbidden', status: 403 }
+  }
+
+  return { success: true }
+}
