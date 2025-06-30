@@ -80,6 +80,10 @@ export type StringToolResultPart = Omit<ToolResultPart, 'type'> & {
 }
 
 export function renderToolResults(toolResults: StringToolResultPart[]): string {
+  if (toolResults.length === 0) {
+    return ''
+  }
+
   return `
 ${toolResults
   .map(

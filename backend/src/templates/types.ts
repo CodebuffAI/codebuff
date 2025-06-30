@@ -36,12 +36,13 @@ const placeholderNames = [
   'CONFIG_SCHEMA',
   'FILE_TREE_PROMPT',
   'GIT_CHANGES_PROMPT',
-  'REMAINING_STEPS',
+  'INITIAL_AGENT_PROMPT',
+  'KNOWLEDGE_FILES_CONTENTS',
   'PROJECT_ROOT',
+  'REMAINING_STEPS',
   'SYSTEM_INFO_PROMPT',
   'TOOLS_PROMPT',
   'USER_CWD',
-  'INITIAL_AGENT_PROMPT',
 ] as const
 
 type PlaceholderType<T extends typeof placeholderNames> = {

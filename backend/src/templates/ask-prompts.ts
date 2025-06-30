@@ -148,7 +148,8 @@ export const askAgentUserInputPrompt = (model: Model) => {
   const isGeminiPro = model === models.gemini2_5_pro_preview
 
   return (
-    '<system_instructions>' +
+    PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +
+    '\n\n<system_instructions>' +
     buildArray(
       `You have been switched to ASK mode. As such, you can no longer use certain commands (even if you have been able to use them in the past). For example, \`write_file\`, \`run_terminal_command\`, and more. Do not attempt to use them because they will not work! You only have access to the tools listed in the system instructions.`,
 

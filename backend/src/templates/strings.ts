@@ -1,9 +1,9 @@
+import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
+import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
 import {
   AgentState,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
-import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
-import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
 
 import {
   getGitChangesPrompt,
@@ -12,7 +12,9 @@ import {
 } from '../system-prompt/prompts'
 import { getToolsInstructions, ToolName } from '../tools'
 
+import { renderToolResults } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { agentTemplates } from './agent-list'
 import { PLACEHOLDER, PlaceholderValue, placeholderValues } from './types'
 
@@ -26,14 +28,14 @@ export function formatPrompt(
 ): string {
   // Handle structured prompt data
   let processedPrompt = intitialAgentPrompt ?? ''
-  
+
   try {
     // Try to parse as JSON to extract structured data
     const promptData = JSON.parse(intitialAgentPrompt ?? '{}')
     if (typeof promptData === 'object' && promptData !== null) {
       // If it's structured data, extract the main prompt
       processedPrompt = promptData.prompt || intitialAgentPrompt || ''
-      
+
       // Handle file paths for planner agent
       if (promptData.filePaths && Array.isArray(promptData.filePaths)) {
         processedPrompt += `\n\nRelevant files to consider:\n${promptData.filePaths.map((path: string) => `- ${path}`).join('\n')}`
@@ -58,6 +60,27 @@ export function formatPrompt(
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools, spawnableAgents),
     [PLACEHOLDER.USER_CWD]: fileContext.cwd,
     [PLACEHOLDER.INITIAL_AGENT_PROMPT]: processedPrompt,
+    [PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS]: renderToolResults(
+      Object.entries({
+        ...Object.fromEntries(
+          Object.entries(fileContext.knowledgeFiles)
+            .filter(([path]) =>
+              [
+                'knowledge.md',
+                'CLAUDE.md',
+                'codebuff.json',
+                'codebuff.jsonc',
+              ].includes(path)
+            )
+            .map(([path, content]) => [path, content.trim()])
+        ),
+        ...fileContext.userKnowledgeFiles,
+      }).map(([path, content]) => ({
+        toolName: 'read_files',
+        toolCallId: generateCompactId(),
+        result: JSON.stringify({ path, content }),
+      }))
+    ),
   }
 
   for (const varName of placeholderValues) {

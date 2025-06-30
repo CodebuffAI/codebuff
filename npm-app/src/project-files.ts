@@ -246,8 +246,8 @@ export const getProjectFileContext = async (
       return (
         lowercaseFilePath.endsWith('knowledge.md') ||
         lowercaseFilePath.endsWith('claude.md') ||
-        lowercaseFilePath === codebuffConfigFile ||
-        lowercaseFilePath === codebuffConfigFileBackup
+        lowercaseFilePath === codebuffConfigFile.toLowerCase() ||
+        lowercaseFilePath === codebuffConfigFileBackup.toLowerCase()
       )
     })
     const knowledgeFiles = getExistingFiles(knowledgeFilePaths)

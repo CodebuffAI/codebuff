@@ -211,7 +211,8 @@ export const baseAgentUserInputPrompt = (model: Model) => {
   const isGeminiPro = model === models.gemini2_5_pro_preview
 
   return (
-    '<system_instructions>' +
+    PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +
+    '\n\n<system_instructions>' +
     buildArray(
       'Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. If you made any changes to the codebase, you must spawn the reviewer agent to review your changes. Then, finally you must use the end_turn tool at the end of your response. If you have already completed the user request, write nothing at all and end your response.',
 
