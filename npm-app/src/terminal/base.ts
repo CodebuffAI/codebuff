@@ -12,11 +12,7 @@ import {
   truncateStringWithMessage,
 } from '@codebuff/common/util/string'
 import { loadBunPty } from '../native/pty'
-type IPty = ReturnType<
-  NonNullable<Awaited<ReturnType<typeof loadBunPty>>>['spawn']
->
 
-import { loadBunPty } from '../native/pty'
 import {
   getProjectRoot,
   getWorkingDirectory,
@@ -602,7 +598,7 @@ export const runCommandPty = (
         outsideProject = true
         console.log(`
 Unable to cd outside of the project root (${projectRoot})
-      
+
 If you want to change the project root:
 1. Exit Codebuff (type "exit")
 2. Navigate into the target directory (type "cd ${newWorkingDirectory}")
