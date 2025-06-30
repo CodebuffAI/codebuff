@@ -6,54 +6,37 @@ export async function processStrReplace(
   path: string,
   replacements: { old: string; new: string }[],
   initialContentPromise: Promise<string | null>
-) {
+): Promise<
+  | {
+      tool: 'str_replace'
+      path: string
+      content: string
+      patch: string
+      messages: string[]
+    }
+  | { tool: 'str_replace'; path: string; error: string }
+> {
   const initialContent = await initialContentPromise
 
   // Process each old/new string pair
   let currentContent = initialContent
   let allPatches: string[] = []
+  let messages: string[] = []
 
   for (const { old: oldStr, new: newStr } of replacements) {
-    // Special case: if oldStr is empty and file doesn't exist, create the file
-    if (currentContent === null && !oldStr) {
-      const patch = createPatch(path, '', newStr)
-      const lines = patch.split('\n')
-      const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
-      const finalPatch =
-        hunkStartIndex !== -1 ? lines.slice(hunkStartIndex).join('\n') : patch
-
-      logger.debug(
-        {
-          path,
-          content: newStr,
-          patch: finalPatch,
-        },
-        `processStrReplace: Created new file ${path}`
-      )
-
-      return {
-        tool: 'str_replace' as const,
-        path,
-        content: newStr,
-        patch: finalPatch,
-      }
-    }
-
     // Regular case: require oldStr for replacements
-    if (!oldStr)
-      return {
-        tool: 'str_replace' as const,
-        path,
-        error:
-          'The old string was empty, which does not match any content, skipping.',
-      }
-    if (currentContent === null)
-      return {
-        tool: 'str_replace' as const,
-        path,
-        error:
-          'The file does not exist, skipping. Use the write_file tool to create the file.',
-      }
+    if (!oldStr) {
+      messages.push(
+        'The old string was empty, which does not match any content, skipping.'
+      )
+      continue
+    }
+    if (currentContent === null) {
+      messages.push(
+        'The file does not exist, skipping. Please use the write_file tool to create the file.'
+      )
+      continue
+    }
 
     const lineEnding = currentContent.includes('\r\n') ? '\r\n' : '\n'
     const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
@@ -65,18 +48,16 @@ export async function processStrReplace(
       normalizedOldStr,
       newStr
     )
-    if (!updatedOldStr)
-      return {
-        tool: 'str_replace' as const,
-        path,
-        error:
-          'The old string was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.',
-      }
+    if (updatedOldStr === null) {
+      messages.push(
+        `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.`
+      )
+    }
 
-    const updatedContent = normalizedCurrentContent.replaceAll(
-      updatedOldStr,
-      newStr
-    )
+    const updatedContent =
+      updatedOldStr === null
+        ? normalizedCurrentContent
+        : normalizedCurrentContent.replaceAll(updatedOldStr, newStr)
 
     let patch = createPatch(path, normalizedCurrentContent, updatedContent)
     const lines = patch.split('\n')
@@ -99,10 +80,11 @@ export async function processStrReplace(
       },
       `processStrReplace: No change to ${path}`
     )
+    messages.push('No change to the file.')
     return {
       tool: 'str_replace' as const,
       path,
-      error: 'No change to the file.',
+      error: messages.join('\n\n'),
     }
   }
 
@@ -113,6 +95,7 @@ export async function processStrReplace(
       path,
       newContent: currentContent,
       patch: finalPatch,
+      messages,
     },
     `processStrReplace: Updated file ${path}`
   )
@@ -122,6 +105,7 @@ export async function processStrReplace(
     path,
     content: currentContent!,
     patch: finalPatch,
+    messages,
   }
 }
 

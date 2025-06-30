@@ -21,10 +21,12 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
-import { getToolCallString } from '@codebuff/common/constants/tools'
+import {
+  getToolCallString,
+  renderToolResults,
+} from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
-import { renderToolResults } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
 // Mock logger
@@ -63,6 +65,7 @@ describe('mainPrompt', () => {
           instructions,
           content: newContent,
           patch: undefined,
+          messages: [],
         }
       }
     )

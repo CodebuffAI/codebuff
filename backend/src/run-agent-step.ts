@@ -354,6 +354,7 @@ export const runAgentStep = async (
         | {
             content: string
             patch?: string
+            messages: string[]
           }
         | {
             error: string
@@ -511,6 +512,7 @@ export const runAgentStep = async (
           tool: 'create_plan' as const,
           path,
           content: plan,
+          messages: [],
         }
         fileProcessingPromisesByPath[path].push(Promise.resolve(change))
       }),
