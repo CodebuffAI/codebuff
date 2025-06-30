@@ -10,7 +10,7 @@ export const toolSchema = {
   find_files: ['description'],
 
   // Search and terminal
-  code_search: ['pattern'],
+  code_search: ['pattern', 'flags', 'cwd'],
   run_terminal_command: ['command', 'process_type', 'cwd', 'timeout_seconds'],
 
   // Planning tools
