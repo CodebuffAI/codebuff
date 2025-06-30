@@ -23,10 +23,10 @@ export const toolSchema = {
   update_report: ['json_update'],
 
   // Documentation tool
-  read_docs: ['query', 'topic', 'max_tokens'],
+  read_docs: ['libraryTitle', 'topic', 'max_tokens'],
 
   // Web search tool
-  web_search: ['query', 'depth', 'max_results'],
+  web_search: ['query', 'depth'],
 
   end_turn: [],
 }

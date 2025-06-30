@@ -3,46 +3,41 @@ import { env } from '@codebuff/internal'
 
 import { logger } from '../util/logger'
 
-const LINKUP_API_BASE_URL = 'https://api.linkup.so'
+const LINKUP_API_BASE_URL = 'https://api.linkup.so/v1'
 const FETCH_TIMEOUT_MS = 30_000
 
 export interface LinkupSearchResult {
-  title: string
+  name: string
+  snippet: string
   url: string
-  content: string
 }
 
 export interface LinkupSearchResponse {
-  results: LinkupSearchResult[]
+  answer: string
+  sources: LinkupSearchResult[]
 }
 
 /**
  * Searches the web using Linkup API
  * @param query The search query
  * @param options Search options including depth and max results
- * @returns Array of search results or null if the request fails
+ * @returns Array containing a single result with the sourced answer or null if the request fails
  */
 export async function searchWeb(
   query: string,
   options: {
     depth?: 'standard' | 'deep'
-    maxResults?: number
   } = {}
-): Promise<LinkupSearchResult[] | null> {
-  const { depth = 'standard', maxResults = 5 } = options
+): Promise<string | null> {
+  const { depth = 'standard' } = options
 
+  const requestBody = {
+    q: query,
+    depth,
+    outputType: 'sourcedAnswer' as const,
+  }
+  const requestUrl = `${LINKUP_API_BASE_URL}/search`
   try {
-    const requestBody = {
-      q: query,
-      depth,
-      outputTokens: maxResults * 500, // Estimate tokens per result
-    }
-
-    logger.debug(
-      { query, depth, maxResults },
-      'Making Linkup API search request'
-    )
-
     const response = await withTimeout(
       fetch(`${LINKUP_API_BASE_URL}/search`, {
         method: 'POST',
@@ -56,31 +51,88 @@ export async function searchWeb(
     )
 
     if (!response.ok) {
+      let responseBody = 'Unable to read response body'
+      try {
+        responseBody = await response.text()
+      } catch (bodyError) {
+        logger.warn({ bodyError }, 'Failed to read error response body')
+      }
+
       logger.error(
-        { status: response.status, statusText: response.statusText },
-        `Linkup API request failed: ${response.status}`
+        {
+          status: response.status,
+          statusText: response.statusText,
+          responseBody,
+          requestUrl,
+          requestBody,
+          query,
+          depth,
+          headers: response.headers
+            ? (() => {
+                const headerObj: Record<string, string> = {}
+                response.headers.forEach((value, key) => {
+                  headerObj[key] = value
+                })
+                return headerObj
+              })()
+            : 'No headers',
+        },
+        `Linkup API request failed with ${response.status}: ${response.statusText}`
       )
       return null
     }
 
-    const data = (await response.json()) as LinkupSearchResponse
-
-    if (!data.results || !Array.isArray(data.results)) {
-      logger.error({ data }, 'Invalid response format from Linkup API')
+    let data: LinkupSearchResponse
+    try {
+      data = (await response.json()) as LinkupSearchResponse
+    } catch (jsonError) {
+      logger.error(
+        {
+          jsonError,
+          query,
+          requestUrl,
+          status: response.status,
+          statusText: response.statusText,
+        },
+        'Failed to parse JSON response from Linkup API'
+      )
       return null
     }
 
-    // Limit results to maxResults
-    const limitedResults = data.results.slice(0, maxResults)
+    if (!data.answer || typeof data.answer !== 'string') {
+      logger.error(
+        {
+          data,
+          query,
+          requestUrl,
+          responseKeys: Object.keys(data || {}),
+          answerType: typeof data?.answer,
+        },
+        'Invalid response format from Linkup API - missing or invalid answer field'
+      )
+      return null
+    }
 
-    logger.debug(
-      { resultCount: limitedResults.length, query },
-      'Linkup API search completed successfully'
-    )
-
-    return limitedResults
+    // Return the answer as a single result for compatibility
+    return data.answer
   } catch (error) {
-    logger.error({ error, query, options }, 'Error calling Linkup API')
+    logger.error(
+      {
+        error:
+          error instanceof Error
+            ? {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+              }
+            : error,
+        query,
+        options,
+        requestUrl,
+        requestBody,
+      },
+      'Error calling Linkup API - network or other failure'
+    )
     return null
   }
 }

@@ -4,6 +4,7 @@ import {
   GetExpandedFileContextForTrainingBlobTrace,
   insertTrace,
 } from '@codebuff/bigquery'
+import { consumeCreditsWithFallback } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import {
   HIDDEN_FILE_READ_STATUS,
@@ -75,6 +76,7 @@ import {
   requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
+import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
@@ -560,7 +562,7 @@ export const runAgentStep = async (
         return
       }),
       web_search: toolCallback('web_search', async (toolCall) => {
-        const { query, depth, max_results } = (
+        const { query, depth } = (
           toolCall as Extract<CodebuffToolCall, { toolName: 'web_search' }>
         ).args
 
@@ -568,29 +570,45 @@ export const runAgentStep = async (
           {
             query,
             depth,
-            max_results,
           },
           'web_search tool call'
         )
 
         try {
-          const searchResults = await searchWeb(query, {
+          const searchResult = await searchWeb(query, {
             depth,
-            maxResults: max_results,
           })
 
-          if (searchResults && searchResults.length > 0) {
-            const formattedResults = searchResults
-              .map(
-                (result, index) =>
-                  `${index + 1}. **${result.title}**\n   URL: ${result.url}\n   ${result.content}\n`
-              )
-              .join('\n')
+          // Charge credits for web search usage
+          if (userId) {
+            // Calculate credits based on search depth with profit margin
+            const creditsToCharge = Math.round(
+              (depth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN)
+            )
 
+            const requestContext = getRequestContext()
+            const repoUrl = requestContext?.processedRepoUrl
+
+            const result = await consumeCreditsWithFallback({
+              userId,
+              creditsToCharge,
+              repoUrl,
+              context: 'web search',
+            })
+
+            if (!result.success) {
+              logger.error(
+                { error: result.error, query, depth, userId },
+                'Failed to charge credits for web search'
+              )
+            }
+          }
+
+          if (searchResult) {
             serverToolResults.push({
               toolName: 'web_search',
               toolCallId: toolCall.toolCallId,
-              result: `Found ${searchResults.length} search results for "${query}":\n\n${formattedResults}`,
+              result: searchResult,
             })
           } else {
             serverToolResults.push({
@@ -601,7 +619,7 @@ export const runAgentStep = async (
           }
         } catch (error) {
           logger.error(
-            { error, query, depth, max_results },
+            { error, query, depth },
             'Error performing web search with Linkup API'
           )
           serverToolResults.push({
@@ -646,13 +664,13 @@ export const runAgentStep = async (
         return
       }),
       read_docs: toolCallback('read_docs', async (toolCall) => {
-        const { query, topic, max_tokens } = (
+        const { libraryTitle, topic, max_tokens } = (
           toolCall as Extract<CodebuffToolCall, { toolName: 'read_docs' }>
         ).args
 
         logger.debug(
           {
-            query,
+            libraryTitle,
             topic,
             max_tokens,
           },
@@ -660,7 +678,7 @@ export const runAgentStep = async (
         )
 
         try {
-          const documentation = await fetchContext7LibraryDocumentation(query, {
+          const documentation = await fetchContext7LibraryDocumentation(libraryTitle, {
             topic,
             tokens: max_tokens,
           })
@@ -675,18 +693,18 @@ export const runAgentStep = async (
             serverToolResults.push({
               toolName: 'read_docs',
               toolCallId: toolCall.toolCallId,
-              result: `No documentation found for "${query}"${topic ? ` with topic "${topic}"` : ''}. The library may not be available in Context7's database or the query may need to be more specific.`,
+              result: `No documentation found for "${libraryTitle}"${topic ? ` with topic "${topic}"` : ''}. Try using the exact library name (e.g., "Next.js", "React", "MongoDB"). The library may not be available in Context7's database.`,
             })
           }
         } catch (error) {
           logger.error(
-            { error, query, topic, max_tokens },
+            { error, libraryTitle, topic, max_tokens },
             'Error fetching documentation from Context7'
           )
           serverToolResults.push({
             toolName: 'read_docs',
             toolCallId: toolCall.toolCallId,
-            result: `Error fetching documentation for "${query}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+            result: `Error fetching documentation for "${libraryTitle}": ${error instanceof Error ? error.message : 'Unknown error'}`,
           })
         }
       }),
@@ -759,7 +777,8 @@ export const runAgentStep = async (
       toolCall.toolName === 'think_deeply' ||
       toolCall.toolName === 'create_plan' ||
       toolCall.toolName === 'end_turn' ||
-      toolCall.toolName === 'web_search'
+      toolCall.toolName === 'web_search' ||
+      toolCall.toolName === 'read_docs'
     ) {
       // Handled above
     } else if (toolCall.toolName === 'read_files') {
@@ -1058,50 +1077,6 @@ export const runAgentStep = async (
         toolCallId: toolCall.toolCallId,
         result: 'Report updated',
       })
-    } else if (toolCall.toolName === 'read_docs') {
-      const { query, topic, max_tokens } = (
-        toolCall as Extract<CodebuffToolCall, { toolName: 'read_docs' }>
-      ).args
-
-      logger.debug(
-        {
-          query,
-          topic,
-          max_tokens,
-        },
-        'read_docs tool call'
-      )
-
-      try {
-        const documentation = await fetchContext7LibraryDocumentation(query, {
-          topic,
-          tokens: max_tokens,
-        })
-
-        if (documentation) {
-          serverToolResults.push({
-            toolName: 'read_docs',
-            toolCallId: toolCall.toolCallId,
-            result: documentation,
-          })
-        } else {
-          serverToolResults.push({
-            toolName: 'read_docs',
-            toolCallId: toolCall.toolCallId,
-            result: `No documentation found for "${query}"${topic ? ` with topic "${topic}"` : ''}. The library may not be available in Context7's database or the query may need to be more specific.`,
-          })
-        }
-      } catch (error) {
-        logger.error(
-          { error, query, topic, max_tokens },
-          'Error fetching documentation from Context7'
-        )
-        serverToolResults.push({
-          toolName: 'read_docs',
-          toolCallId: toolCall.toolCallId,
-          result: `Error fetching documentation for "${query}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-        })
-      }
     } else {
       toolCall satisfies never
       throw new Error(`Unknown tool: ${name}`)

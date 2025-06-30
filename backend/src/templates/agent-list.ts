@@ -9,6 +9,7 @@ import { base } from './agents/base'
 import { dryRun } from './agents/dry-run'
 import { filePicker } from './agents/file-picker'
 import { planner } from './agents/planner'
+import { researcher } from './agents/researcher'
 import { reviewer } from './agents/reviewer'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
@@ -49,6 +50,10 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   gemini25flash_file_picker: {
     type: AgentTemplateTypes.gemini25flash_file_picker,
     ...filePicker(models.gemini2_5_flash),
+  },
+  gemini25flash_researcher: {
+    type: AgentTemplateTypes.gemini25flash_researcher,
+    ...researcher(models.gemini2_5_flash),
   },
   gemini25pro_planner: {
     type: AgentTemplateTypes.gemini25pro_planner,

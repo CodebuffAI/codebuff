@@ -219,7 +219,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
 
       'Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.',
 
-      'It is a good idea to spawn a few file picker agents first to explore the codebase from different perspectives. Finally, you must spawn the reviewer agent to review your code changes.',
+      'It is a good idea to spawn a few file picker agents first to explore the codebase from different perspectives. Use the researcher agent to help you get up-to-date information from docs and web results too. Finally, you must spawn the reviewer agent to review your code changes.',
       "Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read 20 files. The more files you read, the better context you have on the codebase and the better your response will be.",
 
       'Be extremely concise in your replies. Example: If asked what 2+2 equals, respond simply: "4". No need to even write a full sentence.',

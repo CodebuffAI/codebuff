@@ -124,6 +124,15 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   },
   web_search: {
     ...defaultToolCallRenderer,
+    onParamChunk: (content, paramName, toolName) => {
+      return null
+    },
+    onParamEnd: (paramName, toolName, content) => {
+      if (paramName !== 'query') {
+        return null
+      }
+      return gray(content)
+    },
   },
   find_files: {
     ...defaultToolCallRenderer,

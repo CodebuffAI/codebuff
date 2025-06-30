@@ -56,6 +56,7 @@ export const AgentTemplateTypeList = [
 
   // Other agents
   'gemini25flash_file_picker',
+  'gemini25flash_researcher',
   'gemini25pro_reviewer',
 ] as const
 export const AgentTemplateTypes = Object.fromEntries(

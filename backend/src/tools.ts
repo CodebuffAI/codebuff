@@ -703,15 +703,7 @@ ${getToolCallString('end_turn', {})}
           .describe(
             `Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'.`
           ),
-        max_results: z
-          .number()
-          .min(1)
-          .max(10)
-          .optional()
-          .default(5)
-          .describe(
-            `Maximum number of search results to return. Must be between 1 and 10. Default is 5.`
-          ),
+
       })
       .describe(`Search the web for current information using Linkup API.`),
     description: `
@@ -730,24 +722,22 @@ Example:
 ${getToolCallString('web_search', {
   query: 'Next.js 15 new features',
   depth: 'standard',
-  max_results: 5,
 })}
 
 ${getToolCallString('web_search', {
   query: 'React Server Components tutorial',
   depth: 'deep',
-  max_results: 3,
 })}
     `.trim(),
   },
   read_docs: {
     parameters: z
       .object({
-        query: z
+        libraryTitle: z
           .string()
-          .min(1, 'Query cannot be empty')
+          .min(1, 'Library title cannot be empty')
           .describe(
-            `The library or technology you want to get documentation for (e.g., "Next.js", "MongoDB", "React")`
+            `The exact library or framework name (e.g., "Next.js", "MongoDB", "React"). Use the official name as it appears in documentation, not a search query.`
           ),
         topic: z
           .string()
@@ -768,6 +758,14 @@ ${getToolCallString('web_search', {
     description: `
 Purpose: Get current, accurate documentation for popular libraries, frameworks, and technologies. This tool searches Context7's database of up-to-date documentation and returns relevant content.
 
+**IMPORTANT**: The \`libraryTitle\` parameter should be the exact, official name of the library or framework, not a search query. Think of it as looking up a specific book title in a library catalog.
+
+Correct examples:
+- "Next.js" (not "nextjs tutorial" or "how to use nextjs")
+- "React" (not "react hooks guide")
+- "MongoDB" (not "mongodb database setup")
+- "Express.js" (not "express server")
+
 Use cases:
 - Getting current API documentation for a library
 - Finding usage examples and best practices
@@ -778,13 +776,13 @@ The tool will search for the library and return the most relevant documentation 
 
 Example:
 ${getToolCallString('read_docs', {
-  query: 'Next.js',
+  libraryTitle: 'Next.js',
   topic: 'app router',
   max_tokens: 15000,
 })}
 
 ${getToolCallString('read_docs', {
-  query: 'MongoDB',
+  libraryTitle: 'MongoDB',
 })}
     `.trim(),
   },

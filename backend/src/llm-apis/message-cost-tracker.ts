@@ -26,7 +26,7 @@ import { ClientState } from '../websockets/switchboard'
 import { sendAction } from '../websockets/websocket-action'
 import { OpenAIMessage } from './openai-api'
 
-const PROFIT_MARGIN = 0.3
+export const PROFIT_MARGIN = 0.3
 
 // Pricing details:
 // - https://www.anthropic.com/pricing#anthropic-api
@@ -424,6 +424,7 @@ async function updateUserCycleUsage(
 
   try {
     if (orgId) {
+      // TODO: use `consumeCreditsWithFallback` to handle organization delegation
       // Consume from organization credits
       const result = await consumeOrganizationCredits(orgId, creditsUsed)
 

@@ -105,7 +105,7 @@ describe('read_docs tool', () => {
     )
 
     const mockResponse = getToolCallString('read_docs', {
-      query: 'React',
+      libraryTitle: 'React',
     }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
@@ -154,7 +154,7 @@ describe('read_docs tool', () => {
     )
 
     const mockResponse = getToolCallString('read_docs', {
-      query: 'React',
+      libraryTitle: 'React',
       topic: 'hooks',
       max_tokens: 5000,
     }) + getToolCallString('end_turn', {})
@@ -199,7 +199,7 @@ describe('read_docs tool', () => {
     )
 
     const mockResponse = getToolCallString('read_docs', {
-      query: 'NonExistentLibrary',
+      libraryTitle: 'NonExistentLibrary',
     }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
@@ -245,7 +245,7 @@ describe('read_docs tool', () => {
     )
 
     const mockResponse = getToolCallString('read_docs', {
-      query: 'React',
+      libraryTitle: 'React',
     }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
@@ -288,7 +288,7 @@ describe('read_docs tool', () => {
     )
 
     const mockResponse = getToolCallString('read_docs', {
-      query: 'React',
+      libraryTitle: 'React',
       topic: 'server-components',
     }) + getToolCallString('end_turn', {})
 
@@ -333,7 +333,7 @@ describe('read_docs tool', () => {
     )
 
     const mockResponse = getToolCallString('read_docs', {
-      query: 'React',
+      libraryTitle: 'React',
     }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {

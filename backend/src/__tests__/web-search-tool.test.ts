@@ -107,21 +107,10 @@ describe('web_search tool', () => {
   }
 
   test('should successfully perform web search with basic query', async () => {
-    const mockSearchResults = [
-      {
-        title: 'Next.js 15 Release Notes',
-        url: 'https://nextjs.org/blog/next-15',
-        content: 'Next.js 15 introduces new features including improved performance and React 19 support.',
-      },
-      {
-        title: 'What\'s New in Next.js 15',
-        url: 'https://vercel.com/blog/next-15',
-        content: 'Explore the latest features and improvements in Next.js 15.',
-      },
-    ]
+    const mockSearchResult = 'Next.js 15 introduces new features including improved performance and React 19 support. You can explore the latest features and improvements in Next.js 15.'
     
     spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => mockSearchResults
+      async () => mockSearchResult
     )
 
     const mockResponse = getToolCallString('web_search', {
@@ -155,36 +144,29 @@ describe('web_search tool', () => {
       'Next.js 15 new features',
       {
         depth: 'standard',
-        maxResults: 5,
       }
     )
 
-    // Check that the search results were added to the message history
+    // Check that the search result was added to the message history
     const toolResultMessages = newSessionState.mainAgentState.messageHistory.filter(
-      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('Found 2 search results')
+      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('web_search')
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain('Next.js 15 Release Notes')
-    expect(toolResultMessages[0].content).toContain('https://nextjs.org/blog/next-15')
+    expect(toolResultMessages[0].content).toContain('Next.js 15 introduces new features')
+    expect(toolResultMessages[0].content).toContain('improved performance')
   })
 
-  test('should handle custom depth and max_results parameters', async () => {
-    const mockSearchResults = [
-      {
-        title: 'React Server Components Deep Dive',
-        url: 'https://react.dev/blog/2023/03/22/react-labs-what-we-have-been-working-on-march-2023',
-        content: 'A comprehensive guide to React Server Components and their implementation.',
-      },
-    ]
+  test('should handle custom depth parameter', async () => {
+    const mockSearchResult = 'A comprehensive guide to React Server Components and their implementation.'
     
     spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => mockSearchResults
+      async () => mockSearchResult
     )
 
     const mockResponse = getToolCallString('web_search', {
       query: 'React Server Components tutorial',
       depth: 'deep',
-      max_results: 3,
+
     }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
@@ -214,14 +196,13 @@ describe('web_search tool', () => {
       'React Server Components tutorial',
       {
         depth: 'deep',
-        maxResults: 3,
       }
     )
   })
 
   test('should handle case when no search results are found', async () => {
     spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => []
+      async () => null
     )
 
     const mockResponse = getToolCallString('web_search', {
@@ -389,21 +370,10 @@ describe('web_search tool', () => {
   })
 
   test('should format search results correctly', async () => {
-    const mockSearchResults = [
-      {
-        title: 'First Result',
-        url: 'https://example.com/1',
-        content: 'This is the first search result content.',
-      },
-      {
-        title: 'Second Result',
-        url: 'https://example.com/2',
-        content: 'This is the second search result content.',
-      },
-    ]
+    const mockSearchResult = 'This is the first search result content. This is the second search result content.'
     
     spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => mockSearchResults
+      async () => mockSearchResult
     )
 
     const mockResponse = getToolCallString('web_search', {
@@ -434,19 +404,14 @@ describe('web_search tool', () => {
     )
 
     const toolResultMessages = newSessionState.mainAgentState.messageHistory.filter(
-      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('Found 2 search results')
+      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('web_search')
     )
     
     expect(toolResultMessages.length).toBeGreaterThan(0)
     const resultContent = toolResultMessages[0].content
     
     // Check formatting
-    expect(resultContent).toContain('Found 2 search results for "test formatting"')
-    expect(resultContent).toContain('1. **First Result**')
-    expect(resultContent).toContain('   URL: https://example.com/1')
-    expect(resultContent).toContain('   This is the first search result content.')
-    expect(resultContent).toContain('2. **Second Result**')
-    expect(resultContent).toContain('   URL: https://example.com/2')
-    expect(resultContent).toContain('   This is the second search result content.')
+    expect(resultContent).toContain('This is the first search result content')
+    expect(resultContent).toContain('This is the second search result content')
   })
 })

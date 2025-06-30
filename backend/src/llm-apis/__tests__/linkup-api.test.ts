@@ -10,14 +10,16 @@ mock.module('@codebuff/internal', () => ({
   },
 }))
 
-// Mock logger
+// Mock logger with spy functions to verify logging calls
+const mockLogger = {
+  debug: mock(() => {}),
+  error: mock(() => {}),
+  info: mock(() => {}),
+  warn: mock(() => {}),
+}
+
 mock.module('../../util/logger', () => ({
-  logger: {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  },
+  logger: mockLogger,
 }))
 
 // Mock withTimeout utility
@@ -29,6 +31,11 @@ describe('Linkup API', () => {
   beforeEach(() => {
     // Reset fetch mock before each test
     global.fetch = mock(() => Promise.resolve(new Response()))
+    // Reset logger mocks
+    mockLogger.debug.mockClear()
+    mockLogger.error.mockClear()
+    mockLogger.info.mockClear()
+    mockLogger.warn.mockClear()
   })
 
   afterEach(() => {
@@ -37,16 +44,12 @@ describe('Linkup API', () => {
 
   test('should successfully search with basic query', async () => {
     const mockResponse = {
-      results: [
+      answer: 'React is a JavaScript library for building user interfaces. You can learn how to build your first React application by following the official documentation.',
+      sources: [
         {
-          title: 'React Documentation',
+          name: 'React Documentation',
           url: 'https://react.dev',
-          content: 'React is a JavaScript library for building user interfaces.',
-        },
-        {
-          title: 'Getting Started with React',
-          url: 'https://react.dev/learn',
-          content: 'Learn how to build your first React application.',
+          snippet: 'React is a JavaScript library for building user interfaces.',
         },
       ],
     }
@@ -60,16 +63,13 @@ describe('Linkup API', () => {
       )
     )
 
-    const results = await searchWeb('React tutorial')
+    const result = await searchWeb('React tutorial')
 
-    expect(results).toHaveLength(2)
-    expect(results![0].title).toBe('React Documentation')
-    expect(results![0].url).toBe('https://react.dev')
-    expect(results![0].content).toBe('React is a JavaScript library for building user interfaces.')
+    expect(result).toBe('React is a JavaScript library for building user interfaces. You can learn how to build your first React application by following the official documentation.')
 
     // Verify fetch was called with correct parameters
     expect(fetch).toHaveBeenCalledWith(
-      'https://api.linkup.so/search',
+      'https://api.linkup.so/v1/search',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -79,19 +79,20 @@ describe('Linkup API', () => {
         body: JSON.stringify({
           q: 'React tutorial',
           depth: 'standard',
-          outputTokens: 2500, // 5 results * 500 tokens
+          outputType: 'sourcedAnswer',
         }),
       })
     )
   })
 
-  test('should handle custom depth and max results', async () => {
+  test('should handle custom depth', async () => {
     const mockResponse = {
-      results: [
+      answer: 'Advanced React patterns include render props, higher-order components, and custom hooks for building reusable and maintainable components.',
+      sources: [
         {
-          title: 'Advanced React Patterns',
+          name: 'Advanced React Patterns',
           url: 'https://example.com/advanced-react',
-          content: 'Deep dive into React patterns and best practices.',
+          snippet: 'Deep dive into React patterns and best practices.',
         },
       ],
     }
@@ -105,52 +106,23 @@ describe('Linkup API', () => {
       )
     )
 
-    const results = await searchWeb('React patterns', {
+    const result = await searchWeb('React patterns', {
       depth: 'deep',
-      maxResults: 3,
     })
 
-    expect(results).toHaveLength(1)
-    expect(results![0].title).toBe('Advanced React Patterns')
+    expect(result).toBe('Advanced React patterns include render props, higher-order components, and custom hooks for building reusable and maintainable components.')
 
     // Verify fetch was called with correct parameters
     expect(fetch).toHaveBeenCalledWith(
-      'https://api.linkup.so/search',
+      'https://api.linkup.so/v1/search',
       expect.objectContaining({
         body: JSON.stringify({
           q: 'React patterns',
           depth: 'deep',
-          outputTokens: 1500, // 3 results * 500 tokens
+          outputType: 'sourcedAnswer',
         }),
       })
     )
-  })
-
-  test('should limit results to maxResults', async () => {
-    const mockResponse = {
-      results: [
-        { title: 'Result 1', url: 'https://example.com/1', content: 'Content 1' },
-        { title: 'Result 2', url: 'https://example.com/2', content: 'Content 2' },
-        { title: 'Result 3', url: 'https://example.com/3', content: 'Content 3' },
-        { title: 'Result 4', url: 'https://example.com/4', content: 'Content 4' },
-        { title: 'Result 5', url: 'https://example.com/5', content: 'Content 5' },
-      ],
-    }
-
-    global.fetch = mock(() =>
-      Promise.resolve(
-        new Response(JSON.stringify(mockResponse), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      )
-    )
-
-    const results = await searchWeb('test query', { maxResults: 3 })
-
-    expect(results).toHaveLength(3)
-    expect(results![0].title).toBe('Result 1')
-    expect(results![2].title).toBe('Result 3')
   })
 
   test('should handle API errors gracefully', async () => {
@@ -163,9 +135,9 @@ describe('Linkup API', () => {
       )
     )
 
-    const results = await searchWeb('test query')
+    const result = await searchWeb('test query')
 
-    expect(results).toBeNull()
+    expect(result).toBeNull()
   })
 
   test('should handle network errors', async () => {
@@ -173,9 +145,9 @@ describe('Linkup API', () => {
       Promise.reject(new Error('Network error'))
     )
 
-    const results = await searchWeb('test query')
+    const result = await searchWeb('test query')
 
-    expect(results).toBeNull()
+    expect(result).toBeNull()
   })
 
   test('should handle invalid response format', async () => {
@@ -188,29 +160,30 @@ describe('Linkup API', () => {
       )
     )
 
-    const results = await searchWeb('test query')
+    const result = await searchWeb('test query')
 
-    expect(results).toBeNull()
+    expect(result).toBeNull()
+
   })
 
-  test('should handle non-array results', async () => {
+  test('should handle missing answer field', async () => {
     global.fetch = mock(() =>
       Promise.resolve(
-        new Response(JSON.stringify({ results: 'not an array' }), {
+        new Response(JSON.stringify({ sources: [] }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
       )
     )
 
-    const results = await searchWeb('test query')
+    const result = await searchWeb('test query')
 
-    expect(results).toBeNull()
+    expect(result).toBeNull()
   })
-
-  test('should handle empty results', async () => {
+  test('should handle empty answer', async () => {
     const mockResponse = {
-      results: [],
+      answer: '',
+      sources: [],
     }
 
     global.fetch = mock(() =>
@@ -222,15 +195,16 @@ describe('Linkup API', () => {
       )
     )
 
-    const results = await searchWeb('test query')
+    const result = await searchWeb('test query')
 
-    expect(results).toEqual([])
+    expect(result).toBeNull()
   })
 
   test('should use default options when none provided', async () => {
     const mockResponse = {
-      results: [
-        { title: 'Test', url: 'https://example.com', content: 'Test content' },
+      answer: 'Test answer content',
+      sources: [
+        { name: 'Test', url: 'https://example.com', snippet: 'Test content' },
       ],
     }
 
@@ -247,12 +221,12 @@ describe('Linkup API', () => {
 
     // Verify fetch was called with default parameters
     expect(fetch).toHaveBeenCalledWith(
-      'https://api.linkup.so/search',
+      'https://api.linkup.so/v1/search',
       expect.objectContaining({
         body: JSON.stringify({
           q: 'test query',
           depth: 'standard',
-          outputTokens: 2500, // 5 results * 500 tokens (default)
+          outputType: 'sourcedAnswer',
         }),
       })
     )
@@ -268,8 +242,40 @@ describe('Linkup API', () => {
       )
     )
 
-    const results = await searchWeb('test query')
+    const result = await searchWeb('test query')
 
-    expect(results).toBeNull()
+    expect(result).toBeNull()
+    // Verify that error logging was called
+    expect(mockLogger.error).toHaveBeenCalled()
   })
+
+  test('should log detailed error information for 404 responses', async () => {
+    const mockErrorResponse = 'Not Found - The requested endpoint does not exist'
+    global.fetch = mock(() =>
+      Promise.resolve(
+        new Response(mockErrorResponse, {
+          status: 404,
+          statusText: 'Not Found',
+          headers: { 'Content-Type': 'text/plain' },
+        })
+      )
+    )
+
+    const result = await searchWeb('test query for 404')
+
+    expect(result).toBeNull()
+    // Verify that detailed error logging was called with 404 info
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 404,
+        statusText: 'Not Found',
+        responseBody: mockErrorResponse,
+        requestUrl: 'https://api.linkup.so/v1/search',
+        query: 'test query for 404'
+      }),
+      expect.stringContaining('404')
+    )
+  })
+
+
 })
