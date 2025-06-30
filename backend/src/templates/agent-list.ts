@@ -5,13 +5,13 @@ import {
 
 import { models } from '@codebuff/common/constants'
 import { base } from './agents/base'
+import { dryRun } from './agents/dry-run'
 import { filePicker } from './agents/file-picker'
-import { thinker } from './agents/thinker'
-import { thinkingBase } from './agents/thinking-base'
-import { AgentTemplate } from './types'
 import { planner } from './agents/planner'
 import { reviewer } from './agents/reviewer'
-import { dryRun } from './agents/dry-run'
+import { thinker } from './agents/thinker'
+import { thinkingBase } from './agents/thinking-base'
+import { AgentTemplate, readOnlyToolNames } from './types'
 
 export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   opus4_base: {
@@ -29,6 +29,12 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   gemini25flash_base: {
     type: AgentTemplateTypes.gemini25flash_base,
     ...base(models.gemini2_5_flash),
+  },
+  gemini25pro_ask: {
+    type: AgentTemplateTypes.gemini25pro_ask,
+    ...base(models.gemini2_5_pro_preview),
+    toolNames: readOnlyToolNames,
+    spawnableAgents: [AgentTemplateTypes.gemini25flash_file_picker],
   },
   claude4_gemini_thinking: {
     type: AgentTemplateTypes.claude4_gemini_thinking,

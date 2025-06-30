@@ -46,6 +46,9 @@ export const AgentTemplateTypeList = [
   'gemini25flash_base',
   'claude4_gemini_thinking',
 
+  // Ask mode
+  'gemini25pro_ask',
+
   // Planning / Thinking
   'gemini25pro_planner',
   'gemini25flash_dry_run',

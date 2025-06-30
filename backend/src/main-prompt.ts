@@ -1,6 +1,7 @@
 import { ClientAction } from '@codebuff/common/actions'
 import { type CostMode } from '@codebuff/common/constants'
 import {
+  AgentTemplateTypes,
   SessionState,
   ToolResult,
   type AgentTemplateType,
@@ -94,11 +95,11 @@ export const mainPrompt = async (
 
   const agentType = (
     {
-      ask: 'gemini25pro_base',
-      lite: 'gemini25flash_base',
-      normal: 'claude4_base',
-      max: 'opus4_base',
-      experimental: 'gemini25pro_base',
+      ask: AgentTemplateTypes.gemini25pro_ask,
+      lite: AgentTemplateTypes.gemini25flash_base,
+      normal: AgentTemplateTypes.claude4_base,
+      max: AgentTemplateTypes.opus4_base,
+      experimental: AgentTemplateTypes.gemini25pro_base,
     } satisfies Record<CostMode, AgentTemplateType>
   )[costMode]
 
