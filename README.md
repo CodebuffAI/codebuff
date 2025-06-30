@@ -69,6 +69,7 @@ If you want to set up Codebuff for local development:
 1. **Install Bun**: Follow the [Bun installation guide](https://bun.sh/docs/installation)
 
 2. **Install direnv**: This manages environment variables automatically
+
    - macOS: `brew install direnv`
    - Ubuntu/Debian: `sudo apt install direnv`
    - Other systems: See [direnv installation guide](https://direnv.net/docs/installation.html)
@@ -93,29 +94,36 @@ If you want to set up Codebuff for local development:
 ### Setup Steps
 
 1. **Clone and navigate to the project**:
+
    ```bash
    git clone <repository-url>
    cd codebuff
    ```
 
 2. **Set up Infisical for secrets management**:
+
    ```bash
    npm install -g @infisical/cli
    infisical login
    ```
+
    When prompted, select the "US" region, then verify setup:
+
    ```bash
    infisical secrets
    ```
 
 3. **Configure direnv**:
+
    ```bash
-   direnv allow
    cp .envrc.example .envrc
+   direnv allow
    ```
+
    This automatically manages your PATH and environment variables.
 
 4. **Install dependencies**:
+
    ```bash
    bun install
    ```
@@ -123,24 +131,27 @@ If you want to set up Codebuff for local development:
 5. **Start the development services**:
 
    **Terminal 1 - Backend server**:
+
    ```bash
    bun run start-server
    ```
 
    **Terminal 2 - Web server** (requires Docker):
+
    ```bash
    bun run start-web
    ```
 
    **Terminal 3 - Client**:
+
    ```bash
    bun run start-client
    ```
 
-
 ### Running Tests
 
 After direnv setup, you can run tests from any directory:
+
 ```bash
 bun test                    # Runs with secrets automatically
 bun test --watch           # Watch mode
@@ -152,6 +163,7 @@ bun test specific.test.ts  # Run specific test file
 ### direnv Issues
 
 If direnv isn't working:
+
 1. Ensure it's properly hooked into your shell (see Prerequisites step 3)
 2. Run `direnv allow` in the project root
 3. Check that `.envrc` exists and has the correct content
