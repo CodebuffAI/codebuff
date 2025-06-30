@@ -4,18 +4,18 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  description: 'Expert at researching topics using web search and documentation.',
+  description:
+    'Expert at researching topics using web search and documentation.',
   promptSchema: {
     prompt: true,
     params: null,
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: ['web_search', 'read_docs', 'code_search', 'read_files', 'end_turn'],
+  toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
   stopSequences: [
     '</web_search>',
     '</read_docs>',
-    '</code_search>',
     '</read_files>',
     '</end_turn>',
   ],
