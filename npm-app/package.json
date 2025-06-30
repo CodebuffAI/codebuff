@@ -19,7 +19,6 @@
     "codebuff": "dist/index.js"
   },
   "scripts": {
-    "inf": "$(git rev-parse --show-toplevel)/inf",
     "typecheck": "tsc --noEmit -p .",
     "build": "bun run scripts/build-binary.js codebuff $(node -p \"require('./release/package.json').version\")",
     "release": "bun run scripts/release.js",
@@ -32,7 +31,6 @@
     "start-dir": "bun run src/index.ts",
     "start-experimental": "bun run src/index.ts .. --experimental",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "test": "bun test",
     "postinstall": "bun scripts/patch-bun-pty.ts && bun scripts/patch-web-tree-sitter.ts"
   },
   "files": [
