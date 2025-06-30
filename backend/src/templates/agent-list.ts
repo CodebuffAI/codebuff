@@ -4,6 +4,7 @@ import {
 } from '@codebuff/common/types/session-state'
 
 import { models } from '@codebuff/common/constants'
+import { ask } from './agents/ask'
 import { base } from './agents/base'
 import { dryRun } from './agents/dry-run'
 import { filePicker } from './agents/file-picker'
@@ -32,7 +33,7 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   },
   gemini25pro_ask: {
     type: AgentTemplateTypes.gemini25pro_ask,
-    ...base(models.gemini2_5_pro_preview),
+    ...ask(models.gemini2_5_pro_preview),
     toolNames: readOnlyToolNames,
     spawnableAgents: [AgentTemplateTypes.gemini25flash_file_picker],
   },
