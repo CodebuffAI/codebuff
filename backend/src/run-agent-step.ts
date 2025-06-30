@@ -570,20 +570,30 @@ export const runAgentStep = async (
           toolCall as Extract<CodebuffToolCall, { toolName: 'web_search' }>
         ).args
 
-        logger.debug(
-          {
-            query,
-            depth,
-          },
-          'web_search tool call'
-        )
+        const searchStartTime = Date.now()
+        const searchContext = {
+          toolCallId: toolCall.toolCallId,
+          query,
+          depth,
+          userId,
+          agentStepId,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          repoId,
+        }
 
         try {
           const searchResult = await searchWeb(query, {
             depth,
           })
 
+          const searchDuration = Date.now() - searchStartTime
+          const resultLength = searchResult?.length || 0
+          const hasResults = Boolean(searchResult && searchResult.trim())
+
           // Charge credits for web search usage
+          let creditResult = null
           if (userId) {
             // Calculate credits based on search depth with profit margin
             const creditsToCharge = Math.round(
@@ -593,20 +603,41 @@ export const runAgentStep = async (
             const requestContext = getRequestContext()
             const repoUrl = requestContext?.processedRepoUrl
 
-            const result = await consumeCreditsWithFallback({
+            creditResult = await consumeCreditsWithFallback({
               userId,
               creditsToCharge,
               repoUrl,
               context: 'web search',
             })
 
-            if (!result.success) {
+            if (!creditResult.success) {
               logger.error(
-                { error: result.error, query, depth, userId },
+                {
+                  ...searchContext,
+                  error: creditResult.error,
+                  creditsToCharge,
+                  searchDuration,
+                },
                 'Failed to charge credits for web search'
               )
             }
           }
+
+          logger.info(
+            {
+              ...searchContext,
+              searchDuration,
+              resultLength,
+              hasResults,
+              creditsCharged: creditResult?.success
+                ? depth === 'deep'
+                  ? 5
+                  : 1
+                : 0,
+              success: true,
+            },
+            'Search completed'
+          )
 
           if (searchResult) {
             serverToolResults.push({
@@ -615,6 +646,13 @@ export const runAgentStep = async (
               result: searchResult,
             })
           } else {
+            logger.warn(
+              {
+                ...searchContext,
+                searchDuration,
+              },
+              'No results returned from search API'
+            )
             serverToolResults.push({
               toolName: 'web_search',
               toolCallId: toolCall.toolCallId,
@@ -622,9 +660,22 @@ export const runAgentStep = async (
             })
           }
         } catch (error) {
+          const searchDuration = Date.now() - searchStartTime
           logger.error(
-            { error, query, depth },
-            'Error performing web search with Linkup API'
+            {
+              ...searchContext,
+              error:
+                error instanceof Error
+                  ? {
+                      name: error.name,
+                      message: error.message,
+                      stack: error.stack,
+                    }
+                  : error,
+              searchDuration,
+              success: false,
+            },
+            'Search failed with error'
           )
           serverToolResults.push({
             toolName: 'web_search',
@@ -672,20 +723,45 @@ export const runAgentStep = async (
           toolCall as Extract<CodebuffToolCall, { toolName: 'read_docs' }>
         ).args
 
-        logger.debug(
-          {
-            libraryTitle,
-            topic,
-            max_tokens,
-          },
-          'read_docs tool call'
-        )
+        const docsStartTime = Date.now()
+        const docsContext = {
+          toolCallId: toolCall.toolCallId,
+          libraryTitle,
+          topic,
+          max_tokens,
+          userId,
+          agentStepId,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          repoId,
+        }
 
         try {
-          const documentation = await fetchContext7LibraryDocumentation(libraryTitle, {
-            topic,
-            tokens: max_tokens,
-          })
+          const documentation = await fetchContext7LibraryDocumentation(
+            libraryTitle,
+            {
+              topic,
+              tokens: max_tokens,
+            }
+          )
+
+          const docsDuration = Date.now() - docsStartTime
+          const resultLength = documentation?.length || 0
+          const hasResults = Boolean(documentation && documentation.trim())
+          const estimatedTokens = Math.ceil(resultLength / 4) // Rough token estimate
+
+          logger.info(
+            {
+              ...docsContext,
+              docsDuration,
+              resultLength,
+              estimatedTokens,
+              hasResults,
+              success: true,
+            },
+            'Documentation request completed successfully'
+          )
 
           if (documentation) {
             serverToolResults.push({
@@ -694,6 +770,13 @@ export const runAgentStep = async (
               result: documentation,
             })
           } else {
+            logger.warn(
+              {
+                ...docsContext,
+                docsDuration,
+              },
+              'No documentation found in Context7 database'
+            )
             serverToolResults.push({
               toolName: 'read_docs',
               toolCallId: toolCall.toolCallId,
@@ -701,9 +784,22 @@ export const runAgentStep = async (
             })
           }
         } catch (error) {
+          const docsDuration = Date.now() - docsStartTime
           logger.error(
-            { error, libraryTitle, topic, max_tokens },
-            'Error fetching documentation from Context7'
+            {
+              ...docsContext,
+              error:
+                error instanceof Error
+                  ? {
+                      name: error.name,
+                      message: error.message,
+                      stack: error.stack,
+                    }
+                  : error,
+              docsDuration,
+              success: false,
+            },
+            'Documentation request failed with error'
           )
           serverToolResults.push({
             toolName: 'read_docs',

@@ -30,6 +30,7 @@ export async function searchWeb(
   } = {}
 ): Promise<string | null> {
   const { depth = 'standard' } = options
+  const apiStartTime = Date.now()
 
   const requestBody = {
     q: query,
@@ -37,7 +38,16 @@ export async function searchWeb(
     outputType: 'sourcedAnswer' as const,
   }
   const requestUrl = `${LINKUP_API_BASE_URL}/search`
+
+  const apiContext = {
+    query,
+    depth,
+    requestUrl,
+    queryLength: query.length,
+  }
+
   try {
+    const fetchStartTime = Date.now()
     const response = await withTimeout(
       fetch(`${LINKUP_API_BASE_URL}/search`, {
         method: 'POST',
@@ -49,24 +59,31 @@ export async function searchWeb(
       }),
       FETCH_TIMEOUT_MS
     )
+    const fetchDuration = Date.now() - fetchStartTime
 
     if (!response.ok) {
       let responseBody = 'Unable to read response body'
       try {
         responseBody = await response.text()
       } catch (bodyError) {
-        logger.warn({ bodyError }, 'Failed to read error response body')
+        logger.warn(
+          {
+            ...apiContext,
+            bodyError,
+            fetchDuration,
+          },
+          'Failed to read error response body'
+        )
       }
 
       logger.error(
         {
+          ...apiContext,
           status: response.status,
           statusText: response.statusText,
-          responseBody,
-          requestUrl,
-          requestBody,
-          query,
-          depth,
+          responseBody: responseBody.substring(0, 500), // Truncate long responses
+          fetchDuration,
+          totalDuration: Date.now() - apiStartTime,
           headers: response.headers
             ? (() => {
                 const headerObj: Record<string, string> = {}
@@ -77,24 +94,33 @@ export async function searchWeb(
               })()
             : 'No headers',
         },
-        `Linkup API request failed with ${response.status}: ${response.statusText}`
+        `Request failed with ${response.status}: ${response.statusText}`
       )
       return null
     }
 
     let data: LinkupSearchResponse
     try {
+      const parseStartTime = Date.now()
       data = (await response.json()) as LinkupSearchResponse
+      const parseDuration = Date.now() - parseStartTime
     } catch (jsonError) {
       logger.error(
         {
-          jsonError,
-          query,
-          requestUrl,
+          ...apiContext,
+          jsonError:
+            jsonError instanceof Error
+              ? {
+                  name: jsonError.name,
+                  message: jsonError.message,
+                }
+              : jsonError,
+          fetchDuration,
+          totalDuration: Date.now() - apiStartTime,
           status: response.status,
           statusText: response.statusText,
         },
-        'Failed to parse JSON response from Linkup API'
+        'Failed to parse JSON response'
       )
       return null
     }
@@ -102,22 +128,39 @@ export async function searchWeb(
     if (!data.answer || typeof data.answer !== 'string') {
       logger.error(
         {
-          data,
-          query,
-          requestUrl,
+          ...apiContext,
           responseKeys: Object.keys(data || {}),
           answerType: typeof data?.answer,
+          answerLength: data?.answer?.length || 0,
+          sourcesCount: data?.sources?.length || 0,
+          fetchDuration,
+          totalDuration: Date.now() - apiStartTime,
         },
-        'Invalid response format from Linkup API - missing or invalid answer field'
+        'Invalid response format - missing or invalid answer field'
       )
       return null
     }
 
+    const totalDuration = Date.now() - apiStartTime
+    logger.info(
+      {
+        ...apiContext,
+        answerLength: data.answer.length,
+        sourcesCount: data.sources?.length || 0,
+        fetchDuration,
+        totalDuration,
+        success: true,
+      },
+      'Completed web search'
+    )
+
     // Return the answer as a single result for compatibility
     return data.answer
   } catch (error) {
+    const totalDuration = Date.now() - apiStartTime
     logger.error(
       {
+        ...apiContext,
         error:
           error instanceof Error
             ? {
@@ -126,12 +169,10 @@ export async function searchWeb(
                 stack: error.stack,
               }
             : error,
-        query,
-        options,
-        requestUrl,
-        requestBody,
+        totalDuration,
+        success: false,
       },
-      'Error calling Linkup API - network or other failure'
+      'Network or other failure during web search'
     )
     return null
   }
