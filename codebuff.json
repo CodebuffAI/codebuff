@@ -15,7 +15,7 @@
   "fileChangeHooks": [
     {
       "name": "backend-unit-tests",
-      "command": "set -o pipefail && infisical run -- bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
+      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
       "cwd": "backend",
       "filePattern": "backend/**/*.ts"
     },
@@ -28,7 +28,7 @@
 
     {
       "name": "npm-app-unit-tests",
-      "command": "set -o pipefail && infisical run -- bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
+      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
       "cwd": "npm-app",
       "filePattern": "npm-app/**/*.ts"
     },
@@ -48,7 +48,7 @@
 
     {
       "name": "common-unit-tests",
-      "command": "set -o pipefail && infisical run -- bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
+      "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
       "cwd": "common",
       "filePattern": "common/**/*.ts"
     },
