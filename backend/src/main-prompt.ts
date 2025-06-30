@@ -8,12 +8,12 @@ import {
 } from '@codebuff/common/types/session-state'
 import { WebSocket } from 'ws'
 
+import { renderToolResults } from '@codebuff/common/constants/tools'
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
 import { ClientToolCall } from './tools'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
-import { renderToolResults } from './util/parse-tool-call-xml'
 import { requestToolCall } from './websockets/websocket-action'
 
 export interface MainPromptOptions {

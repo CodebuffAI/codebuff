@@ -11,7 +11,10 @@ import {
   ONE_TIME_LABELS,
 } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { getToolCallString } from '@codebuff/common/constants/tools'
+import {
+  getToolCallString,
+  renderToolResults,
+} from '@codebuff/common/constants/tools'
 import {
   AgentState,
   ToolResult,
@@ -65,7 +68,6 @@ import {
   parseReadFilesResult,
   parseToolResults,
   renderReadFilesResult,
-  renderToolResults,
 } from './util/parse-tool-call-xml'
 import { simplifyReadFileResults } from './util/simplify-tool-results'
 import { countTokens, countTokensJson } from './util/token-counter'

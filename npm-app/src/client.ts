@@ -53,6 +53,7 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
+import { renderToolResults } from '@codebuff/common/constants/tools'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -1116,7 +1117,7 @@ export class Client {
         }
 
         const hookFiles = DiffManager.getHookFiles()
-        if (hookFiles.length > 0 && this.responseComplete) {
+        if (hookFiles.length > 0) {
           // Run file change hooks with the actual changed files
           const { toolResults: hookToolResults, someHooksFailed } =
             await runFileChangeHooks(hookFiles)
@@ -1132,6 +1133,11 @@ export class Client {
           // Append process updates to existing tool results
           toolResults.push(...getBackgroundProcessUpdates())
           this.sessionState.fileContext.cwd = getWorkingDirectory()
+
+          this.sessionState.mainAgentState.messageHistory.push({
+            role: 'user',
+            content: renderToolResults(toolResults),
+          })
           // Continue the prompt with the tool results.
           Spinner.get().start('Thinking...')
           const continuePromptAction: ClientAction = {

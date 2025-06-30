@@ -1,6 +1,7 @@
-import { CoreMessage, ToolResultPart } from 'ai'
+import { StringToolResultPart } from '@codebuff/common/constants/tools'
 import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { CoreMessage } from 'ai'
 
 /**
  * Parses XML content for a tool call into a structured object with only string values.
@@ -27,21 +28,6 @@ export function parseToolCallXml(xmlString: string): Record<string, string> {
   }
 
   return result
-}
-
-type StringToolResultPart = Omit<ToolResultPart, 'type'> & { result: string }
-
-export function renderToolResults(toolResults: StringToolResultPart[]): string {
-  return `
-${toolResults
-  .map(
-    (result) => `<tool_result>
-<tool>${result.toolName}</tool>
-<result>${result.result}</result>
-</tool_result>`
-  )
-  .join('\n\n')}
-`.trim()
 }
 
 export const parseToolResults = (xmlString: string): StringToolResultPart[] => {

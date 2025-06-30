@@ -1,3 +1,5 @@
+import { ToolResultPart } from 'ai'
+
 export const toolSchema = {
   // Tools that require an id and objective
   add_subgoal: ['id', 'objective', 'status', 'plan', 'log'],
@@ -71,4 +73,21 @@ export const getToolCallString = (
   return paramsString
     ? `${openTag}\n${paramsString}\n${closeTag}`
     : `${openTag}${closeTag}`
+}
+
+export type StringToolResultPart = Omit<ToolResultPart, 'type'> & {
+  result: string
+}
+
+export function renderToolResults(toolResults: StringToolResultPart[]): string {
+  return `
+${toolResults
+  .map(
+    (result) => `<tool_result>
+<tool>${result.toolName}</tool>
+<result>${result.result}</result>
+</tool_result>`
+  )
+  .join('\n\n')}
+`.trim()
 }
