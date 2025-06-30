@@ -1,27 +1,30 @@
-import { consumeCredits, getUserCostPerCredit } from '@codebuff/billing'
-import { consumeOrganizationCredits } from '@codebuff/billing'
-import { CoreMessage } from 'ai'
+import {
+  consumeCredits,
+  consumeOrganizationCredits,
+  getUserCostPerCredit,
+} from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
+import { Message } from '@codebuff/common/types/message'
 import { withRetry } from '@codebuff/common/util/promise'
 import { stripeServer } from '@codebuff/common/util/stripe'
-import { Message } from '@codebuff/common/types/message'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
-import { eq, sql } from 'drizzle-orm'
+import { CoreMessage } from 'ai'
+import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { WebSocket } from 'ws'
 
-import { stripNullCharsFromObject } from '../util/object'
 import { getRequestContext } from '../context/app-context'
+import { stripNullCharsFromObject } from '../util/object'
 
-import { OpenAIMessage } from './openai-api'
 import { logger, withLoggerContext } from '../util/logger'
 import { SWITCHBOARD } from '../websockets/server'
 import { ClientState } from '../websockets/switchboard'
 import { sendAction } from '../websockets/websocket-action'
+import { OpenAIMessage } from './openai-api'
 
 const PROFIT_MARGIN = 0.3
 
@@ -32,6 +35,7 @@ const PROFIT_MARGIN = 0.3
 type CostModelKey = keyof (typeof TOKENS_COST_PER_M)['input']
 const TOKENS_COST_PER_M = {
   input: {
+    [models.opus4]: 15,
     [models.sonnet]: 3,
     [models.sonnet3_7]: 3,
     [models.haiku]: 0.8,
@@ -52,6 +56,7 @@ const TOKENS_COST_PER_M = {
     [models.openrouter_gemini2_5_pro_preview]: 1.25,
   },
   output: {
+    [models.opus4]: 75,
     [models.sonnet]: 15,
     [models.sonnet3_7]: 15,
     [models.haiku]: 4,
@@ -72,11 +77,13 @@ const TOKENS_COST_PER_M = {
     [models.openrouter_gemini2_5_pro_preview]: 10,
   },
   cache_creation: {
+    [models.opus4]: 18.75,
     [models.sonnet]: 3.75,
     [models.sonnet3_7]: 3.75,
     [models.haiku]: 1,
   },
   cache_read: {
+    [models.opus4]: 1.5,
     [models.sonnet]: 0.3,
     [models.sonnet3_7]: 0.3,
     [models.haiku]: 0.08,
