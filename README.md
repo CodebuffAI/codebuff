@@ -64,50 +64,98 @@ To get started with Codebuff, follow these steps:
 
 If you want to set up Codebuff for local development:
 
-1. Clone the repository and navigate to the project directory.
+### Prerequisites
 
-2. Set up your [Infisical](https://infisical.com/) user. Ask one of us to add you to the project. Then:
-   1. Install the Infisical CLI: `npm install -g @infisical/cli`
-   2. Log in to Infisical: `infisical login`
-   3. When prompted, select the "US" region.
-   4. Run `infisical secrets` to make sure your secrets are set up correctly.
+1. **Install Bun**: Follow the [Bun installation guide](https://bun.sh/docs/installation)
 
-3. Run `bun install` in the root directory to install remaining dependencies. (See [here](https://bun.sh/docs/installation) for instructions on how to install Bun.)
+2. **Install direnv**: This manages environment variables automatically
+   - macOS: `brew install direnv`
+   - Ubuntu/Debian: `sudo apt install direnv`
+   - Other systems: See [direnv installation guide](https://direnv.net/docs/installation.html)
 
-4. To start the backend server, in one terminal, run:
+3. **Hook direnv into your shell**:
+   - For zsh:
+     ```bash
+     echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc && source ~/.zshrc
+     ```
+   - For bash:
+     ```bash
+     echo 'eval "$(direnv hook bash)"' >> ~/.bashrc && source ~/.bashrc
+     ```
+   - For fish:
+     ```bash
+     echo 'direnv hook fish | source' >> ~/.config/fish/config.fish && source ~/.config/fish/config.fish
+     ```
+4. **Restart your shell**: Run `exec $SHELL` (or manually kill and re-open your terminal).
 
+5. **Install Docker**: Required for the web server database
+
+### Setup Steps
+
+1. **Clone and navigate to the project**:
+   ```bash
+   git clone <repository-url>
+   cd codebuff
    ```
+
+2. **Set up Infisical for secrets management**:
+   ```bash
+   npm install -g @infisical/cli
+   infisical login
+   ```
+   When prompted, select the "US" region, then verify setup:
+   ```bash
+   infisical secrets
+   ```
+
+3. **Configure direnv**:
+   ```bash
+   direnv allow
+   cp .envrc.example .envrc
+   ```
+   This automatically manages your PATH and environment variables.
+
+4. **Install dependencies**:
+   ```bash
+   bun install
+   ```
+
+5. **Start the development services**:
+
+   **Terminal 1 - Backend server**:
+   ```bash
    bun run start-server
    ```
 
-   The web server also needs to be started for account authorization purposes. (Make sure docker is installed for this.) This should be done in a second terminal window.
-
-   ```
+   **Terminal 2 - Web server** (requires Docker):
+   ```bash
    bun run start-web
    ```
 
-   To start the client, in a third terminal, run:
-
-   ```
+   **Terminal 3 - Client**:
+   ```bash
    bun run start-client
    ```
 
-## Troubleshooting
 
-### Build Issues
+### Running Tests
 
-If you encounter a build error like this:
-
+After direnv setup, you can run tests from any directory:
 ```bash
-NX  DB transaction operation error: SqliteFailure(Error { code: DatabaseCorrupt, extended_code: 11 }, Some("database disk image is malformed"))
+bun test                    # Runs with secrets automatically
+bun test --watch           # Watch mode
+bun test specific.test.ts  # Run specific test file
 ```
 
-This means the Nx build cache database has become corrupted. This can happen due to sudden process termination, disk errors, or system crashes. To fix it:
+## Troubleshooting
 
-1. Run `bunx nx reset` to clear the cache and stop the Nx daemon
-2. Try your build command again
+### direnv Issues
 
-Note that the next build will be slower since the cache needs to be rebuilt.
+If direnv isn't working:
+1. Ensure it's properly hooked into your shell (see Prerequisites step 3)
+2. Run `direnv allow` in the project root
+3. Check that `.envrc` exists and has the correct content
+4. Restart your terminal if needed
 
 ## Licensing
 

@@ -14,11 +14,10 @@
     }
   },
   "scripts": {
-    "inf": "$(git rev-parse --show-toplevel)/inf",
-    "start": "bun run inf bun src/index.ts",
-    "dev": "bun run inf bun src/index.ts",
+    "start": "bun src/index.ts",
+    "dev": "bun src/index.ts",
     "typecheck": "tsc --noEmit -p .",
-    "test": "bun run inf bun test"
+    "test": "bun test"
   },
   "sideEffects": false,
   "engines": {
