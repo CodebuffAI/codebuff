@@ -161,8 +161,8 @@ function buildInit(shell: ShellKind): string[] {
 }
 
 /** Build environment */
-function buildEnv(shell: ShellKind): Record<string, string> {
-  const env: Record<string, string> = {
+function buildEnv(shell: ShellKind): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     PAGER: 'cat',
     GIT_PAGER: 'cat',
@@ -272,7 +272,7 @@ export type PersistentProcess = {
   timerId: NodeJS.Timeout | null
   globalOutputBuffer: string
   globalOutputLastReadLength: number
-  env: Record<string, string>
+  env: NodeJS.ProcessEnv
   shellInitCommands: string[]
 }
 
