@@ -753,9 +753,11 @@ export class Client {
           args,
         }
 
+        Spinner.get().stop()
         const toolResult = await handleToolCall(toolCall as any)
 
         // Send successful response back to backend
+        Spinner.get().start('Thinking...')
         this.webSocket.sendAction({
           type: 'tool-call-response',
           requestId,
@@ -774,6 +776,7 @@ export class Client {
         )
 
         // Send error response back to backend
+        Spinner.get().start('Thinking...')
         this.webSocket.sendAction({
           type: 'tool-call-response',
           requestId,
