@@ -7,7 +7,7 @@ import {
   setProjectRoot,
   setWorkingDirectory,
 } from '@codebuff/npm-app/project-files'
-import { recreateShell } from '@codebuff/npm-app/terminal/base'
+import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
 
 import {
   createFileReadingMock,

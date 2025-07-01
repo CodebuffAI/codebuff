@@ -40,9 +40,9 @@ function applyColorHints(cmd: string): string {
 
   /* ---------- git -------------------------------------------------- */
   if (/^\s*git\b/.test(cmd) && !/--color\b/.test(cmd)) {
-    if (/\bdiff\b/.test(cmd))   return `${cmd} --color=always`
-    if (/\blog\b/.test(cmd))    return `${cmd} --color=always`
-    if (/\bshow\b/.test(cmd))   return `${cmd} --color=always`
+    if (/\bdiff\b/.test(cmd)) return `${cmd} --color=always`
+    if (/\blog\b/.test(cmd)) return `${cmd} --color=always`
+    if (/\bshow\b/.test(cmd)) return `${cmd} --color=always`
   }
 
   /* ---------- grep / ripgrep --------------------------------------- */
@@ -52,7 +52,7 @@ function applyColorHints(cmd: string): string {
 
   /* ---------- ls ---------------------------------------------------- */
   if (/^\s*ls\b/.test(cmd) && !/--color\b/.test(cmd) && !/\s\-G\b/.test(cmd)) {
-    return IS_WINDOWS                 // Git‑Bash ls honours GNU flag on win
+    return IS_WINDOWS // Git‑Bash ls honours GNU flag on win
       ? `${cmd} --color=always`
       : process.platform === 'darwin' // BSD ls
         ? `${cmd} -G`
@@ -169,8 +169,8 @@ function buildEnv(shell: ShellKind): Record<string, string> {
     GIT_TERMINAL_PROMPT: '0',
     LESS: '-FRX',
     /* ---- colour‑forcing vars -------------------------------------- */
-    FORCE_COLOR: '3',              // chalk / picocolors / many Node CLIs
-    CLICOLOR: '1',                 // coreutils (BSD) honour this
+    FORCE_COLOR: '3', // chalk / picocolors / many Node CLIs
+    CLICOLOR: '1', // coreutils (BSD) honour this
     CLICOLOR_FORCE: '1',
     GIT_CONFIG_PARAMETERS: `'color.ui=always'`,
     LANG: 'en_US.UTF-8',

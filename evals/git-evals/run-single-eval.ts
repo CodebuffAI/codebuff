@@ -7,7 +7,7 @@ import { runSingleEval } from './run-git-evals'
 import { setupTestRepo, extractRepoNameFromUrl } from './setup-test-repo'
 import { setupTestEnvironmentVariables } from '../test-setup'
 import { createFileReadingMock } from '../scaffolding'
-import { recreateShell } from '@codebuff/npm-app/terminal/base'
+import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
 import { setProjectRoot, setWorkingDirectory } from '@codebuff/npm-app/project-files'
 import type { EvalCommit, ModelConfig, GitRepoEvalData } from './types'
 
@@ -135,7 +135,7 @@ async function runSingleEvalTask(options: {
 
   // Setup project context
   createFileReadingMock(projectPath)
-  recreateShell(projectPath, true)
+  recreateShell(projectPath)
   setProjectRoot(projectPath)
   setWorkingDirectory(projectPath)
 
