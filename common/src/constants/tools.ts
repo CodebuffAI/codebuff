@@ -30,6 +30,9 @@ export const toolSchema = {
   // Web search tool
   web_search: ['query', 'depth'],
 
+  // File change hooks tool
+  run_file_change_hooks: ['files'],
+
   end_turn: [],
 }
 

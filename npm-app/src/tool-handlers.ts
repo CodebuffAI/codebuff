@@ -22,6 +22,7 @@ import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/run-command'
 import { Spinner } from './utils/spinner'
 import { scrapeWebPage } from './web-scraper'
+import { runFileChangeHooks } from './json-config/hooks'
 
 export type ToolHandler<T extends Record<string, any>> = (
   parameters: T,
@@ -249,6 +250,42 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   }>,
   code_search: handleCodeSearch,
   end_turn: async () => '',
+  run_file_change_hooks: async (parameters: { files: string[] }) => {
+    // Wait for any pending file operations to complete
+    await waitForPreviousCheckpoint()
+
+    const { toolResults, someHooksFailed } = await runFileChangeHooks(
+      parameters.files
+    )
+
+    // Format the results for display
+    const results = toolResults
+      .map((result) => {
+        const hookName = result.toolName.replace('file-change-hook-', '')
+        return `Hook '${hookName}': ${result.result}`
+      })
+      .join('\n\n')
+
+    // Add a summary if some hooks failed
+    if (someHooksFailed) {
+      const finalResult =
+        results +
+        '\n\n⚠️ Some file change hooks failed. Please review the output above.'
+      logger.info(
+        { files: parameters.files, resultLength: finalResult.length },
+        'Returning file change hooks result with failures'
+      )
+      return finalResult
+    }
+
+    const finalResult =
+      results || 'No file change hooks were triggered for the specified files.'
+    logger.info(
+      { files: parameters.files, resultLength: finalResult.length },
+      'Returning successful file change hooks result'
+    )
+    return finalResult
+  },
   browser_logs: async (params, _id): Promise<string> => {
     Spinner.get().start('Using browser...')
     let response: BrowserResponse

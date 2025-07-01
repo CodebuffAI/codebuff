@@ -726,7 +726,18 @@ export class Client {
     this.webSocket.subscribe('tool-call-request', async (action) => {
       const { requestId, toolName, args, userInputId } = action
 
-      if (userInputId !== this.userInputId) {
+      // Check if the userInputId matches or is from a spawned agent
+      if (!this.userInputId || !userInputId.startsWith(this.userInputId)) {
+        logger.warn(
+          {
+            requestId,
+            toolName,
+            expectedUserInputId: this.userInputId,
+            receivedUserInputId: userInputId,
+          },
+          'User input ID mismatch - rejecting tool call request'
+        )
+
         this.webSocket.sendAction({
           type: 'tool-call-response',
           requestId,
@@ -754,6 +765,16 @@ export class Client {
           result: toolResult.result,
         })
       } catch (error) {
+        logger.error(
+          {
+            requestId,
+            toolName,
+            error: error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Tool call execution failed - sending error response to backend'
+        )
+
         // Send error response back to backend
         this.webSocket.sendAction({
           type: 'tool-call-response',
@@ -1151,19 +1172,6 @@ export class Client {
         // If we had any file changes, update the project context
         if (DiffManager.getChanges().length > 0) {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
-        }
-
-        const hookFiles = DiffManager.getHookFiles()
-        if (hookFiles.length > 0) {
-          // Run file change hooks with the actual changed files
-          const { toolResults: hookToolResults, someHooksFailed } =
-            await runFileChangeHooks(hookFiles)
-          toolResults.push(...hookToolResults)
-          if (someHooksFailed) {
-            this.responseComplete = false
-          }
-          // Clear the hook files from the manager
-          DiffManager.clearHookFiles()
         }
 
         if (!this.responseComplete) {

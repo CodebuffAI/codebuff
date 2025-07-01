@@ -36,9 +36,14 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 ## Tool Handling System
 
 - Tools are defined in `backend/src/tools.ts` and implemented in `npm-app/src/tool-handlers.ts`
-- Available tools: read_files, write_file, str_replace, run_terminal_command, code_search, browser_logs, spawn_agents, web_search, read_docs, and others
+- Available tools: read_files, write_file, str_replace, run_terminal_command, code_search, browser_logs, spawn_agents, web_search, read_docs, run_file_change_hooks, and others
 - Backend uses tool calls to request additional information or perform actions
 - Client-side handles tool calls and sends results back to server
+- **Spawned agents can now execute tool calls**: The spawn_agents handler parses tool calls from spawned agent responses and executes them
+  - The reviewer agent can run file change hooks directly using the run_file_change_hooks tool
+  - Tool calls in spawned agent responses are parsed and executed immediately within the spawn_agents handler
+  - Currently supports: run_file_change_hooks, run_terminal_command, code_search, browser_logs
+  - Tool calls are executed in the parent agent's context, allowing spawned agents to affect the parent's environment
 
 ## CLI Interface Features
 
