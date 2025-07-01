@@ -83,6 +83,7 @@ import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+import { closeXml } from '@codebuff/common/util/xml'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -1060,7 +1061,7 @@ export class Client {
         { role: 'user' as const, content: prompt },
         {
           role: 'user' as const,
-          content: `<system><assistant_message>${rawChunkBuffer.join('')}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
+          content: `<system><assistant_message>${rawChunkBuffer.join('')}${closeXml('assistant_message')}[RESPONSE_CANCELED_BY_USER]${closeXml('system')}`,
         },
       ]
 
@@ -1100,14 +1101,14 @@ export class Client {
 
       const trimmed = chunk.trim()
       for (const tag of ONE_TIME_TAGS) {
-        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)) {
+        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(closeXml(tag))) {
           if (this.oneTimeFlags[tag]) {
             return
           }
           Spinner.get().stop()
           const warningMessage = trimmed
             .replace(`<${tag}>`, '')
-            .replace(`</${tag}>`, '')
+            .replace(closeXml(tag), '')
           process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
           this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
           return

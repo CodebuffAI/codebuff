@@ -1,6 +1,6 @@
 import { Model } from '@codebuff/common/constants'
+import { closeXmlTags } from '@codebuff/common/util/xml'
 
-import { generateCloseTags } from '../../util/parse-tool-call-xml'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
@@ -13,7 +13,7 @@ export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  stopSequences: generateCloseTags(['end_turn']),
+  stopSequences: closeXmlTags(['end_turn']),
   spawnableAgents: [],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',

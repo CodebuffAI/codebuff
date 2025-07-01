@@ -1,4 +1,5 @@
 import { spawn } from 'child_process'
+import { closeXml } from '@codebuff/common/util/xml'
 import * as path from 'path'
 
 import { FileChangeSchema } from '@codebuff/common/actions'
@@ -92,9 +93,9 @@ export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
   const { url } = parameters
   const content = await scrapeWebPage(url)
   if (!content) {
-    return `<web_scraping_error url="${url}">Failed to scrape the web page.</web_scraping_error>`
+    return `<web_scraping_error url="${url}">Failed to scrape the web page.${closeXml('web_scraping_error')}`
   }
-  return `<web_scraped_content url="${url}">${content}</web_scraped_content>`
+  return `<web_scraped_content url="${url}">${content}${closeXml('web_scraped_content')}`
 }
 
 export const handleRunTerminalCommand = async (
@@ -152,7 +153,7 @@ export const handleCodeSearch: ToolHandler<{
       // Ensure the search path is within the project directory
       if (!requestedPath.startsWith(projectPath)) {
         resolve(
-          `<terminal_command_error>Invalid cwd: Path '${parameters.cwd}' is outside the project directory.</terminal_command_error>`
+          `<terminal_command_error>Invalid cwd: Path '${parameters.cwd}' is outside the project directory.${closeXml('terminal_command_error')}`
         )
         return
       }
@@ -212,7 +213,7 @@ export const handleCodeSearch: ToolHandler<{
 
     childProcess.on('error', (error) => {
       resolve(
-        `<terminal_command_error>Failed to execute ripgrep: ${error.message}</terminal_command_error>`
+        `<terminal_command_error>Failed to execute ripgrep: ${error.message}${closeXml('terminal_command_error')}`
       )
     })
   })
@@ -225,15 +226,15 @@ function formatResult(
   exitCode: number | null
 ): string {
   let result = '<terminal_command_result>\n'
-  result += `<stdout>${stdout}</stdout>\n`
+  result += `<stdout>${stdout}${closeXml('stdout')}\n`
   if (stderr !== undefined) {
-    result += `<stderr>${stderr}</stderr>\n`
+    result += `<stderr>${stderr}${closeXml('stderr')}\n`
   }
-  result += `<status>${status}</status>\n`
+  result += `<status>${status}${closeXml('status')}\n`
   if (exitCode !== null) {
-    result += `<exit_code>${exitCode}</exit_code>\n`
+    result += `<exit_code>${exitCode}${closeXml('exit_code')}\n`
   }
-  result += '</terminal_command_result>'
+  result += closeXml('terminal_command_result')
   return result
 }
 

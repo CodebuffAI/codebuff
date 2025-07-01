@@ -1,6 +1,6 @@
 import { Model } from '@codebuff/common/constants'
+import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 
-import { generateCloseTags } from '../../util/parse-tool-call-xml'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
@@ -14,7 +14,7 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn', 'run_file_change_hooks'],
-  stopSequences: generateCloseTags(['end_turn', 'run_file_change_hooks']),
+  stopSequences: closeXmlTags(['end_turn', 'run_file_change_hooks']),
   spawnableAgents: [],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
@@ -50,5 +50,5 @@ Throughout, you must be very concise and to the point. Do not use unnecessary wo
 
 After providing all your feedback, use the end_turn tool to end your response.`,
 
-  agentStepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
+  agentStepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 })

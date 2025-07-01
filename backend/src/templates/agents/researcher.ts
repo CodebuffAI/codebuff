@@ -1,7 +1,7 @@
 import { Model } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
+import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 
-import { generateCloseTags } from '../../util/parse-tool-call-xml'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
@@ -15,7 +15,7 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-  stopSequences: generateCloseTags([
+  stopSequences: closeXmlTags([
     'web_search',
     'read_docs',
     'read_files',
@@ -48,5 +48,5 @@ Always end your response with the end_turn tool.\\n\\n` +
       PLACEHOLDER.GIT_CHANGES_PROMPT,
     ].join('\\n\\n'),
   userInputPrompt: '',
-  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
+  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 })

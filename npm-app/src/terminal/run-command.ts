@@ -1,4 +1,5 @@
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
+import { closeXml } from '@codebuff/common/util/xml'
 import { mkdtempSync, unlinkSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import * as os from 'os'
@@ -51,14 +52,15 @@ function applyColorHints(cmd: string): string {
   }
 
   /* ---------- ls ---------------------------------------------------- */
-  if (/^\s*ls\b/.test(cmd)                  // plain "ls"
-      && !/[\s\-][1lCx]/.test(cmd)          // none of -1 -l -C -x present
-      && !/--color\b/.test(cmd)             // and no colour flag yet
+  if (
+    /^\s*ls\b/.test(cmd) && // plain "ls"
+    !/[\s\-][1lCx]/.test(cmd) && // none of -1 -l -C -x present
+    !/--color\b/.test(cmd) // and no colour flag yet
   ) {
     const colourFlag = IS_WINDOWS
-      ? '--color=always'                    // Git‑coreutils on Win
+      ? '--color=always' // Git‑coreutils on Win
       : process.platform === 'darwin'
-        ? '-G'                              // BSD flag
+        ? '-G' // BSD flag
         : '--color=always'
 
     /* -C forces multi‑column even when stdout isn't a TTY */
@@ -181,7 +183,7 @@ function buildEnv(shell: ShellKind): NodeJS.ProcessEnv {
     GIT_CONFIG_PARAMETERS: `'color.ui=always'`,
     /* ---- width / height ------------------------------------------- */
     COLUMNS: String(process.stdout.columns || 80),
-    LINES:   String(process.stdout.rows    || 24),
+    LINES: String(process.stdout.rows || 24),
     LANG: 'en_US.UTF-8',
     LC_ALL: 'en_US.UTF-8',
   }
@@ -338,15 +340,15 @@ export const resetShell = async (cwd: string) => {
 
 function formatResult(command: string, stdout: string, status: string): string {
   return buildArray(
-    `<command>${command}</command>`,
+    `<command>${command}${closeXml('command')}`,
     '<terminal_command_result>',
     `<output>${truncateStringWithMessage({
       str: stripColors(stdout),
       maxLength: COMMAND_OUTPUT_LIMIT,
       remove: 'MIDDLE',
-    })}</output>`,
-    `<status>${status}</status>`,
-    '</terminal_command_result>'
+    })}${closeXml('output')}`,
+    `<status>${status}${closeXml('status')}`,
+    `${closeXml('terminal_command_result')}`
   ).join('\n')
 }
 

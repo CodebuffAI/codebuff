@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { geminiModels } from '@codebuff/common/constants'
 import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
 import { promptAiSdkStructured } from './llm-apis/vercel-ai-sdk/ai-sdk'
+import { closeXml } from '@codebuff/common/util/xml'
 
 const DELIMITER = `\n\n----------------------------------------\n\n`
 
@@ -156,7 +157,7 @@ Please just return an empty list of libraries/topics unless you are really, real
 
 <user_query>
 ${query}
-</user_query>
+${closeXml('user_query')}
     `.trim()
 
   const geminiStartTime = Date.now()
@@ -211,11 +212,11 @@ async function filterRelevantChunks(
 
 <user_query>
 ${query}
-</user_query>
+${closeXml('user_query')}
 
 <documentation_chunks>
-${allChunks.map((chunk, i) => `<chunk_${i}>${chunk}</chunk_${i}>`).join(DELIMITER)}
-</documentation_chunks>
+${allChunks.map((chunk, i) => `<chunk_${i}>${chunk}${closeXml(`chunk_${i}`)}`).join(DELIMITER)}
+${closeXml('documentation_chunks')}
 `
 
   const geminiStartTime = Date.now()

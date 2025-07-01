@@ -1,7 +1,8 @@
 import { Model } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { closeXmlTags } from '@codebuff/common/util/xml'
+
 import { ToolName } from '../../tools'
-import { generateCloseTags } from '../../util/parse-tool-call-xml'
 import {
   baseAgentAgentStepPrompt,
   baseAgentSystemPrompt,
@@ -32,7 +33,7 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
     'think_deeply',
     'update_subgoal',
   ],
-  stopSequences: generateCloseTags([
+  stopSequences: closeXmlTags([
     'read_files',
     'find_files',
     'run_terminal_command',

@@ -8,6 +8,7 @@ import {
   setupBigQuery,
 } from '@codebuff/bigquery'
 import { Message } from '@codebuff/common/types/message'
+import { closeXml } from '@codebuff/common/util/xml'
 
 // Get model from command line args
 const model = process.argv[2]
@@ -142,9 +143,9 @@ function compressMessagesToHistory(messages: GeminiMessage[]): string {
     "Message History \n Here is the conversation so far, use it to help you determine which files are most relevant to the user's query. \n <message_history>\n"
   for (const msg of messages) {
     const allParts = msg.parts.map((p) => p.text).join('\n')
-    out += `<${msg.role}> ${allParts}\n </${msg.role}>`
+    out += `<${msg.role}> ${allParts}\n ${closeXml(msg.role)}`
   }
-  out += '</message_history>'
+  out += closeXml('message_history')
   return out
 }
 
@@ -207,7 +208,7 @@ function convertToGeminiFormat(
       if (msg.role === 'model' && i !== geminiMessages.length - 1) {
         msg.role = 'user'
         msg.parts = msg.parts.map((part) => ({
-          text: `<previous_assistant_message>${part.text}</previous_assistant_message>`,
+          text: `<previous_assistant_message>${part.text}${closeXml('previous_assistant_message')}`,
         }))
       }
     })

@@ -1,25 +1,8 @@
 import { StringToolResultPart } from '@codebuff/common/constants/tools'
 import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
 import { CoreMessage } from 'ai'
-
-/**
- * Generate stop sequences (closing XML tags) for a list of tool names
- * @param toolNames Array of tool names to generate closing tags for
- * @returns Array of closing XML tag strings
- */
-export function generateCloseTags(toolNames: readonly string[]): string[] {
-  return toolNames.map((toolName) => `</${toolName}>`)
-}
-
-/**
- * Generate a closing XML tag for a single tool name
- * @param toolName Single tool name to generate closing tag for
- * @returns Closing XML tag string
- */
-export function generateCloseTag(toolName: string): string {
-  return `</${toolName}>`
-}
 
 /**
  * Parses XML content for a tool call into a structured object with only string values.
@@ -89,7 +72,7 @@ export function renderReadFilesResult(
           .filter(([_, callers]) => callers.length > 0)
           .map(([token, callers]) => `${token}: ${callers.join(', ')}`)
           .join('\n') || 'None'
-      return `<read_file>\n<path>${file.path}</path>\n<content>${file.content}</content>\n<referenced_by>${referencedBy}</referenced_by>\n</read_file>`
+      return `<read_file>\n<path>${file.path}${closeXml('path')}\n<content>${file.content}${closeXml('content')}\n<referenced_by>${referencedBy}${closeXml('referenced_by')}\n${closeXml('read_file')}`
     })
     .join('\n\n')
 }

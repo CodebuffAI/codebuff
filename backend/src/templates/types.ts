@@ -3,10 +3,10 @@ import {
   AgentTemplateType,
   AgentTemplateTypes,
 } from '@codebuff/common/types/session-state'
+import { closeXmlTags } from '@codebuff/common/util/xml'
 import { z } from 'zod/v4'
 
 import { ToolName } from '../tools'
-import { generateCloseTags } from '../util/parse-tool-call-xml'
 
 export type AgentTemplate = {
   type: AgentTemplateType
@@ -73,7 +73,7 @@ export const baseAgentToolNames: ToolName[] = [
 ] as const
 
 // Use the utility function to generate stop sequences for key tools
-export const baseAgentStopSequences: string[] = generateCloseTags([
+export const baseAgentStopSequences: string[] = closeXmlTags([
   'read_files',
   'find_files',
   'run_terminal_command',

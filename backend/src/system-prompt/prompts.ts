@@ -1,14 +1,21 @@
 import { STOP_MARKER } from '@codebuff/common/constants'
-import { flattenTree, getLastReadFilePaths } from '@codebuff/common/project-file-tree'
+import {
+  flattenTree,
+  getLastReadFilePaths,
+} from '@codebuff/common/project-file-tree'
 import {
   codebuffConfigFile,
   CodebuffConfigSchema,
 } from '@codebuff/common/json-config/constants'
 import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
-import { createMarkdownFileBlock, ProjectFileContext } from '@codebuff/common/util/file'
+import {
+  createMarkdownFileBlock,
+  ProjectFileContext,
+} from '@codebuff/common/util/file'
 import { truncateString } from '@codebuff/common/util/string'
 
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
+import { closeXml } from '@codebuff/common/util/xml'
 
 export const configSchemaPrompt = `
 # Codebuff Configuration (${codebuffConfigFile})
@@ -125,11 +132,11 @@ User has typed "export". Export the current conversation. (It's ok to proceed ev
 Write file tool format:
 
 <write_file>
-<path>codebuff-export-file-name.md</path>
+<path>codebuff-export-file-name.md${closeXml('path')}
 <content>
 [Insert markdown content here]
-</content>
-</write_file>
+${closeXml('content')}
+${closeXml('write_file')}
 `.trim()
 
 export const additionalSystemPrompts = {
@@ -169,7 +176,7 @@ As Buffy, you have access to all the files in the project.
 The following is the path to the project on the user's computer. It is also the current working directory for terminal commands:
 <project_path>
 ${projectRoot}
-</project_path>
+${closeXml('project_path')}
 
 Within this project directory, here is the file tree.
 Note that the file tree:
@@ -182,7 +189,7 @@ ${
 }
 <project_file_tree>
 ${printedTree}
-</project_file_tree>
+${closeXml('project_file_tree')}
 ${truncationNote}
 `.trim()
 }
@@ -208,12 +215,12 @@ Shell: ${systemInfo.shell}
 ${Object.entries(shellConfigFiles)
   .map(([path, content]) => createMarkdownFileBlock(path, content))
   .join('\n')}
-</user_shell_config_files>
+${closeXml('user_shell_config_files')}
 
 The following are the most recently read files according to the OS atime. This is cached from the start of this conversation:
 <recently_read_file_paths_most_recent_first>
 ${lastReadFilePaths.join('\n')}
-</recently_read_file_paths_most_recent_first>
+${closeXml('recently_read_file_paths_most_recent_first')}
 `.trim()
 }
 
@@ -227,19 +234,19 @@ export const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
 Current Git Changes:
 <git_status>
 ${truncateString(gitChanges.status, maxLength / 10)}
-</git_status>
+${closeXml('git_status')}
 
 <git_diff>
 ${truncateString(gitChanges.diff, maxLength)}
-</git_diff>
+${closeXml('git_diff')}
 
 <git_diff_cached>
 ${truncateString(gitChanges.diffCached, maxLength)}
-</git_diff_cached>
+${closeXml('git_diff_cached')}
 
 <git_commit_messages_most_recent_first>
 ${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
-</git_commit_messages_most_recent_first>
+${closeXml('git_commit_messages_most_recent_first')}
 `.trim()
 }
 
@@ -310,13 +317,13 @@ const toolsPrompt = `
 # Tools
 
 You have access to the following tools:
-- <tool_call name="find_files">[DESCRIPTION_OF_FILES]</tool_call>: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
-- <tool_call name="read_files">[LIST_OF_FILE_PATHS]</tool_call>: Provide a list of file paths to read, separated by newlines. The file paths must be relative to the project root directory. Prefer using this tool over find_files when you know the exact file(s) you want to read.
-- <tool_call name="code_search">[PATTERN]</tool_call>: Search for the given pattern in the project directory. Use this tool to search for code in the project, like function names, class names, variable names, types, where a function is called from, where it is defined, etc.
-- <tool_call name="think_deeply"></tool_call>: Think through a complex change to the codebase, like implementing a new feature or refactoring some code. Don't pass any arguments to this tool. Use this tool to think on a user request that requires planning. Only use this if the user asks you to plan.
-- <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call>: Execute a command in the terminal and return the result.
-- <tool_call name="scrape_web_page">[URL HERE]</tool_call>: Scrape the web page at the given url and return the content.
-- <tool_call name="browser_action">[BROWSER_ACTION_XML_HERE]</tool_call>: Navigate to a url, take screenshots, and view console.log output or errors for a web page. Use this tool to debug a web app or improve its visual style.
+- <tool_call name="find_files">[DESCRIPTION_OF_FILES]${closeXml('tool_call')}: Find files given a brief natural language description of the files or the name of a function or class you are looking for.
+- <tool_call name="read_files">[LIST_OF_FILE_PATHS]${closeXml('tool_call')}: Provide a list of file paths to read, separated by newlines. The file paths must be relative to the project root directory. Prefer using this tool over find_files when you know the exact file(s) you want to read.
+- <tool_call name="code_search">[PATTERN]${closeXml('tool_call')}: Search for the given pattern in the project directory. Use this tool to search for code in the project, like function names, class names, variable names, types, where a function is called from, where it is defined, etc.
+- <tool_call name="think_deeply">${closeXml('tool_call')}: Think through a complex change to the codebase, like implementing a new feature or refactoring some code. Don't pass any arguments to this tool. Use this tool to think on a user request that requires planning. Only use this if the user asks you to plan.
+- <tool_call name="run_terminal_command">[YOUR COMMAND HERE]${closeXml('tool_call')}')}: Execute a command in the terminal and return the result.
+- <tool_call name="scrape_web_page">[URL HERE]${closeXml('tool_call')}')}: Scrape the web page at the given url and return the content.
+- <tool_call name="browser_action">[BROWSER_ACTION_XML_HERE]${closeXml('tool_call')}')}: Navigate to a url, take screenshots, and view console.log output or errors for a web page. Use this tool to debug a web app or improve its visual style.
 
 Important notes:
 - Immediately after you finish writing the closing tag of a tool call, you should write ${STOP_MARKER}, and end your response. Do not write out any other text. A tool call is a delgation -- do not write any other analysis or commentary.
@@ -326,12 +333,12 @@ Important notes:
 
 ## Finding files
 
-Use the <tool_call name="find_files">...</tool_call> tool to read more files beyond what is provided in the initial set of files.
+Use the <tool_call name="find_files">...${closeXml('tool_call')}')} tool to read more files beyond what is provided in the initial set of files.
 
 Purpose: Better fulfill the user request by reading files which could contain information relevant to the user's request.
 
 Use cases:
-- If you are calling a function or creating a class and want to know how it works, go get the implementation with a tool call to find_files. E.g. "<tool_call name="find_files">The implementation of function foo</tool_call>".
+- If you are calling a function or creating a class and want to know how it works, go get the implementation with a tool call to find_files. E.g. "<tool_call name="find_files">The implementation of function foo${closeXml('tool_call')}".
 - If you want to modify a file, but don't currently have it in context. Be sure to call find_files before writing out an <write_file> block, or I will be very upset.
 - If you need to understand a section of the codebase, read more files in that directory or subdirectories.
 - Some requests require a broad understanding of multiple parts of the codebase. Consider using find_files to gain more context before making changes.
@@ -344,7 +351,7 @@ However, use this tool sparingly. DO NOT USE "find_files" WHEN:
 
 ## Reading files
 
-Use the <tool_call name="read_files">...</tool_call> tool to read files you don't already have in context.
+Use the <tool_call name="read_files">...${closeXml('tool_call')}')} tool to read files you don't already have in context.
 
 Feel free to use this tool as much as needed to read files that would be relevant to the user's request.
 
@@ -354,13 +361,13 @@ Make sure the file paths are relative to the project root directory, not absolut
 
 ## Code search
 
-Use the <tool_call name="code_search">...</tool_call> tool to search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool.
+Use the <tool_call name="code_search">...${closeXml('tool_call')}')} tool to search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool.
 
 Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
 
 Examples:
-<tool_call name="code_search">foo</tool_call>
-<tool_call name="code_search">import.*foo</tool_call>
+<tool_call name="code_search">foo${closeXml('tool_call')}')}
+<tool_call name="code_search">import.*foo${closeXml('tool_call')}')}
 
 Note: quotes will be automatically added around your code search pattern. You might need to escape special characters like '-' or '.' or '\' if you want to search for them.
 
@@ -405,7 +412,7 @@ It's a good idea to ask the user to suggest modifications to the plan, which you
 
 ## Running terminal commands
 
-You can write out <tool_call name="run_terminal_command">[YOUR COMMAND HERE]</tool_call> to execute shell commands in the user's terminal.
+You can write out <tool_call name="run_terminal_command">[YOUR COMMAND HERE]${closeXml('tool_call')}')} to execute shell commands in the user's terminal.
 
 Purpose: Better fulfill the user request by running terminal commands in the user's terminal and reading the standard output.
 
@@ -469,20 +476,20 @@ Never offer to interact with the website aside from reading them (see available 
 
 1. Navigate:
    - Load a new URL in the current browser window and get the logs after page load.
-   - Required: <url>, <type>navigate</type>
+   - Required: <url>, <type>navigate${closeXml('type')}')}
    - Optional: <waitUntil> ('load', 'domcontentloaded', 'networkidle0')
-   - example: <tool_call name="browser_action"><type>navigate</type><url>localhost:3000</url><waitUntil>domcontentloaded</waitUntil></tool_call>
+   - example: <tool_call name="browser_action"><type>navigate${closeXml('type')}')}<url>localhost:3000${closeXml('url')}')}<waitUntil>domcontentloaded${closeXml('waitUntil')}')}${closeXml('tool_call')}')}
 
 2. Scroll:
    - Scroll the page up or down by one viewport height
-   - Required: <direction> ('up', 'down'), <type>scroll</type>
-   - example: <tool_call name="browser_action"><type>scroll</type><direction>down</direction></tool_call>
+   - Required: <direction> ('up', 'down'), <type>scroll${closeXml('type')}')}
+   - example: <tool_call name="browser_action"><type>scroll${closeXml('type')}')}<direction>down${closeXml('direction')}')}${closeXml('tool_call')}')}
 
 3. Screenshot:
    - Capture the current page state
-   - Required: <type>screenshot</type>
+   - Required: <type>screenshot${closeXml('type')}')}
    - Optional: <quality>, <maxScreenshotWidth>, <maxScreenshotHeight>, <screenshotCompression>, <screenshotCompressionQuality>, <compressScreenshotData>
-   - example: <tool_call name="browser_action"><type>screenshot</type><quality>80</quality></tool_call>
+   - example: <tool_call name="browser_action"><type>screenshot${closeXml('type')}')}<quality>80${closeXml('quality')}')}${closeXml('tool_call')}')}
 
 IMPORTANT: make absolutely totally sure that you're using the XML tags as shown in the examples. Don't use JSON or any other formatting, only XML tags.
 

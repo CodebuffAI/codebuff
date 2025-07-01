@@ -27,7 +27,9 @@ import { Message } from '@codebuff/common/types/message'
 import { logger } from '@codebuff/common/util/logger'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
+
 import { checkLiveUserInput, getLiveUserInputId } from '../../live-user-inputs'
+import { closeXml } from '@codebuff/common/util/xml'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
@@ -129,7 +131,7 @@ export const promptAiSdkStream = async function* (
     if (chunk.type === 'text-delta') {
       if (reasoning) {
         reasoning = false
-        yield '</thought>\n</think_deeply>\n\n'
+        yield `${closeXml('thought')}\n${closeXml('think_deeply')}\n\n`
       }
       content += chunk.textDelta
       yield chunk.textDelta

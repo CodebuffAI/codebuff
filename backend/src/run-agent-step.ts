@@ -79,6 +79,7 @@ import {
   requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
+import { closeXml } from '@codebuff/common/util/xml'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
@@ -620,7 +621,8 @@ export const runAgentStep = async (
     const trimmed = chunk.trim()
     if (
       !ONE_TIME_LABELS.some(
-        (tag) => trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)
+        (tag) =>
+          trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(closeXml(tag))
       )
     ) {
       fullResponse += chunk
