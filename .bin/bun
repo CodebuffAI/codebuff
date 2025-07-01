@@ -52,17 +52,7 @@ needs_secrets() {
     # Check if script needs secrets:
     # 1. Already uses infisical
     # 2. Contains dev server patterns that obviously need secrets
-    case "$script_command" in
-        *"infisical"*)
-            return 0  # Already uses infisical, needs secrets
-            ;;
-        *"dev"*|*"start"*|*"studio"*|*"db:start"*|*"db:studio"*)
-            return 0  # Dev servers and database tools need secrets
-            ;;
-        *)
-            return 1  # Default to no secrets for maintainability
-            ;;
-    esac
+    return 0
 }
 
 # Function to extract cwd from bun command
@@ -77,9 +67,11 @@ get_cwd_from_args() {
     echo "."
 }
 
+echo 'hello'
 # Main logic
 case "$1" in
   "test")
+    echo 1
     # Tests often need database/API access
     exec infisical run -- "$REAL_BUN" "$@"
     ;;
@@ -89,17 +81,22 @@ case "$1" in
     ;;
   "run")
     if [ -n "$2" ]; then
+        echo 2
+        echo $2
         # Extract cwd if specified
         cwd=$(get_cwd_from_args "$@")
 
         # Check if the script needs secrets
         if needs_secrets "$2" "$cwd"; then
+            echo 3
             exec infisical run -- "$REAL_BUN" "$@"
         else
+            echo 4
             exec "$REAL_BUN" "$@"
         fi
     else
         # No script specified, run without secrets
+        echo 5
         exec "$REAL_BUN" "$@"ggp -
     fi
     ;;
@@ -113,3 +110,4 @@ case "$1" in
     fi
     ;;
 esac
+
