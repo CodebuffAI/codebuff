@@ -1,6 +1,6 @@
 import { Model } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
-import { AgentTemplate, generateStopSequences, PLACEHOLDER } from '../types'
+import { AgentTemplate, generateCloseTags, PLACEHOLDER } from '../types'
 
 export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
@@ -13,7 +13,7 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-  stopSequences: generateStopSequences(['web_search', 'read_docs', 'read_files', 'end_turn']),
+  stopSequences: generateCloseTags(['web_search', 'read_docs', 'read_files', 'end_turn']),
   spawnableAgents: [],
 
   initialAssistantMessage: getToolCallString('web_search', {

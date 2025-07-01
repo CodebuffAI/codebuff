@@ -62,8 +62,8 @@ export const placeholderValues = Object.values(PLACEHOLDER)
  * @param toolNames Array of tool names to generate closing tags for
  * @returns Array of closing XML tag strings
  */
-export function generateStopSequences(toolNames: readonly ToolName[]): string[] {
-  return toolNames.map(toolName => `</${toolName}>`)
+export function generateCloseTags(toolNames: readonly string[]): string[] {
+  return toolNames.map((toolName) => `</${toolName}>`)
 }
 
 export const editingToolNames: ToolName[] = [
@@ -92,7 +92,7 @@ export const baseAgentToolNames: ToolName[] = [
 ] as const
 
 // Use the utility function to generate stop sequences for key tools
-export const baseAgentStopSequences: string[] = generateStopSequences([
+export const baseAgentStopSequences: string[] = generateCloseTags([
   'read_files',
   'find_files',
   'run_terminal_command',

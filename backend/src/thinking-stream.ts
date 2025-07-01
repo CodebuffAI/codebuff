@@ -7,6 +7,7 @@ import {
 
 import { CoreMessage } from 'ai'
 import { getAgentStream } from './prompt-agent-stream'
+import { generateCloseTags } from './templates/types'
 import { TOOL_LIST } from './tools'
 import { logger } from './util/logger'
 
@@ -27,8 +28,7 @@ export async function getThinkingStream(
     costMode: options.costMode,
     selectedModel: model,
     stopSequences: [
-      '</thought>',
-      '</think_deeply>',
+      ...generateCloseTags(['thought', 'think_deeply']),
       '<read_files>',
       '<write_files>',
       '<end_turn>',

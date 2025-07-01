@@ -1,5 +1,6 @@
 import { Model } from '@codebuff/common/constants'
-import { AgentTemplate, generateStopSequences, PLACEHOLDER } from '../types'
+
+import { AgentTemplate, generateCloseTags, PLACEHOLDER } from '../types'
 
 export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
@@ -11,7 +12,7 @@ export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  stopSequences: generateStopSequences(['end_turn']),
+  stopSequences: generateCloseTags(['end_turn']),
   spawnableAgents: [],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
@@ -26,5 +27,6 @@ export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
 
   Finally, use the end_turn tool to end your response.
 `,
-  agentStepPrompt: 'Do not forget to use the end_turn tool to end your response.',
+  agentStepPrompt:
+    'Do not forget to use the end_turn tool to end your response.',
 })
