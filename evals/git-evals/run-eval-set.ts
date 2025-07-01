@@ -22,7 +22,7 @@ class RunEvalSetCommand extends Command {
   static examples = [
     '$ bun run run-eval-set',
     '$ bun run run-eval-set --output-dir custom-output',
-    '$ bun run run-eval-set --no-email --no-analysis',
+    '$ bun run run-eval-set --email --no-analysis',
     '$ bun run run-eval-set --mock --no-insert',
     '$ bun run run-eval-set --title "Weekly Performance Test"',
   ]
@@ -35,7 +35,7 @@ class RunEvalSetCommand extends Command {
     }),
     email: Flags.boolean({
       description: 'Send email summary',
-      default: true,
+      default: false,
       allowNo: true,
     }),
     analysis: Flags.boolean({
@@ -130,7 +130,7 @@ async function runEvalSet(options: {
             config.agentType,
             config.limit
           )
-      
+
       const evalDuration = Date.now() - evalStartTime
       console.log(
         `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`
