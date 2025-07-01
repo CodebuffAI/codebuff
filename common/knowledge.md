@@ -4,64 +4,40 @@ This package contains code shared between the `web` (Next.js frontend/backend) a
 
 ## Key Areas
 
-- **Database (`src/db`)**: Contains Drizzle ORM schema (`schema.ts`), configuration, and migration logic.
-- **Utilities (`src/util`)**: Shared helper functions.
-- **Types (`src/types`)**: Shared TypeScript types and interfaces.
-- **Constants (`src/constants`)**: Shared constant values.
+- **Database (`src/db`)**: Drizzle ORM schema (`schema.ts`), configuration, and migration logic
+- **Utilities (`src/util`)**: Shared helper functions
+- **Types (`src/types`)**: Shared TypeScript types and interfaces
+- **Constants (`src/constants`)**: Shared constant values
+- **API Keys (`src/api-keys`)**: Encryption/decryption utilities for sensitive data
 
-## Important Notes
+## API Key Encryption (`src/api-keys/crypto.ts`)
 
-### Crypto Utilities (`src/util/crypto.ts`)
+- Provides functions for encrypting/decrypting API keys (`encryptAndStoreApiKey`, `retrieveAndDecryptApiKey`, `clearApiKey`)
+- **Security**: Functions require the 32-byte `API_KEY_ENCRYPTION_SECRET` from environment variables
+- The secret must **never** be stored in the `common` package - calling environments retrieve it from their respective `env` files
 
-- Provides functions for encrypting/decrypting and storing sensitive data like API keys (`encryptAndStoreApiKey`, `retrieveAndDecryptApiKey`, `clearApiKey`).
-- **Security**: These functions **require** the 32-byte `API_KEY_ENCRYPTION_SECRET` to be passed in as a `secretKey` parameter from the calling environment (`web` or `backend`). The secret itself must **never** be stored or exposed in the `common` package.
-- The calling environment is responsible for retrieving the secret from its respective `env.mjs` file.
+## Database Migrations
 
-### Database Migrations
-
-- Schema is defined in `common/src/db/schema.ts`.
-- Migrations are managed using `drizzle-kit`.
-- Run `bun run --cwd common db:generate` to create new migration files after schema changes.
-- Run `bun run --cwd common db:migrate` to apply pending migrations to the database.
+- Schema defined in `common/src/db/schema.ts`
+- Generate migrations: `bun run --cwd common db:generate`
+- Apply migrations: `bun run --cwd common db:migrate`
 
 ## Credit Grant Management
 
-When granting credits to users (monthly reset, referrals, etc.):
-- Use the shared `processAndGrantCredit` helper in `common/src/billing/grant-credits.ts`
-- Helper handles:
-  - User validation
-  - Cost per credit calculation
-  - Stripe monetary amount conversion
-  - Grant creation with proper metadata
-- Grant types:
-  - 'free' for monthly quota resets (expires next cycle)
-  - 'referral' for referral bonuses (expires next cycle)
-  - 'rollover' for unused purchase/rollover credits (never expires)
-  - 'purchase' for bought credits (never expires)
-  - 'admin' for manual grants (never expires)
-- Each grant type has its own priority level from GRANT_PRIORITIES
-- Always include operation_id to track related grants
-
-### Credit Ledger Operations
-
-- Operation IDs must be unique for each credit grant operation
-- When granting credits to multiple users in a single transaction (e.g. referrals), ensure each grant has a unique operation ID
-- For referrals, append the role (e.g. "-referrer" or "-referred") to the base operation ID
+Credit grants are managed in `packages/billing/src/grant-credits.ts`:
+- Use `processAndGrantCredit` for standalone grants (handles retries and failure logging)
+- Use `grantCreditOperation` for grants within a larger database transaction
+- Grant types: 'free', 'referral', 'rollover', 'purchase', 'admin'
+- Each type has priority level from `GRANT_PRIORITIES`
+- Always include unique `operation_id` for tracking
 
 ### Credit Grant Flow
 1. Create local credit grant record immediately
-2. Create Stripe grant asynchronously
+2. Create Stripe grant asynchronously  
 3. Webhook updates local grant with Stripe ID when confirmed
-4. This ensures:
-   - Good UX: Users get credits immediately
-   - Data consistency: We track Stripe confirmations
-   - Reconciliation: Can find/fix mismatches via webhook
 
 ### Monthly Reset Flow
-1. `calculateAndApplyRollover`:
-   - Calculates unused purchase/rollover credits
-   - Creates new rollover grant if needed
-   - Resets usage to 0
-   - Updates next_quota_reset
-2. Create new free/referral grants with expiration
-3. Create Stripe grants if needed
+1. Calculate unused purchase/rollover credits
+2. Create new rollover grant if needed
+3. Reset usage to 0 and update `next_quota_reset`
+4. Create new free/referral grants with expiration
