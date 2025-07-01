@@ -12,7 +12,12 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['find_files', 'code_search', 'read_files', 'end_turn'],
-  stopSequences: generateCloseTags(['find_files', 'code_search', 'read_files', 'end_turn']),
+  stopSequences: generateCloseTags([
+    'find_files',
+    'code_search',
+    'read_files',
+    'end_turn',
+  ]),
   spawnableAgents: [],
 
   initialAssistantMessage: getToolCallString('find_files', {
@@ -32,5 +37,5 @@ In your report, please give an analysis that includes the full paths of files th
       PLACEHOLDER.GIT_CHANGES_PROMPT,
     ].join('\n\n'),
   userInputPrompt: '',
-  agentStepPrompt: `Don't forget to end your response with the end_turn tool:
-</edits_to_apply>
+  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
+})

@@ -1,5 +1,6 @@
 import { Model } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
+
 import { AgentTemplate, generateCloseTags, PLACEHOLDER } from '../types'
 
 export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
@@ -13,7 +14,12 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-  stopSequences: generateCloseTags(['web_search', 'read_docs', 'read_files', 'end_turn']),
+  stopSequences: generateCloseTags([
+    'web_search',
+    'read_docs',
+    'read_files',
+    'end_turn',
+  ]),
   spawnableAgents: [],
 
   initialAssistantMessage: getToolCallString('web_search', {
@@ -41,5 +47,5 @@ Always end your response with the end_turn tool.\\n\\n` +
       PLACEHOLDER.GIT_CHANGES_PROMPT,
     ].join('\\n\\n'),
   userInputPrompt: '',
-  agentStepPrompt: `Don't forget to end your response with the end_turn tool: 
-</edits_to_apply>
+  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
+})
