@@ -32,7 +32,10 @@ import {
 } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
-import { AgentState, getInitialAgentState } from '@codebuff/common/types/agent-state'
+import {
+  AgentState,
+  getInitialAgentState,
+} from '@codebuff/common/types/agent-state'
 import { buildArray } from '@codebuff/common/util/array'
 import { User } from '@codebuff/common/util/credentials'
 import { ProjectFileContext } from '@codebuff/common/util/file'
@@ -43,6 +46,7 @@ import {
   blue,
   blueBright,
   bold,
+  cyan,
   green,
   red,
   underline,
@@ -65,6 +69,7 @@ import { calculateFingerprint } from './fingerprint'
 import { runFileChangeHooks } from './json-config/hooks'
 import { loadCodebuffConfig } from './json-config/parser'
 import { displayGreeting } from './menu'
+import { logAndHandleStartup } from './startup-process-handler'
 import {
   getFiles,
   getProjectFileContext,
@@ -144,11 +149,6 @@ export class Client {
   private git: GitCommand
   private responseComplete: boolean = false
   private responseBuffer: string = ''
-  private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
-    Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
-      (typeof ONE_TIME_LABELS)[number],
-      boolean
-    >
 
   public usageData: UsageData = {
     usage: 0,
@@ -168,6 +168,12 @@ export class Client {
   public storedApiKeyTypes: ApiKeyType[] = []
   public lastToolResults: ToolResult[] = []
   public model: string | undefined
+  private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
+    Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
+      (typeof ONE_TIME_LABELS)[number],
+      boolean
+    >
+  public isInitializing: boolean = false
 
   private constructor({
     websocketUrl,
@@ -922,6 +928,28 @@ export class Client {
     }
   }
 
+  private handleInitializationComplete() {
+    // Show the tips that were removed from the local handler
+    console.log(
+      cyan(
+        `\n📋 What codebuff.json does:\n• ${bold(
+          'startupProcesses'
+        )}: Automatically runs development servers, databases, etc. when you start Codebuff\n• ${bold(
+          'fileChangeHooks'
+        )}: Runs tests, linting, and type checking when you modify files\n• ${bold(
+          'maxAgentSteps'
+        )}: Controls how many steps the AI can take before stopping\n\n💡 Tips:\n• Add your dev server command to startupProcesses to auto-start it\n• Configure fileChangeHooks to catch errors early\n• The AI will use these hooks to verify changes work correctly\n`
+      )
+    )
+
+    // Start background processes if they were configured
+    const config = loadCodebuffConfig()
+    if (config?.startupProcesses?.length) {
+      console.log(yellow('\n🚀 Starting background processes...'))
+      logAndHandleStartup()
+    }
+  }
+
   private subscribeToResponse(
     onChunk: (chunk: string) => void,
     userInputId: string,
@@ -1224,6 +1252,13 @@ Go to https://www.codebuff.com/config for more information.`) +
             `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n`
           )
           this.hadFileChanges = false
+
+          if (this.isInitializing) {
+            this.isInitializing = false
+            // Show tips and start background processes
+            this.handleInitializationComplete()
+          }
+
           this.freshPrompt()
         }
 

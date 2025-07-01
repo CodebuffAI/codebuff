@@ -96,6 +96,12 @@ Config file (probably already exists):
     - startupProcesses.item.stderrFile
     - startupProcesses.item.enabled
   - Provide startupProcesses.item.cwd only if it is not '.'
+
+After populating the config file (if necessary), simply respond to the user with:
+
+✅ Created ${codebuffConfigFile}
+
+The CLI will automatically show additional tips and start any configured background processes after this response completes.
 `.trim()
 
 const compactPrompt = `
