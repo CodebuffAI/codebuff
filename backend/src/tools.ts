@@ -498,12 +498,12 @@ ${getToolCallString('think_deeply', {
       })
       .describe(`Generate a detailed markdown plan for complex tasks.`),
     description: `
-Use when:  
-- User explicitly requests a detailed plan.  
+Use when:
+- User explicitly requests a detailed plan.
 - Use this tool to overwrite a previous plan by using the exact same file name.
 
 Don't include:
-- Goals, timelines, benefits, next steps.  
+- Goals, timelines, benefits, next steps.
 - Background context or extensive explanations.
 
 For a technical plan, act as an expert architect engineer and provide direction to your editor engineer.
@@ -703,7 +703,6 @@ ${getToolCallString('end_turn', {})}
           .describe(
             `Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'.`
           ),
-
       })
       .describe(`Search the web for current information using Linkup API.`),
     description: `
@@ -919,7 +918,7 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'find_files',
   'run_terminal_command',
   'code_search',
-]
+] as const
 
 export const getToolsInstructions = (
   toolNames: readonly ToolName[],

@@ -1,5 +1,5 @@
 import { Model } from '@codebuff/common/constants'
-import { AgentTemplate, PLACEHOLDER } from '../types'
+import { AgentTemplate, generateStopSequences, PLACEHOLDER } from '../types'
 
 export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
@@ -12,7 +12,7 @@ export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  stopSequences: ['</end_turn>'],
+  stopSequences: generateStopSequences(['end_turn']),
   spawnableAgents: [],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',

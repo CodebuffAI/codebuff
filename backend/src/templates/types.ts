@@ -57,6 +57,15 @@ export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
 
 export const placeholderValues = Object.values(PLACEHOLDER)
 
+/**
+ * Generate stop sequences (closing XML tags) for a list of tool names
+ * @param toolNames Array of tool names to generate closing tags for
+ * @returns Array of closing XML tag strings
+ */
+export function generateStopSequences(toolNames: readonly ToolName[]): string[] {
+  return toolNames.map(toolName => `</${toolName}>`)
+}
+
 export const editingToolNames: ToolName[] = [
   'create_plan',
   'run_terminal_command',
@@ -82,13 +91,14 @@ export const baseAgentToolNames: ToolName[] = [
   ...readOnlyToolNames,
 ] as const
 
-export const baseAgentStopSequences: string[] = [
-  '</read_files>',
-  '</find_files>',
-  '</run_terminal_command>',
-  '</code_search>',
-  '</spawn_agents>',
-] as const
+// Use the utility function to generate stop sequences for key tools
+export const baseAgentStopSequences: string[] = generateStopSequences([
+  'read_files',
+  'find_files',
+  'run_terminal_command',
+  'code_search',
+  'spawn_agents',
+] as const)
 
 export const baseAgentSpawnableAgents: AgentTemplateType[] = [
   AgentTemplateTypes.gemini25flash_file_picker,

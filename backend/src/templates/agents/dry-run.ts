@@ -1,5 +1,5 @@
 import { Model } from '@codebuff/common/constants'
-import { AgentTemplate, PLACEHOLDER } from '../types'
+import { AgentTemplate, generateStopSequences, PLACEHOLDER } from '../types'
 
 export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
@@ -11,7 +11,7 @@ export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  stopSequences: [],
+  stopSequences: generateStopSequences(['end_turn']),
   spawnableAgents: [],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
