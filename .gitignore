@@ -25,6 +25,3 @@ debug/
 # Nx cache directories
 .nx/cache
 .nx/workspace-data
-
-# direnv
-.envrc

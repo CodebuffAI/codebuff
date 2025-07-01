@@ -116,11 +116,10 @@ If you want to set up Codebuff for local development:
 3. **Configure direnv**:
 
    ```bash
-   cp .envrc.example .envrc
    direnv allow
    ```
 
-   This automatically manages your PATH and environment variables.
+   This automatically manages your PATH and environment variables. The `.envrc` file is already committed to the repository and sets up the correct PATH to use the project's bundled version of Bun.
 
 4. **Install dependencies**:
 

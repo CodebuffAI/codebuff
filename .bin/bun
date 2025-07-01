@@ -22,84 +22,87 @@ if [ -z "$REAL_BUN" ]; then
     REAL_BUN=$(PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "^$SCRIPT_DIR$" | tr '\n' ':') which bun)
 fi
 
-# Function to check if a script needs secrets by looking in package.json
-needs_secrets() {
-    local script_name="$1"
-    local cwd="${2:-.}"
-
-    # Check if package.json exists in the specified directory
-    if [ ! -f "$cwd/package.json" ]; then
-        return 1  # No package.json, assume no secrets needed
-    fi
-
-    # Extract the script command from package.json
-    local script_command
-    script_command=$(node -pe "
-        try {
-            const pkg = require('$cwd/package.json');
-            const script = pkg.scripts && pkg.scripts['$script_name'];
-            script || '';
-        } catch (e) {
-            '';
-        }
-    " 2>/dev/null)
-
-    # If script doesn't exist, assume no secrets needed
-    if [ -z "$script_command" ]; then
-        return 1
-    fi
-
-    # Check if script needs secrets:
-    # 1. Already uses infisical
-    # 2. Contains dev server patterns that obviously need secrets
-    return 0
-}
-
-# Function to extract cwd from bun command
-get_cwd_from_args() {
-    local args=("$@")
-    for ((i=0; i<${#args[@]}; i++)); do
-        if [[ "${args[i]}" == "--cwd" && $((i+1)) -lt ${#args[@]} ]]; then
-            echo "${args[$((i+1))]}"
-            return
+# Function to check if command doesn't need secrets
+# Returns 0 if secrets are NOT needed, 1 if they ARE needed
+doesnt_need_secrets() {
+    # Find the first non-flag argument, which is the command
+    local cmd=""
+    for arg in "$@"; do
+        if [[ ! "$arg" =~ ^- ]]; then
+            cmd="$arg"
+            break
         fi
     done
-    echo "."
+
+    # Handle version/help flags which can appear anywhere
+    for arg in "$@"; do
+        case "$arg" in
+            --version|-v|--help|-h|--revision)
+                return 0
+                ;;
+        esac
+    done
+
+    # If no command is found (e.g., just 'bun'), it doesn't need secrets
+    if [ -z "$cmd" ]; then
+        return 0
+    fi
+
+    # Commands that don't need secrets
+    case "$cmd" in
+        # Package management
+        install|i|add|remove|rm|link|unlink|pm|update|upgrade)
+            return 0
+            ;;
+        # Project initialization
+        init|create)
+            return 0
+            ;;
+        # Info/utility
+        info|outdated|audit|typecheck)
+            return 0
+            ;;
+        # Run command needs special handling
+        run)
+            # Find the script name after 'run'
+            local script=""
+            local found_run=false
+            for arg in "$@"; do
+                if $found_run && [[ ! "$arg" =~ ^- ]]; then
+                    script="$arg"
+                    break
+                fi
+                if [[ "$arg" == "run" ]]; then
+                    found_run=true
+                fi
+            done
+
+            # 'bun run' with no script lists scripts, no secrets needed
+            if [ -z "$script" ]; then
+                return 0
+            fi
+
+            # Scripts that typically don't need secrets
+            case "$script" in
+                format|lint|typecheck|compile)
+                    return 0
+                    ;;
+                *)
+                    # Default run scripts to needing secrets
+                    return 1
+                    ;;
+            esac
+            ;;
+        *)
+            # Default to needing secrets for all other commands
+            return 1
+            ;;
+    esac
 }
 
-# Main logic
-case "$1" in
-  "test")
-    # Tests often need database/API access
+# Main logic - default to using infisical unless command doesn't need secrets
+if doesnt_need_secrets "$@"; then
+    exec "$REAL_BUN" "$@"
+else
     exec infisical run -- "$REAL_BUN" "$@"
-    ;;
-  "dev"|"start")
-    # Development servers need secrets
-    exec infisical run -- "$REAL_BUN" "$@"
-    ;;
-  "run")
-    if [ -n "$2" ]; then
-        # Extract cwd if specified
-        cwd=$(get_cwd_from_args "$@")
-
-        # Check if the script needs secrets
-        if needs_secrets "$2" "$cwd"; then
-            exec infisical run -- "$REAL_BUN" "$@"
-        else
-            exec "$REAL_BUN" "$@"
-        fi
-    else
-        # No script specified, run without secrets
-        exec "$REAL_BUN" "$@"ggp -
-    fi
-    ;;
-  *)
-    # Check if the first argument is a script name in package.json
-    if needs_secrets "$1" "."; then
-        exec infisical run -- "$REAL_BUN" "$@"
-    else
-        # For install, add, remove, format, etc. - no secrets needed
-        exec "$REAL_BUN" "$@"
-    fi
-    ;;
-esac
+fi
