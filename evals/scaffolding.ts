@@ -1,5 +1,6 @@
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
 import { ClientToolCall } from '@codebuff/backend/tools'
+import { requestToolCall as originalRequestToolCall } from '@codebuff/backend/websockets/websocket-action'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { FileChanges } from '@codebuff/common/actions'
 import { TEST_USER_ID } from '@codebuff/common/constants'
@@ -54,12 +55,13 @@ export function createFileReadingMock(projectRoot: string) {
       }
       return Promise.resolve(files)
     },
-    requestToolCall: async (
+    requestToolCall: (async (
       ws: WebSocket,
+      userInputId: string,
       toolName: string,
       args: Record<string, any>,
       timeout: number = 30_000
-    ) => {
+    ): ReturnType<typeof originalRequestToolCall<string>> => {
       // Execute the tool call using existing tool handlers
       const toolCall = {
         toolCallId: generateCompactId(),
@@ -94,7 +96,7 @@ export function createFileReadingMock(projectRoot: string) {
           error: resultString,
         }
       }
-    },
+    }) satisfies typeof originalRequestToolCall<string>,
   }))
 }
 
