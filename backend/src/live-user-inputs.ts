@@ -1,3 +1,5 @@
+import { logger } from './util/logger'
+
 let liveUserInputCheckEnabled = true
 export const disableLiveUserInputCheck = () => {
   liveUserInputCheckEnabled = false
@@ -11,7 +13,14 @@ export function startUserInput(userId: string, userInputId: string): void {
 }
 
 export function endUserInput(userId: string, userInputId: string): void {
-  delete live[userId]
+  if (live[userId] === userInputId) {
+    delete live[userId]
+  } else {
+    logger.error(
+      { userId, userInputId, liveUserInputId: live[userId] ?? 'undefined' },
+      'Tried to end user input with incorrect userId or userInputId'
+    )
+  }
 }
 
 export function checkLiveUserInput(
@@ -25,4 +34,13 @@ export function checkLiveUserInput(
     return false
   }
   return userInputId.startsWith(live[userId])
+}
+
+export function getLiveUserInputId(
+  userId: string | undefined
+): string | undefined {
+  if (!userId) {
+    return undefined
+  }
+  return live[userId]
 }

@@ -27,7 +27,7 @@ import { Message } from '@codebuff/common/types/message'
 import { logger } from '@codebuff/common/util/logger'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
-import { checkLiveUserInput } from '../../live-user-inputs'
+import { checkLiveUserInput, getLiveUserInputId } from '../../live-user-inputs'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
@@ -72,6 +72,14 @@ export const promptAiSdkStream = async function* (
   } & Omit<Parameters<typeof streamText>[0], 'model'>
 ) {
   if (!checkLiveUserInput(options.userId, options.userInputId)) {
+    logger.info(
+      {
+        userId: options.userId,
+        userInputId: options.userInputId,
+        liveUserInputId: getLiveUserInputId(options.userId),
+      },
+      'Skipping stream due to canceled user input'
+    )
     yield ''
     return
   }
@@ -173,6 +181,14 @@ export const promptAiSdk = async function (
   } & Omit<Parameters<typeof generateText>[0], 'model'>
 ): Promise<string> {
   if (!checkLiveUserInput(options.userId, options.userInputId)) {
+    logger.info(
+      {
+        userId: options.userId,
+        userInputId: options.userInputId,
+        liveUserInputId: getLiveUserInputId(options.userId),
+      },
+      'Skipping prompt due to canceled user input'
+    )
     return ''
   }
 
@@ -222,6 +238,14 @@ export const promptAiSdkStructured = async function <T>(options: {
   chargeUser?: boolean
 }): Promise<T> {
   if (!checkLiveUserInput(options.userId, options.userInputId)) {
+    logger.info(
+      {
+        userId: options.userId,
+        userInputId: options.userInputId,
+        liveUserInputId: getLiveUserInputId(options.userId),
+      },
+      'Skipping structured prompt due to canceled user input'
+    )
     return {} as T
   }
   const startTime = Date.now()

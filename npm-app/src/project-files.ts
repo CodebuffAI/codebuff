@@ -170,6 +170,10 @@ export function toAbsolutePath(filepath: string, projectRoot: string): string {
 
 let cachedProjectFileContext: ProjectFileContext | undefined
 
+export function clearCachedProjectFileContext() {
+  cachedProjectFileContext = undefined
+}
+
 export function initProjectFileContextWithWorker(
   dir: string,
   resetCache: boolean = false

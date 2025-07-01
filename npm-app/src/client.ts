@@ -67,6 +67,7 @@ import { runFileChangeHooks } from './json-config/hooks'
 import { loadCodebuffConfig } from './json-config/parser'
 import { displayGreeting } from './menu'
 import {
+  clearCachedProjectFileContext,
   getFiles,
   getProjectFileContext,
   getProjectRoot,
@@ -242,6 +243,7 @@ export class Client {
     checkpointManager.clearCheckpoints(true)
     setMessages([])
     startNewChat()
+    clearCachedProjectFileContext()
     await this.warmContextCache()
   }
 
