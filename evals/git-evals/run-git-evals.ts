@@ -35,6 +35,8 @@ disableLiveUserInputCheck()
 // Try Gemini!
 const AGENT_TYPE = AgentTemplateTypes.claude4_base
 
+const EDIT_FILE_TOOL_NAMES = ['write_file', 'str_replace'] as const
+
 export async function runSingleEval(
   evalCommit: EvalCommit,
   projectPath: string,
@@ -243,7 +245,11 @@ function getCodebuffFileStates(
       for (const step of traceEntry.steps) {
         if (step.toolCalls) {
           for (const toolCall of step.toolCalls) {
-            if (toolCall.toolName === 'write_file' && toolCall.args.path) {
+            if (
+              EDIT_FILE_TOOL_NAMES.includes(toolCall.toolName as any) &&
+              'path' in toolCall.args &&
+              toolCall.args.path
+            ) {
               codebuffWrittenFilePaths.add(toolCall.args.path as string)
             }
           }
