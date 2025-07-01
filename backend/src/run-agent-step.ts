@@ -1022,151 +1022,7 @@ export const runAgentStep = async (
         })
       }
     } else if (toolCall.toolName === 'spawn_agents') {
-      const { agents } = toolCall.args
-      const parentAgentTemplate = agentTemplate
-
-      let userMessageWithConversationHistory: CoreMessage | undefined
-
-      const getUserMessageWithConversationHistory = async () => {
-        if (userMessageWithConversationHistory) {
-          return userMessageWithConversationHistory
-        }
-        // We want to include all the latest file changes and other tool results in the passed-on message history.
-        const fileProcessingPromises = Object.values(
-          fileProcessingPromisesByPath
-        ).flat()
-        const fileChanges = await Promise.all(fileProcessingPromises)
-        const fileChangeToolResults = fileChanges.map((result) => ({
-          toolName: result.tool,
-          toolCallId: generateCompactId(),
-          result: 'error' in result ? result.error : JSON.stringify(result),
-        }))
-        const toolResults = [...serverToolResults, ...fileChangeToolResults]
-        const toolResultMessage = {
-          role: 'user' as const,
-          content: renderToolResults(toolResults),
-        }
-        const messageHistory = [
-          ...expireMessages(messagesWithResponse, 'userPrompt'),
-          toolResultMessage,
-        ]
-        userMessageWithConversationHistory = {
-          role: 'user' as const,
-          content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(messageHistory, null, 2)}`,
-        }
-        return userMessageWithConversationHistory
-      }
-
-      const results = await Promise.allSettled(
-        agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
-          if (!(agentTypeStr in agentTemplates)) {
-            throw new Error(`Agent type ${agentTypeStr} not found.`)
-          }
-          const agentType = agentTypeStr as AgentTemplateType
-          const agentTemplate = agentTemplates[agentType]
-
-          if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
-            throw new Error(
-              `Agent type ${parentAgentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
-            )
-          }
-
-          // Validate prompt and params against agent's schema
-          const { promptSchema } = agentTemplate
-
-          // Validate prompt requirement
-          if (promptSchema.prompt === true && !prompt) {
-            throw new Error(
-              `Agent ${agentType} requires a prompt but none was provided.`
-            )
-          }
-
-          // Validate params if schema exists
-          if (promptSchema.params && params) {
-            const result = promptSchema.params.safeParse(params)
-            if (!result.success) {
-              throw new Error(
-                `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
-              )
-            }
-          }
-
-          logger.debug(
-            { agentTemplate, prompt, params },
-            `Spawning agent — ${agentType}`
-          )
-          const subAgentMessages: CoreMessage[] = []
-          if (agentTemplate.includeMessageHistory) {
-            subAgentMessages.push(await getUserMessageWithConversationHistory())
-          }
-
-          const agentId = generateCompactId()
-          const agentState: AgentState = {
-            agentId,
-            agentType,
-            agentContext: '',
-            subagents: [],
-            messageHistory: subAgentMessages,
-            stepsRemaining: MAX_AGENT_STEPS,
-            report: {},
-          }
-
-          return await loopAgentSteps(ws, {
-            userInputId: `${userInputId}-${agentType}${agentId}`,
-            prompt: prompt || '',
-            params,
-            agentType: agentTemplate.type,
-            agentState,
-            fingerprintId,
-            fileContext,
-            toolResults: [],
-            userId,
-            clientSessionId,
-            onResponseChunk: () => {},
-          })
-        })
-      )
-
-      const reports = results.map((result) => {
-        if (result.status === 'fulfilled') {
-          const { agentState } = result.value
-          const agentTemplate = agentTemplates[agentState.agentType!]
-          if (agentTemplate.outputMode === 'report') {
-            return JSON.stringify(result.value.agentState.report, null, 2)
-          } else if (agentTemplate.outputMode === 'last_message') {
-            const { agentState } = result.value
-            const assistantMessages = agentState.messageHistory.filter(
-              (message) => message.role === 'assistant'
-            )
-            const lastAssistantMessage =
-              assistantMessages[assistantMessages.length - 1]
-            if (!lastAssistantMessage) {
-              return 'No response from agent'
-            }
-            if (typeof lastAssistantMessage.content === 'string') {
-              return lastAssistantMessage.content
-            } else {
-              return JSON.stringify(lastAssistantMessage.content, null, 2)
-            }
-          } else if (agentTemplate.outputMode === 'all_messages') {
-            const { agentState } = result.value
-            // Remove the first message, which includes the previous conversation history.
-            const agentMessages = agentState.messageHistory.slice(1)
-            return `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
-          }
-          throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
-        } else {
-          return `Error spawning agent: ${result.reason}`
-        }
-      })
-
-      serverToolResults.push({
-        toolName: 'spawn_agents',
-        toolCallId: toolCall.toolCallId,
-        result: reports
-          .map((report: string) => `<agent_report>${report}</agent_report>`)
-          .join('\n'),
-      })
+      // Handled below
     } else if (toolCall.toolName === 'update_report') {
       const { json_update: jsonUpdate } = toolCall.args
       agentState.report = {
@@ -1289,6 +1145,150 @@ export const runAgentStep = async (
       })
     }
   }
+
+  // Handle spawn_agents tool call
+  const spawnAgentsToolCall = allToolCalls.find(
+    (call) => call.toolName === 'spawn_agents'
+  ) as undefined | (ClientToolCall & { toolName: 'spawn_agents' })
+  if (spawnAgentsToolCall) {
+    const { agents } = spawnAgentsToolCall.args
+    const parentAgentTemplate = agentTemplate
+
+    const messageHistoryWithToolResults = [
+      ...finalMessageHistory,
+      {
+        role: 'user',
+        content: asSystemMessage(renderToolResults(serverToolResults)),
+      },
+    ]
+    const conversationHistoryMessage: CoreMessage = {
+      role: 'user',
+
+      content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
+        [
+          ...finalMessageHistory,
+          {
+            role: 'user',
+            content: asSystemMessage(renderToolResults(serverToolResults)),
+          },
+        ],
+        null,
+        2
+      )}`,
+    }
+
+    const results = await Promise.allSettled(
+      agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
+        if (!(agentTypeStr in agentTemplates)) {
+          throw new Error(`Agent type ${agentTypeStr} not found.`)
+        }
+        const agentType = agentTypeStr as AgentTemplateType
+        const agentTemplate = agentTemplates[agentType]
+
+        if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
+          throw new Error(
+            `Agent type ${parentAgentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
+          )
+        }
+
+        // Validate prompt and params against agent's schema
+        const { promptSchema } = agentTemplate
+
+        // Validate prompt requirement
+        if (promptSchema.prompt === true && !prompt) {
+          throw new Error(
+            `Agent ${agentType} requires a prompt but none was provided.`
+          )
+        }
+
+        // Validate params if schema exists
+        if (promptSchema.params && params) {
+          const result = promptSchema.params.safeParse(params)
+          if (!result.success) {
+            throw new Error(
+              `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
+            )
+          }
+        }
+
+        logger.debug(
+          { agentTemplate, prompt, params },
+          `Spawning agent — ${agentType}`
+        )
+        const subAgentMessages: CoreMessage[] = []
+        if (agentTemplate.includeMessageHistory) {
+          subAgentMessages.push(conversationHistoryMessage)
+        }
+
+        const agentId = generateCompactId()
+        const agentState: AgentState = {
+          agentId,
+          agentType,
+          agentContext: '',
+          subagents: [],
+          messageHistory: subAgentMessages,
+          stepsRemaining: MAX_AGENT_STEPS,
+          report: {},
+        }
+
+        return await loopAgentSteps(ws, {
+          userInputId: `${userInputId}-${agentType}${agentId}`,
+          prompt: prompt || '',
+          params,
+          agentType: agentTemplate.type,
+          agentState,
+          fingerprintId,
+          fileContext,
+          toolResults: [],
+          userId,
+          clientSessionId,
+          onResponseChunk: () => {},
+        })
+      })
+    )
+
+    const reports = results.map((result) => {
+      if (result.status === 'fulfilled') {
+        const { agentState } = result.value
+        const agentTemplate = agentTemplates[agentState.agentType!]
+        if (agentTemplate.outputMode === 'report') {
+          return JSON.stringify(result.value.agentState.report, null, 2)
+        } else if (agentTemplate.outputMode === 'last_message') {
+          const { agentState } = result.value
+          const assistantMessages = agentState.messageHistory.filter(
+            (message) => message.role === 'assistant'
+          )
+          const lastAssistantMessage =
+            assistantMessages[assistantMessages.length - 1]
+          if (!lastAssistantMessage) {
+            return 'No response from agent'
+          }
+          if (typeof lastAssistantMessage.content === 'string') {
+            return lastAssistantMessage.content
+          } else {
+            return JSON.stringify(lastAssistantMessage.content, null, 2)
+          }
+        } else if (agentTemplate.outputMode === 'all_messages') {
+          const { agentState } = result.value
+          // Remove the first message, which includes the previous conversation history.
+          const agentMessages = agentState.messageHistory.slice(1)
+          return `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
+        }
+        throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
+      } else {
+        return `Error spawning agent: ${result.reason}`
+      }
+    })
+
+    serverToolResults.push({
+      toolName: 'spawn_agents',
+      toolCallId: spawnAgentsToolCall.toolCallId,
+      result: reports
+        .map((report: string) => `<agent_report>${report}</agent_report>`)
+        .join('\n'),
+    })
+  }
+
   finalMessageHistory.push({
     role: 'user',
     content: asSystemMessage(renderToolResults(serverToolResults)),
