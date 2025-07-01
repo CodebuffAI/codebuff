@@ -85,6 +85,10 @@ Example: `bun run exec -- bun --cwd backend dev`
 
 Environment variables are defined and validated in `packages/internal/src/env.ts`. This module provides type-safe `env` objects for use throughout the monorepo.
 
+### Bun Wrapper Script
+
+The `.bin/bun` script automatically wraps bun commands with infisical when secrets are needed. It prevents nested infisical calls by checking for `NEXT_PUBLIC_INFISICAL_UP` environment variable, ensuring infisical runs only once at the top level while nested bun commands inherit the environment variables.
+
 ## Python Package
 
 A Python package skeleton exists in python-app. Currently a placeholder that suggests installing the npm version.

@@ -25,6 +25,11 @@ fi
 # Function to check if command doesn't need secrets
 # Returns 0 if secrets are NOT needed, 1 if they ARE needed
 doesnt_need_secrets() {
+    # If we're already running under infisical, don't need to wrap again
+    if [ -n "$NEXT_PUBLIC_INFISICAL_UP" ]; then
+        return 0
+    fi
+
     # Find the first non-flag argument, which is the command
     local cmd=""
     for arg in "$@"; do
