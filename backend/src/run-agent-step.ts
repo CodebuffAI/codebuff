@@ -462,7 +462,14 @@ export const runAgentStep = async (
         ])
       ),
       ...Object.fromEntries(
-        (['code_search', 'browser_logs', 'end_turn'] as const).map((tool) => [
+        (
+          [
+            'code_search',
+            'browser_logs',
+            'run_file_change_hooks',
+            'end_turn',
+          ] as const
+        ).map((tool) => [
           tool,
           toolCallback(tool, (toolCall) => {
             clientToolCalls.push({
@@ -565,126 +572,6 @@ export const runAgentStep = async (
 
         return
       }),
-      web_search: toolCallback('web_search', async (toolCall) => {
-        const { query, depth } = (
-          toolCall as Extract<CodebuffToolCall, { toolName: 'web_search' }>
-        ).args
-
-        const searchStartTime = Date.now()
-        const searchContext = {
-          toolCallId: toolCall.toolCallId,
-          query,
-          depth,
-          userId,
-          agentStepId,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          repoId,
-        }
-
-        try {
-          const searchResult = await searchWeb(query, {
-            depth,
-          })
-
-          const searchDuration = Date.now() - searchStartTime
-          const resultLength = searchResult?.length || 0
-          const hasResults = Boolean(searchResult && searchResult.trim())
-
-          // Charge credits for web search usage
-          let creditResult = null
-          if (userId) {
-            // Calculate credits based on search depth with profit margin
-            const creditsToCharge = Math.round(
-              (depth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN)
-            )
-
-            const requestContext = getRequestContext()
-            const repoUrl = requestContext?.processedRepoUrl
-
-            creditResult = await consumeCreditsWithFallback({
-              userId,
-              creditsToCharge,
-              repoUrl,
-              context: 'web search',
-            })
-
-            if (!creditResult.success) {
-              logger.error(
-                {
-                  ...searchContext,
-                  error: creditResult.error,
-                  creditsToCharge,
-                  searchDuration,
-                },
-                'Failed to charge credits for web search'
-              )
-            }
-          }
-
-          logger.info(
-            {
-              ...searchContext,
-              searchDuration,
-              resultLength,
-              hasResults,
-              creditsCharged: creditResult?.success
-                ? depth === 'deep'
-                  ? 5
-                  : 1
-                : 0,
-              success: true,
-            },
-            'Search completed'
-          )
-
-          if (searchResult) {
-            serverToolResults.push({
-              toolName: 'web_search',
-              toolCallId: toolCall.toolCallId,
-              result: searchResult,
-            })
-          } else {
-            logger.warn(
-              {
-                ...searchContext,
-                searchDuration,
-              },
-              'No results returned from search API'
-            )
-            serverToolResults.push({
-              toolName: 'web_search',
-              toolCallId: toolCall.toolCallId,
-              result: `No search results found for "${query}". Try refining your search query or using different keywords.`,
-            })
-          }
-        } catch (error) {
-          const searchDuration = Date.now() - searchStartTime
-          logger.error(
-            {
-              ...searchContext,
-              error:
-                error instanceof Error
-                  ? {
-                      name: error.name,
-                      message: error.message,
-                      stack: error.stack,
-                    }
-                  : error,
-              searchDuration,
-              success: false,
-            },
-            'Search failed with error'
-          )
-          serverToolResults.push({
-            toolName: 'web_search',
-            toolCallId: toolCall.toolCallId,
-            result: `Error performing web search for "${query}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-          })
-        }
-      }),
-
       str_replace: toolCallback('str_replace', (toolCall) => {
         const { path, replacements } = toolCall.args
 
@@ -718,104 +605,6 @@ export const runAgentStep = async (
 
         return
       }),
-      read_docs: toolCallback('read_docs', async (toolCall) => {
-        const { libraryTitle, topic, max_tokens } = (
-          toolCall as Extract<CodebuffToolCall, { toolName: 'read_docs' }>
-        ).args
-
-        const docsStartTime = Date.now()
-        const docsContext = {
-          toolCallId: toolCall.toolCallId,
-          libraryTitle,
-          topic,
-          max_tokens,
-          userId,
-          agentStepId,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          repoId,
-        }
-
-        try {
-          const documentation = await fetchContext7LibraryDocumentation(
-            libraryTitle,
-            {
-              topic,
-              tokens: max_tokens,
-            }
-          )
-
-          const docsDuration = Date.now() - docsStartTime
-          const resultLength = documentation?.length || 0
-          const hasResults = Boolean(documentation && documentation.trim())
-          const estimatedTokens = Math.ceil(resultLength / 4) // Rough token estimate
-
-          logger.info(
-            {
-              ...docsContext,
-              docsDuration,
-              resultLength,
-              estimatedTokens,
-              hasResults,
-              success: true,
-            },
-            'Documentation request completed successfully'
-          )
-
-          if (documentation) {
-            serverToolResults.push({
-              toolName: 'read_docs',
-              toolCallId: toolCall.toolCallId,
-              result: documentation,
-            })
-          } else {
-            logger.warn(
-              {
-                ...docsContext,
-                docsDuration,
-              },
-              'No documentation found in Context7 database'
-            )
-            serverToolResults.push({
-              toolName: 'read_docs',
-              toolCallId: toolCall.toolCallId,
-              result: `No documentation found for "${libraryTitle}"${topic ? ` with topic "${topic}"` : ''}. Try using the exact library name (e.g., "Next.js", "React", "MongoDB"). The library may not be available in Context7's database.`,
-            })
-          }
-        } catch (error) {
-          const docsDuration = Date.now() - docsStartTime
-          logger.error(
-            {
-              ...docsContext,
-              error:
-                error instanceof Error
-                  ? {
-                      name: error.name,
-                      message: error.message,
-                      stack: error.stack,
-                    }
-                  : error,
-              docsDuration,
-              success: false,
-            },
-            'Documentation request failed with error'
-          )
-          serverToolResults.push({
-            toolName: 'read_docs',
-            toolCallId: toolCall.toolCallId,
-            result: `Error fetching documentation for "${libraryTitle}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-          })
-        }
-      }),
-      run_file_change_hooks: toolCallback(
-        'run_file_change_hooks',
-        (toolCall) => {
-          const { files } = toolCall.args
-          // This tool will be handled after file changes are applied
-          clientToolCalls.push(toolCall)
-        }
-      ),
     },
     (toolName, error) => {
       foundParsingError = true
@@ -885,11 +674,218 @@ export const runAgentStep = async (
       toolCall.toolName === 'think_deeply' ||
       toolCall.toolName === 'create_plan' ||
       toolCall.toolName === 'end_turn' ||
-      toolCall.toolName === 'web_search' ||
-      toolCall.toolName === 'read_docs' ||
       toolCall.toolName === 'run_file_change_hooks'
     ) {
       // Handled above
+    } else if (toolCall.toolName === 'spawn_agents') {
+      // Handled below
+    } else if (toolCall.toolName === 'web_search') {
+      const { query, depth } = (
+        toolCall as Extract<CodebuffToolCall, { toolName: 'web_search' }>
+      ).args
+
+      const searchStartTime = Date.now()
+      const searchContext = {
+        toolCallId: toolCall.toolCallId,
+        query,
+        depth,
+        userId,
+        agentStepId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        repoId,
+      }
+
+      try {
+        const searchResult = await searchWeb(query, {
+          depth,
+        })
+
+        const searchDuration = Date.now() - searchStartTime
+        const resultLength = searchResult?.length || 0
+        const hasResults = Boolean(searchResult && searchResult.trim())
+
+        // Charge credits for web search usage
+        let creditResult = null
+        if (userId) {
+          // Calculate credits based on search depth with profit margin
+          const creditsToCharge = Math.round(
+            (depth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN)
+          )
+
+          const requestContext = getRequestContext()
+          const repoUrl = requestContext?.processedRepoUrl
+
+          creditResult = await consumeCreditsWithFallback({
+            userId,
+            creditsToCharge,
+            repoUrl,
+            context: 'web search',
+          })
+
+          if (!creditResult.success) {
+            logger.error(
+              {
+                ...searchContext,
+                error: creditResult.error,
+                creditsToCharge,
+                searchDuration,
+              },
+              'Failed to charge credits for web search'
+            )
+          }
+        }
+
+        logger.info(
+          {
+            ...searchContext,
+            searchDuration,
+            resultLength,
+            hasResults,
+            creditsCharged: creditResult?.success
+              ? depth === 'deep'
+                ? 5
+                : 1
+              : 0,
+            success: true,
+          },
+          'Search completed'
+        )
+
+        if (searchResult) {
+          serverToolResults.push({
+            toolName: 'web_search',
+            toolCallId: toolCall.toolCallId,
+            result: searchResult,
+          })
+        } else {
+          logger.warn(
+            {
+              ...searchContext,
+              searchDuration,
+            },
+            'No results returned from search API'
+          )
+          serverToolResults.push({
+            toolName: 'web_search',
+            toolCallId: toolCall.toolCallId,
+            result: `No search results found for "${query}". Try refining your search query or using different keywords.`,
+          })
+        }
+      } catch (error) {
+        const searchDuration = Date.now() - searchStartTime
+        logger.error(
+          {
+            ...searchContext,
+            error:
+              error instanceof Error
+                ? {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                  }
+                : error,
+            searchDuration,
+            success: false,
+          },
+          'Search failed with error'
+        )
+        serverToolResults.push({
+          toolName: 'web_search',
+          toolCallId: toolCall.toolCallId,
+          result: `Error performing web search for "${query}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+        })
+      }
+    } else if (toolCall.toolName === 'read_docs') {
+      const { libraryTitle, topic, max_tokens } = (
+        toolCall as Extract<CodebuffToolCall, { toolName: 'read_docs' }>
+      ).args
+
+      const docsStartTime = Date.now()
+      const docsContext = {
+        toolCallId: toolCall.toolCallId,
+        libraryTitle,
+        topic,
+        max_tokens,
+        userId,
+        agentStepId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        repoId,
+      }
+
+      try {
+        const documentation = await fetchContext7LibraryDocumentation(
+          libraryTitle,
+          {
+            topic,
+            tokens: max_tokens,
+          }
+        )
+
+        const docsDuration = Date.now() - docsStartTime
+        const resultLength = documentation?.length || 0
+        const hasResults = Boolean(documentation && documentation.trim())
+        const estimatedTokens = Math.ceil(resultLength / 4) // Rough token estimate
+
+        logger.info(
+          {
+            ...docsContext,
+            docsDuration,
+            resultLength,
+            estimatedTokens,
+            hasResults,
+            success: true,
+          },
+          'Documentation request completed successfully'
+        )
+
+        if (documentation) {
+          serverToolResults.push({
+            toolName: 'read_docs',
+            toolCallId: toolCall.toolCallId,
+            result: documentation,
+          })
+        } else {
+          logger.warn(
+            {
+              ...docsContext,
+              docsDuration,
+            },
+            'No documentation found in Context7 database'
+          )
+          serverToolResults.push({
+            toolName: 'read_docs',
+            toolCallId: toolCall.toolCallId,
+            result: `No documentation found for "${libraryTitle}"${topic ? ` with topic "${topic}"` : ''}. Try using the exact library name (e.g., "Next.js", "React", "MongoDB"). The library may not be available in Context7's database.`,
+          })
+        }
+      } catch (error) {
+        const docsDuration = Date.now() - docsStartTime
+        logger.error(
+          {
+            ...docsContext,
+            error:
+              error instanceof Error
+                ? {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                  }
+                : error,
+            docsDuration,
+            success: false,
+          },
+          'Documentation request failed with error'
+        )
+        serverToolResults.push({
+          toolName: 'read_docs',
+          toolCallId: toolCall.toolCallId,
+          result: `Error fetching documentation for "${libraryTitle}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+        })
+      }
     } else if (toolCall.toolName === 'read_files') {
       const paths = (
         toolCall as Extract<CodebuffToolCall, { toolName: 'read_files' }>
@@ -1021,8 +1017,6 @@ export const runAgentStep = async (
           result: `No relevant files found for description: ${description}`,
         })
       }
-    } else if (toolCall.toolName === 'spawn_agents') {
-      // Handled below
     } else if (toolCall.toolName === 'update_report') {
       const { json_update: jsonUpdate } = toolCall.args
       agentState.report = {
