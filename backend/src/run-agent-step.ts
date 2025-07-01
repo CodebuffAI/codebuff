@@ -1127,252 +1127,38 @@ export const runAgentStep = async (
         })
       )
 
-      // Process spawned agent results and extract any tool calls
-      const spawnedAgentToolCalls: ClientToolCall[] = []
-      const reports = await Promise.all(
-        results.map(async (result) => {
-          if (result.status === 'fulfilled') {
+      const reports = results.map((result) => {
+        if (result.status === 'fulfilled') {
+          const { agentState } = result.value
+          const agentTemplate = agentTemplates[agentState.agentType!]
+          if (agentTemplate.outputMode === 'report') {
+            return JSON.stringify(result.value.agentState.report, null, 2)
+          } else if (agentTemplate.outputMode === 'last_message') {
             const { agentState } = result.value
-            const agentTemplate = agentTemplates[agentState.agentType!]
-
-            // Extract the last assistant message to check for tool calls
             const assistantMessages = agentState.messageHistory.filter(
               (message) => message.role === 'assistant'
             )
             const lastAssistantMessage =
               assistantMessages[assistantMessages.length - 1]
-
-            // Parse tool calls from the last assistant message if it exists
-            if (
-              lastAssistantMessage &&
-              typeof lastAssistantMessage.content === 'string'
-            ) {
-              const content = lastAssistantMessage.content
-
-              logger.info(
-                {
-                  agentType: agentState.agentType,
-                  contentLength: content.length,
-                  contentPreview:
-                    content.substring(0, 200) +
-                    (content.length > 200 ? '...' : ''),
-                },
-                'Parsing spawned agent response for tool calls'
-              )
-
-              // Parse tool calls from the spawned agent's response
-              const toolCallRegex = /<(\w+)>([\s\S]*?)<\/\1>/g
-              let match
-              while ((match = toolCallRegex.exec(content)) !== null) {
-                const toolName = match[1]
-                const toolContent = match[2]
-
-                logger.info(
-                  {
-                    toolName,
-                    toolContentLength: toolContent.length,
-                    agentType: agentState.agentType,
-                  },
-                  'Found potential tool call in spawned agent response'
-                )
-
-                // Check if this is a valid tool that can be executed by the client
-                if (
-                  [
-                    'run_file_change_hooks',
-                    'run_terminal_command',
-                    'code_search',
-                    'browser_logs',
-                  ].includes(toolName)
-                ) {
-                  logger.info(
-                    { toolName, agentType: agentState.agentType },
-                    'Processing valid client tool call from spawned agent'
-                  )
-
-                  try {
-                    // Parse the tool parameters
-                    const paramRegex = /<(\w+)>([\s\S]*?)<\/\1>/g
-                    const args: Record<string, any> = {}
-                    let paramMatch
-                    while (
-                      (paramMatch = paramRegex.exec(toolContent)) !== null
-                    ) {
-                      const paramName = paramMatch[1]
-                      const paramValue = paramMatch[2].trim()
-
-                      // Try to parse JSON arrays/objects
-                      if (paramName === 'files' || paramName === 'paths') {
-                        try {
-                          args[paramName] = JSON.parse(paramValue)
-                        } catch {
-                          // If not valid JSON, treat as single item array
-                          args[paramName] = [paramValue]
-                        }
-                      } else {
-                        args[paramName] = paramValue
-                      }
-                    }
-
-                    logger.info(
-                      { toolName, args, agentType: agentState.agentType },
-                      'Parsed tool call arguments from spawned agent'
-                    )
-
-                    // Add to spawned agent tool calls with proper typing
-                    if (toolName === 'run_file_change_hooks') {
-                      const toolCall = {
-                        type: 'tool-call',
-                        toolName: 'run_file_change_hooks',
-                        toolCallId: generateCompactId(),
-                        args: { files: args.files || [] },
-                      } as ClientToolCall
-                      spawnedAgentToolCalls.push(toolCall)
-                      logger.info(
-                        { toolCall, agentType: agentState.agentType },
-                        'Added run_file_change_hooks tool call from spawned agent'
-                      )
-                    } else if (toolName === 'run_terminal_command') {
-                      spawnedAgentToolCalls.push({
-                        type: 'tool-call',
-                        toolName: 'run_terminal_command',
-                        toolCallId: generateCompactId(),
-                        args: {
-                          command: args.command || '',
-                          mode: 'assistant' as const,
-                          process_type: (args.process_type || 'SYNC') as
-                            | 'SYNC'
-                            | 'BACKGROUND',
-                          timeout_seconds: args.timeout_seconds || 30,
-                          cwd: args.cwd,
-                        },
-                      } as ClientToolCall)
-                    } else if (toolName === 'code_search') {
-                      spawnedAgentToolCalls.push({
-                        type: 'tool-call',
-                        toolName: 'code_search',
-                        toolCallId: generateCompactId(),
-                        args: {
-                          pattern: args.pattern || '',
-                          flags: args.flags,
-                          cwd: args.cwd,
-                        },
-                      } as ClientToolCall)
-                    } else if (toolName === 'browser_logs') {
-                      spawnedAgentToolCalls.push({
-                        type: 'tool-call',
-                        toolName: 'browser_logs',
-                        toolCallId: generateCompactId(),
-                        args: {
-                          type: args.type || 'navigate',
-                          url: args.url || '',
-                          waitUntil: args.waitUntil,
-                        },
-                      } as ClientToolCall)
-                    }
-                  } catch (error) {
-                    logger.warn(
-                      { error, toolName, agentType: agentState.agentType },
-                      'Failed to parse tool call from spawned agent'
-                    )
-                  }
-                } else {
-                  logger.debug(
-                    { toolName, agentType: agentState.agentType },
-                    'Skipping non-client tool call from spawned agent'
-                  )
-                }
-              }
+            if (!lastAssistantMessage) {
+              return 'No response from agent'
+            }
+            if (typeof lastAssistantMessage.content === 'string') {
+              return lastAssistantMessage.content
             } else {
-              logger.debug(
-                {
-                  agentType: agentState.agentType,
-                  hasLastMessage: !!lastAssistantMessage,
-                },
-                'No content to parse for tool calls in spawned agent response'
-              )
+              return JSON.stringify(lastAssistantMessage.content, null, 2)
             }
-
-            // Return the text output based on outputMode
-            if (agentTemplate.outputMode === 'report') {
-              return JSON.stringify(result.value.agentState.report, null, 2)
-            } else if (agentTemplate.outputMode === 'last_message') {
-              if (!lastAssistantMessage) {
-                return 'No response from agent'
-              }
-              if (typeof lastAssistantMessage.content === 'string') {
-                return lastAssistantMessage.content
-              } else {
-                return JSON.stringify(lastAssistantMessage.content, null, 2)
-              }
-            } else if (agentTemplate.outputMode === 'all_messages') {
-              const { agentState } = result.value
-              // Remove the first message, which includes the previous conversation history.
-              const agentMessages = agentState.messageHistory.slice(1)
-              return `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
-            }
-            throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
-          } else {
-            return `Error spawning agent: ${result.reason}`
+          } else if (agentTemplate.outputMode === 'all_messages') {
+            const { agentState } = result.value
+            // Remove the first message, which includes the previous conversation history.
+            const agentMessages = agentState.messageHistory.slice(1)
+            return `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
           }
-        })
-      )
-
-      // Add spawned agent tool calls to the main clientToolCalls array
-      if (spawnedAgentToolCalls.length > 0) {
-        logger.info(
-          {
-            spawnedAgentToolCalls: spawnedAgentToolCalls.map((tc) => ({
-              toolName: tc.toolName,
-              toolCallId: tc.toolCallId,
-              args: tc.args,
-            })),
-            agentTypes: results.map((r) =>
-              r.status === 'fulfilled' ? r.value.agentState.agentType : 'failed'
-            ),
-            totalToolCalls: spawnedAgentToolCalls.length,
-          },
-          `Found ${spawnedAgentToolCalls.length} tool calls from spawned agents - adding to client tool calls queue`
-        )
-      } else {
-        logger.info(
-          {
-            agentTypes: results.map((r) =>
-              r.status === 'fulfilled' ? r.value.agentState.agentType : 'failed'
-            ),
-          },
-          'No tool calls found in spawned agent responses'
-        )
-      }
-      // Execute spawned agent tool calls immediately after processing
-      for (const spawnedToolCall of spawnedAgentToolCalls) {
-        if (!checkLiveUserInput(userId, userInputId)) {
-          break
-        }
-        const result = await requestToolCall(
-          ws,
-          userInputId,
-          spawnedToolCall.toolName,
-          spawnedToolCall.args
-        )
-        if (!result.success) {
-          logger.error(
-            { error: result.error },
-            'Error executing spawned agent tool call'
-          )
-          serverToolResults.push({
-            toolName: spawnedToolCall.toolName,
-            toolCallId: spawnedToolCall.toolCallId,
-            result: result.error ?? 'Unknown error',
-          })
+          throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
         } else {
-          serverToolResults.push({
-            toolName: spawnedToolCall.toolName,
-            toolCallId: spawnedToolCall.toolCallId,
-            result: result.result,
-          })
+          return `Error spawning agent: ${result.reason}`
         }
-      }
+      })
 
       serverToolResults.push({
         toolName: 'spawn_agents',
@@ -1456,9 +1242,6 @@ export const runAgentStep = async (
           },
     })
   )
-
-  // Important: File changes must be processed before any run_file_change_hooks calls
-  // So we unshift them to the beginning of the array
   clientToolCalls.unshift(...changeToolCalls)
 
   const newAgentContext = await agentContextPromise
@@ -1485,35 +1268,12 @@ export const runAgentStep = async (
     if (!checkLiveUserInput(userId, userInputId)) {
       return { agentState, fullResponse: '', shouldEndTurn: true }
     }
-
-    logger.info(
-      {
-        toolName: clientToolCall.toolName,
-        toolCallId: clientToolCall.toolCallId,
-        args: clientToolCall.args,
-        userInputId,
-      },
-      'Requesting tool call execution from client'
-    )
-
     const result = await requestToolCall(
       ws,
       userInputId,
       clientToolCall.toolName,
       clientToolCall.args
     )
-
-    logger.info(
-      {
-        toolName: clientToolCall.toolName,
-        toolCallId: clientToolCall.toolCallId,
-        success: result.success,
-        hasResult: !!result.result,
-        hasError: !!result.error,
-      },
-      'Received tool call result from client'
-    )
-
     if (!result.success) {
       logger.error({ error: result.error }, 'Error executing tool call')
       serverToolResults.push({

@@ -78,24 +78,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     // Don't render anything
   },
   run_file_change_hooks: {
-    onToolStart: () => {
-      return '\n\n' + gray(`[${bold('Running File Change Hooks')}]`) + '\n'
-    },
-    onParamEnd: (paramName, toolName, content) => {
-      if (paramName === 'files') {
-        let files: string[] = []
-        try {
-          files = JSON.parse(content)
-        } catch (e) {
-          return null
-        }
-        if (files.length > 0) {
-          return gray(`Changed files: ${files.join(', ')}\n`)
-        }
-      }
-      return null
-    },
-    onToolEnd: () => '\n\n',
+    // Don't render anything
   },
   read_files: {
     ...defaultToolCallRenderer,

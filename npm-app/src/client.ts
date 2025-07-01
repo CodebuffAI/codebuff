@@ -54,7 +54,6 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
-import { renderToolResults } from '@codebuff/common/constants/tools'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -64,10 +63,8 @@ import { backendUrl, npmAppVersion, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { DiffManager } from './diff-manager'
 import { calculateFingerprint } from './fingerprint'
-import { runFileChangeHooks } from './json-config/hooks'
 import { loadCodebuffConfig } from './json-config/parser'
 import { displayGreeting } from './menu'
-import { logAndHandleStartup } from './startup-process-handler'
 import {
   clearCachedProjectFileContext,
   getFiles,
@@ -76,6 +73,7 @@ import {
   getWorkingDirectory,
   startNewChat,
 } from './project-files'
+import { logAndHandleStartup } from './startup-process-handler'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
@@ -1172,33 +1170,6 @@ export class Client {
         // If we had any file changes, update the project context
         if (DiffManager.getChanges().length > 0) {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
-        }
-
-        if (!this.responseComplete) {
-          // Append process updates to existing tool results
-          toolResults.push(...getBackgroundProcessUpdates())
-          this.sessionState.fileContext.cwd = getWorkingDirectory()
-
-          this.sessionState.mainAgentState.messageHistory.push({
-            role: 'user',
-            content: renderToolResults(toolResults),
-          })
-          // Continue the prompt with the tool results.
-          Spinner.get().start('Thinking...')
-          const continuePromptAction: ClientAction = {
-            type: 'prompt',
-            promptId: userInputId,
-            prompt: undefined,
-            sessionState: this.sessionState,
-            toolResults,
-            fingerprintId: await this.fingerprintId,
-            authToken: this.user?.authToken,
-            costMode: this.costMode,
-            model: this.model,
-            repoUrl: loggerContext.repoUrl,
-          }
-          this.webSocket.sendAction(continuePromptAction)
-          return
         }
 
         const endTime = Date.now()

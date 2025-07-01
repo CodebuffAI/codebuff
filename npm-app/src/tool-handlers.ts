@@ -13,16 +13,17 @@ import { getRgPath } from './native/ripgrep'
 import { logger } from './utils/logger'
 
 import { SHOULD_ASK_CONFIG } from '@codebuff/common/constants'
+import { renderToolResults } from '@codebuff/common/constants/tools'
 import { ToolCall } from '@codebuff/common/types/session-state'
 import { handleBrowserInstruction } from './browser-runner'
 import { waitForPreviousCheckpoint } from './cli-handlers/checkpoint'
 import { Client } from './client'
 import { DiffManager } from './diff-manager'
+import { runFileChangeHooks } from './json-config/hooks'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/run-command'
 import { Spinner } from './utils/spinner'
 import { scrapeWebPage } from './web-scraper'
-import { runFileChangeHooks } from './json-config/hooks'
 
 export type ToolHandler<T extends Record<string, any>> = (
   parameters: T,
@@ -259,32 +260,19 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
     )
 
     // Format the results for display
-    const results = toolResults
-      .map((result) => {
-        const hookName = result.toolName.replace('file-change-hook-', '')
-        return `Hook '${hookName}': ${result.result}`
-      })
-      .join('\n\n')
+    const results = renderToolResults(toolResults)
 
     // Add a summary if some hooks failed
     if (someHooksFailed) {
-      const finalResult =
+      return (
         results +
-        '\n\n⚠️ Some file change hooks failed. Please review the output above.'
-      logger.info(
-        { files: parameters.files, resultLength: finalResult.length },
-        'Returning file change hooks result with failures'
+        '\n\nSome file change hooks failed. Please review the output above.'
       )
-      return finalResult
     }
 
-    const finalResult =
+    return (
       results || 'No file change hooks were triggered for the specified files.'
-    logger.info(
-      { files: parameters.files, resultLength: finalResult.length },
-      'Returning successful file change hooks result'
     )
-    return finalResult
   },
   browser_logs: async (params, _id): Promise<string> => {
     Spinner.get().start('Using browser...')
