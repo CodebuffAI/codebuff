@@ -62,12 +62,17 @@ export const mainPrompt = async (
         `Detected terminal command in ${duration}ms, executing directly: ${prompt}`
       )
 
-      const response = await requestToolCall(ws, 'run_terminal_command', {
-        command: terminalCommand,
-        mode: 'user',
-        process_type: 'SYNC',
-        timeout_seconds: -1,
-      })
+      const response = await requestToolCall(
+        ws,
+        promptId,
+        'run_terminal_command',
+        {
+          command: terminalCommand,
+          mode: 'user',
+          process_type: 'SYNC',
+          timeout_seconds: -1,
+        }
+      )
 
       const toolResult = response.success ? response.result : response.error
       if (response.success) {
