@@ -721,7 +721,17 @@ export class Client {
 
     // Handle backend-initiated tool call requests
     this.webSocket.subscribe('tool-call-request', async (action) => {
-      const { requestId, toolName, args, timeout } = action
+      const { requestId, toolName, args, userInputId } = action
+
+      if (userInputId !== this.userInputId) {
+        this.webSocket.sendAction({
+          type: 'tool-call-response',
+          requestId,
+          success: false,
+          error: `User input ID mismatch: expected ${this.userInputId}, got ${userInputId}. Most likely cancelled by user.`,
+        })
+        return
+      }
 
       try {
         // Execute the tool call using existing tool handlers

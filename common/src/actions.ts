@@ -138,6 +138,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('tool-call-request'),
+    userInputId: z.string(),
     requestId: z.string(),
     toolName: z.string(),
     args: z.record(z.any()),

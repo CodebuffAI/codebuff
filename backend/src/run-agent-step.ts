@@ -36,6 +36,7 @@ import {
 import { checkLiveUserInput } from './live-user-inputs'
 import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
 import { searchWeb } from './llm-apis/linkup-api'
+import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -78,7 +79,6 @@ import {
   requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
-import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
@@ -1261,6 +1261,7 @@ export const runAgentStep = async (
     }
     const result = await requestToolCall(
       ws,
+      userInputId,
       clientToolCall.toolName,
       clientToolCall.args
     )

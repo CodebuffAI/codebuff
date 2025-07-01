@@ -414,6 +414,7 @@ export async function requestOptionalFile(ws: WebSocket, filePath: string) {
  */
 export async function requestToolCall<T = any>(
   ws: WebSocket,
+  userInputId: string,
   toolName: string,
   args: Record<string, any> & { timeout_seconds?: number }
 ): Promise<{ success: boolean; result?: T; error?: string }> {
@@ -455,6 +456,7 @@ export async function requestToolCall<T = any>(
     sendAction(ws, {
       type: 'tool-call-request',
       requestId,
+      userInputId,
       toolName,
       args,
       timeout:
