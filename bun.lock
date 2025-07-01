@@ -121,7 +121,6 @@
         "@vscode/ripgrep": "1.15.9",
         "ai": "4.3.16",
         "axios": "1.7.4",
-        "bun-pty": "0.3.1",
         "commander": "^13.1.0",
         "diff": "5.2.0",
         "git-url-parse": "^16.1.0",
@@ -1411,8 +1410,6 @@
     "buffer-equal-constant-time": ["buffer-equal-constant-time@1.0.1", "", {}, "sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA=="],
 
     "buffer-from": ["buffer-from@1.1.2", "", {}, "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ=="],
-
-    "bun-pty": ["bun-pty@0.3.1", "", {}, "sha512-vmamvr6TL4gioXVipjhI4uMypgZAYZLeB1MbK7dAmBk0HHe7GimekOwerQnUSCbOlJi3s78kswcsJBCuYERXeQ=="],
 
     "bun-types": ["bun-types@1.2.16", "", { "dependencies": { "@types/node": "*" } }, "sha512-ciXLrHV4PXax9vHvUrkvun9VPVGOVwbbbBF/Ev1cXz12lyEZMoJpIJABOfPcN9gDJRaiKF9MVbSygLg4NXu3/A=="],
 

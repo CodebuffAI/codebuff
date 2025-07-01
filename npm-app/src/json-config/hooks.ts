@@ -3,7 +3,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import micromatch from 'micromatch'
 
 import { getProjectRoot } from '../project-files'
-import { runTerminalCommand } from '../terminal/base'
+import { runTerminalCommand } from '../terminal/run-command'
 import { logger } from '../utils/logger'
 import { loadCodebuffConfig } from './parser'
 

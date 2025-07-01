@@ -31,7 +31,7 @@
     "start-dir": "bun run src/index.ts",
     "start-experimental": "bun run src/index.ts .. --experimental",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "postinstall": "bun scripts/patch-bun-pty.ts && bun scripts/patch-web-tree-sitter.ts"
+    "postinstall": "bun scripts/patch-web-tree-sitter.ts"
   },
   "files": [
     "README.md"
@@ -47,7 +47,6 @@
     "@vscode/ripgrep": "1.15.9",
     "ai": "4.3.16",
     "axios": "1.7.4",
-    "bun-pty": "0.3.1",
     "commander": "^13.1.0",
     "diff": "5.2.0",
     "git-url-parse": "^16.1.0",

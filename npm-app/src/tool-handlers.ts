@@ -19,7 +19,7 @@ import { waitForPreviousCheckpoint } from './cli-handlers/checkpoint'
 import { Client } from './client'
 import { DiffManager } from './diff-manager'
 import { getProjectRoot } from './project-files'
-import { runTerminalCommand } from './terminal/base'
+import { runTerminalCommand } from './terminal/run-command'
 import { Spinner } from './utils/spinner'
 import { scrapeWebPage } from './web-scraper'
 

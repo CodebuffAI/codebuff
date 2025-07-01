@@ -63,7 +63,7 @@ import {
   killAndResetPersistentProcess,
   persistentProcess,
   resetShell,
-} from './terminal/base'
+} from './terminal/run-command'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
@@ -178,9 +178,9 @@ export class CLI {
   private setupSignalHandlers() {
     process.on('exit', () => {
       Spinner.get().restoreCursor()
-      // Kill the persistent PTY process first
-      if (persistentProcess?.type === 'pty') {
-        persistentProcess.pty.kill()
+      // Kill the persistent child process first
+      if (persistentProcess && persistentProcess.childProcess) {
+        persistentProcess.childProcess.kill()
       }
       sendKillSignalToAllBackgroundProcesses()
       const isHomeDir = getProjectRoot() === os.homedir()
