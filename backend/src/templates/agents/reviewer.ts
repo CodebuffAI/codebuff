@@ -13,8 +13,8 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
-  toolNames: ['end_turn'],
-  stopSequences: generateCloseTags(['end_turn']),
+  toolNames: ['end_turn', 'run_file_change_hooks'],
+  stopSequences: generateCloseTags(['end_turn', 'run_file_change_hooks']),
   spawnableAgents: [],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
@@ -24,9 +24,14 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   systemPrompt: `You are an expert programmer who can articulate very clear feedback on code changes.
 ${PLACEHOLDER.TOOLS_PROMPT}`,
 
-  userInputPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critque the code changes made recently in the above conversation.
+  userInputPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critique the code changes made recently in the above conversation.
 
-NOTE: You cannot make any changes! You can only suggest changes.
+IMPORTANT: After analyzing the file changes, you should:
+1. Only use the run_file_change_hooks tool if there are actual new file changes to evaluate (not just reviewing existing code)
+2. When you do run hooks, include the results in your feedback - if any hooks fail, mention the specific failures and suggest how to fix them
+3. If hooks pass and no issues are found, mention that validation was successful
+
+NOTE: You cannot make any changes directly! You can only suggest changes.
 
 Think deeply about what requirements the user had and how the assistant fulfilled them. Consider edge cases, potential issues, and alternative approaches.
 
@@ -43,7 +48,7 @@ Then, provide hyper-specific feedback on the file changes made by the assistant,
 
 Throughout, you must be very concise and to the point. Do not use unnecessary words.
 
-After providing all your feedback, use the end_turn tool to end your response. Do not attempt to use any tools. You are only providing feedback.`,
+After providing all your feedback, use the end_turn tool to end your response.`,
 
   agentStepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
 })

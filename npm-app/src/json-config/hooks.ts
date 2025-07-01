@@ -1,10 +1,12 @@
 import { ToolResult } from '@codebuff/common/types/session-state'
 import { generateCompactId } from '@codebuff/common/util/string'
 import micromatch from 'micromatch'
+import { bold, gray } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
 import { runTerminalCommand } from '../terminal/run-command'
 import { logger } from '../utils/logger'
+import { Spinner } from '../utils/spinner'
 import { loadCodebuffConfig } from './parser'
 
 /**
@@ -31,7 +33,6 @@ export async function runFileChangeHooks(
     if (hook.filePattern && filesChanged.length > 0) {
       const matchingFiles = micromatch(filesChanged, hook.filePattern)
       if (matchingFiles.length === 0) {
-        // No files match the pattern, skip this hook
         continue
       }
     }
@@ -39,6 +40,15 @@ export async function runFileChangeHooks(
     try {
       const hookName = `file-change-hook-${hook.name}`
       const hookId = generateCompactId(`${hookName}-`)
+
+      // Display which hook is running and why
+      Spinner.get().stop()
+      console.log(gray(`Running ${bold(hook.name)} hook: ${hook.command}`))
+      // if (hook.filePattern && filesChanged.length > 0) {
+      //   const matchingFiles = micromatch(filesChanged, hook.filePattern)
+      //   console.log(gray(`  Triggered by changes to: ${matchingFiles.join(', ')}`))
+      // }
+
       const result = await runTerminalCommand(
         hookId,
         hook.command,
@@ -51,6 +61,11 @@ export async function runFileChangeHooks(
       )
       if (result.exitCode !== 0) {
         someHooksFailed = true
+        // Show user this hook failed?
+        // logger.warn(
+        //   { hookName: hook.name, exitCode: result.exitCode },
+        //   'File change hook failed with non-zero exit code'
+        // )
       }
       toolResults.push({
         toolName: hookName,
