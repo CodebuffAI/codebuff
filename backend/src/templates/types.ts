@@ -6,6 +6,7 @@ import {
 import { z } from 'zod/v4'
 
 import { ToolName } from '../tools'
+import { generateCloseTags } from '../util/parse-tool-call-xml'
 
 export type AgentTemplate = {
   type: AgentTemplateType
@@ -52,19 +53,12 @@ type PlaceholderType<T extends typeof placeholderNames> = {
 export const PLACEHOLDER = Object.fromEntries(
   placeholderNames.map((name) => [name, `{CODEBUFF_${name}}` as const])
 ) as PlaceholderType<typeof placeholderNames>
-
 export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
 
 export const placeholderValues = Object.values(PLACEHOLDER)
 
-/**
- * Generate stop sequences (closing XML tags) for a list of tool names
- * @param toolNames Array of tool names to generate closing tags for
- * @returns Array of closing XML tag strings
- */
-export function generateCloseTags(toolNames: readonly string[]): string[] {
-  return toolNames.map((toolName) => `</${toolName}>`)
-}
+
+
 
 export const editingToolNames: ToolName[] = [
   'create_plan',

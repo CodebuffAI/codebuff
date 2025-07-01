@@ -1,5 +1,7 @@
 import { Model } from '@codebuff/common/constants'
-import { AgentTemplate, generateCloseTags, PLACEHOLDER } from '../types'
+
+import { generateCloseTags } from '../../util/parse-tool-call-xml'
+import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,

@@ -1,5 +1,7 @@
 import { Model } from '@codebuff/common/constants'
-import { AgentTemplate, generateCloseTags, PLACEHOLDER } from '../types'
+
+import { generateCloseTags } from '../../util/parse-tool-call-xml'
+import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
@@ -25,7 +27,7 @@ ${PLACEHOLDER.TOOLS_PROMPT}`,
   userInputPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critque the code changes made recently in the above conversation.
 
 NOTE: You cannot make any changes! You can only suggest changes.
-  
+
 Think deeply about what requirements the user had and how the assistant fulfilled them. Consider edge cases, potential issues, and alternative approaches.
 
 Then, provide hyper-specific feedback on the file changes made by the assistant, file-by-file. Or, suggest alternative approaches to better fulfill the user's request.

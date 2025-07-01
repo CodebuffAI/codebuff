@@ -4,12 +4,12 @@ import {
   Model,
   models,
 } from '@codebuff/common/constants'
-
 import { CoreMessage } from 'ai'
+
 import { getAgentStream } from './prompt-agent-stream'
-import { generateCloseTags } from './templates/types'
 import { TOOL_LIST } from './tools'
 import { logger } from './util/logger'
+import { generateCloseTags } from './util/parse-tool-call-xml'
 
 export async function getThinkingStream(
   messages: CoreMessage[],
