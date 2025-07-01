@@ -51,12 +51,18 @@ function applyColorHints(cmd: string): string {
   }
 
   /* ---------- ls ---------------------------------------------------- */
-  if (/^\s*ls\b/.test(cmd) && !/--color\b/.test(cmd) && !/\s\-G\b/.test(cmd)) {
-    return IS_WINDOWS // Git‑Bash ls honours GNU flag on win
-      ? `${cmd} --color=always`
-      : process.platform === 'darwin' // BSD ls
-        ? `${cmd} -G`
-        : `${cmd} --color=always`
+  if (/^\s*ls\b/.test(cmd)                  // plain "ls"
+      && !/[\s\-][1lCx]/.test(cmd)          // none of -1 -l -C -x present
+      && !/--color\b/.test(cmd)             // and no colour flag yet
+  ) {
+    const colourFlag = IS_WINDOWS
+      ? '--color=always'                    // Git‑coreutils on Win
+      : process.platform === 'darwin'
+        ? '-G'                              // BSD flag
+        : '--color=always'
+
+    /* -C forces multi‑column even when stdout isn't a TTY */
+    return `${cmd} -C ${colourFlag}`
   }
 
   /* ---------- tree -------------------------------------------------- */
@@ -173,6 +179,9 @@ function buildEnv(shell: ShellKind): NodeJS.ProcessEnv {
     CLICOLOR: '1', // coreutils (BSD) honour this
     CLICOLOR_FORCE: '1',
     GIT_CONFIG_PARAMETERS: `'color.ui=always'`,
+    /* ---- width / height ------------------------------------------- */
+    COLUMNS: String(process.stdout.columns || 80),
+    LINES:   String(process.stdout.rows    || 24),
     LANG: 'en_US.UTF-8',
     LC_ALL: 'en_US.UTF-8',
   }
@@ -366,7 +375,7 @@ export const runTerminalCommand = async (
   if (commandIsRunning) resetShell(cwd)
   commandIsRunning = true
 
-  /* limit huge git logs, then add colour flags ----------------------- */
+  /* limit huge git logs, then add colour/width hints ----------------- */
   let modifiedCmd = command.trim() === 'git log' ? 'git log -n 5' : command
   modifiedCmd = applyColorHints(modifiedCmd)
 
