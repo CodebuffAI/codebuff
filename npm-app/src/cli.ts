@@ -780,9 +780,10 @@ export class CLI {
 
     if (cleanInput === 'init') {
       handleInitializationFlowLocally()
-      // Also forward user input (original with / if present, or cleanInput) to the backend
-      // The original forwardUserInput takes the raw userInput.
-      return userInput // Let it fall through to forwardUserInput
+      // Set the initialization flag so the client knows to handle completion
+      Client.getInstance().isInitializing = true
+      // Forward user input to the backend for knowledge file creation and config population
+      return userInput
     }
 
     if (cleanInput === 'export') {
