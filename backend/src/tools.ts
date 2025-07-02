@@ -168,7 +168,7 @@ Merely omitting the code block may or may not work. In order to guarantee the de
 
 #### Additional Info
 
-Prefer str_replace to write_file for small-to-medium edits to a file, for deletions, or for editing large files (>1000 lines). Otherwise, prefer write_file for major edits to a file, or for creating new files.
+Prefer using write_file to str_replace for all edits. str_replace is a backup option only.
 
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
@@ -243,7 +243,7 @@ function foo() {
       })
       .describe(`Replace strings in a file with new strings.`),
     description: `
-Use this tool to make edits within existing files. Prefer this tool over the write_file tool for existing files, unless you need to make major changes throughout the file, in which case use write_file.
+Use this tool to make edits within existing files, however: prefer using write_file tool to str_replace for all edits. This tool is a backup option only.
 
 Important:
 If you are making multiple edits in a row to a file, use only one <str_replace> call with multiple replacements instead of multiple str_replace tool calls.
