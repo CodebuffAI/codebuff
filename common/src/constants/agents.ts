@@ -57,12 +57,14 @@ export const AGENT_PERSONAS = {
     title: 'The Planner',
     description:
       'Agent that formulates a comprehensive plan to a prompt. Please prompt it with a few ideas and suggestions for the plan.',
+    hidden: true,
   },
   gemini25flash_dry_run: {
     name: 'Sketch',
     title: 'The Dry Runner',
     description:
       'Agent that takes a plan and try to implement it in a dry run.',
+    hidden: true,
   },
   gemini25pro_reviewer: {
     name: 'Nit Pick Nick',
@@ -85,7 +87,11 @@ export type AgentName =
 
 // Get unique agent names for UI display
 export const UNIQUE_AGENT_NAMES = Array.from(
-  new Set(Object.values(AGENT_PERSONAS).map((persona) => persona.name))
+  new Set(
+    Object.values(AGENT_PERSONAS)
+      .filter((persona) => !(persona as any).hidden)
+      .map((persona) => persona.name)
+  )
 )
 
 // Map from display name back to agent types (for parsing user input)
