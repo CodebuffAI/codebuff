@@ -273,12 +273,10 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
               const metadata = agentType && AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
               const agentName = metadata ? metadata.name : agentType || 'Agent'
               const agentTitle = metadata ? metadata.title : ''
-              const agentDescription = metadata ? metadata.description : ''
               
               const displayTitle = agentTitle ? ` ${agentTitle}` : ''
-              const displayDescription = agentDescription ? `\n  ${agentDescription}` : ''
               
-              return `@${agentName}${displayTitle}:${displayDescription}\n   Task: ${prompt || 'No prompt provided'}`
+              return `@${agentName}${displayTitle}:\n   Task: ${prompt || 'No prompt provided'}`
             }).join('\n\n') + '\n'
           )
         }
