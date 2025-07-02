@@ -308,7 +308,8 @@ export async function runGitEvals(
   evalDataPath: string,
   outputDir: string,
   agentType: string = AGENT_TYPE,
-  limit?: number
+  limit?: number,
+  logToStdout: boolean = false
 ): Promise<FullEvalLog> {
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8')
@@ -373,7 +374,9 @@ export async function runGitEvals(
               .slice(0, 30)
             const logFilename = `${safeMessage}-${evalCommit.sha.slice(0, 7)}.log`
             const logPath = path.join(logsDir, logFilename)
-            const logStream = fs.createWriteStream(logPath)
+            const logStream = logToStdout
+              ? process.stdout
+              : fs.createWriteStream(logPath)
 
             // Write evalCommit to temporary file to avoid long command line arguments
             const tempEvalCommitPath = path.join(
@@ -415,8 +418,11 @@ export async function runGitEvals(
                 }
                 if (message.type === 'result' && message.result) {
                   console.log(
-                    `Completed eval for commit ${testRepoName} - ${evalCommit.message}: ${JSON.stringify(message.result, null, 2)}`
+                    `Completed eval for commit ${testRepoName} - ${evalCommit.message}`
                   )
+                  if (!logToStdout) {
+                    console.log(`${JSON.stringify(message.result, null, 2)}`)
+                  }
                   resolve(message.result)
                 } else if (message.type === 'error') {
                   console.error(

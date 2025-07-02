@@ -133,7 +133,8 @@ async function runEvalSet(options: {
             config.evalDataPath,
             config.outputDir,
             config.agentType,
-            config.limit
+            config.limit,
+            options.concurrency === 1
           )
 
       const evalDuration = Date.now() - evalStartTime
