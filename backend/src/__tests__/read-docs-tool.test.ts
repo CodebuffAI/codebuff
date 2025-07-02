@@ -19,7 +19,7 @@ import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
 import * as context7Api from '../llm-apis/context7-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
-import { mainPrompt } from '../main-prompt'
+import { runAgentStep } from '../run-agent-step'
 import * as websocketAction from '../websockets/websocket-action'
 
 // Mock logger
@@ -33,7 +33,7 @@ mock.module('../util/logger', () => ({
   withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
 }))
 
-describe('read_docs tool', () => {
+describe('read_docs tool with researcher agent', () => {
   beforeEach(() => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
@@ -55,10 +55,6 @@ describe('read_docs tool', () => {
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
       Promise.resolve('Test response')
     )
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield 'Test response'
-      return
-    })
 
     // Mock other required modules
     spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
@@ -127,23 +123,26 @@ describe('read_docs tool', () => {
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Get React documentation',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: 'Get React documentation',
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
@@ -154,7 +153,7 @@ describe('read_docs tool', () => {
 
     // Check that the documentation was added to the message history
     const toolResultMessages =
-      newSessionState.mainAgentState.messageHistory.filter(
+      newAgentState.messageHistory.filter(
         (m) =>
           m.role === 'user' &&
           typeof m.content === 'string' &&
@@ -184,20 +183,24 @@ describe('read_docs tool', () => {
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Get React hooks documentation',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+    await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
+      userInputId: 'test-input',
       clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
+      agentType: 'gemini25flash_researcher',
+      fileContext: mockFileContext,
+      agentState,
+      prompt: 'Get React hooks documentation',
+      params: undefined,
+      assistantMessage: undefined,
+      assistantPrefix: undefined,
     })
 
     expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith(
@@ -224,29 +227,32 @@ describe('read_docs tool', () => {
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Get documentation for NonExistentLibrary',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: 'Get documentation for NonExistentLibrary',
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
     // Check that the "no documentation found" message was added
     const toolResultMessages =
-      newSessionState.mainAgentState.messageHistory.filter(
+      newAgentState.messageHistory.filter(
         (m) =>
           m.role === 'user' &&
           typeof m.content === 'string' &&
@@ -277,29 +283,32 @@ describe('read_docs tool', () => {
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Get React documentation',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: 'Get React documentation',
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
     // Check that the error message was added
     const toolResultMessages =
-      newSessionState.mainAgentState.messageHistory.filter(
+      newAgentState.messageHistory.filter(
         (m) =>
           m.role === 'user' &&
           typeof m.content === 'string' &&
@@ -328,29 +337,32 @@ describe('read_docs tool', () => {
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Get React server components documentation',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: 'Get React server components documentation',
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
     // Check that the topic is included in the error message
     const toolResultMessages =
-      newSessionState.mainAgentState.messageHistory.filter(
+      newAgentState.messageHistory.filter(
         (m) =>
           m.role === 'user' &&
           typeof m.content === 'string' &&
@@ -379,29 +391,32 @@ describe('read_docs tool', () => {
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Get React documentation',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: 'Get React documentation',
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
     // Check that the generic error message was added
     const toolResultMessages =
-      newSessionState.mainAgentState.messageHistory.filter(
+      newAgentState.messageHistory.filter(
         (m) =>
           m.role === 'user' &&
           typeof m.content === 'string' &&

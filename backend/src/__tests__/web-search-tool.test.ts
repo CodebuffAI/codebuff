@@ -22,7 +22,7 @@ import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
 import * as linkupApi from '../llm-apis/linkup-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
-import { mainPrompt } from '../main-prompt'
+import { runAgentStep } from '../run-agent-step'
 import * as websocketAction from '../websockets/websocket-action'
 
 // Mock logger
@@ -36,13 +36,7 @@ mock.module('../util/logger', () => ({
   withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
 }))
 
-describe('web_search tool', () => {
-  const mockAgentStream = (streamOutput: string) => {
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield streamOutput
-    })
-  }
-
+describe('web_search tool with researcher agent', () => {
   beforeEach(() => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
@@ -64,10 +58,6 @@ describe('web_search tool', () => {
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
       Promise.resolve('Test response')
     )
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield 'Test response'
-      return
-    })
 
     // Mock other required modules
     spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
@@ -130,23 +120,29 @@ describe('web_search tool', () => {
         query: 'test query',
       }) + getToolCallString('end_turn', {})
 
-    mockAgentStream(mockResponse)
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield mockResponse
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Search for test',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+    await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
+      userInputId: 'test-input',
       clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
+      agentType: 'gemini25flash_researcher',
+      fileContext: mockFileContext,
+      agentState,
+      prompt: 'Search for test',
+      params: undefined,
+      assistantMessage: undefined,
+      assistantPrefix: undefined,
     })
 
     // Just verify that searchWeb was called
@@ -168,26 +164,31 @@ describe('web_search tool', () => {
         query: 'Next.js 15 new features',
       }) + getToolCallString('end_turn', {})
 
-    mockAgentStream(mockResponse)
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield mockResponse
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Search for Next.js 15 new features',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: 'Search for Next.js 15 new features',
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
@@ -198,21 +199,16 @@ describe('web_search tool', () => {
       }
     )
 
-    // Verify that searchWeb was called with correct parameters
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
-      'Next.js 15 new features',
-      {
-        depth: 'standard',
-      }
-    )
-
-    // Verify that searchWeb was called with correct parameters
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
-      'Next.js 15 new features',
-      {
-        depth: 'standard',
-      }
-    )
+    // Check that the search results were added to the message history
+    const toolResultMessages =
+      newAgentState.messageHistory.filter(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.includes('web_search')
+      )
+    expect(toolResultMessages.length).toBeGreaterThan(0)
+    expect(toolResultMessages[0].content).toContain(mockSearchResult)
   })
 
   test('should handle custom depth parameter', async () => {
@@ -229,23 +225,29 @@ describe('web_search tool', () => {
         depth: 'deep',
       }) + getToolCallString('end_turn', {})
 
-    mockAgentStream(mockResponse)
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield mockResponse
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Search for React Server Components tutorial with deep search',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+    await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
+      userInputId: 'test-input',
       clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
+      agentType: 'gemini25flash_researcher',
+      fileContext: mockFileContext,
+      agentState,
+      prompt: 'Search for React Server Components tutorial with deep search',
+      params: undefined,
+      assistantMessage: undefined,
+      assistantPrefix: undefined,
     })
 
     expect(linkupApi.searchWeb).toHaveBeenCalledWith(
@@ -264,26 +266,31 @@ describe('web_search tool', () => {
         query: 'very obscure search query that returns nothing',
       }) + getToolCallString('end_turn', {})
 
-    mockAgentStream(mockResponse)
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield mockResponse
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: "Search for something that doesn't exist",
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: "Search for something that doesn't exist",
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
@@ -294,6 +301,17 @@ describe('web_search tool', () => {
         depth: 'standard',
       }
     )
+
+    // Check that the "no results found" message was added
+    const toolResultMessages =
+      newAgentState.messageHistory.filter(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.includes('web_search')
+      )
+    expect(toolResultMessages.length).toBeGreaterThan(0)
+    expect(toolResultMessages[0].content).toContain('No search results found')
   })
 
   test('should handle API errors gracefully', async () => {
@@ -308,26 +326,31 @@ describe('web_search tool', () => {
         query: 'test query',
       }) + getToolCallString('end_turn', {})
 
-    mockAgentStream(mockResponse)
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield mockResponse
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Search for something',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: 'Search for something',
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
@@ -335,6 +358,18 @@ describe('web_search tool', () => {
     expect(linkupApi.searchWeb).toHaveBeenCalledWith('test query', {
       depth: 'standard',
     })
+
+    // Check that the error message was added
+    const toolResultMessages =
+      newAgentState.messageHistory.filter(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.includes('web_search')
+      )
+    expect(toolResultMessages.length).toBeGreaterThan(0)
+    expect(toolResultMessages[0].content).toContain('Error performing web search')
+    expect(toolResultMessages[0].content).toContain('Linkup API timeout')
   })
 
   test('should handle null response from searchWeb', async () => {
@@ -345,26 +380,31 @@ describe('web_search tool', () => {
         query: 'test query',
       }) + getToolCallString('end_turn', {})
 
-    mockAgentStream(mockResponse)
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield mockResponse
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Search for something',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: 'Search for something',
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
@@ -384,26 +424,31 @@ describe('web_search tool', () => {
         query: 'test query',
       }) + getToolCallString('end_turn', {})
 
-    mockAgentStream(mockResponse)
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield mockResponse
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Search for something',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: 'Search for something',
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
@@ -411,6 +456,17 @@ describe('web_search tool', () => {
     expect(linkupApi.searchWeb).toHaveBeenCalledWith('test query', {
       depth: 'standard',
     })
+
+    // Check that the error message was added
+    const toolResultMessages =
+      newAgentState.messageHistory.filter(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.includes('web_search')
+      )
+    expect(toolResultMessages.length).toBeGreaterThan(0)
+    expect(toolResultMessages[0].content).toContain('Error performing web search')
   })
 
   test('should format search results correctly', async () => {
@@ -426,26 +482,31 @@ describe('web_search tool', () => {
         query: 'test formatting',
       }) + getToolCallString('end_turn', {})
 
-    mockAgentStream(mockResponse)
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield mockResponse
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Test search result formatting',
-      sessionState,
-      fingerprintId: 'test',
-      costMode: 'max' as const,
-      promptId: 'test',
-      toolResults: [],
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gemini25flash_researcher' as const,
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
+    const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
-      action,
       {
         userId: TEST_USER_ID,
+        userInputId: 'test-input',
         clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
+        agentType: 'gemini25flash_researcher',
+        fileContext: mockFileContext,
+        agentState,
+        prompt: 'Test search result formatting',
+        params: undefined,
+        assistantMessage: undefined,
+        assistantPrefix: undefined,
       }
     )
 
@@ -453,5 +514,16 @@ describe('web_search tool', () => {
     expect(linkupApi.searchWeb).toHaveBeenCalledWith('test formatting', {
       depth: 'standard',
     })
+
+    // Check that the search results were formatted correctly
+    const toolResultMessages =
+      newAgentState.messageHistory.filter(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.includes('web_search')
+      )
+    expect(toolResultMessages.length).toBeGreaterThan(0)
+    expect(toolResultMessages[0].content).toContain(mockSearchResult)
   })
 })
