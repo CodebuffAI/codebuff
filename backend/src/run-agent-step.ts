@@ -139,7 +139,14 @@ export const runAgentStep = async (
   const agentTemplate = agentTemplates[agentType]
   const { model } = agentTemplate
 
-  console.log('running agent step', prompt, 'model', model, 'num messages', messageHistory.length)
+  console.log(
+    'running agent step',
+    prompt,
+    'model',
+    model,
+    'num messages',
+    messageHistory.length
+  )
 
   const getStream = getAgentStreamFromTemplate({
     clientSessionId,
@@ -202,6 +209,7 @@ export const runAgentStep = async (
       shouldEndTurn: true,
     }
   }
+  logger.debug({}, `asdf 1`)
 
   const fileRequestMessagesTokens = countTokensJson(messagesWithUserPrompt)
 
@@ -229,6 +237,7 @@ export const runAgentStep = async (
       )
     })
   }
+  logger.debug({}, `asdf 2`)
 
   const toolResults = []
 
@@ -254,6 +263,7 @@ export const runAgentStep = async (
     fileContext,
     agentState
   )
+  logger.debug({}, `asdf 3`)
 
   const agentMessagesUntruncated = buildArray<CodebuffMessage>(
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
@@ -306,6 +316,7 @@ export const runAgentStep = async (
   )
 
   const iterationNum = agentMessagesUntruncated.length
+  logger.debug({}, `asdf 4`)
 
   const system = getAgentPrompt(
     agentType,
@@ -314,12 +325,14 @@ export const runAgentStep = async (
     agentState
   )
   const systemTokens = countTokensJson(system)
+  logger.debug({}, `asdf 5`)
 
   // Possibly truncated messagesWithUserMessage + cache.
   const agentMessages = getCoreMessagesSubset(
     agentMessagesUntruncated,
     systemTokens
   )
+  logger.debug({}, `asdf 6`)
 
   const debugPromptCaching = false
   if (debugPromptCaching) {
