@@ -39,7 +39,6 @@ export async function promptRelaceAI(
   const startTime = Date.now()
 
   try {
-    // hi
     // const model = 'relace-apply-2.5-lite'
     const response = (await Promise.race([
       fetch('https://codebuff-instantapply.endpoint.relace.run/v1/code/apply', {
