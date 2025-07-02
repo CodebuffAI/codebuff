@@ -1,21 +1,29 @@
 // Set environment variables before any imports
 process.env.LINKUP_API_KEY = 'test-api-key'
 
-import { describe, expect, test, beforeEach, afterEach, mock, spyOn } from 'bun:test'
-import { WebSocket } from 'ws'
+import * as bigquery from '@codebuff/bigquery'
+import * as analytics from '@codebuff/common/analytics'
+import { TEST_USER_ID } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { TEST_USER_ID } from '@codebuff/common/constants'
-import * as bigquery from '@codebuff/bigquery'
-import * as analytics from '@codebuff/common/analytics'
-import * as linkupApi from '../llm-apis/linkup-api'
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
-import * as websocketAction from '../websockets/websocket-action'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from 'bun:test'
+import { WebSocket } from 'ws'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
+import * as linkupApi from '../llm-apis/linkup-api'
+import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
+import * as websocketAction from '../websockets/websocket-action'
 
 // Mock logger
 mock.module('../util/logger', () => ({
@@ -40,18 +48,22 @@ describe('web_search tool', () => {
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
     analytics.initAnalytics()
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
-    spyOn(bigquery, 'insertTrace').mockImplementation(() => Promise.resolve(true))
+    spyOn(bigquery, 'insertTrace').mockImplementation(() =>
+      Promise.resolve(true)
+    )
 
     // Mock websocket actions
     spyOn(websocketAction, 'requestFiles').mockImplementation(async () => ({}))
     spyOn(websocketAction, 'requestFile').mockImplementation(async () => null)
     spyOn(websocketAction, 'requestToolCall').mockImplementation(async () => ({
       success: true,
-      result: 'Tool call success',
+      result: 'Tool call success' as any,
     }))
 
     // Mock LLM APIs
-    spyOn(aisdk, 'promptAiSdk').mockImplementation(() => Promise.resolve('Test response'))
+    spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
+      Promise.resolve('Test response')
+    )
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield 'Test response'
       return
@@ -65,7 +77,7 @@ describe('web_search tool', () => {
       checkTerminalCommandModule,
       'checkTerminalCommand'
     ).mockImplementation(async () => null)
-    
+
     // Mock live user inputs
     spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
   })
@@ -106,18 +118,17 @@ describe('web_search tool', () => {
     fileVersions: [],
   }
 
-
-
   test('should call searchWeb function when web_search tool is used', async () => {
     const mockSearchResult = 'Test search result'
-    
+
     spyOn(linkupApi, 'searchWeb').mockImplementation(
       async () => mockSearchResult
     )
 
-    const mockResponse = getToolCallString('web_search', {
-      query: 'test query',
-    }) + getToolCallString('end_turn', {})
+    const mockResponse =
+      getToolCallString('web_search', {
+        query: 'test query',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
 
@@ -132,30 +143,30 @@ describe('web_search tool', () => {
       toolResults: [],
     }
 
-    await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
-      action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-      }
-    )
+    await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+    })
 
     // Just verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith('test query', { depth: 'standard' })
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith('test query', {
+      depth: 'standard',
+    })
   })
 
   test('should successfully perform web search with basic query', async () => {
-    const mockSearchResult = 'Next.js 15 introduces new features including improved performance and React 19 support. You can explore the latest features and improvements in Next.js 15.'
-    
+    const mockSearchResult =
+      'Next.js 15 introduces new features including improved performance and React 19 support. You can explore the latest features and improvements in Next.js 15.'
+
     spyOn(linkupApi, 'searchWeb').mockImplementation(
       async () => mockSearchResult
     )
 
-    const mockResponse = getToolCallString('web_search', {
-      query: 'Next.js 15 new features',
-    }) + getToolCallString('end_turn', {})
+    const mockResponse =
+      getToolCallString('web_search', {
+        query: 'Next.js 15 new features',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
 
@@ -205,17 +216,18 @@ describe('web_search tool', () => {
   })
 
   test('should handle custom depth parameter', async () => {
-    const mockSearchResult = 'A comprehensive guide to React Server Components and their implementation.'
-    
+    const mockSearchResult =
+      'A comprehensive guide to React Server Components and their implementation.'
+
     spyOn(linkupApi, 'searchWeb').mockImplementation(
       async () => mockSearchResult
     )
 
-    const mockResponse = getToolCallString('web_search', {
-      query: 'React Server Components tutorial',
-      depth: 'deep',
-
-    }) + getToolCallString('end_turn', {})
+    const mockResponse =
+      getToolCallString('web_search', {
+        query: 'React Server Components tutorial',
+        depth: 'deep',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
 
@@ -230,15 +242,11 @@ describe('web_search tool', () => {
       toolResults: [],
     }
 
-    await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
-      action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-      }
-    )
+    await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+    })
 
     expect(linkupApi.searchWeb).toHaveBeenCalledWith(
       'React Server Components tutorial',
@@ -249,20 +257,19 @@ describe('web_search tool', () => {
   })
 
   test('should handle case when no search results are found', async () => {
-    spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => null
-    )
+    spyOn(linkupApi, 'searchWeb').mockImplementation(async () => null)
 
-    const mockResponse = getToolCallString('web_search', {
-      query: 'very obscure search query that returns nothing',
-    }) + getToolCallString('end_turn', {})
+    const mockResponse =
+      getToolCallString('web_search', {
+        query: 'very obscure search query that returns nothing',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
       type: 'prompt' as const,
-      prompt: 'Search for something that doesn\'t exist',
+      prompt: "Search for something that doesn't exist",
       sessionState,
       fingerprintId: 'test',
       costMode: 'max' as const,
@@ -291,16 +298,15 @@ describe('web_search tool', () => {
 
   test('should handle API errors gracefully', async () => {
     const mockError = new Error('Linkup API timeout')
-    
-    spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => {
-        throw mockError
-      }
-    )
 
-    const mockResponse = getToolCallString('web_search', {
-      query: 'test query',
-    }) + getToolCallString('end_turn', {})
+    spyOn(linkupApi, 'searchWeb').mockImplementation(async () => {
+      throw mockError
+    })
+
+    const mockResponse =
+      getToolCallString('web_search', {
+        query: 'test query',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
 
@@ -326,22 +332,18 @@ describe('web_search tool', () => {
     )
 
     // Verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
-      'test query',
-      {
-        depth: 'standard',
-      }
-    )
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith('test query', {
+      depth: 'standard',
+    })
   })
 
   test('should handle null response from searchWeb', async () => {
-    spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => null
-    )
+    spyOn(linkupApi, 'searchWeb').mockImplementation(async () => null)
 
-    const mockResponse = getToolCallString('web_search', {
-      query: 'test query',
-    }) + getToolCallString('end_turn', {})
+    const mockResponse =
+      getToolCallString('web_search', {
+        query: 'test query',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
 
@@ -367,24 +369,20 @@ describe('web_search tool', () => {
     )
 
     // Verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
-      'test query',
-      {
-        depth: 'standard',
-      }
-    )
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith('test query', {
+      depth: 'standard',
+    })
   })
 
   test('should handle non-Error exceptions', async () => {
-    spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => {
-        throw 'String error'
-      }
-    )
+    spyOn(linkupApi, 'searchWeb').mockImplementation(async () => {
+      throw 'String error'
+    })
 
-    const mockResponse = getToolCallString('web_search', {
-      query: 'test query',
-    }) + getToolCallString('end_turn', {})
+    const mockResponse =
+      getToolCallString('web_search', {
+        query: 'test query',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
 
@@ -410,24 +408,23 @@ describe('web_search tool', () => {
     )
 
     // Verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
-      'test query',
-      {
-        depth: 'standard',
-      }
-    )
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith('test query', {
+      depth: 'standard',
+    })
   })
 
   test('should format search results correctly', async () => {
-    const mockSearchResult = 'This is the first search result content. This is the second search result content.'
-    
+    const mockSearchResult =
+      'This is the first search result content. This is the second search result content.'
+
     spyOn(linkupApi, 'searchWeb').mockImplementation(
       async () => mockSearchResult
     )
 
-    const mockResponse = getToolCallString('web_search', {
-      query: 'test formatting',
-    }) + getToolCallString('end_turn', {})
+    const mockResponse =
+      getToolCallString('web_search', {
+        query: 'test formatting',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
 
@@ -453,11 +450,8 @@ describe('web_search tool', () => {
     )
 
     // Verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
-      'test formatting',
-      {
-        depth: 'standard',
-      }
-    )
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith('test formatting', {
+      depth: 'standard',
+    })
   })
 })
