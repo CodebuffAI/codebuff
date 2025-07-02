@@ -5,7 +5,10 @@ import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
 import { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import { UNIQUE_AGENT_NAMES, AGENT_NAME_TO_TYPES, AGENT_PERSONAS } from '@codebuff/common/constants/agents'
+import {
+  UNIQUE_AGENT_NAMES,
+  AGENT_PERSONAS,
+} from '@codebuff/common/constants/agents'
 import type { CostMode } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { isDir, ProjectFileContext } from '@codebuff/common/util/file'
@@ -303,18 +306,18 @@ export class CLI {
     // Handle @ prefix for agent name completion
     if (lastWord.startsWith('@')) {
       const searchTerm = lastWord.substring(1).toLowerCase() // Remove @ prefix
-      
+
       // Filter agent names that match the search term
-      const matchingAgents = UNIQUE_AGENT_NAMES.filter(name => 
+      const matchingAgents = UNIQUE_AGENT_NAMES.filter((name) =>
         name.toLowerCase().startsWith(searchTerm)
       )
-      
+
       if (matchingAgents.length > 0) {
         // Return completions with @ prefix
-        const completions = matchingAgents.map(name => `@${name}`)
+        const completions = matchingAgents.map((name) => `@${name}`)
         return [completions, lastWord]
       }
-      
+
       // If no agent matches, return empty completions for better UX
       // Users typing @ likely intend to mention an agent
       return [[], lastWord]
@@ -361,20 +364,23 @@ export class CLI {
   }
 
   private displayAgentMenu() {
-    const maxNameLength = Math.max(...UNIQUE_AGENT_NAMES.map(name => name.length))
-    
-    const agentLines = UNIQUE_AGENT_NAMES.map(name => {
+    const maxNameLength = Math.max(
+      ...UNIQUE_AGENT_NAMES.map((name) => name.length)
+    )
+
+    const agentLines = UNIQUE_AGENT_NAMES.map((name) => {
       const padding = '.'.repeat(maxNameLength - name.length + 3)
       // Find the description directly from the metadata
       const description =
-        Object.values(AGENT_PERSONAS).find(
-          (metadata) => metadata.name === name
-        )?.description || 'AI specialist agent'
+        Object.values(AGENT_PERSONAS).find((metadata) => metadata.name === name)
+          ?.description || 'AI specialist agent'
       return `${cyan(`@${name}`)} ${padding} ${description}`
     })
-    
-    const tip = gray('Tip: Type "@" followed by an agent name to request a specific agent, e.g., @reid find relevant files')
-    
+
+    const tip = gray(
+      'Tip: Type "@" followed by an agent name to request a specific agent, e.g., @reid find relevant files'
+    )
+
     console.log(`\n\n${agentLines.join('\n')}\n${tip}\n`)
   }
 
@@ -571,6 +577,9 @@ export class CLI {
       } else if (mode === 'max') {
         console.log(
           blueBright('⚡ Switched to max mode (slower, more thorough)')
+        )
+        console.log(
+          blueBright('New Jul 2: Even more powerful (though more expensive)')
         )
       } else if (mode === 'experimental') {
         console.log(magenta('🧪 Switched to experimental mode (cutting-edge)'))
@@ -877,7 +886,7 @@ export class CLI {
       // Only show agent menu if '@' is the first character or after a space
       const isAtStart = currentLine === '@'
       const isAfterSpace = currentLine.endsWith(' @')
-      
+
       if (isAtStart || isAfterSpace) {
         this.displayAgentMenu()
         // Call freshPrompt and pre-fill the line with the @
