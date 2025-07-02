@@ -62,6 +62,9 @@ jobs:
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
         run: bun install --frozen-lockfile
 
+      - name: Open interactive debug shell
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15 # optional guard
 
       - name: Run evals
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
