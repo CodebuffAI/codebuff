@@ -1,13 +1,13 @@
 import { Model } from '@codebuff/common/constants'
+import { AGENT_METADATA } from '@codebuff/common/constants/agents'
 import { closeXml } from '@codebuff/common/util/xml'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: 'Peter Plan',
-  description:
-    'Agent that formulates a comprehensive plan to a prompt. Please prompt it with a few ideas and suggestions for the plan.',
+  name: AGENT_METADATA['gemini25pro_planner'].name,
+  description: AGENT_METADATA['gemini25pro_planner'].description,
   promptSchema: {
     prompt: true,
     params: null,
@@ -16,7 +16,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   includeMessageHistory: true,
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
   stopSequences: baseAgentStopSequences,
-  spawnableAgents: [AgentTemplateTypes.gemini25flash_dry_run],
+  spawnableAgents: [], // ARCHIVED: [AgentTemplateTypes.gemini25flash_dry_run],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
   stepAssistantMessage: '',

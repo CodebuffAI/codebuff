@@ -1,13 +1,13 @@
 import { Model } from '@codebuff/common/constants'
+import { AGENT_METADATA } from '@codebuff/common/constants/agents'
 import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: 'Theo',
-  description:
-    'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
+  name: AGENT_METADATA['gemini25pro_thinker'].name,
+  description: AGENT_METADATA['gemini25pro_thinker'].description,
   promptSchema: {
     prompt: true,
     params: null,

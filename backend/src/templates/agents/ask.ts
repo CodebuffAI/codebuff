@@ -6,10 +6,11 @@ import {
   askAgentUserInputPrompt,
 } from '../ask-prompts'
 import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
+import { AGENT_METADATA } from '@codebuff/common/constants/agents'
 
 export const ask = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: 'Buffy',
+  name: AGENT_METADATA['gemini25pro_ask'].name,
   description: 'Base ask-mode agent that orchestrates the full response.',
   promptSchema: {
     prompt: true,
@@ -34,7 +35,8 @@ export const ask = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Enthusiastic Coding Assistant
+  systemPrompt:
+    `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Enthusiastic Coding Assistant
 
 ` + askAgentSystemPrompt(model),
   userInputPrompt: askAgentUserInputPrompt(model),

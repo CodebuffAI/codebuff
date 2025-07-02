@@ -18,6 +18,7 @@ import {
 import os from 'os'
 
 import { ApiKeyType, READABLE_NAME } from '@codebuff/common/api-keys/constants'
+import { AGENT_NAME_TO_TYPES, UNIQUE_AGENT_NAMES } from '@codebuff/common/constants/agents'
 import {
   ASKED_CONFIG,
   CostMode,
@@ -953,7 +954,10 @@ export class Client {
       startTime
     )
 
-    const urls = parseUrlsFromContent(prompt)
+    // Parse agent references from the prompt
+    const { cleanPrompt, preferredAgents } = this.parseAgentReferences(prompt)
+    
+    const urls = parseUrlsFromContent(cleanPrompt)
     const scrapedBlocks = await getScrapedContentBlocks(urls)
     const scrapedContent =
       scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
@@ -973,7 +977,9 @@ export class Client {
 
     const action = {
       promptId: userInputId,
-      prompt,
+      prompt: cleanPrompt,
+      originalPrompt: prompt, // Keep original for context
+      preferredAgents,
       sessionState: this.sessionState,
       toolResults,
       fingerprintId: await this.fingerprintId,
@@ -992,6 +998,40 @@ export class Client {
       responsePromise,
       stopResponse,
     }
+  }
+
+  private parseAgentReferences(prompt: string): { cleanPrompt: string; preferredAgents: string[] } {
+    let cleanPrompt = prompt
+    const preferredAgents: string[] = []
+    
+    // Create a regex pattern that matches any of the known agent names
+    const agentNamePattern = UNIQUE_AGENT_NAMES.map(name => 
+      name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
+    ).join('|')
+    
+    const agentRegex = new RegExp(`@(${agentNamePattern})(?=\\s|$|[,.!?])`, 'gi')
+    const matches = prompt.match(agentRegex) || []
+    
+    for (const match of matches) {
+      const agentName = match.substring(1).trim() // Remove @ and trim
+      // Find the exact agent name (case-insensitive)
+      const exactAgentName = UNIQUE_AGENT_NAMES.find(name => 
+        name.toLowerCase() === agentName.toLowerCase()
+      )
+      
+      if (exactAgentName) {
+        const agentTypes = AGENT_NAME_TO_TYPES[exactAgentName]
+        if (agentTypes && agentTypes.length > 0) {
+          // Use the first matching agent type
+          preferredAgents.push(agentTypes[0])
+          // Remove ALL occurrences of this @ reference from the prompt using global replace
+          const matchRegex = new RegExp(match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+          cleanPrompt = cleanPrompt.replace(matchRegex, '').trim()
+        }
+      }
+    }
+    
+    return { cleanPrompt, preferredAgents }
   }
 
   private handleInitializationComplete() {

@@ -1,13 +1,13 @@
 import { Model } from '@codebuff/common/constants'
+import { AGENT_METADATA } from '@codebuff/common/constants/agents'
 import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: 'Nit Pick Nick',
-  description:
-    'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
+  name: AGENT_METADATA['gemini25pro_reviewer'].name,
+  description: AGENT_METADATA['gemini25pro_reviewer'].description,
   promptSchema: {
     prompt: true,
     params: null,
@@ -30,7 +30,7 @@ ${PLACEHOLDER.TOOLS_PROMPT}`,
   userInputPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critique the code changes made recently in the above conversation.
 
 IMPORTANT: After analyzing the file changes, you should:
-1. Only use the run_file_change_hooks tool if there are actual new file changes to evaluate (not just reviewing existing code)
+1. The system automatically runs file change hooks after the assistant makes changes. Do NOT run them again unless you are suggesting a fix and want to re-validate.
 2. When you do run hooks, include the results in your feedback - if any hooks fail, mention the specific failures and suggest how to fix them
 3. If hooks pass and no issues are found, mention that validation was successful
 

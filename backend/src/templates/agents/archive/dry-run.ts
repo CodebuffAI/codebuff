@@ -1,12 +1,13 @@
 import { Model } from '@codebuff/common/constants'
+import { AGENT_METADATA } from '@codebuff/common/constants/agents'
 import { closeXmlTags } from '@codebuff/common/util/xml'
 
-import { AgentTemplate, PLACEHOLDER } from '../types'
+import { AgentTemplate, PLACEHOLDER } from '../../types'
 
 export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: 'Sketch',
-  description: 'Agent that takes a plan and try to implement it in a dry run.',
+  name: AGENT_METADATA['gemini25flash_dry_run'].name,
+  description: AGENT_METADATA['gemini25flash_dry_run'].description,
   promptSchema: {
     prompt: true,
     params: null,

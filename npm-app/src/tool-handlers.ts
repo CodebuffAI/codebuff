@@ -84,6 +84,10 @@ export const handleUpdateFile: ToolHandler<{
       `Failed to write to ${file}; file path caused an error or file could not be written`
     )
   }
+  
+  // Note: File change hooks are now run in batches by the backend via run_file_change_hooks tool
+  // This prevents repeated hook execution when multiple files are changed in one invocation
+  
   return result.join('\n')
 }
 

@@ -1,4 +1,5 @@
 import { Model } from '@codebuff/common/constants'
+import { AGENT_METADATA } from '@codebuff/common/constants/agents'
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 
@@ -6,8 +7,8 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: 'Reid',
-  description: 'Expert at finding relevant files in a codebase.',
+  name: AGENT_METADATA['gemini25flash_file_picker'].name,
+  description: AGENT_METADATA['gemini25flash_file_picker'].description,
   promptSchema: {
     prompt: true,
     params: null,

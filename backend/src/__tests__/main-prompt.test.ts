@@ -318,8 +318,8 @@ describe('mainPrompt', () => {
       onResponseChunk: () => {},
     })
 
-    // Assert that requestToolCall was called exactly twice (write_file + end_turn)
-    expect(requestToolCallSpy).toHaveBeenCalledTimes(2)
+    // Assert that requestToolCall was called exactly three times (write_file + run_file_change_hooks + end_turn)
+    expect(requestToolCallSpy).toHaveBeenCalledTimes(3)
 
     // Verify the write_file call was made with the correct arguments
     expect(requestToolCallSpy).toHaveBeenCalledWith(
@@ -495,7 +495,7 @@ describe('mainPrompt', () => {
       onResponseChunk: () => {},
     })
 
-    // Assert that requestToolCall was called exactly twice (run_terminal_command + end_turn)
+    // Assert that requestToolCall was called exactly two times (run_terminal_command + end_turn)
     expect(requestToolCallSpy).toHaveBeenCalledTimes(2)
 
     // Verify the run_terminal_command call was made with the correct arguments

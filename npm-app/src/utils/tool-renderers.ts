@@ -1,6 +1,7 @@
 import { ToolName } from '@codebuff/common/constants/tools'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
 import { capitalize, snakeToTitleCase } from '@codebuff/common/util/string'
+import { AGENT_NAMES, AGENT_METADATA } from '@codebuff/common/constants/agents'
 import { bold, gray, strikethrough } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
@@ -265,7 +266,20 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
         }
         if (agents.length > 0) {
           return gray(
-            agents.map((props: any) => props?.prompt).join('\n\n') + '\n'
+            agents.map((props: any) => {
+              const agentType = props?.agent_type
+              const prompt = props?.prompt
+              // Show agent name, title, and description if available
+              const metadata = agentType && AGENT_METADATA[agentType as keyof typeof AGENT_METADATA]
+              const agentName = metadata ? metadata.name : agentType || 'Agent'
+              const agentTitle = metadata ? metadata.title : ''
+              const agentDescription = metadata ? metadata.description : ''
+              
+              const displayTitle = agentTitle ? ` ${agentTitle}` : ''
+              const displayDescription = agentDescription ? `\n  ${agentDescription}` : ''
+              
+              return `@${agentName}${displayTitle}:${displayDescription}\n   Task: ${prompt || 'No prompt provided'}`
+            }).join('\n\n') + '\n'
           )
         }
       }

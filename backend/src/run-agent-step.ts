@@ -46,6 +46,7 @@ import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentTemplates } from './templates/agent-list'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
+import { AGENT_NAMES } from '@codebuff/common/constants/agents'
 import {
   ClientToolCall,
   CodebuffToolCall,
@@ -1096,6 +1097,18 @@ export const runAgentStep = async (
   )
   clientToolCalls.unshift(...changeToolCalls)
 
+  // If there were file changes, automatically run file change hooks once at the end
+  if (fileChanges.length > 0) {
+    const changedFilePaths = fileChanges.map(({ path }) => path)
+    clientToolCalls.push({
+      toolName: 'run_file_change_hooks',
+      toolCallId: generateCompactId(),
+      args: {
+        files: changedFilePaths,
+      },
+    })
+  }
+
   const newAgentContext = await agentContextPromise
 
   let finalMessageHistory = expireMessages(messagesWithResponse, 'agentStep')
@@ -1227,7 +1240,7 @@ export const runAgentStep = async (
           report: {},
         }
 
-        return await loopAgentSteps(ws, {
+        const result = await loopAgentSteps(ws, {
           userInputId: `${userInputId}-${agentType}${agentId}`,
           prompt: prompt || '',
           params,
@@ -1240,15 +1253,22 @@ export const runAgentStep = async (
           clientSessionId,
           onResponseChunk: () => {},
         })
+
+        return { ...result, agentType, agentName: AGENT_NAMES[agentType] || agentTemplate.name }
       })
     )
 
-    const reports = results.map((result) => {
+    const reports = results.map((result, index) => {
+      const agentInfo = agents[index]
+      const agentTypeStr = agentInfo.agent_type
+      
       if (result.status === 'fulfilled') {
-        const { agentState } = result.value
+        const { agentState, agentName } = result.value
         const agentTemplate = agentTemplates[agentState.agentType!]
+        let report = ''
+        
         if (agentTemplate.outputMode === 'report') {
-          return JSON.stringify(result.value.agentState.report, null, 2)
+          report = JSON.stringify(result.value.agentState.report, null, 2)
         } else if (agentTemplate.outputMode === 'last_message') {
           const { agentState } = result.value
           const assistantMessages = agentState.messageHistory.filter(
@@ -1257,22 +1277,24 @@ export const runAgentStep = async (
           const lastAssistantMessage =
             assistantMessages[assistantMessages.length - 1]
           if (!lastAssistantMessage) {
-            return 'No response from agent'
-          }
-          if (typeof lastAssistantMessage.content === 'string') {
-            return lastAssistantMessage.content
+            report = 'No response from agent'
+          } else if (typeof lastAssistantMessage.content === 'string') {
+            report = lastAssistantMessage.content
           } else {
-            return JSON.stringify(lastAssistantMessage.content, null, 2)
+            report = JSON.stringify(lastAssistantMessage.content, null, 2)
           }
         } else if (agentTemplate.outputMode === 'all_messages') {
           const { agentState } = result.value
           // Remove the first message, which includes the previous conversation history.
           const agentMessages = agentState.messageHistory.slice(1)
-          return `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
+          report = `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
+        } else {
+          throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
         }
-        throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
+        
+        return `**${agentName} (@${agentTypeStr}):**\n${report}`
       } else {
-        return `Error spawning agent: ${result.reason}`
+        return `**Agent (@${agentTypeStr}):**\nError spawning agent: ${result.reason}`
       }
     })
 
