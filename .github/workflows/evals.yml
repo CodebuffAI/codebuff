@@ -32,6 +32,20 @@ jobs:
         with:
           bun-version: '1.2.12'
 
+      - name: Set environment variables
+        if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+        run: |
+          VAR_NAMES=$(node scripts/generate-ci-env.js)
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+
       - name: Cache dependencies
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
         uses: actions/cache@v3
@@ -48,19 +62,6 @@ jobs:
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
         run: bun install --frozen-lockfile
 
-      - name: Set environment variables
-        if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
-        env:
-          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
-        run: |
-          VAR_NAMES=$(node scripts/generate-ci-env.js)
-          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
-            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
-          ' >> $GITHUB_ENV
-          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
-          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Run evals
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
