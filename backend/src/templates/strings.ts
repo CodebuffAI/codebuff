@@ -93,7 +93,7 @@ export function formatPrompt(
 }
 
 type StringField = 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt'
-type RequirePrompt = 'initialAssistantMessage' | 'initialAssistantPrefix'
+type RequirePrompt = 'initialAssistantPrefix'
 
 export function getAgentPrompt<T extends StringField | RequirePrompt>(
   agentTemplateName: AgentTemplateType,

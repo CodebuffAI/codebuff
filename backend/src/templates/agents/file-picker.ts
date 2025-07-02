@@ -1,11 +1,11 @@
 import { Model } from '@codebuff/common/constants'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { z } from 'zod/v4'
 import { getToolCallString } from '@codebuff/common/constants/tools'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { closeXmlTags } from '@codebuff/common/util/xml'
+import { z } from 'zod/v4'
 
-import { AgentTemplate, PLACEHOLDER } from '../types'
 import { logger } from '../../util/logger'
+import { AgentTemplate, PLACEHOLDER } from '../types'
 
 const paramsSchema = z.object({
   files_to_find: z
@@ -33,18 +33,61 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
     prompt: string | undefined,
     params: z.infer<typeof paramsSchema>
   ) => {
-    logger.info({ prompt, params }, 'initialAssistantMessage')
     const spawnToolCalls = getToolCallString('spawn_agents', {
       agents: params.files_to_find.map((filePrompt) => ({
         agent_type: AgentTemplateTypes.file_picker_worker,
         prompt: `${prompt}. Find files about: q${filePrompt}`,
       })),
     })
-    return spawnToolCalls
+    return spawnToolCalls + '\n' + getToolCallString('end_turn', {})
   },
-  // onEndAssistantMessage: (agentState) => {
-  //   return '<update_report>...</update_report>' // New assistant message
-  // },
+  onEndAssistantMessage: (agentState) => {
+    const { messageHistory } = agentState
+    const lastMessage = messageHistory[messageHistory.length - 1]
+
+    // Extract text content from the message
+    let textContent: string = ''
+    if (typeof lastMessage.content === 'string') {
+      textContent = lastMessage.content
+    } else if (Array.isArray(lastMessage.content)) {
+      // Extract text from array of parts
+      textContent = lastMessage.content
+        .filter((part: any) => part.type === 'text')
+        .map((part: any) => part.text || '')
+        .join('')
+    }
+
+    // Extract all content between <files> and </files> tags
+    const filesMatches = textContent.matchAll(/<files>([\s\S]*?)<\/files>/g)
+    const allFiles: string[] = []
+
+    for (const match of filesMatches) {
+      if (match[1]) {
+        // Split by newlines and filter out empty lines
+        const files = match[1]
+          .split('\n')
+          .map((file) => file.trim())
+          .filter((file) => file.length > 0)
+        allFiles.push(...files)
+      }
+    }
+
+    // Remove duplicates
+    const uniqueFiles = [...new Set(allFiles)]
+
+    logger.debug(
+      { lastMessage, messageHistory, uniqueFiles },
+      'onEndAssistantMessage'
+    )
+
+    if (uniqueFiles.length > 0) {
+      // Return formatted message with all files
+      return `It is recommended to read the following files:\n${uniqueFiles.join('\n')}`
+    }
+
+    // Fallback if no files found
+    return `No files were found that were recommeneded to be read.`
+  },
   initialAssistantPrefix: '',
   stepAssistantPrefix: '',
 

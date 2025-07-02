@@ -844,6 +844,16 @@ export class Client {
     this.webSocket.subscribe('request-reconnect', () => {
       this.reconnectWhenNextIdle()
     })
+
+    // Handle server-initiated client termination
+    this.webSocket.subscribe('kill-client', (action) => {
+      console.log('\n' + red('🛑 Server requested client termination'))
+      if (action.message) {
+        console.log(yellow(action.message))
+      }
+      console.log('\nExiting...')
+      process.exit(0)
+    })
   }
 
   private showUsageWarning() {

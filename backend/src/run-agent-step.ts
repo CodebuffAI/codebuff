@@ -1654,6 +1654,17 @@ export const loopAgentSteps = async (
       const hasEndTurn = fullResponse.includes(
         getToolCallString('end_turn', {})
       )
+
+      if (agentTemplate.onEndAssistantMessage) {
+        const endAssistantMessage = agentTemplate.onEndAssistantMessage(
+          newAgentState
+        )
+        agentState.messageHistory.push({
+          role: 'assistant',
+          content: endAssistantMessage,
+        })
+      }
+
       return {
         agentState: newAgentState,
         hasEndTurn,

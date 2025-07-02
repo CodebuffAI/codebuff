@@ -406,6 +406,18 @@ export async function requestOptionalFile(ws: WebSocket, filePath: string) {
 }
 
 /**
+ * Sends a kill client action to terminate the client with a restart message
+ * @param ws - The WebSocket connection
+ * @param message - Optional message to display to the user
+ */
+export function sendKillClient(ws: WebSocket, message?: string) {
+  sendAction(ws, {
+    type: 'kill-client',
+    message: message || 'Please restart Codebuff to continue.',
+  })
+}
+
+/**
  * Requests a tool call execution from the client with timeout support
  * @param ws - The WebSocket connection
  * @param toolName - Name of the tool to execute

@@ -1,5 +1,6 @@
 import { Model } from '@codebuff/common/constants'
 import {
+  AgentState,
   AgentTemplateType,
   AgentTemplateTypes,
 } from '@codebuff/common/types/session-state'
@@ -31,6 +32,8 @@ export type AgentTemplate = {
   systemPrompt: string
   userInputPrompt: string
   agentStepPrompt: string
+
+  onEndAssistantMessage?: (agentState: AgentState) => string
 }
 
 const placeholderNames = [
