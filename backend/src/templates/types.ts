@@ -1,12 +1,12 @@
+import { z } from 'zod/v4'
+
 import { Model } from '@codebuff/common/constants'
+import { ToolName } from '@codebuff/common/constants/tools'
 import {
   AgentTemplateType,
   AgentTemplateTypes,
 } from '@codebuff/common/types/session-state'
 import { closeXmlTags } from '@codebuff/common/util/xml'
-import { z } from 'zod/v4'
-
-import { ToolName } from '../tools'
 
 export type AgentTemplate = {
   type: AgentTemplateType

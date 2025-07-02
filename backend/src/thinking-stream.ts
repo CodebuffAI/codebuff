@@ -7,8 +7,8 @@ import {
 import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 import { CoreMessage } from 'ai'
 
+import { toolNames } from '@codebuff/common/constants/tools'
 import { getAgentStream } from './prompt-agent-stream'
-import { TOOL_LIST } from './tools'
 import { logger } from './util/logger'
 
 export async function getThinkingStream(
@@ -115,7 +115,7 @@ Important: Keep your thinking as short as possible! Just a few words suffices. E
     }
 
     // Check for any complete tool tag
-    for (const tool of TOOL_LIST) {
+    for (const tool of toolNames) {
       const toolTag = `<${tool}>`
       const tagIndex = response.indexOf(toolTag)
       if (tagIndex !== -1) {

@@ -3,7 +3,7 @@ import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { closeXmlTags } from '@codebuff/common/util/xml'
 
-import { ToolName } from '../../tools'
+import { ToolName } from '@codebuff/common/constants/tools'
 import {
   baseAgentAgentStepPrompt,
   baseAgentSystemPrompt,
@@ -41,7 +41,7 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
     'run_terminal_command',
     'code_search',
     'spawn_agents',
-  ] as readonly ToolName[]),
+  ] satisfies readonly ToolName[]),
   spawnableAgents: [
     AgentTemplateTypes.gemini25flash_file_picker,
     AgentTemplateTypes.gemini25flash_researcher,
@@ -53,7 +53,8 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Enthusiastic Coding Assistant
+  systemPrompt:
+    `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Enthusiastic Coding Assistant
 
 ` + baseAgentSystemPrompt(model),
   userInputPrompt: baseAgentUserInputPrompt(model),

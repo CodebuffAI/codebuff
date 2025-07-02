@@ -1,6 +1,29 @@
 import { ToolResultPart } from 'ai'
 import { closeXml } from '../util/xml'
 
+// List of all available tools
+export const toolNames = [
+  'add_subgoal',
+  'browser_logs',
+  'code_search',
+  'create_plan',
+  'end_turn',
+  'find_files',
+  'read_docs',
+  'read_files',
+  'run_file_change_hooks',
+  'run_terminal_command',
+  'spawn_agents',
+  'str_replace',
+  'think_deeply',
+  'update_report',
+  'update_subgoal',
+  'web_search',
+  'write_file',
+] as const
+
+export type ToolName = (typeof toolNames)[number]
+
 export const toolSchema = {
   // Tools that require an id and objective
   add_subgoal: ['id', 'objective', 'status', 'plan', 'log'],
@@ -35,12 +58,7 @@ export const toolSchema = {
   run_file_change_hooks: ['files'],
 
   end_turn: [],
-}
-
-export type ToolName = keyof typeof toolSchema
-
-// List of all available tools
-export const TOOL_LIST = Object.keys(toolSchema) as ToolName[]
+} as const satisfies Record<ToolName, string[]>
 
 export const getToolCallString = (
   toolName: ToolName,

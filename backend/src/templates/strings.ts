@@ -10,12 +10,11 @@ import {
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from '../system-prompt/prompts'
-import { getToolsInstructions, ToolName } from '../tools'
+import { getToolsInstructions } from '../tools'
 
-import { renderToolResults } from '@codebuff/common/constants/tools'
+import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { AGENT_NAMES } from '@codebuff/common/constants/agents'
 import { agentTemplates } from './agent-list'
 import { PLACEHOLDER, PlaceholderValue, placeholderValues } from './types'
 
@@ -49,7 +48,7 @@ export function formatPrompt(
 
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.AGENT_NAME]: agentState.agentType
-      ? AGENT_NAMES[agentState.agentType]
+      ? agentTemplates[agentState.agentType].name
       : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(

@@ -14,6 +14,8 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getToolCallString,
   renderToolResults,
+  ToolName,
+  toolNames,
 } from '@codebuff/common/constants/tools'
 import {
   AgentState,
@@ -51,8 +53,6 @@ import {
   ClientToolCall,
   CodebuffToolCall,
   parseRawToolCall,
-  TOOL_LIST,
-  ToolName,
   toolParams,
   updateContextFromToolCalls,
 } from './tools'
@@ -444,7 +444,7 @@ export const runAgentStep = async (
     stream,
     {
       ...Object.fromEntries(
-        TOOL_LIST.map((tool) => [tool, toolCallback(tool, () => {})])
+        toolNames.map((tool) => [tool, toolCallback(tool, () => {})])
       ),
       think_deeply: toolCallback('think_deeply', (toolCall) => {
         const { thought } = toolCall.args

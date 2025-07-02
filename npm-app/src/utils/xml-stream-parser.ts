@@ -1,4 +1,8 @@
-import { TOOL_LIST, ToolName, toolSchema } from '@codebuff/common/constants/tools'
+import {
+  ToolName,
+  toolNames,
+  toolSchema,
+} from '@codebuff/common/constants/tools'
 import { Saxy } from '@codebuff/common/util/saxy'
 
 import { ToolCallRenderer, defaultToolCallRenderer } from './tool-renderers'
@@ -43,7 +47,7 @@ export function createXMLStreamParser(
     const { name } = tag
 
     // Check if this is a tool tag
-    if (TOOL_LIST.includes(name as ToolName)) {
+    if (toolNames.includes(name as ToolName)) {
       currentTool = name
       params = {}
 
