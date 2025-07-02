@@ -123,7 +123,7 @@ function selectShell(): ShellKind {
   return 'cmd.exe'
 }
 
-/** Build shell‑specific “initialisation” snippets. */
+/** Build shell‑specific "initialisation" snippets. */
 function buildInit(shell: ShellKind): string[] {
   if (IS_WINDOWS) {
     if (shell === 'powershell.exe' || shell === 'pwsh.exe') {
@@ -137,20 +137,26 @@ function buildInit(shell: ShellKind): string[] {
         'foreach ($p in $profiles) { if (Test-Path $p) { . $p } }',
       ]
     }
-    /* cmd.exe has nothing useful we can “source”                          */
+    /* cmd.exe has nothing useful we can "source"                          */
     return []
   }
 
   switch (shell) {
     case 'zsh':
       return [
+        'setopt aliases', // Enable alias expansion
         'source ~/.zshenv 2>/dev/null || true',
         'source ~/.zprofile 2>/dev/null || true',
         'source ~/.zshrc 2>/dev/null || true',
         'source ~/.zlogin 2>/dev/null || true',
       ]
     case 'fish':
-      return ['source ~/.config/fish/config.fish 2>/dev/null || true']
+      return [
+        // Source all auto-sourced snippets (abbr/alias) from conf.d
+        'for f in ~/.config/fish/conf.d/*.fish; test -f $f; and source $f; end',
+        // Traditional config last – users may override earlier definitions
+        'source ~/.config/fish/config.fish 2>/dev/null || true',
+      ]
     case 'ksh':
       return ['source ~/.kshrc 2>/dev/null || true']
     case 'tcsh':
@@ -161,9 +167,16 @@ function buildInit(shell: ShellKind): string[] {
     case 'sh':
     default:
       return [
+        'shopt -s expand_aliases', // Enable alias expansion for non-interactive bash
+        // Source standard rc files – some may short-circuit
         'source ~/.bash_profile 2>/dev/null || true',
         'source ~/.profile 2>/dev/null || true',
         'source ~/.bashrc 2>/dev/null || true',
+        'source ~/.bash_aliases 2>/dev/null || true', // Handle Debian/Ubuntu systems
+        // Reap any alias definitions that were skipped by the "return if not interactive" guard
+        'if [ -f ~/.bashrc ]; then',
+        '  eval "$(grep -E \\"^[[:space:]]*alias[[:space:]]+\\" ~/.bashrc)"',
+        'fi',
       ]
   }
 }
@@ -223,7 +236,7 @@ function createWrapperScript(
                 : '#!/usr/bin/env sh'
 
   const aliasEnable =
-    shell === 'bash'
+    shell === 'bash' || shell === 'sh'
       ? 'shopt -s expand_aliases'
       : shell === 'zsh'
         ? 'setopt aliases'
