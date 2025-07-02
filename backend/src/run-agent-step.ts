@@ -1276,6 +1276,8 @@ export const runAgentStep = async (
       }
     })
 
+    logger.debug({ reports }, 'spawn_agents results')
+
     serverToolResults.push({
       toolName: 'spawn_agents',
       toolCallId: spawnAgentsToolCall.toolCallId,
