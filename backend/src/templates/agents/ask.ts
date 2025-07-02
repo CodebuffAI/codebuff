@@ -5,10 +5,11 @@ import {
   askAgentSystemPrompt,
   askAgentUserInputPrompt,
 } from '../ask-prompts'
-import { AgentTemplate, baseAgentStopSequences } from '../types'
+import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
 
 export const ask = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
+  name: 'Buffy',
   description: 'Base ask-mode agent that orchestrates the full response.',
   promptSchema: {
     prompt: true,
@@ -33,7 +34,9 @@ export const ask = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt: askAgentSystemPrompt(model),
+  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Enthusiastic Coding Assistant
+
+` + askAgentSystemPrompt(model),
   userInputPrompt: askAgentUserInputPrompt(model),
   agentStepPrompt: askAgentAgentStepPrompt(model),
 })

@@ -11,10 +11,12 @@ import {
   baseAgentSpawnableAgents,
   baseAgentStopSequences,
   baseAgentToolNames,
+  PLACEHOLDER,
 } from '../types'
 
 export const thinkingBase = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
+  name: 'Buffy',
   description: 'Base agent that thinks before each response',
   promptSchema: {
     prompt: true,

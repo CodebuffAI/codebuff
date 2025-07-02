@@ -5,6 +5,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
+  name: 'Nit Pick Nick',
   description:
     'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   promptSchema: {
@@ -21,7 +22,9 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt: `You are an expert programmer who can articulate very clear feedback on code changes.
+  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
+
+You are an expert programmer who can articulate very clear feedback on code changes.
 ${PLACEHOLDER.TOOLS_PROMPT}`,
 
   userInputPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critique the code changes made recently in the above conversation.

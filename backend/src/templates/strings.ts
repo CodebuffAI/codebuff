@@ -47,6 +47,7 @@ export function formatPrompt(
   }
 
   const toInject: Record<PlaceholderValue, string> = {
+    [PLACEHOLDER.AGENT_NAME]: agentState.agentType ? agentTemplates[agentState.agentType].name : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
       fileContext,

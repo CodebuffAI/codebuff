@@ -10,6 +10,7 @@ import { ToolName } from '../tools'
 
 export type AgentTemplate = {
   type: AgentTemplateType
+  name: string
   description: string
   model: Model
   // Required parameters for spawning this agent.
@@ -34,6 +35,7 @@ export type AgentTemplate = {
 }
 
 const placeholderNames = [
+  'AGENT_NAME',
   'CONFIG_SCHEMA',
   'FILE_TREE_PROMPT',
   'GIT_CHANGES_PROMPT',

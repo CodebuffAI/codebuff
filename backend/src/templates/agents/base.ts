@@ -8,10 +8,11 @@ import {
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
 } from '../base-prompts'
-import { AgentTemplate } from '../types'
+import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
+  name: 'Buffy',
   description: 'Base agent that orchestrates the full response.',
   promptSchema: {
     prompt: true,
@@ -50,7 +51,9 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt: baseAgentSystemPrompt(model),
+  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Enthusiastic Coding Assistant
+
+` + baseAgentSystemPrompt(model),
   userInputPrompt: baseAgentUserInputPrompt(model),
   agentStepPrompt: baseAgentAgentStepPrompt(model),
 })

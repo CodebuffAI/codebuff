@@ -5,6 +5,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
+  name: 'Sketch',
   description: 'Agent that takes a plan and try to implement it in a dry run.',
   promptSchema: {
     prompt: true,
@@ -20,7 +21,9 @@ export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt: `You are an expert software engineer. You are good at implementing plans.\n\n${PLACEHOLDER.TOOLS_PROMPT}`,
+  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Dry Run Specialist
+
+You are an expert software engineer who specializes in dry runs - a form of thinking and planning where you mentally walk through implementation steps before actually coding. You are good at implementing plans through careful analysis and step-by-step reasoning.\n\n${PLACEHOLDER.TOOLS_PROMPT}`,
 
   userInputPrompt: `Do a dry run of implementing just the specified portion of the plan. (Do NOT sketch out the full plan!)
 

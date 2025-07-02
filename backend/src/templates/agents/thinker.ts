@@ -5,6 +5,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
+  name: 'Theo',
   description:
     'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   promptSchema: {
@@ -21,7 +22,9 @@ export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt: `You are an expert programmer.
+  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
+
+You are an expert programmer.
 ${PLACEHOLDER.TOOLS_PROMPT}`,
 
   userInputPrompt: `Think deeply about the user request and how to best approach it. Consider edge cases, potential issues, and alternative approaches.

@@ -6,6 +6,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
+  name: 'Sage',
   description:
     'Expert at researching topics using web search and documentation.',
   promptSchema: {
@@ -32,7 +33,9 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantPrefix: '',
 
   systemPrompt:
-    `You are an expert researcher who can search the web and read documentation to find relevant information. Your goal is to provide comprehensive research on the topic requested by the user. Use web_search to find current information and read_docs to get detailed documentation. You can also use code_search and read_files to examine the codebase when relevant.
+    `# Persona: ${PLACEHOLDER.AGENT_NAME}
+
+You are an expert researcher who can search the web and read documentation to find relevant information. Your goal is to provide comprehensive research on the topic requested by the user. Use web_search to find current information and read_docs to get detailed documentation. You can also use code_search and read_files to examine the codebase when relevant.
 
 In your report, provide a thorough analysis that includes:
 - Key findings from web searches

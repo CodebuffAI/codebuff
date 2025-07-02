@@ -5,6 +5,7 @@ import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
+  name: 'Peter Plan',
   description:
     'Agent that formulates a comprehensive plan to a prompt. Please prompt it with a few ideas and suggestions for the plan.',
   promptSchema: {
@@ -21,7 +22,9 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt: `You are an expert software architect. You are good at creating comprehensive plans to tackle the user request.\n\n${PLACEHOLDER.TOOLS_PROMPT}`,
+  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
+
+You are an expert software architect. You are good at creating comprehensive plans to tackle the user request.\n\n${PLACEHOLDER.TOOLS_PROMPT}`,
 
   userInputPrompt: `Steps for your response:
 1. Use the <think_deeply> tool to think through cruxes for the plan, and tricky cases. Consider alternative approaches. Be sure to close the tool call with ${closeXml('think_deeply')}.
