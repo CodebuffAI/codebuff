@@ -4,6 +4,11 @@ on:
   push:
     branches: ['**']
 
+# Ensure only one eval runs at a time
+concurrency:
+  group: evals
+  cancel-in-progress: false
+
 jobs:
   run-evals:
     runs-on: ubuntu-latest
