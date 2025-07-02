@@ -77,6 +77,7 @@ export async function promptRelaceAI(
       fingerprintId,
       userInputId,
       // model: 'relace-fast-apply',
+      // hi
       model: 'relace-apply-2.5-lite',
       request: [
         {
