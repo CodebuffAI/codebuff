@@ -425,11 +425,13 @@ export class CLI {
    * Prompts the user with a clean prompt state
    */
   private freshPrompt(userInput: string = '') {
+    const client = Client.getInstance()
     Spinner.get().stop()
     this.isReceivingResponse = false
+    client.cancelCurrentInput()
 
     if (this.shouldReconnectWhenIdle) {
-      Client.getInstance().reconnect()
+      client.reconnect()
       this.shouldReconnectWhenIdle = false
     }
 
@@ -437,7 +439,7 @@ export class CLI {
     const rlAny = this.rl as any
 
     // Check for pending auto-topup message before showing prompt
-    if (Client.getInstance().pendingTopUpMessageAmount > 0) {
+    if (client.pendingTopUpMessageAmount > 0) {
       console.log(
         '\n\n' +
           green(
@@ -445,7 +447,7 @@ export class CLI {
           ) +
           '\n'
       )
-      Client.getInstance().pendingTopUpMessageAmount = 0
+      client.pendingTopUpMessageAmount = 0
     }
 
     // clear line first

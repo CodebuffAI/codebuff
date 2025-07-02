@@ -54,6 +54,7 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
+import { closeXml } from '@codebuff/common/util/xml'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -83,7 +84,6 @@ import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import { closeXml } from '@codebuff/common/util/xml'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -1016,6 +1016,21 @@ export class Client {
     }
   }
 
+  public cancelCurrentInput() {
+    if (!this.user) {
+      return
+    }
+    if (!this.userInputId) {
+      return
+    }
+    this.webSocket.sendAction({
+      type: 'cancel-user-input',
+      authToken: this.user?.authToken,
+      promptId: this.userInputId,
+    })
+    this.userInputId = undefined
+  }
+
   private subscribeToResponse(
     onChunk: (chunk: string) => void,
     userInputId: string,
@@ -1050,12 +1065,7 @@ export class Client {
       responseStopped = true
       unsubscribeChunks()
       unsubscribeComplete()
-      this.webSocket.sendAction({
-        type: 'cancel-user-input',
-        promptId: userInputId,
-        authToken: this.user!.authToken,
-      })
-      this.userInputId = undefined
+      this.cancelCurrentInput()
 
       const additionalMessages = [
         { role: 'user' as const, content: prompt },
