@@ -57,6 +57,11 @@ class RunEvalSetCommand extends Command {
       char: 't',
       description: 'Custom title for email subject',
     }),
+    concurrency: Flags.integer({
+      char: 'c',
+      description: 'Number of concurrent evals to run',
+      min: 1,
+    }),
     help: Flags.help({ char: 'h' }),
   }
 
@@ -74,6 +79,7 @@ async function runEvalSet(options: {
   mock: boolean
   insert: boolean
   title?: string
+  concurrency?: number
 }): Promise<void> {
   const {
     'output-dir': outputDir,
@@ -87,8 +93,7 @@ async function runEvalSet(options: {
   console.log('Starting eval set run...')
   console.log(`Output directory: ${outputDir}`)
 
-  // Set global concurrency limit of 20 processes across ALL repositories
-  setGlobalConcurrencyLimit(5)
+  setGlobalConcurrencyLimit(options.concurrency ?? 5)
 
   // Define the eval configurations
   const evalConfigs: EvalConfig[] = [

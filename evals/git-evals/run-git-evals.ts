@@ -3,12 +3,13 @@ import fs from 'fs'
 import pLimit from 'p-limit'
 import path from 'path'
 
+import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { models } from '@codebuff/common/constants'
 import { getDefaultConfig } from '@codebuff/common/json-config/default'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { models } from '@codebuff/common/constants'
 import {
   createFileReadingMock,
   loopMainPrompt,
@@ -28,7 +29,6 @@ import {
   FullEvalLog,
   GitRepoEvalData,
 } from './types'
-import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 
 disableLiveUserInputCheck()
 
@@ -415,7 +415,7 @@ export async function runGitEvals(
                 }
                 if (message.type === 'result' && message.result) {
                   console.log(
-                    `Completed eval for commit ${testRepoName} - ${evalCommit.message}`
+                    `Completed eval for commit ${testRepoName} - ${evalCommit.message}: ${JSON.stringify(message.result, null, 2)}`
                   )
                   resolve(message.result)
                 } else if (message.type === 'error') {
