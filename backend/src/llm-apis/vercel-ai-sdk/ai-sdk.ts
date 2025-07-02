@@ -24,12 +24,12 @@ import {
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { Message } from '@codebuff/common/types/message'
-import { logger } from '@codebuff/common/util/logger'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
 
-import { checkLiveUserInput, getLiveUserInputId } from '../../live-user-inputs'
 import { closeXml } from '@codebuff/common/util/xml'
+import { checkLiveUserInput, getLiveUserInputId } from '../../live-user-inputs'
+import { logger } from '../../util/logger'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
