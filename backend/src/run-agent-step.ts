@@ -28,6 +28,7 @@ import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
 import { CodebuffMessage } from '@codebuff/common/types/message'
+import { closeXml } from '@codebuff/common/util/xml'
 import { CoreMessage } from 'ai'
 import {
   requestRelevantFiles,
@@ -79,7 +80,6 @@ import {
   requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
-import { closeXml } from '@codebuff/common/util/xml'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
@@ -341,7 +341,7 @@ export const runAgentStep = async (
       model,
       duration: Date.now() - startTime,
     },
-    `Agent step ${agentType} - ${iterationNum}`
+    `Agent ${agentType} step ${iterationNum} (${userInputId} - Prompt: ${JSON.stringify(prompt).slice(0, 20)}) start`
   )
 
   let fullResponse = `${assistantPrefix?.trim() ?? ''}`
@@ -1303,7 +1303,7 @@ export const runAgentStep = async (
       model,
       duration: Date.now() - startTime,
     },
-    `Agent step complete ${agentType} - ${iterationNum}`
+    `Agent ${agentType} step ${iterationNum} (${userInputId} - Prompt: ${JSON.stringify(prompt).slice(0, 20)}) end`
   )
   return {
     agentState: {
