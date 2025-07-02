@@ -15,9 +15,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
   stopSequences: baseAgentStopSequences,
   spawnableAgents: [AgentTemplateTypes.gemini25flash_dry_run],
-  initialAssistantMessage: '',
   initialAssistantPrefix: '',
-  stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
   systemPrompt: `You are an expert software architect. You are good at creating comprehensive plans to tackle the user request.\n\n${PLACEHOLDER.TOOLS_PROMPT}`,
@@ -28,5 +26,6 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
 3. Spawn 1-5 dry run agents to sketch portions of the implementation of the plan. (Important: do not forget to close the tool call with "</spawn_agents>"!)
 4. Synthesize all the information and rewrite the full plan to be the best it can be. Use the end_turn tool.`,
 
-  agentStepPrompt: 'Do not forget to use the end_turn tool to end your response. Make sure the final plan is the best it can be.',
+  agentStepPrompt:
+    'Do not forget to use the end_turn tool to end your response. Make sure the final plan is the best it can be.',
 })

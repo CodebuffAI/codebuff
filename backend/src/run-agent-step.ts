@@ -1126,19 +1126,17 @@ export const runAgentStep = async (
             return JSON.stringify(result.value.agentState.report, null, 2)
           } else if (agentTemplate.outputMode === 'last_message') {
             const { agentState } = result.value
-            const assistantMessages = agentState.messageHistory.filter(
-              (message) => message.role === 'assistant'
+            const lastAssistantMessageIndex =
+              agentState.messageHistory.findLastIndex(
+                (message) => message.role === 'assistant'
+              )
+            const lastMessages = agentState.messageHistory.slice(
+              lastAssistantMessageIndex
             )
-            const lastAssistantMessage =
-              assistantMessages[assistantMessages.length - 1]
-            if (!lastAssistantMessage) {
+            if (!lastMessages.length) {
               return 'No response from agent'
             }
-            if (typeof lastAssistantMessage.content === 'string') {
-              return lastAssistantMessage.content
-            } else {
-              return JSON.stringify(lastAssistantMessage.content, null, 2)
-            }
+            return JSON.stringify(lastMessages, null, 2)
           } else if (agentTemplate.outputMode === 'all_messages') {
             const { agentState } = result.value
             // Remove the first message, which includes the previous conversation history.
@@ -1625,7 +1623,7 @@ export const loopAgentSteps = async (
       // TODO: format the prompt in runAgentStep
       assistantMessage: currentAssistantMessage
         ? formatPrompt(
-            currentAssistantMessage,
+            currentAssistantMessage(prompt, currentParams),
             fileContext,
             currentAgentState,
             agentTemplates[agentType].toolNames,
@@ -1659,7 +1657,7 @@ export const loopAgentSteps = async (
     currentParams = undefined
     // Toggle assistant message between the injected step message and nothing.
     currentAssistantMessage = currentAssistantMessage
-      ? ''
+      ? undefined
       : stepAssistantMessage
 
     // Only set the assistant prefix when no assistant message is injected.

@@ -7,6 +7,7 @@ import { models } from '@codebuff/common/constants'
 import { ask } from './agents/ask'
 import { base } from './agents/base'
 import { dryRun } from './agents/dry-run'
+import { filePickerWorker } from './agents/file-picker-worker'
 import { filePicker } from './agents/file-picker'
 import { planner } from './agents/planner'
 import { researcher } from './agents/researcher'
@@ -36,7 +37,7 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
     type: AgentTemplateTypes.gemini25pro_ask,
     ...ask(models.gemini2_5_pro_preview),
     toolNames: readOnlyToolNames,
-    spawnableAgents: [AgentTemplateTypes.gemini25flash_file_picker],
+    spawnableAgents: [AgentTemplateTypes.file_picker],
   },
   claude4_gemini_thinking: {
     type: AgentTemplateTypes.claude4_gemini_thinking,
@@ -47,9 +48,13 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
     type: AgentTemplateTypes.gemini25pro_thinker,
     ...thinker(models.gemini2_5_pro_preview),
   },
-  gemini25flash_file_picker: {
-    type: AgentTemplateTypes.gemini25flash_file_picker,
-    ...filePicker(models.gemini2_5_flash),
+  file_picker_worker: {
+    type: AgentTemplateTypes.file_picker_worker,
+    ...filePickerWorker(models.gemini2_5_flash),
+  },
+  file_picker: {
+    type: AgentTemplateTypes.file_picker,
+    ...filePicker(models.gemini2_5_pro_preview),
   },
   gemini25flash_researcher: {
     type: AgentTemplateTypes.gemini25flash_researcher,

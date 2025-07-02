@@ -23,12 +23,12 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
   ]),
   spawnableAgents: [],
 
-  initialAssistantMessage: getToolCallString('web_search', {
-    query: PLACEHOLDER.INITIAL_AGENT_PROMPT,
-    depth: 'standard',
-  }),
+  initialAssistantMessage: () =>
+    getToolCallString('web_search', {
+      query: PLACEHOLDER.INITIAL_AGENT_PROMPT,
+      depth: 'standard',
+    }),
   initialAssistantPrefix: '',
-  stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
   systemPrompt:

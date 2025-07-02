@@ -23,9 +23,7 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
   spawnableAgents: baseAgentSpawnableAgents,
-  initialAssistantMessage: '',
   initialAssistantPrefix: '',
-  stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
   systemPrompt: baseAgentSystemPrompt(model),

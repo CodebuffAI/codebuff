@@ -23,9 +23,9 @@ export type AgentTemplate = {
   stopSequences: string[]
   spawnableAgents: AgentTemplateType[]
 
-  initialAssistantMessage: string
+  initialAssistantMessage?: (prompt: string | undefined, params: any) => string
   initialAssistantPrefix: string
-  stepAssistantMessage: string
+  stepAssistantMessage?: (prompt: string | undefined, params: any) => string
   stepAssistantPrefix: string
 
   systemPrompt: string
@@ -56,9 +56,6 @@ export const PLACEHOLDER = Object.fromEntries(
 export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
 
 export const placeholderValues = Object.values(PLACEHOLDER)
-
-
-
 
 export const editingToolNames: ToolName[] = [
   'create_plan',
@@ -95,7 +92,7 @@ export const baseAgentStopSequences: string[] = generateCloseTags([
 ] as const)
 
 export const baseAgentSpawnableAgents: AgentTemplateType[] = [
-  AgentTemplateTypes.gemini25flash_file_picker,
+  AgentTemplateTypes.file_picker,
   AgentTemplateTypes.gemini25flash_researcher,
   // AgentTemplateTypes.gemini25pro_planner,
   AgentTemplateTypes.gemini25pro_reviewer,

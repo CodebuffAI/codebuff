@@ -220,8 +220,8 @@ export const baseAgentUserInputPrompt = (model: Model) => {
 
       'Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.',
 
-      'It is a good idea to spawn a few file picker agents first to explore the codebase from different perspectives. Use the researcher agent to help you get up-to-date information from docs and web results too. Finally, you must spawn the reviewer agent to review your code changes.',
-      "Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read 20 files. The more files you read, the better context you have on the codebase and the better your response will be.",
+      'It is a good idea to spawn a file picker agent first to explore the codebase from different perspectives. Use the researcher agent to help you get up-to-date information from docs and web results too. Finally, you must spawn the reviewer agent to review your code changes.',
+      "There's no need to use the read_files tool to read files returned by the file picker agent.",
 
       'Be extremely concise in your replies. Example: If asked what 2+2 equals, respond simply: "4". No need to even write a full sentence.',
 
@@ -271,7 +271,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
       'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
 
       (isFlash || isGeminiPro) &&
-        'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a few file picker agents first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.',
+        'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a file picker agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.',
 
       'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.'
     ).join('\n\n') +

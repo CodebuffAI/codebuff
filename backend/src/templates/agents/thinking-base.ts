@@ -25,9 +25,8 @@ export const thinkingBase = (model: Model): Omit<AgentTemplate, 'type'> => ({
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
   spawnableAgents: baseAgentSpawnableAgents,
-  initialAssistantMessage: '',
   initialAssistantPrefix: '',
-  stepAssistantMessage: getToolCallString('spawn_agents', {
+  stepAssistantMessage: () => getToolCallString('spawn_agents', {
     agents: JSON.stringify([
       {
         agent_type: AgentTemplateTypes.gemini25pro_thinker,

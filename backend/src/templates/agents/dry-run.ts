@@ -15,9 +15,7 @@ export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
   toolNames: ['end_turn'],
   stopSequences: generateCloseTags(['end_turn']),
   spawnableAgents: [],
-  initialAssistantMessage: '',
   initialAssistantPrefix: '',
-  stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
   systemPrompt: `You are an expert software engineer. You are good at implementing plans.\n\n${PLACEHOLDER.TOOLS_PROMPT}`,
