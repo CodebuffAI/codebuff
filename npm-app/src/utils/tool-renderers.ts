@@ -266,18 +266,24 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
         }
         if (agents.length > 0) {
           return gray(
-            agents.map((props: any) => {
-              const agentType = props?.agent_type
-              const prompt = props?.prompt
-              // Show agent name, title, and description if available
-              const metadata = agentType && AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
-              const agentName = metadata ? metadata.name : agentType || 'Agent'
-              const agentTitle = metadata ? metadata.title : ''
-              
-              const displayTitle = agentTitle ? ` ${agentTitle}` : ''
-              
-              return `@${agentName}${displayTitle}:\n   Task: ${prompt || 'No prompt provided'}`
-            }).join('\n\n') + '\n'
+            agents
+              .map((props: any) => {
+                const agentType = props?.agent_type
+                const prompt = props?.prompt
+                // Show agent name, title, and description if available
+                const metadata =
+                  agentType &&
+                  AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
+                const agentName = metadata
+                  ? metadata.name
+                  : agentType || 'Agent'
+                const agentTitle = metadata ? metadata.title : ''
+
+                const displayTitle = agentTitle ? ` ${agentTitle}` : ''
+
+                return `@${agentName}${displayTitle}:\n   ${prompt || 'No prompt provided'}`
+              })
+              .join('\n\n') + '\n'
           )
         }
       }
