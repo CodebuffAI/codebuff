@@ -149,6 +149,8 @@ export async function runAgentStepScaffolding(
 
   let fullResponse = ''
 
+  console.log('running agent step scaffolding', prompt)
+
   const result = await runAgentStep(mockWs, {
     userId: TEST_USER_ID,
     userInputId: generateCompactId(),
@@ -216,33 +218,37 @@ export async function loopMainPrompt({
 
   for (; iterations < maxIterations; iterations++) {
     console.log('\nIteration', iterations)
-    let {
-      agentState: newAgentState,
-      fullResponse,
-      shouldEndTurn,
-    } = await runAgentStepScaffolding(
-      currentAgentState,
-      sessionState.fileContext,
-      iterations === 1 ? prompt : undefined,
-      sessionId,
-      agentType
-    )
-    currentAgentState = newAgentState
+    try {
+      let {
+        agentState: newAgentState,
+        fullResponse,
+        shouldEndTurn,
+      } = await runAgentStepScaffolding(
+        currentAgentState,
+        sessionState.fileContext,
+        iterations === 1 ? prompt : undefined,
+        sessionId,
+        agentType
+      )
+      currentAgentState = newAgentState
+      const stop = stopCondition && stopCondition(currentAgentState)
+      if (stop) break
 
-    const stop = stopCondition && stopCondition(currentAgentState)
-    if (stop) break
+      steps.push({
+        response: fullResponse,
+        toolCalls,
+        toolResults,
+      })
 
-    steps.push({
-      response: fullResponse,
-      toolCalls,
-      toolResults,
-    })
+      toolCalls = []
+      toolResults = []
 
-    toolCalls = []
-    toolResults = []
-
-    if (shouldEndTurn) {
-      break
+      if (shouldEndTurn) {
+        break
+      }
+    } catch (error) {
+      console.error('Error running agent step:', error)
+      throw error
     }
   }
 
