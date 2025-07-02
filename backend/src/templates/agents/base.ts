@@ -45,6 +45,7 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   spawnableAgents: [
     AgentTemplateTypes.gemini25flash_file_picker,
     AgentTemplateTypes.gemini25flash_researcher,
+    AgentTemplateTypes.gemini25pro_thinker,
     AgentTemplateTypes.gemini25pro_reviewer,
   ],
   initialAssistantMessage: '',
