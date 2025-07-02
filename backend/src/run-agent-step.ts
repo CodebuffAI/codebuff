@@ -140,7 +140,6 @@ export const runAgentStep = async (
   const { model } = agentTemplate
 
   console.log('running agent step', prompt, 'model', model, 'num messages', messageHistory.length)
-  // hi
 
   const getStream = getAgentStreamFromTemplate({
     clientSessionId,
