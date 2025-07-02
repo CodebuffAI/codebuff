@@ -1,6 +1,7 @@
 import { ToolName } from '@codebuff/common/constants/tools'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
 import { capitalize, snakeToTitleCase } from '@codebuff/common/util/string'
+import { AGENT_NAMES, AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { bold, gray, strikethrough } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
@@ -77,6 +78,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   browser_logs: {
     // Don't render anything
   },
+  run_file_change_hooks: {
+    // Don't render anything
+  },
   read_files: {
     ...defaultToolCallRenderer,
     onParamChunk: (content, paramName, toolName) => {
@@ -85,15 +89,17 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
 
     onParamEnd: (paramName, toolName, content) => {
-      const files = content
-        .trim()
-        .split('\n')
-        .filter(Boolean)
-        .map((fname) =>
-          isFileIgnored(fname, getProjectRoot())
-            ? strikethrough(fname) + ' (blocked)'
-            : fname
-        )
+      let files: string[] = []
+      try {
+        files = JSON.parse(content)
+      } catch (e) {
+        return null
+      }
+      files = files.map((fname) =>
+        isFileIgnored(fname, getProjectRoot())
+          ? strikethrough(fname) + ' (blocked)'
+          : fname
+      )
       const numFiles = files.length
       const maxInitialFiles = 3
 
@@ -115,6 +121,21 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     onToolEnd: (toolName, params) => {
       // Add a final newline after the file list
       return '\n\n'
+    },
+  },
+  read_docs: {
+    ...defaultToolCallRenderer,
+  },
+  web_search: {
+    ...defaultToolCallRenderer,
+    onParamChunk: (content, paramName, toolName) => {
+      return null
+    },
+    onParamEnd: (paramName, toolName, content) => {
+      if (paramName !== 'query') {
+        return null
+      }
+      return gray(content)
     },
   },
   find_files: {
@@ -231,31 +252,59 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       return null
     },
   },
-  research: {
-    ...defaultToolCallRenderer,
-    onParamChunk: (content, paramName, toolName) => {
-      // Don't render chunks for prompts, wait for the full list
-      return null
+  spawn_agents: {
+    onToolStart: (toolName) => {
+      return '\n\n' + gray(`[${bold('Spawn Agents')}]`) + '\n'
     },
     onParamEnd: (paramName, toolName, content) => {
-      if (paramName === 'prompts') {
+      if (paramName === 'agents') {
+        let agents = []
         try {
-          const prompts = JSON.parse(content)
-          if (Array.isArray(prompts)) {
-            return gray(`- ${prompts.join('\n- ')}`) + '\n\n'
-          }
+          agents = JSON.parse(content)
         } catch (e) {
-          // Fallback for non-json or malformed
-          const prompts = content.trim().split('\n').filter(Boolean)
-          return gray(`- ${prompts.join('\n- ')}`) + '\n\n'
+          return null
+        }
+        if (agents.length > 0) {
+          return gray(
+            agents
+              .map((props: any) => {
+                const agentType = props?.agent_type
+                const prompt = props?.prompt
+                // Show agent name, title, and description if available
+                const metadata =
+                  agentType &&
+                  AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
+                const agentName = metadata
+                  ? metadata.name
+                  : agentType || 'Agent'
+                const agentTitle = metadata ? metadata.title : ''
+
+                const displayTitle = agentTitle ? ` ${agentTitle}` : ''
+
+                return `@${agentName}${displayTitle}:\n   ${prompt || 'No prompt provided'}`
+              })
+              .join('\n\n') + '\n'
+          )
         }
       }
       return null
     },
-    onToolEnd: (toolName, params) => {
+    onToolEnd: () => {
       return () => {
-        Spinner.get().start('Researching...')
+        Spinner.get().start('Agents running...')
+        return '\n'
       }
+    },
+  },
+  update_report: {
+    onToolStart: (toolName) => {
+      return '\n\n' + gray(`[${bold('Update Report')}]`) + '\n'
+    },
+    onParamChunk: (content, paramName, toolName) => {
+      if (paramName === 'jsonUpdate') {
+        return gray(content)
+      }
+      return null
     },
   },
 }

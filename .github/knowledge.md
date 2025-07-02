@@ -2,42 +2,40 @@
 
 ## CI/CD Pipeline Overview
 
-The CI pipeline consists of multiple jobs that run in sequence and parallel:
+The CI pipeline consists of two main jobs:
 
-```mermaid
-graph TD
-    setup[Setup - Install & Cache Dependencies]
-    build[Build & Typecheck]
-    test1[Test npm-app]
-    test2[Test backend]
-    test3[Test common]
+1. **Build Job**: Installs dependencies, builds web, runs typecheck, and builds npm-app
+2. **Test Job**: Runs tests for npm-app, backend, and common packages in parallel using matrix strategy
 
-    setup --> build
-    build --> test1 & test2 & test3
+### Key Configuration
+- Uses Bun v1.2.12 for all jobs
+- Tests use retry logic (max 5 attempts, 10 min timeout)
+- Dependencies are cached between jobs using `actions/cache@v3`
+- Environment variables are set from GitHub secrets using `scripts/generate-ci-env.js`
 
-    classDef setup fill:#e1f5fe,stroke:#01579b
-    classDef build fill:#e8f5e9,stroke:#1b5e20
-    classDef test fill:#f9f,stroke:#333,stroke-width:2px
-
-    class setup setup
-    class build build
-    class test1,test2,test3 test
+### Test Strategy
+Tests run in parallel using matrix strategy:
+```yaml
+strategy:
+  matrix:
+    package: [npm-app, backend, common]
 ```
 
-### Key Jobs
-- **Setup**: Installs and caches dependencies
-- **Build**: Compiles the project and runs typechecking in one combined job
-- **Tests**: Three parallel test jobs for different packages:
-  - npm-app tests
-  - backend tests
-  - common tests
+Each test job:
+- Runs unit tests only (excludes integration tests)
+- Uses `nick-fields/retry@v3` for reliability
+- Sets `CODEBUFF_GITHUB_ACTIONS=true` and `NEXT_PUBLIC_CB_ENVIRONMENT=test`
 
-### Important Settings
-- Uses Bun v1.1.26 for all jobs
-- Tests use retry logic (max 5 attempts, 10 min timeout)
-- Dependencies are cached between jobs
-- Environment variables are set from secrets
-- Build and typecheck are combined for efficiency
+### Environment Variables
+- Secrets are extracted using `scripts/generate-ci-env.js`
+- Environment variables are set dynamically from GitHub secrets
+- Test environment flags are set for proper test execution
+
+## Workflow Structure
+- Triggered on push/PR to main branch
+- Build job must complete before test jobs start (`needs: build`)
+- Uses `actions/checkout@v3`, `oven-sh/setup-bun@v2`, and `actions/cache@v3`
+- Commented debug shell available for troubleshooting failures
 
 ## Artifact Actions
 

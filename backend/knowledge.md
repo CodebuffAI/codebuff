@@ -2,18 +2,18 @@
 
 ## Auto Top-up System
 
-The backend implements an automatic credit top-up system that:
-- Triggers when a user's balance falls below their configured threshold
-- Purchases credits to reach their target balance
-- Only activates if user has enabled it and configured threshold/target
-- Automatically disables itself if payment fails
-- Grants credits immediately while waiting for Stripe webhook confirmation
+The backend implements automatic credit top-up for users and organizations:
+- Triggers when balance falls below configured threshold
+- Purchases credits to reach target balance
+- Only activates if enabled and configured
+- Automatically disables on payment failure
+- Grants credits immediately while waiting for Stripe confirmation
 
 Key files:
-- `common/src/billing/auto-topup.ts`: Core auto top-up logic
+- `packages/billing/src/auto-topup.ts`: Core auto top-up logic
 - `backend/src/websockets/middleware.ts`: Integration with request flow
 
-The middleware checks for auto top-up eligibility whenever a user runs out of credits during an action. If successful, the action proceeds automatically without user intervention.
+Middleware checks auto top-up eligibility when users run out of credits. If successful, the action proceeds automatically.
 
 Notifications:
 - Success: Send via usage-response with autoTopupAdded field
@@ -22,57 +22,37 @@ Notifications:
 
 ## Billing System
 
-Credits are managed through a combination of:
-- Local credit grants in the database
+Credits are managed through:
+- Local credit grants in database
 - Stripe for payment processing
 - WebSocket actions for real-time updates
 
-### Transaction Isolation Levels
+### Transaction Isolation
 
 Critical credit operations use SERIALIZABLE isolation with automatic retries:
-- Credit consumption must be serializable to prevent "double spending"
-- Monthly resets must be serializable to prevent duplicate grants
-- Both operations retry on serialization failures (error code 40001)
+- Credit consumption prevents "double spending"
+- Monthly resets prevent duplicate grants
+- Both retry on serialization failures (error code 40001)
 - Helper: `withSerializableTransaction` in `common/src/db/transaction.ts`
 
-Other operations use default isolation (READ COMMITTED):
-- Grant operations (protected by unique operation IDs)
-- Revocations (idempotent balance zeroing)
+Other operations use default isolation (READ COMMITTED).
 
-### Monthly Credit Resets
+## WebSocket Middleware System
 
-Monthly credit resets are handled atomically:
-- Multiple processes might check reset dates simultaneously
-- SERIALIZABLE isolation prevents duplicate grants
-- One process will complete while others wait
-- After lock release, others will see updated reset date
-
-## Middleware System
-
-The WebSocket middleware stack:
+The middleware stack:
 1. Authenticates requests
 2. Checks credit balance
 3. Handles auto top-up if needed
-4. Manages quota resets and rollovers
+4. Manages quota resets
 
-Each middleware can:
-- Allow the request to continue
-- Return an action to send to the client
-- Throw an error to halt processing
+Each middleware can allow continuation, return an action, or throw an error.
 
 ## Important Constants
 
-Key configuration values are centralized in `common/src/constants.ts`.
-
-## Error Handling
-
-Errors are logged with context and returned to the client as structured responses.
+Key configuration values are in `common/src/constants.ts`.
 
 ## Testing
 
-Run type checks after changes:
-```bash
-bun run --cwd backend typecheck
-```
+Run type checks: `bun run --cwd backend typecheck`
 
-Also, in order to run the backend integration tests, you must change the working directory to the backend directory and run the tests there. That's the only way to reuse the environment variables from the backend env.mjs file.
+For integration tests, change to backend directory to reuse environment variables from `env.mjs`.

@@ -17,7 +17,7 @@ import {
 } from './project-files'
 import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
-import { recreateShell } from './terminal/base'
+import { recreateShell } from './terminal/run-command'
 import { CliOptions } from './types'
 import { initAnalytics } from './utils/analytics'
 import { findGitRoot } from './utils/git'

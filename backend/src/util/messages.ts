@@ -1,5 +1,8 @@
 import { CodebuffMessage, Message } from '@codebuff/common/types/message'
-import { withCacheControl, withCacheControlCore } from '@codebuff/common/util/messages'
+import {
+  withCacheControl,
+  withCacheControlCore,
+} from '@codebuff/common/util/messages'
 
 import { CoreMessage } from 'ai'
 import { AssertionError } from 'assert'
@@ -9,6 +12,7 @@ import { OpenAIMessage } from '../llm-apis/openai-api'
 import { logger } from './logger'
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
+import { closeXml } from '@codebuff/common/util/xml'
 
 /**
  * Wraps an array of messages with a system prompt for LLM API calls
@@ -36,26 +40,26 @@ export function coreMessagesWithSystem(
 }
 
 export function asUserMessage(str: string): string {
-  return `<user_message>${str}</user_message>`
+  return `<user_message>${str}${closeXml('user_message')}`
 }
 
 export function asSystemInstruction(str: string): string {
-  return `<system_instructions>${str}</system_instructions>`
+  return `<system_instructions>${str}${closeXml('system_instructions')}`
 }
 
 export function asSystemMessage(str: string): string {
-  return `<system>${str}</system>`
+  return `<system>${str}${closeXml('system')}`
 }
 
 export function isSystemInstruction(str: string): boolean {
   return (
     str.startsWith('<system_instructions>') &&
-    str.endsWith('</system_instructions>')
+    str.endsWith(closeXml('system_instructions'))
   )
 }
 
 export function isSystemMessage(str: string): boolean {
-  return str.startsWith('<system>') && str.endsWith('</system>')
+  return str.startsWith('<system>') && str.endsWith(closeXml('system'))
 }
 
 /**
@@ -76,7 +80,7 @@ export function castAssistantMessage(message: CoreMessage): CoreMessage | null {
   }
   if (typeof message.content === 'string') {
     return {
-      content: `<previous_assistant_message>${message.content}</previous_assistant_message>`,
+      content: `<previous_assistant_message>${message.content}${closeXml('previous_assistant_message')}`,
       role: 'user' as const,
     }
   }
@@ -85,7 +89,7 @@ export function castAssistantMessage(message: CoreMessage): CoreMessage | null {
       if (m.type === 'text') {
         return {
           ...m,
-          text: `<previous_assistant_message>${m.text}</previous_assistant_message>`,
+          text: `<previous_assistant_message>${m.text}${closeXml('previous_assistant_message')}`,
         }
       }
       return null

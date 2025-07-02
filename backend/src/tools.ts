@@ -5,17 +5,17 @@ import path from 'path'
 
 import { FileChange } from '@codebuff/common/actions'
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
-import {
-  getToolCallString,
-  ToolName as GlobalToolNameImport,
-} from '@codebuff/common/constants/tools'
-import { z } from 'zod'
+import { getToolCallString } from '@codebuff/common/constants/tools'
+import { z } from 'zod/v4'
 
-import { ToolCallPart, ToolSet } from 'ai'
+import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { ToolCallPart, ToolSet } from 'ai'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
+import { agentTemplates } from './templates/agent-list'
+import { closeXml } from '@codebuff/common/util/xml'
 
 // Define Zod schemas for parameter validation
 const toolConfigs = {
@@ -168,7 +168,7 @@ Merely omitting the code block may or may not work. In order to guarantee the de
 
 #### Additional Info
 
-Prefer using this tool to str_replace.
+Prefer str_replace to write_file for most edits, including small-to-medium edits to a file, for deletions, or for editing large files (>1000 lines). Otherwise, prefer write_file for major edits throughout a file, or for creating new files.
 
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
@@ -220,33 +220,43 @@ function foo() {
           .string()
           .min(1, 'Path cannot be empty')
           .describe(`The path to the file to edit.`),
-        old_vals: z
-          .array(z.string())
-          .describe(
-            `The strings to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.`
-          ),
-        new_vals: z
-          .array(z.string())
-          .describe(
-            `The strings to replace the corresponding old string with. Can be empty to delete.`
-          ),
-      })
-      .refine((data) => data.old_vals.length === data.new_vals.length, {
-        message: 'old_vals and new_vals must have the same number of elements.',
+        replacements: z
+          .array(
+            z
+              .object({
+                old: z
+                  .string()
+                  .min(1, 'Old cannot be empty')
+                  .describe(
+                    `The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.`
+                  ),
+                new: z
+                  .string()
+                  .describe(
+                    `The string to replace the corresponding old string with. Can be empty to delete.`
+                  ),
+              })
+              .describe('Pair of old and new strings.')
+          )
+          .min(1, 'Replacements cannot be empty')
+          .describe('Array of replacements to make.'),
       })
       .describe(`Replace strings in a file with new strings.`),
     description: `
-This should only be used as a backup to the write_file tool, if the write_file tool fails to apply the changes you intended. You should also use this tool to make precise edits for very large files (>2000 lines).
+Use this tool to make edits within existing files. Prefer this tool over the write_file tool for existing files, unless you need to make major changes throughout the file, in which case use write_file.
 
-If you are making multiple edits row to a single file with this tool, use only one <str_replace> call (without closing the tool) with old_0, new_0, old_1, new_1, old_2, new_2, etc. instead of calling str_replace multiple times on the same file.
+Important:
+If you are making multiple edits in a row to a file, use only one <str_replace> call with multiple replacements instead of multiple str_replace tool calls.
+
+Don't forget to close the <str_replace> tag with ${closeXml('str_replace')} after you have finished making all the replacements.
 
 Example:
 ${getToolCallString('str_replace', {
   path: 'path/to/file',
-  old_0: 'old',
-  new_0: 'new',
-  old_1: 'to_delete',
-  new_1: '',
+  replacements: [
+    { old: 'This is the old string', new: 'This is the new string' },
+    { old: 'line to delete\n', new: '' },
+  ],
 })}
     `.trim(),
   },
@@ -254,11 +264,15 @@ ${getToolCallString('str_replace', {
     parameters: z
       .object({
         paths: z
-          .string()
-          .min(1, 'Paths cannot be empty')
-          .describe(
-            `List of file paths to read relative to the **project root**, separated by newlines. Absolute file paths will not work.`
-          ),
+          .array(
+            z
+              .string()
+              .min(1, 'Paths cannot be empty')
+              .describe(
+                `File path to read relative to the **project root**. Absolute file paths will not work.`
+              )
+          )
+          .describe('List of file paths to read.'),
       })
       .describe(
         `Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`
@@ -268,7 +282,7 @@ Note: DO NOT call this tool for files you've already read! There's no need to re
 
 Example:
 ${getToolCallString('read_files', {
-  paths: 'path/to/file1.ts\npath/to/file2.ts',
+  paths: ['path/to/file1.ts', 'path/to/file2.ts'],
 })}
     `.trim(),
   },
@@ -312,6 +326,18 @@ This tool is not guaranteed to find the correct file. In general, prefer using r
           .string()
           .min(1, 'Pattern cannot be empty')
           .describe(`The pattern to search for.`),
+        flags: z
+          .string()
+          .optional()
+          .describe(
+            `Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not test" to exclude test files).`
+          ),
+        cwd: z
+          .string()
+          .optional()
+          .describe(
+            `Optional working directory to search within, relative to the project root. Defaults to searching the entire project.`
+          ),
       })
       .describe(
         `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`
@@ -334,14 +360,26 @@ The pattern supports regular expressions and will search recursively through all
 - Use word boundaries (\\b) to match whole words only
 - Searches file content and filenames
 - Automatically ignores binary files, hidden files, and files in .gitignore
-- Case-sensitive by default. Use -i to make it case insensitive.
-- Constrain the search to specific file types using -t <file-type>, e.g. -t ts or -t py.
+
+Advanced ripgrep flags (use the flags parameter):
+- Case sensitivity: "-i" for case-insensitive search
+- File type filtering: "-t ts" (TypeScript), "-t js" (JavaScript), "-t py" (Python), etc.
+- Exclude file types: "--type-not test" to exclude test files
+- Context lines: "-A 3" (3 lines after), "-B 2" (2 lines before), "-C 2" (2 lines before and after)
+- Line numbers: "-n" to show line numbers
+- Count matches: "-c" to count matches per file
+- Only filenames: "-l" to show only filenames with matches
+- Invert match: "-v" to show lines that don't match
+- Word boundaries: "-w" to match whole words only
+- Fixed strings: "-F" to treat pattern as literal string (not regex)
 
 Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
 
 Examples:
 ${getToolCallString('code_search', { pattern: 'foo' })}
-${getToolCallString('code_search', { pattern: 'import.*foo' })}
+${getToolCallString('code_search', { pattern: 'import.*foo', cwd: 'src' })}
+${getToolCallString('code_search', { pattern: 'function.*authenticate', flags: '-i -t ts' })}
+${getToolCallString('code_search', { pattern: 'TODO', flags: '-n --type-not test' })}
     `.trim(),
   },
   run_terminal_command: {
@@ -365,8 +403,8 @@ ${getToolCallString('code_search', { pattern: 'import.*foo' })}
             `The working directory to run the command in. Default is the project root.`
           ),
         timeout_seconds: z
-          .string()
-          .default('30')
+          .number()
+          .default(30)
           .describe(
             `Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30`
           ),
@@ -408,27 +446,6 @@ Example:
 ${getToolCallString('run_terminal_command', {
   command: 'echo "hello world"',
   process_type: 'SYNC',
-})}
-    `.trim(),
-  },
-  research: {
-    parameters: z
-      .object({
-        prompts: z.string().describe('A JSON array of research prompts'),
-      })
-      .describe(
-        'Run a series of research prompts in parallel to gather information about your codebase.'
-      ),
-    description: `
-It is important to use this tool near the beginning of your response to make sure you know all the places in the codebase that will need to be updated. Always use it before using the create_plan tool.
-
-Example:
-${getToolCallString('research', {
-  prompts: JSON.stringify([
-    'What is the purpose of the `mainPrompt` function?',
-    'Find all usages of the `AgentState` type.',
-    'Look up potential LLM agent frameworks and recommend one.',
-  ]),
 })}
     `.trim(),
   },
@@ -482,15 +499,12 @@ ${getToolCallString('think_deeply', {
       })
       .describe(`Generate a detailed markdown plan for complex tasks.`),
     description: `
-Use when:  
-- User explicitly requests a detailed plan.  
-- Task involves significant architectural or multi-file changes.
+Use when:
+- User explicitly requests a detailed plan.
 - Use this tool to overwrite a previous plan by using the exact same file name.
 
-Before using this tool, use the research tool to gather information.
-
 Don't include:
-- Goals, timelines, benefits, next steps.  
+- Goals, timelines, benefits, next steps.
 - Background context or extensive explanations.
 
 For a technical plan, act as an expert architect engineer and provide direction to your editor engineer.
@@ -510,7 +524,7 @@ Do not include any of the following sections in the plan:
 - benefits/key improvements
 - next steps
 
-After creating than plan, you should end turn to let the user review the plan.
+After creating the plan, you should end turn to let the user review the plan.
 
 Important: Use this tool sparingly. Do not use this tool more than once in a conversation, unless in ask mode.
 
@@ -602,10 +616,68 @@ ${getToolCallString('browser_logs', {
 })}
     `.trim(),
   },
+  spawn_agents: {
+    parameters: z
+      .object({
+        agents: z
+          .object({
+            agent_type: z.string().describe('Agent to spawn'),
+            prompt: z
+              .string()
+              .optional()
+              .describe('Prompt to send to the agent'),
+            params: z
+              .record(z.string(), z.any())
+              .optional()
+              .describe('Parameters object for the agent (if any)'),
+          })
+          .array(),
+      })
+      .describe(`Spawn multiple agents and send a prompt to each of them.`),
+    description: `
+Use this tool to spawn subagents to help you complete the user request. Each agent has specific requirements for prompt and params based on their promptSchema.
+
+The prompt field is a simple string, while params is a JSON object that gets validated against the agent's schema.
+
+Example:
+${getToolCallString('spawn_agents', {
+  agents: JSON.stringify([
+    {
+      agent_type: 'gemini25pro_planner',
+      prompt: 'Create a plan for implementing user authentication',
+      params: { filePaths: ['src/auth.ts', 'src/user.ts'] },
+    },
+  ]),
+})}
+    `.trim(),
+  },
+  update_report: {
+    parameters: z
+      .object({
+        json_update: z
+          .record(z.string(), z.any())
+          .describe(
+            'JSON object with keys and values to overwrite the existing report. This can be any JSON object with keys and values. Note the values are JSON values, so they can be a nested object or array.'
+          ),
+      })
+      .describe(
+        `Update the report of the current agent, which is a JSON object that is initially empty.`
+      ),
+    description: `
+You must use this tool as it is the only way to report any findings to the user. Nothing else you write will be shown to the user.
+
+Please update the report with all the information and analysis you want to pass on to the user. If you just want to send a simple message, use an object with the key "message" and value of the message you want to send.
+Example:
+${getToolCallString('update_report', {
+  jsonUpdate: {
+    message: 'I found a bug in the code!',
+  },
+})}
+    `.trim(),
+  },
   end_turn: {
     parameters: z
       .object({})
-      .transform(() => ({}))
       .describe(
         `End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.`
       ),
@@ -616,6 +688,130 @@ Make sure to use this tool if you want a response from the user and not the syst
 
 Example:
 ${getToolCallString('end_turn', {})}
+    `.trim(),
+  },
+  web_search: {
+    parameters: z
+      .object({
+        query: z
+          .string()
+          .min(1, 'Query cannot be empty')
+          .describe(`The search query to find relevant web content`),
+        depth: z
+          .enum(['standard', 'deep'])
+          .optional()
+          .default('standard')
+          .describe(
+            `Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'.`
+          ),
+      })
+      .describe(`Search the web for current information using Linkup API.`),
+    description: `
+Purpose: Search the web for current, up-to-date information on any topic. This tool uses Linkup's web search API to find relevant content from across the internet.
+
+Use cases:
+- Finding current information about technologies, libraries, or frameworks
+- Researching best practices and solutions
+- Getting up-to-date news or documentation
+- Finding examples and tutorials
+- Checking current status of services or APIs
+
+The tool will return search results with titles, URLs, and content snippets.
+
+Example:
+${getToolCallString('web_search', {
+  query: 'Next.js 15 new features',
+  depth: 'standard',
+})}
+
+${getToolCallString('web_search', {
+  query: 'React Server Components tutorial',
+  depth: 'deep',
+})}
+    `.trim(),
+  },
+  read_docs: {
+    parameters: z
+      .object({
+        libraryTitle: z
+          .string()
+          .min(1, 'Library title cannot be empty')
+          .describe(
+            `The exact library or framework name (e.g., "Next.js", "MongoDB", "React"). Use the official name as it appears in documentation, not a search query.`
+          ),
+        topic: z
+          .string()
+          .optional()
+          .describe(
+            `Optional specific topic to focus on (e.g., "routing", "hooks", "authentication")`
+          ),
+        max_tokens: z
+          .number()
+          .optional()
+          .describe(
+            `Optional maximum number of tokens to return. Defaults to 10000. Values less than 10000 are automatically increased to 10000.`
+          ),
+      })
+      .describe(
+        `Fetch up-to-date documentation for libraries and frameworks using Context7 API.`
+      ),
+    description: `
+Purpose: Get current, accurate documentation for popular libraries, frameworks, and technologies. This tool searches Context7's database of up-to-date documentation and returns relevant content.
+
+**IMPORTANT**: The \`libraryTitle\` parameter should be the exact, official name of the library or framework, not a search query. Think of it as looking up a specific book title in a library catalog.
+
+Correct examples:
+- "Next.js" (not "nextjs tutorial" or "how to use nextjs")
+- "React" (not "react hooks guide")
+- "MongoDB" (not "mongodb database setup")
+- "Express.js" (not "express server")
+
+Use cases:
+- Getting current API documentation for a library
+- Finding usage examples and best practices
+- Understanding how to implement specific features
+- Checking the latest syntax and methods
+
+The tool will search for the library and return the most relevant documentation content. If a topic is specified, it will focus the results on that specific area.
+
+Example:
+${getToolCallString('read_docs', {
+  libraryTitle: 'Next.js',
+  topic: 'app router',
+  max_tokens: 15000,
+})}
+
+${getToolCallString('read_docs', {
+  libraryTitle: 'MongoDB',
+})}
+    `.trim(),
+  },
+  run_file_change_hooks: {
+    parameters: z
+      .object({
+        files: z
+          .array(z.string())
+          .describe(
+            `List of file paths that were changed and should trigger file change hooks`
+          ),
+      })
+      .describe(
+        `Trigger file change hooks on the client for the specified files. This should be called after file changes have been applied.`
+      ),
+    description: `
+Purpose: Trigger file change hooks defined in codebuff.json for the specified files. This tool allows the backend to request the client to run its configured file change hooks (like tests, linting, type checking) after file changes have been applied.
+
+Use cases:
+- After making code changes, trigger the relevant tests and checks
+- Ensure code quality by running configured linters and type checkers
+- Validate that changes don't break the build
+
+The client will run only the hooks whose filePattern matches the provided files.
+
+Example:
+${getToolCallString('run_file_change_hooks', {
+  files: ['src/components/Button.tsx', 'src/utils/helpers.ts'],
+})}
     `.trim(),
   },
 } as const satisfies ToolSet
@@ -633,74 +829,32 @@ const toolConfigsList = Object.entries(toolConfigs).map(
 export type ToolName = keyof typeof toolConfigs
 export const TOOL_LIST = Object.keys(toolConfigs) as ToolName[]
 
-// Helper function to generate markdown for parameter list
-function generateParamsList(
-  toolName: string,
-  schema: z.ZodType<any, any, any>
-): string[] {
-  const params: string[] = []
-  let shape = null
-
-  if (schema instanceof z.ZodObject) {
-    shape = schema.shape
-  } else if (
-    schema instanceof z.ZodEffects &&
-    schema._def.schema instanceof z.ZodObject
-  ) {
-    shape = schema._def.schema.shape
-  }
-
-  if (shape) {
-    for (const key in shape) {
-      const paramSchema = shape[key] as z.ZodTypeAny
-      let paramMarkdownName = `\`${key}\``
-
-      if (
-        toolName === 'str_replace' &&
-        (key === 'old_vals' || key === 'new_vals')
-      ) {
-        paramMarkdownName = `\`${key.replace('_vals', '')}_{i}\``
-      }
-
-      let paramLine = `- ${paramMarkdownName}: `
-
-      let requiredOptionalMarker = '(required)'
-      if (
-        paramSchema instanceof z.ZodOptional ||
-        paramSchema._def.typeName === 'ZodDefault'
-      ) {
-        requiredOptionalMarker = '(optional)'
-      }
-
-      const descriptionText =
-        paramSchema.description ||
-        `(${paramSchema._def.typeName || 'parameter'})`
-      paramLine += `${requiredOptionalMarker} ${descriptionText}`
-      params.push(paramLine)
-    }
-  }
-
-  if (params.length === 0) {
-    return ['None']
-  }
-
-  return params
-}
+export const toolParams = Object.fromEntries(
+  toolConfigsList.map((config) => [
+    config.name satisfies ToolName,
+    Object.keys(z.toJSONSchema(config.parameters).properties ?? {}),
+  ])
+) as Record<ToolName, string[]>
 
 // Helper function to build the full tool description markdown
 function buildToolDescription(
   toolName: string,
-  schema: z.ZodType<any, any, any>,
+  schema: z.ZodTypeAny,
   description: string = ''
 ): string {
   const mainDescription = schema.description || ''
-  const paramsArray = generateParamsList(toolName, schema)
+  const jsonSchema = z.toJSONSchema(schema)
+  delete jsonSchema.description
+  delete jsonSchema['$schema']
+  const paramsDescription = Object.keys(jsonSchema.properties ?? {}).length
+    ? JSON.stringify(jsonSchema, null, 2)
+    : 'None'
 
   let paramsSection = ''
-  if (paramsArray.length === 1 && paramsArray[0] === 'None') {
+  if (paramsDescription.length === 1 && paramsDescription[0] === 'None') {
     paramsSection = 'Params: None'
-  } else if (paramsArray.length > 0) {
-    paramsSection = `Params:\n${paramsArray.join('\n')}`
+  } else if (paramsDescription.length > 0) {
+    paramsSection = `Params:\n${paramsDescription}`
   }
 
   return buildArray([
@@ -710,15 +864,6 @@ function buildToolDescription(
     description,
   ]).join('\n\n')
 }
-
-const tools = toolConfigsList.map((config) => ({
-  name: config.name,
-  description: buildToolDescription(
-    config.name,
-    config.parameters,
-    config.description
-  ),
-})) as { name: GlobalToolNameImport; description: string }[]
 
 const toolDescriptions = Object.fromEntries(
   Object.entries(toolConfigs).map(([name, config]) => [
@@ -755,45 +900,36 @@ export function parseRawToolCall(
       error: `Tool ${toolName} not found`,
     }
   }
-  const validName = toolName as GlobalToolNameImport
-
-  let schema: z.ZodObject<any> | z.ZodEffects<any> =
+  const validName = toolName as keyof typeof toolConfigs
+  const schemaProperties = z.toJSONSchema(
     toolConfigs[validName].parameters
-  while (schema instanceof z.ZodEffects) {
-    schema = schema.innerType()
-  }
-  const processedParameters: Record<string, any> = { ...rawToolCall.args }
+  ).properties!
 
-  const arrayParamPattern = /^(.+)_(\d+)$/
-  const arrayParamsCollector: Record<string, string[]> = {}
-
-  for (const [key, value] of Object.entries(rawToolCall.args)) {
-    const match = key.match(arrayParamPattern)
-    if (match) {
-      const [, paramNameBase, indexStr] = match
-      const index = parseInt(indexStr, 10)
-      const arraySchemaKey = `${paramNameBase}_vals`
-
-      const schemaShape = schema.shape
-      if (
-        schemaShape &&
-        schemaShape[arraySchemaKey] &&
-        schemaShape[arraySchemaKey] instanceof z.ZodArray
-      ) {
-        if (!arrayParamsCollector[arraySchemaKey]) {
-          arrayParamsCollector[arraySchemaKey] = []
-        }
-        arrayParamsCollector[arraySchemaKey][index] = value
-        delete processedParameters[key]
+  const processedParameters: Record<string, any> = {}
+  for (const [param, val] of Object.entries(rawToolCall.args)) {
+    if (
+      schemaProperties[param] &&
+      typeof schemaProperties[param] !== 'boolean' &&
+      'type' in schemaProperties[param] &&
+      schemaProperties[param].type === 'string'
+    ) {
+      processedParameters[param] = val
+      continue
+    }
+    try {
+      processedParameters[param] = JSON.parse(val)
+    } catch (error) {
+      return {
+        toolName: validName,
+        toolCallId: generateCompactId(),
+        args: rawToolCall.args,
+        error: `Failed to parse parameter ${param} as JSON: ${error}`,
       }
     }
   }
 
-  for (const [arrayKey, values] of Object.entries(arrayParamsCollector)) {
-    processedParameters[arrayKey] = values.filter((v) => v !== undefined)
-  }
-
-  const result = schema.safeParse(processedParameters)
+  const result =
+    toolConfigs[validName].parameters.safeParse(processedParameters)
   if (!result.success) {
     return {
       toolName: validName,
@@ -811,10 +947,13 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
   'find_files',
   'run_terminal_command',
   'code_search',
-  'research',
-]
+] as const
 
-export const getToolsInstructions = (toolNames: readonly ToolName[]) => `
+export const getToolsInstructions = (
+  toolNames: readonly ToolName[],
+  spawnableAgents: AgentTemplateType[]
+) =>
+  `
 # Tools
 
 You (Buffy) have access to the following tools. Call them when needed.
@@ -824,10 +963,10 @@ You (Buffy) have access to the following tools. Call them when needed.
 Tool calls use a specific XML-like format. Adhere *precisely* to this nested element structure:
 
 <tool_name>
-<parameter1_name>value1</parameter1_name>
-<parameter2_name>value2</parameter2_name>
+<parameter1_name>value1${closeXml('parameter1_name')}
+<parameter2_name>value2${closeXml('parameter2_name')}
 ...
-</tool_name>
+${closeXml('tool_name')}
 
 ### XML Entities
 
@@ -843,10 +982,6 @@ Provide commentary *around* your tool calls (explaining your actions).
 
 However, **DO NOT** narrate the tool or parameter names themselves.
 
-### Array Params
-
-Arrays with name "param_name_vals" should be formatted as individual parameters, each called "param_name_{i}". They must start with i=0 and increment by 1.
-
 ### Example
 
 User: can you update the console logs in example/file.ts?
@@ -856,10 +991,6 @@ ${getToolCallString('write_file', {
   path: 'path/to/example/file.ts',
   instructions: 'Update the console logs',
   content: "console.log('Hello from Buffy!');",
-  // old_0: '// Replace this line with a fun greeting',
-  // new_0: "console.log('Hello from Buffy!');",
-  // old_1: "console.log('Old console line to delete');\n",
-  // new_1: '',
 })}
 
 All done with the update!
@@ -891,8 +1022,28 @@ The user does not need to know about the exact results of these tools, especiall
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
 
-${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}
-`
+${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}` +
+  `\n\n${
+    spawnableAgents.length > 0
+      ? `## Spawnable Agents
+
+Use the spawn_agents tool to spawn subagents to help you complete the user request. Here are the available agents by their agent_type:
+
+${spawnableAgents
+  .map((agentType) => {
+    const agentTemplate = agentTemplates[agentType]
+    const { promptSchema } = agentTemplate
+    const { prompt, params } = promptSchema
+    const promptString =
+      prompt === true ? 'required' : prompt === false ? 'n/a' : 'optional'
+    const paramsString = params
+      ? JSON.stringify(z.toJSONSchema(params), null, 2)
+      : 'n/a'
+    return `- ${agentType}: ${agentTemplate.description}\nprompt: ${promptString}\nparams: ${paramsString}`
+  })
+  .join('\n\n')}`
+      : ''
+  }`
 
 export async function updateContext(
   context: string,
@@ -904,24 +1055,24 @@ We're working on a project. We can have multiple subgoals. Each subgoal can have
 The following is an example of a schema of a subgoal. It is for illistrative purposes and is not relevant otherwise. Use it as a reference to understand how to update the context.
 Example schema:
 <subgoal>
-<id>1</id>
-<objective>Fix the tests</objective>
-<status>COMPLETE</status>
-<plan>Run them, find the error, fix it</plan>
-<log>Ran the tests and traced the error to component foo.</log>
-<log>Modified the foo component to fix the error</log>
-<log>Reran the tests and they passed.</log>
-</subgoal>
+<id>1${closeXml('id')}
+<objective>Fix the tests${closeXml('objective')}
+<status>COMPLETE${closeXml('status')}
+<plan>Run them, find the error, fix it${closeXml('plan')}
+<log>Ran the tests and traced the error to component foo.${closeXml('log')}
+<log>Modified the foo component to fix the error${closeXml('log')}
+<log>Reran the tests and they passed.${closeXml('log')}
+${closeXml('subgoal')}
 
 Here is the initial context:
 <initial_context>
 ${context}
-</initial_context>
+${closeXml('initial_context')}
 
 Here are the update instructions:
 <update_instructions>
 ${updateInstructions}
-</update_instructions>
+${closeXml('update_instructions')}
 
 Please rewrite the entire context using the update instructions in a <new_context> tag. Try to perserve the original context as much as possible, subject to the update instructions. Return the new context only — do not include any other text or wrapper xml/markdown formatting e.g. please omit <initial_context> tags.`
   const messages = [
@@ -941,7 +1092,7 @@ Please rewrite the entire context using the update instructions in a <new_contex
     userInputId: 'strange-loop',
     userId: TEST_USER_ID,
   })
-  const newContext = response.split('</new_context>')[0]
+  const newContext = response.split(closeXml('new_context'))[0]
   return newContext.trim()
 }
 
@@ -1210,6 +1361,7 @@ function renderSubgoalUpdate(subgoal: {
   return getToolCallString('add_subgoal', params)
 }
 
+// TODO: Remove this function
 // Function to get filtered tools based on cost mode and agent mode
 export function getFilteredToolsInstructions(
   costMode: string,
@@ -1228,9 +1380,9 @@ export function getFilteredToolsInstructions(
 
   if (readOnlyMode) {
     allowedTools = allowedTools.filter(
-      (tool) => !['create_plan', 'research'].includes(tool)
+      (tool) => !['create_plan'].includes(tool)
     )
   }
 
-  return getToolsInstructions(allowedTools)
+  return getToolsInstructions(allowedTools, [])
 }

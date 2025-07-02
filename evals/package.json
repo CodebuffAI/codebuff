@@ -19,6 +19,7 @@
     "test:swe-bench": "bun test swe-bench.test.ts",
     "test:e2e-cat-app": "bun run e2e-cat-app-script.ts",
     "gen-git-evals": "bun run git-evals/gen-evals.ts",
+    "run-single-eval": "bun run git-evals/run-single-eval.ts --eval-file git-evals/eval-manifold.json --commit-sha ebabf7796a92ce8ece8e2452b0f3f896a513ba0e",
     "run-git-evals": "bun run git-evals/run-git-evals.ts",
     "run-eval-set": "bun run git-evals/run-eval-set.ts",
     "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
@@ -28,14 +29,17 @@
     "bun": ">=1.2.11"
   },
   "dependencies": {
-    "@codebuff/common": "workspace:*",
     "@codebuff/backend": "workspace:*",
-    "@codebuff/internal": "workspace:*",
     "@codebuff/code-map": "workspace:*",
+    "@codebuff/common": "workspace:*",
+    "@codebuff/internal": "workspace:*",
     "@codebuff/npm-app": "workspace:*",
+    "@oclif/core": "^4.4.0",
+    "@oclif/parser": "^3.8.17",
     "async": "^3.2.6",
     "lodash": "^4.17.21",
-    "p-limit": "^6.2.0"
+    "p-limit": "^6.2.0",
+    "zod": "3.25.67"
   },
   "devDependencies": {
     "@types/async": "^3.2.24"

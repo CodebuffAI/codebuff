@@ -1,18 +1,25 @@
-import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import { TEST_USER_ID } from '@codebuff/common/constants'
-import { getInitialAgentState } from '@codebuff/common/types/agent-state'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from 'bun:test'
 import { WebSocket } from 'ws'
 import { mainPrompt } from '../main-prompt'
 
 // Mock imports needed for setup within the test
-import { ClientToolCall } from '../tools'
-import { renderReadFilesResult } from '../util/parse-tool-call-xml'
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from '../util/logger'
+import { renderReadFilesResult } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
 // --- Shared Mocks & Helpers ---
@@ -51,6 +58,22 @@ const mockFileContext: ProjectFileContext = {
 
 // --- Integration Test with Real LLM Call ---
 describe('mainPrompt (Integration)', () => {
+  beforeEach(() => {
+    spyOn(websocketAction, 'requestToolCall').mockImplementation(
+      async (
+        ws: WebSocket,
+        toolName: string,
+        args: Record<string, any>,
+        timeout: number = 30_000
+      ) => {
+        return {
+          success: true,
+          result: `Tool call success: ${{ toolName, args }}` as any,
+        }
+      }
+    )
+  })
+
   afterEach(() => {
     mock.restore()
   })
@@ -296,8 +319,8 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     // Mock LLM calls
     spyOn(aisdk, 'promptAiSdk').mockResolvedValue('Mocked non-stream AiSdk')
 
-    const agentState = getInitialAgentState(mockFileContext)
-    agentState.messageHistory.push(
+    const sessionState = getInitialSessionState(mockFileContext)
+    sessionState.mainAgentState.messageHistory.push(
       {
         role: 'assistant',
         content: getToolCallString('read_files', {
@@ -321,7 +344,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     const action = {
       type: 'prompt' as const,
       prompt: 'Delete the castAssistantMessage function',
-      agentState,
+      sessionState,
       fingerprintId: 'test-delete-function-integration',
       costMode: 'normal' as const,
       promptId: 'test-delete-function-id-integration',
@@ -331,61 +354,26 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     const {
       toolCalls,
       toolResults,
-      agentState: finalAgentState,
+      sessionState: finalSessionState,
     } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session-delete-function-integration',
       onResponseChunk: (chunk: string) => {
         process.stdout.write(chunk)
       },
-      selectedModel: undefined,
-      readOnlyMode: false,
     })
+    const requestToolCallSpy = websocketAction.requestToolCall as any
 
     // Find the write_file tool call
-    const writeFileCall = toolCalls.find(
-      (call) => call.toolName === 'write_file'
+    const writeFileCall = requestToolCallSpy.mock.calls.find(
+      (call) => call[1] === 'write_file'
     )
     expect(writeFileCall).toBeDefined()
-    expect(
-      (writeFileCall as ClientToolCall & { toolName: 'write_file' }).args.path
-    ).toBe('src/util/messages.ts')
-    expect(
-      (
-        writeFileCall as ClientToolCall & { toolName: 'write_file' }
-      ).args.content.trim()
-    ).toBe(
+    expect(writeFileCall[2].path).toBe('src/util/messages.ts')
+    expect(writeFileCall[2].content.trim()).toBe(
       `@@ -46,32 +46,8 @@\n   }\n   return message.content.map((c) => ('text' in c ? c.text : '')).join('\\n')\n }\n \n-export function castAssistantMessage(message: Message): Message {\n-  if (message.role !== 'assistant') {\n-    return message\n-  }\n-  if (typeof message.content === 'string') {\n-    return {\n-      content: \`<previous_assistant_message>\${message.content}</previous_assistant_message>\`,\n-      role: 'user' as const,\n-    }\n-  }\n-  return {\n-    role: 'user' as const,\n-    content: message.content.map((m) => {\n-      if (m.type === 'text') {\n-        return {\n-          ...m,\n-          text: \`<previous_assistant_message>\${m.text}</previous_assistant_message>\`,\n-        }\n-      }\n-      return m\n-    }),\n-  }\n-}\n-\n // Number of terminal command outputs to keep in full form before simplifying\n const numTerminalCommandsToKeep = 5\n \n /**`.trim()
     )
   }, 60000) // Increase timeout for real LLM call
-
-  it('should handle tool calls and responses', async () => {
-    const agentState = getInitialAgentState(mockFileContext)
-    const action = {
-      type: 'prompt' as const,
-      prompt: 'Create a simple hello world function',
-      agentState,
-      fingerprintId: 'test',
-      costMode: 'normal' as const,
-      promptId: 'test',
-      toolResults: [],
-    }
-
-    const { agentState: newAgentState, toolCalls } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
-      action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        selectedModel: undefined,
-        readOnlyMode: false,
-      }
-    )
-
-    expect(newAgentState).toBeDefined()
-    expect(toolCalls).toBeDefined()
-  })
 
   describe('Real world example', () => {
     it('should specify deletion comment while deleting single character', async () => {
@@ -412,8 +400,8 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       // Mock LLM calls
       spyOn(aisdk, 'promptAiSdk').mockResolvedValue('Mocked non-stream AiSdk')
 
-      const agentState = getInitialAgentState(mockFileContext)
-      agentState.messageHistory.push(
+      const sessionState = getInitialSessionState(mockFileContext)
+      sessionState.mainAgentState.messageHistory.push(
         {
           role: 'assistant',
           content: getToolCallString('read_files', {
@@ -437,44 +425,30 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       const action = {
         type: 'prompt' as const,
         prompt: "There's a syntax error. Delete the last } in the file",
-        agentState,
+        sessionState,
         fingerprintId: 'test-delete-function-integration',
         costMode: 'normal' as const,
         promptId: 'test-delete-function-id-integration',
         toolResults: [],
       }
 
-      const {
-        toolCalls,
-        toolResults,
-        agentState: finalAgentState,
-      } = await mainPrompt(
-        new MockWebSocket() as unknown as WebSocket,
-        action,
-        {
-          userId: TEST_USER_ID,
-          clientSessionId: 'test-session-delete-function-integration',
-          onResponseChunk: (chunk: string) => {
-            process.stdout.write(chunk)
-          },
-          selectedModel: undefined,
-          readOnlyMode: false,
-        }
-      )
+      await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session-delete-function-integration',
+        onResponseChunk: (chunk: string) => {
+          process.stdout.write(chunk)
+        },
+      })
+
+      const requestToolCallSpy = websocketAction.requestToolCall as any
 
       // Find the write_file tool call
-      const writeFileCall = toolCalls.find(
-        (call) => call.toolName === 'write_file'
+      const writeFileCall = requestToolCallSpy.mock.calls.find(
+        (call) => call[1] === 'write_file'
       )
       expect(writeFileCall).toBeDefined()
-      expect(
-        (writeFileCall as ClientToolCall & { toolName: 'write_file' }).args.path
-      ).toBe('packages/backend/src/index.ts')
-      expect(
-        (
-          writeFileCall as ClientToolCall & { toolName: 'write_file' }
-        ).args.content.trim()
-      ).toBe(
+      expect(writeFileCall[2].path).toBe('packages/backend/src/index.ts')
+      expect(writeFileCall[2].content.trim()).toBe(
         `
 @@ -689,6 +689,4 @@
    });

@@ -220,6 +220,17 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     console.log(`${costModeDescription[costMode]}`)
   }
 
+  const news =
+    'New July 2: Codebuff has been updated to be multi-agent! You may see Codebuff spawn subagents to better fulfill your requests.'
+  if (news) {
+    console.log()
+    console.log(blueBright(news))
+    if (costMode === 'max') {
+      console.log(blueBright('Max mode is now even more powerful, though more expensive, as it uses Claude Opus.'))
+    }
+    console.log()
+  }
+
   if (!isValidProjectRoot(getProjectRoot())) {
     console.info(
       `Welcome! Codebuff is your AI pair programmer that edits your codebase through natural conversation.

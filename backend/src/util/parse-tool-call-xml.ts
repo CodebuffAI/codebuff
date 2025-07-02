@@ -1,6 +1,8 @@
-import { CoreMessage, ToolResultPart } from 'ai'
+import { StringToolResultPart } from '@codebuff/common/constants/tools'
 import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
+import { CoreMessage } from 'ai'
 
 /**
  * Parses XML content for a tool call into a structured object with only string values.
@@ -27,21 +29,6 @@ export function parseToolCallXml(xmlString: string): Record<string, string> {
   }
 
   return result
-}
-
-type StringToolResultPart = Omit<ToolResultPart, 'type'> & { result: string }
-
-export function renderToolResults(toolResults: StringToolResultPart[]): string {
-  return `
-${toolResults
-  .map(
-    (result) => `<tool_result>
-<tool>${result.toolName}</tool>
-<result>${result.result}</result>
-</tool_result>`
-  )
-  .join('\n\n')}
-`.trim()
 }
 
 export const parseToolResults = (xmlString: string): StringToolResultPart[] => {
@@ -85,7 +72,7 @@ export function renderReadFilesResult(
           .filter(([_, callers]) => callers.length > 0)
           .map(([token, callers]) => `${token}: ${callers.join(', ')}`)
           .join('\n') || 'None'
-      return `<read_file>\n<path>${file.path}</path>\n<content>${file.content}</content>\n<referenced_by>${referencedBy}</referenced_by>\n</read_file>`
+      return `<read_file>\n<path>${file.path}${closeXml('path')}\n<content>${file.content}${closeXml('content')}\n<referenced_by>${referencedBy}${closeXml('referenced_by')}\n${closeXml('read_file')}`
     })
     .join('\n\n')
 }

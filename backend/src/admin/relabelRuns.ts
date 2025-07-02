@@ -17,13 +17,16 @@ import {
 } from '@codebuff/common/constants'
 import { Message } from '@codebuff/common/types/message'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
 import { Request, Response } from 'express'
 
-import { rerank } from '../llm-apis/relace-api'
 import { System } from '../llm-apis/claude'
+import { rerank } from '../llm-apis/relace-api'
+import {
+  promptAiSdk,
+  transformMessages,
+} from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from '../util/logger'
-
-import { promptAiSdk, transformMessages } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 
 // --- GET Handler Logic ---
 
@@ -371,13 +374,13 @@ export async function relabelWithClaudeWithFullFileContext(
   const filesString = filesWithPath
     .map(
       (f) => `<file-contents>
-      <name>${f.path}</name>
-      <contents>${f.content}</contents>
-    </file-contents>`
+      <name>${f.path}${closeXml('name')}
+      <contents>${f.content}${closeXml('contents')}
+    ${closeXml('file-contents')}`
     )
     .join('\n')
 
-  const partialFileContext = `## Partial file context\n In addition to the file-tree, you've also been provided with some full files to make a better decision. Use these to help you decide which files are most relevant to the query. \n<partial-file-context>\n${filesString}\n</partial-file-context>`
+  const partialFileContext = `## Partial file context\n In addition to the file-tree, you've also been provided with some full files to make a better decision. Use these to help you decide which files are most relevant to the query. \n<partial-file-context>\n${filesString}\n${closeXml('partial-file-context')}`
 
   let system = trace.payload.system as System
   if (typeof system === 'string') {

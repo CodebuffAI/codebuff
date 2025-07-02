@@ -1,4 +1,6 @@
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
+
+import { closeXml } from '@codebuff/common/util/xml'
 import { Relabel } from '@codebuff/bigquery'
 
 import { GetRelevantFilesTrace } from '@codebuff/bigquery'
@@ -6,24 +8,24 @@ import { claudeModels, TEST_USER_ID } from '@codebuff/common/constants'
 
 const PROMPT = `
 You are an evaluator system, measuring how well various models perform at selecting the most relevant files for a given user request.
-You will be provided the context given to the other models, in the <request_context></request_context> tags.
-You will then be provided with multiple outputs, in the <model_outputs></model_outputs> tags. 
+You will be provided the context given to the other models, in the <request_context>${closeXml('request_context')} tags.
+You will then be provided with multiple outputs, in the <model_outputs>${closeXml('model_outputs')} tags.
 It will be provided in the following format:
 
 <request_context>
   ...
-</request_context>
+${closeXml('request_context')}
 
 <model_outputs>
   <output>
-    <model_id>1</model_id>
+    <model_id>1${closeXml('model_id')}
     ...
-  </output>
+  ${closeXml('output')}
   <output>
-    <model_id>2</model_id>
+    <model_id>2${closeXml('model_id')}
     ...
-  </output>
-</model_outputs>
+  ${closeXml('output')}
+${closeXml('model_outputs')}
 
 Your goal is to rank and grade the outputs from best to worst, and provide 1-5 scores based on how well they followed the instructions in the <request_context> tags.
 Provide the best output first, and the worst output last. Multiple models may receive the same score, but you should break ties by quality.
@@ -33,19 +35,19 @@ You will provide your response in the following format:
 
 <scores>
   <score>
-    <model_id>2</model_id>
-    <score>4</score>
-  </score>
+    <model_id>2${closeXml('model_id')}
+    <score>4${closeXml('score')}
+  ${closeXml('score')}
   <score>
-    <model_id>1</model_id>
-    <score>4</score>
-  </score>
+    <model_id>1${closeXml('model_id')}
+    <score>4${closeXml('score')}
+  ${closeXml('score')}
   <score>
-    <model_id>3</model_id>
-    <score>2</score>
-  </score>
+    <model_id>3${closeXml('model_id')}
+    <score>2${closeXml('score')}
+  ${closeXml('score')}
   ...
-</scores>
+${closeXml('scores')}
 `
 
 function modelsToXML(models: { model: string; output: string }[]) {
@@ -54,12 +56,13 @@ function modelsToXML(models: { model: string; output: string }[]) {
     .map(
       (model, index) =>
         `<output>
-<model_id>${index + 1}</model_id>
+<model_id>${index + 1}${closeXml('model_id')}
 ${model.output}
-</output>`
+${closeXml('output')}`
     )
     .join('\n')
 }
+
 function extractResponse(response: string): {
   scores: { id: string; score: number }[]
 } {
@@ -133,11 +136,11 @@ export async function gradeRun(tracesAndRelabels: {
       { role: 'system', content: PROMPT },
       {
         role: 'user',
-        content: `<request_context>${stringified}</request_context>`,
+        content: `<request_context>${stringified}${closeXml('request_context')}`,
       },
       {
         role: 'user',
-        content: `<model_outputs>${modelOutputs}</model_outputs>`,
+        content: `<model_outputs>${modelOutputs}${closeXml('model_outputs')}`,
       },
       { role: 'user', content: PROMPT },
     ],

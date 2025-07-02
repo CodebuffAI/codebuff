@@ -2,15 +2,6 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import {
-  CoreAssistantMessage,
-  CoreMessage,
-  CoreUserMessage,
-  generateObject,
-  generateText,
-  LanguageModelV1,
-  streamText,
-} from 'ai'
-import {
   AnthropicModel,
   claudeModels,
   finetunedVertexModels,
@@ -20,16 +11,28 @@ import {
   openaiModels,
   type GeminiModel,
 } from '@codebuff/common/constants'
+import {
+  CoreAssistantMessage,
+  CoreMessage,
+  CoreUserMessage,
+  generateObject,
+  generateText,
+  LanguageModelV1,
+  streamText,
+} from 'ai'
 
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { Message } from '@codebuff/common/types/message'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
+
+import { closeXml } from '@codebuff/common/util/xml'
+import { checkLiveUserInput, getLiveUserInputId } from '../../live-user-inputs'
+import { logger } from '../../util/logger'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
-import { logger } from '@codebuff/common/util/logger'
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
@@ -70,6 +73,18 @@ export const promptAiSdkStream = async function* (
     thinkingBudget?: number
   } & Omit<Parameters<typeof streamText>[0], 'model'>
 ) {
+  if (!checkLiveUserInput(options.userId, options.userInputId)) {
+    logger.info(
+      {
+        userId: options.userId,
+        userInputId: options.userInputId,
+        liveUserInputId: getLiveUserInputId(options.userId),
+      },
+      'Skipping stream due to canceled user input'
+    )
+    yield ''
+    return
+  }
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
@@ -87,19 +102,21 @@ export const promptAiSdkStream = async function* (
   })
 
   let content = ''
-  let hasReasoning = false
-  let finishedReasoning = false
+  let reasoning = false
 
   for await (const chunk of response.fullStream) {
     if (chunk.type === 'error') {
       logger.error({ chunk, model: options.model }, 'Error from AI SDK')
       if (process.env.ENVIRONMENT !== 'prod') {
         throw chunk.error instanceof Error
-          ? new Error(`Error from AI SDK: ${chunk.error.message}`, {
-              cause: chunk.error,
-            })
+          ? new Error(
+              `Error from AI SDK (${options.model}): ${chunk.error.message}`,
+              {
+                cause: chunk.error,
+              }
+            )
           : new Error(
-              `Error from AI SDK: ${
+              `Error from AI SDK (${options.model}): ${
                 typeof chunk.error === 'string'
                   ? chunk.error
                   : JSON.stringify(chunk.error)
@@ -108,16 +125,16 @@ export const promptAiSdkStream = async function* (
       }
     }
     if (chunk.type === 'reasoning') {
-      if (!hasReasoning) {
-        hasReasoning = true
+      if (!reasoning) {
+        reasoning = true
         yield '<think_deeply>\n<thought>'
       }
       yield chunk.textDelta
     }
     if (chunk.type === 'text-delta') {
-      if (hasReasoning && !finishedReasoning) {
-        finishedReasoning = true
-        yield '</thought>\n</think_deeply>'
+      if (reasoning) {
+        reasoning = false
+        yield `${closeXml('thought')}\n${closeXml('think_deeply')}\n\n`
       }
       content += chunk.textDelta
       yield chunk.textDelta
@@ -168,6 +185,18 @@ export const promptAiSdk = async function (
     chargeUser?: boolean
   } & Omit<Parameters<typeof generateText>[0], 'model'>
 ): Promise<string> {
+  if (!checkLiveUserInput(options.userId, options.userInputId)) {
+    logger.info(
+      {
+        userId: options.userId,
+        userInputId: options.userInputId,
+        liveUserInputId: getLiveUserInputId(options.userId),
+      },
+      'Skipping prompt due to canceled user input'
+    )
+    return ''
+  }
+
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
@@ -202,7 +231,7 @@ export const promptAiSdk = async function (
 // Copied over exactly from promptAiSdk but with a schema
 export const promptAiSdkStructured = async function <T>(options: {
   messages: CoreMessage[]
-  schema: z.ZodType<T>
+  schema: z.ZodType<T, z.ZodTypeDef, any>
   clientSessionId: string
   fingerprintId: string
   userInputId: string
@@ -213,12 +242,24 @@ export const promptAiSdkStructured = async function <T>(options: {
   timeout?: number
   chargeUser?: boolean
 }): Promise<T> {
+  if (!checkLiveUserInput(options.userId, options.userInputId)) {
+    logger.info(
+      {
+        userId: options.userId,
+        userInputId: options.userInputId,
+        liveUserInputId: getLiveUserInputId(options.userId),
+      },
+      'Skipping structured prompt due to canceled user input'
+    )
+    return {} as T
+  }
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
-  const responsePromise = generateObject({
+  const responsePromise = generateObject<T>({
     ...options,
     model: aiSDKModel,
+    output: 'object',
   })
 
   const response = await (options.timeout === undefined

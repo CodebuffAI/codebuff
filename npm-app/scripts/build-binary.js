@@ -3,7 +3,6 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
-const { patchBunPty } = require('./patch-bun-pty.js')
 const { patchWebTreeSitter } = require('./patch-web-tree-sitter.js')
 
 // Configuration
@@ -91,9 +90,6 @@ const getTargetInfo = () => {
 }
 
 async function main() {
-  log('🔧 Patching bun-pty...')
-  patchBunPty(VERBOSE)
-
   log('🔧 Patching web-tree-sitter...')
   patchWebTreeSitter(VERBOSE)
 

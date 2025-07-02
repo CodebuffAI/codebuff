@@ -7,6 +7,7 @@ import {
   normalizeRepositoryUrl,
   extractOwnerAndRepo,
 } from './org-billing'
+import { consumeCredits } from './balance-calculator'
 
 export interface OrganizationLookupResult {
   found: boolean
@@ -211,5 +212,83 @@ export async function consumeCreditsWithDelegation(
     )
 
     return { success: false, error: 'Credit delegation process failed' }
+  }
+}
+
+export interface CreditConsumptionOptions {
+  userId: string
+  creditsToCharge: number
+  repoUrl?: string | null
+  context: string // Description of what the credits are for (e.g., 'web search', 'documentation lookup')
+}
+
+export interface CreditFallbackResult {
+  success: boolean
+  organizationId?: string
+  organizationName?: string
+  chargedToOrganization: boolean
+  error?: string
+}
+
+/**
+ * Helper function that decides whether to charge credits to an organization or user directly.
+ * Tries organization delegation first if a repo URL is available, falls back to personal credits.
+ */
+export async function consumeCreditsWithFallback(
+  options: CreditConsumptionOptions
+): Promise<CreditFallbackResult> {
+  const { userId, creditsToCharge, repoUrl, context } = options
+
+  try {
+    // Try organization delegation first if repo URL is available
+    if (repoUrl) {
+      const delegationResult = await consumeCreditsWithDelegation(
+        userId,
+        repoUrl,
+        creditsToCharge
+      )
+
+      if (delegationResult.success) {
+        logger.debug(
+          {
+            userId,
+            creditsToCharge,
+            organizationId: delegationResult.organizationId,
+            context,
+          },
+          `Charged organization credits for ${context}`
+        )
+
+        return {
+          success: true,
+          organizationId: delegationResult.organizationId,
+          organizationName: delegationResult.organizationName,
+          chargedToOrganization: true,
+        }
+      }
+    }
+
+    // Fall back to personal credits
+    await consumeCredits(userId, creditsToCharge)
+    logger.debug(
+      { userId, creditsToCharge, context },
+      `Charged personal credits for ${context}`
+    )
+
+    return {
+      success: true,
+      chargedToOrganization: false,
+    }
+  } catch (error) {
+    logger.error(
+      { error, userId, creditsToCharge, context },
+      `Failed to charge credits for ${context}`
+    )
+
+    return {
+      success: false,
+      chargedToOrganization: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
   }
 }

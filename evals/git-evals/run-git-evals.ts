@@ -3,16 +3,19 @@ import fs from 'fs'
 import pLimit from 'p-limit'
 import path from 'path'
 
+import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { models } from '@codebuff/common/constants'
+import { getDefaultConfig } from '@codebuff/common/json-config/default'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { models } from '@codebuff/common/constants'
 import {
   createFileReadingMock,
   loopMainPrompt,
   resetRepoToCommit,
 } from '../scaffolding'
-import { createInitialAgentState } from '../test-setup'
+import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import {
@@ -25,18 +28,21 @@ import {
   EvalRunLog,
   FullEvalLog,
   GitRepoEvalData,
-  ModelConfig,
 } from './types'
 
+disableLiveUserInputCheck()
+
 // Try Gemini!
-const COST_MODE = 'experimental' as const
+const AGENT_TYPE = AgentTemplateTypes.claude4_base
+
+const EDIT_FILE_TOOL_NAMES = ['write_file', 'str_replace'] as const
 
 export async function runSingleEval(
   evalCommit: EvalCommit,
   projectPath: string,
   clientSessionId: string,
   fingerprintId: string,
-  modelConfig: ModelConfig
+  agentType: string = AGENT_TYPE
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -55,7 +61,7 @@ export async function runSingleEval(
 
   const unhandledHandler = (reason: any, promise: Promise<any>) => {
     console.error('Unhandled rejection during eval:', reason)
-    processError = `Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`
+    processError = `Unhandled rejection: ${reason instanceof Error ? { message: reason.message, stack: reason.stack } : String(reason)}`
   }
 
   process.on('uncaughtException', uncaughtHandler)
@@ -67,7 +73,7 @@ export async function runSingleEval(
 
     // Initialize agent state
     createFileReadingMock(projectPath)
-    let agentState = await createInitialAgentState(projectPath)
+    let sessionState = await createInitialSessionState(projectPath)
 
     let currentDecision: AgentDecision = 'continue'
     let attempts = 0
@@ -82,7 +88,7 @@ export async function runSingleEval(
       const renderedTrace = trace
         .map(
           ({ prompt, steps }) =>
-            `You: ${prompt}\n\nCodebuff:${steps.map(({ response, toolCalls, toolResults }) => `${response}\n\nTool calls: ${JSON.stringify(toolCalls)}\n\nTool results: ${JSON.stringify(toolResults)}`).join('\n\n')}`
+            `You: ${prompt}\n\nCodebuff:${steps.map(({ response }) => response).join('\n\n')}`
         )
         .join('\n\n')
 
@@ -138,20 +144,19 @@ Explain your reasoning in detail.`,
         // Use loopMainPrompt with timeout wrapper
         const codeBuffResult = await withTimeout(
           loopMainPrompt({
-            agentState,
+            sessionState,
             prompt,
             projectPath,
             maxIterations: 20,
-            options: {
-              costMode: COST_MODE,
-              modelConfig,
-            },
+            agentType: agentType as any,
           }),
           // Timeout after 30 minutes
           60_000 * 30
         )
 
-        agentState = codeBuffResult.agentState
+        sessionState.mainAgentState = codeBuffResult.agentState
+        sessionState.mainAgentState.stepsRemaining =
+          getDefaultConfig().maxAgentSteps
         trace.push({ prompt, steps: codeBuffResult.steps })
       }
 
@@ -240,7 +245,11 @@ function getCodebuffFileStates(
       for (const step of traceEntry.steps) {
         if (step.toolCalls) {
           for (const toolCall of step.toolCalls) {
-            if (toolCall.toolName === 'write_file' && toolCall.args.path) {
+            if (
+              EDIT_FILE_TOOL_NAMES.includes(toolCall.toolName as any) &&
+              'path' in toolCall.args &&
+              toolCall.args.path
+            ) {
               codebuffWrittenFilePaths.add(toolCall.args.path as string)
             }
           }
@@ -298,8 +307,9 @@ export function setGlobalConcurrencyLimit(limit: number) {
 export async function runGitEvals(
   evalDataPath: string,
   outputDir: string,
-  modelConfig: ModelConfig,
-  limit?: number
+  agentType: string = AGENT_TYPE,
+  limit?: number,
+  logToStdout: boolean = false
 ): Promise<FullEvalLog> {
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8')
@@ -364,7 +374,9 @@ export async function runGitEvals(
               .slice(0, 30)
             const logFilename = `${safeMessage}-${evalCommit.sha.slice(0, 7)}.log`
             const logPath = path.join(logsDir, logFilename)
-            const logStream = fs.createWriteStream(logPath)
+            const logStream = logToStdout
+              ? process.stdout
+              : fs.createWriteStream(logPath)
 
             // Write evalCommit to temporary file to avoid long command line arguments
             const tempEvalCommitPath = path.join(
@@ -380,7 +392,7 @@ export async function runGitEvals(
                 projectPath,
                 clientSessionId,
                 fingerprintId,
-                JSON.stringify(modelConfig),
+                agentType,
               ],
               { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] }
             )
@@ -408,6 +420,9 @@ export async function runGitEvals(
                   console.log(
                     `Completed eval for commit ${testRepoName} - ${evalCommit.message}`
                   )
+                  if (!logToStdout) {
+                    console.log(`${JSON.stringify(message.result, null, 2)}`)
+                  }
                   resolve(message.result)
                 } else if (message.type === 'error') {
                   console.error(
@@ -508,12 +523,15 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
 // CLI handling
 if (require.main === module) {
   const args = process.argv.slice(2)
-  console.info('Usage: bun run run-git-eval [eval-data-path] [output-dir]')
+  console.info(
+    'Usage: bun run run-git-eval [eval-data-path] [output-dir] [agent-type]'
+  )
 
   const evalDataPath = args[0] || 'git-evals/git-evals.json'
   const outputDir = args[1] || 'git-evals'
+  const agentType = args[2] || AGENT_TYPE
 
-  runGitEvals(evalDataPath, outputDir, {})
+  runGitEvals(evalDataPath, outputDir, agentType)
     .then(() => {
       console.log('Done!')
       process.exit(0)

@@ -1,6 +1,9 @@
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
-import { AgentState, AgentTemplateName } from '@codebuff/common/types/agent-state'
+import {
+  AgentState,
+  AgentTemplateType,
+} from '@codebuff/common/types/session-state'
 
 import {
   getGitChangesPrompt,
@@ -9,31 +12,79 @@ import {
 } from '../system-prompt/prompts'
 import { getToolsInstructions, ToolName } from '../tools'
 
+import { renderToolResults } from '@codebuff/common/constants/tools'
+import { ProjectFileContext } from '@codebuff/common/util/file'
+import { generateCompactId } from '@codebuff/common/util/string'
+import { AGENT_NAMES } from '@codebuff/common/constants/agents'
 import { agentTemplates } from './agent-list'
 import { PLACEHOLDER, PlaceholderValue, placeholderValues } from './types'
 
 export function formatPrompt(
   prompt: string,
+  fileContext: ProjectFileContext,
   agentState: AgentState,
-  tools: ToolName[]
+  tools: ToolName[],
+  spawnableAgents: AgentTemplateType[],
+  intitialAgentPrompt: string | null
 ): string {
+  // Handle structured prompt data
+  let processedPrompt = intitialAgentPrompt ?? ''
+
+  try {
+    // Try to parse as JSON to extract structured data
+    const promptData = JSON.parse(intitialAgentPrompt ?? '{}')
+    if (typeof promptData === 'object' && promptData !== null) {
+      // If it's structured data, extract the main prompt
+      processedPrompt = promptData.prompt || intitialAgentPrompt || ''
+
+      // Handle file paths for planner agent
+      if (promptData.filePaths && Array.isArray(promptData.filePaths)) {
+        processedPrompt += `\n\nRelevant files to consider:\n${promptData.filePaths.map((path: string) => `- ${path}`).join('\n')}`
+      }
+    }
+  } catch {
+    // If not JSON, use as-is
+    processedPrompt = intitialAgentPrompt ?? ''
+  }
+
   const toInject: Record<PlaceholderValue, string> = {
+    [PLACEHOLDER.AGENT_NAME]: agentState.agentType
+      ? AGENT_NAMES[agentState.agentType]
+      : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
-      agentState.fileContext,
+      fileContext,
       20_000,
       'agent'
     ),
-    [PLACEHOLDER.GIT_CHANGES_PROMPT]: getGitChangesPrompt(
-      agentState.fileContext
+    [PLACEHOLDER.GIT_CHANGES_PROMPT]: getGitChangesPrompt(fileContext),
+    [PLACEHOLDER.REMAINING_STEPS]: `${agentState.stepsRemaining!}`,
+    [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
+    [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
+    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools, spawnableAgents),
+    [PLACEHOLDER.USER_CWD]: fileContext.cwd,
+    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: processedPrompt,
+    [PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS]: renderToolResults(
+      Object.entries({
+        ...Object.fromEntries(
+          Object.entries(fileContext.knowledgeFiles)
+            .filter(([path]) =>
+              [
+                'knowledge.md',
+                'CLAUDE.md',
+                'codebuff.json',
+                'codebuff.jsonc',
+              ].includes(path)
+            )
+            .map(([path, content]) => [path, content.trim()])
+        ),
+        ...fileContext.userKnowledgeFiles,
+      }).map(([path, content]) => ({
+        toolName: 'read_files',
+        toolCallId: generateCompactId(),
+        result: JSON.stringify({ path, content }),
+      }))
     ),
-    [PLACEHOLDER.REMAINING_STEPS]: `${agentState.agentStepsRemaining!}`,
-    [PLACEHOLDER.PROJECT_ROOT]: agentState.fileContext.projectRoot,
-    [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(
-      agentState.fileContext
-    ),
-    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
-    [PLACEHOLDER.USER_CWD]: agentState.fileContext.cwd,
   }
 
   for (const varName of placeholderValues) {
@@ -45,15 +96,23 @@ export function formatPrompt(
   return prompt
 }
 
-export function getAgentPrompt(
-  agentTemplateName: AgentTemplateName,
-  promptType: 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt',
+type StringField = 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt'
+type RequirePrompt = 'initialAssistantMessage' | 'initialAssistantPrefix'
+
+export function getAgentPrompt<T extends StringField | RequirePrompt>(
+  agentTemplateName: AgentTemplateType,
+  promptType: T extends StringField ? { type: T } : { type: T; prompt: string },
+  fileContext: ProjectFileContext,
   agentState: AgentState
 ): string {
   const agentTemplate = agentTemplates[agentTemplateName]
+
   return formatPrompt(
-    agentTemplate[promptType],
+    agentTemplate[promptType.type],
+    fileContext,
     agentState,
-    agentTemplate.toolNames
+    agentTemplate.toolNames,
+    agentTemplate.spawnableAgents,
+    'prompt' in promptType ? promptType.prompt : ''
   )
 }

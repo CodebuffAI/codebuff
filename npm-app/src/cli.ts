@@ -4,7 +4,11 @@ import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
-import { type ApiKeyType } from '@codebuff/common/api-keys/constants'
+import { ApiKeyType } from '@codebuff/common/api-keys/constants'
+import {
+  UNIQUE_AGENT_NAMES,
+  AGENT_PERSONAS,
+} from '@codebuff/common/constants/agents'
 import type { CostMode } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { isDir, ProjectFileContext } from '@codebuff/common/util/file'
@@ -41,6 +45,7 @@ import { handleInitializationFlowLocally } from './cli-handlers/inititalization-
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
+import { DiffManager } from './diff-manager'
 import { disableSquashNewlines, enableSquashNewlines } from './display'
 import { loadCodebuffConfig } from './json-config/parser'
 import {
@@ -55,7 +60,6 @@ import {
   initProjectFileContextWithWorker,
 } from './project-files'
 import { rageDetectors } from './rage-detectors'
-import { createRageDetectors, RageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import {
   clearScreen,
@@ -63,7 +67,7 @@ import {
   killAndResetPersistentProcess,
   persistentProcess,
   resetShell,
-} from './terminal/base'
+} from './terminal/run-command'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
@@ -116,7 +120,7 @@ export class CLI {
 
     this.readyPromise = Promise.all([
       readyPromise.then(([fileContext]) => {
-        Client.getInstance().initAgentState(fileContext)
+        Client.getInstance().initSessionState(fileContext)
         return Client.getInstance().warmContextCache()
       }),
       Client.getInstance().connect(),
@@ -178,9 +182,9 @@ export class CLI {
   private setupSignalHandlers() {
     process.on('exit', () => {
       Spinner.get().restoreCursor()
-      // Kill the persistent PTY process first
-      if (persistentProcess?.type === 'pty') {
-        persistentProcess.pty.kill()
+      // Kill the persistent child process first
+      if (persistentProcess && persistentProcess.childProcess) {
+        persistentProcess.childProcess.kill()
       }
       sendKillSignalToAllBackgroundProcesses()
       const isHomeDir = getProjectRoot() === os.homedir()
@@ -299,64 +303,24 @@ export class CLI {
       return [[], line] // No slash command matches
     }
 
-    // Handle @ prefix for token and file completion
+    // Handle @ prefix for agent name completion
     if (lastWord.startsWith('@')) {
-      const client = Client.getInstance()
-      if (!client.fileContext?.fileTree) return [[], line]
+      const searchTerm = lastWord.substring(1).toLowerCase() // Remove @ prefix
 
-      const searchTerm = lastWord.substring(1) // Remove @ prefix
-      const searchTermLower = searchTerm.toLowerCase()
-
-      // Get token names from fileTokenScores
-      const tokenNames = Object.values(
-        client.fileContext.fileTokenScores
-      ).flatMap((o) => Object.keys(o))
-
-      // Get all file paths
-      const paths = this.getAllFilePaths(client.fileContext.fileTree)
-
-      // Combine tokens and paths for matching
-      const allCandidates = [...tokenNames, ...paths]
-
-      const matchingItems = allCandidates.filter(
-        (item) =>
-          item.toLowerCase().startsWith(searchTermLower) ||
-          item.toLowerCase().includes('/' + searchTermLower)
+      // Filter agent names that match the search term
+      const matchingAgents = UNIQUE_AGENT_NAMES.filter((name) =>
+        name.toLowerCase().startsWith(searchTerm)
       )
 
-      // Limit the number of results to keep completion manageable
-      const MAX_COMPLETION_RESULTS = 20
-      const limitedMatches = matchingItems.slice(0, MAX_COMPLETION_RESULTS)
-
-      if (limitedMatches.length > 1) {
-        // Find common prefix among matches
-        const suffixes = limitedMatches.map((item) => {
-          const index = item.toLowerCase().indexOf(searchTermLower)
-          return item.slice(index + searchTerm.length)
-        })
-
-        let commonPrefix = ''
-        const firstSuffix = suffixes[0]
-        for (let i = 0; i < firstSuffix.length; i++) {
-          const char = firstSuffix[i]
-          if (suffixes.every((suffix) => suffix[i] === char)) {
-            commonPrefix += char
-          } else {
-            break
-          }
-        }
-
-        if (commonPrefix) {
-          // Return the completion with @ prefix preserved
-          return [['@' + searchTerm + commonPrefix], lastWord]
-        }
-
-        // Multiple matches but no common prefix - show matches WITHOUT @ prefix but keep @ in input
-        return [limitedMatches, lastWord]
+      if (matchingAgents.length > 0) {
+        // Return completions with @ prefix
+        const completions = matchingAgents.map((name) => `@${name}`)
+        return [completions, lastWord]
       }
 
-      // Single match or no matches - remove @ prefix from completion
-      return [limitedMatches, lastWord]
+      // If no agent matches, return empty completions for better UX
+      // Users typing @ likely intend to mention an agent
+      return [[], lastWord]
     }
 
     // Original file path completion logic (unchanged)
@@ -399,6 +363,27 @@ export class CLI {
     })
   }
 
+  private displayAgentMenu() {
+    const maxNameLength = Math.max(
+      ...UNIQUE_AGENT_NAMES.map((name) => name.length)
+    )
+
+    const agentLines = UNIQUE_AGENT_NAMES.map((name) => {
+      const padding = '.'.repeat(maxNameLength - name.length + 3)
+      // Find the description directly from the metadata
+      const description =
+        Object.values(AGENT_PERSONAS).find((metadata) => metadata.name === name)
+          ?.description || 'AI specialist agent'
+      return `${cyan(`@${name}`)} ${padding} ${description}`
+    })
+
+    const tip = gray(
+      'Tip: Type "@" followed by an agent name to request a specific agent, e.g., @reid find relevant files'
+    )
+
+    console.log(`\n\n${agentLines.join('\n')}\n${tip}\n`)
+  }
+
   private getModeIndicator(): string {
     const costModeIndicator =
       this.costMode !== 'normal' ? ` (${this.costMode})` : ''
@@ -425,11 +410,13 @@ export class CLI {
    * Prompts the user with a clean prompt state
    */
   private freshPrompt(userInput: string = '') {
+    const client = Client.getInstance()
     Spinner.get().stop()
     this.isReceivingResponse = false
+    client.cancelCurrentInput()
 
     if (this.shouldReconnectWhenIdle) {
-      Client.getInstance().reconnect()
+      client.reconnect()
       this.shouldReconnectWhenIdle = false
     }
 
@@ -437,7 +424,7 @@ export class CLI {
     const rlAny = this.rl as any
 
     // Check for pending auto-topup message before showing prompt
-    if (Client.getInstance().pendingTopUpMessageAmount > 0) {
+    if (client.pendingTopUpMessageAmount > 0) {
       console.log(
         '\n\n' +
           green(
@@ -445,7 +432,7 @@ export class CLI {
           ) +
           '\n'
       )
-      Client.getInstance().pendingTopUpMessageAmount = 0
+      client.pendingTopUpMessageAmount = 0
     }
 
     // clear line first
@@ -494,11 +481,6 @@ export class CLI {
       process.stdout.write(initialInput + '\n')
       await this.handleUserInput(initialInput)
     }
-  }
-
-  public async printDiff() {
-    handleDiff(Client.getInstance().lastChanges)
-    this.freshPrompt()
   }
 
   private async handleLine(line: string) {
@@ -595,6 +577,9 @@ export class CLI {
       } else if (mode === 'max') {
         console.log(
           blueBright('⚡ Switched to max mode (slower, more thorough)')
+        )
+        console.log(
+          blueBright('New Jul 2: Even more powerful (though more expensive)')
         )
       } else if (mode === 'experimental') {
         console.log(magenta('🧪 Switched to experimental mode (cutting-edge)'))
@@ -713,7 +698,7 @@ export class CLI {
       return null
     }
     if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {
-      handleDiff(Client.getInstance().lastChanges)
+      handleDiff()
       this.freshPrompt()
       return null
     }
@@ -818,6 +803,8 @@ export class CLI {
 
     this.isReceivingResponse = true
 
+    DiffManager.startUserInput()
+
     const { responsePromise, stopResponse } =
       await Client.getInstance().sendUserInput(cleanedInput)
 
@@ -891,6 +878,19 @@ export class CLI {
         // Call freshPrompt and pre-fill the line with the slash
         // so the user can continue typing their command.
         this.freshPrompt('/')
+      }
+    }
+
+    if (str === '@') {
+      const currentLine = this.pastedContent + (this.rl as any).line
+      // Only show agent menu if '@' is the first character or after a space
+      const isAtStart = currentLine === '@'
+      const isAfterSpace = currentLine.endsWith(' @')
+
+      if (isAtStart || isAfterSpace) {
+        this.displayAgentMenu()
+        // Call freshPrompt and pre-fill the line with the @
+        this.freshPrompt(currentLine)
       }
     }
 

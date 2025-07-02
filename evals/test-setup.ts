@@ -2,12 +2,12 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { getInitialAgentState } from '@codebuff/common/types/agent-state'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   setProjectRoot,
   setWorkingDirectory,
 } from '@codebuff/npm-app/project-files'
-import { recreateShell } from '@codebuff/npm-app/terminal/base'
+import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
 
 import {
   createFileReadingMock,
@@ -154,9 +154,9 @@ export async function setupTestEnvironment(projectName: string) {
   }
 
   const repoPath = path.join(TEST_REPOS_DIR, projectName)
+  setProjectRoot(repoPath)
   createFileReadingMock(repoPath)
   recreateShell(repoPath)
-  setProjectRoot(repoPath)
   setWorkingDirectory(repoPath)
 
   // Return project info for use in tests
@@ -168,7 +168,7 @@ export async function setupTestEnvironment(projectName: string) {
 }
 
 // Creates an initial agent state for testing
-export async function createInitialAgentState(repoPath: string) {
+export async function createInitialSessionState(repoPath: string) {
   const fileContext = await getProjectFileContext(repoPath)
-  return getInitialAgentState(fileContext)
+  return getInitialSessionState(fileContext)
 }

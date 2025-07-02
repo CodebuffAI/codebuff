@@ -1,23 +1,21 @@
 # Credit Grant System
 
-## Idempotency Patterns
+## Operation ID Patterns
 
-Both credit operations use a standardized format for operation IDs:
-`type-${userId}-${YYYY-MM-DDTHH:mm}`
+Credit operations use standardized operation IDs for idempotency:
 
-The timestamp portion (YYYY-MM-DDTHH:mm) is generated from:
-- Monthly Grants: The next reset date
-- Auto-topup: The current time
+**Format**: `{type}-{entityId}-{timestamp}`
 
-This provides:
-- Minute-level precision for uniqueness
-- Human-readable timestamps with ISO-style separators
-- Consistent format across operations
-- Different time sources for different needs:
-  - Reset date ensures one grant per cycle
-  - Current time allows multiple top-ups per day
+Where:
+- `type`: Operation type (free, referral, auto-topup, org-auto-topup)
+- `entityId`: User ID or organization ID
+- `timestamp`: `YYYY-MM-DDTHH:mm` format from `generateOperationIdTimestamp()`
 
-Both patterns rely on:
-- Deterministic operation IDs based on user + time
-- Database unique constraint on credit_ledger.operation_id
-- Graceful handling of constraint violations (log and continue)
+**Time sources**:
+- Monthly grants: Use next reset date (ensures one grant per cycle)
+- Auto-topup: Use current time (allows multiple top-ups per day)
+
+**Idempotency**:
+- Primary key constraint on `credit_ledger.operation_id`
+- Graceful handling of duplicate operations (log and continue)
+- Deterministic IDs prevent duplicate grants

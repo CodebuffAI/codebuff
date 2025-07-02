@@ -11,10 +11,11 @@ describe('getFilteredToolsInstructions', () => {
     'find_files',
     'code_search',
     'run_terminal_command',
-    'research',
     'think_deeply',
     'create_plan',
     'browser_logs',
+    'read_docs',
+    'web_search',
     'end_turn',
   ]
 
@@ -24,10 +25,11 @@ describe('getFilteredToolsInstructions', () => {
     'read_files',
     'find_files',
     'code_search',
-    'research',
     'think_deeply',
     'create_plan',
     'browser_logs',
+    'read_docs',
+    'web_search',
     'end_turn',
   ]
 
@@ -48,8 +50,19 @@ describe('getFilteredToolsInstructions', () => {
     expect(instructions).not.toInclude(`### run_terminal_command`)
   })
 
-  test('should not include research if readOnlyMode is true', () => {
-    const instructions = getFilteredToolsInstructions('normal', true)
-    expect(instructions).not.toInclude(`### research`)
+  test('should include read_docs tool in both modes', () => {
+    const normalInstructions = getFilteredToolsInstructions('normal', false)
+    const askInstructions = getFilteredToolsInstructions('ask', false)
+    
+    expect(normalInstructions).toInclude(`### read_docs`)
+    expect(askInstructions).toInclude(`### read_docs`)
+  })
+
+  test('should include web_search tool in both modes', () => {
+    const normalInstructions = getFilteredToolsInstructions('normal', false)
+    const askInstructions = getFilteredToolsInstructions('ask', false)
+    
+    expect(normalInstructions).toInclude(`### web_search`)
+    expect(askInstructions).toInclude(`### web_search`)
   })
 })

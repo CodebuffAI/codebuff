@@ -8,26 +8,19 @@ import {
 } from '@codebuff/bigquery'
 import {
   finetunedVertexModels,
-  finetunedVertexModelNames,
   models,
-  type CostMode,
   type FinetunedVertexModel,
 } from '@codebuff/common/constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import {
-  cleanMarkdownCodeBlock,
-  createMarkdownFileBlock,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
 import { range, shuffle, uniq } from 'lodash'
-import { WebSocket } from 'ws'
 
-import { System } from '../llm-apis/claude'
 import { logger } from '../util/logger'
-import { countTokens } from '../util/token-counter'
-import { requestFiles } from '../websockets/websocket-action'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
+import { CoreMessage } from 'ai'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import {
@@ -35,12 +28,11 @@ import {
   coreMessagesWithSystem,
   getCoreMessagesSubset,
 } from '../util/messages'
-import { CoreMessage } from 'ai'
 
-import { getRequestContext } from '../websockets/request-context'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
+import { getRequestContext } from '../websockets/request-context'
 import {
   CustomFilePickerConfig,
   CustomFilePickerConfigSchema,
@@ -147,7 +139,6 @@ export async function requestRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode,
   repoId: string | undefined
 ) {
   // Check for organization custom file picker feature
@@ -158,18 +149,7 @@ export async function requestRelevantFiles(
     requestContext?.isRepoApprovedForUserInOrg
   )
 
-  const defaultCountPerRequest = {
-    lite: 8,
-    normal: 12,
-    max: 14,
-    experimental: 14,
-    ask: 12,
-  }
-
-  // Use custom file counts if available, otherwise use defaults
-  const countPerRequest =
-    customFilePickerConfig?.customFileCounts?.[costMode] ??
-    defaultCountPerRequest[costMode]
+  const countPerRequest = 12
 
   // Use custom max files per request if specified, otherwise default to 30
   const maxFilesPerRequest =
@@ -194,8 +174,7 @@ export async function requestRelevantFiles(
         fingerprintId,
         userInputId,
         userPrompt,
-        userId,
-        costMode
+        userId
       ).catch((error) => {
         logger.error({ error }, 'Error checking new files necessary')
         return { newFilesNecessary: true, response: 'N/A', duration: 0 }
@@ -254,7 +233,6 @@ export async function requestRelevantFiles(
     fingerprintId,
     userInputId,
     userId,
-    costMode,
     repoId,
     modelIdForRequest
   ).catch((error) => {
@@ -297,7 +275,6 @@ export async function requestRelevantFilesForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode,
   repoId: string | undefined
 ) {
   const COUNT = 50
@@ -337,7 +314,6 @@ export async function requestRelevantFilesForTraining(
     fingerprintId,
     userInputId,
     userId,
-    costMode,
     repoId
   )
 
@@ -353,7 +329,6 @@ export async function requestRelevantFilesForTraining(
     fingerprintId,
     userInputId,
     userId,
-    costMode,
     repoId
   )
 
@@ -381,7 +356,6 @@ async function getRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode,
   repoId: string | undefined,
   modelId?: FinetunedVertexModel
 ) {
@@ -416,7 +390,6 @@ async function getRelevantFiles(
     userInputId,
     model: models.gemini2flash,
     userId,
-    costMode,
     useFinetunedModel: finetunedModel,
     fingerprintId,
   })
@@ -436,7 +409,6 @@ async function getRelevantFiles(
       system,
       output: response,
       request_type: requestType,
-      cost_mode: costMode,
       user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
@@ -467,7 +439,6 @@ async function getRelevantFilesForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  costMode: CostMode,
   repoId: string | undefined
 ) {
   const bufferTokens = 100_000
@@ -508,7 +479,6 @@ async function getRelevantFilesForTraining(
       system,
       output: response,
       request_type: requestType,
-      cost_mode: costMode,
       user_input_id: userInputId,
       client_session_id: clientSessionId,
       fingerprint_id: fingerprintId,
@@ -661,124 +631,6 @@ That means every file that is not at the project root should start with one of t
 ${topLevelDirectories(fileContext).join('\n')}
 
 Please limit your response just the file paths on new lines. Do not write anything else.
-`.trim()
-}
-
-async function secondPassFindAdditionalFiles(
-  system: System,
-  candidateFiles: string[],
-  messagesExcludingLastIfByUser: CoreMessage[],
-  userRequest: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  ws: WebSocket,
-  maxFiles: number
-): Promise<{ additionalFiles: string[]; duration: number }> {
-  const startTime = performance.now()
-
-  const fileContents = await requestFiles(ws, candidateFiles)
-
-  // Filter out large files and build content string
-  const filteredContents: Record<string, string> = {}
-  for (const [file, content] of Object.entries(fileContents)) {
-    if (typeof content === 'string') {
-      // Check length first since it's cheaper than counting tokens
-      if (content.length > 200_000) {
-        logger.info(
-          { file, length: content.length },
-          'Skipping large file based on length'
-        )
-        continue
-      }
-
-      const tokens = countTokens(content)
-      if (tokens > 50_000) {
-        logger.info(
-          { file, tokens },
-          'Skipping large file based on token count'
-        )
-        continue
-      }
-
-      filteredContents[file] = content
-    }
-  }
-
-  let fileListString = ''
-  for (const [file, content] of Object.entries(filteredContents)) {
-    fileListString += createMarkdownFileBlock(file, content) + '\n\n'
-  }
-
-  const messages = [
-    {
-      role: 'user' as const,
-      content: generateAdditionalFilesPrompt(
-        fileListString,
-        userRequest,
-        messagesExcludingLastIfByUser,
-        maxFiles
-      ),
-    },
-  ]
-  const additionalFilesResponse = await promptFlashWithFallbacks(
-    coreMessagesWithSystem(messages, system),
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: models.gemini2flash,
-      userId,
-      costMode: 'max',
-    }
-  ).catch((error) => {
-    logger.error(error, 'Error filtering files with Gemini')
-    return candidateFiles.join('\n')
-  })
-
-  const secondPassFiles = cleanMarkdownCodeBlock(additionalFilesResponse)
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-
-  return {
-    additionalFiles: secondPassFiles,
-    duration: performance.now() - startTime,
-  }
-}
-
-function generateAdditionalFilesPrompt(
-  fileListString: string,
-  userRequest: string,
-  messagesExcludingLastIfByUser: CoreMessage[],
-  maxFiles: number
-): string {
-  return `
-<message_history>
-${messagesExcludingLastIfByUser.map((m) => `${m.role}: ${m.content}`).join('\n')}
-</message_history>
-
-Given the below files and the user request, choose up to ${maxFiles} new files that are not in the current_files list, but that are directly relevant to fulfilling the user's request.
-
-For example, include files that:
-- Need to be modified to implement the request
-- Contain code that will be referenced or copied
-- Define types, interfaces, or constants needed
-- Contain dependencies, utilities, helpers that are relevant
-- Show similar implementations or patterns even if not directly related
-- Provide important context about the system or codebase architecture
-- Contain tests that should be updated or run
-- Define configuration that may need to change
-
-<current_files>
-${fileListString}
-</current_files>
-
-<user_request>${userRequest}</user_request>
-
-List only the file paths of new files, in order of relevance (most relevant first!), with new lines between each file path. Use the project file tree to choose new files.
-Do not write any commentary.
 `.trim()
 }
 

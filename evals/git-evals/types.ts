@@ -110,7 +110,7 @@ export interface EvalConfig {
   name: string
   evalDataPath: string
   outputDir: string
-  modelConfig: ModelConfig
+  agentType?: string
   limit?: number
 }
 

@@ -11,9 +11,12 @@ async function calculateMonthlyUsage(month: string) {
       throw new Error('Invalid month format. Please use YYYY-MM (e.g. 2025-04)')
     }
 
-    // Calculate start and end dates
+    // Calculate start and end dates in local timezone
+    // Using local timezone ensures we get the full month in the user's timezone
     const startDate = new Date(year, monthNum - 1, 1) // Month is 0-based in JS Date
     const endDate = new Date(year, monthNum, 1) // First day of next month
+    
+    console.log(`Calculating usage for ${month} (${startDate.toLocaleDateString()} to ${new Date(endDate.getTime() - 1).toLocaleDateString()} local time)`)
 
     // Query to get total credits and breakdown by user
     const results = await db
@@ -69,8 +72,15 @@ async function calculateMonthlyUsage(month: string) {
   }
 }
 
-// Get month from command line argument or default to current month
-const month = process.argv[2] || new Date().toISOString().split('-')[0] + '-' + new Date().toISOString().split('-')[1]
+// Get month from command line argument or default to current month in local timezone
+const getCurrentMonthLocal = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = (now.getMonth() + 1).toString().padStart(2, '0') // getMonth() is 0-based
+  return `${year}-${month}`
+}
+
+const month = process.argv[2] || getCurrentMonthLocal()
 
 // Run the calculation
 calculateMonthlyUsage(month)

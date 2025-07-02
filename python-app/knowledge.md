@@ -1,76 +1,21 @@
-# Codebuff Project Knowledge
+# Python Package
 
-## Project Structure
+## Current Status
+Placeholder package that redirects users to npm version. Not functional - serves only to inform users about the npm package.
 
-The codebuff project follows the modern Python packaging structure:
+## Structure
+- `pyproject.toml`: Package metadata, version 0.1.1
+- `src/codebuff/__init__.py`: Main function that prints redirect message
+- `README.md`: Installation instructions (npm only)
+- `LICENSE`: MIT License template (incomplete)
 
-- `pyproject.toml`: Contains project metadata and build system requirements.
-- `src/codebuff/`: Source code directory.
-- `tests/`: Directory for test files (currently empty).
-- `dist/`: Contains distribution files after building the package.
-- `LICENSE`: MIT License file.
-- `README.md`: Project description and usage instructions.
+## Key Issues
+- Package name mismatch: configured as "codebuff" but script entry point references "manicode"
+- LICENSE file has placeholder text `[year] [fullname]`
+- URLs point to old "manicode" repository instead of current project
 
-## Build System
-
-- Uses `setuptools` as the build backend.
-- Configured to use the `src` layout for better separation of source code.
-
-## Package Information
-
-- Name: codebuff
-- Description: An AI-powered coding assistant (coming soon)
-- Requires Python 3.6 or later
-
-## Distribution
-
-- The project can be built using the `build` package: `python -m build`
-- This creates both source (.tar.gz) and wheel (.whl) distributions in the `dist/` directory.
-
-## Development
-
-- For local development, install the package in editable mode: `pip install -e .`
-- Remember to update the version in `pyproject.toml` when making new releases.
-
-## Next Steps
-
-- Implement the main functionality of the AI-powered coding assistant.
-- Add tests in the `tests/` directory.
-- Update `README.md` with detailed usage instructions as features are developed.
-
-## Important Notes
-
-- The package currently uses a console script entry point, which should be implemented in the `manicode/__init__.py` file.
-- The project is in a pre-alpha state and not yet ready for public release.
-
-Remember to keep this knowledge file updated as the project evolves.
-
-# Python Package Development
-
-## Package Information
-- Name: codebuff
-- Description: An AI-powered coding assistant
-- Status: Placeholder package that redirects users to npm version
-
-## Development Environment
-
-Important: Use virtual environments for package development:
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install build
-```
-
-## Publishing Process
-
-1. Create and activate virtual environment
-2. Install build tools: `pip install build`
-3. Build package: `python -m build`
-4. Upload to PyPI: `python -m twine upload dist/*`
-
-Note: The package currently serves as a placeholder, directing users to install the npm version instead.
-
-## Version Management
-
-- Update version in `pyproject.toml` before publishing
-- Follow semantic versioning (major.minor.patch)
+## Publishing
+- Uses setuptools build system
+- Requires Python 3.6+
+- Build with: `python -m build`
+- Current version: 0.1.1

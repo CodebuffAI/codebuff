@@ -7,7 +7,7 @@ on:
 jobs:
   run-evals:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 360
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -64,7 +64,7 @@ jobs:
 
       - name: Run evals
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
-        run: bun run --cwd evals run-eval-set
+        run: cd evals && bun run-eval-set --concurrency 1 --email --title "Git Eval (${{ github.sha }} ${{ github.event.head_commit.message }}})"
 
       - name: Workflow completed
         run: echo "Evals workflow completed successfully"

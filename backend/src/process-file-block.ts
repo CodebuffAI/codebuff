@@ -1,4 +1,4 @@
-import { CostMode, models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/constants'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { hasLazyEdit } from '@codebuff/common/util/string'
 import { createPatch } from 'diff'
@@ -24,14 +24,14 @@ export async function processFileBlock(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined,
-  costMode: CostMode
+  userId: string | undefined
 ): Promise<
   | {
       tool: 'write_file'
       path: string
       content: string // Updated copy of the file
       patch: string | undefined // Patch diff string. Undefined for a new file
+      messages: string[]
     }
   | {
       tool: 'write_file'
@@ -66,6 +66,7 @@ export async function processFileBlock(
       path,
       content: cleanContent,
       patch: undefined,
+      messages: [`Created new file ${path}`],
     }
   }
 
@@ -85,11 +86,15 @@ export async function processFileBlock(
   const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
   const normalizedInitialContent = normalizeLineEndings(initialContent)
   const normalizedEditSnippet = normalizeLineEndings(newContent)
+  const editMessages: string[] = []
 
   let updatedContent: string
   const tokenCount =
     countTokens(normalizedInitialContent) + countTokens(normalizedEditSnippet)
 
+  editMessages.push(
+    'Write diff created by fast-apply model. May contain errors. Make sure to double check!'
+  )
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
     const largeFileContent = await handleLargeFile(
       normalizedInitialContent,
@@ -98,8 +103,7 @@ export async function processFileBlock(
       fingerprintId,
       userInputId,
       userId,
-      path,
-      costMode
+      path
     )
 
     if (!largeFileContent) {
@@ -159,19 +163,23 @@ export async function processFileBlock(
   if (hunkStartIndex !== -1) {
     patch = lines.slice(hunkStartIndex).join('\n')
   } else {
+    editMessages.push(
+      'The new content was the same as the old content, skipping.'
+    )
     logger.debug(
       {
         path,
         initialContent,
         changes: newContent,
         patch,
+        editMessages,
       },
       `processFileBlock: No change to ${path}`
     )
     return {
       tool: 'write_file' as const,
       path,
-      error: 'The new content was the same as the old content, skipping.',
+      error: editMessages.join('\n\n'),
     }
   }
   logger.debug(
@@ -180,6 +188,7 @@ export async function processFileBlock(
       editSnippet: newContent,
       updatedContent,
       patch,
+      editMessages,
     },
     `processFileBlock: Updated file ${path}`
   )
@@ -195,6 +204,7 @@ export async function processFileBlock(
     path,
     content: updatedContentOriginalLineEndings,
     patch: patchOriginalLineEndings,
+    messages: editMessages,
   }
 }
 
@@ -207,8 +217,7 @@ export async function handleLargeFile(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  filePath: string,
-  costMode: CostMode
+  filePath: string
 ): Promise<string | null> {
   const startTime = Date.now()
 
@@ -282,7 +291,6 @@ Please output just the SEARCH/REPLACE blocks like this:
       await retryDiffBlocksPrompt(
         filePath,
         updatedContent,
-        costMode,
         clientSessionId,
         fingerprintId,
         userInputId,

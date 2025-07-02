@@ -2,6 +2,3 @@
 # In CI, skip local linking and pull prebuilt artifacts from npm
 linkWorkspacePackages = false
 
-[test]
-# Test configuration
-preload = ["./test/setup.ts"]

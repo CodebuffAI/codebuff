@@ -1,8 +1,5 @@
-import { spawn } from 'child_process'
 import {
   ClientAction,
-  FileChanges,
-  FileChangeSchema,
   InitResponseSchema,
   MessageCostResponseSchema,
   PromptResponseSchema,
@@ -10,6 +7,7 @@ import {
   UsageReponseSchema,
   UsageResponse,
 } from '@codebuff/common/actions'
+import { spawn } from 'child_process'
 import {
   existsSync,
   mkdirSync,
@@ -20,6 +18,7 @@ import {
 import os from 'os'
 
 import { ApiKeyType, READABLE_NAME } from '@codebuff/common/api-keys/constants'
+import { AGENT_NAME_TO_TYPES, UNIQUE_AGENT_NAMES } from '@codebuff/common/constants/agents'
 import {
   ASKED_CONFIG,
   CostMode,
@@ -33,9 +32,10 @@ import {
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
 import {
-  AgentState,
-  getInitialAgentState,
-} from '@codebuff/common/types/agent-state'
+  getInitialSessionState,
+  SessionState,
+  ToolResult,
+} from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
 import { User } from '@codebuff/common/util/credentials'
 import { ProjectFileContext } from '@codebuff/common/util/file'
@@ -55,28 +55,27 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
-import { ToolResult } from '@codebuff/common/types/agent-state'
-import { npmAppVersion } from './config'
+import { closeXml } from '@codebuff/common/util/xml'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CLI } from './cli'
-import { waitForPreviousCheckpoint } from './cli-handlers/checkpoint'
-import { backendUrl, websiteUrl } from './config'
+import { backendUrl, npmAppVersion, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
+import { DiffManager } from './diff-manager'
 import { calculateFingerprint } from './fingerprint'
-import { runFileChangeHooks } from './json-config/hooks'
 import { loadCodebuffConfig } from './json-config/parser'
 import { displayGreeting } from './menu'
-import { logAndHandleStartup } from './startup-process-handler'
 import {
+  clearCachedProjectFileContext,
   getFiles,
   getProjectFileContext,
   getProjectRoot,
   getWorkingDirectory,
   startNewChat,
 } from './project-files'
+import { logAndHandleStartup } from './startup-process-handler'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
@@ -145,10 +144,8 @@ export class Client {
   private reconnectWhenNextIdle: () => void
   private fingerprintId!: string | Promise<string>
   private costMode: CostMode
-  private hadFileChanges: boolean = false
-  private git: GitCommand
   private responseComplete: boolean = false
-  private responseBuffer: string = ''
+  private userInputId: string | undefined
 
   public usageData: UsageData = {
     usage: 0,
@@ -158,9 +155,7 @@ export class Client {
   }
   public pendingTopUpMessageAmount: number = 0
   public fileContext: ProjectFileContext | undefined
-  public lastChanges: FileChanges = []
-  public filesChangedForHook: string[] = []
-  public agentState: AgentState | undefined
+  public sessionState: SessionState | undefined
   public originalFileVersions: Record<string, string | null> = {}
   public creditsByPromptId: Record<string, number[]> = {}
   public user: User | undefined
@@ -168,7 +163,7 @@ export class Client {
   public storedApiKeyTypes: ApiKeyType[] = []
   public lastToolResults: ToolResult[] = []
   public model: string | undefined
-  private oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
+  public oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
     Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
       (typeof ONE_TIME_LABELS)[number],
       boolean
@@ -182,12 +177,10 @@ export class Client {
     freshPrompt,
     reconnectWhenNextIdle,
     costMode,
-    git,
     model,
   }: ClientOptions) {
     this.costMode = costMode
     this.model = model
-    this.git = git
     this.webSocket = new APIRealtimeClient(
       websocketUrl,
       onWebSocketError,
@@ -239,20 +232,21 @@ export class Client {
     process.exit(0)
   }
 
-  public initAgentState(projectFileContext: ProjectFileContext) {
-    this.agentState = getInitialAgentState(projectFileContext)
+  public initSessionState(projectFileContext: ProjectFileContext) {
+    this.sessionState = getInitialSessionState(projectFileContext)
     this.fileContext = projectFileContext
   }
 
   public async resetContext() {
     if (!this.fileContext) return
-    this.initAgentState(this.fileContext)
+    this.initSessionState(this.fileContext)
     this.lastToolResults = []
-    this.lastChanges = []
+    DiffManager.clearAllChanges()
     this.creditsByPromptId = {}
     checkpointManager.clearCheckpoints(true)
     setMessages([])
     startNewChat()
+    clearCachedProjectFileContext()
     await this.warmContextCache()
   }
 
@@ -728,6 +722,72 @@ export class Client {
       })
     })
 
+    // Handle backend-initiated tool call requests
+    this.webSocket.subscribe('tool-call-request', async (action) => {
+      const { requestId, toolName, args, userInputId } = action
+
+      // Check if the userInputId matches or is from a spawned agent
+      if (!this.userInputId || !userInputId.startsWith(this.userInputId)) {
+        logger.warn(
+          {
+            requestId,
+            toolName,
+            expectedUserInputId: this.userInputId,
+            receivedUserInputId: userInputId,
+          },
+          'User input ID mismatch - rejecting tool call request'
+        )
+
+        this.webSocket.sendAction({
+          type: 'tool-call-response',
+          requestId,
+          success: false,
+          error: `User input ID mismatch: expected ${this.userInputId}, got ${userInputId}. Most likely cancelled by user.`,
+        })
+        return
+      }
+
+      try {
+        // Execute the tool call using existing tool handlers
+        const toolCall = {
+          toolCallId: requestId,
+          toolName,
+          args,
+        }
+
+        Spinner.get().stop()
+        const toolResult = await handleToolCall(toolCall as any)
+
+        // Send successful response back to backend
+        Spinner.get().start('Thinking...')
+        this.webSocket.sendAction({
+          type: 'tool-call-response',
+          requestId,
+          success: true,
+          result: toolResult.result,
+        })
+      } catch (error) {
+        logger.error(
+          {
+            requestId,
+            toolName,
+            error: error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Tool call execution failed - sending error response to backend'
+        )
+
+        // Send error response back to backend
+        Spinner.get().start('Thinking...')
+        this.webSocket.sendAction({
+          type: 'tool-call-response',
+          requestId,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    })
+
     this.webSocket.subscribe('npm-version-status', (action) => {
       const { isUpToDate } = action
       if (!isUpToDate) {
@@ -846,21 +906,22 @@ export class Client {
     >
     stopResponse: () => void
   }> {
-    if (!this.agentState) {
+    if (!this.sessionState) {
       throw new Error('Agent state not initialized')
     }
 
     setMessages([
-      ...this.agentState.messageHistory,
+      ...this.sessionState.mainAgentState.messageHistory,
       {
         role: 'user',
         content: prompt,
       },
     ])
 
-    this.agentState.agentStepsRemaining = loadCodebuffConfig().maxAgentSteps
-    this.lastChanges = []
-    this.filesChangedForHook = []
+    this.sessionState.mainAgentState.stepsRemaining =
+      loadCodebuffConfig().maxAgentSteps
+
+    this.sessionState.fileContext.cwd = getWorkingDirectory()
 
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)
@@ -874,11 +935,18 @@ export class Client {
 
     const { responsePromise, stopResponse } = f(
       (chunk) => {
+        if (this.userInputId !== userInputId) {
+          return
+        }
         Spinner.get().stop()
+        DiffManager.receivedResponse()
         process.stdout.write(chunk)
       },
       userInputId,
       () => {
+        if (this.userInputId !== userInputId) {
+          return
+        }
         Spinner.get().stop()
         process.stdout.write('\n' + green(underline('Codebuff') + ': '))
       },
@@ -886,7 +954,10 @@ export class Client {
       startTime
     )
 
-    const urls = parseUrlsFromContent(prompt)
+    // Parse agent references from the prompt
+    const { cleanPrompt, preferredAgents } = this.parseAgentReferences(prompt)
+    
+    const urls = parseUrlsFromContent(cleanPrompt)
     const scrapedBlocks = await getScrapedContentBlocks(urls)
     const scrapedContent =
       scrapedBlocks.length > 0 ? scrapedBlocks.join('\n\n') + '\n\n' : ''
@@ -906,14 +977,15 @@ export class Client {
 
     const action = {
       promptId: userInputId,
-      prompt,
-      agentState: this.agentState,
+      prompt: cleanPrompt,
+      originalPrompt: prompt, // Keep original for context
+      preferredAgents,
+      sessionState: this.sessionState,
       toolResults,
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,
       costMode: this.costMode,
       model: this.model,
-      cwd: getWorkingDirectory(),
       repoUrl: loggerContext.repoUrl,
       repoName: loggerContext.repoName,
     }
@@ -926,6 +998,40 @@ export class Client {
       responsePromise,
       stopResponse,
     }
+  }
+
+  private parseAgentReferences(prompt: string): { cleanPrompt: string; preferredAgents: string[] } {
+    let cleanPrompt = prompt
+    const preferredAgents: string[] = []
+    
+    // Create a regex pattern that matches any of the known agent names
+    const agentNamePattern = UNIQUE_AGENT_NAMES.map(name => 
+      name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
+    ).join('|')
+    
+    const agentRegex = new RegExp(`@(${agentNamePattern})(?=\\s|$|[,.!?])`, 'gi')
+    const matches = prompt.match(agentRegex) || []
+    
+    for (const match of matches) {
+      const agentName = match.substring(1).trim() // Remove @ and trim
+      // Find the exact agent name (case-insensitive)
+      const exactAgentName = UNIQUE_AGENT_NAMES.find(name => 
+        name.toLowerCase() === agentName.toLowerCase()
+      )
+      
+      if (exactAgentName) {
+        const agentTypes = AGENT_NAME_TO_TYPES[exactAgentName]
+        if (agentTypes && agentTypes.length > 0) {
+          // Use the first matching agent type
+          preferredAgents.push(agentTypes[0])
+          // Remove ALL occurrences of this @ reference from the prompt using global replace
+          const matchRegex = new RegExp(match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+          cleanPrompt = cleanPrompt.replace(matchRegex, '').trim()
+        }
+      }
+    }
+    
+    return { cleanPrompt, preferredAgents }
   }
 
   private handleInitializationComplete() {
@@ -950,6 +1056,21 @@ export class Client {
     }
   }
 
+  public cancelCurrentInput() {
+    if (!this.user) {
+      return
+    }
+    if (!this.userInputId) {
+      return
+    }
+    this.webSocket.sendAction({
+      type: 'cancel-user-input',
+      authToken: this.user?.authToken,
+      promptId: this.userInputId,
+    })
+    this.userInputId = undefined
+  }
+
   private subscribeToResponse(
     onChunk: (chunk: string) => void,
     userInputId: string,
@@ -958,7 +1079,6 @@ export class Client {
     startTime: number
   ) {
     const rawChunkBuffer: string[] = []
-    this.responseBuffer = ''
     let streamStarted = false
     let responseStopped = false
     let resolveResponse: (
@@ -979,32 +1099,40 @@ export class Client {
       rejectResponse = reject
     })
 
+    this.userInputId = userInputId
+
     const stopResponse = () => {
       responseStopped = true
       unsubscribeChunks()
       unsubscribeComplete()
+      this.cancelCurrentInput()
 
       const additionalMessages = [
         { role: 'user' as const, content: prompt },
         {
           role: 'user' as const,
-          content: `<system><assistant_message>${rawChunkBuffer.join('')}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
+          content: `<system><assistant_message>${rawChunkBuffer.join('')}${closeXml('assistant_message')}[RESPONSE_CANCELED_BY_USER]${closeXml('system')}`,
         },
       ]
 
       // Update the agent state with just the assistant's response
-      const { messageHistory } = this.agentState!
+      const {
+        mainAgentState: { messageHistory },
+      } = this.sessionState!
       const newMessages = [...messageHistory, ...additionalMessages]
-      this.agentState = {
-        ...this.agentState!,
-        messageHistory: newMessages,
+      this.sessionState = {
+        ...this.sessionState!,
+        mainAgentState: {
+          ...this.sessionState!.mainAgentState,
+          messageHistory: newMessages,
+        },
       }
       setMessages(newMessages)
 
       resolveResponse({
         type: 'prompt-response',
         promptId: userInputId,
-        agentState: this.agentState!,
+        sessionState: this.sessionState!,
         toolCalls: [],
         toolResults: [],
         wasStoppedByUser: true,
@@ -1023,14 +1151,14 @@ export class Client {
 
       const trimmed = chunk.trim()
       for (const tag of ONE_TIME_TAGS) {
-        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)) {
+        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(closeXml(tag))) {
           if (this.oneTimeFlags[tag]) {
             return
           }
           Spinner.get().stop()
           const warningMessage = trimmed
             .replace(`<${tag}>`, '')
-            .replace(`</${tag}>`, '')
+            .replace(closeXml(tag), '')
           process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
           this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
           return
@@ -1083,110 +1211,19 @@ export class Client {
         }
         if (action.promptId !== userInputId) return
         const a = parsedAction.data
-        let isComplete = false
+        this.responseComplete = true
 
         Spinner.get().stop()
 
-        this.agentState = a.agentState
-        const toolResults: ToolResult[] = [...a.toolResults]
+        this.sessionState = a.sessionState
+        const toolResults: ToolResult[] = []
 
-        for (const toolCall of a.toolCalls) {
-          try {
-            if (toolCall.toolName === 'end_turn') {
-              this.responseComplete = true
-              isComplete = true
-              continue
-            }
-            if (
-              toolCall.toolName === 'write_file' ||
-              toolCall.toolName === 'str_replace' ||
-              toolCall.toolName === 'create_plan'
-            ) {
-              await waitForPreviousCheckpoint()
-              // Save lastChanges for `diff` command
-              this.lastChanges.push(FileChangeSchema.parse(toolCall.args))
-              this.hadFileChanges = true
-              // Track the changed file path
-              this.filesChangedForHook.push(toolCall.args.path)
-            }
-            if (toolCall.toolName === 'run_terminal_command') {
-              await waitForPreviousCheckpoint()
-              if (toolCall.args.mode === 'user') {
-                // Special case: when terminal command is run as a user command, then no need to reprompt assistant.
-                this.responseComplete = true
-                isComplete = true
-              }
-              if (
-                toolCall.args.mode === 'assistant' &&
-                toolCall.args.process_type === 'BACKGROUND'
-              ) {
-                this.oneTimeFlags[SHOULD_ASK_CONFIG] = true
-              }
-            }
-            const toolResult = await handleToolCall(toolCall)
-            toolResults.push(toolResult)
-          } catch (error) {
-            logger.error(
-              {
-                errorMessage:
-                  error instanceof Error ? error.message : String(error),
-                errorStack: error instanceof Error ? error.stack : undefined,
-                toolCallName: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-              },
-              'Error parsing tool call'
-            )
-            console.error(
-              '\n\n' +
-                red(`Error parsing tool call ${toolCall.toolName}:\n${error}`) +
-                '\n'
-            )
-          }
-        }
         stepsCount++
-        toolCallsCount += a.toolCalls.length
-        if (a.toolCalls.length === 0 && a.toolResults.length === 0) {
-          this.responseComplete = true
-          isComplete = true
-        }
         console.log('\n')
 
         // If we had any file changes, update the project context
-        if (this.hadFileChanges) {
+        if (DiffManager.getChanges().length > 0) {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
-        }
-
-        if (this.filesChangedForHook.length > 0 && isComplete) {
-          // Run file change hooks with the actual changed files
-          const { toolResults: hookToolResults, someHooksFailed } =
-            await runFileChangeHooks(this.filesChangedForHook)
-          toolResults.push(...hookToolResults)
-          if (someHooksFailed) {
-            isComplete = false
-          }
-          this.filesChangedForHook = []
-        }
-
-        if (!isComplete) {
-          // Append process updates to existing tool results
-          toolResults.push(...getBackgroundProcessUpdates())
-          this.agentState.fileContext.cwd = getWorkingDirectory()
-          // Continue the prompt with the tool results.
-          Spinner.get().start('Thinking...')
-          const continuePromptAction: ClientAction = {
-            type: 'prompt',
-            promptId: userInputId,
-            prompt: undefined,
-            agentState: this.agentState,
-            toolResults,
-            fingerprintId: await this.fingerprintId,
-            authToken: this.user?.authToken,
-            costMode: this.costMode,
-            model: this.model,
-            repoUrl: loggerContext.repoUrl,
-          }
-          this.webSocket.sendAction(continuePromptAction)
-          return
         }
 
         const endTime = Date.now()
@@ -1220,8 +1257,8 @@ Go to https://www.codebuff.com/config for more information.`) +
           )
         }
 
-        if (this.agentState) {
-          setMessages(this.agentState.messageHistory)
+        if (this.sessionState) {
+          setMessages(this.sessionState.mainAgentState.messageHistory)
         }
 
         // Show total credits used for this prompt if significant
@@ -1233,7 +1270,7 @@ Go to https://www.codebuff.com/config for more information.`) +
           )
         }
 
-        if (this.hadFileChanges) {
+        if (DiffManager.getChanges().length > 0) {
           let checkpointAddendum = ''
           try {
             checkpointAddendum = ` or "checkpoint ${checkpointManager.getLatestCheckpoint().id}" to revert`
@@ -1251,7 +1288,6 @@ Go to https://www.codebuff.com/config for more information.`) +
           console.log(
             `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n`
           )
-          this.hadFileChanges = false
 
           if (this.isInitializing) {
             this.isInitializing = false

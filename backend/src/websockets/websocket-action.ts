@@ -1,22 +1,31 @@
 import { calculateUsageAndBalance } from '@codebuff/billing'
-import { ClientAction, ServerAction, UsageResponse } from '@codebuff/common/actions'
+import {
+  ClientAction,
+  ServerAction,
+  UsageResponse,
+} from '@codebuff/common/actions'
+import { trackEvent } from '@codebuff/common/analytics'
 import { toOptionalFile } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import { trackEvent } from '@codebuff/common/analytics'
-import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { buildArray } from '@codebuff/common/util/array'
+import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import { eq } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 
+import {
+  checkLiveUserInput,
+  endUserInput,
+  startUserInput,
+} from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
+import { logger, withLoggerContext } from '../util/logger'
+import { asSystemMessage } from '../util/messages'
 import { protec } from './middleware'
 import { sendMessage } from './server'
-import { logger, withLoggerContext } from '../util/logger'
-import { renderToolResults } from '../util/parse-tool-call-xml'
 
 /**
  * Sends an action to the client via WebSocket
@@ -148,21 +157,24 @@ const onPrompt = async (
         })
       }
 
+      startUserInput(userId, promptId)
+
       try {
-        const { agentState, toolCalls, toolResults } = await mainPrompt(
+        const { sessionState, toolCalls, toolResults } = await mainPrompt(
           ws,
           action,
           {
             userId,
             clientSessionId,
-            onResponseChunk: (chunk) =>
-              sendAction(ws, {
-                type: 'response-chunk',
-                userInputId: promptId,
-                chunk,
-              }),
-            selectedModel: model,
-            readOnlyMode: false, // readOnlyMode = false for normal prompts
+            onResponseChunk: (chunk) => {
+              if (checkLiveUserInput(userId, promptId)) {
+                sendAction(ws, {
+                  type: 'response-chunk',
+                  userInputId: promptId,
+                  chunk,
+                })
+              }
+            },
           }
         )
 
@@ -170,7 +182,7 @@ const onPrompt = async (
         sendAction(ws, {
           type: 'prompt-response',
           promptId,
-          agentState,
+          sessionState,
           toolCalls: toolCalls as any[],
           toolResults,
         })
@@ -180,18 +192,14 @@ const onPrompt = async (
           e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
 
         const newMessages = buildArray(
-          ...action.agentState.messageHistory,
+          ...action.sessionState.mainAgentState.messageHistory,
           prompt && {
             role: 'user' as const,
             content: prompt,
           },
-          toolResults.length > 0 && {
-            role: 'user' as const,
-            content: renderToolResults(toolResults),
-          },
           {
-            role: 'assistant' as const,
-            content: response,
+            role: 'user' as const,
+            content: asSystemMessage(`Received error from server: ${response}`),
           }
         )
 
@@ -204,16 +212,20 @@ const onPrompt = async (
           sendAction(ws, {
             type: 'prompt-response',
             promptId,
-            // Send back original agentState.
-            agentState: {
-              ...action.agentState,
-              messageHistory: newMessages,
+            // Send back original sessionState.
+            sessionState: {
+              ...action.sessionState,
+              mainAgentState: {
+                ...action.sessionState.mainAgentState,
+                messageHistory: newMessages,
+              },
             },
             toolCalls: [],
             toolResults: [],
           })
         }, 100)
       } finally {
+        endUserInput(userId, promptId)
         const usageResponse = await genUsageResponse(
           fingerprintId,
           userId,
@@ -267,6 +279,18 @@ const onInit = async (
       type: 'init-response',
     })
   })
+}
+
+const onCancelUserInput = async ({
+  authToken,
+  promptId,
+}: Extract<ClientAction, { type: 'cancel-user-input' }>) => {
+  const userId = await getUserIdFromAuthToken(authToken)
+  if (!userId) {
+    logger.error({ authToken }, 'User id not found for authToken')
+    return
+  }
+  endUserInput(userId, promptId)
 }
 
 /**
@@ -337,6 +361,7 @@ export const onWebsocketAction = async (
 // Register action handlers
 subscribeToAction('prompt', protec.run(onPrompt))
 subscribeToAction('init', protec.run(onInit, { silent: true }))
+subscribeToAction('cancel-user-input', protec.run(onCancelUserInput))
 
 /**
  * Requests multiple files from the client
@@ -378,4 +403,64 @@ export async function requestFile(ws: WebSocket, filePath: string) {
 export async function requestOptionalFile(ws: WebSocket, filePath: string) {
   const file = await requestFile(ws, filePath)
   return toOptionalFile(file)
+}
+
+/**
+ * Requests a tool call execution from the client with timeout support
+ * @param ws - The WebSocket connection
+ * @param toolName - Name of the tool to execute
+ * @param args - Arguments for the tool (can include timeout)
+ * @returns Promise resolving to the tool execution result
+ */
+export async function requestToolCall<T = any>(
+  ws: WebSocket,
+  userInputId: string,
+  toolName: string,
+  args: Record<string, any> & { timeout_seconds?: number }
+): Promise<{ success: boolean; result?: T; error?: string }> {
+  return new Promise((resolve, reject) => {
+    const requestId = generateCompactId()
+    const timeoutInSeconds =
+      (args.timeout_seconds || 30) < 0 ? undefined : args.timeout_seconds || 30
+
+    // Set up timeout
+    const timeoutHandle =
+      timeoutInSeconds === undefined
+        ? undefined
+        : setTimeout(
+            () => {
+              unsubscribe()
+              reject(
+                new Error(
+                  `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`
+                )
+              )
+            },
+            timeoutInSeconds * 1000 + 5000 // Convert to ms and add a small buffer
+          )
+
+    // Subscribe to response
+    const unsubscribe = subscribeToAction('tool-call-response', (action) => {
+      if (action.requestId === requestId) {
+        clearTimeout(timeoutHandle)
+        unsubscribe()
+        resolve({
+          success: action.success,
+          result: action.result,
+          error: action.error,
+        })
+      }
+    })
+
+    // Send the request
+    sendAction(ws, {
+      type: 'tool-call-request',
+      requestId,
+      userInputId,
+      toolName,
+      args,
+      timeout:
+        timeoutInSeconds === undefined ? undefined : timeoutInSeconds * 1000, // Send timeout in milliseconds
+    })
+  })
 }

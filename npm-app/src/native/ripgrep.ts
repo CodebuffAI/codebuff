@@ -1,4 +1,3 @@
-import os from 'os'
 import path from 'path'
 import { mkdirSync } from 'fs'
 import { spawnSync } from 'bun'

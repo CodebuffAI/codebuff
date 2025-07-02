@@ -1,4 +1,6 @@
 import { ensureUrlProtocol } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
+
 import { logger } from './utils/logger'
 
 // Global cache for scraped web pages
@@ -55,7 +57,7 @@ export async function getScrapedContentBlocks(urls: string[]) {
         : scrapedContent
     if (truncatedScrapedContent) {
       blocks.push(
-        `<web_scraped_content url="${url}">\n${truncatedScrapedContent}\n</web_scraped_content>`
+        `<web_scraped_content url="${url}">\n${truncatedScrapedContent}\n${closeXml('web_scraped_content')}`
       )
     }
   }

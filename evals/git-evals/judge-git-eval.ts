@@ -129,7 +129,7 @@ function truncateTraceFromEnd(trace: any[], maxTokens: number): string {
   return '[TRACE TRUNCATED: All trace entries removed to fit within token limit]'
 }
 
-export function judgeEvalRun(evalRun: EvalRunLog) {
+export async function judgeEvalRun(evalRun: EvalRunLog) {
   let finalPrompt: string | undefined
 
   // Try different levels of content inclusion until we fit within token limit
@@ -181,13 +181,39 @@ export function judgeEvalRun(evalRun: EvalRunLog) {
     console.log(`Using truncated prompt with ${finalTokenCount} tokens (trace truncated, base: ${baseTokens}, max trace: ${maxTraceTokens})`)
   }
 
-  return promptAiSdkStructured({
-    messages: [{ role: 'user', content: finalPrompt }],
-    schema: JudgingAnalysisSchema,
-    model: geminiModels.gemini2_5_pro_preview,
-    clientSessionId: generateCompactId(),
-    fingerprintId: generateCompactId(),
-    userInputId: generateCompactId(),
-    userId: undefined,
-  })
+  // Run 3 judges in parallel
+  console.log('Running 3 judges in parallel for more robust scoring...')
+  
+  const judgePromises = Array.from({ length: 3 }, (_, index) => 
+    promptAiSdkStructured({
+      messages: [{ role: 'user', content: finalPrompt }],
+      schema: JudgingAnalysisSchema,
+      model: geminiModels.gemini2_5_pro_preview,
+      clientSessionId: generateCompactId(),
+      fingerprintId: generateCompactId(),
+      userInputId: generateCompactId(),
+      userId: undefined,
+    }).catch(error => {
+      console.warn(`Judge ${index + 1} failed:`, error)
+      return null
+    })
+  )
+
+  const judgeResults = await Promise.all(judgePromises)
+  const validResults = judgeResults.filter(result => result !== null)
+
+  if (validResults.length === 0) {
+    throw new Error('All judges failed to provide results')
+  }
+
+  console.log(`Successfully got results from ${validResults.length}/3 judges`)
+
+  // Sort judges by overall score and select the median
+  const sortedResults = validResults.sort((a, b) => a.metrics.overallScore - b.metrics.overallScore)
+  const medianIndex = Math.floor(sortedResults.length / 2)
+  const medianResult = sortedResults[medianIndex]
+
+  console.log(`Using median judge (${medianIndex + 1} of ${sortedResults.length}) with overall score: ${medianResult.metrics.overallScore}`)
+
+  return medianResult
 }

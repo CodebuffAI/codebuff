@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
 import { costModes } from './constants'
+import { GrantTypeValues } from './types/grant'
 import {
-  AgentStateSchema,
+  SessionStateSchema,
   toolCallSchema,
   toolResultSchema,
-} from './types/agent-state'
-import { GrantTypeValues } from './types/grant'
+} from './types/session-state'
 import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
 
 export const FileChangeSchema = z.object({
@@ -26,7 +26,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     fingerprintId: z.string(),
     authToken: z.string().optional(),
     costMode: z.enum(costModes).optional().default('normal'),
-    agentState: AgentStateSchema,
+    sessionState: SessionStateSchema,
     toolResults: z.array(toolResultSchema),
     model: z.string().optional(),
     repoUrl: z.string().optional(),
@@ -49,7 +49,20 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     authToken: z.string().optional(),
     stagedChanges: z.string(),
   }),
+  z.object({
+    type: z.literal('tool-call-response'),
+    requestId: z.string(),
+    success: z.boolean(),
+    result: z.any().optional(), // Tool execution result
+    error: z.string().optional(), // Error message if execution failed
+  }),
+  z.object({
+    type: z.literal('cancel-user-input'),
+    authToken: z.string(),
+    promptId: z.string(),
+  }),
 ])
+
 export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
 
 export const UsageReponseSchema = z.object({
@@ -104,7 +117,7 @@ export type MessageCostResponse = z.infer<typeof MessageCostResponseSchema>
 export const PromptResponseSchema = z.object({
   type: z.literal('prompt-response'),
   promptId: z.string(),
-  agentState: AgentStateSchema,
+  sessionState: SessionStateSchema,
   toolCalls: z.array(toolCallSchema),
   toolResults: z.array(toolResultSchema),
 })
@@ -122,6 +135,14 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('read-files'),
     filePaths: z.array(z.string()),
     requestId: z.string(),
+  }),
+  z.object({
+    type: z.literal('tool-call-request'),
+    userInputId: z.string(),
+    requestId: z.string(),
+    toolName: z.string(),
+    args: z.record(z.any()),
+    timeout: z.number().optional(),
   }),
   z.object({
     type: z.literal('tool-call'),

@@ -4,111 +4,78 @@
 
 ### Monitoring Database Changes
 
-For real-time monitoring of database changes, use psql's built-in `\watch` command instead of external watch tools:
+For real-time monitoring of database changes, use psql's `\watch` command:
 ```sql
 SELECT ... FROM table \watch seconds;
 ```
-This creates a single persistent connection rather than creating new connections on each refresh.
 
-Important: Local database must be initialized before running schema operations:
-
-1. Docker must be running
-2. Local database container needs to be created and healthy
-3. Then schema operations (generate, migrate) can be run
+Local database setup requires:
+1. Docker running
+2. Run: `bun run exec -- bun --cwd common db:start`
+3. Then run schema operations
 
 ## Environment Setup
 
-Important: The database setup requires:
-
-1.  A running Docker instance.
-2.  **Infisical CLI**: You must be logged into Infisical. All environment variables, including `DATABASE_URL`, are injected by Infisical at runtime.
-3.  **Use the `exec` runner**: All commands must be wrapped with `bun run exec --` to load environment variables.
-4.  Run commands in order:
-    *   Start Docker.
-    *   Run database initialization: `bun run exec -- bun --cwd common db:start`.
-    *   Run schema operations.
-
-Note: Setup has been primarily tested on Mac. Windows users may encounter platform-specific issues:
-
-- When using \_\_dirname or path.join() in config files, convert Windows backslashes to forward slashes
+Database setup requires:
+1. Running Docker instance
+2. **Infisical CLI**: Must be logged in for environment variables
+3. **Use `exec` runner**: All commands must use `bun run exec --` to load environment variables
+4. Commands: Start Docker → `bun run exec -- bun --cwd common db:start` → schema operations
 
 ## Index Management
 
-Important: Define indexes in schema.ts rather than just migrations:
-- Keeps all structural database elements in one place
-- Makes indexes visible during schema review
+Define indexes in schema.ts rather than migrations:
+- Keeps structural elements centralized
+- Makes indexes visible during review
 - Serves as documentation for query optimization
-- Helps track performance-critical queries
 
 Index Performance Guidelines:
-- Avoid indexing high cardinality columns (many unique values) without careful consideration
-- For timestamp columns used in range queries, consider:
-  - Query patterns (point vs range queries)
-  - Data distribution
-  - Write overhead vs read benefit
-  - Avoid if used with dynamic BETWEEN clauses
 - Index foreign keys and common filter columns
-- Consider index selectivity - how well it narrows down results
+- Avoid indexing high-cardinality timestamp columns with range queries
+- Consider selectivity - how well indexes narrow results
 
 Key indexing decisions:
 - Index foreign keys used in joins (user_id, fingerprint_id)
-- Avoid indexing high-cardinality timestamp columns with range queries
 - Focus on columns with high selectivity in WHERE clauses
 
 ## Column Defaults and Calculations
 
-- Use Postgres's built-in calculated columns (GENERATED ALWAYS AS) instead of default values when computing values from other columns
-- Example: For timestamp calculations based on other columns, prefer GENERATED ALWAYS AS over DEFAULT
-- The endDate field in quota queries is derived from next_quota_reset using COALESCE
-- Important: When querying quota info, endDate already contains the next_quota_reset value - avoid redundant selection
-- The endDate field in quota queries is derived from next_quota_reset using COALESCE
-- Important: When querying quota info, endDate already contains the next_quota_reset value - avoid redundant selection
+- Use Postgres GENERATED ALWAYS AS for computed values from other columns
+- Use defaultNow() for new timestamp columns without external source
+- Store actual values from external sources (e.g., Stripe) rather than calculating locally
 
 ## Referral System Implementation
 
-The referral system is implemented across several tables:
-
 ### User Table
-
-- Each user has a unique referral code (format: 'ref-' + UUID)
-- Tracks quota and subscription status
+- Unique referral code: `'ref-' + UUID`
+- `referral_limit` field (default 5)
 
 ### Referral Table
+- Links referrer_id and referred_id
+- Tracks status ('pending', 'completed') and credits
+- Composite primary key: (referrer_id, referred_id)
 
-- Links referrer and referred users
-- Tracks referral status and credits awarded
-- Uses composite primary key of (referrer_id, referred_id)
-
-### Important Constraints
-
+### Constraints
 - Referral codes must be unique
 - Users cannot refer themselves
-- Maximum number of successful referrals per user is enforced
+- Maximum referrals per user enforced via referral_limit
 
 ## Session Management
 
-The session table links:
-
+Session table links:
 - User authentication state
 - Fingerprint tracking
 - Session expiration
 
 ## Message Tracking
 
-The message table stores:
-
-- Input/output token counts
-- Cost calculations
-- Cache usage metrics
+Message table stores:
+- Token counts (input/output/cache)
+- Cost calculations and credits
 - Client request correlation
-
-- Store actual values instead of calculating them when the data comes from an external source
-- Example: User creation dates should be pulled from Stripe rather than calculated locally
-- Prefer defaultNow() for new timestamp columns that don't have an external source
+- Generated `lastMessage` column from request JSON
 
 ## Data Sources
 
-- Stripe is the source of truth for user account data including:
-  - Subscription status
-  - Customer IDs
-- Keep Stripe and database in sync through webhooks and periodic reconciliation
+- Stripe is source of truth for user account data
+- Keep Stripe and database synced via webhooks

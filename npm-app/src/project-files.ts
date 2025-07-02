@@ -170,6 +170,10 @@ export function toAbsolutePath(filepath: string, projectRoot: string): string {
 
 let cachedProjectFileContext: ProjectFileContext | undefined
 
+export function clearCachedProjectFileContext() {
+  cachedProjectFileContext = undefined
+}
+
 export function initProjectFileContextWithWorker(
   dir: string,
   resetCache: boolean = false
@@ -246,8 +250,8 @@ export const getProjectFileContext = async (
       return (
         lowercaseFilePath.endsWith('knowledge.md') ||
         lowercaseFilePath.endsWith('claude.md') ||
-        lowercaseFilePath === codebuffConfigFile ||
-        lowercaseFilePath === codebuffConfigFileBackup
+        lowercaseFilePath === codebuffConfigFile.toLowerCase() ||
+        lowercaseFilePath === codebuffConfigFileBackup.toLowerCase()
       )
     })
     const knowledgeFiles = getExistingFiles(knowledgeFilePaths)

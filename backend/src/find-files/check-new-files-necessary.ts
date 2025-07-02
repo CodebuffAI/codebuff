@@ -1,9 +1,10 @@
-import { CostMode, models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/constants'
 
+import { CoreMessage } from 'ai'
 import { System } from '../llm-apis/claude'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { getCoreMessagesSubset } from '../util/messages'
-import { CoreMessage } from 'ai'
+import { closeXml } from '@codebuff/common/util/xml'
 
 const systemIntro = `
 You are assisting the user with their software project, in the application Codebuff. Codebuff is a coding agent that helps developers write code or perform utility tasks.
@@ -16,8 +17,7 @@ export const checkNewFilesNecessary = async (
   fingerprintId: string,
   userInputId: string,
   userPrompt: string,
-  userId: string | undefined,
-  costMode: CostMode
+  userId: string | undefined
 ) => {
   const startTime = Date.now()
   const systemString =
@@ -31,7 +31,7 @@ User request: ${JSON.stringify(userPrompt)}
 We'll need to read any files that should be modified to fulfill the user's request, or any files that could be helpful to read to answer the user's request. Broad user requests may require many files as context.
 
 You should read new files (YES) if:
-- There are not yet any <read_files></read_files> tool calls or tool results in the conversation history
+- There are not yet any <read_files>${closeXml('read_files')} tool calls or tool results in the conversation history
 - There's only one message from the user.
 - The user is asking something new that would benefit from new files being read.
 - The user moved on to a different topic.
@@ -66,7 +66,6 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
       fingerprintId,
       userInputId,
       userId,
-      costMode,
     }
   )
   const endTime = Date.now()

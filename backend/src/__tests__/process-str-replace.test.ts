@@ -9,15 +9,15 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [oldStr],
-      [newStr],
+      [{ old: oldStr, new: newStr }],
+
       Promise.resolve(initialContent)
     )
 
     expect(result).not.toBeNull()
-    expect(result?.content).toBe('const x = 1;\nconst y = 3;\n')
-    expect(result?.path).toBe('test.ts')
-    expect(result?.tool).toBe('str_replace')
+    expect((result as any).content).toBe('const x = 1;\nconst y = 3;\n')
+    expect((result as any).path).toBe('test.ts')
+    expect((result as any).tool).toBe('str_replace')
   })
 
   it('should handle Windows line endings', async () => {
@@ -27,14 +27,13 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [oldStr],
-      [newStr],
+      [{ old: oldStr, new: newStr }],
       Promise.resolve(initialContent)
     )
 
     expect(result).not.toBeNull()
-    expect(result?.content).toBe('const x = 1;\r\nconst y = 3;\r\n')
-    expect(result?.patch).toContain('\r\n')
+    expect((result as any).content).toBe('const x = 1;\r\nconst y = 3;\r\n')
+    expect((result as any).patch).toContain('\r\n')
   })
 
   it('should handle indentation differences', async () => {
@@ -44,13 +43,13 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [oldStr],
-      [newStr],
+      [{ old: oldStr, new: newStr }],
+
       Promise.resolve(initialContent)
     )
 
     expect(result).not.toBeNull()
-    expect(result?.content).toBe('  const x = 1;\n    const y = 3;\n')
+    expect((result as any).content).toBe('  const x = 1;\n    const y = 3;\n')
   })
 
   it('should handle whitespace-only differences', async () => {
@@ -60,20 +59,19 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [oldStr],
-      [newStr],
+      [{ old: oldStr, new: newStr }],
+
       Promise.resolve(initialContent)
     )
 
     expect(result).not.toBeNull()
-    expect(result?.content).toBe('const x = 1;\nconst y = 3;\n')
+    expect((result as any).content).toBe('const x = 1;\nconst y = 3;\n')
   })
 
   it('should return null if file content is null and oldStr is not empty', async () => {
     const result = await processStrReplace(
       'test.ts',
-      ['old'],
-      ['new'],
+      [{ old: 'old', new: 'new' }],
       Promise.resolve(null)
     )
 
@@ -87,8 +85,7 @@ describe('processStrReplace', () => {
   it('should return null if oldStr is empty and file exists', async () => {
     const result = await processStrReplace(
       'test.ts',
-      [''],
-      ['new'],
+      [{ old: '', new: 'new' }],
       Promise.resolve('content')
     )
 
@@ -99,21 +96,19 @@ describe('processStrReplace', () => {
     }
   })
 
-  it('should create a new file if oldStr is empty and file does not exist', async () => {
+  it('should return error when oldStr is empty and file does not exist', async () => {
     const newContent = 'const x = 1;\nconst y = 2;\n'
     const result = await processStrReplace(
       'test.ts',
-      [''],
-      [newContent],
+      [{ old: '', new: newContent }],
       Promise.resolve(null)
     )
 
     expect(result).not.toBeNull()
-    expect(result?.content).toBe(newContent)
-    expect(result?.path).toBe('test.ts')
-    expect(result?.tool).toBe('str_replace')
-    expect(result?.patch).toContain('+const x = 1')
-    expect(result?.patch).toContain('+const y = 2')
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('old string was empty')
+    }
   })
 
   it('should return null if no changes were made', async () => {
@@ -123,15 +118,17 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [oldStr],
-      [newStr],
+      [{ old: oldStr, new: newStr }],
+
       Promise.resolve(initialContent)
     )
 
     expect(result).not.toBeNull()
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('old string was not found')
+      expect(result.error).toContain(
+        'The old string "const z = 3;" was not found'
+      )
     }
   })
 
@@ -142,13 +139,13 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [oldStr],
-      [newStr],
+      [{ old: oldStr, new: newStr }],
+
       Promise.resolve(initialContent)
     )
 
     expect(result).not.toBeNull()
-    expect(result?.content).toBe('let x = 1;\nlet x = 2;\nlet x = 3;\n')
+    expect((result as any).content).toBe('let x = 1;\nlet x = 2;\nlet x = 3;\n')
   })
 
   it('should generate a valid patch', async () => {
@@ -158,15 +155,15 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [oldStr],
-      [newStr],
+      [{ old: oldStr, new: newStr }],
       Promise.resolve(initialContent)
     )
 
     expect(result).not.toBeNull()
-    expect(result?.patch).toBeDefined()
-    expect(result?.patch).toContain('-const y = 2;')
-    expect(result?.patch).toContain('+const y = 3;')
+    const patch = (result as any).patch
+    expect(patch).toBeDefined()
+    expect(patch).toContain('-const y = 2;')
+    expect(patch).toContain('+const y = 3;')
   })
 
   it('should handle special characters in strings', async () => {
@@ -176,14 +173,40 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [oldStr],
-      [newStr],
+      [{ old: oldStr, new: newStr }],
       Promise.resolve(initialContent)
     )
 
     expect(result).not.toBeNull()
-    expect(result?.content).toBe(
+    expect((result as any).content).toBe(
       'const x = "hello & world";\nconst y = "<span>";\n'
     )
+  })
+
+  it('should continue processing other replacements even if one fails', async () => {
+    const initialContent = 'const x = 1;\nconst y = 2;\nconst z = 3;\n'
+    const replacements = [
+      { old: 'const x = 1;', new: 'const x = 10;' }, // This exists
+      { old: 'const w = 4;', new: 'const w = 40;' }, // This doesn't exist
+      { old: 'const z = 3;', new: 'const z = 30;' }, // This also exists
+    ]
+
+    const result = await processStrReplace(
+      'test.ts',
+      replacements,
+      Promise.resolve(initialContent)
+    )
+
+    expect(result).not.toBeNull()
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      // Should have applied the successful replacements
+      expect(result.content).toBe(
+        'const x = 10;\nconst y = 2;\nconst z = 30;\n'
+      )
+      expect(result.messages).toContain(
+        'The old string "const w = 4;" was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.'
+      )
+    }
   })
 })

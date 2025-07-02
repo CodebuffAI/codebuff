@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import type { GitEvalResultRequest } from '@codebuff/common/db/schema'
+import { Command, Flags } from '@oclif/core'
 import path from 'path'
 import { sendEvalResultsEmail } from './email-eval-results'
 import { analyzeEvalResults } from './post-eval-analysis'
@@ -15,18 +16,84 @@ const DEFAULT_OUTPUT_DIR = 'git-evals'
 const MOCK_PATH = 'git-evals/eval-result-codebuff-mock.json'
 const API_BASE = 'https://www.codebuff.com/'
 
-async function runEvalSet(
-  outputDir: string = DEFAULT_OUTPUT_DIR,
-  sendEmail: boolean = true,
-  postEvalAnalysis: boolean = true,
-  mockEval: boolean = false,
-  shouldInsert: boolean = true
-): Promise<void> {
+class RunEvalSetCommand extends Command {
+  static description = 'Run evaluation sets for Codebuff'
+
+  static examples = [
+    '$ bun run run-eval-set',
+    '$ bun run run-eval-set --output-dir custom-output',
+    '$ bun run run-eval-set --email --no-analysis',
+    '$ bun run run-eval-set --mock --no-insert',
+    '$ bun run run-eval-set --title "Weekly Performance Test"',
+  ]
+
+  static flags = {
+    'output-dir': Flags.string({
+      char: 'o',
+      description: 'Output directory for evaluation results',
+      default: DEFAULT_OUTPUT_DIR,
+    }),
+    email: Flags.boolean({
+      description: 'Send email summary',
+      default: false,
+      allowNo: true,
+    }),
+    analysis: Flags.boolean({
+      description: 'Post-evaluation analysis',
+      default: true,
+      allowNo: true,
+    }),
+    mock: Flags.boolean({
+      description: 'Run with mock data for testing',
+      default: false,
+      allowNo: true,
+    }),
+    insert: Flags.boolean({
+      description: 'Insert results into database',
+      default: true,
+      allowNo: true,
+    }),
+    title: Flags.string({
+      char: 't',
+      description: 'Custom title for email subject',
+    }),
+    concurrency: Flags.integer({
+      char: 'c',
+      description: 'Number of concurrent evals to run',
+      min: 1,
+    }),
+    help: Flags.help({ char: 'h' }),
+  }
+
+  async run(): Promise<void> {
+    const { flags } = await this.parse(RunEvalSetCommand)
+
+    await runEvalSet(flags)
+  }
+}
+
+async function runEvalSet(options: {
+  'output-dir': string
+  email: boolean
+  analysis: boolean
+  mock: boolean
+  insert: boolean
+  title?: string
+  concurrency?: number
+}): Promise<void> {
+  const {
+    'output-dir': outputDir,
+    email: sendEmail,
+    analysis: postEvalAnalysis,
+    mock: mockEval,
+    insert: shouldInsert,
+    title,
+  } = options
+
   console.log('Starting eval set run...')
   console.log(`Output directory: ${outputDir}`)
 
-  // Set global concurrency limit of 20 processes across ALL repositories
-  setGlobalConcurrencyLimit(5)
+  setGlobalConcurrencyLimit(options.concurrency ?? 5)
 
   // Define the eval configurations
   const evalConfigs: EvalConfig[] = [
@@ -34,20 +101,20 @@ async function runEvalSet(
       name: 'codebuff',
       evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
       outputDir,
-      modelConfig: {},
+      agentType: undefined,
     },
     {
       name: 'manifold',
       evalDataPath: path.join(__dirname, 'eval-manifold.json'),
       outputDir,
-      modelConfig: {},
+      agentType: undefined,
     },
   ]
 
   console.log(`Running ${evalConfigs.length} evaluations:`)
   evalConfigs.forEach((config) => {
     console.log(
-      `  - ${config.name}: ${config.evalDataPath} -> ${config.outputDir}`
+      `  - ${config.name}: ${config.evalDataPath} -> ${config.outputDir} (${config.agentType})`
     )
   })
 
@@ -65,9 +132,11 @@ async function runEvalSet(
         : await runGitEvals(
             config.evalDataPath,
             config.outputDir,
-            config.modelConfig,
-            config.limit
+            config.agentType,
+            config.limit,
+            options.concurrency === 1
           )
+
       const evalDuration = Date.now() - evalStartTime
       console.log(
         `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`
@@ -196,14 +265,17 @@ async function runEvalSet(
     if (successfulResults.length > 0) {
       console.log('\n📧 Sending eval results email...')
       try {
-        const evalResults = successfulResults
-          .map((r) => r.result!)
-          .filter(Boolean)
+        const evalResults = successfulResults.map((r) => r.result!)
         const analyses = successfulResults
           .map((r) => r.analysis!)
           .filter(Boolean)
 
-        const emailSent = await sendEvalResultsEmail(evalResults, analyses)
+        const emailSent = await sendEvalResultsEmail(
+          evalResults,
+          analyses,
+          undefined,
+          title
+        )
         if (emailSent) {
           console.log('✅ Eval results email sent successfully!')
         } else {
@@ -245,8 +317,8 @@ async function runEvalSet(
           // Map the eval result data to the database schema
           const payload: GitEvalResultRequest = {
             cost_mode: 'normal', // You can modify this based on your needs
-            reasoner_model: config?.modelConfig?.reasoningModel,
-            agent_model: config?.modelConfig?.agentModel,
+            reasoner_model: undefined, // No longer using model config
+            agent_model: config?.agentType,
             metadata: {
               numCases: evalResult?.overall_metrics?.total_runs,
               avgScore: evalResult?.overall_metrics?.average_overall,
@@ -320,21 +392,10 @@ async function runEvalSet(
 
 // CLI handling
 if (require.main === module) {
-  const args = process.argv.slice(2)
-  console.info('Usage: bun run run-eval-set [output-dir] [--no-email]')
-
-  const outputDir = args[0] || DEFAULT_OUTPUT_DIR
-
-  runEvalSet(
-    outputDir,
-    !args.includes('--no-email'),
-    !args.includes('--no-analysis'),
-    args.includes('--mock'),
-    !args.includes('--no-insert')
-  ).catch((err) => {
+  RunEvalSetCommand.run().catch((err) => {
     console.error('Error running eval set:', err)
     process.exit(1)
   })
 }
 
-export { runEvalSet }
+export { runEvalSet, RunEvalSetCommand }

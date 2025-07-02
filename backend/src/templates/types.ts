@@ -1,13 +1,33 @@
 import { Model } from '@codebuff/common/constants'
-import { AgentTemplateName } from '@codebuff/common/types/agent-state'
+import {
+  AgentTemplateType,
+  AgentTemplateTypes,
+} from '@codebuff/common/types/session-state'
+import { closeXmlTags } from '@codebuff/common/util/xml'
+import { z } from 'zod/v4'
 
 import { ToolName } from '../tools'
 
 export type AgentTemplate = {
-  name: AgentTemplateName
+  type: AgentTemplateType
+  name: string
   description: string
   model: Model
+  // Required parameters for spawning this agent.
+  promptSchema: {
+    prompt: boolean | 'optional'
+    params: z.ZodSchema<any> | null
+  }
+  outputMode: 'last_message' | 'report' | 'all_messages'
+  includeMessageHistory: boolean
   toolNames: ToolName[]
+  stopSequences: string[]
+  spawnableAgents: AgentTemplateType[]
+
+  initialAssistantMessage: string
+  initialAssistantPrefix: string
+  stepAssistantMessage: string
+  stepAssistantPrefix: string
 
   systemPrompt: string
   userInputPrompt: string
@@ -15,11 +35,14 @@ export type AgentTemplate = {
 }
 
 const placeholderNames = [
+  'AGENT_NAME',
   'CONFIG_SCHEMA',
   'FILE_TREE_PROMPT',
   'GIT_CHANGES_PROMPT',
-  'REMAINING_STEPS',
+  'INITIAL_AGENT_PROMPT',
+  'KNOWLEDGE_FILES_CONTENTS',
   'PROJECT_ROOT',
+  'REMAINING_STEPS',
   'SYSTEM_INFO_PROMPT',
   'TOOLS_PROMPT',
   'USER_CWD',
@@ -32,31 +55,37 @@ type PlaceholderType<T extends typeof placeholderNames> = {
 export const PLACEHOLDER = Object.fromEntries(
   placeholderNames.map((name) => [name, `{CODEBUFF_${name}}` as const])
 ) as PlaceholderType<typeof placeholderNames>
-
 export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
 
 export const placeholderValues = Object.values(PLACEHOLDER)
 
-export const editingToolNames: ToolName[] = [
+export const baseAgentToolNames: ToolName[] = [
   'create_plan',
   'run_terminal_command',
   'str_replace',
   'write_file',
-] as const
-
-export const readOnlyToolNames: ToolName[] = [
+  'spawn_agents',
   'add_subgoal',
   'browser_logs',
   'code_search',
   'end_turn',
-  'find_files',
   'read_files',
-  'research',
   'think_deeply',
   'update_subgoal',
 ] as const
 
-export const baseAgentToolNames: ToolName[] = [
-  ...editingToolNames,
-  ...readOnlyToolNames,
+// Use the utility function to generate stop sequences for key tools
+export const baseAgentStopSequences: string[] = closeXmlTags([
+  'read_files',
+  'find_files',
+  'run_terminal_command',
+  'code_search',
+  'spawn_agents',
+] as ToolName[])
+
+export const baseAgentSpawnableAgents: AgentTemplateType[] = [
+  AgentTemplateTypes.gemini25flash_file_picker,
+  AgentTemplateTypes.gemini25flash_researcher,
+  // AgentTemplateTypes.gemini25pro_planner,
+  AgentTemplateTypes.gemini25pro_reviewer,
 ] as const
