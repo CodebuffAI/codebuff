@@ -99,27 +99,8 @@ function basename(cmd: string) {
 /** Decide which concrete binary to start based on platform + env */
 function selectShell(): ShellKind {
   if (!IS_WINDOWS) {
-    const fromEnv = process.env.SHELL || detectShell() || '/bin/bash'
-    const base = basename(fromEnv)
-
-    if (base.includes('zsh')) return 'zsh'
-    if (base.includes('fish')) return 'fish'
-    if (base.includes('ksh')) return 'ksh'
-    if (base.includes('tcsh')) return 'tcsh'
-    if (base.includes('nu')) return 'nu'
-    if (base.includes('bash')) return 'bash'
-    return 'sh'
+    return 'bash' // resolved via PATH
   }
-
-  /* Windows -------------------------------------------------------- */
-  const preferPwsh =
-    typeof spawn === 'function' && // avoid ts-node compile‑time error
-    !!process.env.Path?.toLowerCase()
-      .split(';')
-      .find((p) => p.includes('powershell'))
-
-  if (preferPwsh) return 'pwsh.exe'
-  if (detectShell() === 'powershell') return 'powershell.exe'
   return 'cmd.exe'
 }
 
@@ -205,7 +186,7 @@ function buildEnv(shell: ShellKind): NodeJS.ProcessEnv {
     env.TERM = 'cygwin'
   } else {
     env.TERM = 'xterm-256color'
-    env.SHELL = process.env.SHELL || shell
+    env.SHELL = '/bin/bash' // advertise bash to children
   }
 
   return env
