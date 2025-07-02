@@ -39,7 +39,7 @@ export async function promptRelaceAI(
   const startTime = Date.now()
 
   try {
-    const model = 'relace-apply-2.5-lite'
+    // const model = 'relace-apply-2.5-lite'
     const response = (await Promise.race([
       fetch('https://codebuff-instantapply.endpoint.relace.run/v1/code/apply', {
         method: 'POST',
@@ -48,7 +48,7 @@ export async function promptRelaceAI(
           Authorization: `Bearer ${env.RELACE_API_KEY}`,
         },
         body: JSON.stringify({
-          model,
+          // model,
           initialCode,
           editSnippet,
           ...(instructions ? { instructions } : {}),
@@ -78,7 +78,7 @@ export async function promptRelaceAI(
       clientSessionId,
       fingerprintId,
       userInputId,
-      model,
+      model: 'relace-fast-apply',
       request: [
         {
           role: 'user',
