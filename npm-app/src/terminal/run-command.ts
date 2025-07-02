@@ -361,7 +361,13 @@ export const runTerminalCommand = async (
   stderrFile?: string
 ): Promise<{ result: string; stdout: string; exitCode: number | null }> => {
   const maybeTimeoutSeconds = timeoutSeconds < 0 ? null : timeoutSeconds
-  cwd = cwd || (mode === 'assistant' ? getProjectRoot() : getWorkingDirectory())
+  const projectRoot = getProjectRoot()
+  cwd = cwd
+    ? // Make sure cwd is an absolute path.
+      path.resolve(projectRoot, cwd)
+    : mode === 'assistant'
+      ? projectRoot
+      : getWorkingDirectory()
 
   /* guard: shell must exist ------------------------------------------ */
   if (!persistentProcess)
