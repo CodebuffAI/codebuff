@@ -154,9 +154,9 @@ export async function setupTestEnvironment(projectName: string) {
   }
 
   const repoPath = path.join(TEST_REPOS_DIR, projectName)
+  setProjectRoot(repoPath)
   createFileReadingMock(repoPath)
   recreateShell(repoPath)
-  setProjectRoot(repoPath)
   setWorkingDirectory(repoPath)
 
   // Return project info for use in tests

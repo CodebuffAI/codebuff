@@ -1,15 +1,18 @@
 #!/usr/bin/env bun
 
+import { generateCompactId } from '@codebuff/common/util/string'
+import {
+  setProjectRoot,
+  setWorkingDirectory,
+} from '@codebuff/npm-app/project-files'
+import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
 import { Command, Flags } from '@oclif/core'
 import fs from 'fs'
-import { generateCompactId } from '@codebuff/common/util/string'
-import { runSingleEval } from './run-git-evals'
-import { setupTestRepo, extractRepoNameFromUrl } from './setup-test-repo'
-import { setupTestEnvironmentVariables } from '../test-setup'
 import { createFileReadingMock } from '../scaffolding'
-import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
-import { setProjectRoot, setWorkingDirectory } from '@codebuff/npm-app/project-files'
-import type { EvalCommit, ModelConfig, GitRepoEvalData } from './types'
+import { setupTestEnvironmentVariables } from '../test-setup'
+import { runSingleEval } from './run-git-evals'
+import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
+import type { EvalCommit, GitRepoEvalData, ModelConfig } from './types'
 
 class RunSingleEvalCommand extends Command {
   static description = 'Run a single git evaluation task'
@@ -34,7 +37,7 @@ class RunSingleEvalCommand extends Command {
       char: 's',
       description: 'SHA of the specific commit to evaluate',
     }),
-    'output': Flags.string({
+    output: Flags.string({
       char: 'o',
       description: 'Output file path for results (optional)',
     }),
@@ -50,7 +53,11 @@ class RunSingleEvalCommand extends Command {
     const { flags } = await this.parse(RunSingleEvalCommand)
 
     // Validate that either commit-index or commit-sha is provided
-    if (!flags['commit-index'] && flags['commit-index'] !== 0 && !flags['commit-sha']) {
+    if (
+      !flags['commit-index'] &&
+      flags['commit-index'] !== 0 &&
+      !flags['commit-sha']
+    ) {
       this.error('Either --commit-index or --commit-sha must be provided')
     }
 
@@ -85,14 +92,18 @@ async function runSingleEvalTask(options: {
     throw new Error(`Eval file not found: ${evalFile}`)
   }
 
-  const evalData = JSON.parse(fs.readFileSync(evalFile, 'utf-8')) as GitRepoEvalData
+  const evalData = JSON.parse(
+    fs.readFileSync(evalFile, 'utf-8')
+  ) as GitRepoEvalData
   console.log(`Repository: ${evalData.repoUrl}`)
   console.log(`Total commits available: ${evalData.evalCommits.length}`)
 
   // Find the specific commit to evaluate
   let evalCommit: EvalCommit
   if (commitSha) {
-    const found = evalData.evalCommits.find(commit => commit.sha.startsWith(commitSha))
+    const found = evalData.evalCommits.find((commit) =>
+      commit.sha.startsWith(commitSha)
+    )
     if (!found) {
       throw new Error(`Commit with SHA ${commitSha} not found in eval data`)
     }
@@ -100,7 +111,9 @@ async function runSingleEvalTask(options: {
     console.log(`Selected commit by SHA: ${commitSha}`)
   } else if (commitIndex !== undefined) {
     if (commitIndex < 0 || commitIndex >= evalData.evalCommits.length) {
-      throw new Error(`Commit index ${commitIndex} is out of range (0-${evalData.evalCommits.length - 1})`)
+      throw new Error(
+        `Commit index ${commitIndex} is out of range (0-${evalData.evalCommits.length - 1})`
+      )
     }
     evalCommit = evalData.evalCommits[commitIndex]
     console.log(`Selected commit by index: ${commitIndex}`)
@@ -108,7 +121,9 @@ async function runSingleEvalTask(options: {
     throw new Error('No commit specified')
   }
 
-  console.log(`Commit: ${evalCommit.sha.slice(0, 8)} - ${evalCommit.message.split('\n')[0]}`)
+  console.log(
+    `Commit: ${evalCommit.sha.slice(0, 8)} - ${evalCommit.message.split('\n')[0]}`
+  )
 
   // Parse model config
   let modelConfig: ModelConfig
@@ -123,9 +138,10 @@ async function runSingleEvalTask(options: {
   setupTestEnvironmentVariables()
 
   // Setup test repository
-  const testRepoName = evalData.testRepoName || extractRepoNameFromUrl(evalData.repoUrl)
+  const testRepoName =
+    evalData.testRepoName || extractRepoNameFromUrl(evalData.repoUrl)
   console.log(`📁 Setting up test repository: ${testRepoName}`)
-  
+
   const projectPath = await setupTestRepo(
     evalData.repoUrl,
     testRepoName,
@@ -134,9 +150,9 @@ async function runSingleEvalTask(options: {
   console.log(`Repository cloned to: ${projectPath}`)
 
   // Setup project context
+  setProjectRoot(projectPath)
   createFileReadingMock(projectPath)
   recreateShell(projectPath)
-  setProjectRoot(projectPath)
   setWorkingDirectory(projectPath)
 
   // Generate session identifiers
@@ -144,7 +160,9 @@ async function runSingleEvalTask(options: {
   const fingerprintId = generateCompactId()
 
   console.log('🤖 Running evaluation...')
-  console.log(`Spec: ${evalCommit.spec.slice(0, 100)}${evalCommit.spec.length > 100 ? '...' : ''}`)
+  console.log(
+    `Spec: ${evalCommit.spec.slice(0, 100)}${evalCommit.spec.length > 100 ? '...' : ''}`
+  )
 
   const startTime = Date.now()
 
@@ -154,7 +172,7 @@ async function runSingleEvalTask(options: {
       evalCommit,
       projectPath,
       clientSessionId,
-      fingerprintId,
+      fingerprintId
     )
 
     const duration = Date.now() - startTime
@@ -171,22 +189,22 @@ async function runSingleEvalTask(options: {
         console.log(`  Completion: ${metrics.completionScore.toFixed(2)}/10`)
         console.log(`  Efficiency: ${metrics.efficiencyScore.toFixed(2)}/10`)
         console.log(`  Code Quality: ${metrics.codeQualityScore.toFixed(2)}/10`)
-        
+
         if (result.judging_results.strengths.length > 0) {
           console.log('  Strengths:')
-          result.judging_results.strengths.forEach(strength => {
+          result.judging_results.strengths.forEach((strength) => {
             console.log(`    • ${strength}`)
           })
         }
-        
+
         if (result.judging_results.weaknesses.length > 0) {
           console.log('  Weaknesses:')
-          result.judging_results.weaknesses.forEach(weakness => {
+          result.judging_results.weaknesses.forEach((weakness) => {
             console.log(`    • ${weakness}`)
           })
         }
       }
-      
+
       console.log(`  Files modified: ${result.fileStates.length}`)
       console.log(`  Conversation turns: ${result.trace.length}`)
     }
@@ -200,7 +218,10 @@ async function runSingleEvalTask(options: {
     process.exit(0)
   } catch (error) {
     const duration = Date.now() - startTime
-    console.error(`❌ Evaluation failed after ${(duration / 1000).toFixed(1)}s:`, error)
+    console.error(
+      `❌ Evaluation failed after ${(duration / 1000).toFixed(1)}s:`,
+      error
+    )
     process.exit(1)
   }
 }
@@ -213,4 +234,4 @@ if (require.main === module) {
   })
 }
 
-export { runSingleEvalTask, RunSingleEvalCommand }
+export { RunSingleEvalCommand, runSingleEvalTask }

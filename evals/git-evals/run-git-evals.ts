@@ -61,7 +61,7 @@ export async function runSingleEval(
 
   const unhandledHandler = (reason: any, promise: Promise<any>) => {
     console.error('Unhandled rejection during eval:', reason)
-    processError = `Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`
+    processError = `Unhandled rejection: ${reason instanceof Error ? { message: reason.message, stack: reason.stack } : String(reason)}`
   }
 
   process.on('uncaughtException', uncaughtHandler)

@@ -1,9 +1,9 @@
-import fs from 'fs'
 import {
   setProjectRoot,
   setWorkingDirectory,
 } from '@codebuff/npm-app/project-files'
 import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
+import fs from 'fs'
 import { createFileReadingMock } from '../scaffolding'
 import { setupTestEnvironmentVariables } from '../test-setup'
 import { runSingleEval } from './run-git-evals'
@@ -40,10 +40,10 @@ async function main() {
 
   try {
     // Setup environment for this process
+    setProjectRoot(projectPath)
     setupTestEnvironmentVariables()
     createFileReadingMock(projectPath)
     recreateShell(projectPath)
-    setProjectRoot(projectPath)
     setWorkingDirectory(projectPath)
 
     const result = await runSingleEval(

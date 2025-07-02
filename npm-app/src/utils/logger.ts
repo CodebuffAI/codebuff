@@ -60,7 +60,10 @@ function sendAnalyticsAndLog(
   msg?: string,
   ...args: any[]
 ): void {
-  if (process.env.CODEBUFF_GITHUB_ACTIONS !== 'true') {
+  if (
+    process.env.CODEBUFF_GITHUB_ACTIONS !== 'true' &&
+    process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
+  ) {
     setLogPath(
       process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
         ? path.join(__dirname, '../../../debug', 'npm-app.log')
