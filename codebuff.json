@@ -43,7 +43,7 @@
       "name": "web-typecheck",
       "command": "bun run typecheck",
       "cwd": "web",
-      "filePattern": "web/**/*.ts"
+      "filePattern": "web/**/*.ts*"
     },
 
     {

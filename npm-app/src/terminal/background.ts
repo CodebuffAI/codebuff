@@ -4,6 +4,7 @@ import * as os from 'os'
 import path, { dirname } from 'path'
 
 import { stripColors } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
 import { green } from 'picocolors'
 
 import {
@@ -142,17 +143,17 @@ export function runBackgroundCommand(
     childProcess.unref()
 
     const resultMessage = `<background_process>
-<process_id>${processId}</process_id>
-<command>${command}</command>
-<status>${processInfo.status}</status>
-</background_process>`
+<process_id>${processId}${closeXml('process_id')}
+<command>${command}${closeXml('command')}
+<status>${processInfo.status}${closeXml('status')}
+${closeXml('background_process')}`
     resolveCommand({
       result: resultMessage,
       stdout: initialStdout + initialStderr,
       exitCode,
     })
   } catch (error: any) {
-    const errorMessage = `<background_process>\n<command>${command}</command>\n<error>${error.message}</error>\n</background_process>`
+    const errorMessage = `<background_process>\n<command>${command}${closeXml('command')}\n<error>${error.message}${closeXml('error')}\n${closeXml('background_process')}`
     resolveCommand({
       result: errorMessage,
       stdout: error.message,

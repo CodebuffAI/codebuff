@@ -24,10 +24,12 @@ import {
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { Message } from '@codebuff/common/types/message'
-import { logger } from '@codebuff/common/util/logger'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
+
+import { closeXml } from '@codebuff/common/util/xml'
 import { checkLiveUserInput, getLiveUserInputId } from '../../live-user-inputs'
+import { logger } from '../../util/logger'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
@@ -107,11 +109,14 @@ export const promptAiSdkStream = async function* (
       logger.error({ chunk, model: options.model }, 'Error from AI SDK')
       if (process.env.ENVIRONMENT !== 'prod') {
         throw chunk.error instanceof Error
-          ? new Error(`Error from AI SDK: ${chunk.error.message}`, {
-              cause: chunk.error,
-            })
+          ? new Error(
+              `Error from AI SDK (${options.model}): ${chunk.error.message}`,
+              {
+                cause: chunk.error,
+              }
+            )
           : new Error(
-              `Error from AI SDK: ${
+              `Error from AI SDK (${options.model}): ${
                 typeof chunk.error === 'string'
                   ? chunk.error
                   : JSON.stringify(chunk.error)
@@ -129,7 +134,7 @@ export const promptAiSdkStream = async function* (
     if (chunk.type === 'text-delta') {
       if (reasoning) {
         reasoning = false
-        yield '</thought>\n</think_deeply>\n\n'
+        yield `${closeXml('thought')}\n${closeXml('think_deeply')}\n\n`
       }
       content += chunk.textDelta
       yield chunk.textDelta

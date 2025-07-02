@@ -1,4 +1,5 @@
 import { ToolResultPart } from 'ai'
+import { closeXml } from '../util/xml'
 
 export const toolSchema = {
   // Tools that require an id and objective
@@ -30,6 +31,9 @@ export const toolSchema = {
   // Web search tool
   web_search: ['query', 'depth'],
 
+  // File change hooks tool
+  run_file_change_hooks: ['files'],
+
   end_turn: [],
 }
 
@@ -43,7 +47,7 @@ export const getToolCallString = (
   params: Record<string, any>
 ) => {
   const openTag = `<${toolName}>`
-  const closeTag = `</${toolName}>`
+  const closeTag = closeXml(toolName)
 
   // Get the parameter order from toolSchema
   const paramOrder = toolSchema[toolName] as string[]
@@ -56,7 +60,7 @@ export const getToolCallString = (
         typeof params[param] === 'string'
           ? params[param]
           : JSON.stringify(params[param])
-      return `<${param}>${val}</${param}>`
+      return `<${param}>${val}${closeXml(param)}`
     })
 
   // Get any additional parameters not in the schema order
@@ -64,7 +68,7 @@ export const getToolCallString = (
     .filter(([param]) => !paramOrder.includes(param))
     .map(([param, value]) => {
       const val = typeof value === 'string' ? value : JSON.stringify(value)
-      return `<${param}>${val}</${param}>`
+      return `<${param}>${val}${closeXml(param)}`
     })
 
   // Combine ordered and additional parameters
@@ -88,9 +92,9 @@ export function renderToolResults(toolResults: StringToolResultPart[]): string {
 ${toolResults
   .map(
     (result) => `<tool_result>
-<tool>${result.toolName}</tool>
-<result>${result.result}</result>
-</tool_result>`
+<tool>${result.toolName}${closeXml('tool')}
+<result>${result.result}${closeXml('result')}
+${closeXml('tool_result')}`
   )
   .join('\n\n')}
 `.trim()

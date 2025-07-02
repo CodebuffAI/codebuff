@@ -54,7 +54,6 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
-import { renderToolResults } from '@codebuff/common/constants/tools'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -64,10 +63,8 @@ import { backendUrl, npmAppVersion, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { DiffManager } from './diff-manager'
 import { calculateFingerprint } from './fingerprint'
-import { runFileChangeHooks } from './json-config/hooks'
 import { loadCodebuffConfig } from './json-config/parser'
 import { displayGreeting } from './menu'
-import { logAndHandleStartup } from './startup-process-handler'
 import {
   clearCachedProjectFileContext,
   getFiles,
@@ -76,6 +73,7 @@ import {
   getWorkingDirectory,
   startNewChat,
 } from './project-files'
+import { logAndHandleStartup } from './startup-process-handler'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
@@ -85,6 +83,7 @@ import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+import { closeXml } from '@codebuff/common/util/xml'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -726,7 +725,18 @@ export class Client {
     this.webSocket.subscribe('tool-call-request', async (action) => {
       const { requestId, toolName, args, userInputId } = action
 
-      if (userInputId !== this.userInputId) {
+      // Check if the userInputId matches or is from a spawned agent
+      if (!this.userInputId || !userInputId.startsWith(this.userInputId)) {
+        logger.warn(
+          {
+            requestId,
+            toolName,
+            expectedUserInputId: this.userInputId,
+            receivedUserInputId: userInputId,
+          },
+          'User input ID mismatch - rejecting tool call request'
+        )
+
         this.webSocket.sendAction({
           type: 'tool-call-response',
           requestId,
@@ -744,9 +754,11 @@ export class Client {
           args,
         }
 
+        Spinner.get().stop()
         const toolResult = await handleToolCall(toolCall as any)
 
         // Send successful response back to backend
+        Spinner.get().start('Thinking...')
         this.webSocket.sendAction({
           type: 'tool-call-response',
           requestId,
@@ -754,7 +766,18 @@ export class Client {
           result: toolResult.result,
         })
       } catch (error) {
+        logger.error(
+          {
+            requestId,
+            toolName,
+            error: error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Tool call execution failed - sending error response to backend'
+        )
+
         // Send error response back to backend
+        Spinner.get().start('Thinking...')
         this.webSocket.sendAction({
           type: 'tool-call-response',
           requestId,
@@ -1038,7 +1061,7 @@ export class Client {
         { role: 'user' as const, content: prompt },
         {
           role: 'user' as const,
-          content: `<system><assistant_message>${rawChunkBuffer.join('')}</assistant_message>[RESPONSE_CANCELED_BY_USER]</system>`,
+          content: `<system><assistant_message>${rawChunkBuffer.join('')}${closeXml('assistant_message')}[RESPONSE_CANCELED_BY_USER]${closeXml('system')}`,
         },
       ]
 
@@ -1078,14 +1101,14 @@ export class Client {
 
       const trimmed = chunk.trim()
       for (const tag of ONE_TIME_TAGS) {
-        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(`</${tag}>`)) {
+        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(closeXml(tag))) {
           if (this.oneTimeFlags[tag]) {
             return
           }
           Spinner.get().stop()
           const warningMessage = trimmed
             .replace(`<${tag}>`, '')
-            .replace(`</${tag}>`, '')
+            .replace(closeXml(tag), '')
           process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
           this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
           return
@@ -1151,46 +1174,6 @@ export class Client {
         // If we had any file changes, update the project context
         if (DiffManager.getChanges().length > 0) {
           this.fileContext = await getProjectFileContext(getProjectRoot(), {})
-        }
-
-        const hookFiles = DiffManager.getHookFiles()
-        if (hookFiles.length > 0) {
-          // Run file change hooks with the actual changed files
-          const { toolResults: hookToolResults, someHooksFailed } =
-            await runFileChangeHooks(hookFiles)
-          toolResults.push(...hookToolResults)
-          if (someHooksFailed) {
-            this.responseComplete = false
-          }
-          // Clear the hook files from the manager
-          DiffManager.clearHookFiles()
-        }
-
-        if (!this.responseComplete) {
-          // Append process updates to existing tool results
-          toolResults.push(...getBackgroundProcessUpdates())
-          this.sessionState.fileContext.cwd = getWorkingDirectory()
-
-          this.sessionState.mainAgentState.messageHistory.push({
-            role: 'user',
-            content: renderToolResults(toolResults),
-          })
-          // Continue the prompt with the tool results.
-          Spinner.get().start('Thinking...')
-          const continuePromptAction: ClientAction = {
-            type: 'prompt',
-            promptId: userInputId,
-            prompt: undefined,
-            sessionState: this.sessionState,
-            toolResults,
-            fingerprintId: await this.fingerprintId,
-            authToken: this.user?.authToken,
-            costMode: this.costMode,
-            model: this.model,
-            repoUrl: loggerContext.repoUrl,
-          }
-          this.webSocket.sendAction(continuePromptAction)
-          return
         }
 
         const endTime = Date.now()

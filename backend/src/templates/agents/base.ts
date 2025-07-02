@@ -1,15 +1,14 @@
 import { Model } from '@codebuff/common/constants'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { closeXmlTags } from '@codebuff/common/util/xml'
+
+import { ToolName } from '../../tools'
 import {
   baseAgentAgentStepPrompt,
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
 } from '../base-prompts'
-import {
-  AgentTemplate,
-  baseAgentSpawnableAgents,
-  baseAgentStopSequences,
-  baseAgentToolNames,
-} from '../types'
+import { AgentTemplate } from '../types'
 
 export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
@@ -20,9 +19,32 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: baseAgentToolNames,
-  stopSequences: baseAgentStopSequences,
-  spawnableAgents: baseAgentSpawnableAgents,
+  toolNames: [
+    'create_plan',
+    'run_terminal_command',
+    'str_replace',
+    'write_file',
+    'spawn_agents',
+    'add_subgoal',
+    'browser_logs',
+    'code_search',
+    'end_turn',
+    'read_files',
+    'think_deeply',
+    'update_subgoal',
+  ],
+  stopSequences: closeXmlTags([
+    'read_files',
+    'find_files',
+    'run_terminal_command',
+    'code_search',
+    'spawn_agents',
+  ] as readonly ToolName[]),
+  spawnableAgents: [
+    AgentTemplateTypes.file_picker,
+    AgentTemplateTypes.gemini25flash_researcher,
+    AgentTemplateTypes.gemini25pro_reviewer,
+  ],
   initialAssistantPrefix: '',
   stepAssistantPrefix: '',
 

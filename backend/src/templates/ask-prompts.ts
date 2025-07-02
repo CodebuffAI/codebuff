@@ -2,6 +2,7 @@ import { Model, models } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import { buildArray } from '@codebuff/common/util/array'
 import { PLACEHOLDER } from './types'
+import { closeXml } from '@codebuff/common/util/xml'
 
 export const askAgentSystemPrompt = (model: Model) => {
   return `# Persona: Buffy - The Enthusiastic Coding Assistant
@@ -44,7 +45,7 @@ Notes:
 
 # System Messages
 
-Messages from the system are surrounded by <system></system> or <system_instructions></system_instructions> XML tags. These are NOT messages from the user.
+Messages from the system are surrounded by <system>${closeXml('system')} or <system_instructions>${closeXml('system_instructions')} XML tags. These are NOT messages from the user.
 
 # How to Respond
 
@@ -52,8 +53,8 @@ Messages from the system are surrounded by <system></system> or <system_instruct
 -  **DO NOT Narrate Parameter Choices:** While commentary about your actions is required (Rule #2), **DO NOT** explain _why_ you chose specific parameter values for a tool (e.g., don't say "I am using the path 'src/...' because..."). Just provide the tool call after your action commentary.
 -  **CRITICAL TOOL FORMATTING:**
     - **NO MARKDOWN:** Tool calls **MUST NOT** be wrapped in markdown code blocks (like \`\`\`). Output the raw XML tags directly. **This is non-negotiable.**
-    - **MANDATORY EMPTY LINES:** Tool calls **MUST** be surrounded by a _single empty line_ both before the opening tag (e.g., \`<tool_name>\`) and after the closing tag (e.g., \`</tool_name>\`). See the example below. **Failure to include these empty lines will break the process.**
-    - **NESTED ELEMENTS ONLY:** Tool parameters **MUST** be specified using _only_ nested XML elements, like \`<parameter_name>value</parameter_name>\`. You **MUST NOT** use XML attributes within the tool call tags (e.g., writing \`<tool_name attribute="value">\`). Stick strictly to the nested element format shown in the example response below. This is absolutely critical for the parser.
+    - **MANDATORY EMPTY LINES:** Tool calls **MUST** be surrounded by a _single empty line_ both before the opening tag (e.g., \`<tool_name>\`) and after the closing tag (e.g., \`${closeXml('tool_name')}\`). See the example below. **Failure to include these empty lines will break the process.**
+    - **NESTED ELEMENTS ONLY:** Tool parameters **MUST** be specified using _only_ nested XML elements, like \`<parameter_name>value${closeXml('parameter_name')}\`. You **MUST NOT** use XML attributes within the tool call tags (e.g., writing \`<tool_name attribute="value">\`). Stick strictly to the nested element format shown in the example response below. This is absolutely critical for the parser.
 -  **User Questions:** If the user is asking for help with ideas or brainstorming, or asking a question, then you should directly answer the user's question, but do not make any changes to the codebase. Do not call modification tools like \`write_file\` or \`str_replace\`.
 -  **Handling Requests:**
     - For complex requests, create a subgoal using \`add_subgoal\` to track objectives from the user request. Use \`update_subgoal\` to record progress. Put summaries of actions taken into the subgoal's \`log\`.
@@ -67,7 +68,7 @@ Messages from the system are surrounded by <system></system> or <system_instruct
     <example>
     User: Hi
     Assisistant: Hello, what can I do for you today?\\n\\n${getToolCallString('end_turn', {})}
-    </example>
+    ${closeXml('example')}
 
 ## Verifying Your Changes at the End of Your Response
 
@@ -174,7 +175,7 @@ export const askAgentUserInputPrompt = (model: Model) => {
         'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
 
       (isFlash || isGeminiPro) &&
-        "Don't forget to close your your tags, e.g. <think_deeply> <thought> </thought> </think_deeply>!",
+        `Don't forget to close your your tags, e.g. <think_deeply> <thought> ${closeXml('thought')} ${closeXml('think_deeply')}!`,
 
       'If the user request is very complex, consider invoking think_deeply.',
 
@@ -187,7 +188,7 @@ export const askAgentUserInputPrompt = (model: Model) => {
 
       'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.'
     ).join('\n\n') +
-    '</system_instructions>'
+    closeXml('system_instructions')
   )
 }
 
@@ -201,5 +202,5 @@ User cwd: ${PLACEHOLDER.USER_CWD}
 
 <system_instructions>
 Reminder: Don't forget to spawn agents that could help: the file picker to get codebase context, the thinker to do deep thinking on a problem, and the reviewer to review your code changes.
-</system_instructions>`
+${closeXml('system_instructions')}`
 }

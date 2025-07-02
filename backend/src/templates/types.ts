@@ -3,10 +3,10 @@ import {
   AgentTemplateType,
   AgentTemplateTypes,
 } from '@codebuff/common/types/session-state'
+import { closeXmlTags } from '@codebuff/common/util/xml'
 import { z } from 'zod/v4'
 
 import { ToolName } from '../tools'
-import { generateCloseTags } from '../util/parse-tool-call-xml'
 
 export type AgentTemplate = {
   type: AgentTemplateType
@@ -57,39 +57,29 @@ export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
 
 export const placeholderValues = Object.values(PLACEHOLDER)
 
-export const editingToolNames: ToolName[] = [
+export const baseAgentToolNames: ToolName[] = [
   'create_plan',
   'run_terminal_command',
   'str_replace',
   'write_file',
   'spawn_agents',
-] as const
-
-export const readOnlyToolNames: ToolName[] = [
   'add_subgoal',
   'browser_logs',
   'code_search',
   'end_turn',
-  'read_docs',
   'read_files',
   'think_deeply',
   'update_subgoal',
-  'web_search',
-] as const
-
-export const baseAgentToolNames: ToolName[] = [
-  ...editingToolNames,
-  ...readOnlyToolNames,
 ] as const
 
 // Use the utility function to generate stop sequences for key tools
-export const baseAgentStopSequences: string[] = generateCloseTags([
+export const baseAgentStopSequences: string[] = closeXmlTags([
   'read_files',
   'find_files',
   'run_terminal_command',
   'code_search',
   'spawn_agents',
-] as const)
+] as ToolName[])
 
 export const baseAgentSpawnableAgents: AgentTemplateType[] = [
   AgentTemplateTypes.file_picker,

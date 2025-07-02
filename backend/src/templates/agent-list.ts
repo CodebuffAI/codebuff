@@ -14,7 +14,7 @@ import { researcher } from './agents/researcher'
 import { reviewer } from './agents/reviewer'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
-import { AgentTemplate, readOnlyToolNames } from './types'
+import { AgentTemplate } from './types'
 
 export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   opus4_base: {
@@ -36,8 +36,6 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   gemini25pro_ask: {
     type: AgentTemplateTypes.gemini25pro_ask,
     ...ask(models.gemini2_5_pro_preview),
-    toolNames: readOnlyToolNames,
-    spawnableAgents: [AgentTemplateTypes.file_picker],
   },
   claude4_gemini_thinking: {
     type: AgentTemplateTypes.claude4_gemini_thinking,

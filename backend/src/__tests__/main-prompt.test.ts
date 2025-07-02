@@ -106,6 +106,7 @@ describe('mainPrompt', () => {
     spyOn(websocketAction, 'requestToolCall').mockImplementation(
       async (
         ws: WebSocket,
+        userInputId: string,
         toolName: string,
         args: Record<string, any>,
         timeout: number = 30_000
@@ -265,6 +266,7 @@ describe('mainPrompt', () => {
     expect(requestToolCallSpy).toHaveBeenCalledTimes(1)
     expect(requestToolCallSpy).toHaveBeenCalledWith(
       expect.any(Object), // WebSocket
+      expect.any(String), // userInputId
       'run_terminal_command',
       expect.objectContaining({
         command: 'ls -la',
@@ -322,6 +324,7 @@ describe('mainPrompt', () => {
     // Verify the write_file call was made with the correct arguments
     expect(requestToolCallSpy).toHaveBeenCalledWith(
       expect.any(Object), // WebSocket
+      expect.any(String), // userInputId
       'write_file',
       expect.objectContaining({
         type: 'file',
@@ -333,6 +336,7 @@ describe('mainPrompt', () => {
     // Verify the end_turn call was made
     expect(requestToolCallSpy).toHaveBeenCalledWith(
       expect.any(Object), // WebSocket
+      expect.any(String), // userInputId
       'end_turn',
       expect.any(Object)
     )
@@ -497,6 +501,7 @@ describe('mainPrompt', () => {
     // Verify the run_terminal_command call was made with the correct arguments
     expect(requestToolCallSpy).toHaveBeenCalledWith(
       expect.any(Object), // WebSocket
+      expect.any(String), // userInputId
       'run_terminal_command',
       expect.objectContaining({
         command: expectedCommand,
@@ -508,6 +513,7 @@ describe('mainPrompt', () => {
     // Verify the end_turn call was made
     expect(requestToolCallSpy).toHaveBeenCalledWith(
       expect.any(Object), // WebSocket
+      expect.any(String), // userInputId
       'end_turn',
       expect.any(Object)
     )

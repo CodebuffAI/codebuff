@@ -19,6 +19,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { ToolResult } from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
 import { gray, red } from 'picocolors'
 import { z } from 'zod'
 
@@ -113,28 +114,28 @@ export function getBackgroundProcessInfoString(
 
   return buildArray(
     '<background_process>',
-    `<process_id>${info.pid}</process_id>`,
-    `<command>${info.command}</command>`,
-    `<start_time_utc>${new Date(info.startTime).toISOString()}</start_time_utc>`,
-    `<duration_ms>${duration}</duration_ms>`,
+    `<process_id>${info.pid}${closeXml('process_id')}`,
+    `<command>${info.command}${closeXml('command')}`,
+    `<start_time_utc>${new Date(info.startTime).toISOString()}${closeXml('start_time_utc')}`,
+    `<duration_ms>${duration}${closeXml('duration_ms')}`,
     newStdout &&
       `<stdout>${truncateStringWithMessage({
         str: getOutputWithContext(newStdout, info.lastReportedStdoutLength),
         maxLength: COMMAND_OUTPUT_LIMIT,
         remove: 'START',
-      })}</stdout>`,
+      })}${closeXml('stdout')}`,
     newStderr &&
       `<stderr>${truncateStringWithMessage({
         str: getOutputWithContext(newStderr, info.lastReportedStderrLength),
         maxLength: COMMAND_OUTPUT_LIMIT,
         remove: 'START',
-      })}</stderr>`,
-    `<status>${info.status}</status>`,
+      })}${closeXml('stderr')}`,
+    `<status>${info.status}${closeXml('status')}`,
     info.process.exitCode !== null &&
-      `<exit_code>${info.process.exitCode}</exit_code>`,
+      `<exit_code>${info.process.exitCode}${closeXml('exit_code')}`,
     info.process.signalCode &&
-      `<signal_code>${info.process.signalCode}</signal_code>`,
-    '</background_process>'
+      `<signal_code>${info.process.signalCode}${closeXml('signal_code')}`,
+    closeXml('background_process')
   ).join('\n')
 }
 

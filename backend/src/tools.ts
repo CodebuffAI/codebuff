@@ -15,6 +15,7 @@ import { ToolCallPart, ToolSet } from 'ai'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { gitCommitGuidePrompt } from './system-prompt/prompts'
 import { agentTemplates } from './templates/agent-list'
+import { closeXml } from '@codebuff/common/util/xml'
 
 // Define Zod schemas for parameter validation
 const toolConfigs = {
@@ -247,7 +248,7 @@ Use this tool to make edits within existing files. Prefer this tool over the wri
 Important:
 If you are making multiple edits in a row to a file, use only one <str_replace> call with multiple replacements instead of multiple str_replace tool calls.
 
-Don't forget to close the <str_replace> tag with </str_replace> after you have finished making all the replacements.
+Don't forget to close the <str_replace> tag with ${closeXml('str_replace')} after you have finished making all the replacements.
 
 Example:
 ${getToolCallString('str_replace', {
@@ -785,6 +786,34 @@ ${getToolCallString('read_docs', {
 })}
     `.trim(),
   },
+  run_file_change_hooks: {
+    parameters: z
+      .object({
+        files: z
+          .array(z.string())
+          .describe(
+            `List of file paths that were changed and should trigger file change hooks`
+          ),
+      })
+      .describe(
+        `Trigger file change hooks on the client for the specified files. This should be called after file changes have been applied.`
+      ),
+    description: `
+Purpose: Trigger file change hooks defined in codebuff.json for the specified files. This tool allows the backend to request the client to run its configured file change hooks (like tests, linting, type checking) after file changes have been applied.
+
+Use cases:
+- After making code changes, trigger the relevant tests and checks
+- Ensure code quality by running configured linters and type checkers
+- Validate that changes don't break the build
+
+The client will run only the hooks whose filePattern matches the provided files.
+
+Example:
+${getToolCallString('run_file_change_hooks', {
+  files: ['src/components/Button.tsx', 'src/utils/helpers.ts'],
+})}
+    `.trim(),
+  },
 } as const satisfies ToolSet
 
 const toolConfigsList = Object.entries(toolConfigs).map(
@@ -934,10 +963,10 @@ You (Buffy) have access to the following tools. Call them when needed.
 Tool calls use a specific XML-like format. Adhere *precisely* to this nested element structure:
 
 <tool_name>
-<parameter1_name>value1</parameter1_name>
-<parameter2_name>value2</parameter2_name>
+<parameter1_name>value1${closeXml('parameter1_name')}
+<parameter2_name>value2${closeXml('parameter2_name')}
 ...
-</tool_name>
+${closeXml('tool_name')}
 
 ### XML Entities
 
@@ -1026,24 +1055,24 @@ We're working on a project. We can have multiple subgoals. Each subgoal can have
 The following is an example of a schema of a subgoal. It is for illistrative purposes and is not relevant otherwise. Use it as a reference to understand how to update the context.
 Example schema:
 <subgoal>
-<id>1</id>
-<objective>Fix the tests</objective>
-<status>COMPLETE</status>
-<plan>Run them, find the error, fix it</plan>
-<log>Ran the tests and traced the error to component foo.</log>
-<log>Modified the foo component to fix the error</log>
-<log>Reran the tests and they passed.</log>
-</subgoal>
+<id>1${closeXml('id')}
+<objective>Fix the tests${closeXml('objective')}
+<status>COMPLETE${closeXml('status')}
+<plan>Run them, find the error, fix it${closeXml('plan')}
+<log>Ran the tests and traced the error to component foo.${closeXml('log')}
+<log>Modified the foo component to fix the error${closeXml('log')}
+<log>Reran the tests and they passed.${closeXml('log')}
+${closeXml('subgoal')}
 
 Here is the initial context:
 <initial_context>
 ${context}
-</initial_context>
+${closeXml('initial_context')}
 
 Here are the update instructions:
 <update_instructions>
 ${updateInstructions}
-</update_instructions>
+${closeXml('update_instructions')}
 
 Please rewrite the entire context using the update instructions in a <new_context> tag. Try to perserve the original context as much as possible, subject to the update instructions. Return the new context only — do not include any other text or wrapper xml/markdown formatting e.g. please omit <initial_context> tags.`
   const messages = [
@@ -1063,7 +1092,7 @@ Please rewrite the entire context using the update instructions in a <new_contex
     userInputId: 'strange-loop',
     userId: TEST_USER_ID,
   })
-  const newContext = response.split('</new_context>')[0]
+  const newContext = response.split(closeXml('new_context'))[0]
   return newContext.trim()
 }
 

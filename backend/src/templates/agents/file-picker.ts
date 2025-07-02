@@ -2,7 +2,8 @@ import { Model } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { z } from 'zod/v4'
 import { getToolCallString } from '@codebuff/common/constants/tools'
-import { generateCloseTags } from '../../util/parse-tool-call-xml'
+import { closeXmlTags } from '@codebuff/common/util/xml'
+
 import { AgentTemplate, PLACEHOLDER } from '../types'
 import { logger } from '../../util/logger'
 
@@ -25,7 +26,7 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'read_files', 'end_turn'],
-  stopSequences: generateCloseTags(['end_turn']),
+  stopSequences: closeXmlTags(['end_turn']),
   spawnableAgents: [AgentTemplateTypes.file_picker_worker],
 
   initialAssistantMessage: (
@@ -59,5 +60,6 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
  Don't write anything else other than these three tool calls!
  `.trim(),
 
-  agentStepPrompt: 'You must call both the read_files and end_turn tools back-to-back in the same response.',
+  agentStepPrompt:
+    'You must call both the read_files and end_turn tools back-to-back in the same response.',
 })

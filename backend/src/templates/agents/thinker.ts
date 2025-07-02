@@ -1,6 +1,6 @@
 import { Model } from '@codebuff/common/constants'
+import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 
-import { generateCloseTags } from '../../util/parse-tool-call-xml'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
@@ -14,7 +14,7 @@ export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  stopSequences: generateCloseTags(['end_turn']),
+  stopSequences: closeXmlTags(['end_turn']),
   spawnableAgents: [],
   initialAssistantPrefix: '',
   stepAssistantPrefix: '',
@@ -35,5 +35,5 @@ When the next action is clear, you can stop your thinking immediately. For examp
 - If you realize you completed the user request, say it is time to end your response and end your thinking.
 - If you already did thinking previously that outlines a plan you are continuing to implement, you can stop your thinking immediately and continue following the plan.`,
 
-  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
+  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 })

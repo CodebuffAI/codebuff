@@ -4,12 +4,12 @@ import {
   Model,
   models,
 } from '@codebuff/common/constants'
+import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 import { CoreMessage } from 'ai'
 
 import { getAgentStream } from './prompt-agent-stream'
 import { TOOL_LIST } from './tools'
 import { logger } from './util/logger'
-import { generateCloseTags } from './util/parse-tool-call-xml'
 
 export async function getThinkingStream(
   messages: CoreMessage[],
@@ -28,7 +28,7 @@ export async function getThinkingStream(
     costMode: options.costMode,
     selectedModel: model,
     stopSequences: [
-      ...generateCloseTags(['thought', 'think_deeply']),
+      ...closeXmlTags(['thought', 'think_deeply']),
       '<read_files>',
       '<write_files>',
       '<end_turn>',
@@ -54,14 +54,14 @@ Guidelines:
 - Show key snippets of code to guide the implementation to be as clean as possible.
 - Figure out the solution to any errors or bugs and give instructions on how to fix them.
 - DO NOT use any tools! You are only thinking, not taking any actions. You should refer to tool calls without angle brackets when talking about them: "I should use the read_files tool" and NOT "I should use <read_files>"
-- Make sure to end your response with "</thought>\n</think_deeply> and don't write anything after that."
+- Make sure to end your response with "${closeXml('thought')}\n${closeXml('think_deeply')} and don't write anything after that."
 
 Example:
 <think_deeply>
 <thought>
 The next step is to read src/foo.ts and src/bar.ts
-</thought>
-</think_deeply>
+${closeXml('thought')}
+${closeXml('think_deeply')}
 `.trim()
     : `You are an expert programmer. Think deeply about the user request in the message history and how to best approach it. Consider edge cases, potential issues, and alternative approaches. Only think - do not take any actions or make any changes.
 
@@ -78,7 +78,7 @@ Guidelines:
 - It's highly recommended to have a very short thinking session, like 1 sentence long, if the next action is clear.
 - Do not write anything outside of the <think_deeply> tool call.
 - DO NOT use any other tools! You are only thinking, not taking any actions. You should refer to tool calls without angle brackets when talking about them: "I should use the read_files tool" and NOT "I should use <read_files>"
-- Make sure to end your response with "</thought>\n</think_deeply>"
+- Make sure to end your response with "${closeXml('thought')}\n${closeXml('think_deeply')}"
 
 Misc Guidelines:
 - When mentioning a file path, make sure to include all the directories in the path to the file. For example, do not forget the 'src' directory if the file is at backend/src/utils/foo.ts.
@@ -86,7 +86,8 @@ Misc Guidelines:
 Important: Keep your thinking as short as possible! Just a few words suffices. Especially in simple cases or when the next action is clear.`
 
   const thinkDeeplyPrefix = '<think_deeply>\n<thought>'
-  const thinkDeeplySuffix = '</thought>\n</think_deeply>'
+  const thinkDeeplySuffix =
+    '${closeXml("thought")}\n${closeXml("think_deeply")}'
 
   const agentMessages: CoreMessage[] = [
     ...messages,

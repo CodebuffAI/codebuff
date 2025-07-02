@@ -5,11 +5,7 @@ import {
   askAgentSystemPrompt,
   askAgentUserInputPrompt,
 } from '../ask-prompts'
-import {
-  AgentTemplate,
-  baseAgentStopSequences,
-  readOnlyToolNames,
-} from '../types'
+import { AgentTemplate, baseAgentStopSequences } from '../types'
 
 export const ask = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
@@ -20,7 +16,13 @@ export const ask = (model: Model): Omit<AgentTemplate, 'type'> => ({
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: [...readOnlyToolNames, 'spawn_agents'],
+  toolNames: [
+    'create_plan',
+    'run_terminal_command',
+    'str_replace',
+    'write_file',
+    'spawn_agents',
+  ],
   stopSequences: baseAgentStopSequences,
   spawnableAgents: [AgentTemplateTypes.gemini25flash_file_picker],
   initialAssistantMessage: '',
