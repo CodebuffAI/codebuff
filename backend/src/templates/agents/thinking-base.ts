@@ -13,11 +13,11 @@ import {
   baseAgentToolNames,
   PLACEHOLDER,
 } from '../types'
-import { AGENT_METADATA } from '@codebuff/common/constants/agents'
+import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 
 export const thinkingBase = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: AGENT_METADATA['gemini25flash_base'].name,
+  name: AGENT_PERSONAS['gemini25flash_base'].name,
   description: 'Base agent that thinks before each response',
   promptSchema: {
     prompt: true,

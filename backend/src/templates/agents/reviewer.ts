@@ -1,13 +1,13 @@
 import { Model } from '@codebuff/common/constants'
-import { AGENT_METADATA } from '@codebuff/common/constants/agents'
+import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: AGENT_METADATA['gemini25pro_reviewer'].name,
-  description: AGENT_METADATA['gemini25pro_reviewer'].description,
+  name: AGENT_PERSONAS['gemini25pro_reviewer'].name,
+  description: AGENT_PERSONAS['gemini25pro_reviewer'].description,
   promptSchema: {
     prompt: true,
     params: null,

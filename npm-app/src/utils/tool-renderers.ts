@@ -1,7 +1,7 @@
 import { ToolName } from '@codebuff/common/constants/tools'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
 import { capitalize, snakeToTitleCase } from '@codebuff/common/util/string'
-import { AGENT_NAMES, AGENT_METADATA } from '@codebuff/common/constants/agents'
+import { AGENT_NAMES, AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { bold, gray, strikethrough } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
@@ -270,7 +270,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
               const agentType = props?.agent_type
               const prompt = props?.prompt
               // Show agent name, title, and description if available
-              const metadata = agentType && AGENT_METADATA[agentType as keyof typeof AGENT_METADATA]
+              const metadata = agentType && AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
               const agentName = metadata ? metadata.name : agentType || 'Agent'
               const agentTitle = metadata ? metadata.title : ''
               const agentDescription = metadata ? metadata.description : ''

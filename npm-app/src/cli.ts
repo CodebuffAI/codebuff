@@ -5,7 +5,7 @@ import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
 import { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import { UNIQUE_AGENT_NAMES, AGENT_NAME_TO_TYPES, AGENT_METADATA } from '@codebuff/common/constants/agents'
+import { UNIQUE_AGENT_NAMES, AGENT_NAME_TO_TYPES, AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import type { CostMode } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { isDir, ProjectFileContext } from '@codebuff/common/util/file'
@@ -367,7 +367,7 @@ export class CLI {
       const padding = '.'.repeat(maxNameLength - name.length + 3)
       // Find the description directly from the metadata
       const description =
-        Object.values(AGENT_METADATA).find(
+        Object.values(AGENT_PERSONAS).find(
           (metadata) => metadata.name === name
         )?.description || 'AI specialist agent'
       return `${cyan(`@${name}`)} ${padding} ${description}`

@@ -1,5 +1,5 @@
 import { Model } from '@codebuff/common/constants'
-import { AGENT_METADATA } from '@codebuff/common/constants/agents'
+import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 
@@ -7,8 +7,8 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: AGENT_METADATA['gemini25flash_researcher'].name,
-  description: AGENT_METADATA['gemini25flash_researcher'].description,
+  name: AGENT_PERSONAS['gemini25flash_researcher'].name,
+  description: AGENT_PERSONAS['gemini25flash_researcher'].description,
   promptSchema: {
     prompt: true,
     params: null,

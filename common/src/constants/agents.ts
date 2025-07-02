@@ -1,27 +1,6 @@
-// Agent names for client-side reference without exposing full agent templates
-export const AGENT_NAMES = {
-  // Base agents
-  opus4_base: 'Buffy',
-  claude4_base: 'Buffy',
-  gemini25pro_base: 'Buffy',
-  gemini25flash_base: 'Buffy',
-  claude4_gemini_thinking: 'Buffy',
-
-  // Ask mode
-  gemini25pro_ask: 'Buffy',
-
-  // Specialized agents
-  gemini25pro_thinker: 'Theo',
-  gemini25flash_file_picker: 'Fletcher',
-  gemini25flash_researcher: 'Reid',
-  gemini25pro_planner: 'Peter Plan',
-  gemini25flash_dry_run: 'Sketch',
-  gemini25pro_reviewer: 'Nit Pick Nick',
-} as const
-
-// Agent metadata keyed by AgentTemplateType for backend template usage
-export const AGENT_METADATA = {
-  // Base agents
+// Define agent personas with their shared characteristics
+export const AGENT_PERSONAS = {
+  // Base agents - all use Buffy persona
   opus4_base: {
     name: 'Buffy',
     title: 'The Enthusiastic Coding Assistant',
@@ -65,7 +44,7 @@ export const AGENT_METADATA = {
   gemini25flash_file_picker: {
     name: 'Fletcher',
     title: 'The File Fetcher',
-    description: 'Expert at finding relevant files in  a codebase.',
+    description: 'Expert at finding relevant files in a codebase.',
   },
   gemini25flash_researcher: {
     name: 'Reid Searcher',
@@ -93,11 +72,20 @@ export const AGENT_METADATA = {
   },
 } as const
 
-export type AgentName = (typeof AGENT_NAMES)[keyof typeof AGENT_NAMES]
+// Agent names for client-side reference without exposing full agent templates
+export const AGENT_NAMES = Object.fromEntries(
+  Object.entries(AGENT_PERSONAS).map(([agentType, persona]) => [
+    agentType,
+    persona.name,
+  ])
+) as Record<keyof typeof AGENT_PERSONAS, string>
+
+export type AgentName =
+  (typeof AGENT_PERSONAS)[keyof typeof AGENT_PERSONAS]['name']
 
 // Get unique agent names for UI display
 export const UNIQUE_AGENT_NAMES = Array.from(
-  new Set(Object.values(AGENT_NAMES))
+  new Set(Object.values(AGENT_PERSONAS).map((persona) => persona.name))
 )
 
 // Map from display name back to agent types (for parsing user input)
