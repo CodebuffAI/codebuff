@@ -1,6 +1,9 @@
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
 import { ClientToolCall } from '@codebuff/backend/tools'
-import { requestToolCall as originalRequestToolCall } from '@codebuff/backend/websockets/websocket-action'
+import {
+  requestFiles as originalRequestFiles,
+  requestToolCall as originalRequestToolCall,
+} from '@codebuff/backend/websockets/websocket-action'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { FileChanges } from '@codebuff/common/actions'
 import { TEST_USER_ID } from '@codebuff/common/constants'
@@ -47,14 +50,14 @@ function readMockFile(projectRoot: string, filePath: string): string | null {
 let toolCalls: ClientToolCall[] = []
 let toolResults: ToolResult[] = []
 export function createFileReadingMock(projectRoot: string) {
-  mock.module('backend/websockets/websocket-action', () => ({
-    requestFiles: (ws: WebSocket, filePaths: string[]) => {
+  mock.module('@codebuff/backend/websockets/websocket-action', () => ({
+    requestFiles: ((ws: WebSocket, filePaths: string[]) => {
       const files: Record<string, string | null> = {}
       for (const filePath of filePaths) {
         files[filePath] = readMockFile(projectRoot, filePath)
       }
       return Promise.resolve(files)
-    },
+    }) satisfies typeof originalRequestFiles,
     requestToolCall: (async (
       ws: WebSocket,
       userInputId: string,
