@@ -341,7 +341,7 @@ export const runAgentStep = async (
       model,
       duration: Date.now() - startTime,
     },
-    `Agent ${agentType} step ${iterationNum} (${userInputId} - Prompt: ${JSON.stringify(prompt).slice(0, 20)}) start`
+    `Agent ${agentType} step ${iterationNum} (${userInputId} - Prompt: ${(prompt ?? 'undefined').slice(0, 20)}) start`
   )
 
   let fullResponse = `${assistantPrefix?.trim() ?? ''}`
@@ -1303,7 +1303,7 @@ export const runAgentStep = async (
       model,
       duration: Date.now() - startTime,
     },
-    `Agent ${agentType} step ${iterationNum} (${userInputId} - Prompt: ${JSON.stringify(prompt).slice(0, 20)}) end`
+    `Agent ${agentType} step ${iterationNum} (${userInputId} - Prompt: ${(prompt ?? 'undefined').slice(0, 20)}) end`
   )
   return {
     agentState: {
