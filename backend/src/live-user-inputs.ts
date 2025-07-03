@@ -39,6 +39,9 @@ export function checkLiveUserInput(
   if (!userId) {
     return false
   }
+  if (!live[userId]) {
+    return false
+  }
   return live[userId].some((stored) => userInputId.startsWith(stored))
 }
 
