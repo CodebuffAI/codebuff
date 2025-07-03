@@ -5,16 +5,22 @@ export const disableLiveUserInputCheck = () => {
   liveUserInputCheckEnabled = false
 }
 
-/** Map from user_id to user_input_id */
-const live: Record<string, string> = {}
+/** Map from userId to main userInputIds */
+const live: Record<string, string[]> = {}
 
 export function startUserInput(userId: string, userInputId: string): void {
-  live[userId] = userInputId
+  if (!live[userId]) {
+    live[userId] = []
+  }
+  live[userId].push(userInputId)
 }
 
 export function endUserInput(userId: string, userInputId: string): void {
-  if (live[userId] === userInputId) {
-    delete live[userId]
+  if (live[userId] && live[userId].includes(userInputId)) {
+    live[userId] = live[userId].filter((id) => id !== userInputId)
+    if (live[userId].length === 0) {
+      delete live[userId]
+    }
   } else {
     logger.error(
       { userId, userInputId, liveUserInputId: live[userId] ?? 'undefined' },
@@ -33,12 +39,12 @@ export function checkLiveUserInput(
   if (!userId) {
     return false
   }
-  return userInputId.startsWith(live[userId])
+  return live[userId].some((stored) => userInputId.startsWith(stored))
 }
 
-export function getLiveUserInputId(
+export function getLiveUserInputIds(
   userId: string | undefined
-): string | undefined {
+): string[] | undefined {
   if (!userId) {
     return undefined
   }

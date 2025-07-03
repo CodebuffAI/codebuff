@@ -28,12 +28,15 @@ import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
 
 import { closeXml } from '@codebuff/common/util/xml'
-import { checkLiveUserInput, getLiveUserInputId } from '../../live-user-inputs'
+import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
 import { logger } from '../../util/logger'
+import {
+  FallbackProvider,
+  promptAnthropicWithFallbacks,
+} from '../anthropic-with-fallbacks'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
-import { promptAnthropicWithFallbacks, FallbackProvider } from '../anthropic-with-fallbacks'
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
@@ -81,7 +84,7 @@ export const promptAiSdkStream = async function* (
       {
         userId: options.userId,
         userInputId: options.userInputId,
-        liveUserInputId: getLiveUserInputId(options.userId),
+        liveUserInputId: getLiveUserInputIds(options.userId),
       },
       'Skipping stream due to canceled user input'
     )
@@ -89,16 +92,19 @@ export const promptAiSdkStream = async function* (
     return
   }
   const startTime = Date.now()
-  
+
   // Check if this is an Anthropic model and fallback is configured
-  if (Object.values(claudeModels).includes(options.model as AnthropicModel) && options.fallbackProviders) {
+  if (
+    Object.values(claudeModels).includes(options.model as AnthropicModel) &&
+    options.fallbackProviders
+  ) {
     yield* promptAnthropicWithFallbacks({
       ...options,
       model: options.model as AnthropicModel,
     })
     return
   }
-  
+
   let aiSDKModel = modelToAiSDKModel(options.model)
 
   const response = streamText({
@@ -204,7 +210,7 @@ export const promptAiSdk = async function (
       {
         userId: options.userId,
         userInputId: options.userInputId,
-        liveUserInputId: getLiveUserInputId(options.userId),
+        liveUserInputId: getLiveUserInputIds(options.userId),
       },
       'Skipping prompt due to canceled user input'
     )
@@ -261,7 +267,7 @@ export const promptAiSdkStructured = async function <T>(options: {
       {
         userId: options.userId,
         userInputId: options.userInputId,
-        liveUserInputId: getLiveUserInputId(options.userId),
+        liveUserInputId: getLiveUserInputIds(options.userId),
       },
       'Skipping structured prompt due to canceled user input'
     )
