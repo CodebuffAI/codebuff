@@ -19,16 +19,18 @@ import { closeXml } from '@codebuff/common/util/xml'
 import { ToolCallPart } from 'ai'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { agentTemplates } from './templates/agent-list'
-import { codebuffTools } from './tools/constants'
+import { CodebuffToolCall, codebuffToolDefs } from './tools/constants'
 
-const toolConfigsList = Object.entries(codebuffTools).map(
+const toolConfigsList = Object.entries(codebuffToolDefs).map(
   ([name, config]) =>
     ({
-      name: name as keyof typeof codebuffTools,
+      name: name as keyof typeof codebuffToolDefs,
       ...config,
     }) as {
-      [K in keyof typeof codebuffTools]: { name: K } & (typeof codebuffTools)[K]
-    }[keyof typeof codebuffTools]
+      [K in keyof typeof codebuffToolDefs]: {
+        name: K
+      } & (typeof codebuffToolDefs)[K]
+    }[keyof typeof codebuffToolDefs]
 )
 
 export const toolParams = Object.fromEntries(
@@ -68,20 +70,13 @@ function buildToolDescription(
 }
 
 export const toolDescriptions = Object.fromEntries(
-  Object.entries(codebuffTools).map(([name, config]) => [
+  Object.entries(codebuffToolDefs).map(([name, config]) => [
     name,
     buildToolDescription(name, config.parameters, config.description),
   ])
-) as Record<keyof typeof codebuffTools, string>
+) as Record<keyof typeof codebuffToolDefs, string>
 
 type ToolConfig = (typeof toolConfigsList)[number]
-
-export type CodebuffToolCall = {
-  [K in ToolConfig as K['name']]: {
-    toolName: K['name']
-    args: z.infer<K['parameters']>
-  } & Omit<ToolCallPart, 'type'>
-}[ToolConfig['name']]
 
 export type ToolCallError = {
   toolName?: string
@@ -94,7 +89,7 @@ export function parseRawToolCall(
 ): CodebuffToolCall | ToolCallError {
   const toolName = rawToolCall.toolName
 
-  if (!(toolName in codebuffTools)) {
+  if (!(toolName in codebuffToolDefs)) {
     return {
       toolName,
       toolCallId: generateCompactId(),
@@ -102,9 +97,9 @@ export function parseRawToolCall(
       error: `Tool ${toolName} not found`,
     }
   }
-  const validName = toolName as keyof typeof codebuffTools
+  const validName = toolName as keyof typeof codebuffToolDefs
   const schemaProperties = z.toJSONSchema(
-    codebuffTools[validName].parameters
+    codebuffToolDefs[validName].parameters
   ).properties!
 
   const processedParameters: Record<string, any> = {}
@@ -131,7 +126,7 @@ export function parseRawToolCall(
   }
 
   const result =
-    codebuffTools[validName].parameters.safeParse(processedParameters)
+    codebuffToolDefs[validName].parameters.safeParse(processedParameters)
   if (!result.success) {
     return {
       toolName: validName,

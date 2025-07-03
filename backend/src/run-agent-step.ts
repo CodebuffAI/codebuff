@@ -29,6 +29,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { difference, partition, uniq } from 'lodash'
 import { WebSocket } from 'ws'
 
+import { AGENT_NAMES } from '@codebuff/common/constants/agents'
 import { CodebuffMessage } from '@codebuff/common/types/message'
 import { closeXml } from '@codebuff/common/util/xml'
 import { CoreMessage } from 'ai'
@@ -48,14 +49,13 @@ import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentTemplates } from './templates/agent-list'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
-import { AGENT_NAMES } from '@codebuff/common/constants/agents'
 import {
   ClientToolCall,
-  CodebuffToolCall,
   parseRawToolCall,
   toolParams,
   updateContextFromToolCalls,
 } from './tools'
+import { CodebuffToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import {
   asSystemInstruction,
@@ -1254,19 +1254,23 @@ export const runAgentStep = async (
           onResponseChunk: () => {},
         })
 
-        return { ...result, agentType, agentName: AGENT_NAMES[agentType] || agentTemplate.name }
+        return {
+          ...result,
+          agentType,
+          agentName: AGENT_NAMES[agentType] || agentTemplate.name,
+        }
       })
     )
 
     const reports = results.map((result, index) => {
       const agentInfo = agents[index]
       const agentTypeStr = agentInfo.agent_type
-      
+
       if (result.status === 'fulfilled') {
         const { agentState, agentName } = result.value
         const agentTemplate = agentTemplates[agentState.agentType!]
         let report = ''
-        
+
         if (agentTemplate.outputMode === 'report') {
           report = JSON.stringify(result.value.agentState.report, null, 2)
         } else if (agentTemplate.outputMode === 'last_message') {
@@ -1291,7 +1295,7 @@ export const runAgentStep = async (
         } else {
           throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
         }
-        
+
         return `**${agentName} (@${agentTypeStr}):**\n${report}`
       } else {
         return `**Agent (@${agentTypeStr}):**\nError spawning agent: ${result.reason}`

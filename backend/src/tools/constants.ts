@@ -1,5 +1,5 @@
 import { ToolName } from '@codebuff/common/constants/tools'
-import { ToolSet } from 'ai'
+import { ToolCallPart, ToolSet } from 'ai'
 import z from 'zod/v4'
 import { addSubgoalTool } from './definitions/add-subgoal'
 import { browserLogsTool } from './definitions/browser-logs'
@@ -26,7 +26,7 @@ export type CodebuffToolDef = {
   endsAgentStep: boolean
 }
 
-export const codebuffTools = {
+export const codebuffToolDefs = {
   add_subgoal: addSubgoalTool,
   browser_logs: browserLogsTool,
   code_search: codeSearchTool,
@@ -44,7 +44,19 @@ export const codebuffTools = {
   update_subgoal: updateSubgoalTool,
   web_search: webSearchTool,
   write_file: writeFileTool,
-} as const satisfies Record<ToolName, CodebuffToolDef> satisfies ToolSet
+} as const satisfies {
+  [K in ToolName]: {
+    toolName: K
+  }
+} & Record<ToolName, CodebuffToolDef> &
+  ToolSet
+
+export type CodebuffToolCall = {
+  [K in ToolName]: {
+    toolName: K
+    args: z.infer<(typeof codebuffToolDefs)[K]['parameters']>
+  } & Omit<ToolCallPart, 'type'>
+}[ToolName]
 
 export const codebuffToolCallbacks = {
   add_subgoal: () => Promise.resolve(),
