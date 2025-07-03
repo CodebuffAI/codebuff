@@ -76,6 +76,13 @@ import { withHangDetection } from './utils/with-hang-detection'
 
 const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
 
+// Paste detection constants
+// Paste detection requires 2 consecutive inputs within 10ms each
+// Worst case: 0ms -> 9ms -> 18ms, so we need ~30ms to be safe
+const PASTE_THRESHOLD_MS = 10
+const PASTE_MIN_COUNT = 2
+const AGENT_MENU_DELAY_MS = PASTE_THRESHOLD_MS * 3 // 30ms buffer
+
 type ApiKeyDetectionResult =
   | { status: 'found'; type: ApiKeyType; key: string }
   | { status: 'prefix_only'; type: ApiKeyType; prefix: string; length: number }
@@ -861,6 +868,7 @@ export class CLI {
   }
 
   private handleKeyPress(str: string, key: any) {
+    this.detectPasting()
     rageDetectors.keyMashingDetector.recordEvent({ str, key })
 
     if (key.name === 'escape') {
@@ -881,16 +889,24 @@ export class CLI {
       }
     }
 
-    if (str === '@') {
+    if (str === '@' && !this.isPasting) {
       const currentLine = this.pastedContent + (this.rl as any).line
       // Only show agent menu if '@' is the first character or after a space
       const isAtStart = currentLine === '@'
       const isAfterSpace = currentLine.endsWith(' @')
 
       if (isAtStart || isAfterSpace) {
-        this.displayAgentMenu()
-        // Call freshPrompt and pre-fill the line with the @
-        this.freshPrompt(currentLine)
+        // Add a small delay to allow paste detection to work
+        setTimeout(() => {
+          // Check again if we're still not pasting after the delay
+          if (!this.isPasting) {
+            this.displayAgentMenu()
+            // Re-read the current line from readline to avoid stale data
+            const updatedLine = this.pastedContent + (this.rl as any).line
+            // Call freshPrompt and pre-fill the line with the @
+            this.freshPrompt(updatedLine)
+          }
+        }, AGENT_MENU_DELAY_MS) // Delay calculated from paste detection timing
       }
     }
 
@@ -1014,9 +1030,9 @@ export class CLI {
   private detectPasting() {
     const currentTime = Date.now()
     const timeDiff = currentTime - this.lastInputTime
-    if (timeDiff < 10) {
+    if (timeDiff < PASTE_THRESHOLD_MS) {
       this.consecutiveFastInputs++
-      if (this.consecutiveFastInputs >= 2) {
+      if (this.consecutiveFastInputs >= PASTE_MIN_COUNT) {
         this.isPasting = true
       }
     } else {
