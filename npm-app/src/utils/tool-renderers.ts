@@ -281,7 +281,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
 
                 const displayTitle = agentTitle ? ` ${agentTitle}` : ''
 
-                return `@${agentName}${displayTitle}:\n   ${prompt || 'No prompt provided'}`
+                return `@${bold(agentName)}${bold(displayTitle)}:\n${prompt || 'No prompt provided'}`
               })
               .join('\n\n') + '\n'
           )
