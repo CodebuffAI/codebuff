@@ -1,4 +1,4 @@
-import { AnthropicModel, providerModelNames } from '@codebuff/common/constants'
+import { providerModelNames } from '@codebuff/common/constants'
 import { CoreMessage } from 'ai'
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
@@ -35,7 +35,7 @@ export const getAgentStream = (params: {
   const getStream = (messages: CoreMessage[]) => {
     const options: Parameters<typeof promptAiSdkStream>[0] = {
       messages,
-      model: model as AnthropicModel,
+      model: model as Model,
       stopSequences,
       clientSessionId,
       fingerprintId,
@@ -57,9 +57,9 @@ export const getAgentStream = (params: {
         }
       }
     }
-    return provider === 'anthropic' ||
-      provider === 'openai' ||
-      provider === 'gemini'
+    return provider === 'openai' ||
+      provider === 'gemini' ||
+      provider === 'openrouter'
       ? promptAiSdkStream(options)
       : (() => {
           throw new Error(
@@ -81,7 +81,7 @@ export const getAgentStreamFromTemplate = (params: {
 }) => {
   const { clientSessionId, fingerprintId, userInputId, userId, template } =
     params
-  const { model, stopSequences, fallbackProviders } = template
+  const { model, stopSequences } = template
 
   const getStream = (messages: CoreMessage[]) => {
     const options: Parameters<typeof promptAiSdkStream>[0] = {
@@ -93,7 +93,6 @@ export const getAgentStreamFromTemplate = (params: {
       userInputId,
       userId,
       maxTokens: 32_000,
-      fallbackProviders,
     }
 
     // Add Gemini-specific options if needed

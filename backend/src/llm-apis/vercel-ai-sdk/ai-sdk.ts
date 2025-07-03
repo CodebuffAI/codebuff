@@ -1,15 +1,14 @@
-import { anthropic } from '@ai-sdk/anthropic'
 import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import {
-  AnthropicModel,
-  claudeModels,
   finetunedVertexModels,
   geminiModels,
   Model,
   OpenAIModel,
   openaiModels,
+  openrouterModels,
   type GeminiModel,
+  type openrouterModel,
 } from '@codebuff/common/constants'
 import {
   CoreAssistantMessage,
@@ -30,12 +29,9 @@ import { z } from 'zod'
 import { closeXml } from '@codebuff/common/util/xml'
 import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
 import { logger } from '../../util/logger'
-import {
-  FallbackProvider,
-  promptAnthropicWithFallbacks,
-} from '../anthropic-with-fallbacks'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
+import { openrouter } from './openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
 // TODO: We'll want to add all our models here!
@@ -56,8 +52,9 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
   if (Object.values(openaiModels).includes(model as OpenAIModel)) {
     return openai.languageModel(model)
   }
-  if (Object.values(claudeModels).includes(model as AnthropicModel)) {
-    return anthropic.languageModel(model)
+  // All Claude models go through OpenRouter
+  if (Object.values(openrouterModels).includes(model as openrouterModel)) {
+    return openrouter.languageModel(model)
   }
   throw new Error('Unknown model: ' + model)
 }
@@ -70,12 +67,11 @@ export const promptAiSdkStream = async function* (
     messages: CoreMessage[]
     clientSessionId: string
     fingerprintId: string
-    userInputId: string
     model: Model
     userId: string | undefined
     chargeUser?: boolean
     thinkingBudget?: number
-    fallbackProviders?: FallbackProvider[]
+    userInputId: string
     maxRetries?: number
   } & Omit<Parameters<typeof streamText>[0], 'model'>
 ) {
@@ -92,18 +88,6 @@ export const promptAiSdkStream = async function* (
     return
   }
   const startTime = Date.now()
-
-  // Check if this is an Anthropic model and fallback is configured
-  if (
-    Object.values(claudeModels).includes(options.model as AnthropicModel) &&
-    options.fallbackProviders
-  ) {
-    yield* promptAnthropicWithFallbacks({
-      ...options,
-      model: options.model as AnthropicModel,
-    })
-    return
-  }
 
   let aiSDKModel = modelToAiSDKModel(options.model)
 
