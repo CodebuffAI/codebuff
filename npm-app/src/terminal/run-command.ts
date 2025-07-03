@@ -98,10 +98,13 @@ function basename(cmd: string) {
 
 /** Decide which concrete binary to start based on platform + env */
 function selectShell(): ShellKind {
-  if (!IS_WINDOWS) {
-    return 'bash' // resolved via PATH
+  if (IS_WINDOWS) {
+    return 'cmd.exe'
   }
-  return 'cmd.exe'
+
+  const detectedShell = detectShell()
+  // Prefer zsh if available, otherwise fallback to bash
+  return detectedShell === 'zsh' ? 'zsh' : 'bash'
 }
 
 /** Build shell‑specific "initialisation" snippets. */
@@ -186,7 +189,7 @@ function buildEnv(shell: ShellKind): NodeJS.ProcessEnv {
     env.TERM = 'cygwin'
   } else {
     env.TERM = 'xterm-256color'
-    env.SHELL = '/bin/bash' // advertise bash to children
+    env.SHELL = `/bin/${shell}` // Currently: bash or zsh
   }
 
   return env
