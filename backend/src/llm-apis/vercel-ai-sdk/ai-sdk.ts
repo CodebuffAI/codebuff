@@ -33,6 +33,7 @@ import { logger } from '../../util/logger'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { vertexFinetuned } from './vertex-finetuned'
+import { promptAnthropicWithFallbacks, FallbackProvider } from '../anthropic-with-fallbacks'
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
@@ -71,6 +72,8 @@ export const promptAiSdkStream = async function* (
     userId: string | undefined
     chargeUser?: boolean
     thinkingBudget?: number
+    fallbackProviders?: FallbackProvider[]
+    maxRetries?: number
   } & Omit<Parameters<typeof streamText>[0], 'model'>
 ) {
   if (!checkLiveUserInput(options.userId, options.userInputId)) {
@@ -86,11 +89,22 @@ export const promptAiSdkStream = async function* (
     return
   }
   const startTime = Date.now()
+  
+  // Check if this is an Anthropic model and fallback is configured
+  if (Object.values(claudeModels).includes(options.model as AnthropicModel) && options.fallbackProviders) {
+    yield* promptAnthropicWithFallbacks({
+      ...options,
+      model: options.model as AnthropicModel,
+    })
+    return
+  }
+  
   let aiSDKModel = modelToAiSDKModel(options.model)
 
   const response = streamText({
     ...options,
     model: aiSDKModel,
+    maxRetries: options.maxRetries,
     providerOptions: {
       google: {
         thinkingConfig: {

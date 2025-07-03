@@ -81,22 +81,25 @@ export const getAgentStreamFromTemplate = (params: {
 }) => {
   const { clientSessionId, fingerprintId, userInputId, userId, template } =
     params
-  const { model, stopSequences } = template
-
-  const provider = providerModelNames[model as keyof typeof providerModelNames]
+  const { model, stopSequences, fallbackProviders } = template
 
   const getStream = (messages: CoreMessage[]) => {
     const options: Parameters<typeof promptAiSdkStream>[0] = {
       messages,
-      model: model as AnthropicModel,
+      model,
       stopSequences,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
       maxTokens: 32_000,
+      fallbackProviders,
     }
 
+    // Add Gemini-specific options if needed
+    const primaryModel = Array.isArray(model) ? model[0] : model
+    const provider = providerModelNames[primaryModel as keyof typeof providerModelNames]
+    
     if (provider === 'gemini') {
       if (!options.providerOptions) {
         options.providerOptions = {}
@@ -108,13 +111,8 @@ export const getAgentStreamFromTemplate = (params: {
         options.providerOptions.gemini.thinkingConfig = { thinkingBudget: 128 }
       }
     }
-    return provider === 'anthropic' ||
-      provider === 'openai' ||
-      provider === 'gemini'
-      ? promptAiSdkStream(options)
-      : (() => {
-          throw new Error(`Unknown model/provider: ${model}/${provider}`)
-        })()
+    
+    return promptAiSdkStream(options)
   }
 
   return getStream

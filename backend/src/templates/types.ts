@@ -7,12 +7,15 @@ import {
   AgentTemplateTypes,
 } from '@codebuff/common/types/session-state'
 import { closeXmlTags } from '@codebuff/common/util/xml'
+import { FallbackProvider } from '../llm-apis/anthropic-with-fallbacks'
 
 export type AgentTemplate = {
   type: AgentTemplateType
   name: string
   description: string
   model: Model
+  // Optional fallback providers for Anthropic models
+  fallbackProviders?: FallbackProvider[]
   // Required parameters for spawning this agent.
   promptSchema: {
     prompt: boolean | 'optional'

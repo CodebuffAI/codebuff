@@ -1,7 +1,8 @@
-import { Model } from '@codebuff/common/constants'
+import { Model, claudeModels, AnthropicModel } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { closeXmlTags } from '@codebuff/common/util/xml'
+import { FallbackProvider } from '../../llm-apis/anthropic-with-fallbacks'
 
 import { ToolName } from '@codebuff/common/constants/tools'
 import {
@@ -12,6 +13,10 @@ import {
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
+  // Enable fallback for Anthropic models
+  ...(Object.values(claudeModels).includes(model as AnthropicModel) && {
+    fallbackProviders: ['openrouter'] as FallbackProvider[],
+  }),
   model,
   name: AGENT_PERSONAS['gemini25flash_base'].name,
   description: AGENT_PERSONAS['gemini25flash_base'].description,
