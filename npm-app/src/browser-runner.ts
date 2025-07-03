@@ -366,7 +366,7 @@ export class BrowserRunner {
     } catch (error) {
       // If launch fails, guide the user to install Google Chrome
       console.log(
-        "Couldn't launch Chrome browser. Please ensure Google Chrome is installed on your system."
+        `Couldn't launch Chrome browser. Please ensure Google Chrome is installed on your system.\nReceived error: ${error instanceof Error ? error.message : error}`
       )
       return {
         success: false,
@@ -458,7 +458,7 @@ export class BrowserRunner {
     const scrollAmount = direction === 'up' ? -viewport.height : viewport.height
 
     await page.evaluate((amount) => {
-      (globalThis as any).window.scrollBy(0, amount)
+      ;(globalThis as any).window.scrollBy(0, amount)
     }, scrollAmount)
 
     this.logs.push({
