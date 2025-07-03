@@ -5,11 +5,11 @@ import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
 import { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import {
-  UNIQUE_AGENT_NAMES,
-  AGENT_PERSONAS,
-} from '@codebuff/common/constants/agents'
 import type { CostMode } from '@codebuff/common/constants'
+import {
+  AGENT_PERSONAS,
+  UNIQUE_AGENT_NAMES,
+} from '@codebuff/common/constants/agents'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { isDir, ProjectFileContext } from '@codebuff/common/util/file'
 import { pluralize } from '@codebuff/common/util/string'
@@ -804,8 +804,6 @@ export class CLI {
 
     await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
 
-    // Ensure spinner is properly stopped before starting "Thinking..."
-    Spinner.get().stop()
     Spinner.get().start('Thinking...')
 
     this.isReceivingResponse = true
@@ -954,12 +952,13 @@ export class CLI {
   }
 
   private handleStopResponse() {
+    Spinner.get().stop()
     console.log(yellow('\n[Response stopped by user]'))
     this.isReceivingResponse = false
+    Client.getInstance().cancelCurrentInput()
     if (this.stopResponse) {
       this.stopResponse()
     }
-    Spinner.get().stop()
   }
 
   private async handleExit() {
