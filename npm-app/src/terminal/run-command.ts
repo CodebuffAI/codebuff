@@ -80,15 +80,8 @@ function applyColorHints(cmd: string): string {
 /* ------------------------------------------------------------------ */
 
 /** Which family of shell are we launching? */
-type UnixShell =
-  | 'bash'
-  | 'zsh'
-  | 'fish'
-  | 'ksh'
-  | 'sh' // /bin/sh or dash
-  | 'tcsh'
-  | 'nu' // nushell
-type WinShell = 'cmd.exe' | 'powershell.exe' | 'pwsh.exe'
+type UnixShell = 'bash' | 'zsh'
+type WinShell = 'cmd.exe'
 
 type ShellKind = UnixShell | WinShell
 
@@ -110,17 +103,6 @@ function selectShell(): ShellKind {
 /** Build shell‑specific "initialisation" snippets. */
 function buildInit(shell: ShellKind): string[] {
   if (IS_WINDOWS) {
-    if (shell === 'powershell.exe' || shell === 'pwsh.exe') {
-      return [
-        '$profiles = @(' +
-          '$PROFILE.AllUsersAllHosts,' +
-          '$PROFILE.AllUsersCurrentHost,' +
-          '$PROFILE.CurrentUserAllHosts,' +
-          '$PROFILE.CurrentUserCurrentHost' +
-          ')',
-        'foreach ($p in $profiles) { if (Test-Path $p) { . $p } }',
-      ]
-    }
     /* cmd.exe has nothing useful we can "source"                          */
     return []
   }
@@ -134,21 +116,7 @@ function buildInit(shell: ShellKind): string[] {
         'source ~/.zshrc 2>/dev/null || true',
         'source ~/.zlogin 2>/dev/null || true',
       ]
-    case 'fish':
-      return [
-        // Source all auto-sourced snippets (abbr/alias) from conf.d
-        'for f in ~/.config/fish/conf.d/*.fish; test -f $f; and source $f; end',
-        // Traditional config last – users may override earlier definitions
-        'source ~/.config/fish/config.fish 2>/dev/null || true',
-      ]
-    case 'ksh':
-      return ['source ~/.kshrc 2>/dev/null || true']
-    case 'tcsh':
-      return ['source ~/.tcshrc 2>/dev/null || true']
-    case 'nu':
-      return ['source ~/.config/nushell/env.nu 2>/dev/null || true']
     case 'bash':
-    case 'sh':
     default:
       return [
         'shopt -s expand_aliases', // Enable alias expansion for non-interactive bash
@@ -204,27 +172,9 @@ function createWrapperScript(
   const tmp = mkdtempSync(join(tmpdir(), 'codebuff-')) // safe unique dir
   const scriptPath = join(tmp, `cmd.${shell}`)
 
-  const shebang =
-    shell === 'bash' || shell === 'sh'
-      ? '#!/usr/bin/env bash'
-      : shell === 'zsh'
-        ? '#!/usr/bin/env zsh'
-        : shell === 'fish'
-          ? '#!/usr/bin/env fish'
-          : shell === 'ksh'
-            ? '#!/usr/bin/env ksh'
-            : shell === 'tcsh'
-              ? '#!/usr/bin/env tcsh'
-              : shell === 'nu'
-                ? '#!/usr/bin/env nu'
-                : '#!/usr/bin/env sh'
+  const shebang = shell === 'zsh' ? '#!/usr/bin/env zsh' : '#!/usr/bin/env bash'
 
-  const aliasEnable =
-    shell === 'bash' || shell === 'sh'
-      ? 'shopt -s expand_aliases'
-      : shell === 'zsh'
-        ? 'setopt aliases'
-        : ''
+  const aliasEnable = shell === 'zsh' ? 'setopt aliases' : 'shopt -s expand_aliases'
 
   writeFileSync(
     scriptPath,
