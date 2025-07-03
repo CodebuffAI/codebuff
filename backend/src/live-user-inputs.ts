@@ -22,7 +22,7 @@ export function endUserInput(userId: string, userInputId: string): void {
       delete live[userId]
     }
   } else {
-    logger.error(
+    logger.debug(
       { userId, userInputId, liveUserInputId: live[userId] ?? 'undefined' },
       'Tried to end user input with incorrect userId or userInputId'
     )
