@@ -72,6 +72,12 @@ export const AGENT_PERSONAS = {
     description:
       'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   },
+  sonnet4_agent_builder: {
+    name: 'Agna',
+    title: 'The Agent Builder',
+    description: 'Creates new agent templates for the codebuff mult-agent system',
+    hidden: true,
+  },
 } as const
 
 // Agent names for client-side reference without exposing full agent templates
