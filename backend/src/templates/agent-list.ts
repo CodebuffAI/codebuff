@@ -14,6 +14,7 @@ import { reviewer } from './agents/reviewer'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
 import { AgentTemplate } from './types'
+import { agentBuilder } from './agents/agent-builder'
 
 export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   opus4_base: {
@@ -64,5 +65,9 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
   gemini25pro_reviewer: {
     type: AgentTemplateTypes.gemini25pro_reviewer,
     ...reviewer(models.gemini2_5_pro_preview),
+  },
+  sonnet4_agent_builder: {
+    type: AgentTemplateTypes.sonnet4_agent_builder,
+    ...agentBuilder(models.sonnet),
   },
 }
