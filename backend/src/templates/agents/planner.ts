@@ -1,7 +1,7 @@
+import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { closeXml } from '@codebuff/common/util/xml'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
@@ -9,8 +9,11 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   name: AGENT_PERSONAS['gemini25pro_planner'].name,
   description: AGENT_PERSONAS['gemini25pro_planner'].description,
   promptSchema: {
-    prompt: true,
-    params: null,
+    prompt: z
+      .string()
+      .describe(
+        'What problem you to solve and a few ideas and suggestions for the plan'
+      ),
   },
   outputMode: 'last_message',
   includeMessageHistory: true,

@@ -1163,13 +1163,6 @@ export const runAgentStep = async (
     const { agents } = spawnAgentsToolCall.args
     const parentAgentTemplate = agentTemplate
 
-    const messageHistoryWithToolResults = [
-      ...finalMessageHistory,
-      {
-        role: 'user',
-        content: asSystemMessage(renderToolResults(serverToolResults)),
-      },
-    ]
     const conversationHistoryMessage: CoreMessage = {
       role: 'user',
 
@@ -1204,14 +1197,17 @@ export const runAgentStep = async (
         const { promptSchema } = agentTemplate
 
         // Validate prompt requirement
-        if (promptSchema.prompt === true && !prompt) {
-          throw new Error(
-            `Agent ${agentType} requires a prompt but none was provided.`
-          )
+        if (promptSchema.prompt) {
+          const result = promptSchema.prompt.safeParse(prompt)
+          if (!result.success) {
+            throw new Error(
+              `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
+            )
+          }
         }
 
         // Validate params if schema exists
-        if (promptSchema.params && params) {
+        if (promptSchema.params) {
           const result = promptSchema.params.safeParse(params)
           if (!result.success) {
             throw new Error(

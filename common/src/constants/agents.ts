@@ -56,7 +56,7 @@ export const AGENT_PERSONAS = {
     name: 'Peter Plan',
     title: 'The Planner',
     description:
-      'Agent that formulates a comprehensive plan to a prompt. Please prompt it with a few ideas and suggestions for the plan.',
+      'Agent that formulates a comprehensive plan to a prompt.',
     hidden: true,
   },
   gemini25flash_dry_run: {

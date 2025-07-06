@@ -1,3 +1,4 @@
+import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { closeXmlTags } from '@codebuff/common/util/xml'
@@ -9,8 +10,7 @@ export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
   name: AGENT_PERSONAS['gemini25flash_dry_run'].name,
   description: AGENT_PERSONAS['gemini25flash_dry_run'].description,
   promptSchema: {
-    prompt: true,
-    params: null,
+    prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
   includeMessageHistory: true,

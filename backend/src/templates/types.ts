@@ -18,8 +18,8 @@ export type AgentTemplate = {
   fallbackProviders?: FallbackProvider[]
   // Required parameters for spawning this agent.
   promptSchema: {
-    prompt: boolean | 'optional'
-    params: z.ZodSchema<any> | null
+    prompt?: z.ZodSchema<string | undefined>
+    params?: z.ZodSchema<any>
   }
   outputMode: 'last_message' | 'report' | 'all_messages'
   includeMessageHistory: boolean

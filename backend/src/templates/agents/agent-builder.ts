@@ -1,3 +1,4 @@
+import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { ToolName } from '@codebuff/common/constants/tools'
 import { AgentTemplate } from '../types'
@@ -8,8 +9,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'type'> => ({
   description: 'Creates new agent templates for the codebuff mult-agent system',
   model,
   promptSchema: {
-    prompt: true,
-    params: null,
+    prompt: z.string().optional().describe('What agent type you would like to create. Include as many details as possible.'),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,

@@ -1,3 +1,4 @@
+import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import {
@@ -13,8 +14,7 @@ export const ask = (model: Model): Omit<AgentTemplate, 'type'> => ({
   name: AGENT_PERSONAS['gemini25pro_ask'].name,
   description: 'Base ask-mode agent that orchestrates the full response.',
   promptSchema: {
-    prompt: true,
-    params: null,
+    prompt: z.string().describe('A question you would like answered about this project.'),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,

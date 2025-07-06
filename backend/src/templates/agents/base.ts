@@ -1,3 +1,4 @@
+import z from 'zod/v4'
 import { Model, claudeModels, AnthropicModel } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
@@ -21,8 +22,7 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   name: AGENT_PERSONAS['gemini25flash_base'].name,
   description: AGENT_PERSONAS['gemini25flash_base'].description,
   promptSchema: {
-    prompt: true,
-    params: null,
+    prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,

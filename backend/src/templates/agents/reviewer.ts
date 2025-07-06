@@ -1,3 +1,4 @@
+import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
@@ -9,8 +10,7 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   name: AGENT_PERSONAS['gemini25pro_reviewer'].name,
   description: AGENT_PERSONAS['gemini25pro_reviewer'].description,
   promptSchema: {
-    prompt: true,
-    params: null,
+    prompt: z.string().describe('What should be reviewed. Be brief.'),
   },
   outputMode: 'last_message',
   includeMessageHistory: true,

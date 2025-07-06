@@ -1,3 +1,4 @@
+import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { getToolCallString } from '@codebuff/common/constants/tools'
@@ -10,8 +11,7 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   name: AGENT_PERSONAS['gemini25flash_file_picker'].name,
   description: AGENT_PERSONAS['gemini25flash_file_picker'].description,
   promptSchema: {
-    prompt: true,
-    params: null,
+    prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,

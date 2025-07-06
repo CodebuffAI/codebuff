@@ -231,12 +231,15 @@ ${spawnableAgents
     const agentTemplate = agentTemplates[agentType]
     const { promptSchema } = agentTemplate
     const { prompt, params } = promptSchema
-    const promptString =
-      prompt === true ? 'required' : prompt === false ? 'n/a' : 'optional'
-    const paramsString = params
-      ? JSON.stringify(z.toJSONSchema(params), null, 2)
-      : 'n/a'
-    return `- ${agentType}: ${agentTemplate.description}\nprompt: ${promptString}\nparams: ${paramsString}`
+    const schemaToJsonStr = (schema: z.ZodTypeAny | undefined) => {
+      if (!schema) return 'n/a'
+      const jsonSchema = z.toJSONSchema(schema)
+      delete jsonSchema['$schema']
+      return JSON.stringify(jsonSchema, null, 2)
+    }
+    return `- ${agentType}: ${agentTemplate.description}
+prompt: ${schemaToJsonStr(prompt)}
+params: ${schemaToJsonStr(params)}`
   })
   .join('\n\n')}`
       : ''

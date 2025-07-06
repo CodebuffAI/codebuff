@@ -1,3 +1,4 @@
+import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
@@ -11,7 +12,6 @@ import {
   baseAgentSpawnableAgents,
   baseAgentStopSequences,
   baseAgentToolNames,
-  PLACEHOLDER,
 } from '../types'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 
@@ -20,8 +20,7 @@ export const thinkingBase = (model: Model): Omit<AgentTemplate, 'type'> => ({
   name: AGENT_PERSONAS['gemini25flash_base'].name,
   description: 'Base agent that thinks before each response',
   promptSchema: {
-    prompt: true,
-    params: null,
+    prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
