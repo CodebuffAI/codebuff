@@ -42,6 +42,7 @@
   "dependencies": {
     "@codebuff/code-map": "workspace:*",
     "@codebuff/common": "workspace:*",
+    "@fingerprintjs/fingerprintjs": "^4.6.2",
     "@types/diff": "5.2.1",
     "@types/micromatch": "^4.0.9",
     "@vscode/ripgrep": "1.15.9",

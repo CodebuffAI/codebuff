@@ -4,6 +4,7 @@ import { PostHog } from 'posthog-node'
 import { logger } from './logger'
 import { suppressConsoleOutput } from './suppress-console'
 
+
 // Prints the events to console
 // It's very noisy, so recommended you set this to true
 // only when you're actively adding new analytics
@@ -110,6 +111,42 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
   client.identify({
     distinctId: userId,
     properties,
+  })
+}
+
+// User identification with enhanced fingerprint data
+export function identifyUserWithFingerprint(
+  userId: string, 
+  properties?: Record<string, any>
+) {
+  // Store the user ID for future events
+  currentUserId = userId
+
+  if (!client) {
+    throw new Error('Analytics client not initialized')
+  }
+
+  // Enhanced properties with fingerprint metadata
+  const enhancedProperties = {
+    ...properties,
+    fingerprintType: properties?.fingerprintId?.startsWith('fp-') ? 'enhanced' : 
+                    properties?.fingerprintId?.startsWith('legacy-') ? 'legacy' : 'unknown',
+    hasEnhancedFingerprint: properties?.fingerprintId?.startsWith('fp-') || false,
+  }
+
+  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
+    if (DEBUG_DEV_EVENTS) {
+      console.log('Enhanced identify event sent', {
+        userId,
+        properties: enhancedProperties,
+      })
+    }
+    return
+  }
+
+  client.identify({
+    distinctId: userId,
+    properties: enhancedProperties,
   })
 }
 
