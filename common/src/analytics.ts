@@ -9,16 +9,20 @@ let client: PostHog | undefined
 
 export function initAnalytics() {
   if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !env.NEXT_PUBLIC_POSTHOG_HOST_URL) {
-    throw new Error(
-      'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_POSTHOG_HOST_URL is not set'
-    )
+    logger.warn('Analytics environment variables not set - analytics will be disabled')
+    return
   }
 
-  client = new PostHog(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
-    host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
-    flushAt: 1,
-    flushInterval: 0,
-  })
+  try {
+    client = new PostHog(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
+      host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
+      flushAt: 1,
+      flushInterval: 0,
+    })
+    logger.info('Analytics client initialized successfully')
+  } catch (error) {
+    logger.warn({ error }, 'Failed to initialize analytics client')
+  }
 }
 
 export async function flushAnalytics() {
@@ -41,7 +45,8 @@ export function trackEvent(
   }
 
   if (!client) {
-    throw new Error('Analytics client not initialized')
+    logger.warn({ event, userId }, 'Analytics client not initialized, skipping event tracking')
+    return
   }
 
   try {
@@ -61,7 +66,8 @@ export function logError(
   properties?: Record<string, any>
 ) {
   if (!client) {
-    throw new Error('Analytics client not initialized')
+    logger.warn({ error: error.message, userId }, 'Analytics client not initialized, skipping error logging')
+    return
   }
 
   try {

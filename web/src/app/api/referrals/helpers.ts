@@ -22,7 +22,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
           error:
             "You've already been referred by someone. Each user can only be referred once.",
         },
-        { status: 429 }
+        { status: 409 }
       )
     }
 
@@ -78,7 +78,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
           error:
             'You were referred by this user already. No double dipping, refer someone new!',
         },
-        { status: 429 }
+        { status: 409 }
       )
     }
 
