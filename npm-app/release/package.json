@@ -1,6 +1,6 @@
 {
   "name": "codebuff",
-  "version": "1.0.428",
+  "version": "1.0.429",
   "description": "AI coding agent",
   "license": "MIT",
   "bin": {
