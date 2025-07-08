@@ -55,6 +55,7 @@
     "lodash": "*",
     "micromatch": "^4.0.8",
     "nanoid": "5.0.7",
+    "node-machine-id": "^1.1.12",
     "onetime": "5.1.2",
     "picocolors": "1.1.0",
     "pino": "9.4.0",

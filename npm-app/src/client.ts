@@ -81,7 +81,7 @@ import {
 import { logAndHandleStartup } from './startup-process-handler'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
-import { identifyUser, trackEvent } from './utils/analytics'
+import { identifyUser, identifyUserWithFingerprint, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
@@ -289,7 +289,8 @@ export class Client {
     const credentialsFile = readFileSync(CREDENTIALS_PATH, 'utf8')
     const user = userFromJson(credentialsFile)
     if (user) {
-      identifyUser(user.id, {
+      // Use enhanced fingerprint identification for better analytics
+      identifyUserWithFingerprint(user.id, {
         email: user.email,
         name: user.name,
         fingerprintId: this.fingerprintId,
@@ -593,7 +594,8 @@ export class Client {
             shouldRequestLogin = false
             this.user = user
 
-            identifyUser(user.id, {
+            // Use enhanced fingerprint identification for login
+            identifyUserWithFingerprint(user.id, {
               email: user.email,
               name: user.name,
               fingerprintId: fingerprintId,

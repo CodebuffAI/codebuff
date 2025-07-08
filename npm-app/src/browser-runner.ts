@@ -20,6 +20,18 @@ import { logger } from './utils/logger'
 
 type NonOptional<T, K extends keyof T> = T & { [P in K]-?: T[P] }
 
+// Define helper to find Chrome in standard locations
+export const findChrome = () => {
+  switch (process.platform) {
+    case 'win32':
+      return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+    case 'darwin':
+      return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    default:
+      return '/usr/bin/google-chrome'
+  }
+}
+
 export class BrowserRunner {
   // Add getter methods for diagnostic loop
   getLogs(): BrowserResponse['logs'] {
@@ -328,18 +340,6 @@ export class BrowserRunner {
     } catch (error) {}
 
     try {
-      // Define helper to find Chrome in standard locations
-      const findChrome = () => {
-        switch (process.platform) {
-          case 'win32':
-            return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-          case 'darwin':
-            return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-          default:
-            return '/usr/bin/google-chrome'
-        }
-      }
-
       this.browser = await puppeteer.launch({
         defaultViewport: {
           width: BROWSER_DEFAULTS.viewportWidth,
