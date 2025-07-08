@@ -21,6 +21,7 @@ import * as context7Api from '../llm-apis/context7-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import * as websocketAction from '../websockets/websocket-action'
+import { MockWebSocket, mockFileContext } from './test-utils'
 
 // Mock logger
 mock.module('../util/logger', () => ({
@@ -73,37 +74,7 @@ describe('read_docs tool with researcher agent', () => {
     mock.restore()
   })
 
-  class MockWebSocket {
-    send(msg: string) {}
-    close() {}
-    on(event: string, listener: (...args: any[]) => void) {}
-    removeListener(event: string, listener: (...args: any[]) => void) {}
-  }
-
-  const mockFileContext: ProjectFileContext = {
-    projectRoot: '/test',
-    cwd: '/test',
-    fileTree: [],
-    fileTokenScores: {},
-    knowledgeFiles: {},
-    gitChanges: {
-      status: '',
-      diff: '',
-      diffCached: '',
-      lastCommitMessages: '',
-    },
-    changesSinceLastChat: {},
-    shellConfigFiles: {},
-    systemInfo: {
-      platform: 'test',
-      shell: 'test',
-      nodeVersion: 'test',
-      arch: 'test',
-      homedir: '/home/test',
-      cpus: 1,
-    },
-    fileVersions: [],
-  }
+  // MockWebSocket and mockFileContext imported from test-utils
 
   test('should successfully fetch documentation with basic query', async () => {
     const mockDocumentation =
@@ -125,7 +96,7 @@ describe('read_docs tool with researcher agent', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = {
       ...sessionState.mainAgentState,
-      agentType: 'gemini25flash_researcher' as const,
+      agentType: 'researcher' as const,
     }
 
     const { agentState: newAgentState } = await runAgentStep(
@@ -136,7 +107,7 @@ describe('read_docs tool with researcher agent', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'gemini25flash_researcher',
+        agentType: 'researcher',
         fileContext: mockFileContext,
         agentState,
         prompt: 'Get React documentation',
@@ -185,7 +156,7 @@ describe('read_docs tool with researcher agent', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = {
       ...sessionState.mainAgentState,
-      agentType: 'gemini25flash_researcher' as const,
+      agentType: 'researcher' as const,
     }
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
@@ -194,7 +165,7 @@ describe('read_docs tool with researcher agent', () => {
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
-      agentType: 'gemini25flash_researcher',
+      agentType: 'researcher',
       fileContext: mockFileContext,
       agentState,
       prompt: 'Get React hooks documentation',
@@ -229,7 +200,7 @@ describe('read_docs tool with researcher agent', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = {
       ...sessionState.mainAgentState,
-      agentType: 'gemini25flash_researcher' as const,
+      agentType: 'researcher' as const,
     }
 
     const { agentState: newAgentState } = await runAgentStep(
@@ -240,7 +211,7 @@ describe('read_docs tool with researcher agent', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'gemini25flash_researcher',
+        agentType: 'researcher',
         fileContext: mockFileContext,
         agentState,
         prompt: 'Get documentation for NonExistentLibrary',
@@ -285,7 +256,7 @@ describe('read_docs tool with researcher agent', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = {
       ...sessionState.mainAgentState,
-      agentType: 'gemini25flash_researcher' as const,
+      agentType: 'researcher' as const,
     }
 
     const { agentState: newAgentState } = await runAgentStep(
@@ -296,7 +267,7 @@ describe('read_docs tool with researcher agent', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'gemini25flash_researcher',
+        agentType: 'researcher',
         fileContext: mockFileContext,
         agentState,
         prompt: 'Get React documentation',
@@ -339,7 +310,7 @@ describe('read_docs tool with researcher agent', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = {
       ...sessionState.mainAgentState,
-      agentType: 'gemini25flash_researcher' as const,
+      agentType: 'researcher' as const,
     }
 
     const { agentState: newAgentState } = await runAgentStep(
@@ -350,7 +321,7 @@ describe('read_docs tool with researcher agent', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'gemini25flash_researcher',
+        agentType: 'researcher',
         fileContext: mockFileContext,
         agentState,
         prompt: 'Get React server components documentation',
@@ -393,7 +364,7 @@ describe('read_docs tool with researcher agent', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = {
       ...sessionState.mainAgentState,
-      agentType: 'gemini25flash_researcher' as const,
+      agentType: 'researcher' as const,
     }
 
     const { agentState: newAgentState } = await runAgentStep(
@@ -404,7 +375,7 @@ describe('read_docs tool with researcher agent', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'gemini25flash_researcher',
+        agentType: 'researcher',
         fileContext: mockFileContext,
         agentState,
         prompt: 'Get React documentation',

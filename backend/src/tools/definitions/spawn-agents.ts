@@ -30,7 +30,7 @@ Example:
 ${getToolCallString('spawn_agents', {
   agents: JSON.stringify([
     {
-      agent_type: 'gemini25pro_planner',
+      agent_type: 'planner',
       prompt: 'Create a plan for implementing user authentication',
       params: { filePaths: ['src/auth.ts', 'src/user.ts'] },
     },

@@ -6,8 +6,8 @@ import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: AGENT_PERSONAS['gemini25pro_planner'].name,
-  description: AGENT_PERSONAS['gemini25pro_planner'].description,
+  name: AGENT_PERSONAS['planner'].name,
+  description: AGENT_PERSONAS['planner'].description,
   promptSchema: {
     prompt: z
       .string()
@@ -19,7 +19,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   includeMessageHistory: true,
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
   stopSequences: baseAgentStopSequences,
-  spawnableAgents: [], // ARCHIVED: [AgentTemplateTypes.gemini25flash_dry_run],
+  spawnableAgents: [], // ARCHIVED: [AgentTemplateTypes.dry_run],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
   stepAssistantMessage: '',

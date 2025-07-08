@@ -1,22 +1,22 @@
 // Define agent personas with their shared characteristics
 export const AGENT_PERSONAS = {
   // Base agents - all use Buffy persona
-  opus4_base: {
+  base: {
     name: 'Buffy',
     title: 'The Enthusiastic Coding Assistant',
     description: 'Base agent that orchestrates the full response.',
   },
-  claude4_base: {
+  base_lite: {
     name: 'Buffy',
     title: 'The Enthusiastic Coding Assistant',
     description: 'Base agent that orchestrates the full response.',
   },
-  gemini25pro_base: {
+  base_max: {
     name: 'Buffy',
     title: 'The Enthusiastic Coding Assistant',
     description: 'Base agent that orchestrates the full response.',
   },
-  gemini25flash_base: {
+  base_experimental: {
     name: 'Buffy',
     title: 'The Enthusiastic Coding Assistant',
     description: 'Base agent that orchestrates the full response.',
@@ -28,45 +28,44 @@ export const AGENT_PERSONAS = {
   },
 
   // Ask mode
-  gemini25pro_ask: {
+  ask: {
     name: 'Buffy',
     title: 'The Enthusiastic Coding Assistant',
     description: 'Base ask-mode agent that orchestrates the full response.',
   },
 
   // Specialized agents
-  gemini25pro_thinker: {
+  thinker: {
     name: 'Theo',
     title: 'The Theorizer',
     description:
       'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   },
-  gemini25flash_file_picker: {
+  file_picker: {
     name: 'Fletcher',
     title: 'The File Fetcher',
     description: 'Expert at finding relevant files in a codebase.',
   },
-  gemini25flash_researcher: {
+  researcher: {
     name: 'Reid Searcher',
     title: 'The Researcher',
     description:
       'Expert at researching topics using web search and documentation.',
   },
-  gemini25pro_planner: {
+  planner: {
     name: 'Peter Plan',
     title: 'The Planner',
-    description:
-      'Agent that formulates a comprehensive plan to a prompt.',
+    description: 'Agent that formulates a comprehensive plan to a prompt.',
     hidden: true,
   },
-  gemini25flash_dry_run: {
+  dry_run: {
     name: 'Sketch',
     title: 'The Dry Runner',
     description:
       'Agent that takes a plan and try to implement it in a dry run.',
     hidden: true,
   },
-  gemini25pro_reviewer: {
+  reviewer: {
     name: 'Nit Pick Nick',
     title: 'The Reviewer',
     description:
@@ -75,12 +74,13 @@ export const AGENT_PERSONAS = {
   sonnet4_agent_builder: {
     name: 'Agna',
     title: 'The Agent Builder',
-    description: 'Creates new agent templates for the codebuff mult-agent system',
+    description:
+      'Creates new agent templates for the codebuff mult-agent system',
     hidden: true,
   },
 } as const
 
-// Agent names for client-side reference without exposing full agent templates
+// Agent names for client-side reference
 export const AGENT_NAMES = Object.fromEntries(
   Object.entries(AGENT_PERSONAS).map(([agentType, persona]) => [
     agentType,

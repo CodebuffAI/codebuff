@@ -17,8 +17,8 @@ import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 
 export const thinkingBase = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: AGENT_PERSONAS['gemini25flash_base'].name,
-  description: 'Base agent that thinks before each response',
+  name: AGENT_PERSONAS['base_lite'].name,
+  description: AGENT_PERSONAS['base_lite'].description,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
@@ -32,7 +32,7 @@ export const thinkingBase = (model: Model): Omit<AgentTemplate, 'type'> => ({
   stepAssistantMessage: getToolCallString('spawn_agents', {
     agents: JSON.stringify([
       {
-        agent_type: AgentTemplateTypes.gemini25pro_thinker,
+        agent_type: AgentTemplateTypes.thinker,
         prompt: '',
         include_message_history: true,
       },

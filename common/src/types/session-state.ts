@@ -40,24 +40,24 @@ export type AgentState = z.infer<typeof AgentStateSchema>
 
 export const AgentTemplateTypeList = [
   // Base agents
-  'opus4_base',
-  'claude4_base',
-  'gemini25pro_base',
-  'gemini25flash_base',
+  'base',
+  'base_lite',
+  'base_max', 
+  'base_experimental',
   'claude4_gemini_thinking',
 
   // Ask mode
-  'gemini25pro_ask',
+  'ask',
 
   // Planning / Thinking
-  'gemini25pro_planner',
-  'gemini25flash_dry_run',
-  'gemini25pro_thinker',
+  'planner',
+  'dry_run',
+  'thinker',
 
   // Other agents
-  'gemini25flash_file_picker',
-  'gemini25flash_researcher',
-  'gemini25pro_reviewer',
+  'file_picker',
+  'researcher',
+  'reviewer',
   'sonnet4_agent_builder',
 ] as const
 export const AgentTemplateTypes = Object.fromEntries(

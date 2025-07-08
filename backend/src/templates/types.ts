@@ -87,8 +87,8 @@ export const baseAgentStopSequences: string[] = closeXmlTags([
 ] as ToolName[])
 
 export const baseAgentSpawnableAgents: AgentTemplateType[] = [
-  AgentTemplateTypes.gemini25flash_file_picker,
-  AgentTemplateTypes.gemini25flash_researcher,
-  // AgentTemplateTypes.gemini25pro_planner,
-  AgentTemplateTypes.gemini25pro_reviewer,
+  AgentTemplateTypes.file_picker,
+  AgentTemplateTypes.researcher,
+  // AgentTemplateTypes.planner,
+  AgentTemplateTypes.reviewer,
 ] as const

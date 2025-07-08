@@ -32,16 +32,16 @@ mock.module('../util/logger', () => ({
   withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
 }))
 
-// Mock agent templates to include update_report in claude4_base
+// Mock agent templates to include update_report in base
 mock.module('../templates/agent-list', () => {
   const { agentTemplates } = require('../templates/agent-list')
   return {
     agentTemplates: {
       ...agentTemplates,
-      claude4_base: {
-        ...agentTemplates.claude4_base,
+      base: {
+        ...agentTemplates.base,
         toolNames: [
-          ...agentTemplates.claude4_base.toolNames,
+          ...agentTemplates.base.toolNames,
           'update_report', // Add this tool
         ],
       },
@@ -177,7 +177,7 @@ describe('runAgentStep - update_report tool', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'claude4_base',
+        agentType: 'base',
         fileContext: mockFileContext,
         agentState,
         prompt: 'Analyze the codebase',
@@ -219,7 +219,7 @@ describe('runAgentStep - update_report tool', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'claude4_base',
+        agentType: 'base',
         fileContext: mockFileContext,
         agentState,
         prompt: 'Analyze the codebase',
@@ -266,7 +266,7 @@ describe('runAgentStep - update_report tool', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'claude4_base',
+        agentType: 'base',
         fileContext: mockFileContext,
         agentState,
         prompt: 'Update the report',
@@ -305,7 +305,7 @@ describe('runAgentStep - update_report tool', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'claude4_base',
+        agentType: 'base',
         fileContext: mockFileContext,
         agentState,
         prompt: 'Update with empty object',

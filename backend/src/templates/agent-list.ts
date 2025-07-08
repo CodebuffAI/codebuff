@@ -17,24 +17,24 @@ import { AgentTemplate } from './types'
 import { agentBuilder } from './agents/agent-builder'
 
 export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
-  opus4_base: {
-    type: AgentTemplateTypes.opus4_base,
-    ...base(models.opus4),
-  },
-  claude4_base: {
-    type: AgentTemplateTypes.claude4_base,
+  base: {
+    type: AgentTemplateTypes.base,
     ...base(models.sonnet),
   },
-  gemini25pro_base: {
-    type: AgentTemplateTypes.gemini25pro_base,
-    ...base(models.gemini2_5_pro_preview),
-  },
-  gemini25flash_base: {
-    type: AgentTemplateTypes.gemini25flash_base,
+  base_lite: {
+    type: AgentTemplateTypes.base_lite,
     ...base(models.gemini2_5_flash),
   },
-  gemini25pro_ask: {
-    type: AgentTemplateTypes.gemini25pro_ask,
+  base_max: {
+    type: AgentTemplateTypes.base_max,
+    ...base(models.opus4),
+  },
+  base_experimental: {
+    type: AgentTemplateTypes.base_experimental,
+    ...base(models.gemini2_5_pro_preview),
+  },
+  ask: {
+    type: AgentTemplateTypes.ask,
     ...ask(models.gemini2_5_pro_preview),
   },
   claude4_gemini_thinking: {
@@ -42,28 +42,28 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
     ...thinkingBase(models.sonnet),
   },
 
-  gemini25pro_thinker: {
-    type: AgentTemplateTypes.gemini25pro_thinker,
+  thinker: {
+    type: AgentTemplateTypes.thinker,
     ...thinker(models.gemini2_5_pro_preview),
   },
-  gemini25flash_file_picker: {
-    type: AgentTemplateTypes.gemini25flash_file_picker,
+  file_picker: {
+    type: AgentTemplateTypes.file_picker,
     ...filePicker(models.gemini2_5_flash),
   },
-  gemini25flash_researcher: {
-    type: AgentTemplateTypes.gemini25flash_researcher,
+  researcher: {
+    type: AgentTemplateTypes.researcher,
     ...researcher(models.gemini2_5_flash),
   },
-  gemini25pro_planner: {
-    type: AgentTemplateTypes.gemini25pro_planner,
+  planner: {
+    type: AgentTemplateTypes.planner,
     ...planner(models.gemini2_5_pro_preview),
   },
-  gemini25flash_dry_run: {
-    type: AgentTemplateTypes.gemini25flash_dry_run,
+  dry_run: {
+    type: AgentTemplateTypes.dry_run,
     ...dryRun(models.gemini2_5_flash),
   },
-  gemini25pro_reviewer: {
-    type: AgentTemplateTypes.gemini25pro_reviewer,
+  reviewer: {
+    type: AgentTemplateTypes.reviewer,
     ...reviewer(models.gemini2_5_pro_preview),
   },
   sonnet4_agent_builder: {

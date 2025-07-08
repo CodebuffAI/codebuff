@@ -22,7 +22,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'type'> => ({
     'end_turn',
   ] satisfies ToolName[],
   stopSequences: ['</read_files>', '</code_search>', '</spawn_agents>'],
-  spawnableAgents: [AgentTemplateTypes.gemini25flash_file_picker],
+  spawnableAgents: [AgentTemplateTypes.file_picker],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
   stepAssistantMessage: '',

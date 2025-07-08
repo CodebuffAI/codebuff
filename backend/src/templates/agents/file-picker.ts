@@ -8,8 +8,8 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
-  name: AGENT_PERSONAS['gemini25flash_file_picker'].name,
-  description: AGENT_PERSONAS['gemini25flash_file_picker'].description,
+  name: AGENT_PERSONAS['file_picker'].name,
+  description: AGENT_PERSONAS['file_picker'].description,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },

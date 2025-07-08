@@ -138,6 +138,9 @@ export const runAgentStep = async (
   const repoId = requestContext?.processedRepoId
 
   const agentTemplate = agentTemplates[agentType]
+  if (!agentTemplate) {
+    throw new Error(`Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`)
+  }
   const { model } = agentTemplate
 
   const getStream = getAgentStreamFromTemplate({
@@ -1029,7 +1032,7 @@ export const runAgentStep = async (
       logger.debug(
         {
           jsonUpdate,
-          agentType: agentState.agentType,
+          agentType,
           agentId: agentState.agentId,
         },
         'update_report tool call'
@@ -1655,8 +1658,8 @@ export const loopAgentSteps = async (
             currentAssistantMessage,
             fileContext,
             currentAgentState,
-            agentTemplates[agentType].toolNames,
-            agentTemplates[agentType].spawnableAgents,
+            agentTemplate.toolNames,
+            agentTemplate.spawnableAgents,
             prompt ?? ''
           )
         : '',
@@ -1665,8 +1668,8 @@ export const loopAgentSteps = async (
             currentAssistantPrefix,
             fileContext,
             currentAgentState,
-            agentTemplates[agentType].toolNames,
-            agentTemplates[agentType].spawnableAgents,
+            agentTemplate.toolNames,
+            agentTemplate.spawnableAgents,
             prompt ?? ''
           )
         : '',
