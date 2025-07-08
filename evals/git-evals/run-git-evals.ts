@@ -33,7 +33,7 @@ import {
 disableLiveUserInputCheck()
 
 // Try Gemini!
-const AGENT_TYPE = AgentTemplateTypes.claude4_base
+const AGENT_TYPE = AgentTemplateTypes.base
 
 const EDIT_FILE_TOOL_NAMES = ['write_file', 'str_replace'] as const
 
