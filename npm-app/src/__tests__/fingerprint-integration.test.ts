@@ -1,8 +1,8 @@
 import { calculateFingerprint } from '../fingerprint'
 
 describe('Fingerprint Integration Test', () => {
-  it('should generate fingerprints and test both enhanced and legacy modes', async () => {
-    console.log('🔍 Testing enhanced fingerprinting implementation...')
+  it('should generate fingerprints and test both enhanced CLI and legacy modes', async () => {
+    console.log('🔍 Testing enhanced CLI fingerprinting implementation...')
     
     // Test multiple fingerprint generations
     const results = []
@@ -14,7 +14,7 @@ describe('Fingerprint Integration Test', () => {
       results.push({
         fingerprint,
         duration,
-        isEnhanced: fingerprint.startsWith('fp-'),
+        isEnhanced: fingerprint.startsWith('enhanced-') || fingerprint.startsWith('fp-'),
         isLegacy: fingerprint.startsWith('legacy-')
       })
       
@@ -59,5 +59,5 @@ describe('Fingerprint Integration Test', () => {
     
     // At least one should succeed
     expect(results.length).toBeGreaterThan(0)
-  }, 30000) // 30 second timeout for browser operations
+  }, 10000) // 10 second timeout for CLI operations
 })

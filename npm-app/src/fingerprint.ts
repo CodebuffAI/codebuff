@@ -1,7 +1,8 @@
-// Enhanced fingerprinting with FingerprintJS and backward compatibility
+// Enhanced fingerprinting with CLI-only approach and backward compatibility
 // Modified from: https://github.com/andsmedeiros/hw-fingerprint
 
 import { createHash, randomBytes } from 'node:crypto'
+import { networkInterfaces } from 'node:os'
 import {
   bios,
   cpu,
@@ -11,23 +12,82 @@ import {
   system,
   // @ts-ignore
 } from 'systeminformation'
+import { machineId } from 'node-machine-id'
 
-import { findChrome } from './browser-runner'
+import { detectShell } from './utils/detect-shell'
+import { getSystemInfo } from './utils/system-info'
 import { logger } from './utils/logger'
 
-// Type declaration for FingerprintJS result
-declare global {
-  interface Window {
-    fingerprintResult?: {
-      visitorId: string
-      confidence: { score: number }
-      components: Record<string, any>
-    }
-  }
+// Enhanced CLI fingerprint implementation using multiple Node.js data sources
+const getEnhancedFingerprintInfo = async () => {
+  // Get essential system information efficiently
+  const [
+    systemInfo,
+    cpuInfo,
+    osInfo_,
+    machineIdValue,
+    systemInfoBasic,
+    shell,
+    networkInfo
+  ] = await Promise.all([
+    system(),
+    cpu(),
+    osInfo(),
+    machineId().catch(() => 'unknown'),
+    getSystemInfo(),
+    detectShell(),
+    Promise.resolve(networkInterfaces())
+  ])
+
+  // Extract MAC addresses for additional uniqueness
+  const macAddresses = Object.values(networkInfo)
+    .flat()
+    .filter(iface => iface && !iface.internal && iface.mac && iface.mac !== '00:00:00:00:00:00')
+    .map(iface => iface!.mac)
+    .sort()
+
+  return {
+    // Hardware identifiers
+    system: {
+      manufacturer: systemInfo.manufacturer,
+      model: systemInfo.model,
+      serial: systemInfo.serial,
+      uuid: systemInfo.uuid,
+    },
+    cpu: {
+      manufacturer: cpuInfo.manufacturer,
+      brand: cpuInfo.brand,
+      cores: cpuInfo.cores,
+      physicalCores: cpuInfo.physicalCores,
+    },
+    os: {
+      platform: osInfo_.platform,
+      distro: osInfo_.distro,
+      arch: osInfo_.arch,
+      hostname: osInfo_.hostname,
+    },
+    // CLI-specific identifiers
+    runtime: {
+      nodeVersion: systemInfoBasic.nodeVersion,
+      platform: systemInfoBasic.platform,
+      arch: systemInfoBasic.arch,
+      shell,
+      cpuCount: systemInfoBasic.cpus,
+    },
+    // Network identifiers
+    network: {
+      macAddresses,
+      interfaceCount: Object.keys(networkInfo).length,
+    },
+    // Machine ID (OS-specific unique identifier)
+    machineId: machineIdValue,
+    // Timestamp for version tracking
+    fingerprintVersion: '2.0',
+  } as Record<string, any>
 }
 
 // Legacy fingerprint implementation (for backward compatibility)
-const getFingerprintInfo = async () => {
+const getLegacyFingerprintInfo = async () => {
   const { manufacturer, model, serial, uuid } = await system()
   const { vendor, version: biosVersion, releaseDate } = await bios()
   const { manufacturer: cpuManufacturer, brand, speed, cores } = await cpu()
@@ -70,9 +130,33 @@ const getFingerprintInfo = async () => {
   } as Record<string, any>
 }
 
+// Enhanced CLI-only fingerprint (deterministic, no browser required)
+async function calculateEnhancedFingerprint(): Promise<string> {
+  try {
+    const fingerprintInfo = await getEnhancedFingerprintInfo()
+    const fingerprintString = JSON.stringify(fingerprintInfo)
+    const fingerprintHash = createHash('sha256')
+      .update(fingerprintString)
+      .digest()
+      .toString('base64url')
+
+    // No random suffix needed - comprehensive system data provides sufficient uniqueness
+    return `enhanced-${fingerprintHash}`
+  } catch (error) {
+    logger.warn(
+      {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        fingerprintType: 'enhanced_failed',
+      },
+      'Enhanced CLI fingerprinting failed, falling back to legacy'
+    )
+    throw error
+  }
+}
+
 // Legacy implementation with random suffix (still needed for collision avoidance)
 async function calculateLegacyFingerprint() {
-  const fingerprintInfo = await getFingerprintInfo()
+  const fingerprintInfo = await getLegacyFingerprintInfo()
   const fingerprintString = JSON.stringify(fingerprintInfo)
   const fingerprintHash = createHash('sha256')
     .update(fingerprintString)
@@ -85,96 +169,17 @@ async function calculateLegacyFingerprint() {
   return `legacy-${fingerprintHash}-${randomSuffix}`
 }
 
-// Enhanced FingerprintJS implementation using headless browser
-async function calculateEnhancedFingerprint(): Promise<string> {
-  try {
-    const puppeteer = await import('puppeteer-core')
-    
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      executablePath: findChrome(),
-    })
-    
-    const page = await browser.newPage()
-    
-    // Create a minimal HTML page with FingerprintJS
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@4/dist/fp.min.js"></script>
-      </head>
-      <body>
-        <script>
-          (async () => {
-            // Initialize FingerprintJS
-            const fp = await FingerprintJS.load()
-            
-            // Get the visitor identifier
-            const result = await fp.get()
-            
-            // Make the result available to Node.js
-            window.fingerprintResult = {
-              visitorId: result.visitorId,
-              confidence: result.confidence,
-              components: result.components
-            }
-          })()
-        </script>
-      </body>
-      </html>
-    `
-    
-    await page.setContent(html)
-    
-    // Wait for FingerprintJS to complete
-    await page.waitForFunction(() => window.fingerprintResult, { timeout: 10000 })
-    
-    // Extract the fingerprint result
-    const result = await page.evaluate(() => window.fingerprintResult)
-    
-    await browser.close()
-    
-    // Combine FingerprintJS result with system info for enhanced uniqueness
-    const systemInfo = await getFingerprintInfo()
-    const combinedData = {
-      fingerprintjs: result!.visitorId,
-      confidence: result!.confidence,
-      system: systemInfo,
-    }
-    
-    const combinedString = JSON.stringify(combinedData)
-    const combinedHash = createHash('sha256')
-      .update(combinedString)
-      .digest()
-      .toString('base64url')
-    
-    // No random suffix needed - FingerprintJS provides sufficient uniqueness
-    return `fp-${combinedHash}`
-  } catch (error) {
-    logger.warn(
-      {
-        errorMessage: error instanceof Error ? error.message : String(error),
-        fingerprintType: 'enhanced_failed',
-      },
-      'Enhanced fingerprinting failed, falling back to legacy'
-    )
-    throw error
-  }
-}
-
-// Main fingerprint function with hybrid approach
+// Main fingerprint function with CLI-only approach
 export async function calculateFingerprint(): Promise<string> {
   try {
-    // Try enhanced fingerprinting first
+    // Try enhanced CLI fingerprinting first
     const fingerprint = await calculateEnhancedFingerprint()
     logger.info(
       {
-        fingerprintType: 'enhanced',
+        fingerprintType: 'enhanced_cli',
         fingerprintId: fingerprint,
       },
-      'Enhanced fingerprint generated successfully'
+      'Enhanced CLI fingerprint generated successfully'
     )
     return fingerprint
   } catch (enhancedError) {
@@ -183,7 +188,7 @@ export async function calculateFingerprint(): Promise<string> {
         errorMessage: enhancedError instanceof Error ? enhancedError.message : String(enhancedError),
         fingerprintType: 'enhanced_failed_fallback',
       },
-      'Enhanced fingerprinting failed, using legacy fallback'
+      'Enhanced CLI fingerprinting failed, using legacy fallback'
     )
     
     try {

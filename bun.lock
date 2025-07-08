@@ -116,7 +116,6 @@
       "dependencies": {
         "@codebuff/code-map": "workspace:*",
         "@codebuff/common": "workspace:*",
-        "@fingerprintjs/fingerprintjs": "^4.6.2",
         "@types/diff": "5.2.1",
         "@types/micromatch": "^4.0.9",
         "@vscode/ripgrep": "1.15.9",
@@ -130,6 +129,7 @@
         "lodash": "*",
         "micromatch": "^4.0.8",
         "nanoid": "5.0.7",
+        "node-machine-id": "^1.1.12",
         "onetime": "5.1.2",
         "picocolors": "1.1.0",
         "pino": "9.4.0",
@@ -603,8 +603,6 @@
     "@eslint/js": ["@eslint/js@8.57.1", "", {}, "sha512-d9zaMRSTIKDLhctzH12MtXvJKSSUhaHcjV+2Z+GK+EEY7XKpP5yR4x+N3TAcHTcu963nIr+TMcCb4DBCYX1z6Q=="],
 
     "@fal-works/esbuild-plugin-global-externals": ["@fal-works/esbuild-plugin-global-externals@2.1.2", "", {}, "sha512-cEee/Z+I12mZcFJshKcCqC8tuX5hG3s+d+9nZ3LabqKF1vKdF41B92pJVCBggjAGORAeOzyyDDKrZwIkLffeOQ=="],
-
-    "@fingerprintjs/fingerprintjs": ["@fingerprintjs/fingerprintjs@4.6.2", "", { "dependencies": { "tslib": "^2.4.1" } }, "sha512-g8mXuqcFKbgH2CZKwPfVtsUJDHyvcgIABQI7Y0tzWEFXpGxJaXuAuzlifT2oTakjDBLTK4Gaa9/5PERDhqUjtw=="],
 
     "@floating-ui/core": ["@floating-ui/core@1.7.1", "", { "dependencies": { "@floating-ui/utils": "^0.2.9" } }, "sha512-azI0DrjMMfIug/ExbBaeDVJXcY0a7EPvPjb2xAJPa4HeimBX+Z18HK8QQR3jb6356SnDDdxx+hinMLcJEDdOjw=="],
 

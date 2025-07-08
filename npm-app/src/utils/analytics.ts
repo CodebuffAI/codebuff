@@ -129,9 +129,11 @@ export function identifyUserWithFingerprint(
   // Enhanced properties with fingerprint metadata
   const enhancedProperties = {
     ...properties,
-    fingerprintType: properties?.fingerprintId?.startsWith('fp-') ? 'enhanced' : 
+    fingerprintType: properties?.fingerprintId?.startsWith('enhanced-') ? 'enhanced_cli' : 
+                    properties?.fingerprintId?.startsWith('fp-') ? 'enhanced_browser' :
                     properties?.fingerprintId?.startsWith('legacy-') ? 'legacy' : 'unknown',
-    hasEnhancedFingerprint: properties?.fingerprintId?.startsWith('fp-') || false,
+    hasEnhancedFingerprint: properties?.fingerprintId?.startsWith('enhanced-') || 
+                           properties?.fingerprintId?.startsWith('fp-') || false,
   }
 
   if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
