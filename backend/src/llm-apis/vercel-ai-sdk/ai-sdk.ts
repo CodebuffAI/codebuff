@@ -10,6 +10,7 @@ import {
   type GeminiModel,
   type openrouterModel,
 } from '@codebuff/common/constants'
+import { createOpenRouter } from '@codebuff/internal/openrouter-ai-sdk'
 import {
   CoreAssistantMessage,
   CoreMessage,
@@ -27,11 +28,11 @@ import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
 
 import { closeXml } from '@codebuff/common/util/xml'
+import { env } from '@codebuff/internal/env'
 import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
 import { logger } from '../../util/logger'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
-import { openrouter } from './openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
 // TODO: We'll want to add all our models here!
@@ -54,7 +55,17 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
   }
   // All Claude models go through OpenRouter
   if (Object.values(openrouterModels).includes(model as openrouterModel)) {
-    return openrouter.languageModel(model)
+    return createOpenRouter({
+      apiKey: env.OPEN_ROUTER_API_KEY,
+      headers: {
+        'HTTP-Referer': 'https://codebuff.com',
+        'X-Title': 'Codebuff',
+      },
+    }).languageModel(model, {
+      usage: { include: true },
+      includeReasoning: true,
+      logprobs: true,
+    })
   }
   throw new Error('Unknown model: ' + model)
 }
@@ -339,6 +350,7 @@ export function transformMessages(
           if ('cache_control' in part) {
             coreMessage.providerOptions = {
               anthropic: { cacheControl: { type: 'ephemeral' } },
+              openrouter: { cacheControl: { type: 'ephemeral' } },
             }
           }
           // Handle Message type image format
@@ -392,6 +404,7 @@ export function transformMessages(
           if ('cache_control' in part) {
             coreMessage.providerOptions = {
               anthropic: { cacheControl: { type: 'ephemeral' } },
+              openrouter: { cacheControl: { type: 'ephemeral' } },
             }
           }
           if (part.type === 'text') {
