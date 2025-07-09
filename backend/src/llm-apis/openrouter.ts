@@ -2,11 +2,21 @@ import { Model, models } from '@codebuff/common/constants'
 import { env } from '@codebuff/internal/env'
 import { createOpenRouter } from '@codebuff/internal/openrouter-ai-sdk'
 
+// Provider routing documentation: https://openrouter.ai/docs/features/provider-routing
+const providerOrder = {
+  [models.openrouter_claude_sonnet_4]: [
+    'Google',
+    'Anthropic',
+    'Amazon Bedrock',
+  ],
+  [models.openrouter_claude_opus_4]: ['Google', 'Anthropic', 'Amazon Bedrock'],
+} as const
+
 export function openRouterLanguageModel(model: Model) {
   const extraBody: Record<string, any> = {}
-  if (model === models.openrouter_claude_sonnet_4) {
+  if (model in providerOrder) {
     extraBody.provider = {
-      order: ['Google', 'Anthropic'], // Disable 'Amazon Bedrock' for now
+      order: providerOrder[model as keyof typeof providerOrder],
     }
   }
   return createOpenRouter({
