@@ -1,58 +1,39 @@
-# LLM API Fallback Mechanism
+# LLM API Integration
 
 ## Overview
 
-The fallback mechanism provides resilience against provider outages by automatically switching to alternative LLM providers when the primary provider fails.
+The LLM API integration provides unified access to multiple AI providers through the Vercel AI SDK. All models are now handled directly through the AI SDK without complex fallback mechanisms.
 
-## How It Works
+## Supported Providers
 
-1. **Primary Provider**: Anthropic models (Claude) can be configured with fallback providers
-2. **Fallback Chain**: When Anthropic fails, the system tries alternative providers in order:
-   - Default: `['gemini', 'openai']`
-   - Configurable per agent template
-3. **Retry Logic**: Each provider gets multiple retry attempts (3 for primary, 2 for fallbacks)
+1. **Anthropic**: Claude models via direct API
+2. **OpenAI**: GPT models and O-series models
+3. **Google**: Gemini models with thinking support
+4. **OpenRouter**: Claude and Gemini models via unified API
+5. **Vertex AI**: Finetuned models
+6. **DeepSeek**: Chat and reasoning models
 
-## Configuration
+## Provider Configuration
 
-In agent templates (e.g., `backend/src/templates/agents/base.ts`):
+Each provider is configured in `backend/src/llm-apis/vercel-ai-sdk/`:
 
-```typescript
-// Enable fallback for Anthropic models
-...(Object.values(claudeModels).includes(model as AnthropicModel) && {
-  fallbackProviders: ['openrouter'] as FallbackProvider[],
-}),
-```
+- `ai-sdk.ts`: Main integration logic
+- `openrouter.ts`: OpenRouter provider using OpenAI-compatible API
+- `vertex-finetuned.ts`: Custom Vertex AI finetuned models
 
-## Testing the Fallback
+## Model Selection
 
-### Unit Tests
-Run: `bun test anthropic-with-fallbacks.test.ts`
+Models are defined in `common/src/constants.ts` and automatically routed to the appropriate provider based on the model identifier.
 
-### Manual Testing
-1. **Simulate API failure**: 
-   ```bash
-   ANTHROPIC_API_KEY=invalid bun run backend/scripts/test-fallback-simple.ts
-   ```
+## OpenRouter Integration
 
-2. **Check logs** for fallback behavior:
-   - "Attempting Anthropic API call"
-   - "Anthropic API call failed, attempting fallbacks"
-   - "Falling back to Gemini"
+OpenRouter provides access to Claude models through a unified API:
 
-   - Default: `['openrouter']`
-3. **Verify response** - the model should identify itself in the response
+- Uses OpenAI-compatible API format
+- Configured with custom headers for Codebuff
+- Supports all major Claude model variants
+- Pricing tracked separately in cost calculator
 
-   - "Attempting OpenRouter fallback"
-## Supported Fallback Providers
+## Cost Tracking
 
-- `openrouter`: OpenRouter API (Claude models via unified API)
-
-**Note**: We use OpenRouter as the fallback provider, which provides access to Claude models through a unified API interface. This replaces the previous Vertex AI and Bedrock fallbacks.
-
-## Important Notes
-
-- Only Anthropic models support fallback currently
-- Fallback providers use fewer retries (2 vs 3) to fail faster
-   - Default: `['openrouter']`
-- The AI SDK's built-in retry mechanism is used with `maxRetries` parameter
-- Logs clearly indicate which provider is being used
+All API calls are tracked for billing purposes with provider-specific pricing in `message-cost-tracker.ts`.

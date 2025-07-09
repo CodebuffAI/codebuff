@@ -1,6 +1,6 @@
 'use client'
 
-import { claudeModels, getLogoForModel } from '@codebuff/common/constants'
+import { getLogoForModel, models } from '@codebuff/common/constants'
 import * as schema from '@codebuff/common/db/schema'
 import { useState } from 'react'
 
@@ -146,7 +146,7 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
 
     // Helper function to get benchmark model name
     const getBenchmarkModelName = (result: BenchmarkResult) => {
-        const logo = getLogoForModel(result.agent_model || result.reasoner_model || claudeModels.sonnet)
+        const logo = getLogoForModel(result.agent_model || result.reasoner_model || models.openrouter_claude_sonnet_4)
 
         if (result.agent_model && result.reasoner_model) {
             const agentDisplay = modelDisplayNames[result.agent_model] || result.agent_model

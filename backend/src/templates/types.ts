@@ -7,15 +7,14 @@ import {
   AgentTemplateTypes,
 } from '@codebuff/common/types/session-state'
 import { closeXmlTags } from '@codebuff/common/util/xml'
-import { FallbackProvider } from '../llm-apis/anthropic-with-fallbacks'
+// Removed FallbackProvider import - no longer needed
 
 export type AgentTemplate = {
   type: AgentTemplateType
   name: string
   description: string
   model: Model
-  // Optional fallback providers for Anthropic models
-  fallbackProviders?: FallbackProvider[]
+  // Fallback providers removed - all models now use ai-sdk directly
   // Required parameters for spawning this agent.
   promptSchema: {
     prompt?: z.ZodSchema<string | undefined>

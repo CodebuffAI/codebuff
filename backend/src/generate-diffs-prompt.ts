@@ -153,7 +153,7 @@ Provide a new set of SEARCH/REPLACE changes to make the intended edit from the o
 
   const response = await promptAiSdk({
     messages: [{ role: 'user', content: newPrompt }],
-    model: models.sonnet,
+    model: models.openrouter_claude_sonnet_4,
     clientSessionId,
     fingerprintId,
     userInputId,

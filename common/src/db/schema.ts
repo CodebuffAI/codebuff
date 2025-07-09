@@ -180,6 +180,7 @@ export const message = pgTable(
     ),
     response: jsonb('response').notNull(),
     input_tokens: integer('input_tokens').notNull().default(0),
+    // Always going to be 0 if using OpenRouter
     cache_creation_input_tokens: integer('cache_creation_input_tokens')
       .notNull()
       .default(0),

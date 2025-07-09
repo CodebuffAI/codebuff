@@ -10,9 +10,8 @@ import {
   setupBigQuery,
 } from '@codebuff/bigquery'
 import {
-  AnthropicModel,
-  claudeModels,
   finetunedVertexModels,
+  models,
   TEST_USER_ID,
 } from '@codebuff/common/constants'
 import { Message } from '@codebuff/common/types/message'
@@ -115,10 +114,10 @@ export async function getTracesForUserHandler(req: Request, res: Response) {
 
 // --- POST Handler Logic ---
 
-const models = [
+const modelsToRelabel = [
   // geminiModels.gemini2_5_pro_preview,
-  // claudeModels.sonnet,
-  // claudeModels.opus4,
+  // models.openrouter_claude_sonnet_4,
+  // models.openrouter_claude_opus_4,
   // finetunedVertexModels.ft_filepicker_005,
   finetunedVertexModels.ft_filepicker_008,
   finetunedVertexModels.ft_filepicker_topk_002,
@@ -143,7 +142,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
     const relaceResults = relabelUsingFullFilesForUser(userId, limit)
 
     // Process each model
-    for (const model of models) {
+    for (const model of modelsToRelabel) {
       logger.info(`Processing traces for model ${model} and user ${userId}...`)
 
       // Get traces without relabels for this model and user
@@ -277,7 +276,7 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
       relabelPromises.push(relabelWithRelace(trace, fileBlobs))
       didRelabel = true
     }
-    for (const model of [claudeModels.sonnet, claudeModels.opus4]) {
+    for (const model of [models.openrouter_claude_sonnet_4, models.openrouter_claude_opus_4]) {
       if (
         !traceBundle.relabels.some(
           (r) => r.model === `${model}-with-full-file-context`
@@ -357,7 +356,7 @@ async function relabelWithRelace(
 export async function relabelWithClaudeWithFullFileContext(
   trace: GetRelevantFilesTrace,
   fileBlobs: GetExpandedFileContextForTrainingBlobTrace,
-  model: AnthropicModel,
+  model: string,
   dataset?: string
 ) {
   if (dataset) {
@@ -393,7 +392,7 @@ export async function relabelWithClaudeWithFullFileContext(
 
   const output = await promptAiSdk({
     messages: transformMessages(trace.payload.messages as Message[], system),
-    model: model,
+    model: model as any, // Model type is string here for flexibility
     clientSessionId: 'relabel-trace-api',
     fingerprintId: 'relabel-trace-api',
     userInputId: 'relabel-trace-api',

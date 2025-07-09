@@ -4,11 +4,11 @@ import {
   getTracesAndAllDataForUser,
   setupBigQuery,
 } from '@codebuff/bigquery'
-import { claudeModels } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/constants'
 import { relabelWithClaudeWithFullFileContext } from '../../backend/src/admin/relabelRuns'
 
 // Model we want to test - focusing on Claude 4 Opus
-const MODEL_TO_TEST = claudeModels.opus4
+const MODEL_TO_TEST = models.openrouter_claude_opus_4
 
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'

@@ -1,10 +1,10 @@
+import { models } from '@codebuff/common/constants'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import prettier from 'prettier'
 import { promptAiSdk } from '../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from '@codebuff/common/constants'
-import { generateCompactId } from '@codebuff/common/util/string'
 
 // Native slugify implementation
 function slugify(text: string): string {
@@ -167,7 +167,7 @@ Start your response with a heading using ### (three hashes) and organize the con
       clientSessionId: generateCompactId(),
       fingerprintId: generateCompactId(),
       userInputId: generateCompactId(),
-      model: models.sonnet,
+      model: models.openrouter_claude_sonnet_4,
       userId: undefined,
       chargeUser: false,
     })

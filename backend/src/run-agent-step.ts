@@ -1,6 +1,13 @@
-import { AgentResponseTrace, insertTrace } from '@codebuff/bigquery'
+import {
+  AgentResponseTrace,
+  GetExpandedFileContextForTrainingBlobTrace,
+  insertTrace,
+} from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
-import { ONE_TIME_LABELS } from '@codebuff/common/constants'
+import {
+  HIDDEN_FILE_READ_STATUS,
+  ONE_TIME_LABELS,
+} from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getToolCallString,
@@ -8,20 +15,23 @@ import {
   ToolName,
   toolNames,
 } from '@codebuff/common/constants/tools'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import {
   AgentState,
   ToolResult,
   type AgentTemplateType,
 } from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
-import { ProjectFileContext } from '@codebuff/common/util/file'
+import { parseFileBlocks, ProjectFileContext } from '@codebuff/common/util/file'
+import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { partition } from 'lodash'
-import { WebSocket } from 'ws'
-
-import { CodebuffMessage } from '@codebuff/common/types/message'
 import { closeXml } from '@codebuff/common/util/xml'
+import { CoreMessage } from 'ai'
+import { difference, partition, uniq } from 'lodash'
+import { WebSocket } from 'ws'
+import { requestRelevantFilesForTraining } from './find-files/request-files-prompt'
 import { checkLiveUserInput } from './live-user-inputs'
+import { TextBlock } from './llm-apis/claude'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -47,16 +57,21 @@ import {
   getCoreMessagesSubset,
   isSystemInstruction,
 } from './util/messages'
-import { isToolResult, renderReadFilesResult } from './util/parse-tool-call-xml'
+import {
+  isToolResult,
+  parseReadFilesResult,
+  parseToolResults,
+  renderReadFilesResult,
+} from './util/parse-tool-call-xml'
 import { simplifyReadFileResults } from './util/simplify-tool-results'
-import { countTokensJson } from './util/token-counter'
+import { countTokens, countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 import {
+  requestFiles,
   requestOptionalFile,
   requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
-import { getFileReadingUpdates } from './get-file-reading-updates'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -845,6 +860,252 @@ export const runAgentStep = async (
       clientToolCalls.some((call) => call.toolName === 'end_turn') ||
       (clientToolCalls.length === 0 && serverToolResults.length === 0),
   }
+}
+
+const getInitialFiles = (fileContext: ProjectFileContext) => {
+  const { userKnowledgeFiles, knowledgeFiles } = fileContext
+  return [
+    // Include user-level knowledge files.
+    ...Object.entries(userKnowledgeFiles ?? {}).map(([path, content]) => ({
+      path,
+      content,
+    })),
+
+    // Include top-level project knowledge files.
+    ...Object.entries(knowledgeFiles)
+      .map(([path, content]) => ({
+        path,
+        content,
+      }))
+      // Only keep top-level knowledge files.
+      .filter((f) => f.path.split('/').length === 1),
+  ]
+}
+
+async function getFileReadingUpdates(
+  ws: WebSocket,
+  messages: CoreMessage[],
+  fileContext: ProjectFileContext,
+  options: {
+    requestedFiles?: string[]
+    agentStepId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    repoId: string | undefined
+  }
+) {
+  const FILE_TOKEN_BUDGET = 100_000
+
+  const toolResults = messages
+    .filter(isToolResult)
+    .flatMap((content) => parseToolResults(toContentString(content)))
+  const previousFileList = toolResults
+    .filter(({ toolName }) => toolName === 'read_files')
+    .flatMap(({ result }) => parseReadFilesResult(result))
+
+  const previousFiles = Object.fromEntries(
+    previousFileList.map(({ path, content }) => [path, content])
+  )
+  const previousFilePaths = uniq(Object.keys(previousFiles))
+
+  const editedFilePaths = messages
+    .filter(({ role }) => role === 'assistant')
+    .map(toContentString)
+    .filter((content) => content.includes('<write_file'))
+    .flatMap((content) => Object.keys(parseFileBlocks(content)))
+    .filter((path) => path !== undefined)
+
+  const requestedFiles = options.requestedFiles ?? []
+
+  const isFirstRead = previousFileList.length === 0
+  const initialFiles = getInitialFiles(fileContext)
+  const includedInitialFiles = isFirstRead
+    ? initialFiles.map(({ path }) => path)
+    : []
+
+  const allFilePaths = uniq([
+    ...includedInitialFiles,
+    ...requestedFiles,
+    ...editedFilePaths,
+    ...previousFilePaths,
+  ])
+  const loadedFiles = await requestFiles(ws, allFilePaths)
+
+  const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
+    const content = loadedFiles[filePath]
+    if (content === null || content === undefined) return false
+    const tokenCount = countTokens(content)
+    if (i < 5) {
+      return tokenCount < 50_000 - i * 10_000
+    }
+    return tokenCount < 10_000
+  })
+  const newFiles = difference(
+    [...filteredRequestedFiles, ...includedInitialFiles],
+    previousFilePaths
+  )
+  const newFilesToRead = uniq([
+    // NOTE: When the assistant specifically asks for a file, we force it to be shown even if it's not new or changed.
+    ...(options.requestedFiles ?? []),
+
+    ...newFiles,
+  ])
+
+  const updatedFilePaths = [...previousFilePaths, ...editedFilePaths].filter(
+    (path) => {
+      return loadedFiles[path] !== previousFiles[path]
+    }
+  )
+
+  const addedFiles = uniq([
+    ...includedInitialFiles,
+    ...updatedFilePaths,
+    ...newFilesToRead,
+  ])
+    .map((path) => {
+      return {
+        path,
+        content: loadedFiles[path]!,
+      }
+    })
+    .filter((file) => file.content !== null)
+
+  const previousFilesTokens = countTokensJson(previousFiles)
+  const addedFileTokens = countTokensJson(addedFiles)
+
+  if (previousFilesTokens + addedFileTokens > FILE_TOKEN_BUDGET) {
+    const requestedLoadedFiles = filteredRequestedFiles.map((path) => ({
+      path,
+      content: loadedFiles[path]!,
+    }))
+    const newFiles = uniq([...initialFiles, ...requestedLoadedFiles])
+    while (countTokensJson(newFiles) > FILE_TOKEN_BUDGET) {
+      newFiles.pop()
+    }
+
+    const printedPaths = getPrintedPaths(
+      requestedFiles,
+      newFilesToRead,
+      loadedFiles
+    )
+    logger.debug(
+      {
+        newFiles,
+        prevFileVersionTokens: previousFilesTokens,
+        addedFileTokens,
+        beforeTotalTokens: previousFilesTokens + addedFileTokens,
+        newFileVersionTokens: countTokensJson(newFiles),
+        FILE_TOKEN_BUDGET,
+      },
+      'resetting read files b/c of token budget'
+    )
+
+    return {
+      addedFiles: newFiles,
+      updatedFilePaths: updatedFilePaths,
+      printedPaths,
+      clearReadFileToolResults: true,
+    }
+  }
+
+  const printedPaths = getPrintedPaths(
+    requestedFiles,
+    newFilesToRead,
+    loadedFiles
+  )
+
+  return {
+    addedFiles,
+    updatedFilePaths,
+    printedPaths,
+    clearReadFileToolResults: false,
+  }
+}
+
+function getPrintedPaths(
+  requestedFiles: string[],
+  newFilesToRead: string[],
+  loadedFiles: Record<string, string | null>
+) {
+  // If no files requests, we don't want to print anything.
+  // Could still have files added from initial files or edited files.
+  if (requestedFiles.length === 0) return []
+  // Otherwise, only print files that don't start with a hidden file status.
+  return newFilesToRead.filter(
+    (path) =>
+      loadedFiles[path] &&
+      !HIDDEN_FILE_READ_STATUS.some((status) =>
+        loadedFiles[path]!.startsWith(status)
+      )
+  )
+}
+
+async function uploadExpandedFileContextForTraining(
+  ws: WebSocket,
+  {
+    messages,
+    system,
+  }: {
+    messages: CoreMessage[]
+    system: string | Array<TextBlock>
+  },
+  fileContext: ProjectFileContext,
+  assistantPrompt: string | null,
+  agentStepId: string,
+  clientSessionId: string,
+  fingerprintId: string,
+  userInputId: string,
+  userId: string | undefined,
+  repoId: string | undefined
+) {
+  const files = await requestRelevantFilesForTraining(
+    { messages, system },
+    fileContext,
+    assistantPrompt,
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    repoId
+  )
+
+  const loadedFiles = await requestFiles(ws, files)
+
+  // Upload a map of:
+  // {file_path: {content, token_count}}
+  // up to 50k tokens
+  const filesToUpload: Record<string, { content: string; tokens: number }> = {}
+  for (const file of files) {
+    const content = loadedFiles[file]
+    if (content === null || content === undefined) {
+      continue
+    }
+    const tokens = countTokens(content)
+    if (tokens > 50000) {
+      break
+    }
+    filesToUpload[file] = { content, tokens }
+  }
+
+  const trace: GetExpandedFileContextForTrainingBlobTrace = {
+    type: 'get-expanded-file-context-for-training-blobs',
+    created_at: new Date(),
+    id: crypto.randomUUID(),
+    agent_step_id: agentStepId,
+    user_id: userId ?? '',
+    payload: {
+      files: filesToUpload,
+      user_input_id: userInputId,
+      client_session_id: clientSessionId,
+      fingerprint_id: fingerprintId,
+    },
+  }
+
+  // Upload the files to bigquery
+  await insertTrace(trace)
 }
 
 export const loopAgentSteps = async (

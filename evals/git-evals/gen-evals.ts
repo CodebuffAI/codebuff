@@ -1,14 +1,20 @@
 import { execSync } from 'child_process'
 import fs from 'fs'
-import path from 'path'
 import { chunk } from 'lodash'
+import path from 'path'
 import { z } from 'zod'
 
-import { claudeModels, geminiModels } from '@codebuff/common/constants'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { geminiModels, models } from '@codebuff/common/constants'
 
-import { CommitInfo, CommitSelectionSchema, EvalCommit, GitRepoEvalData, CommitFileState } from './types'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
+import {
+  CommitFileState,
+  CommitInfo,
+  CommitSelectionSchema,
+  EvalCommit,
+  GitRepoEvalData,
+} from './types'
 
 const COMMIT_SELECTION_PROMPT = `You are an expert at identifying substantial and complete code changes in git commits.
 
@@ -123,7 +129,7 @@ async function selectSubstantialCommits(
   const response = await promptAiSdkStructured({
     messages: [{ role: 'user', content: prompt }],
     schema: CommitSelectionSchema,
-    model: claudeModels.sonnet,
+    model: models.openrouter_claude_sonnet_4,
     clientSessionId,
     fingerprintId,
     userInputId,

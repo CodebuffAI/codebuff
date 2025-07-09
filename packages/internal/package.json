@@ -17,6 +17,12 @@
       "types": "./src/loops/index.ts",
       "default": "./src/loops/index.ts"
     },
+    "./openrouter-ai-sdk": {
+      "bun": "./src/openrouter-ai-sdk/index.ts",
+      "import": "./src/openrouter-ai-sdk/index.ts",
+      "types": "./src/openrouter-ai-sdk/index.ts",
+      "default": "./src/openrouter-ai-sdk/index.ts"
+    },
     "./*": {
       "bun": "./src/*.ts",
       "import": "./src/*.ts",
