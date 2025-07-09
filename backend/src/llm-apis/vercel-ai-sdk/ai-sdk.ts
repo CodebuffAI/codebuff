@@ -159,6 +159,7 @@ export const promptAiSdkStream = async function* (
     }
   }
 
+  const messageId = (await response.response).id
   const providerMetadata = (await response.providerMetadata) ?? {}
   const usage = await response.usage
   let inputTokens = usage.promptTokens
@@ -190,7 +191,7 @@ export const promptAiSdkStream = async function* (
   }
 
   saveMessage({
-    messageId: generateCompactId(),
+    messageId,
     userId: options.userId,
     clientSessionId: options.clientSessionId,
     fingerprintId: options.fingerprintId,
