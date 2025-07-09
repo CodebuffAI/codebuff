@@ -6,7 +6,7 @@ export function openRouterLanguageModel(model: Model) {
   const extraBody: Record<string, any> = {}
   if (model === models.openrouter_claude_sonnet_4) {
     extraBody.provider = {
-      order: ['Google', 'Anthropic', 'Amazon Bedrock'],
+      order: ['Google', 'Anthropic'], // Disable 'Amazon Bedrock' for now
     }
   }
   return createOpenRouter({
