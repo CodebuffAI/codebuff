@@ -257,7 +257,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               }
             : undefined,
           cost: response.usage.cost,
+          costDetails: response.usage.cost_details
+            ? {
+                upstreamInferenceCost:
+                  response.usage.cost_details.upstream_inference_cost ?? 0,
+              }
+            : undefined,
           totalTokens: response.usage.total_tokens ?? 0,
+          isByok: response.usage.is_byok,
         },
       }
     }
@@ -464,6 +471,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               }
 
               openrouterUsage.cost = value.usage.cost
+              if (value.usage.cost_details) {
+                openrouterUsage.costDetails = {
+                  upstreamInferenceCost:
+                    value.usage.cost_details.upstream_inference_cost ?? 0,
+                }
+              }
+              openrouterUsage.isByok = value.usage.is_byok
               openrouterUsage.totalTokens = value.usage.total_tokens
             }
 
@@ -741,7 +755,13 @@ const OpenRouterChatCompletionBaseResponseSchema = z.object({
         })
         .nullish(),
       total_tokens: z.number(),
+      is_byok: z.boolean(),
       cost: z.number().optional(),
+      cost_details: z
+        .object({
+          upstream_inference_cost: z.number(),
+        })
+        .nullish(),
     })
     .nullish(),
 })

@@ -10,7 +10,10 @@ import {
   type GeminiModel,
   type openrouterModel,
 } from '@codebuff/common/constants'
-import { createOpenRouter } from '@codebuff/internal/openrouter-ai-sdk'
+import {
+  createOpenRouter,
+  OpenRouterUsageAccounting,
+} from '@codebuff/internal/openrouter-ai-sdk'
 import {
   CoreAssistantMessage,
   CoreMessage,
@@ -156,18 +159,35 @@ export const promptAiSdkStream = async function* (
     }
   }
 
+  const providerMetadata = (await response.providerMetadata) ?? {}
   const usage = await response.usage
-  const inputTokens = usage.promptTokens
+  let inputTokens = usage.promptTokens
   const outputTokens = usage.completionTokens
-  const anthropicMetadata = (await response.providerMetadata)?.anthropic
-  const cacheReadInputTokens =
-    typeof anthropicMetadata?.cacheReadInputTokens === 'number'
-      ? anthropicMetadata.cacheReadInputTokens
-      : 0
-  const cacheCreationInputTokens =
-    typeof anthropicMetadata?.cacheCreationInputTokens === 'number'
-      ? anthropicMetadata.cacheCreationInputTokens
-      : 0
+  let cacheReadInputTokens: number = 0
+  let cacheCreationInputTokens: number = 0
+  let costOverrideDollars: number | undefined
+  if (providerMetadata.anthropic) {
+    cacheReadInputTokens =
+      typeof providerMetadata.anthropic.cacheReadInputTokens === 'number'
+        ? providerMetadata.anthropic.cacheReadInputTokens
+        : 0
+    cacheCreationInputTokens =
+      typeof providerMetadata.anthropic.cacheCreationInputTokens === 'number'
+        ? providerMetadata.anthropic.cacheCreationInputTokens
+        : 0
+  }
+  if (providerMetadata.openrouter) {
+    if (providerMetadata.openrouter.usage) {
+      const openrouterUsage = providerMetadata.openrouter
+        .usage as OpenRouterUsageAccounting
+      cacheReadInputTokens =
+        openrouterUsage.promptTokensDetails?.cachedTokens ?? 0
+      inputTokens = openrouterUsage.promptTokens - cacheReadInputTokens
+      costOverrideDollars =
+        (openrouterUsage.cost ?? 0) +
+        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+    }
+  }
 
   saveMessage({
     messageId: generateCompactId(),
@@ -185,6 +205,7 @@ export const promptAiSdkStream = async function* (
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
+    costOverrideDollars,
   })
 }
 

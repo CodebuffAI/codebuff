@@ -82,8 +82,7 @@ const TOKENS_COST_PER_M = {
     [models.openrouter_o3_mini]: 4.4,
     [models.openrouter_gemini2_5_pro_preview]: 10,
   },
-  cache_creation: {
-  },
+  cache_creation: {},
   cache_read: {
     [models.deepseekChat]: 0.014,
     [models.deepseekReasoner]: 0.14,
@@ -484,6 +483,7 @@ export const saveMessage = async (value: {
   latencyMs: number
   usesUserApiKey?: boolean
   chargeUser?: boolean
+  costOverrideDollars?: number
 }) =>
   withLoggerContext(
     {
@@ -492,13 +492,15 @@ export const saveMessage = async (value: {
       fingerprintId: value.fingerprintId,
     },
     async () => {
-      const cost = calcCost(
-        value.model,
-        value.inputTokens,
-        value.outputTokens,
-        value.cacheCreationInputTokens ?? 0,
-        value.cacheReadInputTokens ?? 0
-      )
+      const cost =
+        value.costOverrideDollars ??
+        calcCost(
+          value.model,
+          value.inputTokens,
+          value.outputTokens,
+          value.cacheCreationInputTokens ?? 0,
+          value.cacheReadInputTokens ?? 0
+        )
 
       // Default to 1 cent per credit
       let centsPerCredit = 1

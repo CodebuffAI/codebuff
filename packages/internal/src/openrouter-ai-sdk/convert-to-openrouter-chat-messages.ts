@@ -42,17 +42,6 @@ export function convertToOpenRouterChatMessages(
       }
 
       case 'user': {
-        if (content.length === 1 && content[0]?.type === 'text') {
-          messages.push({
-            role: 'user',
-            content: content[0].text,
-            cache_control:
-              getCacheControl(providerMetadata) ??
-              getCacheControl(content[0].providerMetadata),
-          })
-          break
-        }
-
         // Get message level cache control
         const messageCacheControl = getCacheControl(providerMetadata)
         const contentParts: ChatCompletionContentPart[] = content.map(
