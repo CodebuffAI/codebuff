@@ -17,6 +17,7 @@ export function openRouterLanguageModel(model: Model) {
   if (model in providerOrder) {
     extraBody.provider = {
       order: providerOrder[model as keyof typeof providerOrder],
+      allow_fallbacks: false,
     }
   }
   return createOpenRouter({
