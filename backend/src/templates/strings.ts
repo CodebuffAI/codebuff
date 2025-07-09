@@ -10,7 +10,7 @@ import {
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from '../system-prompt/prompts'
-import { getToolsInstructions } from '../tools'
+import { getShortToolInstructions, getToolsInstructions } from '../tools'
 
 import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
@@ -108,12 +108,22 @@ export function getAgentPrompt<T extends StringField | RequirePrompt>(
   if (promptValue === undefined) {
     return undefined
   }
-  return formatPrompt(
+  const prompt = formatPrompt(
     promptValue,
     fileContext,
     agentState,
     agentTemplate.toolNames,
     agentTemplate.spawnableAgents,
-    'prompt' in promptType ? promptType.prompt : ''
+    ''
   )
+
+  const addendum =
+    promptType.type === 'userInputPrompt'
+      ? '\n\n' +
+        getShortToolInstructions(
+          agentTemplate.toolNames,
+          agentTemplate.spawnableAgents
+        )
+      : ''
+  return prompt + addendum
 }

@@ -40,13 +40,7 @@ export const toolParams = Object.fromEntries(
   ])
 ) as Record<ToolName, string[]>
 
-// Helper function to build the full tool description markdown
-function buildToolDescription(
-  toolName: string,
-  schema: z.ZodTypeAny,
-  description: string = ''
-): string {
-  const mainDescription = schema.description || ''
+function paramsSection(schema: z.ZodTypeAny) {
   const jsonSchema = z.toJSONSchema(schema)
   delete jsonSchema.description
   delete jsonSchema['$schema']
@@ -58,15 +52,62 @@ function buildToolDescription(
   if (paramsDescription.length === 1 && paramsDescription[0] === 'None') {
     paramsSection = 'Params: None'
   } else if (paramsDescription.length > 0) {
-    paramsSection = `Params:\n${paramsDescription}`
+    paramsSection = `Params: ${paramsDescription}`
   }
+  return paramsSection
+}
 
+// Helper function to build the full tool description markdown
+function buildToolDescription(
+  toolName: string,
+  schema: z.ZodTypeAny,
+  description: string = ''
+): string {
   return buildArray([
     `### ${toolName}`,
-    mainDescription,
-    paramsSection,
+    schema.description || '',
+    paramsSection(schema),
     description,
   ]).join('\n\n')
+}
+
+function buildShortToolDescription(
+  toolName: string,
+  schema: z.ZodTypeAny
+): string {
+  return `${toolName}:\n${paramsSection(schema)}`
+}
+
+function buildSpawnableAgentsDescription(
+  spawnableAgents: AgentTemplateType[]
+): string {
+  if (spawnableAgents.length === 0) {
+    return ''
+  }
+
+  const schemaToJsonStr = (schema: z.ZodTypeAny | undefined) => {
+    if (!schema) return 'None'
+    const jsonSchema = z.toJSONSchema(schema)
+    delete jsonSchema['$schema']
+    return JSON.stringify(jsonSchema, null, 2)
+  }
+
+  const agentsDescription = spawnableAgents
+    .map((agentType) => {
+      const agentTemplate = agentTemplates[agentType]
+      const { promptSchema } = agentTemplate
+      const { prompt, params } = promptSchema
+      return `- ${agentType}: ${agentTemplate.description}
+prompt: ${schemaToJsonStr(prompt)}
+params: ${schemaToJsonStr(params)}`
+    })
+    .join('\n\n')
+
+  return `\n\n## Spawnable Agents
+
+Use the spawn_agents tool to spawn subagents to help you complete the user request. Here are the available agents by their agent_type:
+
+${agentsDescription}`
 }
 
 export const toolDescriptions = Object.fromEntries(
@@ -219,34 +260,32 @@ The user does not need to know about the exact results of these tools, especiall
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
 
-${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}` +
-  `\n\n${
-    spawnableAgents.length > 0
-      ? `## Spawnable Agents
+${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}${buildSpawnableAgentsDescription(spawnableAgents)}`.trim()
 
-Use the spawn_agents tool to spawn subagents to help you complete the user request. Here are the available agents by their agent_type:
-
-${spawnableAgents
-  .map((agentType) => {
-    const agentTemplate = agentTemplates[agentType]
-    if (!agentTemplate) {
-      return `- ${agentType}: Agent template not found`
-    }
-    const { promptSchema } = agentTemplate
-    const { prompt, params } = promptSchema
-    const schemaToJsonStr = (schema: z.ZodTypeAny | undefined) => {
-      if (!schema) return 'n/a'
-      const jsonSchema = z.toJSONSchema(schema)
-      delete jsonSchema['$schema']
-      return JSON.stringify(jsonSchema, null, 2)
-    }
-    return `- ${agentType}: ${agentTemplate.description}
-prompt: ${schemaToJsonStr(prompt)}
-params: ${schemaToJsonStr(params)}`
+export const getShortToolInstructions = (
+  toolNames: readonly ToolName[],
+  spawnableAgents: AgentTemplateType[]
+) => {
+  const toolDescriptions = toolNames.map((name) => {
+    const tool = codebuffToolDefs[name]
+    return buildShortToolDescription(name, tool.parameters)
   })
-  .join('\n\n')}`
-      : ''
-  }`
+
+  return `## Tools
+Use the tools below to complete the user request, if applicable.
+
+Tool calls use a specific XML-like format. Adhere *precisely* to this nested element structure:
+
+<tool_name>
+<parameter1_name>value1${closeXml('parameter1_name')}
+<parameter2_name>value2${closeXml('parameter2_name')}
+...
+${closeXml('tool_name')}
+
+${toolDescriptions.join('\n\n')}
+
+${buildSpawnableAgentsDescription(spawnableAgents)}`.trim()
+}
 
 export async function updateContext(
   context: string,

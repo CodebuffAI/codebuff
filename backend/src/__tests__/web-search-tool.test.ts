@@ -179,7 +179,7 @@ describe('web_search tool with researcher agent', () => {
           m.content.includes('web_search')
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain(mockSearchResult)
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(mockSearchResult)
   })
 
   test('should handle custom depth parameter', async () => {
@@ -282,7 +282,7 @@ describe('web_search tool with researcher agent', () => {
           m.content.includes('web_search')
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain('No search results found')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('No search results found')
   })
 
   test('should handle API errors gracefully', async () => {
@@ -339,8 +339,8 @@ describe('web_search tool with researcher agent', () => {
           m.content.includes('web_search')
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain('Error performing web search')
-    expect(toolResultMessages[0].content).toContain('Linkup API timeout')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Error performing web search')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Linkup API timeout')
   })
 
   test('should handle null response from searchWeb', async () => {
@@ -437,7 +437,7 @@ describe('web_search tool with researcher agent', () => {
           m.content.includes('web_search')
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain('Error performing web search')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Error performing web search')
   })
 
   test('should format search results correctly', async () => {
@@ -495,6 +495,6 @@ describe('web_search tool with researcher agent', () => {
           m.content.includes('web_search')
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain(mockSearchResult)
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(mockSearchResult)
   })
 })

@@ -131,7 +131,7 @@ describe('read_docs tool with researcher agent', () => {
           m.content.includes('read_docs')
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain(mockDocumentation)
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(mockDocumentation)
   })
 
   test('should fetch documentation with topic and max_tokens', async () => {
@@ -230,7 +230,7 @@ describe('read_docs tool with researcher agent', () => {
           m.content.includes('read_docs')
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain(
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'No documentation found for "NonExistentLibrary"'
     )
   })
@@ -286,10 +286,10 @@ describe('read_docs tool with researcher agent', () => {
           m.content.includes('read_docs')
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain(
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'Error fetching documentation for "React"'
     )
-    expect(toolResultMessages[0].content).toContain('Network timeout')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Network timeout')
   })
 
   test('should include topic in error message when specified', async () => {
@@ -340,7 +340,7 @@ describe('read_docs tool with researcher agent', () => {
           m.content.includes('read_docs')
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain(
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'No documentation found for "React" with topic "server-components"'
     )
   })
@@ -394,9 +394,9 @@ describe('read_docs tool with researcher agent', () => {
           m.content.includes('read_docs')
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[0].content).toContain(
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'Error fetching documentation for "React"'
     )
-    expect(toolResultMessages[0].content).toContain('Unknown error')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Unknown error')
   })
 })

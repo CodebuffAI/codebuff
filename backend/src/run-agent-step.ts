@@ -1,15 +1,6 @@
-import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import {
-  AgentResponseTrace,
-  GetExpandedFileContextForTrainingBlobTrace,
-  insertTrace,
-} from '@codebuff/bigquery'
-import { consumeCreditsWithFallback } from '@codebuff/billing'
+import { AgentResponseTrace, insertTrace } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
-import {
-  HIDDEN_FILE_READ_STATUS,
-  ONE_TIME_LABELS,
-} from '@codebuff/common/constants'
+import { ONE_TIME_LABELS } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getToolCallString,
@@ -17,36 +8,25 @@ import {
   ToolName,
   toolNames,
 } from '@codebuff/common/constants/tools'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import {
   AgentState,
   ToolResult,
   type AgentTemplateType,
 } from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
-import { parseFileBlocks, ProjectFileContext } from '@codebuff/common/util/file'
-import { toContentString } from '@codebuff/common/util/messages'
+import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { difference, partition, uniq } from 'lodash'
-import { WebSocket } from 'ws'
-
-import { AGENT_NAMES } from '@codebuff/common/constants/agents'
-import { CodebuffMessage } from '@codebuff/common/types/message'
 import { closeXml } from '@codebuff/common/util/xml'
-import { CoreMessage } from 'ai'
-import {
-  requestRelevantFiles,
-  requestRelevantFilesForTraining,
-} from './find-files/request-files-prompt'
+import { partition } from 'lodash'
+import { WebSocket } from 'ws'
 import { checkLiveUserInput } from './live-user-inputs'
-import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
-import { searchWeb } from './llm-apis/linkup-api'
-import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
+import { runTool } from './run-tool'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
-import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentTemplates } from './templates/agent-list'
 import { processAgentOverrides } from './templates/agent-overrides'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
@@ -68,27 +48,16 @@ import {
   getCoreMessagesSubset,
   isSystemInstruction,
 } from './util/messages'
-import {
-  isToolResult,
-  parseReadFilesResult,
-  parseToolResults,
-  renderReadFilesResult,
-} from './util/parse-tool-call-xml'
+import { isToolResult, renderReadFilesResult } from './util/parse-tool-call-xml'
 import { simplifyReadFileResults } from './util/simplify-tool-results'
-import { countTokens, countTokensJson } from './util/token-counter'
+import { countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 import {
-  requestFiles,
   requestOptionalFile,
   requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
-
-// Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
-// TODO: We might want to be able to turn this on on a per-repo basis.
-const COLLECT_FULL_FILE_CONTEXT = false
-
-const MAX_AGENT_STEPS = 20
+import { getFileReadingUpdates } from './get-file-reading-updates'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -220,8 +189,6 @@ export const runAgentStep = async (
       shouldEndTurn: true,
     }
   }
-
-  const fileRequestMessagesTokens = countTokensJson(messagesWithUserPrompt)
 
   const { addedFiles, updatedFilePaths, clearReadFileToolResults } =
     await getFileReadingUpdates(ws, messagesWithUserPrompt, fileContext, {
@@ -477,54 +444,6 @@ export const runAgentStep = async (
       ...Object.fromEntries(
         toolNames.map((tool) => [tool, toolCallback(tool, () => {})])
       ),
-      think_deeply: toolCallback('think_deeply', (toolCall) => {
-        const { thought } = toolCall.args
-        logger.debug(
-          {
-            thought,
-          },
-          'Thought deeply'
-        )
-      }),
-      ...Object.fromEntries(
-        (['add_subgoal', 'update_subgoal'] as const).map((tool) => [
-          tool,
-          toolCallback(tool, (toolCall) => {
-            subgoalToolCalls.push(toolCall)
-          }),
-        ])
-      ),
-      ...Object.fromEntries(
-        (
-          [
-            'code_search',
-            'browser_logs',
-            'run_file_change_hooks',
-            'end_turn',
-          ] as const
-        ).map((tool) => [
-          tool,
-          toolCallback(tool, (toolCall) => {
-            clientToolCalls.push({
-              ...toolCall,
-              toolCallId: generateCompactId(),
-            } as ClientToolCall)
-          }),
-        ])
-      ),
-      run_terminal_command: toolCallback('run_terminal_command', (toolCall) => {
-        const clientToolCall = {
-          ...{
-            ...toolCall,
-            args: {
-              ...toolCall.args,
-              mode: 'assistant' as const,
-            },
-          },
-          toolCallId: generateCompactId(),
-        }
-        clientToolCalls.push(clientToolCall)
-      }),
       create_plan: toolCallback('create_plan', (toolCall) => {
         const { path, plan } = toolCall.args
         logger.debug(
@@ -697,382 +616,68 @@ export const runAgentStep = async (
       tool: name,
       parameters,
     })
+
     if (
       toolCall.toolName === 'write_file' ||
       toolCall.toolName === 'str_replace' ||
-      toolCall.toolName === 'add_subgoal' ||
-      toolCall.toolName === 'update_subgoal' ||
-      toolCall.toolName === 'code_search' ||
-      toolCall.toolName === 'run_terminal_command' ||
-      toolCall.toolName === 'browser_logs' ||
-      toolCall.toolName === 'think_deeply' ||
-      toolCall.toolName === 'create_plan' ||
-      toolCall.toolName === 'end_turn' ||
-      toolCall.toolName === 'run_file_change_hooks'
+      toolCall.toolName === 'create_plan'
     ) {
-      // Handled above
+      // These are handled above in the streaming section
+      continue
     } else if (toolCall.toolName === 'spawn_agents') {
-      // Handled below
-    } else if (toolCall.toolName === 'web_search') {
-      const { query, depth } = (
-        toolCall as Extract<CodebuffToolCall, { toolName: 'web_search' }>
-      ).args
+      // Spawn agents are handled at the bottom of this function
+      continue
+    } else if (
+      toolCall.toolName === 'add_subgoal' ||
+      toolCall.toolName === 'update_subgoal'
+    ) {
+      // Handle subgoal tools
+      subgoalToolCalls.push(
+        toolCall as Extract<
+          CodebuffToolCall,
+          { toolName: 'add_subgoal' | 'update_subgoal' }
+        >
+      )
+      continue
+    }
 
-      const searchStartTime = Date.now()
-      const searchContext = {
-        toolCallId: toolCall.toolCallId,
-        query,
-        depth,
-        userId,
-        agentStepId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        repoId,
-      }
-
-      try {
-        const searchResult = await searchWeb(query, {
-          depth,
-        })
-
-        const searchDuration = Date.now() - searchStartTime
-        const resultLength = searchResult?.length || 0
-        const hasResults = Boolean(searchResult && searchResult.trim())
-
-        // Charge credits for web search usage
-        let creditResult = null
-        if (userId) {
-          // Calculate credits based on search depth with profit margin
-          const creditsToCharge = Math.round(
-            (depth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN)
-          )
-
-          const requestContext = getRequestContext()
-          const repoUrl = requestContext?.processedRepoUrl
-
-          creditResult = await consumeCreditsWithFallback({
-            userId,
-            creditsToCharge,
-            repoUrl,
-            context: 'web search',
-          })
-
-          if (!creditResult.success) {
-            logger.error(
-              {
-                ...searchContext,
-                error: creditResult.error,
-                creditsToCharge,
-                searchDuration,
-              },
-              'Failed to charge credits for web search'
-            )
-          }
-        }
-
-        logger.info(
-          {
-            ...searchContext,
-            searchDuration,
-            resultLength,
-            hasResults,
-            creditsCharged: creditResult?.success
-              ? depth === 'deep'
-                ? 5
-                : 1
-              : 0,
-            success: true,
-          },
-          'Search completed'
-        )
-
-        if (searchResult) {
-          serverToolResults.push({
-            toolName: 'web_search',
-            toolCallId: toolCall.toolCallId,
-            result: searchResult,
-          })
-        } else {
-          logger.warn(
-            {
-              ...searchContext,
-              searchDuration,
-            },
-            'No results returned from search API'
-          )
-          serverToolResults.push({
-            toolName: 'web_search',
-            toolCallId: toolCall.toolCallId,
-            result: `No search results found for "${query}". Try refining your search query or using different keywords.`,
-          })
-        }
-      } catch (error) {
-        const searchDuration = Date.now() - searchStartTime
-        logger.error(
-          {
-            ...searchContext,
-            error:
-              error instanceof Error
-                ? {
-                    name: error.name,
-                    message: error.message,
-                    stack: error.stack,
-                  }
-                : error,
-            searchDuration,
-            success: false,
-          },
-          'Search failed with error'
-        )
-        serverToolResults.push({
-          toolName: 'web_search',
-          toolCallId: toolCall.toolCallId,
-          result: `Error performing web search for "${query}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-        })
-      }
-    } else if (toolCall.toolName === 'read_docs') {
-      const { libraryTitle, topic, max_tokens } = (
-        toolCall as Extract<CodebuffToolCall, { toolName: 'read_docs' }>
-      ).args
-
-      const docsStartTime = Date.now()
-      const docsContext = {
-        toolCallId: toolCall.toolCallId,
-        libraryTitle,
-        topic,
-        max_tokens,
-        userId,
-        agentStepId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        repoId,
-      }
-
-      try {
-        const documentation = await fetchContext7LibraryDocumentation(
-          libraryTitle,
-          {
-            topic,
-            tokens: max_tokens,
-          }
-        )
-
-        const docsDuration = Date.now() - docsStartTime
-        const resultLength = documentation?.length || 0
-        const hasResults = Boolean(documentation && documentation.trim())
-        const estimatedTokens = Math.ceil(resultLength / 4) // Rough token estimate
-
-        logger.info(
-          {
-            ...docsContext,
-            docsDuration,
-            resultLength,
-            estimatedTokens,
-            hasResults,
-            success: true,
-          },
-          'Documentation request completed successfully'
-        )
-
-        if (documentation) {
-          serverToolResults.push({
-            toolName: 'read_docs',
-            toolCallId: toolCall.toolCallId,
-            result: documentation,
-          })
-        } else {
-          logger.warn(
-            {
-              ...docsContext,
-              docsDuration,
-            },
-            'No documentation found in Context7 database'
-          )
-          serverToolResults.push({
-            toolName: 'read_docs',
-            toolCallId: toolCall.toolCallId,
-            result: `No documentation found for "${libraryTitle}"${topic ? ` with topic "${topic}"` : ''}. Try using the exact library name (e.g., "Next.js", "React", "MongoDB"). The library may not be available in Context7's database.`,
-          })
-        }
-      } catch (error) {
-        const docsDuration = Date.now() - docsStartTime
-        logger.error(
-          {
-            ...docsContext,
-            error:
-              error instanceof Error
-                ? {
-                    name: error.name,
-                    message: error.message,
-                    stack: error.stack,
-                  }
-                : error,
-            docsDuration,
-            success: false,
-          },
-          'Documentation request failed with error'
-        )
-        serverToolResults.push({
-          toolName: 'read_docs',
-          toolCallId: toolCall.toolCallId,
-          result: `Error fetching documentation for "${libraryTitle}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-        })
-      }
-    } else if (toolCall.toolName === 'read_files') {
-      const paths = (
-        toolCall as Extract<CodebuffToolCall, { toolName: 'read_files' }>
-      ).args.paths
-
-      const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
+    // Use the new runTool function for other tools
+    try {
+      const toolResult = await runTool(toolCall, {
         ws,
-        messagesWithResponse,
-        fileContext,
-        {
-          requestedFiles: paths,
-          agentStepId,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-          repoId,
-        }
-      )
-      logger.debug(
-        {
-          content: paths,
-          paths,
-          addedFilesPaths: addedFiles.map((f) => f.path),
-          updatedFilePaths,
-        },
-        'read_files tool call'
-      )
-      serverToolResults.push({
-        toolName: 'read_files',
-        toolCallId: generateCompactId(),
-        result: renderReadFilesResult(
-          addedFiles,
-          fileContext.tokenCallers ?? {}
-        ),
-      })
-    } else if (toolCall.toolName === 'find_files') {
-      const description = (
-        toolCall as Extract<CodebuffToolCall, { toolName: 'find_files' }>
-      ).args.description
-
-      const system = getSearchSystemPrompt(
-        fileContext,
-        fileRequestMessagesTokens,
-        {
-          agentStepId,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-        }
-      )
-      const messages = messagesWithResponse
-      const requestedFiles = await requestRelevantFiles(
-        { messages, system },
-        fileContext,
-        description,
-        agentStepId,
+        userId,
+        userInputId,
         clientSessionId,
         fingerprintId,
-        userInputId,
-        userId,
-        repoId
-      )
-      if (requestedFiles && requestedFiles.length > 0) {
-        const { addedFiles, updatedFilePaths, printedPaths } =
-          await getFileReadingUpdates(ws, messages, fileContext, {
-            requestedFiles,
-            agentStepId,
-            clientSessionId,
-            fingerprintId,
-            userInputId,
-            userId,
-            repoId,
-          })
-        logger.debug(
-          {
-            content: description,
-            description: description,
-            addedFilesPaths: addedFiles.map((f) => f.path),
-            updatedFilePaths,
-            printedPaths,
-          },
-          'find_files tool call'
-        )
-        serverToolResults.push({
-          toolName: 'find_files',
-          toolCallId: generateCompactId(),
-          result:
-            addedFiles.length > 0
-              ? renderReadFilesResult(
-                  addedFiles,
-                  fileContext.tokenCallers ?? {}
-                )
-              : `No new relevant files found for description: ${description}`,
-        })
-        if (printedPaths.length > 0) {
-          onResponseChunk('\n\n')
-          onResponseChunk(
-            getToolCallString('read_files', {
-              paths: printedPaths.join('\n'),
-            })
-          )
-        }
+        agentStepId,
+        fileContext,
+        messages: messagesWithResponse,
+        agentTemplate,
+        repoId,
+        agentState,
+      })
 
-        if (COLLECT_FULL_FILE_CONTEXT) {
-          uploadExpandedFileContextForTraining(
-            ws,
-            { messages, system },
-            fileContext,
-            description,
-            agentStepId,
-            clientSessionId,
-            fingerprintId,
-            userInputId,
-            userId,
-            repoId
-          ).catch((error) => {
-            logger.error(
-              { error },
-              'Error uploading expanded file context for training'
-            )
-          })
-        }
-      } else {
-        serverToolResults.push({
-          toolName: 'find_files',
-          toolCallId: toolCall.toolCallId,
-          result: `No relevant files found for description: ${description}`,
-        })
+      if (toolResult.type === 'server_result') {
+        serverToolResults.push(toolResult.result)
+      } else if (toolResult.type === 'client_call') {
+        clientToolCalls.push(toolResult.call)
+      } else if (toolResult.type === 'state_update') {
+        serverToolResults.push(toolResult.result)
+        Object.assign(agentState, toolResult.updatedAgentState)
       }
-    } else if (toolCall.toolName === 'update_report') {
-      const { json_update: jsonUpdate } = toolCall.args
-      agentState.report = {
-        ...agentState.report,
-        ...jsonUpdate,
-      }
-      logger.debug(
+    } catch (error) {
+      logger.error(
         {
-          jsonUpdate,
-          agentType,
-          agentId: agentState.agentId,
+          toolCall,
+          error: error instanceof Error ? error.message : error,
         },
-        'update_report tool call'
+        'Error executing tool call'
       )
       serverToolResults.push({
-        toolName: 'update_report',
+        toolName: toolCall.toolName,
         toolCallId: toolCall.toolCallId,
-        result: 'Report updated',
+        result: `Error executing ${toolCall.toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       })
-    } else {
-      toolCall satisfies never
-      throw new Error(`Unknown tool: ${name}`)
     }
   }
 
@@ -1191,153 +796,46 @@ export const runAgentStep = async (
     (call) => call.toolName === 'spawn_agents'
   ) as undefined | (ClientToolCall & { toolName: 'spawn_agents' })
   if (spawnAgentsToolCall) {
-    const { agents } = spawnAgentsToolCall.args
-    const parentAgentTemplate = agentTemplate
+    try {
+      const messages = [
+        ...finalMessageHistory,
+        {
+          role: 'user' as const,
+          content: asSystemMessage(renderToolResults(serverToolResults)),
+        },
+      ]
 
-    const conversationHistoryMessage: CoreMessage = {
-      role: 'user',
-
-      content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
-        [
-          ...finalMessageHistory,
-          {
-            role: 'user',
-            content: asSystemMessage(renderToolResults(serverToolResults)),
-          },
-        ],
-        null,
-        2
-      )}`,
-    }
-
-    const results = await Promise.allSettled(
-      agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
-        if (!(agentTypeStr in agentTemplates)) {
-          throw new Error(`Agent type ${agentTypeStr} not found.`)
-        }
-        const agentType = agentTypeStr as AgentTemplateType
-        const agentTemplate = getAgentTemplateWithOverrides(
-          agentType,
-          fileContext
-        )
-
-        if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
-          throw new Error(
-            `Agent type ${parentAgentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
-          )
-        }
-        // Validate prompt and params against agent's schema
-        const { promptSchema } = agentTemplate
-
-        // Validate prompt requirement
-        if (promptSchema.prompt) {
-          const result = promptSchema.prompt.safeParse(prompt)
-          if (!result.success) {
-            throw new Error(
-              `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
-            )
-          }
-        }
-
-        // Validate params if schema exists
-        if (promptSchema.params) {
-          const result = promptSchema.params.safeParse(params)
-          if (!result.success) {
-            throw new Error(
-              `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
-            )
-          }
-        }
-
-        logger.debug(
-          { agentTemplate, prompt, params },
-          `Spawning agent — ${agentType}`
-        )
-        const subAgentMessages: CoreMessage[] = []
-        if (agentTemplate.includeMessageHistory) {
-          subAgentMessages.push(conversationHistoryMessage)
-        }
-
-        const agentId = generateCompactId()
-        const agentState: AgentState = {
-          agentId,
-          agentType,
-          agentContext: '',
-          subagents: [],
-          messageHistory: subAgentMessages,
-          stepsRemaining: MAX_AGENT_STEPS,
-          report: {},
-        }
-
-        const result = await loopAgentSteps(ws, {
-          userInputId: `${userInputId}-${agentType}${agentId}`,
-          prompt: prompt || '',
-          params,
-          agentType: agentTemplate.type,
-          agentState,
-          fingerprintId,
-          fileContext,
-          toolResults: [],
-          userId,
-          clientSessionId,
-          onResponseChunk: () => {},
-        })
-
-        return {
-          ...result,
-          agentType,
-          agentName: AGENT_NAMES[agentType] || agentTemplate.name,
-        }
+      const toolResult = await runTool(spawnAgentsToolCall, {
+        ws,
+        userId,
+        userInputId,
+        clientSessionId,
+        fingerprintId,
+        agentStepId,
+        fileContext,
+        messages,
+        repoId,
+        agentTemplate,
+        agentState,
       })
-    )
 
-    const reports = results.map((result, index) => {
-      const agentInfo = agents[index]
-      const agentTypeStr = agentInfo.agent_type
-
-      if (result.status === 'fulfilled') {
-        const { agentState, agentName } = result.value
-        const agentTemplate = agentTemplates[agentState.agentType!]
-        let report = ''
-
-        if (agentTemplate.outputMode === 'report') {
-          report = JSON.stringify(result.value.agentState.report, null, 2)
-        } else if (agentTemplate.outputMode === 'last_message') {
-          const { agentState } = result.value
-          const assistantMessages = agentState.messageHistory.filter(
-            (message) => message.role === 'assistant'
-          )
-          const lastAssistantMessage =
-            assistantMessages[assistantMessages.length - 1]
-          if (!lastAssistantMessage) {
-            report = 'No response from agent'
-          } else if (typeof lastAssistantMessage.content === 'string') {
-            report = lastAssistantMessage.content
-          } else {
-            report = JSON.stringify(lastAssistantMessage.content, null, 2)
-          }
-        } else if (agentTemplate.outputMode === 'all_messages') {
-          const { agentState } = result.value
-          // Remove the first message, which includes the previous conversation history.
-          const agentMessages = agentState.messageHistory.slice(1)
-          report = `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
-        } else {
-          throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
-        }
-
-        return `**${agentName} (@${agentTypeStr}):**\n${report}`
-      } else {
-        return `**Agent (@${agentTypeStr}):**\nError spawning agent: ${result.reason}`
+      if (toolResult.type === 'server_result') {
+        serverToolResults.push(toolResult.result)
       }
-    })
-
-    serverToolResults.push({
-      toolName: 'spawn_agents',
-      toolCallId: spawnAgentsToolCall.toolCallId,
-      result: reports
-        .map((report: string) => `<agent_report>${report}</agent_report>`)
-        .join('\n'),
-    })
+    } catch (error) {
+      logger.error(
+        {
+          toolCall: spawnAgentsToolCall,
+          error: error instanceof Error ? error.message : error,
+        },
+        'Error executing spawn_agents tool call'
+      )
+      serverToolResults.push({
+        toolName: 'spawn_agents',
+        toolCallId: spawnAgentsToolCall.toolCallId,
+        result: `Error executing spawn_agents: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      })
+    }
   }
 
   finalMessageHistory.push({
@@ -1373,252 +871,6 @@ export const runAgentStep = async (
       clientToolCalls.some((call) => call.toolName === 'end_turn') ||
       (clientToolCalls.length === 0 && serverToolResults.length === 0),
   }
-}
-
-const getInitialFiles = (fileContext: ProjectFileContext) => {
-  const { userKnowledgeFiles, knowledgeFiles } = fileContext
-  return [
-    // Include user-level knowledge files.
-    ...Object.entries(userKnowledgeFiles ?? {}).map(([path, content]) => ({
-      path,
-      content,
-    })),
-
-    // Include top-level project knowledge files.
-    ...Object.entries(knowledgeFiles)
-      .map(([path, content]) => ({
-        path,
-        content,
-      }))
-      // Only keep top-level knowledge files.
-      .filter((f) => f.path.split('/').length === 1),
-  ]
-}
-
-async function getFileReadingUpdates(
-  ws: WebSocket,
-  messages: CoreMessage[],
-  fileContext: ProjectFileContext,
-  options: {
-    requestedFiles?: string[]
-    agentStepId: string
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
-    repoId: string | undefined
-  }
-) {
-  const FILE_TOKEN_BUDGET = 100_000
-
-  const toolResults = messages
-    .filter(isToolResult)
-    .flatMap((content) => parseToolResults(toContentString(content)))
-  const previousFileList = toolResults
-    .filter(({ toolName }) => toolName === 'read_files')
-    .flatMap(({ result }) => parseReadFilesResult(result))
-
-  const previousFiles = Object.fromEntries(
-    previousFileList.map(({ path, content }) => [path, content])
-  )
-  const previousFilePaths = uniq(Object.keys(previousFiles))
-
-  const editedFilePaths = messages
-    .filter(({ role }) => role === 'assistant')
-    .map(toContentString)
-    .filter((content) => content.includes('<write_file'))
-    .flatMap((content) => Object.keys(parseFileBlocks(content)))
-    .filter((path) => path !== undefined)
-
-  const requestedFiles = options.requestedFiles ?? []
-
-  const isFirstRead = previousFileList.length === 0
-  const initialFiles = getInitialFiles(fileContext)
-  const includedInitialFiles = isFirstRead
-    ? initialFiles.map(({ path }) => path)
-    : []
-
-  const allFilePaths = uniq([
-    ...includedInitialFiles,
-    ...requestedFiles,
-    ...editedFilePaths,
-    ...previousFilePaths,
-  ])
-  const loadedFiles = await requestFiles(ws, allFilePaths)
-
-  const filteredRequestedFiles = requestedFiles.filter((filePath, i) => {
-    const content = loadedFiles[filePath]
-    if (content === null || content === undefined) return false
-    const tokenCount = countTokens(content)
-    if (i < 5) {
-      return tokenCount < 50_000 - i * 10_000
-    }
-    return tokenCount < 10_000
-  })
-  const newFiles = difference(
-    [...filteredRequestedFiles, ...includedInitialFiles],
-    previousFilePaths
-  )
-  const newFilesToRead = uniq([
-    // NOTE: When the assistant specifically asks for a file, we force it to be shown even if it's not new or changed.
-    ...(options.requestedFiles ?? []),
-
-    ...newFiles,
-  ])
-
-  const updatedFilePaths = [...previousFilePaths, ...editedFilePaths].filter(
-    (path) => {
-      return loadedFiles[path] !== previousFiles[path]
-    }
-  )
-
-  const addedFiles = uniq([
-    ...includedInitialFiles,
-    ...updatedFilePaths,
-    ...newFilesToRead,
-  ])
-    .map((path) => {
-      return {
-        path,
-        content: loadedFiles[path]!,
-      }
-    })
-    .filter((file) => file.content !== null)
-
-  const previousFilesTokens = countTokensJson(previousFiles)
-  const addedFileTokens = countTokensJson(addedFiles)
-
-  if (previousFilesTokens + addedFileTokens > FILE_TOKEN_BUDGET) {
-    const requestedLoadedFiles = filteredRequestedFiles.map((path) => ({
-      path,
-      content: loadedFiles[path]!,
-    }))
-    const newFiles = uniq([...initialFiles, ...requestedLoadedFiles])
-    while (countTokensJson(newFiles) > FILE_TOKEN_BUDGET) {
-      newFiles.pop()
-    }
-
-    const printedPaths = getPrintedPaths(
-      requestedFiles,
-      newFilesToRead,
-      loadedFiles
-    )
-    logger.debug(
-      {
-        newFiles,
-        prevFileVersionTokens: previousFilesTokens,
-        addedFileTokens,
-        beforeTotalTokens: previousFilesTokens + addedFileTokens,
-        newFileVersionTokens: countTokensJson(newFiles),
-        FILE_TOKEN_BUDGET,
-      },
-      'resetting read files b/c of token budget'
-    )
-
-    return {
-      addedFiles: newFiles,
-      updatedFilePaths: updatedFilePaths,
-      printedPaths,
-      clearReadFileToolResults: true,
-    }
-  }
-
-  const printedPaths = getPrintedPaths(
-    requestedFiles,
-    newFilesToRead,
-    loadedFiles
-  )
-
-  return {
-    addedFiles,
-    updatedFilePaths,
-    printedPaths,
-    clearReadFileToolResults: false,
-  }
-}
-
-function getPrintedPaths(
-  requestedFiles: string[],
-  newFilesToRead: string[],
-  loadedFiles: Record<string, string | null>
-) {
-  // If no files requests, we don't want to print anything.
-  // Could still have files added from initial files or edited files.
-  if (requestedFiles.length === 0) return []
-  // Otherwise, only print files that don't start with a hidden file status.
-  return newFilesToRead.filter(
-    (path) =>
-      loadedFiles[path] &&
-      !HIDDEN_FILE_READ_STATUS.some((status) =>
-        loadedFiles[path]!.startsWith(status)
-      )
-  )
-}
-
-async function uploadExpandedFileContextForTraining(
-  ws: WebSocket,
-  {
-    messages,
-    system,
-  }: {
-    messages: CoreMessage[]
-    system: string | Array<TextBlockParam>
-  },
-  fileContext: ProjectFileContext,
-  assistantPrompt: string | null,
-  agentStepId: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  repoId: string | undefined
-) {
-  const files = await requestRelevantFilesForTraining(
-    { messages, system },
-    fileContext,
-    assistantPrompt,
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoId
-  )
-
-  const loadedFiles = await requestFiles(ws, files)
-
-  // Upload a map of:
-  // {file_path: {content, token_count}}
-  // up to 50k tokens
-  const filesToUpload: Record<string, { content: string; tokens: number }> = {}
-  for (const file of files) {
-    const content = loadedFiles[file]
-    if (content === null || content === undefined) {
-      continue
-    }
-    const tokens = countTokens(content)
-    if (tokens > 50000) {
-      break
-    }
-    filesToUpload[file] = { content, tokens }
-  }
-
-  const trace: GetExpandedFileContextForTrainingBlobTrace = {
-    type: 'get-expanded-file-context-for-training-blobs',
-    created_at: new Date(),
-    id: crypto.randomUUID(),
-    agent_step_id: agentStepId,
-    user_id: userId ?? '',
-    payload: {
-      files: filesToUpload,
-      user_input_id: userInputId,
-      client_session_id: clientSessionId,
-      fingerprint_id: fingerprintId,
-    },
-  }
-
-  // Upload the files to bigquery
-  await insertTrace(trace)
 }
 
 export const loopAgentSteps = async (

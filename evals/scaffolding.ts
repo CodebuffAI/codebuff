@@ -136,6 +136,7 @@ export async function getProjectFileContext(
     knowledgeFiles,
     fileTokenScores,
     fileTree,
+    agentTemplates: {},
   }
 }
 

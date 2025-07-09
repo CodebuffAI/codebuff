@@ -2,14 +2,14 @@ import { processAgentOverrides } from '../agent-overrides'
 import { AgentTemplate } from '../types'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { claudeModels } from '@codebuff/common/constants'
+import { openrouterModels } from '@codebuff/common/constants'
 
 describe('processAgentOverrides', () => {
   const mockBaseTemplate: AgentTemplate = {
     type: AgentTemplateTypes.reviewer,
     name: 'Test Reviewer',
     description: 'Test description',
-    model: claudeModels.sonnet3_5,
+    model: openrouterModels.openrouter_claude_3_5_sonnet,
     promptSchema: { prompt: undefined },
     outputMode: 'last_message',
     includeMessageHistory: true,
@@ -54,14 +54,14 @@ describe('processAgentOverrides', () => {
           override: {
             type: 'CodebuffAI/reviewer',
             version: '0.1.7',
-            model: claudeModels.sonnet,
+            model: openrouterModels.openrouter_claude_sonnet_4,
           },
         }),
       },
     }
 
     const result = processAgentOverrides(mockBaseTemplate, fileContextWithOverride)
-    expect(result.model).toBe(claudeModels.sonnet)
+    expect(result.model).toBe(openrouterModels.openrouter_claude_sonnet_4)
   })
 
   it('should apply systemPrompt append override with content', () => {
@@ -148,7 +148,7 @@ describe('processAgentOverrides', () => {
           override: {
             type: 'CodebuffAI/different-agent',
             version: '0.1.7',
-            model: claudeModels.sonnet,
+            model: openrouterModels.openrouter_claude_sonnet_4,
           },
         }),
       },
