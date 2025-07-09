@@ -9,7 +9,7 @@ const providerOrder = {
     'Anthropic',
     'Amazon Bedrock',
   ],
-  [models.openrouter_claude_opus_4]: ['Google', 'Anthropic', 'Amazon Bedrock'],
+  [models.openrouter_claude_opus_4]: ['Google', 'Anthropic'],
 } as const
 
 export function openRouterLanguageModel(model: Model) {
