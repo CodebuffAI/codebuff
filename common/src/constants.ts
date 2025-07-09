@@ -172,15 +172,15 @@ export const geminiModels = {
 export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
 
 export const openrouterModels = {
-  openrouter_claude_sonnet_4: 'anthropic/claude-sonnet-4',
-  openrouter_claude_opus_4: 'anthropic/claude-opus-4',
-  openrouter_claude_3_5_haiku: 'anthropic/claude-3.5-haiku',
-  openrouter_claude_3_5_sonnet: 'anthropic/claude-3.5-sonnet',
+  openrouter_claude_sonnet_4: 'anthropic/claude-4-sonnet-20250522',
+  openrouter_claude_opus_4: 'anthropic/claude-4-opus-20250522',
+  openrouter_claude_3_5_haiku: 'anthropic/claude-3.5-haiku-20241022',
+  openrouter_claude_3_5_sonnet: 'anthropic/claude-3.5-sonnet-20240620',
   openrouter_gpt4o: 'openai/gpt-4o-2024-11-20',
   openrouter_gpt4o_mini: 'openai/gpt-4o-mini-2024-07-18',
   openrouter_o3_mini: 'openai/o3-mini-2025-01-31',
-  openrouter_gemini2_5_pro_preview: 'google/gemini-2.5-pro-preview-03-25',
-  openrouter_gemini2_5_flash: 'google/gemini-2.5-flash-preview',
+  openrouter_gemini2_5_pro_preview: 'google/gemini-2.5-pro',
+  openrouter_gemini2_5_flash: 'google/gemini-2.5-flash',
   openrouter_gemini2_5_flash_thinking:
     'google/gemini-2.5-flash-preview:thinking',
 } as const
