@@ -13,10 +13,14 @@ import { researcher } from './agents/researcher'
 import { reviewer } from './agents/reviewer'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
-import { AgentTemplate } from './types'
+import { AgentTemplateUnion } from './types'
 import { agentBuilder } from './agents/agent-builder'
+import { exampleProgrammatic } from './agents/example-programmatic'
 
-export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
+export const agentTemplates: Record<
+  AgentTemplateType | string,
+  AgentTemplateUnion
+> = {
   base: {
     type: AgentTemplateTypes.base,
     ...base(models.sonnet),
@@ -70,4 +74,5 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
     type: AgentTemplateTypes.sonnet4_agent_builder,
     ...agentBuilder(models.sonnet),
   },
+  'example/programmatic': exampleProgrammatic,
 }

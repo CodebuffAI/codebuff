@@ -50,6 +50,11 @@ import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentTemplates } from './templates/agent-list'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
 import {
+  ProgrammaticAgentTemplate,
+  AgentTemplate as LLMAgentTemplate,
+} from './templates/types'
+import { runProgrammaticAgent } from './run-programmatic-agent'
+import {
   ClientToolCall,
   parseRawToolCall,
   toolParams,
@@ -139,16 +144,28 @@ export const runAgentStep = async (
 
   const agentTemplate = agentTemplates[agentType]
   if (!agentTemplate) {
-    throw new Error(`Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`)
+    throw new Error(
+      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
+    )
   }
-  const { model } = agentTemplate
+
+  if (agentTemplate.implementation === 'programmatic') {
+    return runProgrammaticAgent(
+      agentTemplate as unknown as ProgrammaticAgentTemplate,
+      options
+    )
+  }
+
+  // At this point we know it's an LLM agent
+  const llmAgentTemplate = agentTemplate
+  const { model } = llmAgentTemplate
 
   const getStream = getAgentStreamFromTemplate({
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    template: agentTemplate,
+    template: llmAgentTemplate,
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
@@ -428,7 +445,7 @@ export const runAgentStep = async (
         }
 
         // Filter out restricted tools in ask mode unless exporting summary
-        if (!agentTemplate.toolNames.includes(toolCall.toolName)) {
+        if (!llmAgentTemplate.toolNames.includes(toolCall.toolName)) {
           serverToolResults.push({
             toolName: tool,
             toolCallId: generateCompactId(),
@@ -1190,9 +1207,10 @@ export const runAgentStep = async (
         const agentType = agentTypeStr as AgentTemplateType
         const agentTemplate = agentTemplates[agentType]
 
-        if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
+        const parentTemplate = parentAgentTemplate
+        if (!parentTemplate.spawnableAgents.includes(agentType)) {
           throw new Error(
-            `Agent type ${parentAgentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
+            `Agent type ${parentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
           )
         }
 
@@ -1619,7 +1637,7 @@ export const loopAgentSteps = async (
     fileContext,
     agentType,
   } = options
-  const agentTemplate = agentTemplates[agentType]
+  const agentTemplate = agentTemplates[agentType] as LLMAgentTemplate
   const {
     initialAssistantMessage,
     initialAssistantPrefix,

@@ -5,15 +5,18 @@ import { ToolName } from '@codebuff/common/constants/tools'
 import {
   AgentTemplateType,
   AgentTemplateTypes,
+  ToolResult,
 } from '@codebuff/common/types/session-state'
 import { closeXmlTags } from '@codebuff/common/util/xml'
 import { FallbackProvider } from '../llm-apis/anthropic-with-fallbacks'
+import { CodebuffToolCall } from '../tools/constants'
 
 export type AgentTemplate = {
   type: AgentTemplateType
   name: string
   description: string
   model: Model
+  implementation: 'llm'
   // Optional fallback providers for Anthropic models
   fallbackProviders?: FallbackProvider[]
   // Required parameters for spawning this agent.
@@ -36,6 +39,38 @@ export type AgentTemplate = {
   userInputPrompt: string
   agentStepPrompt: string
 }
+
+export interface ProgrammaticAgentTemplate {
+  type: AgentTemplateType
+  implementation: 'programmatic'
+  name: string
+  description: string
+  handler: ProgrammaticAgentFunction // Direct generator function
+  includeMessageHistory: boolean
+  promptSchema: {
+    prompt?: z.ZodSchema<string | undefined>
+    params?: z.ZodSchema<any>
+  }
+  toolNames: ToolName[] // Tools this programmatic agent can use
+  spawnableAgents: AgentTemplateType[] // Agents it can spawn
+}
+
+// Union type for all agent templates
+export type AgentTemplateUnion = AgentTemplate | ProgrammaticAgentTemplate
+
+// Context passed to programmatic agents
+export interface ProgrammaticAgentContext {
+  prompt: string
+  params: any
+}
+
+// What programmatic agents can return
+export type ProgrammaticAgentResult = string | Record<string, any>
+
+// The generator function signature
+export type ProgrammaticAgentFunction = (
+  context: ProgrammaticAgentContext
+) => Generator<CodebuffToolCall, ProgrammaticAgentResult, ToolResult>
 
 const placeholderNames = [
   'AGENT_NAME',

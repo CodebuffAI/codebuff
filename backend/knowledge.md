@@ -1,58 +1,38 @@
 # Backend Knowledge
 
-## Auto Top-up System
+## Programmatic Agents
 
-The backend implements automatic credit top-up for users and organizations:
-- Triggers when balance falls below configured threshold
-- Purchases credits to reach target balance
-- Only activates if enabled and configured
-- Automatically disables on payment failure
-- Grants credits immediately while waiting for Stripe confirmation
+The backend now supports simplified programmatic agents that use direct generator functions instead of file-based loading:
 
-Key files:
-- `packages/billing/src/auto-topup.ts`: Core auto top-up logic
-- `backend/src/websockets/middleware.ts`: Integration with request flow
+### Implementation
+- **Types**: `ProgrammaticAgentTemplate` in `templates/types.ts` defines the structure
+- **Handler**: Direct generator function instead of file path
+- **Execution**: `runProgrammaticAgent()` in `run-programmatic-agent.ts` runs generators directly
+- **Integration**: Programmatic agents are registered in `templates/agent-list.ts` alongside LLM agents
 
-Middleware checks auto top-up eligibility when users run out of credits. If successful, the action proceeds automatically.
+### Example
+See `templates/agents/example-programmatic.ts` for a simple example that demonstrates:
+- Generator function signature: `ProgrammaticAgentFunction`
+- Context parameter with prompt and params
+- Yielding tool calls (placeholder for future implementation)
+- Returning results (string or object)
 
-Notifications:
-- Success: Send via usage-response with autoTopupAdded field
-- Failure: Send via action-error with specific error type
-- Both CLI and web UI handle these notifications appropriately
+### Key Simplifications Made
+1. **Removed complex file loader** - No more `programmatic-agent-loader.ts`
+2. **Removed executor class** - No more `programmatic-agent-executor.ts`  
+3. **Direct function calls** - Handlers are now direct generator functions
+4. **Simplified integration** - Works seamlessly with existing agent system
 
-## Billing System
+### Future Enhancements
+- Tool call execution within generators
+- More sophisticated orchestration patterns
+- Error handling and retry logic
+- State management between generator steps
 
-Credits are managed through:
-- Local credit grants in database
-- Stripe for payment processing
-- WebSocket actions for real-time updates
+## Agent System Architecture
 
-### Transaction Isolation
+The agent system supports two types:
+- **LLM Agents**: Traditional prompt-based agents using language models
+- **Programmatic Agents**: Custom logic using JavaScript/TypeScript generators
 
-Critical credit operations use SERIALIZABLE isolation with automatic retries:
-- Credit consumption prevents "double spending"
-- Monthly resets prevent duplicate grants
-- Both retry on serialization failures (error code 40001)
-- Helper: `withSerializableTransaction` in `common/src/db/transaction.ts`
-
-Other operations use default isolation (READ COMMITTED).
-
-## WebSocket Middleware System
-
-The middleware stack:
-1. Authenticates requests
-2. Checks credit balance
-3. Handles auto top-up if needed
-4. Manages quota resets
-
-Each middleware can allow continuation, return an action, or throw an error.
-
-## Important Constants
-
-Key configuration values are in `common/src/constants.ts`.
-
-## Testing
-
-Run type checks: `bun run --cwd backend typecheck`
-
-For integration tests, change to backend directory to reuse environment variables from `env.mjs`.
+Both types integrate through the same tool execution system and can spawn each other as needed.

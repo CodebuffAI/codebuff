@@ -48,7 +48,7 @@ export function formatPrompt(
 
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.AGENT_NAME]: agentState.agentType
-      ? agentTemplates[agentState.agentType].name
+      ? agentTemplates[agentState.agentType].name 
       : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
@@ -105,6 +105,11 @@ export function getAgentPrompt<T extends StringField | RequirePrompt>(
   agentState: AgentState
 ): string {
   const agentTemplate = agentTemplates[agentTemplateName]
+  
+  // Only LLM agents have these prompt fields
+  if (agentTemplate.implementation === 'programmatic') {
+    return '' // Programmatic agents don't use prompts
+  }
 
   const prompt = formatPrompt(
     agentTemplate[promptType],
