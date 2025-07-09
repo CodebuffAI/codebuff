@@ -8,7 +8,6 @@ import {
   ToolResult,
 } from '@codebuff/common/types/session-state'
 import { closeXmlTags } from '@codebuff/common/util/xml'
-import { FallbackProvider } from '../llm-apis/anthropic-with-fallbacks'
 import { CodebuffToolCall } from '../tools/constants'
 
 export type AgentTemplate = {
@@ -17,8 +16,6 @@ export type AgentTemplate = {
   description: string
   model: Model
   implementation: 'llm'
-  // Optional fallback providers for Anthropic models
-  fallbackProviders?: FallbackProvider[]
   // Required parameters for spawning this agent.
   promptSchema: {
     prompt?: z.ZodSchema<string | undefined>

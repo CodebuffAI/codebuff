@@ -1,9 +1,9 @@
 import {
-  claudeModels,
   CostMode,
   FinetunedVertexModel,
   GeminiModel,
   openaiModels,
+  openrouterModels,
 } from '@codebuff/common/constants'
 
 import { CoreMessage } from 'ai'
@@ -92,11 +92,11 @@ export async function promptFlashWithFallbacks(
       model: useGPT4oInsteadOfClaude
         ? openaiModels.gpt4o
         : {
-            lite: claudeModels.haiku,
-            normal: claudeModels.haiku,
-            max: claudeModels.sonnet,
-            experimental: claudeModels.haiku,
-            ask: claudeModels.haiku,
+            lite: openrouterModels.openrouter_claude_3_5_haiku,
+            normal: openrouterModels.openrouter_claude_3_5_haiku,
+            max: openrouterModels.openrouter_claude_sonnet_4,
+            experimental: openrouterModels.openrouter_claude_3_5_haiku,
+            ask: openrouterModels.openrouter_claude_3_5_haiku,
           }[costMode ?? 'normal'],
     })
   }

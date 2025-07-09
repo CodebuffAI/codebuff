@@ -114,42 +114,41 @@ export const getModelForMode = (
 ) => {
   if (operation === 'agent') {
     return {
-      lite: models.gemini2_5_flash,
-      normal: models.sonnet,
-      max: models.sonnet,
-      experimental: models.gemini2_5_pro_preview,
-      ask: models.gemini2_5_pro_preview,
+      lite: models.openrouter_gemini2_5_flash,
+      normal: models.openrouter_claude_sonnet_4,
+      max: models.openrouter_claude_sonnet_4,
+      experimental: models.openrouter_gemini2_5_pro_preview,
+      ask: models.openrouter_gemini2_5_pro_preview,
     }[costMode]
   }
   if (operation === 'file-requests') {
     return {
-      lite: claudeModels.haiku,
-      normal: claudeModels.haiku,
-      max: claudeModels.sonnet,
-      experimental: claudeModels.sonnet,
-      ask: claudeModels.haiku,
+      lite: models.openrouter_claude_3_5_haiku,
+      normal: models.openrouter_claude_3_5_haiku,
+      max: models.openrouter_claude_sonnet_4,
+      experimental: models.openrouter_claude_sonnet_4,
+      ask: models.openrouter_claude_3_5_haiku,
     }[costMode]
   }
   if (operation === 'check-new-files') {
     return {
-      lite: models.gpt4omini,
-      normal: models.gpt4o,
-      max: models.gpt4o,
-      experimental: models.gpt4o,
-      ask: models.gpt4o,
+      lite: models.openrouter_claude_3_5_haiku,
+      normal: models.openrouter_claude_sonnet_4,
+      max: models.openrouter_claude_sonnet_4,
+      experimental: models.openrouter_claude_sonnet_4,
+      ask: models.openrouter_claude_sonnet_4,
     }[costMode]
   }
   throw new Error(`Unknown operation: ${operation}`)
 }
 
-export const claudeModels = {
-  sonnet: 'claude-sonnet-4-20250514',
-  sonnet3_7: 'claude-3-7-sonnet-20250219',
-  sonnet3_5: 'claude-3-5-sonnet-20241022',
-  opus4: 'claude-opus-4-20250514',
-  haiku: 'claude-3-5-haiku-20241022',
-} as const
-export type AnthropicModel = (typeof claudeModels)[keyof typeof claudeModels]
+// export const claudeModels = {
+//   sonnet: 'claude-sonnet-4-20250514',
+//   sonnet3_7: 'claude-3-7-sonnet-20250219',
+//   sonnet3_5: 'claude-3-5-sonnet-20241022',
+//   opus4: 'claude-opus-4-20250514',
+//   haiku: 'claude-3-5-haiku-20241022',
+// } as const
 
 export const openaiModels = {
   gpt4_1: 'gpt-4.1-2025-04-14',
@@ -173,8 +172,15 @@ export const geminiModels = {
 export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
 
 export const openrouterModels = {
-  openrouter_gemini2_5_pro_preview: 'google/gemini-2.5-pro-preview-03-25',
-  openrouter_gemini2_5_flash: 'google/gemini-2.5-flash-preview',
+  openrouter_claude_sonnet_4: 'anthropic/claude-4-sonnet-20250522',
+  openrouter_claude_opus_4: 'anthropic/claude-4-opus-20250522',
+  openrouter_claude_3_5_haiku: 'anthropic/claude-3.5-haiku-20241022',
+  openrouter_claude_3_5_sonnet: 'anthropic/claude-3.5-sonnet-20240620',
+  openrouter_gpt4o: 'openai/gpt-4o-2024-11-20',
+  openrouter_gpt4o_mini: 'openai/gpt-4o-mini-2024-07-18',
+  openrouter_o3_mini: 'openai/o3-mini-2025-01-31',
+  openrouter_gemini2_5_pro_preview: 'google/gemini-2.5-pro',
+  openrouter_gemini2_5_flash: 'google/gemini-2.5-flash',
   openrouter_gemini2_5_flash_thinking:
     'google/gemini-2.5-flash-preview:thinking',
 } as const
@@ -215,7 +221,7 @@ export type FinetunedVertexModel =
   (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels]
 
 export const models = {
-  ...claudeModels,
+  // ...claudeModels,
   ...openaiModels,
   ...geminiModels,
   ...deepseekModels,
@@ -226,11 +232,11 @@ export const models = {
 export const shortModelNames = {
   'gemini-2.5-pro': models.gemini2_5_pro_preview,
   'flash-2.5': models.gemini2_5_flash,
-  'opus-4': models.opus4,
-  'sonnet-4': models.sonnet,
-  'sonnet-3.7': models.sonnet3_7,
-  'sonnet-3.6': models.sonnet3_5,
-  'sonnet-3.5': models.sonnet3_5,
+  'opus-4': models.openrouter_claude_opus_4,
+  'sonnet-4': models.openrouter_claude_sonnet_4,
+  'sonnet-3.7': models.openrouter_claude_sonnet_4,
+  'sonnet-3.6': models.openrouter_claude_3_5_sonnet,
+  'sonnet-3.5': models.openrouter_claude_3_5_sonnet,
   'gpt-4.1': models.gpt4_1,
   'o3-mini': models.o3mini,
   o3: models.o3,
@@ -245,16 +251,22 @@ export const providerModelNames = {
       'gemini' as const,
     ])
   ),
-  ...Object.fromEntries(
-    Object.entries(claudeModels).map(([name, model]) => [
-      model,
-      'anthropic' as const,
-    ])
-  ),
+  // ...Object.fromEntries(
+  //   Object.entries(openrouterModels).map(([name, model]) => [
+  //     model,
+  //     'claude' as const,
+  //   ])
+  // ),
   ...Object.fromEntries(
     Object.entries(openaiModels).map(([name, model]) => [
       model,
       'openai' as const,
+    ])
+  ),
+  ...Object.fromEntries(
+    Object.entries(openrouterModels).map(([name, model]) => [
+      model,
+      'openrouter' as const,
     ])
   ),
 }
@@ -290,12 +302,11 @@ export function getLogoForModel(modelName: string): string | undefined {
 
   if (Object.values(geminiModels).includes(modelName as GeminiModel))
     domain = providerDomains.google
-  else if (Object.values(claudeModels).includes(modelName as AnthropicModel))
-    domain = providerDomains.anthropic
   else if (Object.values(openaiModels).includes(modelName as OpenAIModel))
     domain = providerDomains.openai
   else if (Object.values(deepseekModels).includes(modelName as DeepseekModel))
     domain = providerDomains.deepseek
+  else if (modelName.includes('claude')) domain = providerDomains.anthropic
 
   return domain
     ? `https://www.google.com/s2/favicons?domain=${domain}&sz=256`

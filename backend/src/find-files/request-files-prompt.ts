@@ -1,6 +1,6 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
-import { TextBlockParam } from '@anthropic-ai/sdk/resources'
+import { TextBlock } from '../llm-apis/claude'
 import {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesTrace,
@@ -130,7 +130,7 @@ export async function requestRelevantFiles(
     system,
   }: {
     messages: CoreMessage[]
-    system: string | Array<TextBlockParam>
+    system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
@@ -266,7 +266,7 @@ export async function requestRelevantFilesForTraining(
     system,
   }: {
     messages: CoreMessage[]
-    system: string | Array<TextBlockParam>
+    system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
@@ -347,7 +347,7 @@ async function getRelevantFiles(
     system,
   }: {
     messages: CoreMessage[]
-    system: string | Array<TextBlockParam>
+    system: string | Array<TextBlock>
   },
   userPrompt: string,
   requestType: string,
@@ -430,7 +430,7 @@ async function getRelevantFilesForTraining(
     system,
   }: {
     messages: CoreMessage[]
-    system: string | Array<TextBlockParam>
+    system: string | Array<TextBlock>
   },
   userPrompt: string,
   requestType: string,
@@ -458,7 +458,7 @@ async function getRelevantFilesForTraining(
     clientSessionId,
     fingerprintId,
     userInputId,
-    model: models.sonnet,
+    model: models.openrouter_claude_sonnet_4,
     userId,
     chargeUser: false,
   })

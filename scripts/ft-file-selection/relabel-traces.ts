@@ -1,10 +1,10 @@
+import { promptFlashWithFallbacks } from '@codebuff/backend/llm-apis/gemini-with-fallbacks'
 import {
   GetRelevantFilesPayload,
   getTracesWithoutRelabels,
   insertRelabel,
 } from '@codebuff/bigquery'
-import { promptFlashWithFallbacks } from '@codebuff/backend/llm-apis/gemini-with-fallbacks'
-import { claudeModels, models, TEST_USER_ID } from '@codebuff/common/constants'
+import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import { Message } from '@codebuff/common/types/message'
 import { generateCompactId } from '@codebuff/common/util/string'
 
@@ -16,7 +16,7 @@ import { System } from '../../backend/src/llm-apis/claude'
 
 // Models we want to test
 const MODELS_TO_TEST = [
-  /*models.gemini2_5_pro_exp,*/ claudeModels.sonnet,
+  /*models.gemini2_5_pro_exp,*/ models.openrouter_claude_sonnet_4,
 ] as const
 
 const isProd = process.argv.includes('--prod')
@@ -67,7 +67,7 @@ async function runTraces() {
                     messages as Message[],
                     system as System
                   ),
-                  model: model as typeof claudeModels.sonnet,
+                  model: model as typeof models.openrouter_claude_sonnet_4,
                   clientSessionId: 'relabel-trace-run',
                   fingerprintId: 'relabel-trace-run',
                   userInputId: 'relabel-trace-run',

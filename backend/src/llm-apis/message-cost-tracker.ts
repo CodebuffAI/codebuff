@@ -35,10 +35,10 @@ export const PROFIT_MARGIN = 0.3
 type CostModelKey = keyof (typeof TOKENS_COST_PER_M)['input']
 const TOKENS_COST_PER_M = {
   input: {
-    [models.opus4]: 15,
-    [models.sonnet]: 3,
-    [models.sonnet3_7]: 3,
-    [models.haiku]: 0.8,
+    // [models.opus4]: 15,
+    // [models.sonnet]: 3,
+    // [models.sonnet3_7]: 3,
+    // [models.haiku]: 0.8,
     [models.gpt4o]: 2.5,
     [models.gpt4_1]: 2,
     [models.gpt4omini]: 0.15,
@@ -53,13 +53,20 @@ const TOKENS_COST_PER_M = {
     [models.gemini2_5_flash_thinking]: 0.15,
     [models.ft_filepicker_003]: 0.1,
     [models.ft_filepicker_005]: 0.1,
+    [models.openrouter_claude_sonnet_4]: 3,
+    [models.openrouter_claude_opus_4]: 15,
+    [models.openrouter_claude_3_5_haiku]: 0.8,
+    [models.openrouter_claude_3_5_sonnet]: 3,
+    [models.openrouter_gpt4o]: 2.5,
+    [models.openrouter_gpt4o_mini]: 0.15,
+    [models.openrouter_o3_mini]: 1.1,
     [models.openrouter_gemini2_5_pro_preview]: 1.25,
   },
   output: {
-    [models.opus4]: 75,
-    [models.sonnet]: 15,
-    [models.sonnet3_7]: 15,
-    [models.haiku]: 4,
+    // [models.opus4]: 75,
+    // [models.sonnet]: 15,
+    // [models.sonnet3_7]: 15,
+    // [models.haiku]: 4,
     [models.gpt4o]: 10.0,
     [models.gpt4_1]: 8,
     [models.gpt4omini]: 0.6,
@@ -74,19 +81,26 @@ const TOKENS_COST_PER_M = {
     [models.gemini2_5_flash_thinking]: 3.5,
     [models.ft_filepicker_003]: 0.4,
     [models.ft_filepicker_005]: 0.4,
+    [models.openrouter_claude_sonnet_4]: 15,
+    [models.openrouter_claude_opus_4]: 75,
+    [models.openrouter_claude_3_5_haiku]: 4,
+    [models.openrouter_claude_3_5_sonnet]: 15,
+    [models.openrouter_gpt4o]: 10,
+    [models.openrouter_gpt4o_mini]: 0.6,
+    [models.openrouter_o3_mini]: 4.4,
     [models.openrouter_gemini2_5_pro_preview]: 10,
   },
   cache_creation: {
-    [models.opus4]: 18.75,
-    [models.sonnet]: 3.75,
-    [models.sonnet3_7]: 3.75,
-    [models.haiku]: 1,
+    // [models.opus4]: 18.75,
+    // [models.sonnet]: 3.75,
+    // [models.sonnet3_7]: 3.75,
+    // [models.haiku]: 1,
   },
   cache_read: {
-    [models.opus4]: 1.5,
-    [models.sonnet]: 0.3,
-    [models.sonnet3_7]: 0.3,
-    [models.haiku]: 0.08,
+    // [models.opus4]: 1.5,
+    // [models.sonnet]: 0.3,
+    // [models.sonnet3_7]: 0.3,
+    // [models.haiku]: 0.08,
     [models.deepseekChat]: 0.014,
     [models.deepseekReasoner]: 0.14,
     [models.gpt4o]: 1.25,
@@ -486,6 +500,7 @@ export const saveMessage = async (value: {
   latencyMs: number
   usesUserApiKey?: boolean
   chargeUser?: boolean
+  costOverrideDollars?: number
 }) =>
   withLoggerContext(
     {
@@ -494,13 +509,15 @@ export const saveMessage = async (value: {
       fingerprintId: value.fingerprintId,
     },
     async () => {
-      const cost = calcCost(
-        value.model,
-        value.inputTokens,
-        value.outputTokens,
-        value.cacheCreationInputTokens ?? 0,
-        value.cacheReadInputTokens ?? 0
-      )
+      const cost =
+        value.costOverrideDollars ??
+        calcCost(
+          value.model,
+          value.inputTokens,
+          value.outputTokens,
+          value.cacheCreationInputTokens ?? 0,
+          value.cacheReadInputTokens ?? 0
+        )
 
       // Default to 1 cent per credit
       let centsPerCredit = 1

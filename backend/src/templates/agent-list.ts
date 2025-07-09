@@ -4,17 +4,17 @@ import {
 } from '@codebuff/common/types/session-state'
 
 import { models } from '@codebuff/common/constants'
+import { agentBuilder } from './agents/agent-builder'
+import { dryRun } from './agents/archive/dry-run'
 import { ask } from './agents/ask'
 import { base } from './agents/base'
-import { dryRun } from './agents/archive/dry-run'
 import { filePicker } from './agents/file-picker'
 import { planner } from './agents/planner'
 import { researcher } from './agents/researcher'
 import { reviewer } from './agents/reviewer'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
-import { AgentTemplateUnion } from './types'
-import { agentBuilder } from './agents/agent-builder'
+import { AgentTemplate, AgentTemplateUnion } from './types'
 import { exampleProgrammatic } from './agents/example-programmatic'
 
 export const agentTemplates: Record<
@@ -23,7 +23,7 @@ export const agentTemplates: Record<
 > = {
   base: {
     type: AgentTemplateTypes.base,
-    ...base(models.sonnet),
+    ...base(models.openrouter_claude_sonnet_4),
   },
   base_lite: {
     type: AgentTemplateTypes.base_lite,
@@ -31,7 +31,7 @@ export const agentTemplates: Record<
   },
   base_max: {
     type: AgentTemplateTypes.base_max,
-    ...base(models.opus4),
+    ...base(models.openrouter_claude_opus_4),
   },
   base_experimental: {
     type: AgentTemplateTypes.base_experimental,
@@ -43,7 +43,7 @@ export const agentTemplates: Record<
   },
   claude4_gemini_thinking: {
     type: AgentTemplateTypes.claude4_gemini_thinking,
-    ...thinkingBase(models.sonnet),
+    ...thinkingBase(models.openrouter_claude_sonnet_4),
   },
 
   thinker: {
@@ -72,7 +72,7 @@ export const agentTemplates: Record<
   },
   sonnet4_agent_builder: {
     type: AgentTemplateTypes.sonnet4_agent_builder,
-    ...agentBuilder(models.sonnet),
+    ...agentBuilder(models.openrouter_claude_sonnet_4),
   },
   'example/programmatic': exampleProgrammatic,
 }

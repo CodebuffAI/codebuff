@@ -1,16 +1,20 @@
-import { anthropic } from '@ai-sdk/anthropic'
 import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import {
-  AnthropicModel,
-  claudeModels,
   finetunedVertexModels,
   geminiModels,
   Model,
   OpenAIModel,
   openaiModels,
+  openrouterModels,
   type GeminiModel,
+  type openrouterModel,
 } from '@codebuff/common/constants'
+import { Message } from '@codebuff/common/types/message'
+import { withTimeout } from '@codebuff/common/util/promise'
+import { generateCompactId } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
+import { OpenRouterUsageAccounting } from '@codebuff/internal/openrouter-ai-sdk'
 import {
   CoreAssistantMessage,
   CoreMessage,
@@ -20,22 +24,12 @@ import {
   LanguageModelV1,
   streamText,
 } from 'ai'
-
-import { generateCompactId } from '@codebuff/common/util/string'
-
-import { Message } from '@codebuff/common/types/message'
-import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
-
-import { closeXml } from '@codebuff/common/util/xml'
 import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
 import { logger } from '../../util/logger'
-import {
-  FallbackProvider,
-  promptAnthropicWithFallbacks,
-} from '../anthropic-with-fallbacks'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
+import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
 // TODO: We'll want to add all our models here!
@@ -56,8 +50,9 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
   if (Object.values(openaiModels).includes(model as OpenAIModel)) {
     return openai.languageModel(model)
   }
-  if (Object.values(claudeModels).includes(model as AnthropicModel)) {
-    return anthropic.languageModel(model)
+  // All Claude models go through OpenRouter
+  if (Object.values(openrouterModels).includes(model as openrouterModel)) {
+    return openRouterLanguageModel(model)
   }
   throw new Error('Unknown model: ' + model)
 }
@@ -70,12 +65,11 @@ export const promptAiSdkStream = async function* (
     messages: CoreMessage[]
     clientSessionId: string
     fingerprintId: string
-    userInputId: string
     model: Model
     userId: string | undefined
     chargeUser?: boolean
     thinkingBudget?: number
-    fallbackProviders?: FallbackProvider[]
+    userInputId: string
     maxRetries?: number
   } & Omit<Parameters<typeof streamText>[0], 'model'>
 ) {
@@ -92,18 +86,6 @@ export const promptAiSdkStream = async function* (
     return
   }
   const startTime = Date.now()
-
-  // Check if this is an Anthropic model and fallback is configured
-  if (
-    Object.values(claudeModels).includes(options.model as AnthropicModel) &&
-    options.fallbackProviders
-  ) {
-    yield* promptAnthropicWithFallbacks({
-      ...options,
-      model: options.model as AnthropicModel,
-    })
-    return
-  }
 
   let aiSDKModel = modelToAiSDKModel(options.model)
 
@@ -161,21 +143,39 @@ export const promptAiSdkStream = async function* (
     }
   }
 
+  const messageId = (await response.response).id
+  const providerMetadata = (await response.providerMetadata) ?? {}
   const usage = await response.usage
-  const inputTokens = usage.promptTokens
+  let inputTokens = usage.promptTokens
   const outputTokens = usage.completionTokens
-  const anthropicMetadata = (await response.providerMetadata)?.anthropic
-  const cacheReadInputTokens =
-    typeof anthropicMetadata?.cacheReadInputTokens === 'number'
-      ? anthropicMetadata.cacheReadInputTokens
-      : 0
-  const cacheCreationInputTokens =
-    typeof anthropicMetadata?.cacheCreationInputTokens === 'number'
-      ? anthropicMetadata.cacheCreationInputTokens
-      : 0
+  let cacheReadInputTokens: number = 0
+  let cacheCreationInputTokens: number = 0
+  let costOverrideDollars: number | undefined
+  if (providerMetadata.anthropic) {
+    cacheReadInputTokens =
+      typeof providerMetadata.anthropic.cacheReadInputTokens === 'number'
+        ? providerMetadata.anthropic.cacheReadInputTokens
+        : 0
+    cacheCreationInputTokens =
+      typeof providerMetadata.anthropic.cacheCreationInputTokens === 'number'
+        ? providerMetadata.anthropic.cacheCreationInputTokens
+        : 0
+  }
+  if (providerMetadata.openrouter) {
+    if (providerMetadata.openrouter.usage) {
+      const openrouterUsage = providerMetadata.openrouter
+        .usage as OpenRouterUsageAccounting
+      cacheReadInputTokens =
+        openrouterUsage.promptTokensDetails?.cachedTokens ?? 0
+      inputTokens = openrouterUsage.promptTokens - cacheReadInputTokens
+      costOverrideDollars =
+        (openrouterUsage.cost ?? 0) +
+        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+    }
+  }
 
   saveMessage({
-    messageId: generateCompactId(),
+    messageId,
     userId: options.userId,
     clientSessionId: options.clientSessionId,
     fingerprintId: options.fingerprintId,
@@ -190,6 +190,7 @@ export const promptAiSdkStream = async function* (
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
+    costOverrideDollars,
   })
 }
 
@@ -355,6 +356,7 @@ export function transformMessages(
           if ('cache_control' in part) {
             coreMessage.providerOptions = {
               anthropic: { cacheControl: { type: 'ephemeral' } },
+              openrouter: { cacheControl: { type: 'ephemeral' } },
             }
           }
           // Handle Message type image format
@@ -408,6 +410,7 @@ export function transformMessages(
           if ('cache_control' in part) {
             coreMessage.providerOptions = {
               anthropic: { cacheControl: { type: 'ephemeral' } },
+              openrouter: { cacheControl: { type: 'ephemeral' } },
             }
           }
           if (part.type === 'text') {
