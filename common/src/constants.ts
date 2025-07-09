@@ -142,8 +142,13 @@ export const getModelForMode = (
   throw new Error(`Unknown operation: ${operation}`)
 }
 
-// Claude models are now accessed through OpenRouter
-// Legacy references mapped to openrouterModels
+// export const claudeModels = {
+//   sonnet: 'claude-sonnet-4-20250514',
+//   sonnet3_7: 'claude-3-7-sonnet-20250219',
+//   sonnet3_5: 'claude-3-5-sonnet-20241022',
+//   opus4: 'claude-opus-4-20250514',
+//   haiku: 'claude-3-5-haiku-20241022',
+// } as const
 
 export const openaiModels = {
   gpt4_1: 'gpt-4.1-2025-04-14',
@@ -216,6 +221,7 @@ export type FinetunedVertexModel =
   (typeof finetunedVertexModels)[keyof typeof finetunedVertexModels]
 
 export const models = {
+  // ...claudeModels,
   ...openaiModels,
   ...geminiModels,
   ...deepseekModels,
@@ -245,6 +251,12 @@ export const providerModelNames = {
       'gemini' as const,
     ])
   ),
+  // ...Object.fromEntries(
+  //   Object.entries(openrouterModels).map(([name, model]) => [
+  //     model,
+  //     'claude' as const,
+  //   ])
+  // ),
   ...Object.fromEntries(
     Object.entries(openaiModels).map(([name, model]) => [
       model,
@@ -294,8 +306,7 @@ export function getLogoForModel(modelName: string): string | undefined {
     domain = providerDomains.openai
   else if (Object.values(deepseekModels).includes(modelName as DeepseekModel))
     domain = providerDomains.deepseek
-  else if (modelName.includes('claude'))
-    domain = providerDomains.anthropic
+  else if (modelName.includes('claude')) domain = providerDomains.anthropic
 
   return domain
     ? `https://www.google.com/s2/favicons?domain=${domain}&sz=256`
