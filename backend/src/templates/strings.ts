@@ -16,7 +16,7 @@ import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { agentTemplates } from './agent-list'
-import { PLACEHOLDER, PlaceholderValue, placeholderValues } from './types'
+import { PLACEHOLDER, PlaceholderValue, placeholderValues, AgentTemplate } from './types'
 
 export function formatPrompt(
   prompt: string,
@@ -99,15 +99,17 @@ type StringField = 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt'
 type RequirePrompt = 'initialAssistantMessage' | 'initialAssistantPrefix'
 
 export function getAgentPrompt<T extends StringField | RequirePrompt>(
-  agentTemplateName: AgentTemplateType,
+  agentTemplate: AgentTemplate,
   promptType: T extends StringField ? { type: T } : { type: T; prompt: string },
   fileContext: ProjectFileContext,
   agentState: AgentState
-): string {
-  const agentTemplate = agentTemplates[agentTemplateName]
-
+): string | undefined {
+  const promptValue = agentTemplate[promptType.type]
+  if (promptValue === undefined) {
+    return undefined
+  }
   return formatPrompt(
-    agentTemplate[promptType.type],
+    promptValue,
     fileContext,
     agentState,
     agentTemplate.toolNames,

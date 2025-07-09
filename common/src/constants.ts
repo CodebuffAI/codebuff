@@ -2,6 +2,9 @@ export const STOP_MARKER = '[' + 'END]'
 export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
 export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 
+// Directory where agent template override files are stored
+export const AGENT_TEMPLATES_DIR = '.agents/templates/'
+
 export const DEFAULT_IGNORED_PATHS = [
   '.git',
   '.env',

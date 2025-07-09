@@ -229,6 +229,9 @@ Use the spawn_agents tool to spawn subagents to help you complete the user reque
 ${spawnableAgents
   .map((agentType) => {
     const agentTemplate = agentTemplates[agentType]
+    if (!agentTemplate) {
+      return `- ${agentType}: Agent template not found`
+    }
     const { promptSchema } = agentTemplate
     const { prompt, params } = promptSchema
     const schemaToJsonStr = (schema: z.ZodTypeAny | undefined) => {

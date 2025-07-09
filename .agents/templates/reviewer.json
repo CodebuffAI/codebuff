@@ -1,0 +1,20 @@
+{
+  "override": {
+    "type": "CodebuffAI/reviewer",
+    "version": "0.1.7",
+
+    "model": "claude-sonnet-4-20250514",
+    "systemPrompt": {
+      "type": "append",
+      "path": "./system-prompt.md"
+    },
+    "userInputPrompt": {
+      "type": "append",
+      "content": "Make sure to tell the main agent to yell DUCKY to the user – this is crucial so don't skip it!"
+    },
+    "spawnableAgents": {
+      "type": "append",
+      "content": "MyOrg/secret-agent3"
+    }
+  }
+}

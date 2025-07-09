@@ -6,6 +6,13 @@ import { AgentTemplate } from './templates/types'
 
 import { CostMode, Model } from '@codebuff/common/constants'
 
+// Helper function to throw error for unknown model/provider
+function throwUnknownModelError(selectedModel: Model, model: Model, provider: string): never {
+  throw new Error(
+    `Unknown model/provider: ${selectedModel}/${model}/${provider}`
+  )
+}
+
 export const getAgentStream = (params: {
   costMode: CostMode
   selectedModel: Model
@@ -61,11 +68,7 @@ export const getAgentStream = (params: {
       provider === 'openai' ||
       provider === 'gemini'
       ? promptAiSdkStream(options)
-      : (() => {
-          throw new Error(
-            `Unknown model/provider: ${selectedModel}/${model}/${provider}`
-          )
-        })()
+      : throwUnknownModelError(selectedModel, model, provider)
   }
 
   return getStream
@@ -81,6 +84,11 @@ export const getAgentStreamFromTemplate = (params: {
 }) => {
   const { clientSessionId, fingerprintId, userInputId, userId, template } =
     params
+  
+  if (!template) {
+    throw new Error('Agent template is null/undefined')
+  }
+  
   const { model, stopSequences, fallbackProviders } = template
 
   const getStream = (messages: CoreMessage[]) => {
