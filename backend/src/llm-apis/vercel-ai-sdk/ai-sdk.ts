@@ -10,10 +10,11 @@ import {
   type GeminiModel,
   type openrouterModel,
 } from '@codebuff/common/constants'
-import {
-  createOpenRouter,
-  OpenRouterUsageAccounting,
-} from '@codebuff/internal/openrouter-ai-sdk'
+import { Message } from '@codebuff/common/types/message'
+import { withTimeout } from '@codebuff/common/util/promise'
+import { generateCompactId } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
+import { OpenRouterUsageAccounting } from '@codebuff/internal/openrouter-ai-sdk'
 import {
   CoreAssistantMessage,
   CoreMessage,
@@ -23,19 +24,12 @@ import {
   LanguageModelV1,
   streamText,
 } from 'ai'
-
-import { generateCompactId } from '@codebuff/common/util/string'
-
-import { Message } from '@codebuff/common/types/message'
-import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod'
-
-import { closeXml } from '@codebuff/common/util/xml'
-import { env } from '@codebuff/internal/env'
 import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
 import { logger } from '../../util/logger'
 import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
+import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
 // TODO: We'll want to add all our models here!
@@ -58,17 +52,7 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
   }
   // All Claude models go through OpenRouter
   if (Object.values(openrouterModels).includes(model as openrouterModel)) {
-    return createOpenRouter({
-      apiKey: env.OPEN_ROUTER_API_KEY,
-      headers: {
-        'HTTP-Referer': 'https://codebuff.com',
-        'X-Title': 'Codebuff',
-      },
-    }).languageModel(model, {
-      usage: { include: true },
-      includeReasoning: true,
-      logprobs: true,
-    })
+    return openRouterLanguageModel(model)
   }
   throw new Error('Unknown model: ' + model)
 }
