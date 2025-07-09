@@ -26,7 +26,7 @@ import { ClientState } from '../websockets/switchboard'
 import { sendAction } from '../websockets/websocket-action'
 import { OpenAIMessage } from './openai-api'
 
-export const PROFIT_MARGIN = 0.25
+export const PROFIT_MARGIN = 0.3
 
 // Pricing details:
 // - https://www.anthropic.com/pricing#anthropic-api
