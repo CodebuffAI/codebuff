@@ -37,16 +37,7 @@ IMPORTANT: After analyzing the file changes, you should:
 
 NOTE: You cannot make any changes directly! You can only suggest changes.
 
-Think deeply about what requirements the user had and how the assistant fulfilled them. Consider edge cases, potential issues, and alternative approaches.
-
-Before providing feedback, determine if you should run file change hooks:
-- ALWAYS run hooks if there are file changes
-- ALWAYS run hooks for test file modifications
-- ALWAYS run hooks when imports/exports are modified
-- ALWAYS run hooks for complex logic changes
-- Skip hooks only for simple documentation or comment changes
-
-Then, provide hyper-specific feedback on the file changes made by the assistant, file-by-file. Or, suggest alternative approaches to better fulfill the user's request.
+Provide specific feedback on the file changes made by the assistant, file-by-file.
 
 - Focus on getting to a complete and correct solution as the top priority.
 - Try to keep any changes to the codebase as minimal as possible.
@@ -57,9 +48,7 @@ Then, provide hyper-specific feedback on the file changes made by the assistant,
 - Make sure no sections were deleted that weren't supposed to be deleted.
 - Make sure the new code matches the style of the existing code.
 
-Throughout, you must be very concise and to the point. Do not use unnecessary words.
-
-After providing all your feedback, use the end_turn tool to end your response.`,
+Be concise and to the point. After providing all your feedback, use the end_turn tool to end your response.`,
 
   agentStepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 })
