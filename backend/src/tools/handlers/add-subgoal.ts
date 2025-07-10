@@ -1,5 +1,5 @@
 import { buildArray } from '@codebuff/common/util/array'
-import { CodebuffToolCall } from '../constants'
+import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
 
 export type Subgoal = {
   objective: string | undefined
@@ -8,22 +8,30 @@ export type Subgoal = {
   logs: string[]
 }
 
-export async function handleAddSubgoal(params: {
+export const handleAddSubgoal = (async (params: {
   previousToolCallResult: Promise<any>
   toolCall: CodebuffToolCall<'add_subgoal'>
-  extra: { agentContext: Record<string, Subgoal> }
-}): Promise<Record<string, Subgoal>> {
-  const { previousToolCallResult, toolCall, extra } = params
-  const { agentContext } = extra
+  state: { agentContext?: Record<string, Subgoal> }
+}): Promise<{
+  result: string
+  state: { agentContext: Record<string, Subgoal> }
+}> => {
+  const { previousToolCallResult, toolCall, state } = params
+  const { agentContext } = state
 
   await previousToolCallResult
   return {
-    ...agentContext,
-    [toolCall.args.id]: {
-      objective: toolCall.args.objective,
-      status: toolCall.args.status,
-      plan: toolCall.args.plan,
-      logs: buildArray([toolCall.args.log]),
+    result: 'Successfully added subgoal.',
+    state: {
+      agentContext: {
+        ...agentContext,
+        [toolCall.args.id]: {
+          objective: toolCall.args.objective,
+          status: toolCall.args.status,
+          plan: toolCall.args.plan,
+          logs: buildArray([toolCall.args.log]),
+        },
+      },
     },
   }
-}
+}) satisfies CodebuffToolHandlerFunction<'add_subgoal'>

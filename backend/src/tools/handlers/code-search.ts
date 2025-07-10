@@ -1,17 +1,18 @@
-import { ClientToolCall, CodebuffToolCall } from '../constants'
+import {
+  ClientToolCall,
+  CodebuffToolCall,
+  CodebuffToolHandlerFunction,
+} from '../constants'
 
-export async function handleCodeSearch(params: {
+export const handleCodeSearch = (async (params: {
   previousToolCallResult: Promise<any>
   toolCall: CodebuffToolCall<'code_search'>
-  extra: {
-    requestClientToolCall: (
-      toolCall: ClientToolCall<'code_search'>
-    ) => Promise<string>
-  }
-}): Promise<string> {
-  const { previousToolCallResult, toolCall, extra } = params
-  const { requestClientToolCall } = extra
+  requestClientToolCall: (
+    toolCall: ClientToolCall<'code_search'>
+  ) => Promise<string>
+}): Promise<{ result: string; state: {} }> => {
+  const { previousToolCallResult, toolCall, requestClientToolCall } = params
 
   await previousToolCallResult
-  return await requestClientToolCall(toolCall)
-}
+  return { result: await requestClientToolCall(toolCall), state: {} }
+}) satisfies CodebuffToolHandlerFunction<'code_search'>

@@ -1,17 +1,18 @@
-import { ClientToolCall, CodebuffToolCall } from '../constants'
+import {
+  ClientToolCall,
+  CodebuffToolCall,
+  CodebuffToolHandlerFunction,
+} from '../constants'
 
-export async function handleBrowserLogs(params: {
+export const handleBrowserLogs = (async (params: {
   previousToolCallResult: Promise<any>
   toolCall: CodebuffToolCall<'browser_logs'>
-  extra: {
-    requestClientToolCall: (
-      toolCall: ClientToolCall<'browser_logs'>
-    ) => Promise<string>
-  }
-}): Promise<string> {
-  const { previousToolCallResult, toolCall, extra } = params
-  const { requestClientToolCall } = extra
+  requestClientToolCall: (
+    toolCall: ClientToolCall<'browser_logs'>
+  ) => Promise<string>
+}): Promise<{ result: string; state: {} }> => {
+  const { previousToolCallResult, toolCall, requestClientToolCall } = params
 
   await previousToolCallResult
-  return await requestClientToolCall(toolCall)
-}
+  return { result: await requestClientToolCall(toolCall), state: {} }
+}) satisfies CodebuffToolHandlerFunction<'browser_logs'>

@@ -1,9 +1,9 @@
-import { CodebuffToolCall } from '../constants'
+import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
 
-export async function handleEndTurn(params: {
+export const handleEndTurn = (async (params: {
   previousToolCallResult: Promise<any>
   toolCall: CodebuffToolCall<'end_turn'>
-}): Promise<string> {
+}): Promise<{ result: ''; state: {} }> => {
   await params.previousToolCallResult
-  return ''
-}
+  return { result: '', state: {} }
+}) satisfies CodebuffToolHandlerFunction<'end_turn'>

@@ -1,16 +1,17 @@
-import { ClientToolCall, CodebuffToolCall } from '../constants'
+import {
+  ClientToolCall,
+  CodebuffToolCall,
+  CodebuffToolHandlerFunction,
+} from '../constants'
 
-export async function handleRunTerminalCommand(params: {
+export const handleRunTerminalCommand = (async (params: {
   previousToolCallResult: Promise<any>
   toolCall: CodebuffToolCall<'run_terminal_command'>
-  extra: {
-    requestClientToolCall: (
-      toolCall: ClientToolCall<'run_terminal_command'>
-    ) => Promise<string>
-  }
-}): Promise<string> {
-  const { previousToolCallResult, toolCall, extra } = params
-  const { requestClientToolCall } = extra
+  requestClientToolCall: (
+    toolCall: ClientToolCall<'run_terminal_command'>
+  ) => Promise<string>
+}): Promise<{ result: string; state: {} }> => {
+  const { previousToolCallResult, toolCall, requestClientToolCall } = params
 
   await previousToolCallResult
   const clientToolCall: ClientToolCall<'run_terminal_command'> = {
@@ -24,5 +25,5 @@ export async function handleRunTerminalCommand(params: {
       cwd: toolCall.args.cwd,
     },
   }
-  return await requestClientToolCall(clientToolCall)
-}
+  return { result: await requestClientToolCall(clientToolCall), state: {} }
+}) satisfies CodebuffToolHandlerFunction<'run_terminal_command'>

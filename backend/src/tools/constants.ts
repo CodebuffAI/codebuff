@@ -23,7 +23,6 @@ import { handleAddSubgoal } from './handlers/add-subgoal'
 import { handleBrowserLogs } from './handlers/browser-logs'
 import { handleCodeSearch } from './handlers/code-search'
 import { handleEndTurn } from './handlers/end-turn'
-import { handleFindFiles } from './handlers/find-files'
 import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
 import { handleUpdateSubgoal } from './handlers/update-subgoal'
@@ -89,6 +88,7 @@ export type ClientToolCall<T extends ToolName = ToolName> = {
 
 const WIP_TOOLS = [
   'create_plan',
+  'find_files',
   'read_docs',
   'read_files',
   'spawn_agents',
@@ -100,6 +100,21 @@ const WIP_TOOLS = [
 ] satisfies ToolName[]
 type WIPTool = (typeof WIP_TOOLS)[number]
 type NonWIPTool = Exclude<ToolName, WIPTool>
+
+type PresentOrAbsent<K extends PropertyKey, V> =
+  | { [P in K]: V }
+  | { [P in K]: never }
+
+export type CodebuffToolHandlerFunction<T extends NonWIPTool = NonWIPTool> = (
+  params: {
+    previousToolCallResult: Promise<any>
+    toolCall: CodebuffToolCall<T>
+    state: { [K in string]?: any }
+  } & PresentOrAbsent<
+    'requestClientToolCall',
+    (toolCall: ClientToolCall<T>) => Promise<string>
+  >
+) => Promise<{ result: string; state: Record<string, any> }>
 
 /**
  * Each value in this record that:
@@ -115,16 +130,11 @@ const codebuffToolHandlers = {
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
   end_turn: handleEndTurn,
-  find_files: handleFindFiles,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
   update_subgoal: handleUpdateSubgoal,
 } satisfies {
-  [K in NonWIPTool]: (params: {
-    previousToolCallResult: Promise<any>
-    toolCall: CodebuffToolCall<K>
-    extra: any
-  }) => Promise<any>
+  [K in NonWIPTool]: CodebuffToolHandlerFunction<K>
 }
 
 type CodebuffToolHandler<T extends NonWIPTool = NonWIPTool> = {
