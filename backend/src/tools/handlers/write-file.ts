@@ -25,6 +25,14 @@ export type FileProcessing = {
     }
 )
 
+export type FileProcessingMutableState = {
+  promisesByPath: Record<string, Promise<FileProcessing>[]>
+  allPromises: Promise<FileProcessing>[]
+  fileChangeErrors: Extract<FileProcessing, { error: string }>[]
+  fileChanges: Exclude<FileProcessing, { error: string }>[]
+  firstFileProcessed: boolean
+}
+
 export const handleWriteFile = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'write_file'>
@@ -43,24 +51,12 @@ export const handleWriteFile = ((params: {
     fullResponse?: string
     prompt?: string
 
-    mutableState?: {
-      promisesByPath: Record<string, Promise<FileProcessing>[]>
-      allPromises: Promise<FileProcessing>[]
-      fileChangeErrors: Extract<FileProcessing, { error: string }>[]
-      fileChanges: Exclude<FileProcessing, { error: string }>[]
-      firstFileProcessed: boolean
-    }
+    mutableState?: FileProcessingMutableState
   }
 }): {
   result: Promise<string>
   state: {
-    mutableState: {
-      promisesByPath: Record<string, Promise<FileProcessing>[]>
-      allPromises: Promise<FileProcessing>[]
-      fileChangeErrors: Extract<FileProcessing, { error: string }>[]
-      fileChanges: Exclude<FileProcessing, { error: string }>[]
-      firstFileProcessed: boolean
-    }
+    mutableState: FileProcessingMutableState
   }
 } => {
   const {

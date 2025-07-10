@@ -22,6 +22,7 @@ import { writeFileTool } from './definitions/write-file'
 import { handleAddSubgoal } from './handlers/add-subgoal'
 import { handleBrowserLogs } from './handlers/browser-logs'
 import { handleCodeSearch } from './handlers/code-search'
+import { handleCreatePlan } from './handlers/create-plan'
 import { handleEndTurn } from './handlers/end-turn'
 import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
@@ -88,7 +89,6 @@ export type ClientToolCall<T extends ToolName = ToolName> = {
 // -- WIP NEW TOOL CALL FORMAT --
 
 const WIP_TOOLS = [
-  'create_plan',
   'find_files',
   'read_docs',
   'read_files',
@@ -130,6 +130,7 @@ const codebuffToolHandlers = {
   add_subgoal: handleAddSubgoal,
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
+  create_plan: handleCreatePlan,
   end_turn: handleEndTurn,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
