@@ -1,5 +1,6 @@
 import { FileChange } from '@codebuff/common/actions'
 import { ToolName } from '@codebuff/common/constants/tools'
+import { ProjectFileContext } from '@codebuff/common/util/file'
 import { ToolCallPart, ToolResultPart, ToolSet } from 'ai'
 import z from 'zod/v4'
 import { addSubgoalTool } from './definitions/add-subgoal'
@@ -25,6 +26,7 @@ import { handleCodeSearch } from './handlers/code-search'
 import { handleCreatePlan } from './handlers/create-plan'
 import { handleEndTurn } from './handlers/end-turn'
 import { handleReadDocs } from './handlers/read-docs'
+import { handleReadFiles } from './handlers/read-files'
 import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
 import { handleStrReplace } from './handlers/str-replace'
@@ -92,7 +94,6 @@ export type ClientToolCall<T extends ToolName = ToolName> = {
 
 const WIP_TOOLS = [
   'find_files',
-  'read_files',
   'spawn_agents',
   'think_deeply',
   'update_report',
@@ -109,6 +110,7 @@ export type CodebuffToolHandlerFunction<T extends NonWIPTool = NonWIPTool> = (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
+    fileContext: ProjectFileContext
     writeToClient: (chunk: string) => void
     state: { [K in string]?: any }
   } & PresentOrAbsent<
@@ -133,6 +135,7 @@ const codebuffToolHandlers = {
   create_plan: handleCreatePlan,
   end_turn: handleEndTurn,
   read_docs: handleReadDocs,
+  read_files: handleReadFiles,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
   str_replace: handleStrReplace,
