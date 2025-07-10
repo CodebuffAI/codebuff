@@ -25,7 +25,6 @@
       "cwd": "backend",
       "filePattern": "backend/**/*.ts"
     },
-
     {
       "name": "npm-app-unit-tests",
       "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
@@ -38,14 +37,12 @@
       "cwd": "npm-app",
       "filePattern": "npm-app/**/*.ts"
     },
-
     {
       "name": "web-typecheck",
       "command": "bun run typecheck",
       "cwd": "web",
       "filePattern": "web/**/*.ts*"
     },
-
     {
       "name": "common-unit-tests",
       "command": "set -o pipefail && bun test $(find src -name *.test.ts ! -name *.integration.test.ts) 2>&1 | grep -Ev '✓|\\(pass\\)'",
@@ -57,6 +54,11 @@
       "command": "bun run typecheck",
       "cwd": "common",
       "filePattern": "common/**/*.ts"
+    },
+    {
+      "name": "prettier-format",
+      "command": "git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|js|jsx|json|md)$' | xargs -r npx prettier --write",
+      "filePattern": "**/*.{ts,tsx,js,jsx,json,md}"
     }
   ],
   "maxAgentSteps": 20
