@@ -1,5 +1,6 @@
+import { FileChange } from '@codebuff/common/actions'
 import { ToolName } from '@codebuff/common/constants/tools'
-import { ToolCallPart, ToolSet } from 'ai'
+import { ToolCallPart, ToolResultPart, ToolSet } from 'ai'
 import z from 'zod/v4'
 import { addSubgoalTool } from './definitions/add-subgoal'
 import { browserLogsTool } from './definitions/browser-logs'
@@ -18,6 +19,15 @@ import { updateReportTool } from './definitions/update-report'
 import { updateSubgoalTool } from './definitions/update-subgoal'
 import { webSearchTool } from './definitions/web-search'
 import { writeFileTool } from './definitions/write-file'
+import { handleAddSubgoal } from './handlers/add-subgoal'
+import { handleBrowserLogs } from './handlers/browser-logs'
+import { handleCodeSearch } from './handlers/code-search'
+import { handleEndTurn } from './handlers/end-turn'
+import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
+import { handleRunTerminalCommand } from './handlers/run-terminal-command'
+import { handleUpdateSubgoal } from './handlers/update-subgoal'
+
+type Prettify<T> = { [K in keyof T]: T[K] } & {}
 
 export type CodebuffToolDef = {
   toolName: ToolName
@@ -44,43 +54,101 @@ export const codebuffToolDefs = {
   update_subgoal: updateSubgoalTool,
   web_search: webSearchTool,
   write_file: writeFileTool,
-} as const satisfies {
+} satisfies {
   [K in ToolName]: {
     toolName: K
   }
 } & Record<ToolName, CodebuffToolDef> &
   ToolSet
 
-export type CodebuffToolCall = {
+// Tool call from LLM
+export type CodebuffToolCall<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
     args: z.infer<(typeof codebuffToolDefs)[K]['parameters']>
   } & Omit<ToolCallPart, 'type'>
-}[ToolName]
+}[T]
 
-export const codebuffToolCallbacks = {
-  add_subgoal: () => Promise.resolve(),
-  browser_logs: () => Promise.resolve(),
-  code_search: () => Promise.resolve(),
-  create_plan: () => Promise.resolve(),
-  end_turn: () => Promise.resolve(),
-  find_files: () => Promise.resolve(),
-  read_docs: () => Promise.resolve(),
-  read_files: () => Promise.resolve(),
-  run_file_change_hooks: () => Promise.resolve(),
-  run_terminal_command: () => Promise.resolve(),
-  spawn_agents: () => Promise.resolve(),
-  str_replace: () => Promise.resolve(),
-  think_deeply: () => Promise.resolve(),
-  update_report: () => Promise.resolve(),
-  update_subgoal: () => Promise.resolve(),
-  web_search: () => Promise.resolve(),
-  write_file: () => Promise.resolve(),
-} satisfies Record<ToolName, () => Promise<any>>
-
-export type CodebuffToolCallback = {
-  [T in keyof typeof codebuffToolCallbacks]: {
-    toolName: T
-    callback: (typeof codebuffToolCallbacks)[T]
+// Tool call to send to client
+export type ClientToolCall<T extends ToolName = ToolName> = {
+  [K in ToolName]: {
+    toolName: K
+    args: K extends 'run_terminal_command'
+      ? CodebuffToolCall<'run_terminal_command'>['args'] & {
+          mode: 'assistant' | 'user'
+        }
+      : K extends 'write_file' | 'str_replace' | 'create_plan'
+        ? FileChange
+        : CodebuffToolCall<K>['args']
   }
+}[T] &
+  Omit<ToolCallPart, 'type'>
+
+// -- WIP NEW TOOL CALL FORMAT --
+
+const WIP_TOOLS = [
+  'create_plan',
+  'find_files',
+  'read_docs',
+  'read_files',
+  'spawn_agents',
+  'str_replace',
+  'think_deeply',
+  'update_report',
+  'web_search',
+  'write_file',
+] satisfies ToolName[]
+type WIPTool = (typeof WIP_TOOLS)[number]
+type NonWIPTool = Exclude<ToolName, WIPTool>
+
+type PresentOrAbsent<K extends PropertyKey, V> =
+  | { [P in K]: V }
+  | { [P in K]: never }
+
+export type CodebuffToolHandlerFunction<T extends NonWIPTool = NonWIPTool> = (
+  params: {
+    previousToolCallFinished: Promise<void>
+    toolCall: CodebuffToolCall<T>
+    state: { [K in string]?: any }
+  } & PresentOrAbsent<
+    'requestClientToolCall',
+    (toolCall: ClientToolCall<T>) => Promise<string>
+  >
+) => { result: Promise<string>; state: Record<string, any> }
+
+/**
+ * Each value in this record that:
+ * - Will be called immediately once it is parsed out of the stream.
+ * - Takes as argument
+ *   - The previous tool call (to await)
+ *   - The CodebuffToolCall for the current tool
+ *   - Any additional arguments for the tool
+ * - Returns a promise that will be awaited
+ */
+const codebuffToolHandlers = {
+  add_subgoal: handleAddSubgoal,
+  browser_logs: handleBrowserLogs,
+  code_search: handleCodeSearch,
+  end_turn: handleEndTurn,
+  run_file_change_hooks: handleRunFileChangeHooks,
+  run_terminal_command: handleRunTerminalCommand,
+  update_subgoal: handleUpdateSubgoal,
+} satisfies {
+  [K in NonWIPTool]: CodebuffToolHandlerFunction<K>
 }
+
+type CodebuffToolHandler<T extends NonWIPTool = NonWIPTool> = {
+  [K in NonWIPTool]: {
+    toolName: K
+    callback: (typeof codebuffToolHandlers)[K]
+  }
+}[T]
+
+// WIP: Replacement for ServerToolResult
+type CodebuffToolResult<T extends NonWIPTool = NonWIPTool> = {
+  [K in ToolName]: {
+    toolName: K
+    result: Prettify<Awaited<ReturnType<CodebuffToolHandler<T>['callback']>>>
+  }
+}[T] &
+  Omit<ToolResultPart, 'type'>

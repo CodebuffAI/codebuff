@@ -20,6 +20,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { partition } from 'lodash'
 import { WebSocket } from 'ws'
+import { getFileReadingUpdates } from './get-file-reading-updates'
 import { checkLiveUserInput } from './live-user-inputs'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
@@ -28,19 +29,21 @@ import { runToolInner } from './run-tool'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { agentTemplates } from './templates/agent-list'
+import { processAgentOverrides } from './templates/agent-overrides'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
+import { AgentTemplateUnion } from './templates/types'
 import {
   ProgrammaticAgentTemplate,
   AgentTemplate as LLMAgentTemplate,
 } from './templates/types'
 import { runProgrammaticAgent } from './run-programmatic-agent'
 import {
-  ClientToolCall,
   parseRawToolCall,
+  ToolCallError,
   toolParams,
   updateContextFromToolCalls,
 } from './tools'
-import { CodebuffToolCall } from './tools/constants'
+import { ClientToolCall, CodebuffToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import {
   asSystemInstruction,
@@ -60,7 +63,7 @@ import {
   requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
-import { getFileReadingUpdates } from './get-file-reading-updates'
+import { agentRegistry } from './templates/agent-registry'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -77,6 +80,27 @@ export interface AgentOptions {
   params: Record<string, any> | undefined
   assistantMessage: string | undefined
   assistantPrefix: string | undefined
+}
+
+/**
+ * Helper function to get agent template with overrides applied
+ */
+async function getAgentTemplateWithOverrides(
+  agentType: AgentTemplateType,
+  fileContext: ProjectFileContext
+): Promise<AgentTemplateUnion> {
+  // Initialize registry if needed
+  await agentRegistry.initialize(fileContext)
+
+  const baseTemplate = agentRegistry.getTemplate(agentType)
+  if (!baseTemplate) {
+    const availableTypes = agentRegistry.getAvailableTypes()
+    throw new Error(
+      `Agent template not found for type: ${agentType}. Available types: ${availableTypes.join(', ')}`
+    )
+  }
+
+  return processAgentOverrides(baseTemplate, fileContext)
 }
 
 export const runAgentStep = async (
@@ -106,12 +130,14 @@ export const runAgentStep = async (
 
   const startTime = Date.now()
   let messageHistory = agentState.messageHistory
-
   // Get the extracted repo ID from request context
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
-  const agentTemplate = agentTemplates[agentType]
+  const agentTemplate = await getAgentTemplateWithOverrides(
+    agentType,
+    fileContext
+  )
   if (!agentTemplate) {
     throw new Error(
       `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
@@ -237,12 +263,22 @@ export const runAgentStep = async (
 
   const hasPrompt = Boolean(prompt || params)
 
-  const agentStepPrompt = getAgentPrompt(
-    agentType,
-    'agentStepPrompt',
+  const agentStepPrompt = await getAgentPrompt(
+    agentTemplate,
+    { type: 'agentStepPrompt' },
     fileContext,
     agentState
   )
+
+  // Extract user input prompt to match hasPrompt && {...} pattern
+  const userInputPrompt = hasPrompt
+    ? await getAgentPrompt(
+        agentTemplate,
+        { type: 'userInputPrompt' },
+        fileContext,
+        agentState
+      )
+    : undefined
 
   const agentMessagesUntruncated = buildArray<CodebuffMessage>(
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
@@ -271,21 +307,16 @@ export const runAgentStep = async (
         },
     ],
 
-    hasPrompt && {
-      role: 'user',
-      content: getAgentPrompt(
-        agentType,
-        'userInputPrompt',
-        fileContext,
-        agentState
-      ),
-      timeToLive: 'userPrompt',
+    userInputPrompt && {
+      role: 'user' as const,
+      content: userInputPrompt,
+      timeToLive: 'userPrompt' as const,
     },
 
     agentStepPrompt && {
-      role: 'user',
+      role: 'user' as const,
       content: agentStepPrompt,
-      timeToLive: 'agentStep',
+      timeToLive: 'agentStep' as const,
     },
 
     assistantPrefix?.trim() && {
@@ -296,12 +327,15 @@ export const runAgentStep = async (
 
   const iterationNum = agentMessagesUntruncated.length
 
-  const system = getAgentPrompt(
-    agentType,
-    'systemPrompt',
+  const system = await getAgentPrompt(
+    agentTemplate,
+    { type: 'systemPrompt' },
     fileContext,
     agentState
   )
+  if (!system) {
+    throw new Error(`System prompt is required for agent type: ${agentType}`)
+  }
   const systemTokens = countTokensJson(system)
 
   // Possibly truncated messagesWithUserMessage + cache.
@@ -330,6 +364,7 @@ export const runAgentStep = async (
       toolResults,
       systemTokens,
       model,
+      agentTemplate,
       duration: Date.now() - startTime,
     },
     `Agent ${agentType} step ${iterationNum} (${userInputId} - Prompt: ${(prompt ?? 'undefined').slice(0, 20)}) start`
@@ -355,10 +390,13 @@ export const runAgentStep = async (
     >[]
   > = {}
 
+  // Create a simple async generator for assistant message
+  async function* createAssistantMessageStream(message: string) {
+    yield message.trim()
+  }
+
   const stream = assistantMessage
-    ? (async function* () {
-        yield assistantMessage.trim()
-      })()
+    ? createAssistantMessageStream(assistantMessage)
     : getStream(
         coreMessagesWithSystem(
           buildArray(
@@ -376,16 +414,14 @@ export const runAgentStep = async (
   const allToolCalls: CodebuffToolCall[] = []
   const clientToolCalls: ClientToolCall[] = []
   const serverToolResults: ToolResult[] = []
-  const subgoalToolCalls: Extract<
-    CodebuffToolCall,
-    { toolName: 'add_subgoal' | 'update_subgoal' }
-  >[] = []
+  const subgoalToolCalls: CodebuffToolCall<'add_subgoal' | 'update_subgoal'>[] =
+    []
 
   let foundParsingError = false
 
   function toolCallback<T extends ToolName>(
     tool: T,
-    after: (toolCall: Extract<CodebuffToolCall, { toolName: T }>) => void
+    after: (toolCall: CodebuffToolCall<T>) => void
   ): {
     params: string[]
     onTagStart: () => void
@@ -398,12 +434,13 @@ export const runAgentStep = async (
       params: toolParams[tool],
       onTagStart: () => {},
       onTagEnd: async (_: string, args: Record<string, string>) => {
-        const toolCall = parseRawToolCall({
-          type: 'tool-call',
-          toolName: tool,
-          toolCallId: generateCompactId(),
-          args,
-        })
+        const toolCall: CodebuffToolCall<T> | ToolCallError =
+          parseRawToolCall<T>({
+            type: 'tool-call',
+            toolName: tool,
+            toolCallId: generateCompactId(),
+            args,
+          })
         if ('error' in toolCall) {
           serverToolResults.push({
             toolName: tool,
@@ -424,9 +461,9 @@ export const runAgentStep = async (
           return
         }
 
-        allToolCalls.push(toolCall as Extract<CodebuffToolCall, { name: T }>)
+        allToolCalls.push(toolCall)
 
-        after(toolCall as Extract<CodebuffToolCall, { name: T }>)
+        after(toolCall)
       },
     }
   }
@@ -655,7 +692,12 @@ export const runAgentStep = async (
         clientToolCalls.push(toolResult.call)
       } else if (toolResult.type === 'state_update') {
         serverToolResults.push(toolResult.result)
-        Object.assign(agentState, toolResult.updatedAgentState)
+        // Update the current agentState with the new state
+        agentState.report = toolResult.updatedAgentState.report
+        agentState.agentContext = toolResult.updatedAgentState.agentContext
+        agentState.subagents = toolResult.updatedAgentState.subagents
+        agentState.messageHistory = toolResult.updatedAgentState.messageHistory
+        agentState.stepsRemaining = toolResult.updatedAgentState.stepsRemaining
       }
     } catch (error) {
       logger.error(
@@ -724,18 +766,6 @@ export const runAgentStep = async (
     })
   )
   clientToolCalls.unshift(...changeToolCalls)
-
-  // If there were file changes, automatically run file change hooks once at the end
-  if (fileChanges.length > 0) {
-    const changedFilePaths = fileChanges.map(({ path }) => path)
-    clientToolCalls.push({
-      toolName: 'run_file_change_hooks',
-      toolCallId: generateCompactId(),
-      args: {
-        files: changedFilePaths,
-      },
-    })
-  }
 
   const newAgentContext = await agentContextPromise
 
@@ -846,6 +876,7 @@ export const runAgentStep = async (
       agentContext: newAgentContext,
       messagesWithResponse,
       model,
+      agentTemplate,
       duration: Date.now() - startTime,
     },
     `Agent ${agentType} step ${iterationNum} (${userInputId} - Prompt: ${(prompt ?? 'undefined').slice(0, 20)}) end`
@@ -893,17 +924,28 @@ export const loopAgentSteps = async (
     fileContext,
     agentType,
   } = options
-  const agentTemplate = agentTemplates[agentType] as LLMAgentTemplate
+  const agentTemplate = await getAgentTemplateWithOverrides(
+    agentType,
+    fileContext
+  )
   const {
     initialAssistantMessage,
     initialAssistantPrefix,
     stepAssistantMessage,
     stepAssistantPrefix,
-  } = agentTemplate
+  } =
+    agentTemplate.implementation === 'llm'
+      ? agentTemplate
+      : {
+          initialAssistantMessage: undefined,
+          initialAssistantPrefix: undefined,
+          stepAssistantMessage: undefined,
+          stepAssistantPrefix: undefined,
+        }
   let isFirstStep = true
   let currentPrompt = prompt
   let currentParams = params
-  let currentAssistantMessage = initialAssistantMessage
+  let currentAssistantMessage: string | undefined = initialAssistantMessage
   // NOTE: If the assistant message is set, we run one step with it, and then the next step will use the assistant prefix.
   let currentAssistantPrefix = initialAssistantMessage
     ? undefined
@@ -928,7 +970,7 @@ export const loopAgentSteps = async (
       params: currentParams,
       // TODO: format the prompt in runAgentStep
       assistantMessage: currentAssistantMessage
-        ? formatPrompt(
+        ? await formatPrompt(
             currentAssistantMessage,
             fileContext,
             currentAgentState,
@@ -936,17 +978,17 @@ export const loopAgentSteps = async (
             agentTemplate.spawnableAgents,
             prompt ?? ''
           )
-        : '',
-      assistantPrefix: currentAssistantPrefix
-        ? formatPrompt(
-            currentAssistantPrefix,
-            fileContext,
-            currentAgentState,
-            agentTemplate.toolNames,
-            agentTemplate.spawnableAgents,
-            prompt ?? ''
-          )
-        : '',
+        : undefined,
+      assistantPrefix:
+        currentAssistantPrefix &&
+        (await formatPrompt(
+          currentAssistantPrefix,
+          fileContext,
+          currentAgentState,
+          agentTemplate.toolNames,
+          agentTemplate.spawnableAgents,
+          prompt ?? ''
+        )),
     })
 
     if (shouldEndTurn) {
@@ -961,18 +1003,12 @@ export const loopAgentSteps = async (
 
     currentPrompt = undefined
     currentParams = undefined
-    // Toggle assistant message between the injected step message and nothing.
-    currentAssistantMessage = currentAssistantMessage
-      ? ''
-      : stepAssistantMessage
 
     // Only set the assistant prefix when no assistant message is injected.
-    if (!currentAssistantMessage) {
-      if (isFirstStep) {
-        currentAssistantPrefix = initialAssistantPrefix
-      } else {
-        currentAssistantPrefix = stepAssistantPrefix
-      }
+    if (!currentAssistantMessage || !stepAssistantMessage) {
+      currentAssistantPrefix = isFirstStep
+        ? initialAssistantPrefix
+        : stepAssistantPrefix
     }
 
     currentAgentState = newAgentState

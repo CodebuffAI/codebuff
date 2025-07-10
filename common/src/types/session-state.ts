@@ -65,7 +65,8 @@ export const AgentTemplateTypes = Object.fromEntries(
   AgentTemplateTypeList.map((name) => [name, name])
 ) as { [K in (typeof AgentTemplateTypeList)[number]]: K }
 const agentTemplateTypeSchema = z.enum(AgentTemplateTypeList)
-export type AgentTemplateType = z.infer<typeof agentTemplateTypeSchema>
+// Allow dynamic agent types by extending the base enum with string
+export type AgentTemplateType = z.infer<typeof agentTemplateTypeSchema> | string
 
 export const SessionStateSchema = z.object({
   fileContext: ProjectFileContextSchema,

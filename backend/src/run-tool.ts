@@ -1,37 +1,36 @@
-import { WebSocket } from 'ws'
 import { TextBlockParam } from '@anthropic-ai/sdk/resources'
-import { generateCompactId } from '@codebuff/common/util/string'
-import { consumeCreditsWithFallback } from '@codebuff/billing'
-import { AGENT_NAMES } from '@codebuff/common/constants/agents'
-import {
-  ToolResult,
-  AgentState,
-  AgentTemplateType,
-} from '@codebuff/common/types/session-state'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 import {
   GetExpandedFileContextForTrainingBlobTrace,
   insertTrace,
 } from '@codebuff/bigquery'
-import { logger } from './util/logger'
-import { CodebuffToolCall } from './tools/constants'
-import { ClientToolCall } from './tools'
-import { searchWeb } from './llm-apis/linkup-api'
-import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
-import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
-import { getRequestContext } from './websockets/request-context'
-import { requestFiles, requestToolCall } from './websockets/websocket-action'
-import { renderReadFilesResult } from './util/parse-tool-call-xml'
+import { consumeCreditsWithFallback } from '@codebuff/billing'
+import { AGENT_NAMES } from '@codebuff/common/constants/agents'
+import {
+  AgentState,
+  AgentTemplateType,
+  ToolResult,
+} from '@codebuff/common/types/session-state'
+import { ProjectFileContext } from '@codebuff/common/util/file'
+import { generateCompactId } from '@codebuff/common/util/string'
+import { CoreMessage } from 'ai'
+import { WebSocket } from 'ws'
 import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
-import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
-import { CoreMessage } from 'ai'
-import { countTokens, countTokensJson } from './util/token-counter'
-import { agentTemplates } from './templates/agent-list'
-import { AgentTemplate, ProgrammaticAgentTemplate } from './templates/types'
 import { getFileReadingUpdates } from './get-file-reading-updates'
+import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
+import { searchWeb } from './llm-apis/linkup-api'
+import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
+import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
+import { AgentTemplate, ProgrammaticAgentTemplate } from './templates/types'
+import { agentRegistry } from './templates/agent-registry'
+import { ClientToolCall, CodebuffToolCall } from './tools/constants'
+import { logger } from './util/logger'
+import { renderReadFilesResult } from './util/parse-tool-call-xml'
+import { countTokens, countTokensJson } from './util/token-counter'
+import { getRequestContext } from './websockets/request-context'
+import { requestFiles, requestToolCall } from './websockets/websocket-action'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
@@ -503,8 +502,7 @@ export async function runToolInner(
         type: 'client_call',
         call: {
           ...toolCall,
-          toolCallId: generateCompactId(),
-        } as ClientToolCall,
+        },
       }
     }
 
@@ -574,11 +572,15 @@ export async function runToolInner(
 
     case 'spawn_agents': {
       const { agents } = toolCall.args
-      const { agentTemplate: parentAgentTemplate } = options
+      const { agentTemplate: parentAgentTemplate, fileContext } = options
 
       if (!parentAgentTemplate) {
         throw new Error('spawn_agents requires agentTemplate in options')
       }
+
+      // Initialize registry and get all templates
+      agentRegistry.initialize(fileContext)
+      const allTemplates = agentRegistry.getAllTemplates()
 
       const conversationHistoryMessage: CoreMessage = {
         role: 'user',
@@ -591,11 +593,11 @@ export async function runToolInner(
 
       const results = await Promise.allSettled(
         agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
-          if (!(agentTypeStr in agentTemplates)) {
+          if (!(agentTypeStr in allTemplates)) {
             throw new Error(`Agent type ${agentTypeStr} not found.`)
           }
           const agentType = agentTypeStr as AgentTemplateType
-          const agentTemplate = agentTemplates[agentType]
+          const agentTemplate = allTemplates[agentType]
 
           if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
             throw new Error(
@@ -665,9 +667,7 @@ export async function runToolInner(
           return {
             ...result,
             agentType,
-            agentName:
-              (AGENT_NAMES as Record<string, string>)[agentType] ||
-              agentTemplate.name,
+            agentName: agentRegistry.getAgentName(agentType) || agentTemplate.name,
           }
         })
       )
@@ -678,7 +678,7 @@ export async function runToolInner(
 
         if (result.status === 'fulfilled') {
           const { agentState, agentName } = result.value
-          const agentTemplate = agentTemplates[agentState.agentType!]
+          const agentTemplate = allTemplates[agentState.agentType!]
           let report = ''
 
           if (
@@ -711,12 +711,11 @@ export async function runToolInner(
             )
           }
 
-          return `**${agentName} (@${agentTypeStr}):**\n${report}`
+          return `**${agentName}:**\n${report}`
         } else {
-          return `**Agent (@${agentTypeStr}):**\nError spawning agent: ${result.reason}`
+          return `**Agent (${agentTypeStr}):**\nError spawning agent: ${result.reason}`
         }
       })
-
       return {
         type: 'server_result',
         result: {

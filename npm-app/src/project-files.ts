@@ -6,7 +6,11 @@ import { promisify } from 'util'
 import { Worker } from 'worker_threads'
 
 import { getFileTokenScores } from '@codebuff/code-map'
-import { FILE_READ_STATUS, toOptionalFile } from '@codebuff/common/constants'
+import {
+  FILE_READ_STATUS,
+  toOptionalFile,
+  AGENT_TEMPLATES_DIR,
+} from '@codebuff/common/constants'
 
 import {
   flattenTree,
@@ -31,6 +35,7 @@ import { gitCommandIsAvailable } from './utils/git'
 import { logger } from './utils/logger'
 import { getSystemInfo } from './utils/system-info'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+import { validateAgentTemplateFiles } from '@codebuff/common/util/agent-template-validation'
 
 // Global variables for chat management
 // Initialize chat ID on first import with singleton pattern
@@ -254,9 +259,30 @@ export const getProjectFileContext = async (
         lowercaseFilePath === codebuffConfigFileBackup.toLowerCase()
       )
     })
-    const knowledgeFiles = getExistingFiles(knowledgeFilePaths)
+
+    // Separate agent template files from knowledge files
+    const agentTemplatePaths = allFilePaths.filter((filePath) => {
+      const lowercaseFilePath = filePath.toLowerCase()
+      return (
+        filePath.startsWith(AGENT_TEMPLATES_DIR) &&
+        (lowercaseFilePath.endsWith('.json') ||
+          lowercaseFilePath.endsWith('.md'))
+      )
+    })
+
+    // Filter out agent template paths from knowledge files to avoid duplication
+    const filteredKnowledgeFilePaths = knowledgeFilePaths.filter(
+      (filePath) => !filePath.startsWith(AGENT_TEMPLATES_DIR)
+    )
+
+    const knowledgeFiles = getExistingFiles(filteredKnowledgeFilePaths)
     const knowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(knowledgeFiles)
+
+    // Load agent template files
+    const agentTemplateFiles = getExistingFiles(agentTemplatePaths)
+    const agentTemplateFilesWithScrapedContent =
+      await addScrapedContentToFiles(agentTemplateFiles)
 
     // Get knowledge files from user's home directory
     const homeDir = os.homedir()
@@ -278,6 +304,7 @@ export const getProjectFileContext = async (
       fileTokenScores: tokenScores,
       tokenCallers,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
+      agentTemplates: agentTemplateFilesWithScrapedContent,
       shellConfigFiles,
       systemInfo: getSystemInfo(),
       userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,

@@ -27,10 +27,10 @@ export type AgentTemplate = {
   stopSequences: string[]
   spawnableAgents: AgentTemplateType[]
 
-  initialAssistantMessage: string
-  initialAssistantPrefix: string
-  stepAssistantMessage: string
-  stepAssistantPrefix: string
+  initialAssistantMessage: string | undefined
+  initialAssistantPrefix: string | undefined
+  stepAssistantMessage: string | undefined
+  stepAssistantPrefix: string | undefined
 
   systemPrompt: string
   userInputPrompt: string
@@ -118,6 +118,6 @@ export const baseAgentStopSequences: string[] = closeXmlTags([
 export const baseAgentSpawnableAgents: AgentTemplateType[] = [
   AgentTemplateTypes.file_picker,
   AgentTemplateTypes.researcher,
-  // AgentTemplateTypes.planner,
+  AgentTemplateTypes.thinker,
   AgentTemplateTypes.reviewer,
 ] as const

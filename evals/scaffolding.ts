@@ -1,5 +1,5 @@
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
-import { ClientToolCall } from '@codebuff/backend/tools'
+import { ClientToolCall } from '@codebuff/backend/tools/constants'
 import {
   requestFiles as originalRequestFiles,
   requestToolCall as originalRequestToolCall,
@@ -136,6 +136,7 @@ export async function getProjectFileContext(
     knowledgeFiles,
     fileTokenScores,
     fileTree,
+    agentTemplates: {},
   }
 }
 

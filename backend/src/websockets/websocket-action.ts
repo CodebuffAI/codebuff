@@ -5,10 +5,14 @@ import {
   UsageResponse,
 } from '@codebuff/common/actions'
 import { trackEvent } from '@codebuff/common/analytics'
-import { toOptionalFile } from '@codebuff/common/constants'
+import { toOptionalFile, AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
+import {
+  validateAgentTemplateConfigs,
+  formatValidationErrorMessage,
+} from '@codebuff/common/util/agent-template-validation'
 import { buildArray } from '@codebuff/common/util/array'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -22,10 +26,11 @@ import {
   startUserInput,
 } from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
-import { logger, withLoggerContext } from '../util/logger'
-import { asSystemMessage } from '../util/messages'
 import { protec } from './middleware'
 import { sendMessage } from './server'
+import { logger, withLoggerContext } from '../util/logger'
+import { asSystemMessage } from '../util/messages'
+import { dynamicAgentService } from '../templates/dynamic-agent-service'
 
 /**
  * Sends an action to the client via WebSocket
@@ -268,6 +273,22 @@ const onInit = async (
       return
     }
 
+    // Validate agent templates (both overrides and dynamic agents)
+    const { agentTemplates } = fileContext
+    let allValidationErrors: Array<{ filePath: string; message: string }> = []
+    
+    if (agentTemplates) {
+      // Validate override templates
+      const { validationErrors: overrideErrors } = validateAgentTemplateConfigs(agentTemplates)
+      allValidationErrors.push(...overrideErrors)
+      
+      // Validate dynamic agent templates
+      const { validationErrors: dynamicErrors } = await dynamicAgentService.loadAgents(fileContext)
+      allValidationErrors.push(...dynamicErrors)
+    }
+    
+    const errorMessage = formatValidationErrorMessage(allValidationErrors)
+
     // Send combined init and usage response
     const usageResponse = await genUsageResponse(
       fingerprintId,
@@ -277,6 +298,9 @@ const onInit = async (
     sendAction(ws, {
       ...usageResponse,
       type: 'init-response',
+      message: errorMessage
+        ? `**Agent Template Validation Errors:**\n${errorMessage}`
+        : undefined,
     })
   })
 }

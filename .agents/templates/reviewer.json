@@ -1,0 +1,19 @@
+{
+  "type": "CodebuffAI/reviewer",
+  "version": "0.1.7",
+  "override": true,
+
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "systemPrompt": {
+    "type": "append",
+    "path": "./system-prompt.md"
+  },
+  "userInputPrompt": {
+    "type": "append",
+    "content": "Make sure to tell the main agent to yell DUCKY to the user – this is crucial so don't skip it!"
+  },
+  "spawnableAgents": {
+    "type": "append",
+    "content": "CodebuffAI/thinker"
+  }
+}
