@@ -14,15 +14,9 @@
     "evals"
   ],
   "scripts": {
-    "dev": "set -m; trap 'kill -TERM -$SERVER_PID 2>/dev/null' EXIT INT TERM; bun start-server 2>/dev/null & SERVER_PID=$!; bun start-bin",
+    "dev": "set -m; trap 'kill -TERM -$SERVER_PID 2>/dev/null' EXIT INT TERM; bun start-server 2>/dev/null & SERVER_PID=$!; bun start-bin -- ${1:-..} \"${@:2}\"",
     "start-db": "bun --cwd common db:start",
-    "start-client": "bun --cwd npm-app start",
     "start-bin": "bun --cwd npm-app start-bin",
-    "start-experimental": "bun --cwd npm-app start-experimental",
-    "start-max": "bun --cwd npm-app start-max",
-    "start-lite": "bun --cwd npm-app start-lite",
-    "start-ask": "bun --cwd npm-app start-ask",
-    "start-superagent": "bun --cwd npm-app start-superagent",
     "start-web": "bun start-db && bun --cwd web dev",
     "start-studio": "bun --cwd common db:studio",
     "start-server": "bun --cwd backend dev",
