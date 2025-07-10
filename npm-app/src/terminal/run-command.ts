@@ -41,9 +41,16 @@ function applyColorHints(cmd: string): string {
 
   /* ---------- git -------------------------------------------------- */
   if (/^\s*git\b/.test(cmd) && !/--color\b/.test(cmd)) {
-    if (/\bdiff\b/.test(cmd)) return `${cmd} --color=always`
-    if (/\blog\b/.test(cmd)) return `${cmd} --color=always`
-    if (/\bshow\b/.test(cmd)) return `${cmd} --color=always`
+    if (/\bdiff\b/.test(cmd)) {
+      // Insert --color=always after 'git diff' but before any file paths or other args
+      return cmd.replace(/^(\s*git\s+diff)/, '$1 --color=always')
+    }
+    if (/\blog\b/.test(cmd)) {
+      return cmd.replace(/^(\s*git\s+log)/, '$1 --color=always')
+    }
+    if (/\bshow\b/.test(cmd)) {
+      return cmd.replace(/^(\s*git\s+show)/, '$1 --color=always')
+    }
   }
 
   /* ---------- grep / ripgrep --------------------------------------- */
@@ -174,7 +181,8 @@ function createWrapperScript(
 
   const shebang = shell === 'zsh' ? '#!/usr/bin/env zsh' : '#!/usr/bin/env bash'
 
-  const aliasEnable = shell === 'zsh' ? 'setopt aliases' : 'shopt -s expand_aliases'
+  const aliasEnable =
+    shell === 'zsh' ? 'setopt aliases' : 'shopt -s expand_aliases'
 
   writeFileSync(
     scriptPath,
