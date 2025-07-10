@@ -6,7 +6,7 @@ import { openrouterModels } from '@codebuff/common/constants'
 
 describe('processAgentOverrides', () => {
   const mockBaseTemplate: AgentTemplate = {
-    type: AgentTemplateTypes.reviewer,
+    id: AgentTemplateTypes.reviewer,
     name: 'Test Reviewer',
     description: 'Test description',
     model: openrouterModels.openrouter_claude_3_5_sonnet,
@@ -51,7 +51,7 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/reviewer.json': JSON.stringify({
-          type: 'CodebuffAI/reviewer',
+          id: 'CodebuffAI/reviewer',
           version: '0.1.7',
           override: true,
           model: openrouterModels.openrouter_claude_sonnet_4,
@@ -68,7 +68,7 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/reviewer.json': JSON.stringify({
-          type: 'CodebuffAI/reviewer',
+          id: 'CodebuffAI/reviewer',
           version: '0.1.7',
           override: true,
           systemPrompt: {
@@ -88,7 +88,7 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/reviewer.json': JSON.stringify({
-          type: 'CodebuffAI/reviewer',
+          id: 'CodebuffAI/reviewer',
           version: '0.1.7',
           override: true,
           systemPrompt: {
@@ -109,7 +109,7 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/reviewer.json': JSON.stringify({
-          type: 'CodebuffAI/reviewer',
+          id: 'CodebuffAI/reviewer',
           version: '0.1.7',
           override: true,
           spawnableAgents: {
@@ -141,7 +141,7 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/different-agent.json': JSON.stringify({
-          type: 'CodebuffAI/different-agent',
+          id: 'CodebuffAI/different-agent',
           version: '0.1.7',
           override: true,
           model: openrouterModels.openrouter_claude_sonnet_4,
@@ -158,7 +158,7 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/reviewer.json': JSON.stringify({
-          type: 'CodebuffAI/reviewer',
+          id: 'CodebuffAI/reviewer',
           version: '0.1.7',
           override: true,
           model: 'invalid-model-name',

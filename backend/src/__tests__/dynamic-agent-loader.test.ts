@@ -50,7 +50,7 @@ mock.module('fs', () => ({
   readFileSync: (path: string) => {
     if (path.includes('brainstormer.json')) {
       return JSON.stringify({
-        type: 'brainstormer',
+        id: 'brainstormer',
         version: '1.0.0',
         override: false,
         name: 'Brainy',
@@ -71,7 +71,7 @@ mock.module('fs', () => ({
     }
     if (path.includes('custom.json')) {
       return JSON.stringify({
-        type: 'custom_agent',
+        id: 'custom_agent',
         version: '1.0.0',
         override: false,
         name: 'Custom',
@@ -84,7 +84,7 @@ mock.module('fs', () => ({
     }
     if (path.includes('invalid.json')) {
       return JSON.stringify({
-        type: 'invalid_agent',
+        id: 'invalid_agent',
         version: '1.0.0',
         override: false,
         name: 'Invalid',
@@ -140,7 +140,7 @@ describe('Dynamic Agent Loader', () => {
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('brainstormer')
     expect(result.templates.brainstormer.name).toBe('Brainy')
-    expect(result.templates.brainstormer.type).toBe('brainstormer')
+    expect(result.templates.brainstormer.id).toBe('brainstormer')
   })
 
   it('should skip templates with override: true', async () => {
