@@ -86,7 +86,7 @@ async function getAgentTemplateWithOverrides(
 ): Promise<AgentTemplate> {
   // Initialize registry if needed
   await agentRegistry.initialize(fileContext)
-  
+
   const baseTemplate = agentRegistry.getTemplate(agentType)
   if (!baseTemplate) {
     const availableTypes = agentRegistry.getAvailableTypes()
@@ -129,7 +129,10 @@ export const runAgentStep = async (
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
-  const agentTemplate = await getAgentTemplateWithOverrides(agentType, fileContext)
+  const agentTemplate = await getAgentTemplateWithOverrides(
+    agentType,
+    fileContext
+  )
 
   const { model } = agentTemplate
 
@@ -899,7 +902,10 @@ export const loopAgentSteps = async (
     fileContext,
     agentType,
   } = options
-  const agentTemplate = await getAgentTemplateWithOverrides(agentType, fileContext)
+  const agentTemplate = await getAgentTemplateWithOverrides(
+    agentType,
+    fileContext
+  )
   const {
     initialAssistantMessage,
     initialAssistantPrefix,
@@ -945,14 +951,14 @@ export const loopAgentSteps = async (
         : undefined,
       assistantPrefix:
         currentAssistantPrefix &&
-        await formatPrompt(
+        (await formatPrompt(
           currentAssistantPrefix,
           fileContext,
           currentAgentState,
           agentTemplate.toolNames,
           agentTemplate.spawnableAgents,
           prompt ?? ''
-        ),
+        )),
     })
 
     if (shouldEndTurn) {
@@ -968,8 +974,13 @@ export const loopAgentSteps = async (
     currentPrompt = undefined
     currentParams = undefined
 
+    // Toggle assistant message between the injected step message and nothing.
+    currentAssistantMessage = currentAssistantMessage
+      ? undefined
+      : stepAssistantMessage
+
     // Only set the assistant prefix when no assistant message is injected.
-    if (!currentAssistantMessage || !stepAssistantMessage) {
+    if (!currentAssistantMessage) {
       currentAssistantPrefix = isFirstStep
         ? initialAssistantPrefix
         : stepAssistantPrefix
