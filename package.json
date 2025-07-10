@@ -14,6 +14,7 @@
     "evals"
   ],
   "scripts": {
+    "dev": "set -m; trap 'kill -TERM -$SERVER_PID 2>/dev/null' EXIT INT TERM; bun start-server 2>/dev/null & SERVER_PID=$!; bun start-bin",
     "start-db": "bun --cwd common db:start",
     "start-client": "bun --cwd npm-app start",
     "start-bin": "bun --cwd npm-app start-bin",

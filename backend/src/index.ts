@@ -104,7 +104,6 @@ let shutdownInProgress = false
 function handleShutdown(signal: string) {
   flushAnalytics()
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
-    console.log('\nLocal environment detected. Not awaiting client exits.')
     server.close((error) => {
       console.log('Received error closing server', { error })
     })
