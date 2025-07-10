@@ -107,14 +107,14 @@ type PresentOrAbsent<K extends PropertyKey, V> =
 
 export type CodebuffToolHandlerFunction<T extends NonWIPTool = NonWIPTool> = (
   params: {
-    previousToolCallResult: Promise<any>
+    previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
     state: { [K in string]?: any }
   } & PresentOrAbsent<
     'requestClientToolCall',
     (toolCall: ClientToolCall<T>) => Promise<string>
   >
-) => Promise<{ result: string; state: Record<string, any> }>
+) => { result: Promise<string>; state: Record<string, any> }
 
 /**
  * Each value in this record that:

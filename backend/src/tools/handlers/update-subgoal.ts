@@ -1,18 +1,16 @@
 import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
 import { Subgoal } from './add-subgoal'
 
-export const handleUpdateSubgoal = (async (params: {
-  previousToolCallResult: Promise<any>
+export const handleUpdateSubgoal = ((params: {
+  previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'update_subgoal'>
   state: { agentContext?: Record<string, Subgoal> }
-}): Promise<{
-  result: string
+}): {
+  result: Promise<string>
   state: { agentContext: Record<string, Subgoal> }
-}> => {
-  const { previousToolCallResult, toolCall, state } = params
+} => {
+  const { previousToolCallFinished, toolCall, state } = params
   const { agentContext } = state
-
-  await previousToolCallResult
 
   let messages: string[] = []
   const newAgentContext = { ...agentContext }
@@ -38,7 +36,7 @@ export const handleUpdateSubgoal = (async (params: {
   }
   messages.push('Successfully updated subgoal.')
   return {
-    result: messages.join('\n\n'),
+    result: previousToolCallFinished.then(() => messages.join('\n\n')),
     state: { agentContext: newAgentContext },
   }
 }) satisfies CodebuffToolHandlerFunction<'update_subgoal'>

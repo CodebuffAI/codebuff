@@ -8,20 +8,19 @@ export type Subgoal = {
   logs: string[]
 }
 
-export const handleAddSubgoal = (async (params: {
-  previousToolCallResult: Promise<any>
+export const handleAddSubgoal = ((params: {
+  previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'add_subgoal'>
   state: { agentContext?: Record<string, Subgoal> }
-}): Promise<{
-  result: string
+}): {
+  result: Promise<string>
   state: { agentContext: Record<string, Subgoal> }
-}> => {
-  const { previousToolCallResult, toolCall, state } = params
+} => {
+  const { previousToolCallFinished, toolCall, state } = params
   const { agentContext } = state
 
-  await previousToolCallResult
   return {
-    result: 'Successfully added subgoal.',
+    result: previousToolCallFinished.then(() => 'Successfully added subgoal'),
     state: {
       agentContext: {
         ...agentContext,

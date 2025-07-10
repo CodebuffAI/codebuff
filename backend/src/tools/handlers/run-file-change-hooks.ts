@@ -4,15 +4,19 @@ import {
   CodebuffToolHandlerFunction,
 } from '../constants'
 
-export const handleRunFileChangeHooks = (async (params: {
-  previousToolCallResult: Promise<any>
+export const handleRunFileChangeHooks = ((params: {
+  previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'run_file_change_hooks'>
   requestClientToolCall: (
     toolCall: ClientToolCall<'run_file_change_hooks'>
   ) => Promise<string>
-}): Promise<{ result: string; state: {} }> => {
-  const { previousToolCallResult, toolCall, requestClientToolCall } = params
+}): { result: Promise<string>; state: {} } => {
+  const { previousToolCallFinished, toolCall, requestClientToolCall } = params
 
-  await previousToolCallResult
-  return { result: await requestClientToolCall(toolCall), state: {} }
+  return {
+    result: previousToolCallFinished.then(() =>
+      requestClientToolCall(toolCall)
+    ),
+    state: {},
+  }
 }) satisfies CodebuffToolHandlerFunction<'run_file_change_hooks'>
