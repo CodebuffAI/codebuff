@@ -63,10 +63,6 @@ export class DynamicAgentService {
 
     try {
       const files = fs.readdirSync(templatesDir)
-      logger.info(
-        { templatesDir, fileCount: files.length },
-        'Loading dynamic agent templates'
-      )
 
       for (const fileName of files) {
         if (!fileName.endsWith('.json')) {
@@ -93,15 +89,6 @@ export class DynamicAgentService {
     }
 
     this.isLoaded = true
-
-    logger.info(
-      {
-        loadedAgents: Object.keys(this.templates).length,
-        validationErrors: this.validationErrors.length,
-        agentTypes: Object.keys(this.templates),
-      },
-      'Dynamic agent loading complete'
-    )
 
     return {
       templates: this.templates,
@@ -218,11 +205,6 @@ export class DynamicAgentService {
       }
 
       this.templates[dynamicAgent.id] = agentTemplate
-
-      logger.debug(
-        { agentType: dynamicAgent.id, filePath: relativeFilePath },
-        'Loaded dynamic agent'
-      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error'

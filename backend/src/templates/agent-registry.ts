@@ -22,7 +22,6 @@ class AgentRegistry {
     if (this.isInitialized) {
       return
     }
-    logger.info('Initializing global agent registry')
 
     // Load dynamic agents using the service
     const { templates: dynamicTemplates, validationErrors } =
@@ -66,17 +65,6 @@ class AgentRegistry {
     }
 
     this.isInitialized = true
-
-    logger.info(
-      {
-        totalAgents: Object.keys(this.allTemplates).length,
-        staticAgents: Object.keys(staticTemplates).length,
-        dynamicAgents: Object.keys(dynamicTemplates).length,
-        agentTypes: Object.keys(this.allTemplates),
-        validationErrors: this.validationErrors.length,
-      },
-      'Agent registry initialized'
-    )
 
     if (this.validationErrors.length > 0) {
       logger.warn(
