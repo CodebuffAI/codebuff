@@ -3,7 +3,7 @@
     "type": "CodebuffAI/reviewer",
     "version": "0.1.7",
 
-    "model": "claude-sonnet-4-20250514",
+    "model": "anthropic/claude-sonnet-4",
     "systemPrompt": {
       "type": "append",
       "path": "./system-prompt.md"
@@ -14,7 +14,7 @@
     },
     "spawnableAgents": {
       "type": "append",
-      "content": "MyOrg/secret-agent3"
+      "content": "CodebuffAI/thinker"
     }
   }
 }

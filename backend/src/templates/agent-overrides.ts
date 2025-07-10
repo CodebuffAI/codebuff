@@ -1,13 +1,16 @@
 import path from 'path'
 
-import { AGENT_TEMPLATES_DIR, Model } from '@codebuff/common/constants'
+import { Model } from '@codebuff/common/constants'
 import {
   AgentOverrideConfig,
-  AgentOverrideConfigSchema,
   PromptOverride,
   ArrayOverride,
 } from '@codebuff/common/types/agent-overrides'
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
+import {
+  validateAgentTemplateConfigs,
+  formatValidationErrorMessage,
+} from '@codebuff/common/util/agent-template-validation'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 
 import { AgentTemplate } from './types'
@@ -20,7 +23,21 @@ export function processAgentOverrides(
   baseTemplate: AgentTemplate,
   fileContext: ProjectFileContext
 ): AgentTemplate {
-  const overrideFiles = findOverrideFiles(baseTemplate.type, fileContext)
+  const { overrideFiles, validationErrors } = findOverrideFiles(
+    baseTemplate.type,
+    fileContext
+  )
+
+  // Send validation errors to client if any
+  // if (validationErrors.length > 0 && ws && userInputId) {
+  //   const errorMessage = formatValidationErrorMessage(validationErrors)
+  //   sendAction(ws, {
+  //     type: 'response-chunk',
+  //     userInputId,
+  //     chunk: `\n\n**Agent Template Validation Errors:**\n${errorMessage}\n\n`
+  //   })
+  // }
+
   if (overrideFiles.length === 0) {
     return baseTemplate
   }
@@ -28,7 +45,8 @@ export function processAgentOverrides(
   try {
     // Apply overrides in order (later files override earlier ones)
     return overrideFiles.reduce(
-      (template, overrideFile) => applyOverride(template, overrideFile, fileContext),
+      (template, overrideFile) =>
+        applyOverride(template, overrideFile, fileContext),
       { ...baseTemplate }
     )
   } catch (error) {
@@ -46,35 +64,22 @@ export function processAgentOverrides(
 function findOverrideFiles(
   agentType: AgentTemplateType,
   fileContext: ProjectFileContext
-): Array<{ path: string; config: AgentOverrideConfig }> {
+): {
+  overrideFiles: Array<{ path: string; config: AgentOverrideConfig }>
+  validationErrors: Array<{ filePath: string; message: string }>
+} {
   const { agentTemplates } = fileContext
-  if (!agentTemplates) return []
+  if (!agentTemplates) return { overrideFiles: [], validationErrors: [] }
 
-  const overrideFiles: Array<{ path: string; config: AgentOverrideConfig }> = []
+  const { validConfigs, validationErrors } =
+    validateAgentTemplateConfigs(agentTemplates)
 
-  for (const [filePath, content] of Object.entries(agentTemplates)) {
-    // Only process .json files in the agent templates directory
-    if (
-      !filePath.startsWith(AGENT_TEMPLATES_DIR) ||
-      !filePath.endsWith('.json')
-    ) {
-      continue
-    }
+  // Filter valid configs for the specific agent type
+  const overrideFiles = validConfigs
+    .filter(({ config }) => shouldApplyOverride(config, agentType))
+    .map(({ filePath, config }) => ({ path: filePath, config }))
 
-    try {
-      const parsedContent = JSON.parse(content)
-      const config = AgentOverrideConfigSchema.parse(parsedContent)
-
-      if (shouldApplyOverride(config, agentType)) {
-        overrideFiles.push({ path: filePath, config })
-      }
-    } catch (error) {
-      // Skip invalid files - validation already done in npm-app
-      continue
-    }
-  }
-
-  return overrideFiles
+  return { overrideFiles, validationErrors }
 }
 
 /**
@@ -106,7 +111,7 @@ function applyOverride(
   if (override.model) {
     result.model = override.model as Model
   }
-  
+
   if (override.systemPrompt) {
     result.systemPrompt = applyPromptOverride(
       result.systemPrompt,
@@ -115,7 +120,7 @@ function applyOverride(
       overrideFile.path
     )
   }
-  
+
   if (override.userInputPrompt) {
     result.userInputPrompt = applyPromptOverride(
       result.userInputPrompt,
@@ -124,7 +129,7 @@ function applyOverride(
       overrideFile.path
     )
   }
-  
+
   if (override.agentStepPrompt) {
     result.agentStepPrompt = applyPromptOverride(
       result.agentStepPrompt,
@@ -133,14 +138,14 @@ function applyOverride(
       overrideFile.path
     )
   }
-  
+
   if (override.spawnableAgents) {
     result.spawnableAgents = applyArrayOverride(
       result.spawnableAgents,
       override.spawnableAgents
     ) as AgentTemplateType[]
   }
-  
+
   if (override.toolNames) {
     result.toolNames = applyArrayOverride(
       result.toolNames,

@@ -120,12 +120,12 @@ export const runAgentStep = async (
 
   const startTime = Date.now()
   let messageHistory = agentState.messageHistory
-
   // Get the extracted repo ID from request context
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
   const agentTemplate = getAgentTemplateWithOverrides(agentType, fileContext)
+
   const { model } = agentTemplate
 
   const getStream = getAgentStreamFromTemplate({

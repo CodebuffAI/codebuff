@@ -6,7 +6,11 @@ import { promisify } from 'util'
 import { Worker } from 'worker_threads'
 
 import { getFileTokenScores } from '@codebuff/code-map'
-import { FILE_READ_STATUS, toOptionalFile, AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import {
+  FILE_READ_STATUS,
+  toOptionalFile,
+  AGENT_TEMPLATES_DIR,
+} from '@codebuff/common/constants'
 
 import {
   flattenTree,
@@ -255,30 +259,28 @@ export const getProjectFileContext = async (
         lowercaseFilePath === codebuffConfigFileBackup.toLowerCase()
       )
     })
-    
+
     // Separate agent template files from knowledge files
     const agentTemplatePaths = allFilePaths.filter((filePath) => {
       const lowercaseFilePath = filePath.toLowerCase()
       return (
-        filePath.startsWith(AGENT_TEMPLATES_DIR) && 
-        (lowercaseFilePath.endsWith('.json') || lowercaseFilePath.endsWith('.md'))
+        filePath.startsWith(AGENT_TEMPLATES_DIR) &&
+        (lowercaseFilePath.endsWith('.json') ||
+          lowercaseFilePath.endsWith('.md'))
       )
     })
-    
+
     // Filter out agent template paths from knowledge files to avoid duplication
     const filteredKnowledgeFilePaths = knowledgeFilePaths.filter(
       (filePath) => !filePath.startsWith(AGENT_TEMPLATES_DIR)
     )
-    
+
     const knowledgeFiles = getExistingFiles(filteredKnowledgeFilePaths)
     const knowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(knowledgeFiles)
-    
-    // Load and validate agent template files
-    const agentTemplateFiles = validateAgentTemplateFiles(
-      getExistingFiles(agentTemplatePaths), 
-      logger
-    )
+
+    // Load agent template files
+    const agentTemplateFiles = getExistingFiles(agentTemplatePaths)
     const agentTemplateFilesWithScrapedContent =
       await addScrapedContentToFiles(agentTemplateFiles)
 

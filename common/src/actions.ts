@@ -83,6 +83,7 @@ export type UsageResponse = z.infer<typeof UsageReponseSchema>
 export const InitResponseSchema = z
   .object({
     type: z.literal('init-response'),
+    message: z.string().optional(),
   })
   .merge(
     UsageReponseSchema.omit({

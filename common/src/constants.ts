@@ -5,6 +5,9 @@ export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 // Directory where agent template override files are stored
 export const AGENT_TEMPLATES_DIR = '.agents/templates/'
 
+// Allowed model prefixes for validation
+export const ALLOWED_MODEL_PREFIXES = ['anthropic', 'openai', 'google'] as const
+
 export const DEFAULT_IGNORED_PATHS = [
   '.git',
   '.env',
