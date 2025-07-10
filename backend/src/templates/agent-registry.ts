@@ -1,7 +1,9 @@
+import { AGENT_NAMES } from '@codebuff/common/constants/agents'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { AgentTemplate, AgentTemplateUnion } from './types'
+
 import { agentTemplates as staticTemplates } from './agent-list'
 import { dynamicAgentService } from './dynamic-agent-service'
+import { AgentTemplate, AgentTemplateUnion } from './types'
 import { logger } from '../util/logger'
 
 /**
@@ -21,38 +23,48 @@ class AgentRegistry {
       return
     }
     logger.info('Initializing global agent registry')
-    
+
     // Load dynamic agents using the service
-    const { templates: dynamicTemplates, validationErrors } = await dynamicAgentService.loadAgents(fileContext)
-    
+    const { templates: dynamicTemplates, validationErrors } =
+      await dynamicAgentService.loadAgents(fileContext)
+
     // Combine static and dynamic templates
     const allTemplates = { ...staticTemplates, ...dynamicTemplates }
     const allAgentTypes = Object.keys(allTemplates)
-    
+
     // Update base agent templates to include all available agents
     const updatedTemplates = { ...allTemplates }
-    const baseAgentTypes = ['base', 'base_lite', 'base_max', 'base_experimental', 'claude4_gemini_thinking', 'ask']
+    const baseAgentTypes = [
+      'base',
+      'base_lite',
+      'base_max',
+      'base_experimental',
+      'claude4_gemini_thinking',
+      'ask',
+    ]
     for (const baseType of baseAgentTypes) {
       if (updatedTemplates[baseType]) {
         updatedTemplates[baseType] = {
           ...updatedTemplates[baseType],
-          spawnableAgents: allAgentTypes as any[]
+          spawnableAgents: allAgentTypes as any[],
         }
       }
     }
-    
+
     this.allTemplates = updatedTemplates
     this.validationErrors = validationErrors
-    
+
     // Build combined agent names map (static + dynamic)
     this.allAgentNames = {
-      ...require('@codebuff/common/constants/agents').AGENT_NAMES,
+      ...AGENT_NAMES,
       ...Object.fromEntries(
-        Object.entries(dynamicTemplates)
-          .map(([type, template]) => [type, template.name])
-      )
+        Object.entries(dynamicTemplates).map(([type, template]) => [
+          type,
+          template.name,
+        ])
+      ),
     }
-    
+
     this.isInitialized = true
 
     logger.info(
@@ -61,7 +73,7 @@ class AgentRegistry {
         staticAgents: Object.keys(staticTemplates).length,
         dynamicAgents: Object.keys(dynamicTemplates).length,
         agentTypes: Object.keys(this.allTemplates),
-        validationErrors: this.validationErrors.length
+        validationErrors: this.validationErrors.length,
       },
       'Agent registry initialized'
     )
@@ -79,10 +91,9 @@ class AgentRegistry {
    */
   getAgentName(agentType: string): string | undefined {
     if (!this.isInitialized) {
-      const { AGENT_NAMES } = require('@codebuff/common/constants/agents')
-      return AGENT_NAMES[agentType]
+      return AGENT_NAMES[agentType as keyof typeof AGENT_NAMES]
     }
-    
+
     return this.allAgentNames[agentType]
   }
 
@@ -91,9 +102,9 @@ class AgentRegistry {
    */
   getAllAgentNames(): Record<string, string> {
     if (!this.isInitialized) {
-      return require('@codebuff/common/constants/agents').AGENT_NAMES
+      return AGENT_NAMES
     }
-    
+
     return { ...this.allAgentNames }
   }
 
@@ -102,10 +113,12 @@ class AgentRegistry {
    */
   getTemplate(agentType: string): AgentTemplateUnion | undefined {
     if (!this.isInitialized) {
-      logger.warn('Agent registry not initialized, falling back to static templates only')
+      logger.warn(
+        'Agent registry not initialized, falling back to static templates only'
+      )
       return staticTemplates[agentType as keyof typeof staticTemplates]
     }
-    
+
     return this.allTemplates[agentType]
   }
 
@@ -114,10 +127,12 @@ class AgentRegistry {
    */
   getAllTemplates(): Record<string, AgentTemplateUnion> {
     if (!this.isInitialized) {
-      logger.warn('Agent registry not initialized, falling back to static templates only')
+      logger.warn(
+        'Agent registry not initialized, falling back to static templates only'
+      )
       return staticTemplates
     }
-    
+
     return { ...this.allTemplates }
   }
 
@@ -135,7 +150,7 @@ class AgentRegistry {
     if (!this.isInitialized) {
       return agentType in staticTemplates
     }
-    
+
     return agentType in this.allTemplates
   }
 
@@ -146,7 +161,7 @@ class AgentRegistry {
     if (!this.isInitialized) {
       return Object.keys(staticTemplates)
     }
-    
+
     return Object.keys(this.allTemplates)
   }
 

@@ -31,6 +31,7 @@ import { sendMessage } from './server'
 import { logger, withLoggerContext } from '../util/logger'
 import { asSystemMessage } from '../util/messages'
 import { dynamicAgentService } from '../templates/dynamic-agent-service'
+import { agentRegistry } from '../templates/agent-registry'
 
 /**
  * Sends an action to the client via WebSocket
@@ -276,18 +277,24 @@ const onInit = async (
     // Validate agent templates (both overrides and dynamic agents)
     const { agentTemplates } = fileContext
     let allValidationErrors: Array<{ filePath: string; message: string }> = []
-    
+
     if (agentTemplates) {
       // Validate override templates
-      const { validationErrors: overrideErrors } = validateAgentTemplateConfigs(agentTemplates)
+      const { validationErrors: overrideErrors } =
+        validateAgentTemplateConfigs(agentTemplates)
       allValidationErrors.push(...overrideErrors)
-      
+
       // Validate dynamic agent templates
-      const { validationErrors: dynamicErrors } = await dynamicAgentService.loadAgents(fileContext)
+      const { validationErrors: dynamicErrors } =
+        await dynamicAgentService.loadAgents(fileContext)
       allValidationErrors.push(...dynamicErrors)
     }
-    
+
     const errorMessage = formatValidationErrorMessage(allValidationErrors)
+
+    // Get all agent names (static + dynamic) for frontend
+    await agentRegistry.initialize(fileContext)
+    const allAgentNames = agentRegistry.getAllAgentNames()
 
     // Send combined init and usage response
     const usageResponse = await genUsageResponse(
@@ -301,6 +308,7 @@ const onInit = async (
       message: errorMessage
         ? `**Agent Template Validation Errors:**\n${errorMessage}`
         : undefined,
+      agentNames: allAgentNames,
     })
   })
 }

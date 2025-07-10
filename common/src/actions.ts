@@ -84,6 +84,7 @@ export const InitResponseSchema = z
   .object({
     type: z.literal('init-response'),
     message: z.string().optional(),
+    agentNames: z.record(z.string(), z.string()).optional(),
   })
   .merge(
     UsageReponseSchema.omit({

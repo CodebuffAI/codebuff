@@ -172,6 +172,7 @@ export class Client {
       boolean
     >
   public isInitializing: boolean = false
+  public agentNames: Record<string, string> = {}
 
   private constructor({
     websocketUrl,
@@ -219,11 +220,14 @@ export class Client {
     return Client.instance
   }
 
-  public static getInstance(): Client {
+  public static getInstance(shouldThrow = true): Client | null {
     if (!Client.instance) {
-      throw new Error(
-        'Client instance has not been created yet. Call createInstance() first.'
-      )
+      if (shouldThrow) {
+        throw new Error(
+          'Client instance has not been created yet. Call createInstance() first.'
+        )
+      }
+      return null
     }
     return Client.instance
   }
@@ -1467,6 +1471,11 @@ Go to https://www.codebuff.com/config for more information.`) +
     this.webSocket.subscribe('init-response', (a) => {
       const parsedAction = InitResponseSchema.safeParse(a)
       if (!parsedAction.success) return
+
+      // Store agent names for tool renderer
+      if (parsedAction.data.agentNames) {
+        this.agentNames = parsedAction.data.agentNames
+      }
 
       // Log the message if it's defined
       if (parsedAction.data.message) {

@@ -6,6 +6,7 @@ import { bold, gray, strikethrough } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
 import { Spinner } from './spinner'
+import { Client } from '../client'
 
 /**
  * Interface for handling tool call rendering
@@ -270,18 +271,17 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
               .map((props: any) => {
                 const agentType = props?.agent_type
                 const prompt = props?.prompt
-                // Show agent name, title, and description if available
-                const metadata =
-                  agentType &&
+                // Try to get agent name from client's stored names (includes dynamic agents),
+                // fallback to static personas, then agent type
+                const client = Client.getInstance(false) // Don't throw if not initialized
+                const agentName =
+                  (client?.agentNames && client.agentNames[agentType]) ||
                   AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
-                const agentName = metadata
-                  ? metadata.name
-                  : agentType || 'Agent'
-                const agentTitle = metadata ? metadata.title : ''
+                    ?.name ||
+                  agentType ||
+                  'Agent'
 
-                const displayTitle = agentTitle ? ` ${agentTitle}` : ''
-
-                return `@${bold(agentName)}${bold(displayTitle)}:\n${prompt || 'No prompt provided'}`
+                return `@${bold(agentName)}:\n${prompt || 'No prompt provided'}`
               })
               .join('\n\n') + '\n'
           )
