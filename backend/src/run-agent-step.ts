@@ -25,18 +25,15 @@ import { checkLiveUserInput } from './live-user-inputs'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
+import { runProgrammaticAgent } from './run-programmatic-agent'
 import { runToolInner } from './run-tool'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { agentTemplates } from './templates/agent-list'
 import { processAgentOverrides } from './templates/agent-overrides'
+import { agentRegistry } from './templates/agent-registry'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
 import { AgentTemplateUnion } from './templates/types'
-import {
-  ProgrammaticAgentTemplate,
-  AgentTemplate as LLMAgentTemplate,
-} from './templates/types'
-import { runProgrammaticAgent } from './run-programmatic-agent'
 import {
   parseRawToolCall,
   ToolCallError,
@@ -63,7 +60,6 @@ import {
   requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
-import { agentRegistry } from './templates/agent-registry'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -347,6 +343,7 @@ export const runAgentStep = async (
   const agentMessages = getCoreMessagesSubset(
     agentMessagesUntruncated,
     systemTokens
+    // agentTemplate.model !== models.openrouter_grok_4
   )
 
   const debugPromptCaching = false

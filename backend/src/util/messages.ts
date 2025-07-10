@@ -4,15 +4,15 @@ import {
   withCacheControlCore,
 } from '@codebuff/common/util/messages'
 
+import { buildArray } from '@codebuff/common/util/array'
+import { closeXml } from '@codebuff/common/util/xml'
 import { CoreMessage } from 'ai'
 import { AssertionError } from 'assert'
-import { buildArray } from '@codebuff/common/util/array'
 import { System } from '../llm-apis/claude'
 import { OpenAIMessage } from '../llm-apis/openai-api'
 import { logger } from './logger'
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
-import { closeXml } from '@codebuff/common/util/xml'
 
 /**
  * Wraps an array of messages with a system prompt for LLM API calls
@@ -364,7 +364,8 @@ export function trimCoreMessagesToFitTokenLimit(
 
 export function getCoreMessagesSubset(
   messages: CodebuffMessage[],
-  otherTokens: number
+  otherTokens: number,
+  includeCacheControl: boolean = true
 ): CodebuffMessage[] {
   const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
     JSON.stringify(content).includes('COMPLETE')
@@ -380,6 +381,7 @@ export function getCoreMessagesSubset(
   // Remove cache_control from all messages
   for (const message of messagesSubset) {
     delete message.providerOptions?.anthropic?.cacheControl
+    delete message.providerOptions?.openrouter?.cacheControl
   }
 
   // Cache up to the last message!
@@ -393,6 +395,10 @@ export function getCoreMessagesSubset(
       },
       'No last message found in messagesSubset!'
     )
+    return messagesSubset
+  }
+
+  if (!includeCacheControl) {
     return messagesSubset
   }
 
