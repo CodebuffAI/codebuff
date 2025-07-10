@@ -733,18 +733,6 @@ export const runAgentStep = async (
   )
   clientToolCalls.unshift(...changeToolCalls)
 
-  // If there were file changes, automatically run file change hooks once at the end
-  if (fileChanges.length > 0) {
-    const changedFilePaths = fileChanges.map(({ path }) => path)
-    clientToolCalls.push({
-      toolName: 'run_file_change_hooks',
-      toolCallId: generateCompactId(),
-      args: {
-        files: changedFilePaths,
-      },
-    })
-  }
-
   const newAgentContext = await agentContextPromise
 
   let finalMessageHistory = expireMessages(messagesWithResponse, 'agentStep')
