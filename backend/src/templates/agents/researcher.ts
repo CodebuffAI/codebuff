@@ -9,6 +9,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 export const researcher = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
   name: AGENT_PERSONAS['researcher'].name,
+  implementation: 'llm',
   description: AGENT_PERSONAS['researcher'].description,
   promptSchema: {
     prompt: z.string().describe('A question you would like answered using web search and documentation'),

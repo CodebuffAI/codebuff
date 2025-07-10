@@ -24,7 +24,7 @@ import { checkLiveUserInput } from './live-user-inputs'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
-import { runTool } from './run-tool'
+import { runToolInner } from './run-tool'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { agentTemplates } from './templates/agent-list'
@@ -119,10 +119,15 @@ export const runAgentStep = async (
   }
 
   if (agentTemplate.implementation === 'programmatic') {
-    return runProgrammaticAgent(
+    const agentState = await runProgrammaticAgent(
       agentTemplate as unknown as ProgrammaticAgentTemplate,
-      options
+      { ...options, ws }
     )
+    return {
+      agentState,
+      shouldEndTurn: true,
+      fullResponse: '',
+    }
   }
 
   // At this point we know it's an LLM agent
@@ -632,7 +637,7 @@ export const runAgentStep = async (
 
     // Use the new runTool function for other tools
     try {
-      const toolResult = await runTool(toolCall, {
+      const toolResult = await runToolInner(toolCall, {
         ws,
         userId,
         userInputId,
@@ -794,7 +799,7 @@ export const runAgentStep = async (
         },
       ]
 
-      const toolResult = await runTool(spawnAgentsToolCall, {
+      const toolResult = await runToolInner(spawnAgentsToolCall, {
         ws,
         userId,
         userInputId,

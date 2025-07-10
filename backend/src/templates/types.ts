@@ -61,13 +61,10 @@ export interface ProgrammaticAgentContext {
   params: any
 }
 
-// What programmatic agents can return
-export type ProgrammaticAgentResult = string | Record<string, any>
-
 // The generator function signature
 export type ProgrammaticAgentFunction = (
   context: ProgrammaticAgentContext
-) => Generator<CodebuffToolCall, ProgrammaticAgentResult, ToolResult>
+) => Generator<Omit<CodebuffToolCall, 'toolCallId'>, void, ToolResult>
 
 const placeholderNames = [
   'AGENT_NAME',

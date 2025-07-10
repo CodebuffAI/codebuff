@@ -13,12 +13,14 @@ const exampleHandler: ProgrammaticAgentFunction = function* (
   // This is a simple example that just returns a greeting
   const greeting = `Hello! You said: "${context.prompt}"`
 
-  // In a real implementation, you could yield tool calls here:
-  // yield { toolName: 'read_files', toolCallId: 'example', args: { paths: ['README.md'] } }
-  // const toolResult = yield // This would receive the tool result
-
-  // For now, just return the greeting
-  return greeting
+  yield {
+    toolName: 'update_report' as const,
+    args: {
+      json_update: {
+        greeting,
+      },
+    },
+  }
 }
 
 export const exampleProgrammatic: ProgrammaticAgentTemplate = {
@@ -33,6 +35,6 @@ export const exampleProgrammatic: ProgrammaticAgentTemplate = {
     prompt: z.string().optional(),
     params: z.any().optional(),
   },
-  toolNames: baseAgentToolNames,
-  spawnableAgents: baseAgentSpawnableAgents,
+  toolNames: ['update_report'] as const,
+  spawnableAgents: [],
 }

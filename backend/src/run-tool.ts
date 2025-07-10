@@ -20,7 +20,7 @@ import { searchWeb } from './llm-apis/linkup-api'
 import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
 import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
 import { getRequestContext } from './websockets/request-context'
-import { requestFiles } from './websockets/websocket-action'
+import { requestFiles, requestToolCall } from './websockets/websocket-action'
 import { renderReadFilesResult } from './util/parse-tool-call-xml'
 import {
   requestRelevantFiles,
@@ -30,9 +30,12 @@ import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { CoreMessage } from 'ai'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { agentTemplates } from './templates/agent-list'
-import { AgentTemplate } from './templates/types'
+import { AgentTemplate, ProgrammaticAgentTemplate } from './templates/types'
 import { getFileReadingUpdates } from './get-file-reading-updates'
 
+// Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
+// TODO: We might want to be able to turn this on on a per-repo basis.
+const COLLECT_FULL_FILE_CONTEXT = false
 export interface RunToolOptions {
   ws: WebSocket
   userId?: string
@@ -42,7 +45,7 @@ export interface RunToolOptions {
   agentStepId: string
   fileContext: ProjectFileContext
   messages: CoreMessage[]
-  agentTemplate: AgentTemplate
+  agentTemplate: AgentTemplate | ProgrammaticAgentTemplate
   repoId?: string
   // Additional context for update_report
   agentState?: AgentState
@@ -54,14 +57,66 @@ export type RunToolResult =
   | { type: 'no_result' }
   | { type: 'state_update'; result: ToolResult; updatedAgentState: AgentState }
 
-// Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
-// TODO: We might want to be able to turn this on on a per-repo basis.
-const COLLECT_FULL_FILE_CONTEXT = false
+export async function runTool(
+  toolCall: CodebuffToolCall,
+  options: RunToolOptions
+): Promise<ToolResult> {
+  const { ws, userInputId, agentState } = options
+
+  try {
+    // Execute the tool call using runToolInner
+    const toolResult = await runToolInner(toolCall, options)
+
+    if (toolResult.type === 'server_result') {
+      // Direct server result - return as-is
+      return toolResult.result
+    } else if (toolResult.type === 'client_call') {
+      // For client calls, execute them via WebSocket and return the result
+      const clientResult = await requestToolCall(
+        ws,
+        userInputId,
+        toolResult.call.toolName,
+        toolResult.call.args
+      )
+
+      return {
+        toolName: toolResult.call.toolName,
+        toolCallId: toolResult.call.toolCallId,
+        result: clientResult.success
+          ? clientResult.result
+          : clientResult.error ?? 'Unknown error',
+      }
+    } else if (toolResult.type === 'state_update') {
+      if (!agentState) {
+        throw new Error('agentState is required for state_update')
+      }
+      // Update the agent state and return the result
+      Object.assign(agentState, toolResult.updatedAgentState!)
+      return toolResult.result
+    } else {
+      // no_result type - return a success message
+      return {
+        toolName: toolCall.toolName,
+        toolCallId: toolCall.toolCallId,
+        result: 'Tool executed successfully',
+      }
+    }
+  } catch (error) {
+    logger.error({ error, toolCall }, 'Error executing tool call in runTool')
+
+    // Return error as tool result
+    return {
+      toolName: toolCall.toolName,
+      toolCallId: toolCall.toolCallId,
+      result: `Error executing ${toolCall.toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    }
+  }
+}
 
 /**
  * Executes a tool call and returns the appropriate result
  */
-export async function runTool(
+export async function runToolInner(
   toolCall: CodebuffToolCall,
   options: RunToolOptions
 ): Promise<RunToolResult> {
@@ -610,7 +665,9 @@ export async function runTool(
           return {
             ...result,
             agentType,
-            agentName: AGENT_NAMES[agentType] || agentTemplate.name,
+            agentName:
+              (AGENT_NAMES as Record<string, string>)[agentType] ||
+              agentTemplate.name,
           }
         })
       )
@@ -624,7 +681,10 @@ export async function runTool(
           const agentTemplate = agentTemplates[agentState.agentType!]
           let report = ''
 
-          if (agentTemplate.outputMode === 'report') {
+          if (
+            agentTemplate.implementation === 'programmatic' ||
+            agentTemplate.outputMode === 'report'
+          ) {
             report = JSON.stringify(result.value.agentState.report, null, 2)
           } else if (agentTemplate.outputMode === 'last_message') {
             const { agentState } = result.value
@@ -646,7 +706,9 @@ export async function runTool(
             const agentMessages = agentState.messageHistory.slice(1)
             report = `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
           } else {
-            throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
+            throw new Error(
+              `Unknown output mode: ${'outputMode' in agentTemplate ? agentTemplate.outputMode : 'undefined'}`
+            )
           }
 
           return `**${agentName} (@${agentTypeStr}):**\n${report}`

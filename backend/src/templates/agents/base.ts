@@ -15,6 +15,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
   name: AGENT_PERSONAS['base'].name,
+  implementation: 'llm',
   description: AGENT_PERSONAS['base'].description,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),

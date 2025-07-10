@@ -8,6 +8,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 export const thinker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
   name: AGENT_PERSONAS['thinker'].name,
+  implementation: 'llm',
   description: AGENT_PERSONAS['thinker'].description,
   promptSchema: {
     prompt: z.string().describe('The problem you are trying to solve'),
