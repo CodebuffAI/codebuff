@@ -48,7 +48,7 @@ export const agentTemplates: Record<
 
   thinker: {
     id: AgentTemplateTypes.thinker,
-    ...thinker(models.gemini2_5_pro_preview),
+    ...thinker(models.openrouter_grok_4),
   },
   file_picker: {
     id: AgentTemplateTypes.file_picker,
@@ -60,7 +60,7 @@ export const agentTemplates: Record<
   },
   planner: {
     id: AgentTemplateTypes.planner,
-    ...planner(models.gemini2_5_pro_preview),
+    ...planner(models.openrouter_grok_4),
   },
   dry_run: {
     id: AgentTemplateTypes.dry_run,

@@ -6,7 +6,12 @@ export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 export const AGENT_TEMPLATES_DIR = '.agents/templates/'
 
 // Allowed model prefixes for validation
-export const ALLOWED_MODEL_PREFIXES = ['anthropic', 'openai', 'google'] as const
+export const ALLOWED_MODEL_PREFIXES = [
+  'anthropic',
+  'openai',
+  'google',
+  'x-ai',
+] as const
 
 export const DEFAULT_IGNORED_PATHS = [
   '.git',
@@ -189,6 +194,7 @@ export const openrouterModels = {
   openrouter_gemini2_5_flash: 'google/gemini-2.5-flash',
   openrouter_gemini2_5_flash_thinking:
     'google/gemini-2.5-flash-preview:thinking',
+  openrouter_grok_4: 'x-ai/grok-4-07-09',
 } as const
 export type openrouterModel =
   (typeof openrouterModels)[keyof typeof openrouterModels]
@@ -301,6 +307,7 @@ export const providerDomains = {
   anthropic: 'anthropic.com',
   openai: 'chatgpt.com',
   deepseek: 'deepseek.com',
+  xai: 'x.ai',
 } as const
 
 export function getLogoForModel(modelName: string): string | undefined {
@@ -313,6 +320,7 @@ export function getLogoForModel(modelName: string): string | undefined {
   else if (Object.values(deepseekModels).includes(modelName as DeepseekModel))
     domain = providerDomains.deepseek
   else if (modelName.includes('claude')) domain = providerDomains.anthropic
+  else if (modelName.includes('grok')) domain = providerDomains.xai
 
   return domain
     ? `https://www.google.com/s2/favicons?domain=${domain}&sz=256`

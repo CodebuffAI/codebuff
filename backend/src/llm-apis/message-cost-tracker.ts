@@ -61,6 +61,7 @@ const TOKENS_COST_PER_M = {
     [models.openrouter_gpt4o_mini]: 0.15,
     [models.openrouter_o3_mini]: 1.1,
     [models.openrouter_gemini2_5_pro_preview]: 1.25,
+    [models.openrouter_grok_4]: 3.0,
   },
   output: {
     // [models.opus4]: 75,
@@ -89,6 +90,7 @@ const TOKENS_COST_PER_M = {
     [models.openrouter_gpt4o_mini]: 0.6,
     [models.openrouter_o3_mini]: 4.4,
     [models.openrouter_gemini2_5_pro_preview]: 10,
+    [models.openrouter_grok_4]: 15.0,
   },
   cache_creation: {
     // [models.opus4]: 18.75,
@@ -155,6 +157,39 @@ const getGemini25ProPreviewCost = (
   return inputCost + outputCost
 }
 
+/**
+ * Calculates the cost for the Grok 4 model based on its tiered pricing.
+ *
+ * Pricing rules:
+ * - Input tokens:
+ *   - $3.0 per 1 million tokens for the first 128,000 tokens.
+ *   - $6.0 per 1 million tokens for tokens beyond 128,000.
+ * - Output tokens:
+ *   - $15.0 per 1 million tokens if input tokens <= 128,000.
+ *   - $30.0 per 1 million tokens if input tokens > 128,000.
+ *
+ * @param input_tokens The number of input tokens used.
+ * @param output_tokens The number of output tokens generated.
+ * @returns The calculated cost for the API call.
+ */
+const getGrok4Cost = (input_tokens: number, output_tokens: number): number => {
+  let inputCost = 0
+  const tier1Tokens = Math.min(input_tokens, 128_000)
+  const tier2Tokens = Math.max(0, input_tokens - 128_000)
+
+  inputCost += (tier1Tokens * 3.0) / 1_000_000
+  inputCost += (tier2Tokens * 6.0) / 1_000_000
+
+  let outputCost = 0
+  if (input_tokens <= 128_000) {
+    outputCost = (output_tokens * 15.0) / 1_000_000
+  } else {
+    outputCost = (output_tokens * 30.0) / 1_000_000
+  }
+
+  return inputCost + outputCost
+}
+
 const getPerTokenCost = (
   model: string,
   type: keyof typeof TOKENS_COST_PER_M
@@ -176,6 +211,13 @@ const calcCost = (
   if (model === models.gemini2_5_pro_preview) {
     return (
       getGemini25ProPreviewCost(input_tokens, output_tokens) +
+      cache_creation_input_tokens * getPerTokenCost(model, 'cache_creation') +
+      cache_read_input_tokens * getPerTokenCost(model, 'cache_read')
+    )
+  }
+  if (model === models.openrouter_grok_4) {
+    return (
+      getGrok4Cost(input_tokens, output_tokens) +
       cache_creation_input_tokens * getPerTokenCost(model, 'cache_creation') +
       cache_read_input_tokens * getPerTokenCost(model, 'cache_read')
     )
