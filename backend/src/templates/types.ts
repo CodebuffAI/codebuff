@@ -5,16 +5,17 @@ import { ToolName } from '@codebuff/common/constants/tools'
 import {
   AgentTemplateType,
   AgentTemplateTypes,
+  ToolResult,
 } from '@codebuff/common/types/session-state'
 import { closeXmlTags } from '@codebuff/common/util/xml'
-// Removed FallbackProvider import - no longer needed
+import { CodebuffToolCall } from '../tools/constants'
 
 export type AgentTemplate = {
   type: AgentTemplateType
   name: string
   description: string
   model: Model
-  // Fallback providers removed - all models now use ai-sdk directly
+  implementation: 'llm'
   // Required parameters for spawning this agent.
   promptSchema: {
     prompt?: z.ZodSchema<string | undefined>
@@ -35,6 +36,35 @@ export type AgentTemplate = {
   userInputPrompt: string
   agentStepPrompt: string
 }
+
+export interface ProgrammaticAgentTemplate {
+  type: AgentTemplateType
+  implementation: 'programmatic'
+  name: string
+  description: string
+  handler: ProgrammaticAgentFunction // Direct generator function. TODO: replace with path to a file or string of source code?
+  includeMessageHistory: boolean
+  promptSchema: {
+    prompt?: z.ZodSchema<string | undefined>
+    params?: z.ZodSchema<any>
+  }
+  toolNames: ToolName[] // Tools this programmatic agent can use
+  spawnableAgents: AgentTemplateType[] // Agents it can spawn
+}
+
+// Union type for all agent templates
+export type AgentTemplateUnion = AgentTemplate | ProgrammaticAgentTemplate
+
+// Context passed to programmatic agents
+export interface ProgrammaticAgentContext {
+  prompt: string
+  params: any
+}
+
+// The generator function signature
+export type ProgrammaticAgentFunction = (
+  context: ProgrammaticAgentContext
+) => Generator<Omit<CodebuffToolCall, 'toolCallId'>, void, ToolResult>
 
 const placeholderNames = [
   'AGENT_NAME',

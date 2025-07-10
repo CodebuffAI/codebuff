@@ -25,13 +25,18 @@ import { checkLiveUserInput } from './live-user-inputs'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
-import { runTool } from './run-tool'
+import { runToolInner } from './run-tool'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { agentTemplates } from './templates/agent-list'
 import { processAgentOverrides } from './templates/agent-overrides'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
-import { AgentTemplate } from './templates/types'
+import { AgentTemplateUnion } from './templates/types'
+import {
+  ProgrammaticAgentTemplate,
+  AgentTemplate as LLMAgentTemplate,
+} from './templates/types'
+import { runProgrammaticAgent } from './run-programmatic-agent'
 import {
   parseRawToolCall,
   ToolCallError,
@@ -83,7 +88,7 @@ export interface AgentOptions {
 async function getAgentTemplateWithOverrides(
   agentType: AgentTemplateType,
   fileContext: ProjectFileContext
-): Promise<AgentTemplate> {
+): Promise<AgentTemplateUnion> {
   // Initialize registry if needed
   await agentRegistry.initialize(fileContext)
 
@@ -93,6 +98,11 @@ async function getAgentTemplateWithOverrides(
     throw new Error(
       `Agent template not found for type: ${agentType}. Available types: ${availableTypes.join(', ')}`
     )
+  }
+
+  if (baseTemplate.implementation === 'programmatic') {
+    // Programmatic agents cannot be overridden.
+    return baseTemplate
   }
 
   return processAgentOverrides(baseTemplate, fileContext)
@@ -133,6 +143,23 @@ export const runAgentStep = async (
     agentType,
     fileContext
   )
+  if (!agentTemplate) {
+    throw new Error(
+      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
+    )
+  }
+
+  if (agentTemplate.implementation === 'programmatic') {
+    const agentState = await runProgrammaticAgent(agentTemplate, {
+      ...options,
+      ws,
+    })
+    return {
+      agentState,
+      shouldEndTurn: true,
+      fullResponse: '',
+    }
+  }
 
   const { model } = agentTemplate
 
@@ -650,7 +677,7 @@ export const runAgentStep = async (
 
     // Use the new runTool function for other tools
     try {
-      const toolResult = await runTool(toolCall, {
+      const toolResult = await runToolInner(toolCall, {
         ws,
         userId,
         userInputId,
@@ -805,7 +832,7 @@ export const runAgentStep = async (
         },
       ]
 
-      const toolResult = await runTool(spawnAgentsToolCall, {
+      const toolResult = await runToolInner(spawnAgentsToolCall, {
         ws,
         userId,
         userInputId,
@@ -911,7 +938,15 @@ export const loopAgentSteps = async (
     initialAssistantPrefix,
     stepAssistantMessage,
     stepAssistantPrefix,
-  } = agentTemplate
+  } =
+    agentTemplate.implementation === 'llm'
+      ? agentTemplate
+      : {
+          initialAssistantMessage: undefined,
+          initialAssistantPrefix: undefined,
+          stepAssistantMessage: undefined,
+          stepAssistantPrefix: undefined,
+        }
   let isFirstStep = true
   let currentPrompt = prompt
   let currentParams = params

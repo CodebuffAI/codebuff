@@ -1,13 +1,19 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { z } from 'zod'
-import { DynamicAgentTemplateSchema, validateSpawnableAgents } from '@codebuff/common/types/dynamic-agent-template'
-import { AgentTemplateType, AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import {
+  DynamicAgentTemplateSchema,
+  validateSpawnableAgents,
+} from '@codebuff/common/types/dynamic-agent-template'
+import {
+  AgentTemplateType,
+  AgentTemplateTypes,
+} from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
 import { resolvePromptField } from '../util/file-resolver'
 import { logger } from '../util/logger'
-import { AgentTemplate } from './types'
+import { AgentTemplate, AgentTemplateUnion } from './types'
 
 export interface DynamicAgentValidationError {
   filePath: string
@@ -16,7 +22,7 @@ export interface DynamicAgentValidationError {
 }
 
 export interface DynamicAgentLoadResult {
-  templates: Record<string, AgentTemplate>
+  templates: Record<string, AgentTemplateUnion>
   validationErrors: DynamicAgentValidationError[]
 }
 
@@ -32,53 +38,75 @@ export class DynamicAgentService {
   /**
    * Load and validate dynamic agent templates from .agents/templates directory
    */
-  async loadAgents(fileContext: ProjectFileContext): Promise<DynamicAgentLoadResult> {
+  async loadAgents(
+    fileContext: ProjectFileContext
+  ): Promise<DynamicAgentLoadResult> {
     const templatesDir = path.join(fileContext.projectRoot, '.agents/templates')
-    
+
     this.templates = {}
     this.validationErrors = []
 
     if (!fs.existsSync(templatesDir)) {
       logger.debug('No .agents/templates directory found')
       this.isLoaded = true
-      return { templates: this.templates, validationErrors: this.validationErrors }
+      return {
+        templates: this.templates,
+        validationErrors: this.validationErrors,
+      }
     }
 
     // Get available agent types for validation
     const availableAgentTypes = [
       ...Object.values(AgentTemplateTypes),
-      ...Object.keys(this.templates) // Include any already loaded dynamic agents
+      ...Object.keys(this.templates), // Include any already loaded dynamic agents
     ]
 
     try {
       const files = fs.readdirSync(templatesDir)
-      logger.info({ templatesDir, fileCount: files.length }, 'Loading dynamic agent templates')
+      logger.info(
+        { templatesDir, fileCount: files.length },
+        'Loading dynamic agent templates'
+      )
 
       for (const fileName of files) {
         if (!fileName.endsWith('.json')) {
           continue
         }
 
-        await this.loadSingleAgent(templatesDir, fileName, availableAgentTypes, fileContext)
+        await this.loadSingleAgent(
+          templatesDir,
+          fileName,
+          availableAgentTypes,
+          fileContext
+        )
       }
     } catch (error) {
-      logger.error({ templatesDir, error }, 'Failed to read .agents/templates directory')
+      logger.error(
+        { templatesDir, error },
+        'Failed to read .agents/templates directory'
+      )
       this.validationErrors.push({
         filePath: templatesDir,
         message: 'Failed to read templates directory',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       })
     }
 
     this.isLoaded = true
-    
-    logger.info({
-      loadedAgents: Object.keys(this.templates).length,
-      validationErrors: this.validationErrors.length,
-      agentTypes: Object.keys(this.templates)
-    }, 'Dynamic agent loading complete')
 
-    return { templates: this.templates, validationErrors: this.validationErrors }
+    logger.info(
+      {
+        loadedAgents: Object.keys(this.templates).length,
+        validationErrors: this.validationErrors.length,
+        agentTypes: Object.keys(this.templates),
+      },
+      'Dynamic agent loading complete'
+    )
+
+    return {
+      templates: this.templates,
+      validationErrors: this.validationErrors,
+    }
   }
 
   /**
@@ -99,7 +127,10 @@ export class DynamicAgentService {
 
       // Skip override templates (they modify existing agents)
       if (parsedContent.override !== false) {
-        logger.debug({ fileName, override: parsedContent.override }, 'Skipping override template')
+        logger.debug(
+          { fileName, override: parsedContent.override },
+          'Skipping override template'
+        )
         return
       }
 
@@ -107,7 +138,9 @@ export class DynamicAgentService {
       const dynamicAgent = DynamicAgentTemplateSchema.parse(parsedContent)
 
       // Validate spawnable agents
-      const normalizedSpawnableAgents = normalizeAgentNames(dynamicAgent.spawnableAgents)
+      const normalizedSpawnableAgents = normalizeAgentNames(
+        dynamicAgent.spawnableAgents
+      )
       const spawnableValidation = validateSpawnableAgents(
         normalizedSpawnableAgents,
         availableAgentTypes
@@ -117,7 +150,7 @@ export class DynamicAgentService {
         this.validationErrors.push({
           filePath: relativeFilePath,
           message: `Invalid spawnable agents: ${spawnableValidation.invalidAgents.join(', ')}`,
-          details: `Available agents: ${availableAgentTypes.join(', ')}`
+          details: `Available agents: ${availableAgentTypes.join(', ')}`,
         })
         return
       }
@@ -126,6 +159,7 @@ export class DynamicAgentService {
       const agentTemplate: AgentTemplate = {
         type: dynamicAgent.type as AgentTemplateType,
         name: dynamicAgent.name,
+        implementation: 'llm',
         description: dynamicAgent.description,
         model: dynamicAgent.model as any,
         promptSchema: this.convertPromptSchema(dynamicAgent.promptSchema),
@@ -134,10 +168,19 @@ export class DynamicAgentService {
         toolNames: dynamicAgent.toolNames as any[],
         stopSequences: dynamicAgent.stopSequences,
         spawnableAgents: normalizedSpawnableAgents as AgentTemplateType[],
-        
-        systemPrompt: resolvePromptField(dynamicAgent.systemPrompt, fileContext.projectRoot),
-        userInputPrompt: resolvePromptField(dynamicAgent.userInputPrompt, fileContext.projectRoot),
-        agentStepPrompt: resolvePromptField(dynamicAgent.agentStepPrompt, fileContext.projectRoot),
+
+        systemPrompt: resolvePromptField(
+          dynamicAgent.systemPrompt,
+          fileContext.projectRoot
+        ),
+        userInputPrompt: resolvePromptField(
+          dynamicAgent.userInputPrompt,
+          fileContext.projectRoot
+        ),
+        agentStepPrompt: resolvePromptField(
+          dynamicAgent.agentStepPrompt,
+          fileContext.projectRoot
+        ),
 
         initialAssistantMessage: undefined,
         initialAssistantPrefix: undefined,
@@ -147,37 +190,53 @@ export class DynamicAgentService {
 
       // Add optional prompt fields only if they exist
       if (dynamicAgent.initialAssistantMessage) {
-        agentTemplate.initialAssistantMessage = resolvePromptField(dynamicAgent.initialAssistantMessage, fileContext.projectRoot)
+        agentTemplate.initialAssistantMessage = resolvePromptField(
+          dynamicAgent.initialAssistantMessage,
+          fileContext.projectRoot
+        )
       }
-      
+
       if (dynamicAgent.initialAssistantPrefix) {
-        agentTemplate.initialAssistantPrefix = resolvePromptField(dynamicAgent.initialAssistantPrefix, fileContext.projectRoot)
+        agentTemplate.initialAssistantPrefix = resolvePromptField(
+          dynamicAgent.initialAssistantPrefix,
+          fileContext.projectRoot
+        )
       }
-      
+
       if (dynamicAgent.stepAssistantMessage) {
-        agentTemplate.stepAssistantMessage = resolvePromptField(dynamicAgent.stepAssistantMessage, fileContext.projectRoot)
+        agentTemplate.stepAssistantMessage = resolvePromptField(
+          dynamicAgent.stepAssistantMessage,
+          fileContext.projectRoot
+        )
       }
-      
+
       if (dynamicAgent.stepAssistantPrefix) {
-        agentTemplate.stepAssistantPrefix = resolvePromptField(dynamicAgent.stepAssistantPrefix, fileContext.projectRoot)
+        agentTemplate.stepAssistantPrefix = resolvePromptField(
+          dynamicAgent.stepAssistantPrefix,
+          fileContext.projectRoot
+        )
       }
 
       this.templates[dynamicAgent.type] = agentTemplate
-      
-      logger.debug({ agentType: dynamicAgent.type, filePath: relativeFilePath }, 'Loaded dynamic agent')
 
+      logger.debug(
+        { agentType: dynamicAgent.type, filePath: relativeFilePath },
+        'Loaded dynamic agent'
+      )
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
       this.validationErrors.push({
         filePath: relativeFilePath,
         message: 'Failed to load agent template',
-        details: errorMessage
+        details: errorMessage,
       })
-      logger.warn({ fileName, error: errorMessage }, 'Failed to load dynamic agent template')
+      logger.warn(
+        { fileName, error: errorMessage },
+        'Failed to load dynamic agent template'
+      )
     }
   }
-
-
 
   /**
    * Convert dynamic agent prompt schema to internal Zod schema format.
@@ -207,7 +266,10 @@ export class DynamicAgentService {
           default:
             // Fallback to string for unknown types
             result[key] = z.string().describe(field.description)
-            logger.warn({ type: field.type, key }, 'Unknown schema type, defaulting to string')
+            logger.warn(
+              { type: field.type, key },
+              'Unknown schema type, defaulting to string'
+            )
         }
       }
     } else {

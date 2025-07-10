@@ -1,5 +1,5 @@
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { AgentTemplate } from './types'
+import { AgentTemplate, AgentTemplateUnion } from './types'
 import { agentTemplates as staticTemplates } from './agent-list'
 import { dynamicAgentService } from './dynamic-agent-service'
 import { logger } from '../util/logger'
@@ -8,7 +8,7 @@ import { logger } from '../util/logger'
  * Global agent registry that combines static and dynamic agents
  */
 class AgentRegistry {
-  private allTemplates: Record<string, AgentTemplate> = {}
+  private allTemplates: Record<string, AgentTemplateUnion> = {}
   private allAgentNames: Record<string, string> = {}
   private isInitialized = false
   private validationErrors: Array<{ filePath: string; message: string }> = []
@@ -100,7 +100,7 @@ class AgentRegistry {
   /**
    * Get an agent template by type
    */
-  getTemplate(agentType: string): AgentTemplate | undefined {
+  getTemplate(agentType: string): AgentTemplateUnion | undefined {
     if (!this.isInitialized) {
       logger.warn('Agent registry not initialized, falling back to static templates only')
       return staticTemplates[agentType as keyof typeof staticTemplates]
@@ -112,7 +112,7 @@ class AgentRegistry {
   /**
    * Get all available agent templates
    */
-  getAllTemplates(): Record<string, AgentTemplate> {
+  getAllTemplates(): Record<string, AgentTemplateUnion> {
     if (!this.isInitialized) {
       logger.warn('Agent registry not initialized, falling back to static templates only')
       return staticTemplates

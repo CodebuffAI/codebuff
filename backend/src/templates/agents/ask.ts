@@ -12,6 +12,7 @@ import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 export const ask = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
   name: AGENT_PERSONAS['ask'].name,
+  implementation: 'llm',
   description: 'Base ask-mode agent that orchestrates the full response.',
   promptSchema: {
     prompt: z.string().describe('A question you would like answered about this project.'),

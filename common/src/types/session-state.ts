@@ -59,6 +59,7 @@ export const AgentTemplateTypeList = [
   'researcher',
   'reviewer',
   'sonnet4_agent_builder',
+  'example_programmatic',
 ] as const
 export const AgentTemplateTypes = Object.fromEntries(
   AgentTemplateTypeList.map((name) => [name, name])

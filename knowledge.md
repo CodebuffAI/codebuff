@@ -40,6 +40,14 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 - Backend uses tool calls to request additional information or perform actions
 - Client-side handles tool calls and sends results back to server
 
+## Agent System
+
+- **LLM-based Agents**: Traditional agents defined in `backend/src/templates/` using prompts and LLM models
+- **Programmatic Agents**: Custom agents using JavaScript/TypeScript generator functions in `.agents/templates/`
+- Agent templates define available tools, spawnable sub-agents, and execution behavior
+- Programmatic agents allow complex orchestration logic, conditional flows, and iterative refinement
+- Both types integrate seamlessly through the same tool execution system
+
 ## CLI Interface Features
 
 - ESC key to toggle menu or stop AI response

@@ -7,6 +7,7 @@ import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
 export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
   model,
   name: AGENT_PERSONAS['planner'].name,
+  implementation: 'llm',
   description: AGENT_PERSONAS['planner'].description,
   promptSchema: {
     prompt: z

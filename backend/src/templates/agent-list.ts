@@ -14,9 +14,13 @@ import { researcher } from './agents/researcher'
 import { reviewer } from './agents/reviewer'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
-import { AgentTemplate } from './types'
+import { AgentTemplate, AgentTemplateUnion } from './types'
+import { exampleProgrammatic } from './agents/example-programmatic'
 
-export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
+export const agentTemplates: Record<
+  AgentTemplateType | string,
+  AgentTemplateUnion
+> = {
   base: {
     type: AgentTemplateTypes.base,
     ...base(models.openrouter_claude_sonnet_4),
@@ -70,4 +74,5 @@ export const agentTemplates: Record<AgentTemplateType, AgentTemplate> = {
     type: AgentTemplateTypes.sonnet4_agent_builder,
     ...agentBuilder(models.openrouter_claude_sonnet_4),
   },
+  'example_programmatic': exampleProgrammatic,
 }
