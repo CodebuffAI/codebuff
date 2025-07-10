@@ -278,8 +278,12 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
                   (client?.agentNames && client.agentNames[agentType]) ||
                   AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
                     ?.name ||
-                  agentType ||
-                  'Agent'
+                  null
+
+                if (!agentName) {
+                  // Invalid agent type - skip it
+                  return null
+                }
 
                 return `@${bold(agentName)}:\n${prompt || 'No prompt provided'}`
               })

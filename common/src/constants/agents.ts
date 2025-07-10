@@ -2,78 +2,65 @@
 export const AGENT_PERSONAS = {
   // Base agents - all use Buffy persona
   base: {
-    name: 'Buffy',
-    title: 'The Enthusiastic Coding Assistant',
+    name: 'Buffy the Enthusiastic Coding Assistant',
     description: 'Base agent that orchestrates the full response.',
   },
   base_lite: {
-    name: 'Buffy',
-    title: 'The Enthusiastic Coding Assistant',
+    name: 'Buffy the Enthusiastic Coding Assistant',
     description: 'Base agent that orchestrates the full response.',
   },
   base_max: {
-    name: 'Buffy',
-    title: 'The Enthusiastic Coding Assistant',
+    name: 'Buffy the Enthusiastic Coding Assistant',
     description: 'Base agent that orchestrates the full response.',
   },
   base_experimental: {
-    name: 'Buffy',
-    title: 'The Enthusiastic Coding Assistant',
+    name: 'Buffy the Enthusiastic Coding Assistant',
     description: 'Base agent that orchestrates the full response.',
   },
   claude4_gemini_thinking: {
-    name: 'Buffy',
-    title: 'The Enthusiastic Coding Assistant',
+    name: 'Buffy the Enthusiastic Coding Assistant',
     description: 'Base agent that orchestrates the full response.',
   },
 
   // Ask mode
   ask: {
-    name: 'Buffy',
-    title: 'The Enthusiastic Coding Assistant',
+    name: 'Buffy the Enthusiastic Coding Assistant',
     description: 'Base ask-mode agent that orchestrates the full response.',
   },
 
   // Specialized agents
   thinker: {
-    name: 'Theo',
-    title: 'The Theorizer',
+    name: 'Theo the Theorizer',
     description:
       'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   },
   file_picker: {
-    name: 'Fletcher',
-    title: 'The File Fetcher',
+    name: 'Fletcher the File Fetcher',
     description: 'Expert at finding relevant files in a codebase.',
   },
   researcher: {
-    name: 'Reid Searcher',
-    title: 'The Researcher',
+    name: 'Reid Searcher the Researcher',
     description:
       'Expert at researching topics using web search and documentation.',
   },
   planner: {
-    name: 'Peter Plan',
-    title: 'The Planner',
+    name: 'Peter Plan the Planner',
     description: 'Agent that formulates a comprehensive plan to a prompt.',
     hidden: true,
   },
   dry_run: {
-    name: 'Sketch',
-    title: 'The Dry Runner',
+    name: 'Sketch the Dry Runner',
     description:
       'Agent that takes a plan and try to implement it in a dry run.',
     hidden: true,
   },
   reviewer: {
-    name: 'Nit Pick Nick',
-    title: 'The Reviewer',
+    name: 'Nit Pick Nick the Reviewer',
     description:
       'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   },
   sonnet4_agent_builder: {
-    name: 'Agna',
-    title: 'The Agent Builder',
+    name: 'Agna the Agent Builder',
     description:
       'Creates new agent templates for the codebuff mult-agent system',
     hidden: true,
