@@ -26,6 +26,7 @@ import { handleCreatePlan } from './handlers/create-plan'
 import { handleEndTurn } from './handlers/end-turn'
 import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
+import { handleStrReplace } from './handlers/str-replace'
 import { handleUpdateSubgoal } from './handlers/update-subgoal'
 import { handleWriteFile } from './handlers/write-file'
 
@@ -93,7 +94,6 @@ const WIP_TOOLS = [
   'read_docs',
   'read_files',
   'spawn_agents',
-  'str_replace',
   'think_deeply',
   'update_report',
   'web_search',
@@ -134,6 +134,7 @@ const codebuffToolHandlers = {
   end_turn: handleEndTurn,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
+  str_replace: handleStrReplace,
   update_subgoal: handleUpdateSubgoal,
   write_file: handleWriteFile,
 } satisfies {

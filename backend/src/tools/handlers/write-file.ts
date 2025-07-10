@@ -149,62 +149,69 @@ export const handleWriteFile = ((params: {
   fileProcessingPromisesByPath[path].push(newPromise)
   fileProcessingPromises.push(newPromise)
 
-  const postStreamProcessing = async () => {
-    const allFileProcessingResults = await Promise.all(fileProcessingPromises)
-    if (!mutableState.firstFileProcessed) {
-      ;[mutableState.fileChangeErrors, mutableState.fileChanges] = partition(
-        allFileProcessingResults,
-        (result) => 'error' in result
-      )
-      if (
-        mutableState.fileChanges.length === 0 &&
-        allFileProcessingResults.length > 0
-      ) {
-        writeToClient('No changes to existing files.\n')
-      }
-      if (mutableState.fileChanges.length > 0) {
-        writeToClient(`\n`)
-      }
-      mutableState.firstFileProcessed = true
-    }
-
-    const toolCallResults: string[] = []
-
-    const errors = mutableState.fileChangeErrors.filter(
-      (result) => result.toolCallId === toolCall.toolCallId
-    )
-    toolCallResults.push(
-      ...errors.map(({ path, error }) => `Error processing ${path}: ${error}`)
-    )
-
-    const changes = mutableState.fileChanges.filter(
-      (result) => result.toolCallId === toolCall.toolCallId
-    )
-    for (const { path, content, patch, tool } of changes) {
-      const clientResult = await requestClientToolCall({
-        toolName: 'write_file',
-        toolCallId: toolCall.toolCallId,
-        args: patch
-          ? {
-              type: 'patch' as const,
-              path,
-              content: patch,
-            }
-          : {
-              type: 'file' as const,
-              path,
-              content,
-            },
-      })
-
-      toolCallResults.push(clientResult)
-    }
-
-    return toolCallResults.join('\n\n')
-  }
-
   return {
-    result: previousToolCallFinished.then(postStreamProcessing),
+    result: previousToolCallFinished.then(async () => {
+      return await postStreamProcessing(
+        toolCall,
+        mutableState,
+        writeToClient,
+        requestClientToolCall
+      )
+    }),
     state: { mutableState },
   }
 }) satisfies CodebuffToolHandlerFunction<'write_file'>
+
+export async function postStreamProcessing<
+  T extends 'write_file' | 'str_replace' | 'create_plan',
+>(
+  toolCall: CodebuffToolCall<T>,
+  mutableState: FileProcessingMutableState,
+  writeToClient: (chunk: string) => void,
+  requestClientToolCall: (toolCall: ClientToolCall<T>) => Promise<string>
+) {
+  const allFileProcessingResults = await Promise.all(mutableState.allPromises)
+  if (!mutableState.firstFileProcessed) {
+    ;[mutableState.fileChangeErrors, mutableState.fileChanges] = partition(
+      allFileProcessingResults,
+      (result) => 'error' in result
+    )
+    if (
+      mutableState.fileChanges.length === 0 &&
+      allFileProcessingResults.length > 0
+    ) {
+      writeToClient('No changes to existing files.\n')
+    }
+    if (mutableState.fileChanges.length > 0) {
+      writeToClient(`\n`)
+    }
+    mutableState.firstFileProcessed = true
+  }
+
+  const toolCallResults: string[] = []
+
+  const errors = mutableState.fileChangeErrors.filter(
+    (result) => result.toolCallId === toolCall.toolCallId
+  )
+  toolCallResults.push(
+    ...errors.map(({ path, error }) => `Error processing ${path}: ${error}`)
+  )
+
+  const changes = mutableState.fileChanges.filter(
+    (result) => result.toolCallId === toolCall.toolCallId
+  )
+  for (const { path, content, patch } of changes) {
+    const clientToolCall: ClientToolCall<T> = {
+      toolCallId: toolCall.toolCallId,
+      toolName: toolCall.toolName,
+      args: patch
+        ? { type: 'patch' as const, path, content: patch }
+        : { type: 'file' as const, path, content },
+    } as ClientToolCall<T>
+    const clientResult = await requestClientToolCall(clientToolCall)
+
+    toolCallResults.push(clientResult)
+  }
+
+  return toolCallResults.join('\n\n')
+}
