@@ -130,16 +130,14 @@ export const runAgentStep = async (
     }
   }
 
-  // At this point we know it's an LLM agent
-  const llmAgentTemplate = agentTemplate
-  const { model } = llmAgentTemplate
+  const { model } = agentTemplate
 
   const getStream = getAgentStreamFromTemplate({
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    template: llmAgentTemplate,
+    template: agentTemplate,
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
@@ -417,7 +415,7 @@ export const runAgentStep = async (
         }
 
         // Filter out restricted tools in ask mode unless exporting summary
-        if (!llmAgentTemplate.toolNames.includes(toolCall.toolName)) {
+        if (!agentTemplate.toolNames.includes(toolCall.toolName)) {
           serverToolResults.push({
             toolName: tool,
             toolCallId: generateCompactId(),

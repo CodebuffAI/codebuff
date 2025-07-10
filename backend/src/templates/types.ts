@@ -42,7 +42,7 @@ export interface ProgrammaticAgentTemplate {
   implementation: 'programmatic'
   name: string
   description: string
-  handler: ProgrammaticAgentFunction // Direct generator function
+  handler: ProgrammaticAgentFunction // Direct generator function. TODO: replace with path to a file or string of source code?
   includeMessageHistory: boolean
   promptSchema: {
     prompt?: z.ZodSchema<string | undefined>
