@@ -1,10 +1,8 @@
-import { TextBlockParam } from '@anthropic-ai/sdk/resources'
 import {
   GetExpandedFileContextForTrainingBlobTrace,
   insertTrace,
 } from '@codebuff/bigquery'
 import { consumeCreditsWithFallback } from '@codebuff/billing'
-import { AGENT_NAMES } from '@codebuff/common/constants/agents'
 import {
   AgentState,
   AgentTemplateType,
@@ -31,6 +29,7 @@ import { renderReadFilesResult } from './util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 import { requestFiles, requestToolCall } from './websockets/websocket-action'
+import { TextBlock } from './llm-apis/claude'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
@@ -749,7 +748,7 @@ async function uploadExpandedFileContextForTraining(
     system,
   }: {
     messages: CoreMessage[]
-    system: string | Array<TextBlockParam>
+    system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
   assistantPrompt: string | null,
