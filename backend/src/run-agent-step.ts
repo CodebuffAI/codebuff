@@ -150,10 +150,10 @@ export const runAgentStep = async (
   }
 
   if (agentTemplate.implementation === 'programmatic') {
-    const agentState = await runProgrammaticAgent(
-      agentTemplate as unknown as ProgrammaticAgentTemplate,
-      { ...options, ws }
-    )
+    const agentState = await runProgrammaticAgent(agentTemplate, {
+      ...options,
+      ws,
+    })
     return {
       agentState,
       shouldEndTurn: true,
@@ -168,7 +168,7 @@ export const runAgentStep = async (
     fingerprintId,
     userInputId,
     userId,
-    template: agentTemplate as LLMAgentTemplate,
+    template: agentTemplate,
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
