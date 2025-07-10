@@ -59,6 +59,17 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 - Run commands with `bun` instead of `npm` (e.g., `bun install` not `npm install`)
 - Use `bun run` for script execution
 
+## TypeScript Build State Management
+
+### Cleaning Build State
+- Use `bun run clean-ts` to remove all TypeScript build artifacts (.tsbuildinfo files and .next cache)
+- This resolves infinite loop issues in the typechecker caused by corrupted or stale build cache
+
+### Common Issues
+- Typechecker infinite loops are often caused by stale .tsbuildinfo files or circular project references
+- Always clean build state when encountering persistent type errors or infinite loops
+- The monorepo structure with project references can sometimes create dependency cycles
+
 ## Error Handling and Debugging
 
 - The `debug.ts` file provides logging functionality for debugging
