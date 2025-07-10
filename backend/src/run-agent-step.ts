@@ -28,7 +28,9 @@ import { runTool } from './run-tool'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { agentTemplates } from './templates/agent-list'
+import { processAgentOverrides } from './templates/agent-overrides'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
+import { AgentTemplate } from './templates/types'
 import {
   ClientToolCall,
   parseRawToolCall,
@@ -74,6 +76,23 @@ export interface AgentOptions {
   assistantPrefix: string | undefined
 }
 
+/**
+ * Helper function to get agent template with overrides applied
+ */
+function getAgentTemplateWithOverrides(
+  agentType: AgentTemplateType,
+  fileContext: ProjectFileContext
+): AgentTemplate {
+  const baseTemplate = agentTemplates[agentType]
+  if (!baseTemplate) {
+    throw new Error(
+      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
+    )
+  }
+
+  return processAgentOverrides(baseTemplate, fileContext)
+}
+
 export const runAgentStep = async (
   ws: WebSocket,
   options: AgentOptions
@@ -101,17 +120,12 @@ export const runAgentStep = async (
 
   const startTime = Date.now()
   let messageHistory = agentState.messageHistory
-
   // Get the extracted repo ID from request context
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
-  const agentTemplate = agentTemplates[agentType]
-  if (!agentTemplate) {
-    throw new Error(
-      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
-    )
-  }
+  const agentTemplate = getAgentTemplateWithOverrides(agentType, fileContext)
+
   const { model } = agentTemplate
 
   const getStream = getAgentStreamFromTemplate({
@@ -220,11 +234,21 @@ export const runAgentStep = async (
   const hasPrompt = Boolean(prompt || params)
 
   const agentStepPrompt = getAgentPrompt(
-    agentType,
-    'agentStepPrompt',
+    agentTemplate,
+    { type: 'agentStepPrompt' },
     fileContext,
     agentState
   )
+
+  // Extract user input prompt to match hasPrompt && {...} pattern
+  const userInputPrompt = hasPrompt
+    ? getAgentPrompt(
+        agentTemplate,
+        { type: 'userInputPrompt' },
+        fileContext,
+        agentState
+      )
+    : undefined
 
   const agentMessagesUntruncated = buildArray<CodebuffMessage>(
     ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
@@ -253,21 +277,16 @@ export const runAgentStep = async (
         },
     ],
 
-    hasPrompt && {
-      role: 'user',
-      content: getAgentPrompt(
-        agentType,
-        'userInputPrompt',
-        fileContext,
-        agentState
-      ),
-      timeToLive: 'userPrompt',
+    userInputPrompt && {
+      role: 'user' as const,
+      content: userInputPrompt,
+      timeToLive: 'userPrompt' as const,
     },
 
     agentStepPrompt && {
-      role: 'user',
+      role: 'user' as const,
       content: agentStepPrompt,
-      timeToLive: 'agentStep',
+      timeToLive: 'agentStep' as const,
     },
 
     assistantPrefix?.trim() && {
@@ -279,11 +298,14 @@ export const runAgentStep = async (
   const iterationNum = agentMessagesUntruncated.length
 
   const system = getAgentPrompt(
-    agentType,
-    'systemPrompt',
+    agentTemplate,
+    { type: 'systemPrompt' },
     fileContext,
     agentState
   )
+  if (!system) {
+    throw new Error(`System prompt is required for agent type: ${agentType}`)
+  }
   const systemTokens = countTokensJson(system)
 
   // Possibly truncated messagesWithUserMessage + cache.
@@ -312,6 +334,7 @@ export const runAgentStep = async (
       toolResults,
       systemTokens,
       model,
+      agentTemplate,
       duration: Date.now() - startTime,
     },
     `Agent ${agentType} step ${iterationNum} (${userInputId} - Prompt: ${(prompt ?? 'undefined').slice(0, 20)}) start`
@@ -337,10 +360,13 @@ export const runAgentStep = async (
     >[]
   > = {}
 
+  // Create a simple async generator for assistant message
+  async function* createAssistantMessageStream(message: string) {
+    yield message.trim()
+  }
+
   const stream = assistantMessage
-    ? (async function* () {
-        yield assistantMessage.trim()
-      })()
+    ? createAssistantMessageStream(assistantMessage)
     : getStream(
         coreMessagesWithSystem(
           buildArray(
@@ -828,6 +854,7 @@ export const runAgentStep = async (
       agentContext: newAgentContext,
       messagesWithResponse,
       model,
+      agentTemplate,
       duration: Date.now() - startTime,
     },
     `Agent ${agentType} step ${iterationNum} (${userInputId} - Prompt: ${(prompt ?? 'undefined').slice(0, 20)}) end`
@@ -875,7 +902,7 @@ export const loopAgentSteps = async (
     fileContext,
     agentType,
   } = options
-  const agentTemplate = agentTemplates[agentType]
+  const agentTemplate = getAgentTemplateWithOverrides(agentType, fileContext)
   const {
     initialAssistantMessage,
     initialAssistantPrefix,
@@ -885,7 +912,7 @@ export const loopAgentSteps = async (
   let isFirstStep = true
   let currentPrompt = prompt
   let currentParams = params
-  let currentAssistantMessage = initialAssistantMessage
+  let currentAssistantMessage: string | undefined = initialAssistantMessage
   // NOTE: If the assistant message is set, we run one step with it, and then the next step will use the assistant prefix.
   let currentAssistantPrefix = initialAssistantMessage
     ? undefined
@@ -918,17 +945,17 @@ export const loopAgentSteps = async (
             agentTemplate.spawnableAgents,
             prompt ?? ''
           )
-        : '',
-      assistantPrefix: currentAssistantPrefix
-        ? formatPrompt(
-            currentAssistantPrefix,
-            fileContext,
-            currentAgentState,
-            agentTemplate.toolNames,
-            agentTemplate.spawnableAgents,
-            prompt ?? ''
-          )
-        : '',
+        : undefined,
+      assistantPrefix:
+        currentAssistantPrefix &&
+        formatPrompt(
+          currentAssistantPrefix,
+          fileContext,
+          currentAgentState,
+          agentTemplate.toolNames,
+          agentTemplate.spawnableAgents,
+          prompt ?? ''
+        ),
     })
 
     if (shouldEndTurn) {
@@ -943,18 +970,12 @@ export const loopAgentSteps = async (
 
     currentPrompt = undefined
     currentParams = undefined
-    // Toggle assistant message between the injected step message and nothing.
-    currentAssistantMessage = currentAssistantMessage
-      ? ''
-      : stepAssistantMessage
 
     // Only set the assistant prefix when no assistant message is injected.
-    if (!currentAssistantMessage) {
-      if (isFirstStep) {
-        currentAssistantPrefix = initialAssistantPrefix
-      } else {
-        currentAssistantPrefix = stepAssistantPrefix
-      }
+    if (!currentAssistantMessage || !stepAssistantMessage) {
+      currentAssistantPrefix = isFirstStep
+        ? initialAssistantPrefix
+        : stepAssistantPrefix
     }
 
     currentAgentState = newAgentState

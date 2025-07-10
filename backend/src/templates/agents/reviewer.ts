@@ -17,10 +17,10 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'type'> => ({
   toolNames: ['end_turn', 'run_file_change_hooks'],
   stopSequences: closeXmlTags(['end_turn', 'run_file_change_hooks']),
   spawnableAgents: [],
-  initialAssistantMessage: '',
-  initialAssistantPrefix: '',
-  stepAssistantMessage: '',
-  stepAssistantPrefix: '',
+  initialAssistantMessage: undefined,
+  initialAssistantPrefix: undefined,
+  stepAssistantMessage: undefined,
+  stepAssistantPrefix: undefined,
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 

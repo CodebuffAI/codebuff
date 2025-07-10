@@ -1468,6 +1468,12 @@ Go to https://www.codebuff.com/config for more information.`) +
       const parsedAction = InitResponseSchema.safeParse(a)
       if (!parsedAction.success) return
 
+      // Log the message if it's defined
+      if (parsedAction.data.message) {
+        console.log(`\n${parsedAction.data.message}`)
+        this.freshPrompt()
+      }
+
       // Set initial usage data from the init response
       this.setUsage(parsedAction.data)
     })
