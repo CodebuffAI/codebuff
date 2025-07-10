@@ -122,7 +122,8 @@ export const handleRunTerminalCommand = async (
 
   await waitForPreviousCheckpoint()
   if (mode === 'assistant' && process_type === 'BACKGROUND') {
-    Client.getInstance().oneTimeFlags[SHOULD_ASK_CONFIG] = true
+    const client = Client.getInstance()
+    client.oneTimeFlags[SHOULD_ASK_CONFIG] = true
   }
 
   return runTerminalCommand(

@@ -127,8 +127,9 @@ export class CLI {
 
     this.readyPromise = Promise.all([
       readyPromise.then(([fileContext]) => {
-        Client.getInstance().initSessionState(fileContext)
-        return Client.getInstance().warmContextCache()
+        const client = Client.getInstance()
+        client.initSessionState(fileContext)
+        return client.warmContextCache()
       }),
       Client.getInstance().connect(),
     ])
@@ -435,7 +436,7 @@ export class CLI {
       console.log(
         '\n\n' +
           green(
-            `Auto top-up successful! ${Client.getInstance().pendingTopUpMessageAmount.toLocaleString()} credits added.`
+            `Auto top-up successful! ${client.pendingTopUpMessageAmount.toLocaleString()} credits added.`
           ) +
           '\n'
       )
@@ -476,7 +477,7 @@ export class CLI {
       console.log(
         `Welcome to Codebuff! Give us a sec to get your account set up...`
       )
-      await Client.getInstance().login()
+      await client.login()
       return
     }
     this.freshPrompt()
@@ -623,10 +624,10 @@ export class CLI {
     if (userInput.startsWith('/') && !userInput.startsWith('/!')) {
       const commandBase = cleanInput.split(' ')[0]
       if (!this.isKnownSlashCommand(commandBase)) {
-        trackEvent(AnalyticsEvent.INVALID_COMMAND, {
-          userId: Client.getInstance().user?.id || 'unknown',
-          command: cleanInput,
-        })
+      trackEvent(AnalyticsEvent.INVALID_COMMAND, {
+        userId: Client.getInstance().user?.id || 'unknown',
+        command: cleanInput,
+      })
         this.handleUnknownCommand(userInput)
         return null
       }
@@ -682,7 +683,8 @@ export class CLI {
     }
     if (cleanInput === 'reset') {
       await this.readyPromise
-      await Client.getInstance().resetContext()
+      const client = Client.getInstance()
+      await client.resetContext()
       const projectRoot = getProjectRoot()
       clearScreen()
 
@@ -700,7 +702,7 @@ export class CLI {
         processStartPromise,
       ])
 
-      displayGreeting(this.costMode, Client.getInstance().user?.name ?? null)
+      displayGreeting(this.costMode, client.user?.name ?? null)
       this.freshPrompt()
       return null
     }
@@ -723,20 +725,21 @@ export class CLI {
       trackEvent(AnalyticsEvent.CHECKPOINT_COMMAND_USED, {
         command: cleanInput, // Log the cleaned command
       })
+      const client = Client.getInstance()
       if (isCheckpointCommand(cleanInput, 'undo')) {
-        await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
-        const toRestore = await handleUndo(Client.getInstance(), this.rl)
+        await saveCheckpoint(userInput, client, this.readyPromise)
+        const toRestore = await handleUndo(client, this.rl)
         this.freshPrompt(toRestore)
         return null
       }
       if (isCheckpointCommand(cleanInput, 'redo')) {
-        await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
-        const toRestore = await handleRedo(Client.getInstance(), this.rl)
+        await saveCheckpoint(userInput, client, this.readyPromise)
+        const toRestore = await handleRedo(client, this.rl)
         this.freshPrompt(toRestore)
         return null
       }
       if (isCheckpointCommand(cleanInput, 'list')) {
-        await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
+        await saveCheckpoint(userInput, client, this.readyPromise)
         await listCheckpoints()
         this.freshPrompt()
         return null
@@ -744,10 +747,10 @@ export class CLI {
       const restoreMatch = isCheckpointCommand(cleanInput, 'restore')
       if (restoreMatch) {
         const id = parseInt((restoreMatch as RegExpMatchArray)[1], 10)
-        await saveCheckpoint(userInput, Client.getInstance(), this.readyPromise)
+        await saveCheckpoint(userInput, client, this.readyPromise)
         const toRestore = await handleRestoreCheckpoint(
           id,
-          Client.getInstance(),
+          client,
           this.rl
         )
         this.freshPrompt(toRestore)
@@ -761,7 +764,7 @@ export class CLI {
       if (isCheckpointCommand(cleanInput, 'save')) {
         await saveCheckpoint(
           userInput,
-          Client.getInstance(),
+          client,
           this.readyPromise,
           true
         )
@@ -801,8 +804,9 @@ export class CLI {
 
   private async forwardUserInput(promptContent: string) {
     const cleanedInput = this.cleanCommandInput(promptContent)
+    const client = Client.getInstance()
 
-    await saveCheckpoint(cleanedInput, Client.getInstance(), this.readyPromise)
+    await saveCheckpoint(cleanedInput, client, this.readyPromise)
 
     Spinner.get().start('Thinking...')
 
@@ -811,7 +815,7 @@ export class CLI {
     DiffManager.startUserInput()
 
     const { responsePromise, stopResponse } =
-      await Client.getInstance().sendUserInput(cleanedInput)
+      await client.sendUserInput(cleanedInput)
 
     this.stopResponse = stopResponse
     await responsePromise
@@ -978,9 +982,8 @@ export class CLI {
 
     await killAllBackgroundProcesses()
 
-    Client.getInstance().close() // Close WebSocket
-
     const client = Client.getInstance()
+    client.close() // Close WebSocket
 
     // Check for organization coverage first
     const coverage = await client.checkRepositoryCoverage()

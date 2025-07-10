@@ -220,6 +220,9 @@ export class Client {
     return Client.instance
   }
 
+  public static getInstance(): Client
+  public static getInstance(shouldThrow: false): Client | null
+  public static getInstance(shouldThrow: true): Client
   public static getInstance(shouldThrow = true): Client | null {
     if (!Client.instance) {
       if (shouldThrow) {
