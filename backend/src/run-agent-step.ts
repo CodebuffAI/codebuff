@@ -100,6 +100,11 @@ async function getAgentTemplateWithOverrides(
     )
   }
 
+  if (baseTemplate.implementation === 'programmatic') {
+    // Programmatic agents cannot be overridden.
+    return baseTemplate
+  }
+
   return processAgentOverrides(baseTemplate, fileContext)
 }
 
@@ -163,7 +168,7 @@ export const runAgentStep = async (
     fingerprintId,
     userInputId,
     userId,
-    template: agentTemplate,
+    template: agentTemplate as LLMAgentTemplate,
   })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)

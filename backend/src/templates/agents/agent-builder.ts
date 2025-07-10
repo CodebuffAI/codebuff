@@ -7,6 +7,7 @@ import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'type'> => ({
   name: 'Agent Builder',
   description: 'Creates new agent templates for the codebuff mult-agent system',
+  implementation: 'llm',
   model,
   promptSchema: {
     prompt: z.string().optional().describe('What agent type you would like to create. Include as many details as possible.'),
