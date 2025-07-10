@@ -26,6 +26,7 @@ import { handleEndTurn } from './handlers/end-turn'
 import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
 import { handleUpdateSubgoal } from './handlers/update-subgoal'
+import { handleWriteFile } from './handlers/write-file'
 
 type Prettify<T> = { [K in keyof T]: T[K] } & {}
 
@@ -96,7 +97,6 @@ const WIP_TOOLS = [
   'think_deeply',
   'update_report',
   'web_search',
-  'write_file',
 ] satisfies ToolName[]
 type WIPTool = (typeof WIP_TOOLS)[number]
 type NonWIPTool = Exclude<ToolName, WIPTool>
@@ -109,6 +109,7 @@ export type CodebuffToolHandlerFunction<T extends NonWIPTool = NonWIPTool> = (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
+    writeToClient: (chunk: string) => void
     state: { [K in string]?: any }
   } & PresentOrAbsent<
     'requestClientToolCall',
@@ -133,6 +134,7 @@ const codebuffToolHandlers = {
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
   update_subgoal: handleUpdateSubgoal,
+  write_file: handleWriteFile,
 } satisfies {
   [K in NonWIPTool]: CodebuffToolHandlerFunction<K>
 }
