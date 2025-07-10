@@ -12,7 +12,7 @@ export const updateSubgoalTool = {
         .min(1, 'Id cannot be empty')
         .describe(`The id of the subgoal to update.`),
       status: z
-        .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'FAILED'])
+        .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED'])
         .optional()
         .describe(`Change the status of the subgoal.`),
       plan: z.string().optional().describe(`Change the plan for the subgoal.`),

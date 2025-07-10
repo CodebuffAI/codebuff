@@ -3,7 +3,6 @@ import { spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { FileChange } from '@codebuff/common/actions'
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import {
   getToolCallString,
@@ -125,9 +124,12 @@ export type ToolCallError = {
   error: string
 } & Omit<ToolCallPart, 'type'>
 
-export function parseRawToolCall(
-  rawToolCall: ToolCallPart & { args: Record<string, string> }
-): CodebuffToolCall | ToolCallError {
+export function parseRawToolCall<T extends ToolName = ToolName>(
+  rawToolCall: ToolCallPart & {
+    toolName: T
+    args: Record<string, string>
+  }
+): CodebuffToolCall<T> | ToolCallError {
   const toolName = rawToolCall.toolName
 
   if (!(toolName in codebuffToolDefs)) {
@@ -138,7 +140,7 @@ export function parseRawToolCall(
       error: `Tool ${toolName} not found`,
     }
   }
-  const validName = toolName as keyof typeof codebuffToolDefs
+  const validName = toolName as T
   const schemaProperties = z.toJSONSchema(
     codebuffToolDefs[validName].parameters
   ).properties!
@@ -177,7 +179,7 @@ export function parseRawToolCall(
     }
   }
 
-  return { toolName: validName, args: result.data } as CodebuffToolCall
+  return { toolName: validName, args: result.data } as CodebuffToolCall<T>
 }
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
@@ -340,10 +342,7 @@ Please rewrite the entire context using the update instructions in a <new_contex
 
 export async function updateContextFromToolCalls(
   agentContext: string,
-  toolCalls: Extract<
-    CodebuffToolCall,
-    { toolName: 'update_subgoal' | 'add_subgoal' }
-  >[]
+  toolCalls: CodebuffToolCall<'update_subgoal' | 'add_subgoal'>[]
 ) {
   let prompt = [] // 'Log the following tools used and their parameters, and also act on any other instructions:\n'
 
@@ -477,32 +476,6 @@ export interface RawToolCall {
   name: ToolName
   parameters: Record<string, string>
 }
-
-export type ClientToolCall =
-  | Exclude<
-      CodebuffToolCall,
-      {
-        toolName:
-          | 'write_file'
-          | 'str_replace'
-          | 'create_plan'
-          | 'run_terminal_command'
-      }
-    >
-  | (Omit<ToolCallPart, 'type'> &
-      (
-        | {
-            toolName: 'write_file' | 'str_replace' | 'create_plan'
-            args: FileChange
-          }
-        | {
-            toolName: 'run_terminal_command'
-            args: { mode: 'user' | 'assistant' } & Extract<
-              CodebuffToolCall,
-              { toolName: 'run_terminal_command' }
-            >['args']
-          }
-      ))
 
 export function parseToolCalls(messageContent: string) {
   // TODO: Return a typed tool call. Typescript is hard.

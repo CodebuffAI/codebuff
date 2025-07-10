@@ -20,6 +20,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { partition } from 'lodash'
 import { WebSocket } from 'ws'
+import { getFileReadingUpdates } from './get-file-reading-updates'
 import { checkLiveUserInput } from './live-user-inputs'
 import { processFileBlock } from './process-file-block'
 import { processStrReplace } from './process-str-replace'
@@ -32,12 +33,12 @@ import { processAgentOverrides } from './templates/agent-overrides'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
 import { AgentTemplate } from './templates/types'
 import {
-  ClientToolCall,
   parseRawToolCall,
+  ToolCallError,
   toolParams,
   updateContextFromToolCalls,
 } from './tools'
-import { CodebuffToolCall } from './tools/constants'
+import { ClientToolCall, CodebuffToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import {
   asSystemInstruction,
@@ -57,7 +58,6 @@ import {
   requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
-import { getFileReadingUpdates } from './get-file-reading-updates'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -384,16 +384,14 @@ export const runAgentStep = async (
   const allToolCalls: CodebuffToolCall[] = []
   const clientToolCalls: ClientToolCall[] = []
   const serverToolResults: ToolResult[] = []
-  const subgoalToolCalls: Extract<
-    CodebuffToolCall,
-    { toolName: 'add_subgoal' | 'update_subgoal' }
-  >[] = []
+  const subgoalToolCalls: CodebuffToolCall<'add_subgoal' | 'update_subgoal'>[] =
+    []
 
   let foundParsingError = false
 
   function toolCallback<T extends ToolName>(
     tool: T,
-    after: (toolCall: Extract<CodebuffToolCall, { toolName: T }>) => void
+    after: (toolCall: CodebuffToolCall<T>) => void
   ): {
     params: string[]
     onTagStart: () => void
@@ -406,12 +404,13 @@ export const runAgentStep = async (
       params: toolParams[tool],
       onTagStart: () => {},
       onTagEnd: async (_: string, args: Record<string, string>) => {
-        const toolCall = parseRawToolCall({
-          type: 'tool-call',
-          toolName: tool,
-          toolCallId: generateCompactId(),
-          args,
-        })
+        const toolCall: CodebuffToolCall<T> | ToolCallError =
+          parseRawToolCall<T>({
+            type: 'tool-call',
+            toolName: tool,
+            toolCallId: generateCompactId(),
+            args,
+          })
         if ('error' in toolCall) {
           serverToolResults.push({
             toolName: tool,
@@ -432,9 +431,9 @@ export const runAgentStep = async (
           return
         }
 
-        allToolCalls.push(toolCall as Extract<CodebuffToolCall, { name: T }>)
+        allToolCalls.push(toolCall)
 
-        after(toolCall as Extract<CodebuffToolCall, { name: T }>)
+        after(toolCall)
       },
     }
   }
