@@ -74,5 +74,5 @@ export const agentTemplates: Record<
     type: AgentTemplateTypes.sonnet4_agent_builder,
     ...agentBuilder(models.openrouter_claude_sonnet_4),
   },
-  'example/programmatic': exampleProgrammatic,
+  'example_programmatic': exampleProgrammatic,
 }

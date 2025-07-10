@@ -43,6 +43,15 @@ export async function runProgrammaticAgent(
     fileContext,
   } = options
 
+  logger.info(
+    {
+      template: template.type,
+      agentType: options.agentType,
+      prompt: options.prompt,
+      params: options.params,
+    },
+    'Running programmatic agent'
+  )
   // Create context for the programmatic agent
   const context: ProgrammaticAgentContext = {
     prompt: options.prompt || '',
@@ -92,6 +101,10 @@ export async function runProgrammaticAgent(
       }
     }
 
+    logger.info(
+      { report: agentState.report },
+      'Programmatic agent execution completed'
+    )
     return agentState
   } catch (error) {
     logger.error(
