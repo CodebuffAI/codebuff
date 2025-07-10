@@ -11,7 +11,7 @@
     }
   },
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev -p ${NEXT_PUBLIC_WEB_PORT:-3000}",
     "build": "next build 2>&1 | sed '/Contentlayer esbuild warnings:/,/^]/d'",
     "start": "next start",
     "preview": "bun run build && bun run start",

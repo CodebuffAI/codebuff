@@ -5,6 +5,8 @@
 .env
 .env.*
 !.env.example
+.env.worktree
+.worktree-env.sh
 
 # ctags
 tags

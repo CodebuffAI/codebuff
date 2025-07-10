@@ -52,6 +52,7 @@ const envSchema = {
     NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: z.string().url().min(1),
     NEXT_PUBLIC_LINKEDIN_PARTNER_ID: z.string().optional(),
     NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
+    NEXT_PUBLIC_WEB_PORT: z.coerce.number().min(1000).optional().default(3000),
   },
   runtimeEnv: {
     // Backend variables
@@ -102,6 +103,7 @@ const envSchema = {
       process.env.NEXT_PUBLIC_LINKEDIN_PARTNER_ID,
     NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID:
       process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID,
+    NEXT_PUBLIC_WEB_PORT: process.env.NEXT_PUBLIC_WEB_PORT,
   },
 }
 let envTemp
