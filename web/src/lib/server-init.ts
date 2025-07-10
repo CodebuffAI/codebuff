@@ -10,13 +10,14 @@ export function initializeServer() {
   if (initialized) return
 
   try {
-    logger.info('Initializing web server services...')
     initAnalytics()
     // Initialize other services as needed
     initialized = true
-    logger.info('Web server initialization complete')
   } catch (error) {
-    logger.warn({ error }, 'Failed to initialize analytics - continuing without analytics')
+    logger.warn(
+      { error },
+      'Failed to initialize analytics - continuing without analytics'
+    )
     // Don't fail server initialization if analytics fails
     initialized = true
   }

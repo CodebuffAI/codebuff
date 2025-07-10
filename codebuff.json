@@ -57,8 +57,8 @@
     },
     {
       "name": "prettier-format",
-      "command": "git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|js|jsx|json|md)$' | xargs -r npx prettier --write",
-      "filePattern": "**/*.{ts,tsx,js,jsx,json,md}"
+      "command": "git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|json|md)$' | xargs -r npx prettier --write",
+      "filePattern": "**/*.{ts,tsx,json,md}"
     }
   ],
   "maxAgentSteps": 20

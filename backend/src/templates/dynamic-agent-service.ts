@@ -114,10 +114,6 @@ export class DynamicAgentService {
 
       // Skip override templates (they modify existing agents)
       if (parsedContent.override !== false) {
-        logger.debug(
-          { fileName, override: parsedContent.override },
-          'Skipping override template'
-        )
         return
       }
 

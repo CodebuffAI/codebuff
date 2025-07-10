@@ -81,7 +81,6 @@ async function processMessage(
 }
 
 export function listen(server: HttpServer, path: string) {
-  logger.info(`Listening on websocket path: ${path}`)
   const wss = new WebSocketServer({ server, path })
   let deadConnectionCleaner: NodeJS.Timeout | undefined
   wss.on('listening', () => {
