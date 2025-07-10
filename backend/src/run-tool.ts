@@ -25,6 +25,7 @@ import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentTemplates } from './templates/agent-list'
 import { AgentTemplate } from './templates/types'
+import { agentRegistry } from './templates/agent-registry'
 import { ClientToolCall, CodebuffToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import { renderReadFilesResult } from './util/parse-tool-call-xml'
@@ -517,11 +518,15 @@ export async function runTool(
 
     case 'spawn_agents': {
       const { agents } = toolCall.args
-      const { agentTemplate: parentAgentTemplate } = options
+      const { agentTemplate: parentAgentTemplate, fileContext } = options
 
       if (!parentAgentTemplate) {
         throw new Error('spawn_agents requires agentTemplate in options')
       }
+
+      // Initialize registry and get all templates
+      agentRegistry.initialize(fileContext)
+      const allTemplates = agentRegistry.getAllTemplates()
 
       const conversationHistoryMessage: CoreMessage = {
         role: 'user',
@@ -534,11 +539,11 @@ export async function runTool(
 
       const results = await Promise.allSettled(
         agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
-          if (!(agentTypeStr in agentTemplates)) {
+          if (!(agentTypeStr in allTemplates)) {
             throw new Error(`Agent type ${agentTypeStr} not found.`)
           }
           const agentType = agentTypeStr as AgentTemplateType
-          const agentTemplate = agentTemplates[agentType]
+          const agentTemplate = allTemplates[agentType]
 
           if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
             throw new Error(
@@ -608,7 +613,7 @@ export async function runTool(
           return {
             ...result,
             agentType,
-            agentName: AGENT_NAMES[agentType] || agentTemplate.name,
+            agentName: agentRegistry.getAgentName(agentType) || agentTemplate.name,
           }
         })
       )
@@ -619,7 +624,7 @@ export async function runTool(
 
         if (result.status === 'fulfilled') {
           const { agentState, agentName } = result.value
-          const agentTemplate = agentTemplates[agentState.agentType!]
+          const agentTemplate = allTemplates[agentState.agentType!]
           let report = ''
 
           if (agentTemplate.outputMode === 'report') {
@@ -647,12 +652,11 @@ export async function runTool(
             throw new Error(`Unknown output mode: ${agentTemplate.outputMode}`)
           }
 
-          return `**${agentName} (@${agentTypeStr}):**\n${report}`
+          return `**${agentName}:**\n${report}`
         } else {
-          return `**Agent (@${agentTypeStr}):**\nError spawning agent: ${result.reason}`
+          return `**Agent (${agentTypeStr}):**\nError spawning agent: ${result.reason}`
         }
       })
-
       return {
         type: 'server_result',
         result: {

@@ -1,10 +1,11 @@
 import { AGENT_TEMPLATES_DIR } from '../constants'
 import { AgentOverrideConfig, AgentOverrideConfigSchema } from '../types/agent-overrides'
+import { DynamicAgentTemplate, DynamicAgentTemplateSchema } from '../types/dynamic-agent-template'
 import { AgentTemplateTypes } from '../types/session-state'
 import { normalizeAgentNames } from './agent-name-normalization'
 
 export interface AgentTemplateValidationResult {
-  validConfigs: Array<{ filePath: string; config: AgentOverrideConfig }>
+  validConfigs: Array<{ filePath: string; config: AgentOverrideConfig | DynamicAgentTemplate }>
   validationErrors: Array<{ filePath: string; message: string }>
 }
 
@@ -31,7 +32,7 @@ export function formatValidationErrorMessage(
 export function validateAgentTemplateConfigs(
   agentTemplates: Record<string, string>
 ): AgentTemplateValidationResult {
-  const validConfigs: Array<{ filePath: string; config: AgentOverrideConfig }> = []
+  const validConfigs: Array<{ filePath: string; config: AgentOverrideConfig | DynamicAgentTemplate }> = []
   const validationErrors: Array<{ filePath: string; message: string }> = []
   const availableAgentTypes = Object.values(AgentTemplateTypes)
 
@@ -46,27 +47,52 @@ export function validateAgentTemplateConfigs(
 
     try {
       const parsedContent = JSON.parse(content)
-      const config = AgentOverrideConfigSchema.parse(parsedContent)
+      
+      // Determine if this is an override or a new agent template
+      const isOverride = parsedContent.override === true
+      const config = isOverride 
+        ? AgentOverrideConfigSchema.parse(parsedContent)
+        : DynamicAgentTemplateSchema.parse(parsedContent)
 
       // Additional validation for spawnable agents
-      if (config.spawnableAgents) {
-        const { spawnableAgents } = config
-        const agentList = Array.isArray(spawnableAgents.content)
-          ? spawnableAgents.content
-          : [spawnableAgents.content]
+      if (isOverride && 'spawnableAgents' in config && config.spawnableAgents) {
+        const overrideConfig = config as AgentOverrideConfig
+        if (overrideConfig.spawnableAgents) {
+          const { spawnableAgents } = overrideConfig
+          const agentList = Array.isArray(spawnableAgents.content)
+            ? spawnableAgents.content
+            : [spawnableAgents.content]
 
-        // Strip CodebuffAI/ prefix before validation
-        const normalizedAgents = normalizeAgentNames(agentList)
-        const invalidAgents = normalizedAgents.filter(
-          (agent) => !availableAgentTypes.includes(agent as any)
-        )
+          // Strip CodebuffAI/ prefix before validation
+          const normalizedAgents = normalizeAgentNames(agentList)
+          const invalidAgents = normalizedAgents.filter(
+            (agent) => !availableAgentTypes.includes(agent as any)
+          )
 
-        if (invalidAgents.length > 0) {
-          validationErrors.push({
-            filePath,
-            message: `Invalid spawnable agents: ${invalidAgents.join(', ')}.`,
-          })
-          continue
+          if (invalidAgents.length > 0) {
+            validationErrors.push({
+              filePath,
+              message: `Invalid spawnable agents: ${invalidAgents.join(', ')}.`,
+            })
+            continue
+          }
+        }
+      } else if (!isOverride && 'spawnableAgents' in config) {
+        const dynamicConfig = config as DynamicAgentTemplate
+        if (dynamicConfig.spawnableAgents && dynamicConfig.spawnableAgents.length > 0) {
+          // Strip CodebuffAI/ prefix before validation
+          const normalizedAgents = normalizeAgentNames(dynamicConfig.spawnableAgents)
+          const invalidAgents = normalizedAgents.filter(
+            (agent) => !availableAgentTypes.includes(agent as any)
+          )
+
+          if (invalidAgents.length > 0) {
+            validationErrors.push({
+              filePath,
+              message: `Invalid spawnable agents: ${invalidAgents.join(', ')}.`,
+            })
+            continue
+          }
         }
       }
 

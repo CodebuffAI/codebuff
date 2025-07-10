@@ -18,6 +18,7 @@ import { closeXml } from '@codebuff/common/util/xml'
 import { ToolCallPart } from 'ai'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { agentTemplates } from './templates/agent-list'
+import { agentRegistry } from './templates/agent-registry'
 import { CodebuffToolCall, codebuffToolDefs } from './tools/constants'
 
 const toolConfigsList = Object.entries(codebuffToolDefs).map(
@@ -84,22 +85,61 @@ function buildSpawnableAgentsDescription(
     return ''
   }
 
-  const schemaToJsonStr = (schema: z.ZodTypeAny | undefined) => {
+  /**
+   * Convert a Zod schema to JSON string representation.
+   * Schemas are now pre-converted during agent loading, so this is simpler.
+   */
+  const schemaToJsonStr = (schema: z.ZodTypeAny | undefined | Record<string, z.ZodTypeAny>) => {
     if (!schema) return 'None'
-    const jsonSchema = z.toJSONSchema(schema)
-    delete jsonSchema['$schema']
-    return JSON.stringify(jsonSchema, null, 2)
+    
+    try {
+      // Handle Zod schemas
+      if (schema instanceof z.ZodType) {
+        const jsonSchema = z.toJSONSchema(schema)
+        delete jsonSchema['$schema']
+        return JSON.stringify(jsonSchema, null, 2)
+      }
+      
+      // Handle objects containing Zod schemas (for dynamic agents)
+      if (typeof schema === 'object' && schema !== null) {
+        const isValidSchemaObject = Object.values(schema).every(value => value instanceof z.ZodType)
+        if (isValidSchemaObject) {
+          const wrappedSchema = z.object(schema as Record<string, z.ZodTypeAny>)
+          const jsonSchema = z.toJSONSchema(wrappedSchema)
+          delete jsonSchema['$schema']
+          return JSON.stringify(jsonSchema, null, 2)
+        }
+      }
+      
+      return 'None'
+    } catch (error) {
+      // Graceful fallback
+      return 'None'
+    }
   }
 
   const agentsDescription = spawnableAgents
     .map((agentType) => {
-      const agentTemplate = agentTemplates[agentType]
+      // Try to get from registry first (includes dynamic agents), then fall back to static
+      const agentTemplate = agentRegistry.getTemplate(agentType) || agentTemplates[agentType]
+      if (!agentTemplate) {
+        // Fallback for unknown agents
+        return `- ${agentType}: Dynamic agent (description not available)
+prompt: {"description": "A coding task to complete", "type": "string"}
+params: None`
+      }
       const { promptSchema } = agentTemplate
+      if (!promptSchema) {
+        return `- ${agentType}: ${agentTemplate.description}
+prompt: None
+params: None`
+      }
       const { prompt, params } = promptSchema
       return `- ${agentType}: ${agentTemplate.description}
 prompt: ${schemaToJsonStr(prompt)}
 params: ${schemaToJsonStr(params)}`
     })
+    .filter(Boolean)
     .join('\n\n')
 
   return `\n\n## Spawnable Agents

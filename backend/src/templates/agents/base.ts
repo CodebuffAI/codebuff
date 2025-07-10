@@ -12,7 +12,7 @@ import {
 } from '../base-prompts'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
-export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
+export const base = (model: Model, allAvailableAgents?: string[]): Omit<AgentTemplate, 'type'> => ({
   model,
   name: AGENT_PERSONAS['base'].name,
   description: AGENT_PERSONAS['base'].description,
@@ -34,6 +34,7 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
     'read_files',
     'think_deeply',
     'update_subgoal',
+    'update_report',
   ],
   stopSequences: closeXmlTags([
     'read_files',
@@ -42,7 +43,7 @@ export const base = (model: Model): Omit<AgentTemplate, 'type'> => ({
     'code_search',
     'spawn_agents',
   ] satisfies readonly ToolName[]),
-  spawnableAgents: [
+  spawnableAgents: allAvailableAgents ? allAvailableAgents as any[] : [
     AgentTemplateTypes.file_picker,
     AgentTemplateTypes.researcher,
     AgentTemplateTypes.thinker,

@@ -58,6 +58,7 @@ import {
   requestToolCall,
 } from './websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
+import { agentRegistry } from './templates/agent-registry'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -79,14 +80,18 @@ export interface AgentOptions {
 /**
  * Helper function to get agent template with overrides applied
  */
-function getAgentTemplateWithOverrides(
+async function getAgentTemplateWithOverrides(
   agentType: AgentTemplateType,
   fileContext: ProjectFileContext
-): AgentTemplate {
-  const baseTemplate = agentTemplates[agentType]
+): Promise<AgentTemplate> {
+  // Initialize registry if needed
+  await agentRegistry.initialize(fileContext)
+  
+  const baseTemplate = agentRegistry.getTemplate(agentType)
   if (!baseTemplate) {
+    const availableTypes = agentRegistry.getAvailableTypes()
     throw new Error(
-      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
+      `Agent template not found for type: ${agentType}. Available types: ${availableTypes.join(', ')}`
     )
   }
 
@@ -124,7 +129,7 @@ export const runAgentStep = async (
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
-  const agentTemplate = getAgentTemplateWithOverrides(agentType, fileContext)
+  const agentTemplate = await getAgentTemplateWithOverrides(agentType, fileContext)
 
   const { model } = agentTemplate
 
@@ -233,7 +238,7 @@ export const runAgentStep = async (
 
   const hasPrompt = Boolean(prompt || params)
 
-  const agentStepPrompt = getAgentPrompt(
+  const agentStepPrompt = await getAgentPrompt(
     agentTemplate,
     { type: 'agentStepPrompt' },
     fileContext,
@@ -242,7 +247,7 @@ export const runAgentStep = async (
 
   // Extract user input prompt to match hasPrompt && {...} pattern
   const userInputPrompt = hasPrompt
-    ? getAgentPrompt(
+    ? await getAgentPrompt(
         agentTemplate,
         { type: 'userInputPrompt' },
         fileContext,
@@ -297,7 +302,7 @@ export const runAgentStep = async (
 
   const iterationNum = agentMessagesUntruncated.length
 
-  const system = getAgentPrompt(
+  const system = await getAgentPrompt(
     agentTemplate,
     { type: 'systemPrompt' },
     fileContext,
@@ -662,7 +667,12 @@ export const runAgentStep = async (
         clientToolCalls.push(toolResult.call)
       } else if (toolResult.type === 'state_update') {
         serverToolResults.push(toolResult.result)
-        Object.assign(agentState, toolResult.updatedAgentState)
+        // Update the current agentState with the new state
+        agentState.report = toolResult.updatedAgentState.report
+        agentState.agentContext = toolResult.updatedAgentState.agentContext
+        agentState.subagents = toolResult.updatedAgentState.subagents
+        agentState.messageHistory = toolResult.updatedAgentState.messageHistory
+        agentState.stepsRemaining = toolResult.updatedAgentState.stepsRemaining
       }
     } catch (error) {
       logger.error(
@@ -889,7 +899,7 @@ export const loopAgentSteps = async (
     fileContext,
     agentType,
   } = options
-  const agentTemplate = getAgentTemplateWithOverrides(agentType, fileContext)
+  const agentTemplate = await getAgentTemplateWithOverrides(agentType, fileContext)
   const {
     initialAssistantMessage,
     initialAssistantPrefix,
@@ -924,7 +934,7 @@ export const loopAgentSteps = async (
       params: currentParams,
       // TODO: format the prompt in runAgentStep
       assistantMessage: currentAssistantMessage
-        ? formatPrompt(
+        ? await formatPrompt(
             currentAssistantMessage,
             fileContext,
             currentAgentState,
@@ -935,7 +945,7 @@ export const loopAgentSteps = async (
         : undefined,
       assistantPrefix:
         currentAssistantPrefix &&
-        formatPrompt(
+        await formatPrompt(
           currentAssistantPrefix,
           fileContext,
           currentAgentState,

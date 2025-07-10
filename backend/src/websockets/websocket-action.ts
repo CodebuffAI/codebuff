@@ -30,6 +30,7 @@ import { protec } from './middleware'
 import { sendMessage } from './server'
 import { logger, withLoggerContext } from '../util/logger'
 import { asSystemMessage } from '../util/messages'
+import { dynamicAgentService } from '../templates/dynamic-agent-service'
 
 /**
  * Sends an action to the client via WebSocket
@@ -272,12 +273,21 @@ const onInit = async (
       return
     }
 
-    // Validate agent templates and prepare error message if any
+    // Validate agent templates (both overrides and dynamic agents)
     const { agentTemplates } = fileContext
-    const { validationErrors } = agentTemplates
-      ? validateAgentTemplateConfigs(agentTemplates)
-      : { validationErrors: [] }
-    const errorMessage = formatValidationErrorMessage(validationErrors)
+    let allValidationErrors: Array<{ filePath: string; message: string }> = []
+    
+    if (agentTemplates) {
+      // Validate override templates
+      const { validationErrors: overrideErrors } = validateAgentTemplateConfigs(agentTemplates)
+      allValidationErrors.push(...overrideErrors)
+      
+      // Validate dynamic agent templates
+      const { validationErrors: dynamicErrors } = await dynamicAgentService.loadAgents(fileContext)
+      allValidationErrors.push(...dynamicErrors)
+    }
+    
+    const errorMessage = formatValidationErrorMessage(allValidationErrors)
 
     // Send combined init and usage response
     const usageResponse = await genUsageResponse(

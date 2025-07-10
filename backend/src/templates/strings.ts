@@ -17,15 +17,16 @@ import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { agentTemplates } from './agent-list'
 import { PLACEHOLDER, PlaceholderValue, placeholderValues, AgentTemplate } from './types'
+import { agentRegistry } from './agent-registry'
 
-export function formatPrompt(
+export async function formatPrompt(
   prompt: string,
   fileContext: ProjectFileContext,
   agentState: AgentState,
   tools: ToolName[],
   spawnableAgents: AgentTemplateType[],
-  intitialAgentPrompt: string | null
-): string {
+  intitialAgentPrompt?: string
+): Promise<string> {
   // Handle structured prompt data
   let processedPrompt = intitialAgentPrompt ?? ''
 
@@ -46,9 +47,12 @@ export function formatPrompt(
     processedPrompt = intitialAgentPrompt ?? ''
   }
 
+  // Initialize agent registry to ensure dynamic agents are available
+  await agentRegistry.initialize(fileContext)
+  
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.AGENT_NAME]: agentState.agentType
-      ? agentTemplates[agentState.agentType].name
+      ? agentRegistry.getAgentName(agentState.agentType) || agentTemplates[agentState.agentType]?.name || 'Unknown Agent'
       : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
@@ -91,24 +95,23 @@ export function formatPrompt(
       prompt = prompt.replaceAll(varName, toInject[varName])
     }
   }
-
   return prompt
 }
 
 type StringField = 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt'
 type RequirePrompt = 'initialAssistantMessage' | 'initialAssistantPrefix'
 
-export function getAgentPrompt<T extends StringField | RequirePrompt>(
+export async function getAgentPrompt<T extends StringField | RequirePrompt>(
   agentTemplate: AgentTemplate,
   promptType: T extends StringField ? { type: T } : { type: T; prompt: string },
   fileContext: ProjectFileContext,
   agentState: AgentState
-): string | undefined {
+): Promise<string | undefined> {
   const promptValue = agentTemplate[promptType.type]
   if (promptValue === undefined) {
     return undefined
   }
-  const prompt = formatPrompt(
+  const prompt = await formatPrompt(
     promptValue,
     fileContext,
     agentState,

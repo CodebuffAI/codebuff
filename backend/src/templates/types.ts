@@ -88,6 +88,6 @@ export const baseAgentStopSequences: string[] = closeXmlTags([
 export const baseAgentSpawnableAgents: AgentTemplateType[] = [
   AgentTemplateTypes.file_picker,
   AgentTemplateTypes.researcher,
-  // AgentTemplateTypes.planner,
+  AgentTemplateTypes.thinker,
   AgentTemplateTypes.reviewer,
 ] as const

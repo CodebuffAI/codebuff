@@ -17,6 +17,7 @@ import {
 } from '@codebuff/common/util/agent-template-validation'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 
+
 import { AgentTemplate } from './types'
 import { logger } from '../util/logger'
 
@@ -78,10 +79,11 @@ function findOverrideFiles(
   const { validConfigs, validationErrors } =
     validateAgentTemplateConfigs(agentTemplates)
 
-  // Filter valid configs for the specific agent type
+  // Filter valid configs for the specific agent type and only override configs
   const overrideFiles = validConfigs
-    .filter(({ config }) => shouldApplyOverride(config, agentType))
-    .map(({ filePath, config }) => ({ path: filePath, config }))
+    .filter(({ config }) => 'override' in config && config.override === true)
+    .filter(({ config }) => shouldApplyOverride(config as AgentOverrideConfig, agentType))
+    .map(({ filePath, config }) => ({ path: filePath, config: config as AgentOverrideConfig }))
 
   return { overrideFiles, validationErrors }
 }

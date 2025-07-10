@@ -15,7 +15,10 @@ import {
 } from '../types'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 
-export const thinkingBase = (model: Model): Omit<AgentTemplate, 'type'> => ({
+export const thinkingBase = (
+  model: Model,
+  allAvailableAgents?: string[]
+): Omit<AgentTemplate, 'type'> => ({
   model,
   name: AGENT_PERSONAS['base_lite'].name,
   description: AGENT_PERSONAS['base_lite'].description,
@@ -26,7 +29,7 @@ export const thinkingBase = (model: Model): Omit<AgentTemplate, 'type'> => ({
   includeMessageHistory: false,
   toolNames: baseAgentToolNames,
   stopSequences: baseAgentStopSequences,
-  spawnableAgents: baseAgentSpawnableAgents,
+  spawnableAgents: allAvailableAgents ? allAvailableAgents as any[] : baseAgentSpawnableAgents,
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
   stepAssistantMessage: getToolCallString('spawn_agents', {
