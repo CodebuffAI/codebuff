@@ -8,6 +8,10 @@ import {
 } from '@codebuff/common/types/agent-overrides'
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import {
+  normalizeAgentNames,
+  normalizeAgentName,
+} from '@codebuff/common/util/agent-name-normalization'
+import {
   validateAgentTemplateConfigs,
   formatValidationErrorMessage,
 } from '@codebuff/common/util/agent-template-validation'
@@ -91,9 +95,10 @@ function shouldApplyOverride(
 ): boolean {
   const { type } = config.override
 
-  // Extract agent type from formats like "reviewer" or "CodebuffAI/reviewer"
-  const targetAgentType = type.split('/').pop() || type
-  return targetAgentType === agentType
+  // Normalize both the target type and agent type to handle CodebuffAI/ prefixes
+  const normalizedTargetType = normalizeAgentName(type)
+  const normalizedAgentType = normalizeAgentName(agentType)
+  return normalizedTargetType === normalizedAgentType
 }
 
 /**
@@ -140,9 +145,13 @@ function applyOverride(
   }
 
   if (override.spawnableAgents) {
-    result.spawnableAgents = applyArrayOverride(
+    const rawSpawnableAgents = applyArrayOverride(
       result.spawnableAgents,
       override.spawnableAgents
+    ) as string[]
+    // Normalize agent names to remove CodebuffAI/ prefix
+    result.spawnableAgents = normalizeAgentNames(
+      rawSpawnableAgents
     ) as AgentTemplateType[]
   }
 
