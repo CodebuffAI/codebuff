@@ -4,7 +4,7 @@ import { ToolName } from '@codebuff/common/constants/tools'
 import { AgentTemplate } from '../types'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
-export const agentBuilder = (model: Model): Omit<AgentTemplate, 'type'> => ({
+export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
   name: 'Agent Builder',
   description: 'Creates new agent templates for the codebuff mult-agent system',
   implementation: 'llm',

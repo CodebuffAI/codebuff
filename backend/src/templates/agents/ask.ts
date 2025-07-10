@@ -9,7 +9,7 @@ import {
 import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 
-export const ask = (model: Model): Omit<AgentTemplate, 'type'> => ({
+export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['ask'].name,
   implementation: 'llm',

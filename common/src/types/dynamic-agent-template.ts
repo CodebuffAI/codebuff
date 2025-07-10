@@ -1,6 +1,5 @@
 import { z } from 'zod'
-import { models, ALLOWED_MODEL_PREFIXES } from '../constants'
-import { AgentTemplateTypes } from './session-state'
+import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
 
 // Filter models to only include those that begin with allowed prefixes
 const filteredModels = Object.values(models).filter((model) =>
@@ -21,19 +20,21 @@ const PromptSchemaSchema = z.record(z.string(), PromptSchemaFieldSchema)
 // Schema for prompt fields that can be either a string or a path reference
 const PromptFieldSchema = z.union([
   z.string(), // Direct string content
-  z.object({ path: z.string() }) // Path reference to external file
+  z.object({ path: z.string() }), // Path reference to external file
 ])
 
 export const DynamicAgentTemplateSchema = z.object({
-  type: z.string(), // The unique identifier for this agent
+  id: z.string(), // The unique identifier for this agent
   version: z.string(),
   override: z.literal(false), // Must be false for new agents
-  
+
   // Required fields for new agents
   name: z.string(),
   description: z.string(),
   model: z.enum(filteredModels as [string, ...string[]]),
-  outputMode: z.enum(['last_message', 'report', 'all_messages']).default('last_message'),
+  outputMode: z
+    .enum(['last_message', 'report', 'all_messages'])
+    .default('last_message'),
   includeMessageHistory: z.boolean().default(true),
   toolNames: z.array(z.string()).default(['end_turn']),
   stopSequences: z.array(z.string()).default([]),
@@ -64,7 +65,7 @@ export function validateSpawnableAgents(
   const invalidAgents = spawnableAgents.filter(
     (agent) => !availableAgentTypes.includes(agent)
   )
-  
+
   return {
     valid: invalidAgents.length === 0,
     invalidAgents,

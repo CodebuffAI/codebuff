@@ -1,10 +1,9 @@
 import { z } from 'zod/v4'
 import {
-  ProgrammaticAgentTemplate,
   ProgrammaticAgentContext,
   ProgrammaticAgentFunction,
+  ProgrammaticAgentTemplate,
 } from '../types'
-import { baseAgentToolNames, baseAgentSpawnableAgents } from '../types'
 
 // Example generator function
 const exampleHandler: ProgrammaticAgentFunction = function* (
@@ -24,7 +23,7 @@ const exampleHandler: ProgrammaticAgentFunction = function* (
 }
 
 export const exampleProgrammatic: ProgrammaticAgentTemplate = {
-  type: 'example_programmatic',
+  id: 'example_programmatic',
   implementation: 'programmatic',
   name: 'Example Programmatic Agent',
   description:

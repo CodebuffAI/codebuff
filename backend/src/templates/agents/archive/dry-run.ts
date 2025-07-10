@@ -5,7 +5,7 @@ import { closeXmlTags } from '@codebuff/common/util/xml'
 
 import { AgentTemplate, PLACEHOLDER } from '../../types'
 
-export const dryRun = (model: Model): Omit<AgentTemplate, 'type'> => ({
+export const dryRun = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['dry_run'].name,
   implementation: 'llm',

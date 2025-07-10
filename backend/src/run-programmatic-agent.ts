@@ -3,15 +3,15 @@ import {
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import {
-  ProgrammaticAgentTemplate,
-  ProgrammaticAgentContext,
-} from './templates/types'
-import { logger } from './util/logger'
-import { runTool } from './run-tool'
 import { WebSocket } from 'ws'
-import { getRequestContext } from './websockets/request-context'
+import { runTool } from './run-tool'
+import {
+  ProgrammaticAgentContext,
+  ProgrammaticAgentTemplate,
+} from './templates/types'
 import { CodebuffToolCall } from './tools/constants'
+import { logger } from './util/logger'
+import { getRequestContext } from './websockets/request-context'
 
 // Function to handle programmatic agents
 export async function runProgrammaticAgent(
@@ -45,7 +45,7 @@ export async function runProgrammaticAgent(
 
   logger.info(
     {
-      template: template.type,
+      template: template.id,
       agentType: options.agentType,
       prompt: options.prompt,
       params: options.params,
@@ -108,7 +108,7 @@ export async function runProgrammaticAgent(
     return agentState
   } catch (error) {
     logger.error(
-      { error, template: template.type },
+      { error, template: template.id },
       'Programmatic agent execution failed'
     )
 

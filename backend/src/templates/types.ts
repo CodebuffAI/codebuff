@@ -11,7 +11,7 @@ import { closeXmlTags } from '@codebuff/common/util/xml'
 import { CodebuffToolCall } from '../tools/constants'
 
 export type AgentTemplate = {
-  type: AgentTemplateType
+  id: AgentTemplateType
   name: string
   description: string
   model: Model
@@ -38,7 +38,7 @@ export type AgentTemplate = {
 }
 
 export interface ProgrammaticAgentTemplate {
-  type: AgentTemplateType
+  id: AgentTemplateType
   implementation: 'programmatic'
   name: string
   description: string

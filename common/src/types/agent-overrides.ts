@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { models, ALLOWED_MODEL_PREFIXES } from '../constants'
+import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
 
 // Filter models to only include those that begin with 'anthropic', 'openai', or 'google'
 const filteredModels = Object.values(models).filter((model) =>
@@ -24,7 +24,7 @@ const ArrayOverrideSchema = z.object({
 })
 
 export const AgentOverrideConfigSchema = z.object({
-  type: z.string(), // e.g., "CodebuffAI/reviewer"
+  id: z.string(), // e.g., "CodebuffAI/reviewer"
   version: z.string(), // e.g., "0.1.7" or "latest"
   override: z.literal(true), // Flag indicating this is an override
   model: z.enum(filteredModels as [string, ...string[]]).optional(),

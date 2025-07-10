@@ -1,6 +1,3 @@
-import * as fs from 'fs'
-import * as path from 'path'
-import { z } from 'zod'
 import {
   DynamicAgentTemplateSchema,
   validateSpawnableAgents,
@@ -9,8 +6,11 @@ import {
   AgentTemplateType,
   AgentTemplateTypes,
 } from '@codebuff/common/types/session-state'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
+import { ProjectFileContext } from '@codebuff/common/util/file'
+import * as fs from 'fs'
+import * as path from 'path'
+import { z } from 'zod'
 import { resolvePromptField } from '../util/file-resolver'
 import { logger } from '../util/logger'
 import { AgentTemplate, AgentTemplateUnion } from './types'
@@ -157,7 +157,7 @@ export class DynamicAgentService {
 
       // Convert to internal AgentTemplate format
       const agentTemplate: AgentTemplate = {
-        type: dynamicAgent.type as AgentTemplateType,
+        id: dynamicAgent.id as AgentTemplateType,
         name: dynamicAgent.name,
         implementation: 'llm',
         description: dynamicAgent.description,
@@ -217,10 +217,10 @@ export class DynamicAgentService {
         )
       }
 
-      this.templates[dynamicAgent.type] = agentTemplate
+      this.templates[dynamicAgent.id] = agentTemplate
 
       logger.debug(
-        { agentType: dynamicAgent.type, filePath: relativeFilePath },
+        { agentType: dynamicAgent.id, filePath: relativeFilePath },
         'Loaded dynamic agent'
       )
     } catch (error) {

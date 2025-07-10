@@ -4,7 +4,7 @@ import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { closeXml } from '@codebuff/common/util/xml'
 import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
 
-export const planner = (model: Model): Omit<AgentTemplate, 'type'> => ({
+export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['planner'].name,
   implementation: 'llm',

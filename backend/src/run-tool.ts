@@ -21,8 +21,8 @@ import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
 import { searchWeb } from './llm-apis/linkup-api'
 import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
-import { AgentTemplate, ProgrammaticAgentTemplate } from './templates/types'
 import { agentRegistry } from './templates/agent-registry'
+import { AgentTemplate, ProgrammaticAgentTemplate } from './templates/types'
 import { ClientToolCall, CodebuffToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import { renderReadFilesResult } from './util/parse-tool-call-xml'
@@ -600,7 +600,7 @@ export async function runToolInner(
 
           if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
             throw new Error(
-              `Agent type ${parentAgentTemplate.type} is not allowed to spawn child agent type ${agentType}.`
+              `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`
             )
           }
 
@@ -653,7 +653,7 @@ export async function runToolInner(
             userInputId: `${userInputId}-${agentType}${agentId}`,
             prompt: prompt || '',
             params,
-            agentType: agentTemplate.type,
+            agentType: agentTemplate.id,
             agentState,
             fingerprintId,
             fileContext,
@@ -666,7 +666,8 @@ export async function runToolInner(
           return {
             ...result,
             agentType,
-            agentName: agentRegistry.getAgentName(agentType) || agentTemplate.name,
+            agentName:
+              agentRegistry.getAgentName(agentType) || agentTemplate.name,
           }
         })
       )

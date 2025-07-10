@@ -12,7 +12,7 @@ import {
 } from '../base-prompts'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
-export const base = (model: Model, allAvailableAgents?: string[]): Omit<AgentTemplate, 'type'> => ({
+export const base = (model: Model, allAvailableAgents?: string[]): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['base'].name,
   implementation: 'llm',

@@ -3,23 +3,19 @@ import path from 'path'
 import { Model } from '@codebuff/common/constants'
 import {
   AgentOverrideConfig,
-  PromptOverride,
   ArrayOverride,
+  PromptOverride,
 } from '@codebuff/common/types/agent-overrides'
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import {
-  normalizeAgentNames,
   normalizeAgentName,
+  normalizeAgentNames,
 } from '@codebuff/common/util/agent-name-normalization'
-import {
-  validateAgentTemplateConfigs,
-  formatValidationErrorMessage,
-} from '@codebuff/common/util/agent-template-validation'
+import { validateAgentTemplateConfigs } from '@codebuff/common/util/agent-template-validation'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 
-
-import { AgentTemplate } from './types'
 import { logger } from '../util/logger'
+import { AgentTemplate } from './types'
 
 /**
  * Processes agent template overrides from .agents/templates files
@@ -29,7 +25,7 @@ export function processAgentOverrides(
   fileContext: ProjectFileContext
 ): AgentTemplate {
   const { overrideFiles, validationErrors } = findOverrideFiles(
-    baseTemplate.type,
+    baseTemplate.id,
     fileContext
   )
 
@@ -56,7 +52,7 @@ export function processAgentOverrides(
     )
   } catch (error) {
     logger.error(
-      { error, agentType: baseTemplate.type },
+      { error, agentType: baseTemplate.id },
       'Error processing agent overrides, using base template'
     )
     return baseTemplate
@@ -82,8 +78,13 @@ function findOverrideFiles(
   // Filter valid configs for the specific agent type and only override configs
   const overrideFiles = validConfigs
     .filter(({ config }) => 'override' in config && config.override === true)
-    .filter(({ config }) => shouldApplyOverride(config as AgentOverrideConfig, agentType))
-    .map(({ filePath, config }) => ({ path: filePath, config: config as AgentOverrideConfig }))
+    .filter(({ config }) =>
+      shouldApplyOverride(config as AgentOverrideConfig, agentType)
+    )
+    .map(({ filePath, config }) => ({
+      path: filePath,
+      config: config as AgentOverrideConfig,
+    }))
 
   return { overrideFiles, validationErrors }
 }
@@ -95,10 +96,10 @@ function shouldApplyOverride(
   config: AgentOverrideConfig,
   agentType: AgentTemplateType
 ): boolean {
-  const { type } = config
+  const { id } = config
 
   // Normalize both the target type and agent type to handle CodebuffAI/ prefixes
-  const normalizedTargetType = normalizeAgentName(type)
+  const normalizedTargetType = normalizeAgentName(id)
   const normalizedAgentType = normalizeAgentName(agentType)
   return normalizedTargetType === normalizedAgentType
 }

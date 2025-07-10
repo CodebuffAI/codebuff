@@ -18,7 +18,7 @@ import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 export const thinkingBase = (
   model: Model,
   allAvailableAgents?: string[]
-): Omit<AgentTemplate, 'type'> => ({
+): Omit<AgentTemplate, 'id'> => ({
   model,
   implementation: 'llm',
   name: AGENT_PERSONAS['base_lite'].name,
