@@ -1009,8 +1009,13 @@ export const loopAgentSteps = async (
     currentPrompt = undefined
     currentParams = undefined
 
+    // Toggle assistant message between the injected step message and nothing.
+    currentAssistantMessage = currentAssistantMessage
+      ? undefined
+      : stepAssistantMessage
+
     // Only set the assistant prefix when no assistant message is injected.
-    if (!currentAssistantMessage || !stepAssistantMessage) {
+    if (!currentAssistantMessage) {
       currentAssistantPrefix = isFirstStep
         ? initialAssistantPrefix
         : stepAssistantPrefix

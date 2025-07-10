@@ -16,13 +16,8 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: ['find_files', 'code_search', 'read_files', 'end_turn'],
-  stopSequences: closeXmlTags([
-    'find_files',
-    'code_search',
-    'read_files',
-    'end_turn',
-  ]),
+  toolNames: ['find_files', 'end_turn'],
+  stopSequences: closeXmlTags(['find_files', 'end_turn']),
   spawnableAgents: [],
 
   initialAssistantMessage: getToolCallString('find_files', {
@@ -35,14 +30,17 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'type'> => ({
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
-You are an expert at finding relevant files in a codebase. Provide a short analysis of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt. You should leverage the find_files tool primarily as the first way to locate files, but you can also use code_search and read_files tools.
-In your report, please give an analysis that includes the full paths of files that are relevant and (very briefly) how they could be useful. Then use end_turn to end your response. \n\n` +
+You are an expert at finding relevant files in a codebase.
+\n\n` +
     [
       PLACEHOLDER.TOOLS_PROMPT,
       PLACEHOLDER.FILE_TREE_PROMPT,
       PLACEHOLDER.SYSTEM_INFO_PROMPT,
       PLACEHOLDER.GIT_CHANGES_PROMPT,
     ].join('\n\n'),
-  userInputPrompt: '',
-  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
+  userInputPrompt: `
+Provide a short analysis of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
+In your report, please give an analysis that includes the full paths of files that are relevant and (very briefly) how they could be useful. Then use end_turn to end your response.
+  `.trim(),
+  agentStepPrompt: `Do not use the find_files tool again. Give your response and then end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 })
