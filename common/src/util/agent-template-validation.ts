@@ -49,8 +49,8 @@ export function validateAgentTemplateConfigs(
       const config = AgentOverrideConfigSchema.parse(parsedContent)
 
       // Additional validation for spawnable agents
-      if (config.override.spawnableAgents) {
-        const { spawnableAgents } = config.override
+      if (config.spawnableAgents) {
+        const { spawnableAgents } = config
         const agentList = Array.isArray(spawnableAgents.content)
           ? spawnableAgents.content
           : [spawnableAgents.content]

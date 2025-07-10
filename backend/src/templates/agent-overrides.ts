@@ -93,7 +93,7 @@ function shouldApplyOverride(
   config: AgentOverrideConfig,
   agentType: AgentTemplateType
 ): boolean {
-  const { type } = config.override
+  const { type } = config
 
   // Normalize both the target type and agent type to handle CodebuffAI/ prefixes
   const normalizedTargetType = normalizeAgentName(type)
@@ -109,7 +109,7 @@ function applyOverride(
   overrideFile: { path: string; config: AgentOverrideConfig },
   fileContext: ProjectFileContext
 ): AgentTemplate {
-  const override = overrideFile.config.override
+  const override = overrideFile.config
   const result = { ...template }
 
   // Apply overrides directly

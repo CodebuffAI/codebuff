@@ -24,16 +24,15 @@ const ArrayOverrideSchema = z.object({
 })
 
 export const AgentOverrideConfigSchema = z.object({
-  override: z.object({
-    type: z.string(), // e.g., "CodebuffAI/reviewer"
-    version: z.string(), // e.g., "0.1.7" or "latest"
-    model: z.enum(filteredModels as [string, ...string[]]).optional(),
-    systemPrompt: PromptOverrideSchema.optional(),
-    userInputPrompt: PromptOverrideSchema.optional(),
-    agentStepPrompt: PromptOverrideSchema.optional(),
-    spawnableAgents: ArrayOverrideSchema.optional(),
-    toolNames: ArrayOverrideSchema.optional(),
-  }),
+  type: z.string(), // e.g., "CodebuffAI/reviewer"
+  version: z.string(), // e.g., "0.1.7" or "latest"
+  override: z.literal(true), // Flag indicating this is an override
+  model: z.enum(filteredModels as [string, ...string[]]).optional(),
+  systemPrompt: PromptOverrideSchema.optional(),
+  userInputPrompt: PromptOverrideSchema.optional(),
+  agentStepPrompt: PromptOverrideSchema.optional(),
+  spawnableAgents: ArrayOverrideSchema.optional(),
+  toolNames: ArrayOverrideSchema.optional(),
 })
 
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>

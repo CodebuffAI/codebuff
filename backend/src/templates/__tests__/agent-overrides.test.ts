@@ -51,11 +51,10 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/reviewer.json': JSON.stringify({
-          override: {
-            type: 'CodebuffAI/reviewer',
-            version: '0.1.7',
-            model: openrouterModels.openrouter_claude_sonnet_4,
-          },
+          type: 'CodebuffAI/reviewer',
+          version: '0.1.7',
+          override: true,
+          model: openrouterModels.openrouter_claude_sonnet_4,
         }),
       },
     }
@@ -69,13 +68,12 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/reviewer.json': JSON.stringify({
-          override: {
-            type: 'CodebuffAI/reviewer',
-            version: '0.1.7',
-            systemPrompt: {
-              type: 'append',
-              content: 'Additional system instructions',
-            },
+          type: 'CodebuffAI/reviewer',
+          version: '0.1.7',
+          override: true,
+          systemPrompt: {
+            type: 'append',
+            content: 'Additional system instructions',
           },
         }),
       },
@@ -90,13 +88,12 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/reviewer.json': JSON.stringify({
-          override: {
-            type: 'CodebuffAI/reviewer',
-            version: '0.1.7',
-            systemPrompt: {
-              type: 'append',
-              path: './system-prompt.md',
-            },
+          type: 'CodebuffAI/reviewer',
+          version: '0.1.7',
+          override: true,
+          systemPrompt: {
+            type: 'append',
+            path: './system-prompt.md',
           },
         }),
         '.agents/templates/system-prompt.md': 'External system prompt content',
@@ -112,13 +109,12 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/reviewer.json': JSON.stringify({
-          override: {
-            type: 'CodebuffAI/reviewer',
-            version: '0.1.7',
-            spawnableAgents: {
-              type: 'append',
-              content: 'thinker',
-            },
+          type: 'CodebuffAI/reviewer',
+          version: '0.1.7',
+          override: true,
+          spawnableAgents: {
+            type: 'append',
+            content: 'thinker',
           },
         }),
       },
@@ -145,11 +141,10 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/different-agent.json': JSON.stringify({
-          override: {
-            type: 'CodebuffAI/different-agent',
-            version: '0.1.7',
-            model: openrouterModels.openrouter_claude_sonnet_4,
-          },
+          type: 'CodebuffAI/different-agent',
+          version: '0.1.7',
+          override: true,
+          model: openrouterModels.openrouter_claude_sonnet_4,
         }),
       },
     }
@@ -163,11 +158,10 @@ describe('processAgentOverrides', () => {
       ...mockFileContext,
       agentTemplates: {
         '.agents/templates/reviewer.json': JSON.stringify({
-          override: {
-            type: 'CodebuffAI/reviewer',
-            version: '0.1.7',
-            model: 'invalid-model-name',
-          },
+          type: 'CodebuffAI/reviewer',
+          version: '0.1.7',
+          override: true,
+          model: 'invalid-model-name',
         }),
       },
     }
