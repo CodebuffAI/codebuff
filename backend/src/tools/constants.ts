@@ -30,6 +30,7 @@ import { handleReadDocs } from './handlers/read-docs'
 import { handleReadFiles } from './handlers/read-files'
 import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
+import { handleSpawnAgents } from './handlers/spawn-agents'
 import { handleStrReplace } from './handlers/str-replace'
 import { handleThinkDeeply } from './handlers/think-deeply'
 import { handleUpdateReport } from './handlers/update-report'
@@ -94,17 +95,11 @@ export type ClientToolCall<T extends ToolName = ToolName> = {
 }[T] &
   Omit<ToolCallPart, 'type'>
 
-// -- WIP NEW TOOL CALL FORMAT --
-
-const WIP_TOOLS = ['spawn_agents'] satisfies ToolName[]
-type WIPTool = (typeof WIP_TOOLS)[number]
-type NonWIPTool = Exclude<ToolName, WIPTool>
-
 type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }
   | { [P in K]: never }
 
-export type CodebuffToolHandlerFunction<T extends NonWIPTool = NonWIPTool> = (
+export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
@@ -142,6 +137,7 @@ const codebuffToolHandlers = {
   read_files: handleReadFiles,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
+  spawn_agents: handleSpawnAgents,
   str_replace: handleStrReplace,
   think_deeply: handleThinkDeeply,
   update_report: handleUpdateReport,
@@ -149,18 +145,18 @@ const codebuffToolHandlers = {
   web_search: handleWebSearch,
   write_file: handleWriteFile,
 } satisfies {
-  [K in NonWIPTool]: CodebuffToolHandlerFunction<K>
+  [K in ToolName]: CodebuffToolHandlerFunction<K>
 }
 
-type CodebuffToolHandler<T extends NonWIPTool = NonWIPTool> = {
-  [K in NonWIPTool]: {
+type CodebuffToolHandler<T extends ToolName = ToolName> = {
+  [K in ToolName]: {
     toolName: K
     callback: (typeof codebuffToolHandlers)[K]
   }
 }[T]
 
 // WIP: Replacement for ServerToolResult
-type CodebuffToolResult<T extends NonWIPTool = NonWIPTool> = {
+type CodebuffToolResult<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
     result: Prettify<Awaited<ReturnType<CodebuffToolHandler<T>['callback']>>>
