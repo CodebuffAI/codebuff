@@ -1,0 +1,85 @@
+---
+title: 'Creating New Agents'
+section: 'advanced'
+tags: ['customization', 'agent templates', 'agents']
+order: 2
+---
+
+# Creating New Agents
+
+Beyond overriding existing agents, you can create entirely new agents tailored to your specific needs. Codebuff supports two types of custom agents:
+
+- **LLM-based Agents** - Traditional AI agents using prompts and language models
+- **Programmatic Agents** - Custom agents using JavaScript/TypeScript code
+
+## LLM-Based Agents
+
+LLM-based agents are the most common type. They use language models to process requests and generate responses.
+
+### Basic Structure
+
+New LLM agents must have `"override": false` and include all required fields:
+
+```json
+{
+  "id": "my-custom-agent",
+  "version": "1.0.0",
+  "override": false,
+
+  "name": "My Custom Agent",
+  "description": "A specialized agent for my workflow",
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "outputMode": "last_message",
+  "includeMessageHistory": true,
+  "toolNames": ["read_files", "write_file", "end_turn"],
+  "stopSequences": ["</end_turn>"],
+  "spawnableAgents": ["researcher"],
+  "promptSchema": {
+    "prompt": {
+      "type": "string",
+      "description": "What documentation to create or update"
+    }
+  },
+
+  "systemPrompt": {
+    "path": "./doc-writer-system.md"
+  },
+  "userInputPrompt": "Create comprehensive documentation based on the user's request. Research existing code and patterns first.",
+  "agentStepPrompt": "Continue working on the documentation. Use end_turn when complete."
+}
+```
+
+**.agents/templates/doc-writer-system.md**
+
+```markdown
+# Documentation Writer Agent
+
+You are a specialized documentation writer who creates clear, comprehensive documentation for codebases.
+
+## Your Role
+
+- Analyze code structure and patterns
+- Create user-friendly documentation
+- Include practical examples
+- Maintain consistency with existing docs
+
+## Guidelines
+
+- Start by researching the codebase
+- Use clear, concise language
+- Include code examples
+- Structure content logically
+- Test examples for accuracy
+```
+
+## Next Steps
+
+Now that you understand both overriding existing agents and creating new ones:
+
+1. **Start Small** - Begin with simple overrides before creating new agents
+2. **Experiment** - Try different tool combinations and prompt styles
+3. **Share** - Consider sharing useful agents with your team
+4. **Iterate** - Continuously improve your agents based on usage
+
+```
+

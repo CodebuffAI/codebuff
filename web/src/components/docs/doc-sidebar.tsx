@@ -26,6 +26,15 @@ export const sections = [
     external: false,
   },
   {
+    title: 'Agents',
+    href: '/docs/agents',
+    subsections: getDocsByCategory('agents').map((doc) => ({
+      title: doc.title,
+      href: `/docs/agents/${doc.slug}`,
+    })),
+    external: false,
+  },
+  {
     title: 'Advanced',
     href: '/docs/advanced',
     subsections: getDocsByCategory('advanced').map((doc) => ({
