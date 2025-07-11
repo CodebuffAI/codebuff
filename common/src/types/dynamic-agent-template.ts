@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
+import { toolNames } from '../constants/tools'
 
 // Filter models to only include those that begin with allowed prefixes
 const filteredModels = Object.values(models).filter((model) =>
@@ -36,7 +37,27 @@ export const DynamicAgentTemplateSchema = z.object({
     .enum(['last_message', 'report', 'all_messages'])
     .default('last_message'),
   includeMessageHistory: z.boolean().default(true),
-  toolNames: z.array(z.string()).default(['end_turn']),
+  toolNames: z
+    .array(z.string())
+    .default(['end_turn'])
+    .refine(
+      (tools) => {
+        const validToolNames = toolNames as readonly string[]
+        const invalidTools = tools.filter(
+          (tool) => !validToolNames.includes(tool)
+        )
+        return invalidTools.length === 0
+      },
+      (tools) => {
+        const validToolNames = toolNames as readonly string[]
+        const invalidTools = tools.filter(
+          (tool) => !validToolNames.includes(tool)
+        )
+        return {
+          message: `Invalid tool names: ${invalidTools.join(', ')}. Available tools: ${toolNames.join(', ')}`,
+        }
+      }
+    ),
   stopSequences: z.array(z.string()).default([]),
   spawnableAgents: z.array(z.string()).default([]),
   promptSchema: PromptSchemaSchema.optional(),

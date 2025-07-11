@@ -27,35 +27,25 @@ const ArrayOverrideSchema = z.object({
   content: z.union([z.string(), z.array(z.string())]),
 })
 
-const ToolNamesOverrideSchema = z
-  .object({
-    type: z.enum(['append', 'replace']),
-    content: z.union([z.string(), z.array(z.string())]),
-  })
-  .refine(
-    (override) => {
-      const toolList = Array.isArray(override.content)
-        ? override.content
-        : [override.content]
-      const validToolNames = toolNames as readonly string[]
-      const invalidTools = toolList.filter(
-        (tool) => !validToolNames.includes(tool)
-      )
-      return invalidTools.length === 0
-    },
-    (override) => {
-      const toolList = Array.isArray(override.content)
-        ? override.content
-        : [override.content]
-      const validToolNames = toolNames as readonly string[]
-      const invalidTools = toolList.filter(
-        (tool) => !validToolNames.includes(tool)
-      )
-      return {
-        message: `Invalid tool names: ${invalidTools.join(', ')}. Available tools: ${toolNames.join(', ')}`,
-      }
+const ToolNamesOverrideSchema = z.object({
+  type: z.enum(['append', 'replace']),
+  content: z.union([z.string(), z.array(z.string())]),
+}).refine(
+  (override) => {
+    const toolList = Array.isArray(override.content) ? override.content : [override.content]
+    const validToolNames = toolNames as readonly string[]
+    const invalidTools = toolList.filter(tool => !validToolNames.includes(tool))
+    return invalidTools.length === 0
+  },
+  (override) => {
+    const toolList = Array.isArray(override.content) ? override.content : [override.content]
+    const validToolNames = toolNames as readonly string[]
+    const invalidTools = toolList.filter(tool => !validToolNames.includes(tool))
+    return {
+      message: `Invalid tool names: ${invalidTools.join(', ')}. Available tools: ${toolNames.join(', ')}`
     }
-  )
+  }
+)
 
 export const AgentOverrideConfigSchema = z.object({
   id: z.string().refine(
@@ -82,7 +72,7 @@ export const AgentOverrideConfigSchema = z.object({
   userInputPrompt: PromptOverrideSchema.optional(),
   agentStepPrompt: PromptOverrideSchema.optional(),
   spawnableAgents: ArrayOverrideSchema.optional(),
-  toolNames: ArrayOverrideSchema.optional(),
+  toolNames: ToolNamesOverrideSchema.optional(),
 })
 
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>
