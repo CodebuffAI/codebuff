@@ -24,7 +24,7 @@ mock.module('../util/file-resolver', () => ({
       return 'Help brainstorm ideas.'
     }
     return 'Mock content'
-  }
+  },
 }))
 
 // Mock fs module to avoid file system access in tests
@@ -136,7 +136,7 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await dynamicAgentService.loadAgents(fileContext)
-    
+
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('brainstormer')
     expect(result.templates.brainstormer.name).toBe('Brainy')
@@ -150,7 +150,7 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await dynamicAgentService.loadAgents(fileContext)
-    
+
     expect(result.validationErrors).toHaveLength(0)
     expect(Object.keys(result.templates)).toHaveLength(0)
   })
@@ -162,9 +162,11 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await dynamicAgentService.loadAgents(fileContext)
-    
+
     expect(result.validationErrors).toHaveLength(1)
-    expect(result.validationErrors[0].message).toContain('Invalid spawnable agents: nonexistent_agent')
+    expect(result.validationErrors[0].message).toContain(
+      'Invalid spawnable agents: nonexistent_agent'
+    )
   })
 
   it('should handle invalid JSON', async () => {
@@ -174,9 +176,11 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await dynamicAgentService.loadAgents(fileContext)
-    
+
     expect(result.validationErrors).toHaveLength(1)
-    expect(result.validationErrors[0].message).toContain('Error in agent template')
+    expect(result.validationErrors[0].message).toContain(
+      'Error in agent template'
+    )
   })
 
   it('should merge static and dynamic templates', async () => {
@@ -186,8 +190,101 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await dynamicAgentService.loadAgents(fileContext)
-    
+
     // Should have dynamic templates
     expect(result.templates).toHaveProperty('custom_agent') // Dynamic
+  })
+
+  it('should handle agents with JSON schemas', async () => {
+    // Create a new service instance to avoid global state issues
+    const testService =
+      new (require('../templates/dynamic-agent-service').DynamicAgentService)()
+
+    // Mock fs for this specific test
+    const mockFs = mock.module('fs', () => ({
+      existsSync: () => true,
+      readdirSync: () => ['schema-agent.json'],
+      readFileSync: () =>
+        JSON.stringify({
+          id: 'schema_agent',
+          version: '1.0.0',
+          override: false,
+          name: 'Schema Agent',
+          description: 'Agent with JSON schemas',
+          model: 'anthropic/claude-4-sonnet-20250522',
+          systemPrompt: 'Test system prompt',
+          userInputPrompt: 'Test user prompt',
+          agentStepPrompt: 'Test step prompt',
+          promptSchema: {
+            prompt: {
+              type: 'string',
+              description: 'A test prompt',
+            },
+            params: {
+              type: 'object',
+              properties: {
+                temperature: { type: 'number', minimum: 0, maximum: 1 },
+              },
+            },
+          },
+        }),
+    }))
+
+    const fileContext = {
+      ...mockFileContext,
+      projectRoot: '/test/schema',
+    }
+
+    const result = await testService.loadAgents(fileContext)
+
+    expect(result.validationErrors).toHaveLength(0)
+    expect(result.templates).toHaveProperty('schema_agent')
+    expect(result.templates.schema_agent.promptSchema.prompt).toBeDefined()
+    expect(result.templates.schema_agent.promptSchema.params).toBeDefined()
+  })
+
+  it('should return validation errors for invalid schemas', async () => {
+    // Create a new service instance to avoid global state issues
+    const testService =
+      new (require('../templates/dynamic-agent-service').DynamicAgentService)()
+
+    // Mock fs for this specific test
+    const mockFs = mock.module('fs', () => ({
+      existsSync: () => true,
+      readdirSync: () => ['invalid-schema-agent.json'],
+      readFileSync: () =>
+        JSON.stringify({
+          id: 'invalid_schema_agent',
+          version: '1.0.0',
+          override: false,
+          name: 'Invalid Schema Agent',
+          description: 'Agent with invalid schemas',
+          model: 'anthropic/claude-4-sonnet-20250522',
+          systemPrompt: 'Test system prompt',
+          userInputPrompt: 'Test user prompt',
+          agentStepPrompt: 'Test step prompt',
+          promptSchema: {
+            prompt: {
+              type: 'number', // Invalid - should allow strings
+            },
+          },
+        }),
+    }))
+
+    const fileContext = {
+      ...mockFileContext,
+      projectRoot: '/test/invalid-schema',
+    }
+
+    const result = await testService.loadAgents(fileContext)
+
+    expect(result.validationErrors).toHaveLength(1)
+    expect(result.validationErrors[0].message).toContain(
+      'Invalid promptSchema.prompt'
+    )
+    expect(result.validationErrors[0].message).toContain(
+      'Schema must allow string or undefined values'
+    )
+    expect(result.templates).not.toHaveProperty('invalid_schema_agent')
   })
 })

@@ -9,6 +9,7 @@ import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as fs from 'fs'
 import * as path from 'path'
 import { z } from 'zod'
+import { jsonSchemaToZod } from 'json-schema-to-zod'
 import { resolvePromptField } from '../util/file-resolver'
 import { logger } from '../util/logger'
 import { AgentTemplate, AgentTemplateUnion } from './types'
@@ -179,6 +180,24 @@ export class DynamicAgentService {
 
       const basePaths = [fileDir, fileContext.projectRoot]
 
+      // Convert schemas and handle validation errors
+      let promptSchema: AgentTemplate['promptSchema']
+      try {
+        promptSchema = this.convertPromptSchema(
+          dynamicAgent.promptSchema?.prompt,
+          dynamicAgent.promptSchema?.params,
+          relativeFilePath
+        )
+      } catch (error) {
+        this.validationErrors.push({
+          filePath: relativeFilePath,
+          message:
+            error instanceof Error ? error.message : 'Schema conversion failed',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        })
+        return
+      }
+
       // Convert to internal AgentTemplate format
       const agentTemplate: AgentTemplate = {
         id: dynamicAgent.id as AgentTemplateType,
@@ -186,7 +205,7 @@ export class DynamicAgentService {
         implementation: 'llm',
         description: dynamicAgent.description,
         model: dynamicAgent.model as any,
-        promptSchema: this.convertPromptSchema(dynamicAgent.promptSchema),
+        promptSchema,
         outputMode: dynamicAgent.outputMode,
         includeMessageHistory: dynamicAgent.includeMessageHistory,
         toolNames: dynamicAgent.toolNames as any[],
@@ -255,42 +274,70 @@ export class DynamicAgentService {
   }
 
   /**
-   * Convert dynamic agent prompt schema to internal Zod schema format.
+   * Convert JSON schema to Zod schema format using json-schema-to-zod.
    * This is done once during loading to avoid repeated conversions.
+   * Throws descriptive errors for validation failures.
    */
   private convertPromptSchema(
-    promptSchema?: Record<string, { type: string; description: string }>
+    promptSchema?: Record<string, any>,
+    paramsSchema?: Record<string, any>,
+    filePath?: string
   ): AgentTemplate['promptSchema'] {
     const result: any = {}
+    const fileContext = filePath ? ` in ${filePath}` : ''
 
+    // Handle prompt schema
     if (promptSchema && Object.keys(promptSchema).length > 0) {
-      for (const [key, field] of Object.entries(promptSchema)) {
-        // Convert each field to a Zod schema based on type
-        switch (field.type) {
-          case 'string':
-            result[key] = z.string().describe(field.description)
-            break
-          case 'number':
-            result[key] = z.number().describe(field.description)
-            break
-          case 'boolean':
-            result[key] = z.boolean().describe(field.description)
-            break
-          case 'array':
-            result[key] = z.array(z.string()).describe(field.description)
-            break
-          default:
-            // Fallback to string for unknown types
-            result[key] = z.string().describe(field.description)
-            logger.warn(
-              { type: field.type, key },
-              'Unknown schema type, defaulting to string'
-            )
+      try {
+        const zodSchemaCode = jsonSchemaToZod(promptSchema)
+        const schemaFunction = new Function('z', `return ${zodSchemaCode}`)
+        const promptZodSchema = schemaFunction(z)
+
+        // Validate that the schema results in string or undefined
+        const testResult = promptZodSchema.safeParse('test')
+        const testUndefined = promptZodSchema.safeParse(undefined)
+
+        if (!testResult.success && !testUndefined.success) {
+          const errorDetails =
+            testResult.error?.issues?.[0]?.message || 'validation failed'
+          throw new Error(
+            `Invalid promptSchema.prompt${fileContext}: Schema must allow string or undefined values. ` +
+              `Current schema validation error: ${errorDetails}. ` +
+              `Please ensure your JSON schema accepts string types.`
+          )
         }
+
+        result.prompt = promptZodSchema
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('promptSchema')) {
+          // Re-throw our custom validation errors
+          throw error
+        }
+
+        // Handle json-schema-to-zod conversion errors
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error'
+        throw new Error(
+          `Failed to convert promptSchema.prompt to Zod${fileContext}: ${errorMessage}. ` +
+            `Please check that your promptSchema.prompt is a valid JSON schema object.`
+        )
       }
-    } else {
-      // Default schema for agents without custom parameters
-      result.prompt = z.string().describe('A coding task to complete')
+    }
+
+    // Handle params schema
+    if (paramsSchema && Object.keys(paramsSchema).length > 0) {
+      try {
+        const zodSchemaCode = jsonSchemaToZod(paramsSchema)
+        const schemaFunction = new Function('z', `return ${zodSchemaCode}`)
+        result.params = schemaFunction(z)
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error'
+        throw new Error(
+          `Failed to convert promptSchema.params to Zod${fileContext}: ${errorMessage}. ` +
+            `Please check that your promptSchema.params is a valid JSON schema object.`
+        )
+      }
     }
 
     return result

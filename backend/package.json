@@ -38,6 +38,7 @@
     "express": "4.19.2",
     "gpt-tokenizer": "2.8.1",
     "ignore": "5.3.2",
+    "json-schema-to-zod": "2.6.1",
     "lodash": "*",
     "openai": "^4.78.1",
     "pino": "9.4.0",

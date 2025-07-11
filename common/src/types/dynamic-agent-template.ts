@@ -11,12 +11,22 @@ if (filteredModels.length === 0) {
   throw new Error('No valid models found with allowed prefixes')
 }
 
-const PromptSchemaFieldSchema = z.object({
-  type: z.string(),
-  description: z.string(),
-})
+// JSON Schema for params - supports any valid JSON schema
+const JsonSchemaSchema = z.record(z.any()).refine(
+  (schema) => {
+    // Basic validation that it looks like a JSON schema
+    return typeof schema === 'object' && schema !== null
+  },
+  { message: 'Must be a valid JSON schema object' }
+)
 
-const PromptSchemaSchema = z.record(z.string(), PromptSchemaFieldSchema)
+// Schema for the combined promptSchema object
+const PromptSchemaObjectSchema = z
+  .object({
+    prompt: JsonSchemaSchema.optional(), // Optional JSON schema for prompt validation
+    params: JsonSchemaSchema.optional(), // Optional JSON schema for params validation
+  })
+  .optional()
 
 // Schema for prompt fields that can be either a string or a path reference
 const PromptFieldSchema = z.union([
@@ -60,9 +70,9 @@ export const DynamicAgentTemplateSchema = z.object({
     ),
   stopSequences: z.array(z.string()).default([]),
   spawnableAgents: z.array(z.string()).default([]),
-  promptSchema: PromptSchemaSchema.optional(),
+  promptSchema: PromptSchemaObjectSchema,
 
-  // Required prompts (can be strings or path references)
+  // Required prompts (only strings or path references)
   systemPrompt: PromptFieldSchema,
   userInputPrompt: PromptFieldSchema,
   agentStepPrompt: PromptFieldSchema,

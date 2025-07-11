@@ -83,6 +83,32 @@ export const parseFileBlocks = (fileBlocks: string) => {
   return files
 }
 
+export const getStubProjectFileContext = (): ProjectFileContext => ({
+  projectRoot: '',
+  cwd: '',
+  fileTree: [],
+  fileTokenScores: {},
+  knowledgeFiles: {},
+  userKnowledgeFiles: {},
+  agentTemplates: {},
+  gitChanges: {
+    status: '',
+    diff: '',
+    diffCached: '',
+    lastCommitMessages: '',
+  },
+  changesSinceLastChat: {},
+  shellConfigFiles: {},
+  systemInfo: {
+    platform: '',
+    shell: '',
+    nodeVersion: '',
+    arch: '',
+    homedir: '',
+    cpus: 0,
+  },
+})
+
 export const createMarkdownFileBlock = (filePath: string, content: string) => {
   return `\`\`\`${filePath}\n${content}\n\`\`\``
 }
