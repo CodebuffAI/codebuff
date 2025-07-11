@@ -105,6 +105,14 @@ doesnt_need_secrets() {
     esac
 }
 
+# Check if we're in a worktree and source worktree-specific env vars
+if [ -f ".env.worktree" ]; then
+    echo "🔧 Loading worktree environment variables from .env.worktree"
+    set -a  # automatically export all variables
+    source .env.worktree
+    set +a
+fi
+
 # Main logic - default to using infisical unless command doesn't need secrets
 if doesnt_need_secrets "$@"; then
     exec "$REAL_BUN" "$@"

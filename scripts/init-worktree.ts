@@ -36,7 +36,10 @@ interface ValidationError {
 }
 
 class WorktreeError extends Error {
-  constructor(message: string, public code: string = 'WORKTREE_ERROR') {
+  constructor(
+    message: string,
+    public code: string = 'WORKTREE_ERROR'
+  ) {
     super(message)
     this.name = 'WorktreeError'
   }
@@ -45,10 +48,14 @@ class WorktreeError extends Error {
 // Utility functions
 function parseArgs(): WorktreeArgs {
   const args = process.argv.slice(2)
-  
+
   if (args.length < 3) {
-    console.error('Usage: bun scripts/init-worktree.ts <worktree-name> <backend-port> <web-port>')
-    console.error('Example: bun scripts/init-worktree.ts feature-branch 8001 3001')
+    console.error(
+      'Usage: bun scripts/init-worktree.ts <worktree-name> <backend-port> <web-port>'
+    )
+    console.error(
+      'Example: bun scripts/init-worktree.ts feature-branch 8001 3001'
+    )
     console.error('All parameters are required to avoid port conflicts')
     process.exit(1)
   }
@@ -58,11 +65,17 @@ function parseArgs(): WorktreeArgs {
   const webPort = parseInt(webPortStr, 10)
 
   if (isNaN(backendPort)) {
-    throw new WorktreeError(`Backend port must be a number, got: ${backendPortStr}`, 'INVALID_PORT')
+    throw new WorktreeError(
+      `Backend port must be a number, got: ${backendPortStr}`,
+      'INVALID_PORT'
+    )
   }
 
   if (isNaN(webPort)) {
-    throw new WorktreeError(`Web port must be a number, got: ${webPortStr}`, 'INVALID_PORT')
+    throw new WorktreeError(
+      `Web port must be a number, got: ${webPortStr}`,
+      'INVALID_PORT'
+    )
   }
 
   return { name, backendPort, webPort }
@@ -70,11 +83,11 @@ function parseArgs(): WorktreeArgs {
 
 function validateArgs(args: WorktreeArgs): ValidationError[] {
   const result = WorktreeArgsSchema.safeParse(args)
-  
+
   if (!result.success) {
-    return result.error.errors.map(err => ({
+    return result.error.errors.map((err) => ({
       field: err.path.join('.'),
-      message: err.message
+      message: err.message,
     }))
   }
 
@@ -84,7 +97,7 @@ function validateArgs(args: WorktreeArgs): ValidationError[] {
   if (args.backendPort === args.webPort) {
     errors.push({
       field: 'ports',
-      message: `Backend and web ports cannot be the same (${args.backendPort})`
+      message: `Backend and web ports cannot be the same (${args.backendPort})`,
     })
   }
 
@@ -102,7 +115,7 @@ async function checkPortInUse(port: number): Promise<boolean> {
 async function promptUser(question: string): Promise<boolean> {
   const rl = createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
   })
 
   return new Promise((resolve) => {
@@ -118,7 +131,9 @@ async function checkPortConflicts(args: WorktreeArgs): Promise<void> {
   const webInUse = await checkPortInUse(args.webPort)
 
   if (backendInUse) {
-    console.warn(`Warning: Backend port ${args.backendPort} appears to be in use`)
+    console.warn(
+      `Warning: Backend port ${args.backendPort} appears to be in use`
+    )
     const shouldContinue = await promptUser('Continue anyway? (y/N) ')
     if (!shouldContinue) {
       throw new WorktreeError('Aborted due to port conflict', 'PORT_CONFLICT')
@@ -134,12 +149,16 @@ async function checkPortConflicts(args: WorktreeArgs): Promise<void> {
   }
 }
 
-async function runCommand(command: string, args: string[], cwd?: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+async function runCommand(
+  command: string,
+  args: string[],
+  cwd?: string
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(command, args, { 
+    const proc = spawn(command, args, {
       cwd,
       stdio: 'pipe',
-      shell: false
+      shell: false,
     })
 
     let stdout = ''
@@ -162,14 +181,24 @@ async function runCommand(command: string, args: string[], cwd?: string): Promis
     })
 
     proc.on('error', (error) => {
-      reject(new WorktreeError(`Failed to run ${command}: ${error.message}`, 'COMMAND_ERROR'))
+      reject(
+        new WorktreeError(
+          `Failed to run ${command}: ${error.message}`,
+          'COMMAND_ERROR'
+        )
+      )
     })
   })
 }
 
 async function checkGitBranchExists(branchName: string): Promise<boolean> {
   try {
-    const result = await runCommand('git', ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`])
+    const result = await runCommand('git', [
+      'show-ref',
+      '--verify',
+      '--quiet',
+      `refs/heads/${branchName}`,
+    ])
     return result.exitCode === 0
   } catch {
     return false
@@ -183,27 +212,15 @@ PORT=${args.backendPort}
 NEXT_PUBLIC_BACKEND_URL=localhost:${args.backendPort}
 NEXT_PUBLIC_WEB_PORT=${args.webPort}
 `
-  
+
   writeFileSync(join(worktreePath, '.env.worktree'), envContent)
   console.log('Created .env.worktree with port configurations')
 }
 
-function createWrapperScript(worktreePath: string): void {
-  const wrapperContent = `#!/bin/bash
-# Source the worktree-specific environment variables
-if [ -f ".env.worktree" ]; then
-    set -a  # automatically export all variables
-    source .env.worktree
-    set +a
-fi
-# Execute the original command
-exec "$@"
-`
-  
-  const wrapperPath = join(worktreePath, '.worktree-env.sh')
-  writeFileSync(wrapperPath, wrapperContent)
-  chmodSync(wrapperPath, 0o755)
-}
+// Wrapper script no longer needed - .bin/bun handles .env.worktree loading
+// function createWrapperScript(worktreePath: string): void {
+//   // This function is deprecated - the .bin/bun wrapper now handles .env.worktree loading
+// }
 
 async function runDirenvAllow(worktreePath: string): Promise<void> {
   const envrcPath = join(worktreePath, '.envrc')
@@ -224,10 +241,10 @@ async function main(): Promise<void> {
     // Parse and validate arguments
     const args = parseArgs()
     const validationErrors = validateArgs(args)
-    
+
     if (validationErrors.length > 0) {
       console.error('Validation errors:')
-      validationErrors.forEach(error => {
+      validationErrors.forEach((error) => {
         console.error(`  ${error.field}: ${error.message}`)
       })
       process.exit(1)
@@ -270,28 +287,27 @@ async function main(): Promise<void> {
 
     // Create configuration files
     createEnvWorktreeFile(worktreePath, args)
-    createWrapperScript(worktreePath)
+    // Note: .bin/bun wrapper now automatically loads .env.worktree
 
     // Run direnv allow
     await runDirenvAllow(worktreePath)
 
     // Install dependencies
     console.log('Installing dependencies with bun...')
-    await runCommand('./.worktree-env.sh', ['bun', 'install'], worktreePath)
+    await runCommand('bun', ['install'], worktreePath)
 
     // Build web directory
     console.log('Building web directory...')
-    await runCommand('./.worktree-env.sh', ['bun', 'run', '--cwd', 'web', 'build'], worktreePath)
+    await runCommand('bun', ['run', '--cwd', 'web', 'build'], worktreePath)
 
     // Run typecheck
     console.log('Running typecheck...')
-    await runCommand('./.worktree-env.sh', ['bun', 'run', 'typecheck'], worktreePath)
+    await runCommand('bun', ['run', 'typecheck'], worktreePath)
 
     console.log(`✅ Worktree '${args.name}' created and set up successfully!`)
     console.log(`📁 Location: ${worktreePath}`)
     console.log(`🚀 You can now cd into the worktree and start working:`)
     console.log(`   cd ${worktreePath}`)
-
   } catch (error) {
     if (error instanceof WorktreeError) {
       console.error(`Error: ${error.message}`)
