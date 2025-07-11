@@ -1,11 +1,9 @@
+import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 import {
-  DynamicAgentTemplateSchema,
   validateSpawnableAgents,
-} from '@codebuff/common/types/dynamic-agent-template'
-import {
-  AgentTemplateType,
-  AgentTemplateTypes,
-} from '@codebuff/common/types/session-state'
+  formatSpawnableAgentError,
+} from '@codebuff/common/util/agent-template-validation'
+import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as fs from 'fs'
@@ -65,18 +63,12 @@ export class DynamicAgentService {
         jsonFiles
       )
 
-      // Get available agent types for validation (static + dynamic)
-      const availableAgentTypes = [
-        ...Object.values(AgentTemplateTypes),
-        ...dynamicAgentIds, // Include all dynamic agent IDs found
-      ]
-
       // Pass 2: Load and validate each agent template
       for (const fileName of jsonFiles) {
         await this.loadSingleAgent(
           templatesDir,
           fileName,
-          availableAgentTypes,
+          dynamicAgentIds,
           fileContext
         )
       }
@@ -143,7 +135,7 @@ export class DynamicAgentService {
   private async loadSingleAgent(
     templatesDir: string,
     fileName: string,
-    availableAgentTypes: string[],
+    dynamicAgentIds: string[],
     fileContext: ProjectFileContext
   ): Promise<void> {
     const filePath = path.join(templatesDir, fileName)
@@ -167,13 +159,16 @@ export class DynamicAgentService {
 
       const spawnableValidation = validateSpawnableAgents(
         dynamicAgent.spawnableAgents,
-        availableAgentTypes
+        dynamicAgentIds
       )
       if (!spawnableValidation.valid) {
         this.validationErrors.push({
           filePath: relativeFilePath,
-          message: `Invalid spawnable agents: ${spawnableValidation.invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.\n\nAvailable agents: ${availableAgentTypes.join(', ')}`,
-          details: `Available agents: ${availableAgentTypes.join(', ')}`,
+          message: formatSpawnableAgentError(
+            spawnableValidation.invalidAgents,
+            spawnableValidation.availableAgents
+          ),
+          details: `Available agents: ${spawnableValidation.availableAgents.join(', ')}`,
         })
         return
       }

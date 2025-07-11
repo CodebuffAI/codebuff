@@ -8,10 +8,12 @@ import {
   DynamicAgentTemplateSchema,
 } from '../types/dynamic-agent-template'
 import { AgentTemplateTypes } from '../types/session-state'
-import {
-  normalizeAgentName,
-  normalizeAgentNames,
-} from './agent-name-normalization'
+import { normalizeAgentName } from './agent-name-normalization'
+
+export interface SpawnableAgentValidationResult {
+  valid: boolean
+  invalidAgents: string[]
+}
 
 export interface AgentTemplateValidationResult {
   validConfigs: Array<{
@@ -19,6 +21,48 @@ export interface AgentTemplateValidationResult {
     config: AgentOverrideConfig | DynamicAgentTemplate
   }>
   validationErrors: Array<{ filePath: string; message: string }>
+}
+
+/**
+ * Centralized validation for spawnable agents.
+ * Validates that all spawnable agents reference valid agent types.
+ */
+export function validateSpawnableAgents(
+  spawnableAgents: string[],
+  dynamicAgentIds: string[]
+): SpawnableAgentValidationResult & { availableAgents: string[] } {
+  // Build complete list of available agent types
+  const availableAgentTypes = [
+    ...Object.values(AgentTemplateTypes),
+    ...dynamicAgentIds,
+  ]
+
+  // Find invalid agents (those not in available types, even after normalization)
+  const invalidAgents = spawnableAgents.filter(
+    (agent) =>
+      !availableAgentTypes.includes(agent) &&
+      !availableAgentTypes.includes(normalizeAgentName(agent))
+  )
+
+  return {
+    valid: invalidAgents.length === 0,
+    invalidAgents,
+    availableAgents: availableAgentTypes,
+  }
+}
+
+/**
+ * Formats a validation error message for spawnable agents
+ */
+export function formatSpawnableAgentError(
+  invalidAgents: string[],
+  availableAgents: string[]
+): string {
+  let message = `Invalid spawnable agents: ${invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`
+
+  message += `\n\nAvailable agents: ${availableAgents.join(', ')}`
+
+  return message
 }
 
 /**
@@ -49,7 +93,6 @@ export function validateAgentTemplateConfigs(
     config: AgentOverrideConfig | DynamicAgentTemplate
   }> = []
   const validationErrors: Array<{ filePath: string; message: string }> = []
-  const availableAgentTypes = Object.values(AgentTemplateTypes)
 
   for (const [filePath, content] of Object.entries(agentTemplates)) {
     // Only process .json files in the agent templates directory
@@ -78,16 +121,14 @@ export function validateAgentTemplateConfigs(
             ? spawnableAgents.content
             : [spawnableAgents.content]
 
-          const invalidAgents = agentList.filter(
-            (agent) =>
-              !availableAgentTypes.includes(agent as any) ||
-              !availableAgentTypes.includes(normalizeAgentName(agent) as any)
-          )
-
-          if (invalidAgents.length > 0) {
+          const validation = validateSpawnableAgents(agentList, [])
+          if (!validation.valid) {
             validationErrors.push({
               filePath,
-              message: `Invalid spawnable agents: ${invalidAgents.join(', ')}.`,
+              message: formatSpawnableAgentError(
+                validation.invalidAgents,
+                validation.availableAgents
+              ),
             })
             continue
           }
@@ -98,18 +139,17 @@ export function validateAgentTemplateConfigs(
           dynamicConfig.spawnableAgents &&
           dynamicConfig.spawnableAgents.length > 0
         ) {
-          // Strip CodebuffAI/ prefix before validation
-          const normalizedAgents = normalizeAgentNames(
-            dynamicConfig.spawnableAgents
+          const validation = validateSpawnableAgents(
+            dynamicConfig.spawnableAgents,
+            []
           )
-          const invalidAgents = normalizedAgents.filter(
-            (agent) => !availableAgentTypes.includes(agent as any)
-          )
-
-          if (invalidAgents.length > 0) {
+          if (!validation.valid) {
             validationErrors.push({
               filePath,
-              message: `Invalid spawnable agents: ${invalidAgents.join(', ')}.`,
+              message: formatSpawnableAgentError(
+                validation.invalidAgents,
+                validation.availableAgents
+              ),
             })
             continue
           }

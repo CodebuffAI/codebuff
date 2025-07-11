@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
-import { normalizeAgentName } from '../util/agent-name-normalization'
 
 // Filter models to only include those that begin with allowed prefixes
 const filteredModels = Object.values(models).filter((model) =>
@@ -55,22 +54,3 @@ export const DynamicAgentTemplateSchema = z.object({
 })
 
 export type DynamicAgentTemplate = z.infer<typeof DynamicAgentTemplateSchema>
-
-/**
- * Validates that spawnable agents reference valid agent types
- */
-export function validateSpawnableAgents(
-  spawnableAgents: string[],
-  availableAgentTypes: string[]
-): { valid: boolean; invalidAgents: string[] } {
-  const invalidAgents = spawnableAgents.filter(
-    (agent) =>
-      !availableAgentTypes.includes(agent) &&
-      !availableAgentTypes.includes(normalizeAgentName(agent))
-  )
-
-  return {
-    valid: invalidAgents.length === 0,
-    invalidAgents,
-  }
-}
