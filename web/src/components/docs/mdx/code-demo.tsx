@@ -9,28 +9,28 @@ type CodeDemoChildren = string | JSX.Element | JSX.Element[]
 interface CodeDemoProps {
   children: CodeDemoChildren
   language: string
+  rawContent?: string
 }
 
 const getContent = (c: CodeDemoChildren): string => {
   if (typeof c === 'string') {
-    return c.trim()
+    return c
   }
 
   if (Array.isArray(c)) {
-    return c
-      .map((child) => getContent(child))
-      .join('\n')
-      .trim()
+    const result = c.map((child) => getContent(child)).join('\n')
+    return result
   }
 
   if (typeof c === 'object' && c.props && c.props.children) {
-    return getContent(c.props.children).trim()
+    const result = getContent(c.props.children)
+    return result
   }
 
   return ''
 }
 
-export function CodeDemo({ children, language }: CodeDemoProps) {
+export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
   const [copied, setCopied] = useState(false)
 
   const copyToClipboard = (content: string) => {
@@ -39,7 +39,11 @@ export function CodeDemo({ children, language }: CodeDemoProps) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const childrenContent = useMemo(() => getContent(children), [children])
+  const childrenContent = useMemo(() => {
+    // Use rawContent if available (from remark plugin), otherwise fall back to processing children
+    const content = rawContent || getContent(children)
+    return content
+  }, [children, language, rawContent])
 
   return (
     <div className="rounded-lg border bg-muted/30 px-3 w-80 md:w-full my-2 transition-all group hover:bg-muted/40">
