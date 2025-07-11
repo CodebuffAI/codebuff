@@ -176,7 +176,7 @@ describe('Dynamic Agent Loader', () => {
     const result = await dynamicAgentService.loadAgents(fileContext)
     
     expect(result.validationErrors).toHaveLength(1)
-    expect(result.validationErrors[0].message).toContain('Failed to load agent template')
+    expect(result.validationErrors[0].message).toContain('Error in agent template')
   })
 
   it('should merge static and dynamic templates', async () => {

@@ -1,11 +1,23 @@
 import { AGENT_TEMPLATES_DIR } from '../constants'
-import { AgentOverrideConfig, AgentOverrideConfigSchema } from '../types/agent-overrides'
-import { DynamicAgentTemplate, DynamicAgentTemplateSchema } from '../types/dynamic-agent-template'
+import {
+  AgentOverrideConfig,
+  AgentOverrideConfigSchema,
+} from '../types/agent-overrides'
+import {
+  DynamicAgentTemplate,
+  DynamicAgentTemplateSchema,
+} from '../types/dynamic-agent-template'
 import { AgentTemplateTypes } from '../types/session-state'
-import { normalizeAgentNames } from './agent-name-normalization'
+import {
+  normalizeAgentName,
+  normalizeAgentNames,
+} from './agent-name-normalization'
 
 export interface AgentTemplateValidationResult {
-  validConfigs: Array<{ filePath: string; config: AgentOverrideConfig | DynamicAgentTemplate }>
+  validConfigs: Array<{
+    filePath: string
+    config: AgentOverrideConfig | DynamicAgentTemplate
+  }>
   validationErrors: Array<{ filePath: string; message: string }>
 }
 
@@ -18,7 +30,7 @@ export function formatValidationErrorMessage(
   validationErrors: Array<{ filePath: string; message: string }>
 ): string | undefined {
   if (validationErrors.length === 0) return undefined
-  
+
   return validationErrors
     .map((error) => `❌ ${error.filePath}: ${error.message}`)
     .join('\n')
@@ -32,7 +44,10 @@ export function formatValidationErrorMessage(
 export function validateAgentTemplateConfigs(
   agentTemplates: Record<string, string>
 ): AgentTemplateValidationResult {
-  const validConfigs: Array<{ filePath: string; config: AgentOverrideConfig | DynamicAgentTemplate }> = []
+  const validConfigs: Array<{
+    filePath: string
+    config: AgentOverrideConfig | DynamicAgentTemplate
+  }> = []
   const validationErrors: Array<{ filePath: string; message: string }> = []
   const availableAgentTypes = Object.values(AgentTemplateTypes)
 
@@ -47,10 +62,10 @@ export function validateAgentTemplateConfigs(
 
     try {
       const parsedContent = JSON.parse(content)
-      
+
       // Determine if this is an override or a new agent template
       const isOverride = parsedContent.override === true
-      const config = isOverride 
+      const config = isOverride
         ? AgentOverrideConfigSchema.parse(parsedContent)
         : DynamicAgentTemplateSchema.parse(parsedContent)
 
@@ -63,10 +78,10 @@ export function validateAgentTemplateConfigs(
             ? spawnableAgents.content
             : [spawnableAgents.content]
 
-          // Strip CodebuffAI/ prefix before validation
-          const normalizedAgents = normalizeAgentNames(agentList)
-          const invalidAgents = normalizedAgents.filter(
-            (agent) => !availableAgentTypes.includes(agent as any)
+          const invalidAgents = agentList.filter(
+            (agent) =>
+              !availableAgentTypes.includes(agent as any) ||
+              !availableAgentTypes.includes(normalizeAgentName(agent) as any)
           )
 
           if (invalidAgents.length > 0) {
@@ -79,9 +94,14 @@ export function validateAgentTemplateConfigs(
         }
       } else if (!isOverride && 'spawnableAgents' in config) {
         const dynamicConfig = config as DynamicAgentTemplate
-        if (dynamicConfig.spawnableAgents && dynamicConfig.spawnableAgents.length > 0) {
+        if (
+          dynamicConfig.spawnableAgents &&
+          dynamicConfig.spawnableAgents.length > 0
+        ) {
           // Strip CodebuffAI/ prefix before validation
-          const normalizedAgents = normalizeAgentNames(dynamicConfig.spawnableAgents)
+          const normalizedAgents = normalizeAgentNames(
+            dynamicConfig.spawnableAgents
+          )
           const invalidAgents = normalizedAgents.filter(
             (agent) => !availableAgentTypes.includes(agent as any)
           )
@@ -116,7 +136,8 @@ export function validateAgentTemplateFiles(
   logger?: { warn: (obj: any, msg: string) => void }
 ): Record<string, string> {
   const validatedFiles: Record<string, string> = {}
-  const { validConfigs, validationErrors } = validateAgentTemplateConfigs(agentTemplateFiles)
+  const { validConfigs, validationErrors } =
+    validateAgentTemplateConfigs(agentTemplateFiles)
 
   // Add valid configs to validated files
   for (const { filePath } of validConfigs) {
@@ -125,7 +146,8 @@ export function validateAgentTemplateFiles(
 
   // Log validation errors
   for (const { filePath, message } of validationErrors) {
-    logger?.warn({ filePath }, message) ?? console.warn(`${message}: ${filePath}`)
+    logger?.warn({ filePath }, message) ??
+      console.warn(`${message}: ${filePath}`)
   }
 
   // Add non-JSON files without validation

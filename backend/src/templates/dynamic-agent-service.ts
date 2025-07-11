@@ -55,20 +55,24 @@ export class DynamicAgentService {
       }
     }
 
-    // Get available agent types for validation
-    const availableAgentTypes = [
-      ...Object.values(AgentTemplateTypes),
-      ...Object.keys(this.templates), // Include any already loaded dynamic agents
-    ]
-
     try {
       const files = fs.readdirSync(templatesDir)
+      const jsonFiles = files.filter((fileName) => fileName.endsWith('.json'))
 
-      for (const fileName of files) {
-        if (!fileName.endsWith('.json')) {
-          continue
-        }
+      // Pass 1: Collect all agent IDs from template files
+      const dynamicAgentIds = await this.collectAgentIds(
+        templatesDir,
+        jsonFiles
+      )
 
+      // Get available agent types for validation (static + dynamic)
+      const availableAgentTypes = [
+        ...Object.values(AgentTemplateTypes),
+        ...dynamicAgentIds, // Include all dynamic agent IDs found
+      ]
+
+      // Pass 2: Load and validate each agent template
+      for (const fileName of jsonFiles) {
         await this.loadSingleAgent(
           templatesDir,
           fileName,
@@ -94,6 +98,43 @@ export class DynamicAgentService {
       templates: this.templates,
       validationErrors: this.validationErrors,
     }
+  }
+
+  /**
+   * First pass: Collect all agent IDs from template files without full validation
+   */
+  private async collectAgentIds(
+    templatesDir: string,
+    jsonFiles: string[]
+  ): Promise<string[]> {
+    const agentIds: string[] = []
+
+    for (const fileName of jsonFiles) {
+      const filePath = path.join(templatesDir, fileName)
+
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8')
+        const parsedContent = JSON.parse(content)
+
+        // Skip override templates (they modify existing agents)
+        if (parsedContent.override !== false) {
+          continue
+        }
+
+        // Extract the agent ID if it exists
+        if (parsedContent.id && typeof parsedContent.id === 'string') {
+          agentIds.push(parsedContent.id)
+        }
+      } catch (error) {
+        // Log but don't fail the collection process
+        logger.debug(
+          { fileName, error },
+          'Failed to extract agent ID during collection phase'
+        )
+      }
+    }
+
+    return agentIds
   }
 
   /**
@@ -131,7 +172,7 @@ export class DynamicAgentService {
       if (!spawnableValidation.valid) {
         this.validationErrors.push({
           filePath: relativeFilePath,
-          message: `Invalid spawnable agents: ${spawnableValidation.invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`,
+          message: `Invalid spawnable agents: ${spawnableValidation.invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.\n\nAvailable agents: ${availableAgentTypes.join(', ')}`,
           details: `Available agents: ${availableAgentTypes.join(', ')}`,
         })
         return

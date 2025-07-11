@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
-import { DEFAULT_ORG_PREFIX } from '../util/agent-name-normalization'
+import { normalizeAgentName } from '../util/agent-name-normalization'
 
 // Filter models to only include those that begin with allowed prefixes
 const filteredModels = Object.values(models).filter((model) =>
@@ -66,7 +66,7 @@ export function validateSpawnableAgents(
   const invalidAgents = spawnableAgents.filter(
     (agent) =>
       !availableAgentTypes.includes(agent) &&
-      !availableAgentTypes.includes(`${DEFAULT_ORG_PREFIX}${agent}`)
+      !availableAgentTypes.includes(normalizeAgentName(agent))
   )
 
   return {
