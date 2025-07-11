@@ -1,0 +1,319 @@
+---
+title: 'Agent Reference'
+section: 'advanced'
+tags: ['customization', 'agent templates', 'agents', 'reference']
+order: 4
+---
+
+# Agent Reference
+
+This page provides a complete reference for all fields and tools you can configure.
+
+## Overriding Existing Agents
+
+When creating override templates (`"override": true`), you can modify existing agents by changing their prompts, tools, and models.
+
+### Agent Override Schema
+
+<AgentOverrideSchemaDisplay />
+
+### Model Configuration (Overrides)
+
+#### `model` (string, optional for overrides)
+
+The model to use, which can be any model string from https://openrouter.ai/models
+
+**Popular Models:**
+
+- `anthropic/claude-4-sonnet-20250522`
+- `anthropic/claude-3-5-sonnet-20241022`
+- `anthropic/claude-3-5-haiku-20241022`
+- `openai/gpt-4o`
+- `openai/gpt-4o-mini`
+- `openai/o4-mini`
+- `google/gemini-2.5-pro`
+- `google/gemini-2.5-flash`
+
+```json
+"model": "anthropic/claude-4-sonnet-20250522"
+```
+
+### Prompt Overrides
+
+All prompt fields support override types to modify existing agent prompts:
+
+```json
+"systemPrompt": {
+  "type": "append",     // Add to existing prompt
+  "content": "Additional instructions..."
+}
+```
+
+```json
+"systemPrompt": {
+  "type": "prepend",    // Add before existing prompt
+  "content": "Before starting..."
+}
+```
+
+```json
+"systemPrompt": {
+  "type": "replace",    // Replace entire prompt
+  "content": "New instructions..."
+}
+```
+
+```json
+"systemPrompt": {
+  "type": "append",
+  "path": "./additional-instructions.md"  // Reference external file
+}
+```
+
+### Array Overrides
+
+For `toolNames` and `spawnableAgents`:
+
+```json
+"toolNames": {
+  "type": "append",     // Add to existing tools
+  "content": ["web_search", "browser_logs"]
+}
+```
+
+```json
+"spawnableAgents": {
+  "type": "replace",    // Replace all spawnable agents
+  "content": ["CodebuffAI/thinker"]
+}
+```
+
+### Override Example
+
+```json
+{
+  "id": "CodebuffAI/reviewer",
+  "version": "0.1.7",
+  "override": true,
+
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "systemPrompt": {
+    "type": "append",
+    "content": "\n\nAlways check for TypeScript errors using `bun run typecheck`."
+  },
+  "toolNames": {
+    "type": "append",
+    "content": ["web_search"]
+  }
+}
+```
+
+## Creating New Agents
+
+When creating new agent templates (`"override": false`), you define all aspects of the agent from scratch.
+
+### New Agent Schema
+
+<AgentTemplateSchemaDisplay />
+
+### Model Configuration (New Agents)
+
+#### `model` (string, required for new agents)
+
+The model to use, which can be any model string from https://openrouter.ai/models
+
+```json
+"model": "anthropic/claude-4-sonnet-20250522"
+```
+
+### Behavior Configuration
+
+#### `outputMode` (string, optional, default: "last_message")
+
+How the agent's output is handled.
+
+**Options:**
+
+- `"last_message"` - Return only the final message
+- `"report"` - Return a structured report
+- `"all_messages"` - Return all messages from the conversation
+
+```json
+"outputMode": "last_message"
+```
+
+#### `includeMessageHistory` (boolean, optional, default: true)
+
+Whether to include conversation history when spawning this agent.
+
+```json
+"includeMessageHistory": true
+```
+
+### Tools and Capabilities
+
+#### `toolNames` (array, optional, default: ["end_turn"])
+
+List of tools the agent can use.
+
+**Available Tools:**
+
+- `add_subgoal` - Create subgoals for tracking progress
+- `browser_logs` - Navigate web pages and get console logs
+- `code_search` - Search for patterns in code files
+- `create_plan` - Generate detailed plans for complex tasks
+- `end_turn` - End the agent's turn
+- `find_files` - Find relevant files in the codebase
+- `read_docs` - Read documentation for libraries
+- `read_files` - Read file contents
+- `run_file_change_hooks` - Run configured file change hooks
+- `run_terminal_command` - Execute terminal commands
+- `spawn_agents` - Spawn other agents
+- `str_replace` - Replace strings in files
+- `think_deeply` - Perform deep analysis
+- `update_report` - Update the agent's report
+- `update_subgoal` - Update existing subgoals
+- `web_search` - Search the web
+- `write_file` - Create or edit files
+
+```json
+"toolNames": ["read_files", "write_file", "code_search", "end_turn"]
+```
+
+#### `stopSequences` (array, optional, default: [])
+
+Sequences that will stop the agent's generation.
+
+```json
+"stopSequences": ["</end_turn>"]
+```
+
+#### `spawnableAgents` (array, optional, default: [])
+
+Other agents this agent can spawn.
+
+**Available Built-in Agents:**
+
+- `CodebuffAI/base` - Main coding assistant
+- `CodebuffAI/reviewer` - Code review agent
+- `CodebuffAI/thinker` - Deep thinking agent
+- `CodebuffAI/researcher` - Research and documentation agent
+- `CodebuffAI/planner` - Planning and architecture agent
+- `CodebuffAI/file_picker` - File discovery agent
+
+```json
+"spawnableAgents": ["CodebuffAI/researcher", "CodebuffAI/reviewer"]
+```
+
+### Prompt Configuration
+
+All prompt fields support two formats:
+
+1. **Direct string content:**
+
+```json
+"systemPrompt": "You are a helpful assistant..."
+```
+
+2. **External file reference:**
+
+```json
+"systemPrompt": {
+  "path": "./my-system-prompt.md"
+}
+```
+
+#### Required Prompts
+
+#### `systemPrompt` (string or object, required for new agents)
+
+Core instructions that define the agent's behavior and personality.
+
+#### `userInputPrompt` (string or object, required for new agents)
+
+Instructions for how to process user input.
+
+#### `agentStepPrompt` (string or object, required for new agents)
+
+Instructions for each step of the agent's execution.
+
+#### Optional Assistant Messages
+
+#### `initialAssistantMessage` (string or object, optional)
+
+Message the agent sends when first spawned.
+
+#### `initialAssistantPrefix` (string or object, optional)
+
+Prefix added to the initial assistant message.
+
+#### `stepAssistantMessage` (string or object, optional)
+
+Message sent at each step.
+
+#### `stepAssistantPrefix` (string or object, optional)
+
+Prefix added to step messages.
+
+### Schema Validation
+
+#### `promptSchema` (object, optional)
+
+JSON Schema definitions for validating prompt and params when spawning the agent.
+
+```json
+"promptSchema": {
+  "prompt": {
+    "type": "string",
+    "description": "What documentation to create"
+  },
+  "params": {
+    "type": "object",
+    "properties": {
+      "format": {
+        "type": "string",
+        "enum": ["markdown", "html"]
+      }
+    }
+  }
+}
+```
+
+### New Agent Example
+
+```json
+{
+  "id": "documentation-writer",
+  "version": "1.0.0",
+  "override": false,
+
+  "name": "Documentation Writer",
+  "description": "Specialized agent for creating comprehensive documentation",
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "outputMode": "last_message",
+  "includeMessageHistory": true,
+
+  "toolNames": [
+    "read_files",
+    "write_file",
+    "code_search",
+    "spawn_agents",
+    "end_turn"
+  ],
+  "stopSequences": ["</end_turn>"],
+  "spawnableAgents": ["CodebuffAI/researcher"],
+
+  "promptSchema": {
+    "prompt": {
+      "type": "string",
+      "description": "What documentation to create or update"
+    }
+  },
+
+  "systemPrompt": {
+    "path": "./doc-writer-system.md"
+  },
+  "userInputPrompt": "Create comprehensive documentation based on the user's request. Research existing code first.",
+  "agentStepPrompt": "Continue working on the documentation. Use end_turn when complete."
+}
+```

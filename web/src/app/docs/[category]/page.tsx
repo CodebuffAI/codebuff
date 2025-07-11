@@ -107,6 +107,16 @@ export default function CategoryPage({ params }: CategoryPageProps) {
         (mod) => mod.SchemaDisplay
       )
     ),
+    AgentOverrideSchemaDisplay: dynamic(() =>
+      import('@/components/docs/mdx/schema-display').then(
+        (mod) => mod.AgentOverrideSchemaDisplay
+      )
+    ),
+    AgentTemplateSchemaDisplay: dynamic(() =>
+      import('@/components/docs/mdx/schema-display').then(
+        (mod) => mod.AgentTemplateSchemaDisplay
+      )
+    ),
     a: dynamic(() =>
       import('@/components/docs/mdx/custom-link').then((mod) => mod.CustomLink)
     ),
