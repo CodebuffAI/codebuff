@@ -89,7 +89,10 @@ export const hasSignificantDeepChanges = <T extends object>(
   return false
 }
 
-export const filterObject = <T extends object>(obj: T, predicate: (value: any, key: keyof T) => boolean): { [P in keyof T]: T[P] } => {
+export const filterObject = <T extends object>(
+  obj: T,
+  predicate: (value: any, key: keyof T) => boolean
+): { [P in keyof T]: T[P] } => {
   const result = {} as { [P in keyof T]: T[P] }
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -109,6 +112,20 @@ export const filterObject = <T extends object>(obj: T, predicate: (value: any, k
  */
 export function assert(condition: boolean, message: string): asserts condition {
   if (!condition) {
-    throw new Error(`Assertion failed: ${message}`);
+    throw new Error(`Assertion failed: ${message}`)
   }
+}
+
+export function errorToObject(value: any) {
+  if (value instanceof Error) {
+    // Copy *all* own props, including non-enumerables
+    return Object.getOwnPropertyNames(value).reduce<Record<string, unknown>>(
+      (acc, key) => {
+        acc[key] = (value as any)[key]
+        return acc
+      },
+      {}
+    )
+  }
+  return value
 }

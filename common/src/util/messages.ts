@@ -58,6 +58,10 @@ export function withCacheControlCore(msg: CodebuffMessage): CodebuffMessage {
     message.providerOptions.anthropic = {}
   }
   message.providerOptions.anthropic.cacheControl = { type: 'ephemeral' }
+  if (!message.providerOptions.openrouter) {
+    message.providerOptions.openrouter = {}
+  }
+  message.providerOptions.openrouter.cacheControl = { type: 'ephemeral' }
   return message
 }
 

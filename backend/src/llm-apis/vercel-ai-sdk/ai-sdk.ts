@@ -11,6 +11,7 @@ import {
   type openrouterModel,
 } from '@codebuff/common/constants'
 import { Message } from '@codebuff/common/types/message'
+import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
@@ -108,7 +109,14 @@ export const promptAiSdkStream = async function* (
 
   for await (const chunk of response.fullStream) {
     if (chunk.type === 'error') {
-      logger.error({ chunk, model: options.model }, 'Error from AI SDK')
+      logger.error(
+        {
+          chunk: { ...chunk, error: undefined },
+          error: errorToObject(chunk.error),
+          model: options.model,
+        },
+        'Error from AI SDK'
+      )
       if (process.env.ENVIRONMENT !== 'prod') {
         throw chunk.error instanceof Error
           ? new Error(
