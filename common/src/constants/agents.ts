@@ -67,6 +67,9 @@ export const AGENT_PERSONAS = {
   },
 } as const
 
+// Agent ID prefix constant
+export const AGENT_ID_PREFIX = 'CodebuffAI/'
+
 // Agent names for client-side reference
 export const AGENT_NAMES = Object.fromEntries(
   Object.entries(AGENT_PERSONAS).map(([agentType, persona]) => [
