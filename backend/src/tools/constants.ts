@@ -34,6 +34,7 @@ import { handleStrReplace } from './handlers/str-replace'
 import { handleThinkDeeply } from './handlers/think-deeply'
 import { handleUpdateReport } from './handlers/update-report'
 import { handleUpdateSubgoal } from './handlers/update-subgoal'
+import { handleWebSearch } from './handlers/web-search'
 import { handleWriteFile } from './handlers/write-file'
 
 type Prettify<T> = { [K in keyof T]: T[K] } & {}
@@ -95,7 +96,7 @@ export type ClientToolCall<T extends ToolName = ToolName> = {
 
 // -- WIP NEW TOOL CALL FORMAT --
 
-const WIP_TOOLS = ['spawn_agents', 'web_search'] satisfies ToolName[]
+const WIP_TOOLS = ['spawn_agents'] satisfies ToolName[]
 type WIPTool = (typeof WIP_TOOLS)[number]
 type NonWIPTool = Exclude<ToolName, WIPTool>
 
@@ -145,6 +146,7 @@ const codebuffToolHandlers = {
   think_deeply: handleThinkDeeply,
   update_report: handleUpdateReport,
   update_subgoal: handleUpdateSubgoal,
+  web_search: handleWebSearch,
   write_file: handleWriteFile,
 } satisfies {
   [K in NonWIPTool]: CodebuffToolHandlerFunction<K>
