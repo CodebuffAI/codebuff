@@ -107,6 +107,10 @@ export class DynamicAgentService {
   ): Promise<void> {
     const filePath = path.join(templatesDir, fileName)
     const relativeFilePath = `.agents/templates/${fileName}`
+    const fileDir = path.join(
+      fileContext.projectRoot,
+      path.dirname(relativeFilePath)
+    )
 
     try {
       const content = fs.readFileSync(filePath, 'utf-8')
@@ -120,23 +124,24 @@ export class DynamicAgentService {
       // Validate against schema
       const dynamicAgent = DynamicAgentTemplateSchema.parse(parsedContent)
 
-      // Validate spawnable agents
-      const normalizedSpawnableAgents = normalizeAgentNames(
-        dynamicAgent.spawnableAgents
-      )
       const spawnableValidation = validateSpawnableAgents(
-        normalizedSpawnableAgents,
+        dynamicAgent.spawnableAgents,
         availableAgentTypes
       )
-
       if (!spawnableValidation.valid) {
         this.validationErrors.push({
           filePath: relativeFilePath,
-          message: `Invalid spawnable agents: ${spawnableValidation.invalidAgents.join(', ')}`,
+          message: `Invalid spawnable agents: ${spawnableValidation.invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`,
           details: `Available agents: ${availableAgentTypes.join(', ')}`,
         })
         return
       }
+
+      const validatedSpawnableAgents = normalizeAgentNames(
+        dynamicAgent.spawnableAgents
+      ) as AgentTemplateType[]
+
+      const basePaths = [fileDir, fileContext.projectRoot]
 
       // Convert to internal AgentTemplate format
       const agentTemplate: AgentTemplate = {
@@ -150,19 +155,16 @@ export class DynamicAgentService {
         includeMessageHistory: dynamicAgent.includeMessageHistory,
         toolNames: dynamicAgent.toolNames as any[],
         stopSequences: dynamicAgent.stopSequences,
-        spawnableAgents: normalizedSpawnableAgents as AgentTemplateType[],
+        spawnableAgents: validatedSpawnableAgents,
 
-        systemPrompt: resolvePromptField(
-          dynamicAgent.systemPrompt,
-          fileContext.projectRoot
-        ),
+        systemPrompt: resolvePromptField(dynamicAgent.systemPrompt, basePaths),
         userInputPrompt: resolvePromptField(
           dynamicAgent.userInputPrompt,
-          fileContext.projectRoot
+          basePaths
         ),
         agentStepPrompt: resolvePromptField(
           dynamicAgent.agentStepPrompt,
-          fileContext.projectRoot
+          basePaths
         ),
 
         initialAssistantMessage: undefined,
@@ -175,28 +177,28 @@ export class DynamicAgentService {
       if (dynamicAgent.initialAssistantMessage) {
         agentTemplate.initialAssistantMessage = resolvePromptField(
           dynamicAgent.initialAssistantMessage,
-          fileContext.projectRoot
+          basePaths
         )
       }
 
       if (dynamicAgent.initialAssistantPrefix) {
         agentTemplate.initialAssistantPrefix = resolvePromptField(
           dynamicAgent.initialAssistantPrefix,
-          fileContext.projectRoot
+          basePaths
         )
       }
 
       if (dynamicAgent.stepAssistantMessage) {
         agentTemplate.stepAssistantMessage = resolvePromptField(
           dynamicAgent.stepAssistantMessage,
-          fileContext.projectRoot
+          basePaths
         )
       }
 
       if (dynamicAgent.stepAssistantPrefix) {
         agentTemplate.stepAssistantPrefix = resolvePromptField(
           dynamicAgent.stepAssistantPrefix,
-          fileContext.projectRoot
+          basePaths
         )
       }
 
@@ -206,7 +208,7 @@ export class DynamicAgentService {
         error instanceof Error ? error.message : 'Unknown error'
       this.validationErrors.push({
         filePath: relativeFilePath,
-        message: 'Failed to load agent template',
+        message: `Error in agent template ${relativeFilePath}: ${errorMessage}`,
         details: errorMessage,
       })
       logger.warn(

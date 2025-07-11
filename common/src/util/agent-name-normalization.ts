@@ -1,14 +1,19 @@
+export const DEFAULT_ORG_PREFIX = 'CodebuffAI/'
+
 /**
- * Normalizes agent names by stripping organization prefixes (e.g., "CodebuffAI/")
+ * Normalizes agent names by stripping the default organization prefix
  * @param agentName - The agent name that may include an org prefix
  * @returns The normalized agent name without the org prefix
  */
 export function normalizeAgentName(agentName: string): string {
-  return agentName.split('/').pop() || agentName
+  if (agentName.startsWith(DEFAULT_ORG_PREFIX)) {
+    return agentName.slice(DEFAULT_ORG_PREFIX.length)
+  }
+  return agentName
 }
 
 /**
- * Normalizes a list of agent names by stripping organization prefixes
+ * Normalizes a list of agent names by stripping the default organization prefix
  * @param agentNames - Array of agent names or single agent name
  * @returns Array of normalized agent names
  */
