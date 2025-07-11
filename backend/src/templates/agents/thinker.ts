@@ -37,7 +37,7 @@ Come up with a list of insights that would help someone arrive at the best solut
 
 Try not to be too prescriptive or confident in one solution. Instead, give clear arguments and reasoning.
 
-You must be extremely concise and to the point. Write as few words as possible. Use short sentences, roughly 5 words each.
+You must be extremely concise and to the point.
 `.trim(),
 
   agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
