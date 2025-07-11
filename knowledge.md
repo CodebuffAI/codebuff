@@ -62,10 +62,12 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 ## TypeScript Build State Management
 
 ### Cleaning Build State
+
 - Use `bun run clean-ts` to remove all TypeScript build artifacts (.tsbuildinfo files and .next cache)
 - This resolves infinite loop issues in the typechecker caused by corrupted or stale build cache
 
 ### Common Issues
+
 - Typechecker infinite loops are often caused by stale .tsbuildinfo files or circular project references
 - Always clean build state when encountering persistent type errors or infinite loops
 - The monorepo structure with project references can sometimes create dependency cycles
@@ -85,8 +87,8 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 
 ## Testing Guidelines
 
-- Prefer specific imports over import * to make dependencies explicit
-- Exception: When mocking modules with many internal dependencies (like isomorphic-git), use import * to avoid listing every internal function
+- Prefer specific imports over import \* to make dependencies explicit
+- Exception: When mocking modules with many internal dependencies (like isomorphic-git), use import \* to avoid listing every internal function
 
 ## Constants and Configuration
 
@@ -108,6 +110,8 @@ Environment variables are defined and validated in `packages/internal/src/env.ts
 ### Bun Wrapper Script
 
 The `.bin/bun` script automatically wraps bun commands with infisical when secrets are needed. It prevents nested infisical calls by checking for `NEXT_PUBLIC_INFISICAL_UP` environment variable, ensuring infisical runs only once at the top level while nested bun commands inherit the environment variables.
+
+**Worktree Support**: The wrapper automatically detects and loads `.env.worktree` files when present, allowing worktrees to override Infisical environment variables (like ports) for local development. This enables multiple worktrees to run simultaneously on different ports without conflicts.
 
 ## Python Package
 

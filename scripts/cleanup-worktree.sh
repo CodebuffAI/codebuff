@@ -29,9 +29,6 @@ echo "Removing git worktree..."
 git worktree remove "$WORKTREE_PATH" --force
 
 # Clean up any worktree-specific files that might be left behind
-if [ -f "$WORKTREE_PATH/.worktree-env.sh" ]; then
-    rm -f "$WORKTREE_PATH/.worktree-env.sh"
-fi
 if [ -f "$WORKTREE_PATH/.env.worktree" ]; then
     rm -f "$WORKTREE_PATH/.env.worktree"
 fi
