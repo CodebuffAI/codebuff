@@ -267,7 +267,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 export function trimCoreMessagesToFitTokenLimit(
   messages: CodebuffMessage[],
   systemTokens: number,
-  maxTotalTokens: number = 200_000
+  maxTotalTokens: number = 190_000
 ): CodebuffMessage[] {
   const MAX_MESSAGE_TOKENS = maxTotalTokens - systemTokens
 
