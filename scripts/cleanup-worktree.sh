@@ -18,15 +18,13 @@ WORKTREE_PATH="$WORKTREES_DIR/$WORKTREE_NAME"
 
 echo "Cleaning up worktree: $WORKTREE_NAME"
 
-# Check if worktree exists
-if [ ! -d "$WORKTREE_PATH" ]; then
-    echo "❌ Worktree '$WORKTREE_NAME' not found at $WORKTREE_PATH"
-    exit 1
+# Check if worktree exists in git worktree list
+if git worktree list | grep -q "$WORKTREE_PATH"; then
+    echo "Removing git worktree..."
+    git worktree remove "$WORKTREE_PATH" --force
+else
+    echo "⚠️  Worktree '$WORKTREE_NAME' not found in git worktree list (may already be removed)"
 fi
-
-# Remove the git worktree
-echo "Removing git worktree..."
-git worktree remove "$WORKTREE_PATH" --force
 
 # Clean up any worktree-specific files that might be left behind
 if [ -f "$WORKTREE_PATH/.env.worktree" ]; then
