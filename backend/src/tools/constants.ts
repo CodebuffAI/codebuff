@@ -25,6 +25,7 @@ import { handleBrowserLogs } from './handlers/browser-logs'
 import { handleCodeSearch } from './handlers/code-search'
 import { handleCreatePlan } from './handlers/create-plan'
 import { handleEndTurn } from './handlers/end-turn'
+import { handleFindFiles } from './handlers/find-files'
 import { handleReadDocs } from './handlers/read-docs'
 import { handleReadFiles } from './handlers/read-files'
 import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
@@ -93,7 +94,6 @@ export type ClientToolCall<T extends ToolName = ToolName> = {
 // -- WIP NEW TOOL CALL FORMAT --
 
 const WIP_TOOLS = [
-  'find_files',
   'spawn_agents',
   'think_deeply',
   'update_report',
@@ -110,7 +110,12 @@ export type CodebuffToolHandlerFunction<T extends NonWIPTool = NonWIPTool> = (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
+
     fileContext: ProjectFileContext
+    agentStepId: string
+    clientSessionId: string
+    userInputId: string
+
     writeToClient: (chunk: string) => void
     state: { [K in string]?: any }
   } & PresentOrAbsent<
@@ -134,6 +139,7 @@ const codebuffToolHandlers = {
   code_search: handleCodeSearch,
   create_plan: handleCreatePlan,
   end_turn: handleEndTurn,
+  find_files: handleFindFiles,
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
   run_file_change_hooks: handleRunFileChangeHooks,
