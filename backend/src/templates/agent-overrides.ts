@@ -72,8 +72,10 @@ function findOverrideFiles(
   const { agentTemplates } = fileContext
   if (!agentTemplates) return { overrideFiles: [], validationErrors: [] }
 
-  const { validConfigs, validationErrors } =
-    validateAgentTemplateConfigs(agentTemplates)
+  const { validConfigs, validationErrors } = validateAgentTemplateConfigs(
+    agentTemplates,
+    []
+  )
 
   // Filter valid configs for the specific agent type and only override configs
   const overrideFiles = validConfigs

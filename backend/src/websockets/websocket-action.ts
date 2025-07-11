@@ -279,15 +279,20 @@ const onInit = async (
     let allValidationErrors: Array<{ filePath: string; message: string }> = []
 
     if (agentTemplates) {
-      // Validate override templates
-      const { validationErrors: overrideErrors } =
-        validateAgentTemplateConfigs(agentTemplates)
-      allValidationErrors.push(...overrideErrors)
-
-      // Validate dynamic agent templates
+      // Load dynamic agent templates first to get their IDs
       const { validationErrors: dynamicErrors } =
         await dynamicAgentService.loadAgents(fileContext)
       allValidationErrors.push(...dynamicErrors)
+
+      // Get dynamic agent IDs for override validation
+      const dynamicAgentIds = dynamicAgentService.getAgentTypes()
+
+      // Validate override templates with dynamic agent IDs
+      const { validationErrors: overrideErrors } = validateAgentTemplateConfigs(
+        agentTemplates,
+        dynamicAgentIds
+      )
+      allValidationErrors.push(...overrideErrors)
     }
 
     const errorMessage = formatValidationErrorMessage(allValidationErrors)

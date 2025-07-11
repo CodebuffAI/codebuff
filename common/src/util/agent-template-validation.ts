@@ -83,10 +83,12 @@ export function formatValidationErrorMessage(
 /**
  * Validates agent template files and returns both valid configs and validation errors
  * @param agentTemplates - Record of file paths to file contents
+ * @param dynamicAgentIds - Array of dynamic agent IDs to include in validation
  * @returns Object containing valid configs and validation errors
  */
 export function validateAgentTemplateConfigs(
-  agentTemplates: Record<string, string>
+  agentTemplates: Record<string, string>,
+  dynamicAgentIds: string[] = []
 ): AgentTemplateValidationResult {
   const validConfigs: Array<{
     filePath: string
@@ -121,7 +123,7 @@ export function validateAgentTemplateConfigs(
             ? spawnableAgents.content
             : [spawnableAgents.content]
 
-          const validation = validateSpawnableAgents(agentList, [])
+          const validation = validateSpawnableAgents(agentList, dynamicAgentIds)
           if (!validation.valid) {
             validationErrors.push({
               filePath,
@@ -141,7 +143,7 @@ export function validateAgentTemplateConfigs(
         ) {
           const validation = validateSpawnableAgents(
             dynamicConfig.spawnableAgents,
-            []
+            dynamicAgentIds
           )
           if (!validation.valid) {
             validationErrors.push({
