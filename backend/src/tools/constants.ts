@@ -32,6 +32,7 @@ import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
 import { handleStrReplace } from './handlers/str-replace'
 import { handleThinkDeeply } from './handlers/think-deeply'
+import { handleUpdateReport } from './handlers/update-report'
 import { handleUpdateSubgoal } from './handlers/update-subgoal'
 import { handleWriteFile } from './handlers/write-file'
 
@@ -94,11 +95,7 @@ export type ClientToolCall<T extends ToolName = ToolName> = {
 
 // -- WIP NEW TOOL CALL FORMAT --
 
-const WIP_TOOLS = [
-  'spawn_agents',
-  'update_report',
-  'web_search',
-] satisfies ToolName[]
+const WIP_TOOLS = ['spawn_agents', 'web_search'] satisfies ToolName[]
 type WIPTool = (typeof WIP_TOOLS)[number]
 type NonWIPTool = Exclude<ToolName, WIPTool>
 
@@ -146,6 +143,7 @@ const codebuffToolHandlers = {
   run_terminal_command: handleRunTerminalCommand,
   str_replace: handleStrReplace,
   think_deeply: handleThinkDeeply,
+  update_report: handleUpdateReport,
   update_subgoal: handleUpdateSubgoal,
   write_file: handleWriteFile,
 } satisfies {
