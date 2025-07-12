@@ -7,6 +7,22 @@ order: 1
 
 # Customizing Agents
 
+## Overview
+
+Agent templates are JSON configuration files that define how AI agents behave. You can:
+
+- **Customize existing agents** - Modify prompts, tools, and the models used
+- **Create new agents** - Build custom agents and get existing agents to spawn them
+
+All agent templates are stored locally in the `.agents/templates/` directory in your project root:
+
+```markdown
+.agents/
+└── templates/
+    ├── my-custom-agent.json
+    └── enhanced-reviewer.json
+```
+
 You can customize any Codebuff agent by overriding specific fields. You can use this to:
 - Change the model
 - Add custom prompting
