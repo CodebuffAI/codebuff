@@ -1,18 +1,118 @@
+import React, { useState, useEffect } from 'react'
 import { useMDXComponent } from 'next-contentlayer/hooks'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import { CodeDemo } from './code-demo'
 import { MarkdownTable } from './markdown-table'
 import { SchemaDisplay } from './schema-display'
+import { Check, Link } from 'lucide-react'
 
-import { 
-  HTMLAttributes, 
-  AnchorHTMLAttributes, 
-  ImgHTMLAttributes 
-} from 'react'
+import { HTMLAttributes, AnchorHTMLAttributes, ImgHTMLAttributes } from 'react'
 
 interface MdxProps {
   code: string
+}
+
+// Helper function to create heading components with copy link functionality
+const createHeadingWithCopyLink = (
+  HeadingComponent: 'h1' | 'h2' | 'h3' | 'h4',
+  defaultClasses: string
+) => {
+  const HeadingWithCopyLink = ({
+    className,
+    children,
+    ...props
+  }: HTMLAttributes<HTMLHeadingElement>) => {
+    const [copied, setCopied] = useState(false)
+
+    useEffect(() => {
+      if (copied) {
+        const timer = setTimeout(() => setCopied(false), 2000)
+        return () => clearTimeout(timer)
+      }
+      return undefined
+    }, [copied])
+
+    const title = children?.toString()
+
+    // Generate hierarchical ID by including heading level context
+    const generateHierarchicalId = (text: string, level: string) => {
+      const baseId = text
+        ?.toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^\w-]/g, '')
+
+      // Use heading level to create meaningful hierarchy
+      const levelNum = parseInt(level.replace('h', ''))
+
+      // For h1, use as-is. For h2+, prefix with level to ensure uniqueness
+      // This creates URLs like: #overview (h1), #h2-overview (h2), etc.
+      return levelNum === 1 ? baseId : `${level}-${baseId}`
+    }
+
+    const id = title
+      ? generateHierarchicalId(title, HeadingComponent)
+      : undefined
+
+    if (!title) {
+      return (
+        <HeadingComponent
+          {...props}
+          className={cn(
+            'group relative hover:cursor-pointer hover:underline scroll-m-20',
+            defaultClasses,
+            className
+          )}
+        >
+          {children}
+        </HeadingComponent>
+      )
+    }
+
+    const handleCopy = (e: React.MouseEvent) => {
+      e.stopPropagation()
+      if (!id) return
+      const url = `${window.location.pathname}#${id}`
+      window.navigator.clipboard.writeText(window.location.origin + url)
+      setCopied(true)
+    }
+
+    const handleClick = () => {
+      if (id) {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+
+    return (
+      <div className="group relative">
+        <button
+          onClick={handleCopy}
+          className="xs:opacity-100 xl:opacity-0 group-hover:opacity-100 absolute -left-10 top-0 p-1.5 rounded-md bg-muted/50 hover:bg-muted border border-border/50 hover:border-border transition-all duration-200 ease-in-out inline-flex items-center justify-center shadow-sm hover:shadow-md"
+          aria-label="Copy link to section"
+        >
+          {copied ? (
+            <Check className="text-green-500 h-4 w-4" />
+          ) : (
+            <Link className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+          )}
+        </button>
+        <HeadingComponent
+          {...props}
+          id={id}
+          className={cn(
+            'hover:cursor-pointer hover:underline scroll-m-20',
+            defaultClasses,
+            className
+          )}
+          onClick={handleClick}
+        >
+          {children}
+        </HeadingComponent>
+      </div>
+    )
+  }
+
+  return HeadingWithCopyLink
 }
 
 const components = {
@@ -25,41 +125,21 @@ const components = {
       {...props}
     />
   ),
-  h1: ({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
-    <h1
-      className={cn(
-        'mt-6 scroll-m-20 text-3xl font-semibold tracking-tight',
-        className
-      )}
-      {...props}
-    />
+  h1: createHeadingWithCopyLink(
+    'h1',
+    'mt-6 text-3xl font-semibold tracking-tight'
   ),
-  h2: ({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
-    <h2
-      className={cn(
-        'mt-8 scroll-m-20 border-b pb-2 text-2xl font-semibold tracking-tight first:mt-0',
-        className
-      )}
-      {...props}
-    />
+  h2: createHeadingWithCopyLink(
+    'h2',
+    'mt-8 border-b pb-2 text-2xl font-semibold tracking-tight first:mt-0'
   ),
-  h3: ({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
-    <h3
-      className={cn(
-        'mt-6 scroll-m-20 text-xl font-semibold tracking-tight',
-        className
-      )}
-      {...props}
-    />
+  h3: createHeadingWithCopyLink(
+    'h3',
+    'mt-6 text-xl font-semibold tracking-tight'
   ),
-  h4: ({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
-    <h4
-      className={cn(
-        'mt-4 scroll-m-20 text-lg font-semibold tracking-tight',
-        className
-      )}
-      {...props}
-    />
+  h4: createHeadingWithCopyLink(
+    'h4',
+    'mt-4 text-lg font-semibold tracking-tight'
   ),
   p: ({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) => (
     <p
@@ -141,6 +221,8 @@ const components = {
   CodeDemo,
   MarkdownTable,
   SchemaDisplay,
+  AgentOverrideSchemaDisplay: SchemaDisplay,
+  AgentTemplateSchemaDisplay: SchemaDisplay,
 }
 
 export function Mdx({ code }: MdxProps) {
