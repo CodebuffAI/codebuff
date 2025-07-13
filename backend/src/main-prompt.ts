@@ -14,7 +14,7 @@ import { loopAgentSteps } from './run-agent-step'
 import { ClientToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
-import { requestToolCall } from './websockets/websocket-action'
+import { requestToolCall } from './features/websockets/websocket-action'
 
 export interface MainPromptOptions {
   userId: string | undefined

@@ -1,34 +1,14 @@
 import { z } from 'zod/v4'
-import {
-  ProgrammaticAgentContext,
-  ProgrammaticAgentFunction,
-  ProgrammaticAgentTemplate,
-} from '../types'
-
-// Example generator function
-const exampleHandler: ProgrammaticAgentFunction = function* (
-  context: ProgrammaticAgentContext
-) {
-  // This is a simple example that just returns a greeting
-  const greeting = `Hello! You said: "${context.prompt}"`
-
-  yield {
-    toolName: 'update_report' as const,
-    args: {
-      json_update: {
-        greeting,
-      },
-    },
-  }
-}
+import { ProgrammaticAgentTemplate } from '../types'
 
 export const exampleProgrammatic: ProgrammaticAgentTemplate = {
   id: 'example_programmatic',
   implementation: 'programmatic',
   name: 'Example Programmatic Agent',
   description:
-    'A simple example of a programmatic agent using direct generator functions',
-  handler: exampleHandler,
+    'A simple example of a programmatic agent using file-based handler loading',
+  handler:
+    'backend/src/features/agents/templates/static/handlers/example-handler.ts',
   includeMessageHistory: true,
   promptSchema: {
     prompt: z.string().optional(),

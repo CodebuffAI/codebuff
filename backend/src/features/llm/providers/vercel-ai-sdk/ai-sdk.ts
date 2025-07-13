@@ -1,12 +1,14 @@
 import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import {
+  deepseekModels,
   finetunedVertexModels,
   geminiModels,
   Model,
   OpenAIModel,
   openaiModels,
   openrouterModels,
+  type DeepseekModel,
   type GeminiModel,
   type openrouterModel,
 } from '@codebuff/common/constants'
@@ -26,15 +28,27 @@ import {
   streamText,
 } from 'ai'
 import { z } from 'zod'
-import { checkLiveUserInput, getLiveUserInputIds } from '../../../../live-user-inputs'
+import {
+  checkLiveUserInput,
+  getLiveUserInputIds,
+} from '../../../../live-user-inputs'
+
+// Configuration for model with retry/fallback support
+export interface ModelConfig {
+  model: Model
+  retries?: number
+}
+
+export type ModelOrConfig = Model | ModelConfig | ModelConfig[]
+
 import { logger } from '../../../../util/logger'
 import { System } from '../../../../llm-apis/claude'
 import { saveMessage } from '../message-cost-tracker'
 import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
-// TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
+  // Finetuned Vertex AI models
   if (
     Object.values(finetunedVertexModels as Record<string, string>).includes(
       model
@@ -42,38 +56,59 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
   ) {
     return vertexFinetuned(model)
   }
+
+  // Google Gemini models
   if (Object.values(geminiModels).includes(model as GeminiModel)) {
     return google.languageModel(model)
   }
+
+  // OpenAI reasoning models (o3-pro, o3) use responses API
   if (model === openaiModels.o3pro || model === openaiModels.o3) {
     return openai.responses(model)
   }
+
+  // Other OpenAI models
   if (Object.values(openaiModels).includes(model as OpenAIModel)) {
     return openai.languageModel(model)
   }
-  // All Claude models go through OpenRouter
+
+  // DeepSeek models (through OpenRouter for now)
+  if (Object.values(deepseekModels).includes(model as DeepseekModel)) {
+    return openRouterLanguageModel(model)
+  }
+
+  // OpenRouter models (includes Claude, some OpenAI, Gemini, and others)
   if (Object.values(openrouterModels).includes(model as openrouterModel)) {
     return openRouterLanguageModel(model)
   }
+
   throw new Error('Unknown model: ' + model)
 }
 
-// TODO: Add retries & fallbacks: likely by allowing this to instead of "model"
-// also take an array of form [{model: Model, retries: number}, {model: Model, retries: number}...]
-// eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
-export const promptAiSdkStream = async function* (
-  options: {
-    messages: CoreMessage[]
-    clientSessionId: string
-    fingerprintId: string
-    model: Model
-    userId: string | undefined
-    chargeUser?: boolean
-    thinkingBudget?: number
-    userInputId: string
-    maxRetries?: number
-  } & Omit<Parameters<typeof streamText>[0], 'model'>
-) {
+// Unified options interface for all LLM calls
+interface BaseLLMOptions {
+  messages: CoreMessage[]
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  model: ModelOrConfig
+  userId: string | undefined
+  chargeUser?: boolean
+  maxRetries?: number
+  maxTokens?: number
+  temperature?: number
+  timeout?: number
+}
+
+// Unified execution function that handles retries and fallbacks
+async function executeWithRetryAndFallback<T>(
+  options: BaseLLMOptions,
+  executor: (
+    model: Model,
+    aiSDKModel: LanguageModelV1,
+    attempt: number
+  ) => Promise<T>
+): Promise<T> {
   if (!checkLiveUserInput(options.userId, options.userInputId)) {
     logger.info(
       {
@@ -81,24 +116,206 @@ export const promptAiSdkStream = async function* (
         userInputId: options.userInputId,
         liveUserInputId: getLiveUserInputIds(options.userId),
       },
-      'Skipping stream due to canceled user input'
+      'Skipping execution due to canceled user input'
     )
-    yield ''
-    return
+    throw new Error('User input canceled')
   }
+
+  const modelConfigs = normalizeModelConfig(options.model)
+
+  // Try each model configuration with retries
+  for (const config of modelConfigs) {
+    const maxRetries = config.retries ?? options.maxRetries ?? 0
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const aiSDKModel = modelToAiSDKModel(config.model)
+        return await executor(config.model, aiSDKModel, attempt)
+      } catch (error) {
+        const isLastAttempt = attempt === maxRetries
+        const isLastModel = config === modelConfigs[modelConfigs.length - 1]
+
+        logger.warn(
+          {
+            model: config.model,
+            attempt: attempt + 1,
+            maxRetries: maxRetries + 1,
+            error: error instanceof Error ? error.message : error,
+          },
+          `Model ${config.model} failed (attempt ${attempt + 1}/${maxRetries + 1})`
+        )
+
+        if (isLastAttempt && isLastModel) {
+          throw error // Re-throw if all models and retries exhausted
+        }
+
+        if (isLastAttempt) {
+          break // Try next model
+        }
+
+        // Wait before retry (exponential backoff)
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.min(1000 * Math.pow(2, attempt), 10000))
+        )
+      }
+    }
+  }
+
+  throw new Error('All model configurations failed')
+}
+
+export const promptAiSdkStream = async function* (
+  options: BaseLLMOptions & {
+    thinkingBudget?: number
+  } & Omit<Parameters<typeof streamText>[0], 'model'>
+) {
   const startTime = Date.now()
 
-  let aiSDKModel = modelToAiSDKModel(options.model)
+  yield* await executeWithRetryAndFallback(
+    options,
+    async function* (model, aiSDKModel, attempt) {
+      yield* await executeStreamWithModel({
+        ...options,
+        model,
+        aiSDKModel,
+        startTime,
+        attempt,
+        maxRetries: 0, // Handled by outer retry logic
+      })
+    }
+  )
+}
+
+export const promptAiSdk = async function (
+  options: BaseLLMOptions & Omit<Parameters<typeof generateText>[0], 'model'>
+): Promise<string> {
+  const startTime = Date.now()
+
+  return await executeWithRetryAndFallback(
+    options,
+    async (model, aiSDKModel, attempt) => {
+      const response = await generateText({
+        ...options,
+        model: aiSDKModel,
+        maxRetries: 0, // We handle retries at a higher level
+      })
+
+      const content = response.text
+      const inputTokens = response.usage.promptTokens
+      const outputTokens = response.usage.completionTokens
+
+      saveMessage({
+        messageId: generateCompactId(),
+        userId: options.userId,
+        clientSessionId: options.clientSessionId,
+        fingerprintId: options.fingerprintId,
+        userInputId: options.userInputId,
+        model,
+        request: options.messages,
+        response: content,
+        inputTokens,
+        outputTokens,
+        finishedAt: new Date(),
+        latencyMs: Date.now() - startTime,
+        chargeUser: options.chargeUser ?? true,
+      })
+
+      return content
+    }
+  )
+}
+
+export const promptAiSdkStructured = async function <T>(
+  options: BaseLLMOptions & {
+    schema: z.ZodType<T, z.ZodTypeDef, any>
+  }
+): Promise<T> {
+  const startTime = Date.now()
+
+  return await executeWithRetryAndFallback(
+    options,
+    async (model, aiSDKModel, attempt) => {
+      const responsePromise = generateObject<T>({
+        ...options,
+        model: aiSDKModel,
+        output: 'object',
+      })
+
+      const response = await (options.timeout === undefined
+        ? responsePromise
+        : withTimeout(responsePromise, options.timeout))
+
+      const content = response.object
+      const inputTokens = response.usage.promptTokens
+      const outputTokens = response.usage.completionTokens
+
+      saveMessage({
+        messageId: generateCompactId(),
+        userId: options.userId,
+        clientSessionId: options.clientSessionId,
+        fingerprintId: options.fingerprintId,
+        userInputId: options.userInputId,
+        model,
+        request: options.messages,
+        response: JSON.stringify(content),
+        inputTokens,
+        outputTokens,
+        finishedAt: new Date(),
+        latencyMs: Date.now() - startTime,
+        chargeUser: options.chargeUser ?? true,
+      })
+
+      return content
+    }
+  )
+}
+
+// Helper function to normalize model configuration
+function normalizeModelConfig(model: ModelOrConfig): ModelConfig[] {
+  if (typeof model === 'string') {
+    return [{ model }]
+  }
+  if (Array.isArray(model)) {
+    return model
+  }
+  return [model]
+}
+
+// Helper function to execute streaming with a specific model
+async function* executeStreamWithModel(
+  options: {
+    messages: CoreMessage[]
+    clientSessionId: string
+    fingerprintId: string
+    model: Model
+    aiSDKModel: LanguageModelV1
+    userId: string | undefined
+    chargeUser?: boolean
+    thinkingBudget?: number
+    userInputId: string
+    startTime: number
+    attempt: number
+    maxRetries: number
+  } & Omit<Parameters<typeof streamText>[0], 'model'>
+): AsyncGenerator<string, void, unknown> {
+  const {
+    aiSDKModel,
+    model,
+    startTime,
+    attempt,
+    maxRetries,
+    ...streamOptions
+  } = options
 
   const response = streamText({
-    ...options,
+    ...streamOptions,
     model: aiSDKModel,
-    maxRetries: options.maxRetries,
+    maxRetries: 0, // We handle retries at a higher level
     providerOptions: {
       google: {
         thinkingConfig: {
           includeThoughts: false,
-          thinkingBudget: options.thinkingBudget ?? 128,
+          thinkingBudget: streamOptions.thinkingBudget ?? 128,
         },
       } satisfies GoogleGenerativeAIProviderOptions,
     },
@@ -184,12 +401,12 @@ export const promptAiSdkStream = async function* (
 
   saveMessage({
     messageId,
-    userId: options.userId,
-    clientSessionId: options.clientSessionId,
-    fingerprintId: options.fingerprintId,
-    userInputId: options.userInputId,
-    model: options.model,
-    request: options.messages,
+    userId: streamOptions.userId,
+    clientSessionId: streamOptions.clientSessionId,
+    fingerprintId: streamOptions.fingerprintId,
+    userInputId: streamOptions.userInputId,
+    model,
+    request: streamOptions.messages,
     response: content,
     inputTokens,
     outputTokens,
@@ -197,125 +414,9 @@ export const promptAiSdkStream = async function* (
     cacheReadInputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
-    chargeUser: options.chargeUser ?? true,
+    chargeUser: streamOptions.chargeUser ?? true,
     costOverrideDollars,
   })
-}
-
-// TODO: figure out a nice way to unify stream & non-stream versions maybe?
-export const promptAiSdk = async function (
-  options: {
-    messages: CoreMessage[]
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: Model
-    userId: string | undefined
-    chargeUser?: boolean
-  } & Omit<Parameters<typeof generateText>[0], 'model'>
-): Promise<string> {
-  if (!checkLiveUserInput(options.userId, options.userInputId)) {
-    logger.info(
-      {
-        userId: options.userId,
-        userInputId: options.userInputId,
-        liveUserInputId: getLiveUserInputIds(options.userId),
-      },
-      'Skipping prompt due to canceled user input'
-    )
-    return ''
-  }
-
-  const startTime = Date.now()
-  let aiSDKModel = modelToAiSDKModel(options.model)
-
-  const response = await generateText({
-    ...options,
-    model: aiSDKModel,
-  })
-
-  const content = response.text
-  const inputTokens = response.usage.promptTokens
-  const outputTokens = response.usage.completionTokens
-
-  saveMessage({
-    messageId: generateCompactId(),
-    userId: options.userId,
-    clientSessionId: options.clientSessionId,
-    fingerprintId: options.fingerprintId,
-    userInputId: options.userInputId,
-    model: options.model,
-    request: options.messages,
-    response: content,
-    inputTokens,
-    outputTokens,
-    finishedAt: new Date(),
-    latencyMs: Date.now() - startTime,
-    chargeUser: options.chargeUser ?? true,
-  })
-
-  return content
-}
-
-// Copied over exactly from promptAiSdk but with a schema
-export const promptAiSdkStructured = async function <T>(options: {
-  messages: CoreMessage[]
-  schema: z.ZodType<T, z.ZodTypeDef, any>
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  model: Model
-  userId: string | undefined
-  maxTokens?: number
-  temperature?: number
-  timeout?: number
-  chargeUser?: boolean
-}): Promise<T> {
-  if (!checkLiveUserInput(options.userId, options.userInputId)) {
-    logger.info(
-      {
-        userId: options.userId,
-        userInputId: options.userInputId,
-        liveUserInputId: getLiveUserInputIds(options.userId),
-      },
-      'Skipping structured prompt due to canceled user input'
-    )
-    return {} as T
-  }
-  const startTime = Date.now()
-  let aiSDKModel = modelToAiSDKModel(options.model)
-
-  const responsePromise = generateObject<T>({
-    ...options,
-    model: aiSDKModel,
-    output: 'object',
-  })
-
-  const response = await (options.timeout === undefined
-    ? responsePromise
-    : withTimeout(responsePromise, options.timeout))
-
-  const content = response.object
-  const inputTokens = response.usage.promptTokens
-  const outputTokens = response.usage.completionTokens
-
-  saveMessage({
-    messageId: generateCompactId(),
-    userId: options.userId,
-    clientSessionId: options.clientSessionId,
-    fingerprintId: options.fingerprintId,
-    userInputId: options.userInputId,
-    model: options.model,
-    request: options.messages,
-    response: JSON.stringify(content),
-    inputTokens,
-    outputTokens,
-    finishedAt: new Date(),
-    latencyMs: Date.now() - startTime,
-    chargeUser: options.chargeUser ?? true,
-  })
-
-  return content
 }
 
 // TODO: temporary - ideally we move to using CoreMessage[] directly
@@ -342,9 +443,18 @@ export function transformMessages(
         coreMessages.push({ role: 'system', content: message.content })
         continue
       } else {
-        throw new Error(
-          'Multiple part system message - unsupported (TODO: fix if we hit this.)'
-        )
+        // Handle multi-part system messages
+        const parts: string[] = []
+        for (const part of message.content) {
+          if (part.type === 'text') {
+            parts.push(part.text)
+          } else {
+            // For non-text parts in system messages, convert to text representation
+            parts.push(`[${part.type.toUpperCase()}]`)
+          }
+        }
+        coreMessages.push({ role: 'system', content: parts.join('\n\n') })
+        continue
       }
     }
 

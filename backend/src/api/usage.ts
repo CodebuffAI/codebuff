@@ -9,7 +9,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 
 import { checkAuth } from '../util/check-auth'
-import { genUsageResponse } from '../websockets/websocket-action'
+import { genUsageResponse } from '../features/websockets/websocket-action'
 import { getOrganizationUsageResponse } from '@codebuff/billing'
 import { logger } from '../util/logger'
 
@@ -37,7 +37,9 @@ async function usageHandler(
   next: NextFunction
 ): Promise<void | ExpressResponse> {
   try {
-    const { fingerprintId, authToken, orgId } = usageRequestSchema.parse(req.body)
+    const { fingerprintId, authToken, orgId } = usageRequestSchema.parse(
+      req.body
+    )
     const clientSessionId = `api-${fingerprintId}-${Date.now()}`
 
     const authResult = await checkAuth({
@@ -64,12 +66,21 @@ async function usageHandler(
     // If orgId is provided, return organization usage data
     if (orgId) {
       try {
-        const orgUsageResponse = await getOrganizationUsageResponse(orgId, userId)
+        const orgUsageResponse = await getOrganizationUsageResponse(
+          orgId,
+          userId
+        )
         return res.status(200).json(orgUsageResponse)
       } catch (error) {
-        logger.error({ error, orgId, userId }, 'Error fetching organization usage')
+        logger.error(
+          { error, orgId, userId },
+          'Error fetching organization usage'
+        )
         // If organization usage fails, fall back to personal usage
-        logger.info({ orgId, userId }, 'Falling back to personal usage due to organization error')
+        logger.info(
+          { orgId, userId },
+          'Falling back to personal usage due to organization error'
+        )
       }
     }
 

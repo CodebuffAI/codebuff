@@ -20,7 +20,7 @@ import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from '../util/logger'
 import { renderReadFilesResult } from '../util/parse-tool-call-xml'
-import * as websocketAction from '../websockets/websocket-action'
+import * as websocketAction from '../features/websockets/websocket-action'
 
 // --- Shared Mocks & Helpers ---
 

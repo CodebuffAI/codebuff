@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
 import { processStrReplace } from '../../files/processing/process-str-replace'
 import { logger } from '../../../util/logger'
-import { requestOptionalFile } from '../../../websockets/websocket-action'
+import { requestOptionalFile } from '../../websockets/websocket-action'
 import {
   ClientToolCall,
   CodebuffToolCall,

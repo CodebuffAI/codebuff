@@ -84,6 +84,13 @@ export const CodebuffConfigSchema = z
       .describe(
         'Maximum number of turns agent will take before being forced to end'
       ),
+    collectFullFileContext: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'Whether to collect full file context for training purposes when using find_files tool'
+      ),
   })
   .describe(
     `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration. This schema can be found at https://www.codebuff.com/config`

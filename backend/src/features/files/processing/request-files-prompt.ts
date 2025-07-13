@@ -32,7 +32,7 @@ import {
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { getRequestContext } from '../../../websockets/request-context'
+import { getRequestContext } from '../../websockets/request-context'
 import {
   CustomFilePickerConfig,
   CustomFilePickerConfigSchema,

@@ -3,7 +3,7 @@ import { ClientToolCall } from '@codebuff/backend/tools/constants'
 import {
   requestFiles as originalRequestFiles,
   requestToolCall as originalRequestToolCall,
-} from '@codebuff/backend/websockets/websocket-action'
+} from '@codebuff/backend/features/websockets/websocket-action'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { FileChanges } from '@codebuff/common/actions'
 import { TEST_USER_ID } from '@codebuff/common/constants'

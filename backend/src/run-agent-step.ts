@@ -54,11 +54,11 @@ import {
 import { isToolResult, renderReadFilesResult } from './util/parse-tool-call-xml'
 import { simplifyReadFileResults } from './util/simplify-tool-results'
 import { countTokensJson } from './util/token-counter'
-import { getRequestContext } from './websockets/request-context'
+import { getRequestContext } from './features/websockets/request-context'
 import {
   requestOptionalFile,
   requestToolCall,
-} from './websockets/websocket-action'
+} from './features/websockets/websocket-action'
 import { processStreamWithTags } from './xml-stream-parser'
 
 export interface AgentOptions {
@@ -970,27 +970,8 @@ export const loopAgentSteps = async (
       agentState: currentAgentState,
       prompt: currentPrompt,
       params: currentParams,
-      // TODO: format the prompt in runAgentStep
-      assistantMessage: currentAssistantMessage
-        ? await formatPrompt(
-            currentAssistantMessage,
-            fileContext,
-            currentAgentState,
-            agentTemplate.toolNames,
-            agentTemplate.spawnableAgents,
-            prompt ?? ''
-          )
-        : undefined,
-      assistantPrefix:
-        currentAssistantPrefix &&
-        (await formatPrompt(
-          currentAssistantPrefix,
-          fileContext,
-          currentAgentState,
-          agentTemplate.toolNames,
-          agentTemplate.spawnableAgents,
-          prompt ?? ''
-        )),
+      assistantMessage: currentAssistantMessage,
+      assistantPrefix: currentAssistantPrefix,
     })
 
     if (shouldEndTurn) {

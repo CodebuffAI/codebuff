@@ -27,8 +27,11 @@ import { ClientToolCall, CodebuffToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import { renderReadFilesResult } from './util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from './util/token-counter'
-import { getRequestContext } from './websockets/request-context'
-import { requestFiles, requestToolCall } from './websockets/websocket-action'
+import { getRequestContext } from './features/websockets/request-context'
+import {
+  requestFiles,
+  requestToolCall,
+} from './features/websockets/websocket-action'
 import { TextBlock } from './llm-apis/claude'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up

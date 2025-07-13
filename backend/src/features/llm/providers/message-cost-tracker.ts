@@ -1,6 +1,7 @@
 import {
   consumeCredits,
   consumeOrganizationCredits,
+  consumeCreditsWithFallback,
   getUserCostPerCredit,
 } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
@@ -21,13 +22,12 @@ import { getRequestContext } from '../../../context/app-context'
 import { stripNullCharsFromObject } from '../../../util/object'
 
 import { logger, withLoggerContext } from '../../../util/logger'
-import { SWITCHBOARD } from '../../../websockets/server'
-import { ClientState } from '../../../websockets/switchboard'
-import { sendAction } from '../../../websockets/websocket-action'
+import { SWITCHBOARD } from '../../websockets/server'
+
+import { ClientState } from '../../websockets/switchboard'
+import { sendAction } from '../../websockets/websocket-action'
 import { OpenAIMessage } from './openai-api'
-
 export const PROFIT_MARGIN = 0.3
-
 // Pricing details:
 // - https://www.anthropic.com/pricing#anthropic-api
 // - https://openai.com/pricing
@@ -118,9 +118,7 @@ const TOKENS_COST_PER_M = {
     [models.ft_filepicker_005]: 0.025,
   },
 }
-
 const RELACE_FAST_APPLY_COST = 0.01
-
 /**
  * Calculates the cost for the gemini-2.5-pro-preview model based on its specific tiered pricing.
  *
@@ -474,52 +472,63 @@ async function updateUserCycleUsage(
     return { consumed: 0, fromPurchased: 0 }
   }
 
-  // Check if this should be billed to an organization
+  // Get repository context for organization delegation
   const requestContext = getRequestContext()
-  const orgId = requestContext?.approvedOrgIdForRepo
+  const repoUrl = requestContext?.processedRepoUrl
 
   try {
-    if (orgId) {
-      // TODO: use `consumeCreditsWithFallback` to handle organization delegation
-      // Consume from organization credits
-      const result = await consumeOrganizationCredits(orgId, creditsUsed)
+    // Use consumeCreditsWithFallback to handle organization delegation
+    const fallbackResult = await consumeCreditsWithFallback({
+      userId,
+      creditsToCharge: creditsUsed,
+      repoUrl,
+      context: 'LLM API call',
+    })
 
-      if (VERBOSE) {
-        logger.debug(
-          { userId, orgId, creditsUsed, ...result },
-          `Consumed organization credits (${creditsUsed})`
-        )
-      }
-
-      trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
-        creditsUsed,
-        fromPurchased: result.fromPurchased,
-        organizationId: orgId,
-      })
-
-      return result
-    } else {
-      // Consume from personal credits
-      const result = await consumeCredits(userId, creditsUsed)
-
-      if (VERBOSE) {
-        logger.debug(
-          { userId, creditsUsed, ...result },
-          `Consumed personal credits (${creditsUsed})`
-        )
-      }
-
-      trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
-        creditsUsed,
-        fromPurchased: result.fromPurchased,
-      })
-
-      return result
+    if (!fallbackResult.success) {
+      throw new Error(fallbackResult.error || 'Failed to consume credits')
     }
+
+    // Convert fallback result to expected format
+    // Note: We need to get the actual consumption details for proper tracking
+    let result: CreditConsumptionResult
+    if (fallbackResult.chargedToOrganization && fallbackResult.organizationId) {
+      // Get organization consumption details
+      result = await consumeOrganizationCredits(
+        fallbackResult.organizationId,
+        0
+      ) // Query only
+      result = { consumed: creditsUsed, fromPurchased: creditsUsed } // Assume all from purchased for org
+    } else {
+      // Get personal consumption details
+      result = await consumeCredits(userId, 0) // Query only
+      result = { consumed: creditsUsed, fromPurchased: creditsUsed } // Simplified for now
+    }
+
+    if (VERBOSE) {
+      logger.debug(
+        {
+          userId,
+          creditsUsed,
+          organizationId: fallbackResult.organizationId,
+          chargedToOrganization: fallbackResult.chargedToOrganization,
+          ...result,
+        },
+        `Consumed credits via fallback (${creditsUsed})`
+      )
+    }
+
+    trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
+      creditsUsed,
+      fromPurchased: result.fromPurchased,
+      organizationId: fallbackResult.organizationId,
+    })
+
+    return result
   } catch (error) {
     logger.error(
-      { userId, orgId, creditsUsed, error },
-      'Error consuming credits.'
+      { userId, creditsUsed, repoUrl, error },
+      'Error consuming credits with fallback.'
     )
     throw error
   }

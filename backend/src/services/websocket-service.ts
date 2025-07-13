@@ -1,11 +1,11 @@
 import { IWebSocketService } from './interfaces'
-import { 
+import {
   sendAction as originalSendAction,
   requestFiles as originalRequestFiles,
   requestFile as originalRequestFile,
   requestOptionalFile as originalRequestOptionalFile,
-  requestToolCall as originalRequestToolCall
-} from '../websockets/websocket-action'
+  requestToolCall as originalRequestToolCall,
+} from '../features/websockets/websocket-action'
 import { WebSocket } from 'ws'
 
 export class WebSocketService implements IWebSocketService {
@@ -13,7 +13,10 @@ export class WebSocketService implements IWebSocketService {
     return originalSendAction(ws, action)
   }
 
-  async requestFiles(ws: WebSocket, filePaths: string[]): Promise<Record<string, string | null>> {
+  async requestFiles(
+    ws: WebSocket,
+    filePaths: string[]
+  ): Promise<Record<string, string | null>> {
     return originalRequestFiles(ws, filePaths)
   }
 

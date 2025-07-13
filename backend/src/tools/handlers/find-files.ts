@@ -16,7 +16,7 @@ import { getSearchSystemPrompt } from '../../system-prompt/search-system-prompt'
 import { logger } from '../../util/logger'
 import { renderReadFilesResult } from '../../util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from '../../util/token-counter'
-import { requestFiles } from '../../websockets/websocket-action'
+import { requestFiles } from '../../features/websockets/websocket-action'
 import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up

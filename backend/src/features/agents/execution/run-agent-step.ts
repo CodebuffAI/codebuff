@@ -51,7 +51,10 @@ import {
   getCoreMessagesSubset,
   isSystemInstruction,
 } from '../../../util/messages'
-import { isToolResult, renderReadFilesResult } from '../../../util/parse-tool-call-xml'
+import {
+  isToolResult,
+  renderReadFilesResult,
+} from '../../../util/parse-tool-call-xml'
 import { simplifyReadFileResults } from '../../../util/simplify-tool-results'
 import { countTokensJson } from '../../../util/token-counter'
 import { getRequestContext } from '../../websockets/request-context'
@@ -322,7 +325,16 @@ export const runAgentStep = async (
 
     assistantPrefix?.trim() && {
       role: 'assistant' as const,
-      content: assistantPrefix.trim(),
+      content: (
+        await formatPrompt(
+          assistantPrefix.trim(),
+          fileContext,
+          agentState,
+          agentTemplate.toolNames,
+          agentTemplate.spawnableAgents,
+          prompt ?? ''
+        )
+      ).trim(),
     }
   )
 
@@ -397,8 +409,19 @@ export const runAgentStep = async (
     yield message.trim()
   }
 
-  const stream = assistantMessage
-    ? createAssistantMessageStream(assistantMessage)
+  const formattedAssistantMessage = assistantMessage
+    ? await formatPrompt(
+        assistantMessage,
+        fileContext,
+        agentState,
+        agentTemplate.toolNames,
+        agentTemplate.spawnableAgents,
+        prompt ?? ''
+      )
+    : undefined
+
+  const stream = formattedAssistantMessage
+    ? createAssistantMessageStream(formattedAssistantMessage)
     : getStream(
         coreMessagesWithSystem(
           buildArray(
@@ -970,27 +993,8 @@ export const loopAgentSteps = async (
       agentState: currentAgentState,
       prompt: currentPrompt,
       params: currentParams,
-      // TODO: format the prompt in runAgentStep
-      assistantMessage: currentAssistantMessage
-        ? await formatPrompt(
-            currentAssistantMessage,
-            fileContext,
-            currentAgentState,
-            agentTemplate.toolNames,
-            agentTemplate.spawnableAgents,
-            prompt ?? ''
-          )
-        : undefined,
-      assistantPrefix:
-        currentAssistantPrefix &&
-        (await formatPrompt(
-          currentAssistantPrefix,
-          fileContext,
-          currentAgentState,
-          agentTemplate.toolNames,
-          agentTemplate.spawnableAgents,
-          prompt ?? ''
-        )),
+      assistantMessage: currentAssistantMessage,
+      assistantPrefix: currentAssistantPrefix,
     })
 
     if (shouldEndTurn) {

@@ -3,7 +3,7 @@ import { partition } from 'lodash'
 import { WebSocket } from 'ws'
 import { processFileBlock } from '../../process-file-block'
 import { logger } from '../../util/logger'
-import { requestOptionalFile } from '../../websockets/websocket-action'
+import { requestOptionalFile } from '../../features/websockets/websocket-action'
 import {
   ClientToolCall,
   CodebuffToolCall,

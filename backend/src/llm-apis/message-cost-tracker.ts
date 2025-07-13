@@ -21,13 +21,13 @@ import { getRequestContext } from '../context/app-context'
 import { stripNullCharsFromObject } from '../util/object'
 
 import { logger, withLoggerContext } from '../util/logger'
-import { SWITCHBOARD } from '../websockets/server'
-import { ClientState } from '../websockets/switchboard'
-import { sendAction } from '../websockets/websocket-action'
+import { SWITCHBOARD } from '../features/websockets/server'
+
+import { ClientState } from '../features/websockets/switchboard'
+
+import { sendAction } from '../features/websockets/websocket-action'
 import { OpenAIMessage } from './openai-api'
-
 export const PROFIT_MARGIN = 0.3
-
 // Pricing details:
 // - https://www.anthropic.com/pricing#anthropic-api
 // - https://openai.com/pricing

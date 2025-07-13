@@ -27,7 +27,7 @@ import {
 } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
-import * as websocketAction from '../websockets/websocket-action'
+import * as websocketAction from '../features/websockets/websocket-action'
 
 // Mock logger
 mock.module('../util/logger', () => ({

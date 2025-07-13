@@ -19,7 +19,7 @@ import { WebSocket } from 'ws'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import * as tools from '../tools'
-import * as websocketAction from '../websockets/websocket-action'
+import * as websocketAction from '../features/websockets/websocket-action'
 
 // Mock logger
 mock.module('../util/logger', () => ({

@@ -13,7 +13,7 @@ import {
   parseReadFilesResult,
 } from './util/parse-tool-call-xml'
 import { countTokensJson } from './util/token-counter'
-import { requestFiles } from './websockets/websocket-action'
+import { requestFiles } from './features/websockets/websocket-action'
 import { WebSocket } from 'ws'
 
 const getInitialFiles = (fileContext: ProjectFileContext) => {

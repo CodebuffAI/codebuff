@@ -7,11 +7,59 @@ import { WebSocket } from 'ws'
 import { runTool } from './run-tool'
 import {
   ProgrammaticAgentContext,
+  ProgrammaticAgentFunction,
   ProgrammaticAgentTemplate,
 } from './templates/types'
 import { CodebuffToolCall } from './tools/constants'
 import { logger } from './util/logger'
-import { getRequestContext } from './websockets/request-context'
+import { getRequestContext } from './features/websockets/request-context'
+import { join } from 'path'
+import { pathToFileURL } from 'url'
+
+/**
+ * Load a programmatic agent handler from a file path or return the direct function
+ */
+async function loadHandler(
+  handler: ProgrammaticAgentFunction | string,
+  fileContext: ProjectFileContext
+): Promise<ProgrammaticAgentFunction> {
+  if (typeof handler === 'function') {
+    return handler
+  }
+
+  // Handler is a file path - load it dynamically using import()
+  try {
+    const handlerPath = join(fileContext.projectRoot, handler)
+    const handlerFileUrl = pathToFileURL(handlerPath).href
+
+    // Use dynamic import for secure loading
+    const handlerModule = await import(handlerFileUrl)
+
+    // Look for the handler function in the module
+    // Try common export names: default, handler, exampleHandler, etc.
+    const handlerFunction =
+      handlerModule.default ||
+      handlerModule.handler ||
+      handlerModule.exampleHandler ||
+      Object.values(handlerModule).find(
+        (exp): exp is ProgrammaticAgentFunction => typeof exp === 'function'
+      )
+
+    if (!handlerFunction || typeof handlerFunction !== 'function') {
+      throw new Error('No valid handler function found in module')
+    }
+
+    return handlerFunction as ProgrammaticAgentFunction
+  } catch (error) {
+    logger.error(
+      { error, handlerPath: handler },
+      'Failed to load programmatic agent handler from file'
+    )
+    throw new Error(
+      `Failed to load programmatic agent handler from ${handler}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
+  }
+}
 
 // Function to handle programmatic agents
 export async function runProgrammaticAgent(
@@ -59,8 +107,11 @@ export async function runProgrammaticAgent(
   }
 
   try {
+    // Load the handler (either direct function or from file path)
+    const handlerFunction = await loadHandler(template.handler, fileContext)
+
     // Run the generator function and handle tool calls
-    const generator = template.handler(context)
+    const generator = handlerFunction(context)
     let result = generator.next()
 
     // Process tool calls yielded by the generator

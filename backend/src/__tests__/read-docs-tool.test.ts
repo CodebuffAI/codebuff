@@ -20,7 +20,7 @@ import * as liveUserInputs from '../live-user-inputs'
 import * as context7Api from '../llm-apis/context7-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
-import * as websocketAction from '../websockets/websocket-action'
+import * as websocketAction from '../features/websockets/websocket-action'
 import { MockWebSocket, mockFileContext } from './test-utils'
 
 // Mock logger
@@ -123,15 +123,16 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     // Check that the documentation was added to the message history
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('read_docs')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('read_docs')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(mockDocumentation)
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      mockDocumentation
+    )
   })
 
   test('should fetch documentation with topic and max_tokens', async () => {
@@ -222,13 +223,12 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     // Check that the "no documentation found" message was added
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('read_docs')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('read_docs')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'No documentation found for "NonExistentLibrary"'
@@ -278,18 +278,19 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     // Check that the error message was added
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('read_docs')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('read_docs')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'Error fetching documentation for "React"'
     )
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Network timeout')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      'Network timeout'
+    )
   })
 
   test('should include topic in error message when specified', async () => {
@@ -332,13 +333,12 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     // Check that the topic is included in the error message
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('read_docs')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('read_docs')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'No documentation found for "React" with topic "server-components"'
@@ -386,17 +386,18 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     // Check that the generic error message was added
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('read_docs')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('read_docs')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'Error fetching documentation for "React"'
     )
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Unknown error')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      'Unknown error'
+    )
   })
 })

@@ -12,9 +12,7 @@ import {
   type FinetunedVertexModel,
 } from '@codebuff/common/constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
-import {
-  ProjectFileContext,
-} from '@codebuff/common/util/file'
+import { ProjectFileContext } from '@codebuff/common/util/file'
 import { range, shuffle, uniq } from 'lodash'
 
 import { logger } from '../util/logger'
@@ -32,7 +30,7 @@ import {
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { getRequestContext } from '../websockets/request-context'
+import { getRequestContext } from '../features/websockets/request-context'
 import {
   CustomFilePickerConfig,
   CustomFilePickerConfigSchema,

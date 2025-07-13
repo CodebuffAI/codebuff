@@ -16,12 +16,15 @@ import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prom
 import { logger } from '../../../util/logger'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from '../../../util/token-counter'
-import { requestFiles } from '../../../websockets/websocket-action'
+import { requestFiles } from '../../websockets/websocket-action'
 import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
 
-// Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
-// TODO: We might want to be able to turn this on on a per-repo basis.
-const COLLECT_FULL_FILE_CONTEXT = false
+// Collect full file context based on repository configuration
+function shouldCollectFullFileContext(
+  fileContext: ProjectFileContext
+): boolean {
+  return fileContext.codebuffConfig?.collectFullFileContext ?? false
+}
 
 export const handleFindFiles = ((params: {
   previousToolCallFinished: Promise<any>
@@ -101,7 +104,7 @@ export const handleFindFiles = ((params: {
           repoId,
         })
 
-      if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
+      if (shouldCollectFullFileContext(fileContext) && addedFiles.length > 0) {
         uploadExpandedFileContextForTraining(
           ws,
           { messages, system },

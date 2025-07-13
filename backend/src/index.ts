@@ -18,7 +18,7 @@ import {
   sendRequestReconnect,
   waitForAllClientsDisconnected,
   listen as webSocketListen,
-} from './websockets/server'
+} from './features/websockets/server'
 import { createContainer } from './services/container'
 
 const app = express()
