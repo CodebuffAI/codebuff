@@ -23,7 +23,7 @@ Override files should be JSON files with the following structure:
       "content": "Additional system instructions"
     },
     "spawnableAgents": {
-      "type": "append", 
+      "type": "append",
       "content": ["thinker"]
     }
   }
@@ -33,21 +33,24 @@ Override files should be JSON files with the following structure:
 ## Configuration Options
 
 ### Basic Properties
+
 - `type`: Agent type identifier (e.g., "CodebuffAI/reviewer" maps to "reviewer")
 - `version`: Version identifier (currently informational)
 - `model`: Override the model used by the agent
 
 ### Prompt Overrides
+
 Each prompt type (`systemPrompt`, `userInputPrompt`, `agentStepPrompt`) supports:
 
 - `type`: How to apply the override
   - `"append"`: Add content after the base prompt
-  - `"prepend"`: Add content before the base prompt  
+  - `"prepend"`: Add content before the base prompt
   - `"replace"`: Replace the entire base prompt
 - `content`: Inline content to use
 - `path`: Path to external file (relative to the override file)
 
 ### Array Overrides
+
 For arrays like `spawnableAgents` and `toolNames`:
 
 - `type`: How to apply the override
@@ -77,11 +80,13 @@ The path is resolved relative to the override file's directory.
 ## Example Usage
 
 ### Basic Model Override
+
 `.agents/templates/reviewer.json`:
+
 ```json
 {
   "override": {
-    "type": "CodebuffAI/reviewer", 
+    "type": "CodebuffAI/reviewer",
     "version": "0.1.7",
     "model": "anthropic/claude-sonnet-4"
   }
@@ -89,12 +94,14 @@ The path is resolved relative to the override file's directory.
 ```
 
 ### System Prompt Enhancement
+
 `.agents/templates/reviewer.json`:
+
 ```json
 {
   "override": {
     "type": "CodebuffAI/reviewer",
-    "version": "0.1.7", 
+    "version": "0.1.7",
     "systemPrompt": {
       "type": "append",
       "content": "\n\nAdditional instructions: Focus on security vulnerabilities and performance issues."
@@ -104,14 +111,16 @@ The path is resolved relative to the override file's directory.
 ```
 
 ### External File Reference
+
 `.agents/templates/reviewer.json`:
+
 ```json
 {
   "override": {
     "type": "CodebuffAI/reviewer",
     "version": "0.1.7",
     "systemPrompt": {
-      "type": "append", 
+      "type": "append",
       "path": "./custom-review-instructions.md"
     }
   }
@@ -119,6 +128,7 @@ The path is resolved relative to the override file's directory.
 ```
 
 `.agents/templates/custom-review-instructions.md`:
+
 ```markdown
 ## Custom Review Guidelines
 
@@ -129,8 +139,8 @@ The path is resolved relative to the override file's directory.
 
 ## Implementation Details
 
-- Override processing happens in `backend/src/templates/agent-overrides.ts`
-- Integration points are in `backend/src/run-agent-step.ts` 
+- Override processing happens in `backend/src/features/agents/templates/static/agent-overrides.ts`
+- Integration points are in `backend/src/run-agent-step.ts`
 - Files are loaded into `ProjectFileContext.agentTemplates` (separate from knowledge files)
 - Agent template files are loaded in `npm-app/src/project-files.ts`
 - Path resolution uses `path.posix.join()` for cross-platform compatibility
@@ -139,6 +149,7 @@ The path is resolved relative to the override file's directory.
 ## Error Handling
 
 The system is designed to be robust:
+
 - Invalid JSON files are logged and ignored
 - Missing external files are logged and treated as empty content
 - Non-matching agent types are ignored

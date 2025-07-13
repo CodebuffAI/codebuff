@@ -35,14 +35,16 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 
 ## Tool Handling System
 
-- Tools are defined in `backend/src/tools.ts` and implemented in `npm-app/src/tool-handlers.ts`
+- Tools are defined in `backend/src/features/tools/definitions/` and handled in `backend/src/features/tools/handlers/`
+- Tool constants and registry are in `backend/src/features/tools/constants.ts`
+- Client-side tool handling remains in `npm-app/src/tool-handlers.ts`
 - Available tools: read_files, write_file, str_replace, run_terminal_command, code_search, browser_logs, spawn_agents, web_search, read_docs, run_file_change_hooks, and others
 - Backend uses tool calls to request additional information or perform actions
 - Client-side handles tool calls and sends results back to server
 
 ## Agent System
 
-- **LLM-based Agents**: Traditional agents defined in `backend/src/templates/` using prompts and LLM models
+- **LLM-based Agents**: Traditional agents defined in `backend/src/features/agents/templates/static/` using prompts and LLM models
 - **Programmatic Agents**: Custom agents using JavaScript/TypeScript generator functions in `.agents/templates/`
 - Agent templates define available tools, spawnable sub-agents, and execution behavior
 - Programmatic agents allow complex orchestration logic, conditional flows, and iterative refinement
@@ -126,3 +128,34 @@ codebuff --create <template> [project-name]
 ```
 
 Templates are maintained in the codebuff community repo. Each directory corresponds to a template usable with the --create flag.
+
+## Backend Architecture
+
+The backend follows a **feature-based modular architecture** organized under `backend/src/features/`:
+
+### Core Features
+
+- **`features/agents/`** - Agent system (execution, templates, registry)
+  - `execution/` - Agent execution logic (main-prompt, run-agent-step, loop-main-prompt)
+  - `templates/static/` - Static agent templates and registry
+- **`features/tools/`** - Tool system (definitions, handlers, constants)
+  - `definitions/` - Tool schema definitions
+  - `handlers/` - Tool execution handlers
+- **`features/llm/`** - LLM providers and integrations
+  - `providers/` - Different LLM provider implementations
+- **`features/websockets/`** - WebSocket handling and communication
+- **`features/files/`** - File processing operations
+
+### Services Layer
+
+- **`services/`** - Business logic layer with dependency injection
+  - `agent-service.ts`, `tool-service.ts`, `llm-service.ts`, `file-service.ts`
+  - `container.ts` - Dependency injection container
+  - `interfaces.ts` - Service interface definitions
+
+This architecture provides:
+
+- Clear separation of concerns
+- Better maintainability and testability
+- Easier navigation and file discovery
+- Reduced coupling between components
