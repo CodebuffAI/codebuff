@@ -1,6 +1,9 @@
 import { describe, it, expect, mock } from 'bun:test'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { dynamicAgentService } from '../templates/dynamic-agent-service'
+import {
+  dynamicAgentService,
+  DynamicAgentService,
+} from '../templates/dynamic-agent-service'
 
 // Mock backend utility module
 mock.module('../util/file-resolver', () => ({
@@ -24,82 +27,6 @@ mock.module('../util/file-resolver', () => ({
       return 'Help brainstorm ideas.'
     }
     return 'Mock content'
-  },
-}))
-
-// Mock fs module to avoid file system access in tests
-mock.module('fs', () => ({
-  existsSync: (path: string) => {
-    return path.includes('.agents/templates')
-  },
-  readdirSync: (path: string) => {
-    if (path.includes('brainstormer')) {
-      return ['brainstormer.json']
-    }
-    if (path.includes('custom')) {
-      return ['custom.json']
-    }
-    if (path.includes('invalid')) {
-      return ['invalid.json']
-    }
-    if (path.includes('broken')) {
-      return ['broken.json']
-    }
-    return []
-  },
-  readFileSync: (path: string) => {
-    if (path.includes('brainstormer.json')) {
-      return JSON.stringify({
-        id: 'brainstormer',
-        version: '1.0.0',
-        override: false,
-        name: 'Brainy',
-        description: 'Creative thought partner',
-        model: 'anthropic/claude-4-sonnet-20250522',
-        systemPrompt: 'You are a creative brainstormer.',
-        userInputPrompt: 'Help brainstorm ideas.',
-        agentStepPrompt: 'Continue brainstorming.',
-        toolNames: ['end_turn'],
-        spawnableAgents: ['thinker', 'researcher'],
-      })
-    }
-    if (path.includes('brainstormer-system.md')) {
-      return 'You are a creative brainstormer.'
-    }
-    if (path.includes('brainstormer-user-input.md')) {
-      return 'Help brainstorm ideas.'
-    }
-    if (path.includes('custom.json')) {
-      return JSON.stringify({
-        id: 'custom_agent',
-        version: '1.0.0',
-        override: false,
-        name: 'Custom',
-        description: 'Custom agent',
-        model: 'anthropic/claude-4-sonnet-20250522',
-        systemPrompt: 'Custom system prompt',
-        userInputPrompt: 'Custom user prompt',
-        agentStepPrompt: 'Custom step prompt',
-      })
-    }
-    if (path.includes('invalid.json')) {
-      return JSON.stringify({
-        id: 'invalid_agent',
-        version: '1.0.0',
-        override: false,
-        name: 'Invalid',
-        description: 'Invalid agent',
-        model: 'anthropic/claude-4-sonnet-20250522',
-        systemPrompt: 'Test',
-        userInputPrompt: 'Test',
-        agentStepPrompt: 'Test',
-        spawnableAgents: ['nonexistent_agent'],
-      })
-    }
-    if (path.includes('broken.json')) {
-      return 'invalid json{'
-    }
-    throw new Error('File not found')
   },
 }))
 
@@ -132,7 +59,21 @@ describe('Dynamic Agent Loader', () => {
   it('should load valid dynamic agent template', async () => {
     const fileContext = {
       ...mockFileContext,
-      projectRoot: '/test/brainstormer',
+      agentTemplates: {
+        '.agents/templates/brainstormer.json': JSON.stringify({
+          id: 'brainstormer',
+          version: '1.0.0',
+          override: false,
+          name: 'Brainy',
+          description: 'Creative thought partner',
+          model: 'anthropic/claude-4-sonnet-20250522',
+          systemPrompt: 'You are a creative brainstormer.',
+          userInputPrompt: 'Help brainstorm ideas.',
+          agentStepPrompt: 'Continue brainstorming.',
+          toolNames: ['end_turn'],
+          spawnableAgents: ['thinker', 'researcher'],
+        }),
+      },
     }
 
     const result = await dynamicAgentService.loadAgents(fileContext)
@@ -146,7 +87,14 @@ describe('Dynamic Agent Loader', () => {
   it('should skip templates with override: true', async () => {
     const fileContext = {
       ...mockFileContext,
-      projectRoot: '/test/empty', // No matching files
+      agentTemplates: {
+        '.agents/templates/override.json': JSON.stringify({
+          id: 'reviewer',
+          version: '1.0.0',
+          override: true,
+          systemPrompt: 'Override system prompt',
+        }),
+      },
     }
 
     const result = await dynamicAgentService.loadAgents(fileContext)
@@ -158,7 +106,20 @@ describe('Dynamic Agent Loader', () => {
   it('should validate spawnable agents', async () => {
     const fileContext = {
       ...mockFileContext,
-      projectRoot: '/test/invalid',
+      agentTemplates: {
+        '.agents/templates/invalid.json': JSON.stringify({
+          id: 'invalid_agent',
+          version: '1.0.0',
+          override: false,
+          name: 'Invalid',
+          description: 'Invalid agent',
+          model: 'anthropic/claude-4-sonnet-20250522',
+          systemPrompt: 'Test',
+          userInputPrompt: 'Test',
+          agentStepPrompt: 'Test',
+          spawnableAgents: ['nonexistent_agent'],
+        }),
+      },
     }
 
     const result = await dynamicAgentService.loadAgents(fileContext)
@@ -172,7 +133,9 @@ describe('Dynamic Agent Loader', () => {
   it('should handle invalid JSON', async () => {
     const fileContext = {
       ...mockFileContext,
-      projectRoot: '/test/broken',
+      agentTemplates: {
+        '.agents/templates/broken.json': 'invalid json{',
+      },
     }
 
     const result = await dynamicAgentService.loadAgents(fileContext)
@@ -186,7 +149,19 @@ describe('Dynamic Agent Loader', () => {
   it('should merge static and dynamic templates', async () => {
     const fileContext = {
       ...mockFileContext,
-      projectRoot: '/test/custom',
+      agentTemplates: {
+        '.agents/templates/custom.json': JSON.stringify({
+          id: 'custom_agent',
+          version: '1.0.0',
+          override: false,
+          name: 'Custom',
+          description: 'Custom agent',
+          model: 'anthropic/claude-4-sonnet-20250522',
+          systemPrompt: 'Custom system prompt',
+          userInputPrompt: 'Custom user prompt',
+          agentStepPrompt: 'Custom step prompt',
+        }),
+      },
     }
 
     const result = await dynamicAgentService.loadAgents(fileContext)
@@ -197,15 +172,12 @@ describe('Dynamic Agent Loader', () => {
 
   it('should handle agents with JSON schemas', async () => {
     // Create a new service instance to avoid global state issues
-    const testService =
-      new (require('../templates/dynamic-agent-service').DynamicAgentService)()
+    const testService = new DynamicAgentService()
 
-    // Mock fs for this specific test
-    const mockFs = mock.module('fs', () => ({
-      existsSync: () => true,
-      readdirSync: () => ['schema-agent.json'],
-      readFileSync: () =>
-        JSON.stringify({
+    const fileContext = {
+      ...mockFileContext,
+      agentTemplates: {
+        '.agents/templates/schema-agent.json': JSON.stringify({
           id: 'schema_agent',
           version: '1.0.0',
           override: false,
@@ -228,11 +200,7 @@ describe('Dynamic Agent Loader', () => {
             },
           },
         }),
-    }))
-
-    const fileContext = {
-      ...mockFileContext,
-      projectRoot: '/test/schema',
+      },
     }
 
     const result = await testService.loadAgents(fileContext)
@@ -245,15 +213,12 @@ describe('Dynamic Agent Loader', () => {
 
   it('should return validation errors for invalid schemas', async () => {
     // Create a new service instance to avoid global state issues
-    const testService =
-      new (require('../templates/dynamic-agent-service').DynamicAgentService)()
+    const testService = new DynamicAgentService()
 
-    // Mock fs for this specific test
-    const mockFs = mock.module('fs', () => ({
-      existsSync: () => true,
-      readdirSync: () => ['invalid-schema-agent.json'],
-      readFileSync: () =>
-        JSON.stringify({
+    const fileContext = {
+      ...mockFileContext,
+      agentTemplates: {
+        '.agents/templates/invalid-schema-agent.json': JSON.stringify({
           id: 'invalid_schema_agent',
           version: '1.0.0',
           override: false,
@@ -269,11 +234,7 @@ describe('Dynamic Agent Loader', () => {
             },
           },
         }),
-    }))
-
-    const fileContext = {
-      ...mockFileContext,
-      projectRoot: '/test/invalid-schema',
+      },
     }
 
     const result = await testService.loadAgents(fileContext)
@@ -286,5 +247,43 @@ describe('Dynamic Agent Loader', () => {
       'Schema must allow string or undefined values'
     )
     expect(result.templates).not.toHaveProperty('invalid_schema_agent')
+  })
+
+  it('should resolve prompts from agentTemplates', async () => {
+    const testService = new DynamicAgentService()
+
+    const fileContext = {
+      ...mockFileContext,
+      agentTemplates: {
+        '.agents/templates/prompt-ref-agent.json': JSON.stringify({
+          id: 'prompt_ref_agent',
+          version: '1.0.0',
+          override: false,
+          name: 'Prompt Reference Agent',
+          description: 'Agent with prompt references',
+          model: 'anthropic/claude-4-sonnet-20250522',
+          systemPrompt: { path: '.agents/templates/system-prompt.md' },
+          userInputPrompt: 'Direct user prompt',
+          agentStepPrompt: { path: '.agents/templates/step-prompt.md' },
+        }),
+        '.agents/templates/system-prompt.md':
+          'System prompt from agentTemplates',
+        '.agents/templates/step-prompt.md': 'Step prompt from agentTemplates',
+      },
+    }
+
+    const result = await testService.loadAgents(fileContext)
+
+    expect(result.validationErrors).toHaveLength(0)
+    expect(result.templates).toHaveProperty('prompt_ref_agent')
+    expect(result.templates.prompt_ref_agent.systemPrompt).toBe(
+      'System prompt from agentTemplates'
+    )
+    expect(result.templates.prompt_ref_agent.userInputPrompt).toBe(
+      'Direct user prompt'
+    )
+    expect(result.templates.prompt_ref_agent.agentStepPrompt).toBe(
+      'Step prompt from agentTemplates'
+    )
   })
 })
