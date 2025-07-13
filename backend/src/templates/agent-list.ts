@@ -27,7 +27,7 @@ export const agentTemplates: Record<
   },
   base_lite: {
     id: AgentTemplateTypes.base_lite,
-    ...base(models.gemini2_5_flash),
+    ...base(models.openrouter_kimi_k2),
   },
   base_max: {
     id: AgentTemplateTypes.base_max,

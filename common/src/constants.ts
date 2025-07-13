@@ -125,7 +125,7 @@ export const getModelForMode = (
 ) => {
   if (operation === 'agent') {
     return {
-      lite: models.openrouter_gemini2_5_flash,
+      lite: models.openrouter_kimi_k2,
       normal: models.openrouter_claude_sonnet_4,
       max: models.openrouter_claude_sonnet_4,
       experimental: models.openrouter_gemini2_5_pro_preview,
@@ -195,6 +195,7 @@ export const openrouterModels = {
   openrouter_gemini2_5_flash_thinking:
     'google/gemini-2.5-flash-preview:thinking',
   openrouter_grok_4: 'x-ai/grok-4-07-09',
+  openrouter_kimi_k2: 'moonshotai/kimi-k2',
 } as const
 export type openrouterModel =
   (typeof openrouterModels)[keyof typeof openrouterModels]

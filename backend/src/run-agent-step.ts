@@ -1,6 +1,6 @@
 import { AgentResponseTrace, insertTrace } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
-import { models, ONE_TIME_LABELS } from '@codebuff/common/constants'
+import { Model, models, ONE_TIME_LABELS } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getToolCallString,
@@ -327,6 +327,10 @@ export const runAgentStep = async (
   )
 
   const iterationNum = agentMessagesUntruncated.length
+  const modelsWithoutCacheControl: Model[] = [
+    models.openrouter_grok_4,
+    models.openrouter_kimi_k2,
+  ]
 
   const system = await getAgentPrompt(
     agentTemplate,
@@ -343,7 +347,7 @@ export const runAgentStep = async (
   const agentMessages = getCoreMessagesSubset(
     agentMessagesUntruncated,
     systemTokens,
-    agentTemplate.model !== models.openrouter_grok_4
+    !modelsWithoutCacheControl.some((model) => model === agentTemplate.model)
   )
 
   const debugPromptCaching = false

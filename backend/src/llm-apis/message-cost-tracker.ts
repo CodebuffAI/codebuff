@@ -62,6 +62,7 @@ const TOKENS_COST_PER_M = {
     [models.openrouter_o3_mini]: 1.1,
     [models.openrouter_gemini2_5_pro_preview]: 1.25,
     [models.openrouter_grok_4]: 3.0,
+    [models.openrouter_kimi_k2]: 0.3,
   },
   output: {
     // [models.opus4]: 75,
@@ -91,6 +92,7 @@ const TOKENS_COST_PER_M = {
     [models.openrouter_o3_mini]: 4.4,
     [models.openrouter_gemini2_5_pro_preview]: 10,
     [models.openrouter_grok_4]: 15.0,
+    [models.openrouter_kimi_k2]: 1.2,
   },
   cache_creation: {
     // [models.opus4]: 18.75,
