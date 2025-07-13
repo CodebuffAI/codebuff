@@ -1,0 +1,281 @@
+---
+title: 'Troubleshooting Agent Customization'
+section: 'agents'
+tags: ['troubleshooting', 'debugging', 'agents']
+order: 5
+---
+
+# Troubleshooting
+
+Quick fixes for common agent customization issues.
+
+## Quick Fix Checklist
+
+1. **Restart Codebuff** to reload templates
+2. **Check JSON syntax:** `cat your-agent-file.json | jq`
+3. **Verify file paths** are relative to project root
+4. **Ensure `"override": true`** is set for overrides
+
+## Common Errors
+
+### "Agent not found"
+```
+Error: Agent 'my-custom-agent' not found
+```
+
+**Fix:** Check agent ID spelling, file location (`.agents/templates/`), JSON syntax (`cat file.json | jq`)
+
+```
+
+
+### "Invalid spawnable agent"
+```
+Validation error: spawnableAgents contains invalid agent 'researcher-typo'
+
+**Fix:** Check spelling against [built-in agents list](/docs/agents/agent-reference#available-built-in-agents), use exact IDs
+
+### "Path not found" Error
+```
+Error: Cannot resolve prompt file './my-prompt.md'
+```
+**Causes:**
+- File doesn't exist at specified path
+- Incorrect relative path resolution
+- File permissions issue
+
+**Solutions:**
+1. Use paths relative to project root: `.agents/templates/my-prompt.md`
+2. Verify file exists: `ls -la .agents/templates/my-prompt.md`
+3. Check file permissions are readable
+
+## JSON Schema Issues
+
+### Invalid Override Type
+
+```json
+{
+  "systemPrompt": {
+    "type": "add",  // ❌ Invalid
+    "content": "..."
+  }
+}
+```
+
+**Fix:** Use valid override types:
+```json
+{
+  "systemPrompt": {
+    "type": "append",  // ✅ Valid: append, prepend, replace
+    "content": "..."
+  }
+}
+```
+
+### Missing Required Fields
+
+```json
+{
+  "id": "my-agent",
+  "override": false,
+  "name": "My Agent"
+  // ❌ Missing required fields for new agents
+}
+```
+
+**Fix:** Include all required fields for new agents:
+```json
+{
+  "id": "my-agent",
+  "version": "1.0.0",
+  "override": false,
+  "name": "My Agent",
+  "description": "Agent description",
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "systemPrompt": "You are a helpful assistant...",
+  "userInputPrompt": "Process the user's request...",
+  "agentStepPrompt": "Continue working on the task..."
+}
+```
+
+
+### "Path not found"
+
+**Fix:** Use project root relative paths: `.agents/templates/my-prompt.md`, verify file exists
+## Agent Behavior Issues
+### Agent Not Using Custom Prompts
+**Symptoms:**
+- Agent behaves like default version
+- Custom instructions ignored
+**Debug Steps:**
+1. Check override is properly applied:
+   ```bash
+   # Restart Codebuff to reload templates
+   codebuff
+   ```
+
+2. Verify override syntax:
+   ```json
+   {
+     "id": "CodebuffAI/reviewer",  // ✅ Exact match required
+     "override": true,             // ✅ Must be true for overrides
+     "systemPrompt": {
+       "type": "append",           // ✅ Valid override type
+       "content": "Custom instructions..."
+     }
+   }
+   ```
+
+### Agent Spawning Wrong Sub-agents
+
+**Symptoms:**
+- Unexpected agents being created
+- Missing expected specialized agents
+
+**Solutions:**
+1. Check `spawnableAgents` configuration:
+   ```json
+   {
+     "spawnableAgents": {
+       "type": "replace",  // Use "replace" to override completely
+       "content": ["researcher", "thinker"]
+     }
+   }
+   ```
+
+2. Verify agent names are correct (no typos)
+
+## Performance Issues
+
+### Agent Taking Too Long
+
+**Causes:**
+- Complex prompts causing slow generation
+- Too many tools enabled
+- Large context from message history
+
+**Solutions:**
+1. Simplify prompts and remove unnecessary instructions
+2. Limit `toolNames` to only required tools
+3. Set `includeMessageHistory: false` for stateless agents
+4. Use faster models for simple tasks:
+   ```json
+   {
+     "model": "anthropic/claude-3-5-haiku-20241022"  // Faster model
+   }
+   ```
+
+### High Credit Usage
+
+**Causes:**
+- Using expensive models unnecessarily
+- Agents spawning too many sub-agents
+- Large context windows
+
+**Solutions:**
+1. Use cost-effective models:
+   ```json
+   {
+     "model": "google/gemini-2.5-flash"  // More economical
+   }
+   ```
+
+2. Limit spawnable agents:
+   ```json
+   {
+     "spawnableAgents": []  // Prevent sub-agent spawning
+   }
+   ```
+
+## File Organization Issues
+
+### Templates Not Loading
+
+**Symptoms:**
+- No custom agents available
+- Validation errors on startup
+
+**Debug Steps:**
+1. Check directory structure:
+   ```
+   your-project/
+   ├── .agents/
+   │   └── templates/
+   │       ├── my-agent.json
+   │       └── my-prompts.md
+   ```
+
+2. Verify file permissions:
+   ```bash
+   ls -la .agents/templates/
+   ```
+
+3. Check for hidden characters or encoding issues:
+   ```bash
+   file .agents/templates/*.json
+   ```
+
+## Best Practices for Debugging
+
+### 1. Start Simple
+Begin with minimal overrides and add complexity gradually:
+
+```json
+{
+  "id": "CodebuffAI/reviewer",
+  "override": true,
+  "model": "anthropic/claude-4-sonnet-20250522"
+}
+```
+
+### 2. Use Validation Tools
+- JSON validator: `cat file.json | jq`
+- File existence: `ls -la .agents/templates/`
+- Syntax check: Most editors highlight JSON errors
+
+### 3. Check Logs
+Restart Codebuff to see validation errors:
+```bash
+codebuff  # Look for error messages on startup
+```
+
+### 4. Test Incrementally
+Add one override at a time to isolate issues:
+
+1. Test basic override (model change)
+2. Add simple prompt override
+3. Add external file reference
+4. Add tool modifications
+
+### 5. Use Version Control
+Track your agent templates in git to easily revert problematic changes:
+
+```bash
+git add .agents/
+git commit -m "Add custom reviewer agent"
+```
+
+## Getting Help
+
+If you're still experiencing issues:
+
+1. **Check the logs**: Look for specific error messages when starting Codebuff
+2. **Simplify**: Remove customizations until it works, then add back gradually
+3. **Community**: Join our [Discord](https://codebuff.com/discord) for real-time help
+4. **Documentation**: Review the [Agent Reference](/docs/agents/agent-reference) for complete field descriptions
+
+## Quick Reference
+
+### Valid Override Types
+- `"append"` - Add to existing content
+- `"prepend"` - Add before existing content  
+- `"replace"` - Replace entire content
+
+### Required Fields for New Agents
+- `id`, `version`, `override: false`
+- `name`, `description`, `model`
+- `systemPrompt`, `userInputPrompt`, `agentStepPrompt`
+
+### Common File Paths
+- Agent templates: `.agents/templates/*.json`
+- External prompts: `.agents/templates/*.md`
+- Project root: `./` (for absolute paths)

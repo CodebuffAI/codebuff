@@ -7,32 +7,53 @@ order: 0
 
 # Overview
 
-Codebuff's agent system allows you to customize and extend the behavior of AI agents through **Agent Templates**.
+Customize AI agents through **Agent Templates** - JSON files that define agent behavior.
 
-## Why Multi-Agent Systems Excel at Code Generation
+## Why Multi-Agent Systems Work Better
 
-Traditional single-agent AI assistants often struggle with complex programming tasks because they try to handle everything at once. Codebuff's multi-agent architecture breaks down complex workflows into specialized, focused tasks that work together seamlessly.
+Codebuff uses specialized agents that collaborate instead of one agent doing everything:
 
-### The Power of Specialization
+- **Code Generation** - Write clean, functional code
+- **Review** - Catch bugs, security issues, style violations
+- **Research** - Find documentation and examples
+- **Planning** - Break down complex requirements
+- **File Discovery** - Navigate large codebases
 
-Just like how software engineering teams have specialists (frontend developers, backend engineers, DevOps experts), Codebuff's agents each excel at specific tasks:
+**Example workflow:** "refactor this authentication system"
 
-- **Code Generation Agents** - Focus purely on writing clean, functional code
-- **Review Agents** - Specialize in catching bugs, security issues, and style violations
-- **Research Agents** - Expert at finding relevant documentation and examples
-- **Planning Agents** - Break down complex requirements into actionable steps
-- **File Discovery Agents** - Navigate large codebases to find relevant files
+1. **File Picker** finds auth-related files
+2. **Research** looks up best practices
+3. **Planning** creates step-by-step plan
+4. **Base** implements changes
+5. **Reviewer** checks for security issues
 
-So when you ask Codebuff to "refactor this authentication system," here's how multiple agents collaborate:
+Agents spawn other agents, share tools, and pass context between tasks.
 
-1. **File Picker Agent** - Scans your codebase to find all authentication-related files
-2. **Research Agent** - Looks up current best practices for authentication patterns
-3. **Planning Agent** - Creates a step-by-step refactoring plan
-4. **Base Agent** - Implements the code changes following the plan
-5. **Reviewer Agent** - Examines the changes for security vulnerabilities and code quality
+## Common Workflows
 
-This collaborative approach consistently produces better results than a single agent trying to handle all these concerns simultaneously.
+**Single-Agent Tasks:**
+- Code review, documentation, research
 
-## Getting Started
+**Multi-Agent Workflows:**
+```
+Feature: Planning → File Picker → Base → Reviewer
+Debugging: Thinker → Research → Base → Reviewer  
+Refactoring: File Picker → Planning → Base → Reviewer
+```
 
-Ready to explore what agents can do? Check out the [Tools and Capabilities](/docs/agents/agent-reference#tools-and-capabilities) section to see all available tools and built-in agents you can work with.
+**Team Sharing:**
+```bash
+git add .agents/
+git commit -m "Add team coding standards"
+```
+
+**Role-Specific Examples:**
+- Frontend: React component reviewer
+- Backend: API security reviewer
+- DevOps: Infrastructure deployment agent
+
+## Quick Start
+
+1. **[Customize existing agents](/docs/agents/override-agents)** - Modify prompts and tools
+2. **[Create new agents](/docs/agents/creating-new-agents)** - Build specialized functionality
+3. **[Reference guide](/docs/agents/agent-reference)** - Complete field documentation

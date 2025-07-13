@@ -7,34 +7,23 @@ order: 1
 
 # Customizing Agents
 
-## Overview
+Modify existing agents by creating JSON override files in `.agents/templates/`:
 
-Agent templates are JSON configuration files that define how AI agents behave. You can:
-
-- **Customize existing agents** - Modify prompts, tools, and the models used
-- **Create new agents** - Build custom agents and get existing agents to spawn them
-
-All agent templates are stored locally in the `.agents/templates/` directory in your project root:
-
-```markdown
-.agents/
-└── templates/
-    ├── my-custom-agent.json
-    └── enhanced-reviewer.json
+```
+.agents/templates/
+├── my-reviewer.json
+└── security-checker.json
 ```
 
-You can customize any Codebuff agent by overriding specific fields. You can use this to:
-- Change the model
-- Add custom prompting
-- Change what tools are available
+**What you can customize:**
+- Model (any from [OpenRouter](https://openrouter.ai/models))
+- Prompts (system, user input, step instructions)
+- Tools (add/remove capabilities)
+- Spawnable agents (which sub-agents it can create)
 
-## Overriding Existing Agents
+## Basic Override
 
-The most common use case is customizing existing agents to better fit your workflow. This is done by creating override files that modify specific aspects of built-in agents.
-
-### Basic Override Structure
-
-Override files must have `"override": true` and target an existing agent by ID:
+Override files need `"override": true` and target an agent by ID:
 
 ```json
 {
@@ -50,61 +39,85 @@ Override files must have `"override": true` and target an existing agent by ID:
 }
 ```
 
-### Override Types
+## Override Types
 
-There are three types of overrides you can apply:
-
-#### 1. **append** - Add content to existing prompts
+Combine `type` with `content` or `path` to modify prompts:
 
 ```json
-{
-  "systemPrompt": {
-    "type": "append",
-    "content": "\n\nAdditional instructions here..."
-  }
-}
+// Append to an existing prompt
+{"systemPrompt": {"type": "append", "content": "Additional instructions..."}}
+
+// Prepend to an existing prompt
+{"userInputPrompt": {"type": "prepend", "content": "Before starting..."}}
+
+// Replace an entire prompt
+{"agentStepPrompt": {"type": "replace", "content": "New instructions"}}
+
+// Reference an external markdown file
+{"systemPrompt": {"type": "append", "path": "./my-instructions.md"}}
 ```
-
-#### 2. **prepend** - Add content before existing prompts
-
-```json
-{
-  "userInputPrompt": {
-    "type": "prepend",
-    "content": "Before starting, always..."
-  }
-}
-```
-
-#### 3. **replace** - Completely replace existing content
-
-```json
-{
-  "agentStepPrompt": {
-    "type": "replace",
-    "content": "New step instructions"
-  }
-}
-```
-
-### External File References
-
-Keep your prompts organized by referencing external markdown files:
-
-```json
-{
-  "systemPrompt": {
-    "type": "append",
-    "path": "./custom-reviewer-instructions.md"
-  }
-}
-```
-
-The path should be relative to the template file itself or to the root project directory.
 
 ## Real-World Examples
 
-### Example 1: Enhanced Code Reviewer
+### Example 1: React Component Reviewer
+
+Customize the reviewer to focus on React best practices:
+
+**.agents/templates/react-reviewer.json**
+
+```json
+{
+  "id": "CodebuffAI/reviewer",
+  "version": "0.1.7",
+  "override": true,
+
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "systemPrompt": {
+    "type": "append",
+    "content": "\n\n## React-Specific Guidelines\n\n- Check for proper hook usage and dependencies\n- Verify component props are properly typed\n- Look for performance issues (unnecessary re-renders)\n- Ensure accessibility best practices\n- Check for proper error boundaries"
+  }
+}
+```
+
+### Example 2: Security-Focused Reviewer
+
+Create a reviewer that prioritizes security concerns:
+
+**.agents/templates/security-reviewer.json**
+
+```json
+{
+  "id": "CodebuffAI/reviewer",
+  "version": "0.1.7",
+  "override": true,
+
+  "systemPrompt": {
+    "type": "append",
+    "path": "./security-guidelines.md"
+  },
+  "spawnableAgents": {
+    "type": "append",
+    "content": ["researcher"]
+  }
+}
+```
+
+**.agents/templates/security-guidelines.md**
+
+```markdown
+# Security Review Guidelines
+
+## Critical Security Checks
+
+- **Input Validation**: All user inputs must be validated and sanitized
+- **Authentication**: Check for proper auth token handling
+- **SQL Injection**: Review database queries for injection vulnerabilities
+- **XSS Prevention**: Ensure output is properly escaped
+- **Secrets Management**: No hardcoded API keys or passwords
+- **HTTPS**: All external API calls should use HTTPS
+```
+
+### Example 3: Enhanced Code Reviewer
 
 Customize the reviewer agent to enforce specific coding standards:
 
@@ -160,59 +173,31 @@ When reviewing code changes, pay special attention to:
 - Verify edge cases are covered
 ```
 
-## Available Override Fields
+## Available Fields
 
-You can override the following fields in existing agents:
+**Core:** `model`, `toolNames`, `spawnableAgents`  
+**Prompts:** `systemPrompt`, `userInputPrompt`, `agentStepPrompt`
 
-### Core Configuration
+## Built-in Agents
 
-- `model` - Change the AI model used
-- `toolNames` - Modify available tools (append/replace)
-- `spawnableAgents` - Add or replace spawnable sub-agents
+- `CodebuffAI/base` - Main coding assistant
+- `CodebuffAI/reviewer` - Code review
+- `CodebuffAI/thinker` - Deep thinking
+- `CodebuffAI/researcher` - Research & docs
+- `CodebuffAI/planner` - Planning & architecture
+- `CodebuffAI/file-picker` - File discovery
 
-### Prompts
-
-- `systemPrompt` - Core agent instructions
-- `userInputPrompt` - How user input is processed
-- `agentStepPrompt` - Instructions for each step
-
-All prompt fields support:
-
-- **String content**: Direct text
-- **Path reference**: `{"path": "./file.md"}`
-- **Override types**: append, prepend, replace
-
-## Built-in Agents You Can Override
-
-Here are the main agents available for customization:
-
-- **`CodebuffAI/base`** - Main coding assistant
-- **`CodebuffAI/reviewer`** - Code review agent
-- **`CodebuffAI/thinker`** - Deep thinking agent
-- **`CodebuffAI/researcher`** - Research and documentation agent
-- **`CodebuffAI/planner`** - Planning and architecture agent
-- **`CodebuffAI/file-picker`** - File discovery agent
 
 ## Troubleshooting
 
-### Common Issues
+**Agent not loading:** Check `"override": true`, agent ID spelling, JSON syntax, file location  
+**Prompts not applying:** Verify file paths, override types spelling  
+**Path errors:** Use `.agents/templates/my-file.md` (project root relative)
 
-**Agent not loading:**
+**Debug tips:**
+1. Start with simple model override
+2. Validate JSON: `cat file.json | jq`
+3. Restart Codebuff to see errors
+4. Add overrides incrementally
 
-- Ensure `"override": true` is set
-- Check that the agent ID exists and is spelled correctly
-- Verify JSON syntax is valid
-
-**Prompts not applying:**
-
-- Check file paths are relative to the project root or the template file.
-- Ensure the JSON schema is correct and doesn't print any errors
-
-### Debug Tips
-
-1. Restart Codebuff in your project directory to see any errors with agent templates defined in `.agents/templates`
-2. Start with simple overrides and build complexity gradually
-
-## Next Steps
-
-Once you're comfortable with overriding existing agents, you can move on to creating entirely new agents from scratch.
+**Next:** [Create new agents](/docs/agents/creating-new-agents) or see [troubleshooting guide](/docs/agents/troubleshooting)

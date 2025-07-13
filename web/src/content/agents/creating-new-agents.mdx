@@ -7,18 +7,15 @@ order: 2
 
 # Creating New Agents
 
-Beyond overriding existing agents, you can create entirely new agents tailored to your specific needs. Codebuff supports two types of custom agents:
+Create specialized agents from scratch using JSON templates.
 
-- **LLM-based Agents** - Traditional AI agents using prompts and language models
-- **Programmatic Agents** (coming soon) - Custom agents using JavaScript/TypeScript code
+**Types:**
+- **LLM-based** - Use prompts and language models
+- **Programmatic** (coming soon) - Use JavaScript/TypeScript code
 
-## LLM-Based Agents
+## Basic Structure
 
-LLM-based agents are the most common type. They use language models to process requests and generate responses.
-
-### Basic Structure
-
-New LLM agents must have `"override": false` and include all required fields:
+New agents need `"override": false` and these required fields:
 
 ```json
 {
@@ -52,37 +49,115 @@ New LLM agents must have `"override": false` and include all required fields:
 **.agents/templates/doc-writer-system.md**
 
 ```markdown
-# Documentation Writer Agent
+# Documentation Writer
 
-You are a specialized documentation writer who creates clear, comprehensive documentation for codebases.
-
-## Your Role
-
-- Analyze code structure and patterns
-- Create user-friendly documentation
-- Include practical examples
-- Maintain consistency with existing docs
+Create clear, comprehensive documentation for codebases.
 
 ## Guidelines
-
-- Start by researching the codebase
+- Research codebase first
 - Use clear, concise language
-- Include code examples
-- Structure content logically
+- Include practical examples
 - Test examples for accuracy
+```
+
+## More Domain-Specific Examples
+
+### API Documentation Agent
+
+Specialized for documenting REST APIs and GraphQL schemas:
+
+**.agents/templates/api-documenter.json**
+
+```json
+{
+  "id": "api-documenter",
+  "version": "1.0.0",
+  "override": false,
+
+  "name": "API Documentation Specialist",
+  "description": "Creates comprehensive API documentation with examples and schemas",
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "outputMode": "last_message",
+  "includeMessageHistory": true,
+
+  "toolNames": ["read_files", "code_search", "write_file", "spawn_agents", "end_turn"],
+  "stopSequences": ["</end_turn>"],
+  "spawnableAgents": ["researcher"],
+
+  "promptSchema": {
+    "prompt": {
+      "type": "string",
+      "description": "What API endpoints or schemas to document"
+    }
+  },
+
+  "systemPrompt": "You are an API documentation specialist. Create clear, comprehensive documentation for REST APIs and GraphQL schemas with examples, request/response formats, and error codes.",
+  "userInputPrompt": "Analyze the specified API endpoints and create detailed documentation including examples, parameters, and response schemas.",
+  "agentStepPrompt": "Continue documenting the API. Include practical examples and edge cases. Use end_turn when complete."
+}
+```
+
+### Database Migration Agent
+
+Specialized for creating and reviewing database migrations:
+
+**.agents/templates/migration-specialist.json**
+
+```json
+{
+  "id": "migration-specialist",
+  "version": "1.0.0",
+  "override": false,
+
+  "name": "Database Migration Specialist",
+  "description": "Creates safe, reversible database migrations with proper indexing",
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "outputMode": "last_message",
+  "includeMessageHistory": true,
+
+  "toolNames": ["read_files", "write_file", "code_search", "run_terminal_command", "end_turn"],
+  "stopSequences": ["</end_turn>"],
+  "spawnableAgents": ["reviewer"],
+
+  "systemPrompt": {
+    "path": "./migration-guidelines.md"
+  },
+  "userInputPrompt": "Create a database migration for the requested schema changes. Ensure it's reversible and includes proper indexing.",
+  "agentStepPrompt": "Continue working on the migration. Test it if possible and spawn a reviewer to check for issues."
+}
+```
+
+**.agents/templates/migration-guidelines.md**
+
+```markdown
+# Database Migration Guidelines
+
+## Safety First
+- Always create reversible migrations (up and down)
+- Test migrations on a copy of production data
+- Add indexes for new foreign keys
+- Use transactions where supported
+
+## Performance Considerations
+- Avoid locking tables during peak hours
+- Use `ADD COLUMN` with defaults carefully
+- Consider batching large data changes
+- Monitor migration execution time
+
+## Best Practices
+- Include descriptive migration names
+- Add comments explaining complex changes
+- Validate data integrity after migration
+- Keep migrations atomic and focused
 ```
 
 ## Programmatic Agents
 
-**Coming Soon** - Programmatic agents allow you to create custom agents using JavaScript/TypeScript code for complex orchestration logic, conditional flows, and iterative refinement. This feature is currently in development.
+**Coming Soon** - Use JavaScript/TypeScript for complex orchestration logic.
 
-## Recommendations
+## Best Practices
 
-Customizing agents is powerful but can get quite complex. We recommend that you:
-
-1. **Start Small** - Begin with simple overrides before creating new agents
-2. **Experiment** - Try different tool combinations and prompt styles
-3. **Share** - Consider sharing useful agents with your team
-4. **Iterate** - Continuously improve your agents based on usage
-
-```
+1. **Start small** - Begin with overrides before new agents
+2. **Experiment** - Try different tool/prompt combinations
+3. **Share** - Version control your `.agents/` directory
+4. **Iterate** - Improve based on usage
