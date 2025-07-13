@@ -19,6 +19,7 @@ import {
   waitForAllClientsDisconnected,
   listen as webSocketListen,
 } from './websockets/server'
+import { createContainer } from './services/container'
 
 const app = express()
 const port = env.PORT
@@ -82,6 +83,13 @@ setupBigQuery().catch((err) => {
 })
 
 initAnalytics()
+
+// Initialize services container
+const services = createContainer()
+logger.debug('Services container initialized')
+
+// Make services available globally
+;(global as any).services = services
 
 const server = http.createServer(app)
 
