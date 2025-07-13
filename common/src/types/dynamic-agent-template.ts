@@ -37,7 +37,7 @@ const PromptFieldSchema = z.union([
 export const DynamicAgentTemplateSchema = z.object({
   id: z.string(), // The unique identifier for this agent
   version: z.string(),
-  override: z.literal(false), // Must be false for new agents
+  override: z.literal(false).optional().default(false), // Must be false for new agents, defaults to false if missing
 
   // Required fields for new agents
   name: z.string(),

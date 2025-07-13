@@ -3,16 +3,6 @@ import { ProjectFileContext } from '@codebuff/common/util/file'
 import { DynamicAgentService } from '../templates/dynamic-agent-service'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 
-// Mock backend utility module
-mock.module('../util/file-resolver', () => ({
-  resolvePromptField: (field: string | { path: string }, basePath: string) => {
-    if (typeof field === 'string') {
-      return field
-    }
-    return 'Mock content'
-  },
-}))
-
 // Mock logger to avoid console output during tests
 mock.module('../util/logger', () => ({
   logger: {
@@ -33,11 +23,10 @@ describe('Dynamic Agent Schema Validation', () => {
 
   describe('Valid JSON Schema Conversion', () => {
     it('should convert valid promptSchema to Zod', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['valid-prompt-schema.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/valid-prompt-schema.json': JSON.stringify({
             id: 'test_agent',
             version: '1.0.0',
             override: false,
@@ -54,9 +43,10 @@ describe('Dynamic Agent Schema Validation', () => {
               },
             },
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('test_agent')
@@ -68,11 +58,10 @@ describe('Dynamic Agent Schema Validation', () => {
     })
 
     it('should convert valid paramsSchema to Zod', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['valid-params-schema.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/valid-params-schema.json': JSON.stringify({
             id: 'test_agent_params',
             version: '1.0.0',
             override: false,
@@ -100,9 +89,10 @@ describe('Dynamic Agent Schema Validation', () => {
               },
             },
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('test_agent_params')
@@ -121,11 +111,10 @@ describe('Dynamic Agent Schema Validation', () => {
     })
 
     it('should handle promptSchema that allows null', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['optional-prompt-schema.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/optional-prompt-schema.json': JSON.stringify({
             id: 'optional_prompt_agent',
             version: '1.0.0',
             override: false,
@@ -142,9 +131,10 @@ describe('Dynamic Agent Schema Validation', () => {
               },
             },
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('optional_prompt_agent')
@@ -158,11 +148,10 @@ describe('Dynamic Agent Schema Validation', () => {
 
   describe('Invalid JSON Schema Validation Errors', () => {
     it('should return validation error for promptSchema that does not allow strings', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['number-only-prompt-schema.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/number-only-prompt-schema.json': JSON.stringify({
             id: 'number_only_prompt_agent',
             version: '1.0.0',
             override: false,
@@ -179,9 +168,10 @@ describe('Dynamic Agent Schema Validation', () => {
               },
             },
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].filePath).toBe(
@@ -199,11 +189,10 @@ describe('Dynamic Agent Schema Validation', () => {
     })
 
     it('should return validation error for array-only promptSchema', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['array-only-prompt-schema.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/array-only-prompt-schema.json': JSON.stringify({
             id: 'array_only_prompt_agent',
             version: '1.0.0',
             override: false,
@@ -221,9 +210,10 @@ describe('Dynamic Agent Schema Validation', () => {
               },
             },
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].filePath).toBe(
@@ -240,11 +230,10 @@ describe('Dynamic Agent Schema Validation', () => {
 
   describe('Default Schema Behavior', () => {
     it('should have no prompt schema when no promptSchema provided', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['no-prompt-schema.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/no-prompt-schema.json': JSON.stringify({
             id: 'no_prompt_schema_agent',
             version: '1.0.0',
             override: false,
@@ -256,9 +245,10 @@ describe('Dynamic Agent Schema Validation', () => {
             agentStepPrompt: 'Test step prompt',
             // No promptSchema or paramsSchema
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('no_prompt_schema_agent')
@@ -268,11 +258,10 @@ describe('Dynamic Agent Schema Validation', () => {
     })
 
     it('should not have params schema when no paramsSchema provided', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['no-params-schema.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/no-params-schema.json': JSON.stringify({
             id: 'no_params_schema_agent',
             version: '1.0.0',
             override: false,
@@ -284,9 +273,10 @@ describe('Dynamic Agent Schema Validation', () => {
             agentStepPrompt: 'Test step prompt',
             // No paramsSchema
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('no_params_schema_agent')
@@ -298,11 +288,10 @@ describe('Dynamic Agent Schema Validation', () => {
 
   describe('Complex Schema Scenarios', () => {
     it('should handle both promptSchema and paramsSchema together', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['both-schemas.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/both-schemas.json': JSON.stringify({
             id: 'both_schemas_agent',
             version: '1.0.0',
             override: false,
@@ -336,9 +325,10 @@ describe('Dynamic Agent Schema Validation', () => {
               },
             },
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('both_schemas_agent')
@@ -363,11 +353,10 @@ describe('Dynamic Agent Schema Validation', () => {
     })
 
     it('should handle schema with nested objects and arrays', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['complex-schema.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/complex-schema.json': JSON.stringify({
             id: 'complex_schema_agent',
             version: '1.0.0',
             override: false,
@@ -404,9 +393,10 @@ describe('Dynamic Agent Schema Validation', () => {
               },
             },
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('complex_schema_agent')
@@ -441,11 +431,10 @@ describe('Dynamic Agent Schema Validation', () => {
 
   describe('Error Message Quality', () => {
     it('should include file path in error messages', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['error-context.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/error-context.json': JSON.stringify({
             id: 'error_context_agent',
             version: '1.0.0',
             override: false,
@@ -461,9 +450,10 @@ describe('Dynamic Agent Schema Validation', () => {
               },
             },
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].message).toContain(
@@ -475,11 +465,10 @@ describe('Dynamic Agent Schema Validation', () => {
     })
 
     it('should provide specific error details for schema validation failures', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['specific-error.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/specific-error.json': JSON.stringify({
             id: 'specific_error_agent',
             version: '1.0.0',
             override: false,
@@ -495,9 +484,10 @@ describe('Dynamic Agent Schema Validation', () => {
               },
             },
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(1)
       const error = result.validationErrors[0]
@@ -514,11 +504,10 @@ describe('Dynamic Agent Schema Validation', () => {
 
   describe('Edge Cases', () => {
     it('should handle git-committer agent schema correctly', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['git-committer.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/git-committer.json': JSON.stringify({
             id: 'CodebuffAI/git-committer',
             version: '0.0.1',
             override: false,
@@ -545,9 +534,10 @@ describe('Dynamic Agent Schema Validation', () => {
               },
             },
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
@@ -567,20 +557,13 @@ describe('Dynamic Agent Schema Validation', () => {
       // This should fail without the required message property
       const invalidResult = paramsSchema.safeParse({})
       expect(invalidResult.success).toBe(false)
-
-      // Log the actual schema structure for debugging
-      console.log(
-        'Git committer params schema:',
-        JSON.stringify(paramsSchema, null, 2)
-      )
     })
 
     it('should handle empty promptSchema object', async () => {
-      const mockFs = mock.module('fs', () => ({
-        existsSync: () => true,
-        readdirSync: () => ['empty-schema.json'],
-        readFileSync: () =>
-          JSON.stringify({
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          '.agents/templates/empty-schema.json': JSON.stringify({
             id: 'empty_schema_agent',
             version: '1.0.0',
             override: false,
@@ -592,9 +575,10 @@ describe('Dynamic Agent Schema Validation', () => {
             agentStepPrompt: 'Test step prompt',
             promptSchema: {},
           }),
-      }))
+        },
+      }
 
-      const result = await service.loadAgents(mockFileContext)
+      const result = await service.loadAgents(fileContext)
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('empty_schema_agent')
