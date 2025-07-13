@@ -53,6 +53,7 @@ import {
   displayMenu,
   displaySlashCommandHelperMenu,
   getSlashCommands,
+  interactiveCommandDetails,
 } from './menu'
 import {
   getProjectRoot,
@@ -561,6 +562,18 @@ export class CLI {
   }
 
   private async processCommand(userInput: string): Promise<string | null> {
+    const cleanInput = this.cleanCommandInput(userInput)
+    const hasSlash = userInput.startsWith('/')
+
+    // Early check: if command requires slash but no slash provided, forward to backend
+    const commandInfo = interactiveCommandDetails.find(
+      (cmd) =>
+        cmd.baseCommand === cleanInput || cmd.aliases?.includes(cleanInput)
+    )
+    if (commandInfo?.requireSlash === true && !hasSlash) {
+      return userInput
+    }
+
     // Handle cost mode commands with optional message: /lite, /lite message, /normal, /normal message, etc.
     const costModeMatch = userInput.match(
       /^\/?(lite|normal|max|experimental|ask)(?:\s+(.*))?$/i
@@ -568,6 +581,18 @@ export class CLI {
     if (costModeMatch) {
       const mode = costModeMatch[1].toLowerCase() as CostMode
       const message = costModeMatch[2]?.trim() || ''
+      const hasSlash = userInput.startsWith('/')
+
+      // Check if this command requires a slash for local processing
+      const commandInfo = interactiveCommandDetails.find(
+        (cmd) => cmd.baseCommand === mode
+      )
+      const requiresSlash = commandInfo?.requireSlash ?? false
+
+      // If command requires slash but no slash provided, forward to backend
+      if (requiresSlash && !hasSlash) {
+        return userInput // Forward to backend
+      }
 
       // Track the cost mode command usage
       trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
@@ -613,8 +638,6 @@ export class CLI {
       return message
     }
 
-    const cleanInput = this.cleanCommandInput(userInput)
-
     // Handle empty slash command
     if (userInput === '/') {
       return userInput // Let it be processed as a prompt
@@ -624,10 +647,10 @@ export class CLI {
     if (userInput.startsWith('/') && !userInput.startsWith('/!')) {
       const commandBase = cleanInput.split(' ')[0]
       if (!this.isKnownSlashCommand(commandBase)) {
-      trackEvent(AnalyticsEvent.INVALID_COMMAND, {
-        userId: Client.getInstance().user?.id || 'unknown',
-        command: cleanInput,
-      })
+        trackEvent(AnalyticsEvent.INVALID_COMMAND, {
+          userId: Client.getInstance().user?.id || 'unknown',
+          command: cleanInput,
+        })
         this.handleUnknownCommand(userInput)
         return null
       }
@@ -748,11 +771,7 @@ export class CLI {
       if (restoreMatch) {
         const id = parseInt((restoreMatch as RegExpMatchArray)[1], 10)
         await saveCheckpoint(userInput, client, this.readyPromise)
-        const toRestore = await handleRestoreCheckpoint(
-          id,
-          client,
-          this.rl
-        )
+        const toRestore = await handleRestoreCheckpoint(id, client, this.rl)
         this.freshPrompt(toRestore)
         return null
       }
@@ -762,12 +781,7 @@ export class CLI {
         return null
       }
       if (isCheckpointCommand(cleanInput, 'save')) {
-        await saveCheckpoint(
-          userInput,
-          client,
-          this.readyPromise,
-          true
-        )
+        await saveCheckpoint(userInput, client, this.readyPromise, true)
         displayCheckpointMenu()
         this.freshPrompt()
         return null

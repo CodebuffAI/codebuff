@@ -28,6 +28,7 @@ export interface CommandInfo {
   params?: string // e.g. "<id>" for checkpoint, "<cmd>" for shell
   isSlashCommand?: boolean // True if it can be invoked with /
   aliases?: string[] // e.g. ["d"] for diff
+  requireSlash: boolean // True if command MUST be prefixed with slash to trigger local processing
 }
 
 export const interactiveCommandDetails: CommandInfo[] = [
@@ -37,18 +38,21 @@ export const interactiveCommandDetails: CommandInfo[] = [
     isSlashCommand: true,
     commandText: '', // Empty commandText ensures it's not shown in the main interactive list
     aliases: ['h'], // Optional: if you want /h to also work for tab completion
+    requireSlash: false,
   },
   {
     commandText: '"init"',
     baseCommand: 'init',
     description: 'Configure project for better results',
     isSlashCommand: true,
+    requireSlash: false,
   },
   {
     commandText: '"login"',
     baseCommand: 'login',
     description: 'Authenticate your session',
     isSlashCommand: false,
+    requireSlash: false,
   },
   {
     commandText: '"diff" or "d"',
@@ -56,10 +60,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
     aliases: ['d'],
     description: 'Show last assistant change diff',
     isSlashCommand: true,
+    requireSlash: false,
   },
   {
     commandText: '"undo" / "redo"',
     description: 'Revert or re-apply last change',
+    requireSlash: false,
     // This entry will be expanded into two slash commands: /undo and /redo
   },
   {
@@ -68,6 +74,7 @@ export const interactiveCommandDetails: CommandInfo[] = [
     params: '<id>',
     description: 'Restore to a specific checkpoint',
     isSlashCommand: true,
+    requireSlash: false,
   },
   {
     commandText: '"!<cmd>"',
@@ -75,10 +82,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
     params: '<cmd>',
     description: 'Run shell command directly',
     isSlashCommand: false, // e.g. /! <cmd> or /shell <cmd>
+    requireSlash: false,
   },
   {
     commandText: '"usage" or "credits"',
     description: 'View remaining / bonus AI credits',
+    requireSlash: false,
     // This entry will be expanded into two slash commands: /usage and /credits
   },
   {
@@ -87,6 +96,7 @@ export const interactiveCommandDetails: CommandInfo[] = [
     description:
       'Reset the conversation history, as if you just started a new Codebuff session',
     isSlashCommand: true,
+    requireSlash: true,
   },
   {
     baseCommand: 'compact',
@@ -94,77 +104,90 @@ export const interactiveCommandDetails: CommandInfo[] = [
       'Replace the conversation history with a summary and free up context',
     isSlashCommand: true,
     commandText: '"compact"',
+    requireSlash: true,
   },
   {
     baseCommand: 'export',
     description: 'Export conversation summary to file',
     isSlashCommand: true,
     commandText: '"export"',
+    requireSlash: true,
   },
   {
     commandText: 'ESC key or Ctrl-C',
     description: 'Cancel generation',
     isSlashCommand: false,
+    requireSlash: false,
   },
   {
     baseCommand: 'undo',
     description: 'Undo last change',
     isSlashCommand: true,
     commandText: '',
+    requireSlash: false,
   }, // commandText empty as it's covered by "undo / redo" for main menu
   {
     baseCommand: 'redo',
     description: 'Redo last undone change',
     isSlashCommand: true,
     commandText: '',
+    requireSlash: false,
   },
   {
     baseCommand: 'usage',
     description: 'View AI credits usage',
     isSlashCommand: true,
     commandText: '',
+    requireSlash: false,
   },
   {
     baseCommand: 'credits',
     description: 'View AI credits balance',
     isSlashCommand: false,
     commandText: '',
+    requireSlash: false,
   },
   {
     baseCommand: 'ask',
     description: "Switch to ask mode (won't modify code)",
     isSlashCommand: true,
     commandText: '',
+    requireSlash: true, // /ask switches to ask mode, ask forwards to backend
   },
   {
     baseCommand: 'lite',
     description: 'Switch to lite mode (faster, cheaper)',
     isSlashCommand: true,
     commandText: '',
+    requireSlash: true,
   },
   {
     baseCommand: 'normal',
     description: 'Switch to normal mode (balanced)',
     isSlashCommand: true,
     commandText: '',
+    requireSlash: false,
   },
   {
     baseCommand: 'max',
     description: 'Switch to max mode (slower, more thorough)',
     isSlashCommand: true,
     commandText: '',
+    requireSlash: true,
   },
   {
     baseCommand: 'experimental',
     description: 'Switch to experimental mode (cutting-edge)',
     isSlashCommand: false,
     commandText: '',
+    requireSlash: true,
   },
   {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
     description: 'Quit Codebuff',
     isSlashCommand: true,
+    requireSlash: false,
   },
 ]
 
@@ -226,7 +249,11 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     console.log()
     console.log(blueBright(news))
     if (costMode === 'max') {
-      console.log(blueBright('Max mode is now even more powerful, though more expensive, as it uses Claude Opus.'))
+      console.log(
+        blueBright(
+          'Max mode is now even more powerful, though more expensive, as it uses Claude Opus.'
+        )
+      )
     }
     console.log()
   }
