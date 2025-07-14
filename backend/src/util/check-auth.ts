@@ -1,4 +1,4 @@
-import { utils } from '@codebuff/internal'
+import { utils, AdminUser } from '@codebuff/internal'
 import { ServerAction } from '@codebuff/common/actions'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
@@ -6,6 +6,15 @@ import { eq } from 'drizzle-orm'
 import { Request, Response, NextFunction } from 'express'
 
 import { logger } from './logger'
+
+// Extend Express Request type to include user property
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AdminUser
+    }
+  }
+}
 
 export const checkAuth = async ({
   fingerprintId,
@@ -101,7 +110,7 @@ export const checkAdmin = async (
   }
 
   // Store user info in request for handlers to use if needed
-  // req.user = adminUser // TODO: ensure type check passes
+  req.user = adminUser
 
   // Auth passed and user is admin, proceed to next middleware
   next()

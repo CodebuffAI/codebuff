@@ -18,7 +18,7 @@ import {
 } from 'bun:test'
 import { WebSocket } from 'ws'
 import * as checkTerminalCommandModule from '../check-terminal-command'
-import * as requestFilesPrompt from '../find-files/request-files-prompt'
+import * as requestFilesPrompt from '../features/files/processing/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
 import * as linkupApi from '../features/llm/providers/linkup-api'
 import * as aisdk from '../features/llm/providers/vercel-ai-sdk/ai-sdk'

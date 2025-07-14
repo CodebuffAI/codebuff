@@ -15,7 +15,7 @@ export interface AgentStreamOptions {
 export function getAgentStream(options: AgentStreamOptions) {
   return async function* (messages: CoreMessage[]) {
     yield* promptAiSdkStream({
-      messages: messages as any, // TODO: Fix type conversion
+      messages: messages, // CoreMessage[] is compatible with CodebuffMessage[] (which extends CoreMessage)
       model: options.selectedModel,
       clientSessionId: options.clientSessionId,
       fingerprintId: options.fingerprintId,
