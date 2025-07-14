@@ -44,15 +44,6 @@ export const sections = [
     external: false,
   },
   {
-    title: 'Project Showcase',
-    href: '/docs/showcase',
-    subsections: getDocsByCategory('showcase').map((doc) => ({
-      title: doc.title,
-      href: `/docs/showcase/${doc.slug}`,
-    })),
-    external: false,
-  },
-  {
     title: 'Case Studies',
     href: '/docs/case-studies',
     subsections: getDocsByCategory('case-studies').map((doc) => ({
@@ -143,7 +134,8 @@ export function DocSidebar({
                   }}
                   className={cn(
                     'block w-full text-left px-3 py-1.5 text-sm hover:bg-accent rounded-md transition-all text-muted-foreground hover:text-foreground',
-                    pathname === subsection.href && 'bg-accent text-accent-foreground'
+                    pathname === subsection.href &&
+                      'bg-accent text-accent-foreground'
                   )}
                 >
                   {subsection.title}

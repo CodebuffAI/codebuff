@@ -1,0 +1,71 @@
+---
+title: 'Overview'
+section: 'agents'
+tags: ['agents', 'multi-agent', 'overview']
+order: 0
+---
+
+# Overview
+
+## Why Multi-Agent Systems Work Better
+
+Codebuff uses specialized agents that collaborate instead of one agent doing everything. Agents spawn other agents, share tools, and pass context between tasks. Here are some of the sub-agents Codebuff uses:
+
+- **Code Generation** - Write clean, functional code
+- **Review** - Catch bugs, security issues, style violations
+- **Research** - Find documentation and examples
+- **Planning** - Break down complex requirements
+- **File Discovery** - Navigate large codebases
+
+## Agent Workflow
+
+A typical call to Codebuff may result in the following flow:
+
+```mermaid
+flowchart TD
+    A[User Request] --> B{Task Type}
+
+    B -->|Feature Development| C[Planning Agent]
+    B -->|Bug Investigation| D[Thinker Agent]
+    B -->|Code Refactoring| E[File Picker Agent]
+
+    C --> F[File Picker Agent]
+    D --> G[Research Agent]
+    E --> H[Planning Agent]
+
+    F --> I[Base Agent]
+    G --> I
+    H --> I
+
+    I --> J[Reviewer Agent]
+    J --> K[Complete]
+
+    style A fill:#e1f5fe
+    style I fill:#f3e5f5
+    style J fill:#e8f5e8
+    style K fill:#fff3e0
+```
+
+### Example: Authentication System Refactoring
+
+If you say "refactor this authentication system", Codebuff might break down the task into the following steps:
+
+1. **File Picker** finds auth-related files
+2. **Research** looks up best practices
+3. **Planning** creates step-by-step plan
+4. **Base** implements changes informed by the previous agents
+5. **Reviewer** checks for security issues
+
+### Domain-Specific Customization
+
+Agents adapt to your specific workflow and project needs. You can create specialized agents tailored to your domain or build new ones for unique tasks, like the following:
+
+- **Frontend**: React component reviewer
+- **Backend**: API security reviewer
+- **DevOps**: Infrastructure deployment agent
+
+## Quick Start
+
+1. **[Customize existing agents](/docs/agents#customizing-agents)** - Modify prompts and tools
+2. **[Create new agents](/docs/agents#creating-new-agents)** - Build specialized functionality
+3. **[Reference guide](/docs/agents#agent-reference)** - Complete field documentation
