@@ -90,35 +90,6 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   // Sort by order field
   const sortedDocs = [...docs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
 
-  const components = {
-    CodeDemo: dynamic(() =>
-      import('@/components/docs/mdx/code-demo').then((mod) => mod.CodeDemo)
-    ),
-    MarkdownTable: dynamic(() =>
-      import('@/components/docs/mdx/markdown-table').then(
-        (mod) => mod.MarkdownTable
-      )
-    ),
-    SchemaDisplay: dynamic(() =>
-      import('@/components/docs/mdx/schema-display').then(
-        (mod) => mod.SchemaDisplay
-      )
-    ),
-    AgentOverrideSchemaDisplay: dynamic(() =>
-      import('@/components/docs/mdx/schema-display').then(
-        (mod) => mod.AgentOverrideSchemaDisplay
-      )
-    ),
-    AgentTemplateSchemaDisplay: dynamic(() =>
-      import('@/components/docs/mdx/schema-display').then(
-        (mod) => mod.AgentTemplateSchemaDisplay
-      )
-    ),
-    a: dynamic(() =>
-      import('@/components/docs/mdx/custom-link').then((mod) => mod.CustomLink)
-    ),
-  }
-
   return (
     <div className="max-w-3xl mx-auto grid divide-y divide-border [&>*]:py-12 first:[&>*]:pt-0 last:[&>*]:pb-0">
       {sortedDocs.map((doc) => (

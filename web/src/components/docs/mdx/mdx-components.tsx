@@ -4,7 +4,11 @@ import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import { CodeDemo } from './code-demo'
 import { MarkdownTable } from './markdown-table'
-import { SchemaDisplay } from './schema-display'
+import {
+  AgentOverrideSchemaDisplay,
+  AgentTemplateSchemaDisplay,
+  SchemaDisplay,
+} from './schema-display'
 import { Check, Link } from 'lucide-react'
 import { useIsMobile } from '@/hooks/use-mobile'
 
@@ -249,8 +253,8 @@ const components = {
   CodeDemo,
   MarkdownTable,
   SchemaDisplay,
-  AgentOverrideSchemaDisplay: SchemaDisplay,
-  AgentTemplateSchemaDisplay: SchemaDisplay,
+  AgentOverrideSchemaDisplay,
+  AgentTemplateSchemaDisplay,
 }
 
 export function Mdx({ code }: MdxProps) {
