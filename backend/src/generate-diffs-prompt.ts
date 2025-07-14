@@ -3,7 +3,7 @@ import {
   createMarkdownFileBlock,
   createSearchReplaceBlock,
 } from '@codebuff/common/util/file'
-import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from './features/llm/providers/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 
 export const parseAndGetDiffBlocksSingleFile = (

@@ -1,4 +1,4 @@
-import { promptFlashWithFallbacks } from '@codebuff/backend/llm-apis/gemini-with-fallbacks'
+import { promptFlashWithFallbacks } from '@codebuff/backend/features/llm/providers/gemini-with-fallbacks'
 import {
   GetRelevantFilesPayload,
   getTracesWithoutRelabels,
@@ -11,8 +11,8 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import {
   promptAiSdk,
   transformMessages,
-} from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { System } from '../../backend/src/llm-apis/claude'
+} from '@codebuff/backend/features/llm/providers/vercel-ai-sdk/ai-sdk'
+import { System } from '../../backend/src/features/llm/providers/claude'
 
 // Models we want to test
 const MODELS_TO_TEST = [

@@ -1,8 +1,8 @@
 import { models } from '@codebuff/common/constants'
 
 import { CoreMessage } from 'ai'
-import { System } from '../../../llm-apis/claude'
-import { promptFlashWithFallbacks } from '../../../llm-apis/gemini-with-fallbacks'
+import { System } from '../../llm/providers/claude'
+import { promptFlashWithFallbacks } from '../../llm/providers/gemini-with-fallbacks'
 import { getCoreMessagesSubset } from '../../../util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
 

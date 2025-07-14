@@ -1,5 +1,5 @@
 import { ILLMService, LLMGenerationOptions, StructuredLLMOptions } from './interfaces'
-import { promptAiSdkStream, promptAiSdkStructured } from '../llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdkStream, promptAiSdkStructured } from '../features/llm/providers/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/constants'
 
 export class LLMService implements ILLMService {

@@ -15,11 +15,11 @@ import {
 } from '@codebuff/common/constants'
 import { Message } from '@codebuff/common/types/message'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { System } from '../../backend/src/llm-apis/claude'
+import { System } from '../../backend/src/features/llm/providers/claude'
 import {
   promptAiSdk,
   transformMessages,
-} from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+} from '@codebuff/backend/features/llm/providers/vercel-ai-sdk/ai-sdk'
 import { isValidationSample } from './collect-tuning-data'
 
 const isProd = process.argv.includes('--prod')

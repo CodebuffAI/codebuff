@@ -1,7 +1,7 @@
 import { models } from '@codebuff/common/constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 
-import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from './features/llm/providers/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 
 /**

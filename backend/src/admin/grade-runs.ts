@@ -1,4 +1,4 @@
-import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from '../features/llm/providers/vercel-ai-sdk/ai-sdk'
 
 import { closeXml } from '@codebuff/common/util/xml'
 import { Relabel } from '@codebuff/bigquery'

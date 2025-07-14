@@ -11,7 +11,7 @@ import {
   requestRelevantFilesForTraining,
 } from '../../files/processing/request-files-prompt'
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
-import { TextBlock } from '../../../llm-apis/claude'
+import { TextBlock } from '../../llm/providers/claude'
 import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prompt'
 import { logger } from '../../../util/logger'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'

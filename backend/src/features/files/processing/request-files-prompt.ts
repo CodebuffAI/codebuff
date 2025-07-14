@@ -1,6 +1,6 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
-import { TextBlock } from '../../../llm-apis/claude'
+import { TextBlock } from '../../llm/providers/claude'
 import {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesTrace,
@@ -21,8 +21,8 @@ import { logger } from '../../../util/logger'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
 import { CoreMessage } from 'ai'
-import { promptFlashWithFallbacks } from '../../../llm-apis/gemini-with-fallbacks'
-import { promptAiSdk } from '../../../llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptFlashWithFallbacks } from '../../llm/providers/gemini-with-fallbacks'
+import { promptAiSdk } from '../../llm/providers/vercel-ai-sdk/ai-sdk'
 import {
   castAssistantMessage,
   coreMessagesWithSystem,

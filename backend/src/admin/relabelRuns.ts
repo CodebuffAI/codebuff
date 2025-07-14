@@ -19,12 +19,12 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { Request, Response } from 'express'
 
-import { System } from '../llm-apis/claude'
-import { rerank } from '../llm-apis/relace-api'
+import { System } from '../features/llm/providers/claude'
+import { rerank } from '../features/llm/providers/relace-api'
 import {
   promptAiSdk,
   transformMessages,
-} from '../llm-apis/vercel-ai-sdk/ai-sdk'
+} from '../features/llm/providers/vercel-ai-sdk/ai-sdk'
 import { logger } from '../util/logger'
 
 // --- GET Handler Logic ---
