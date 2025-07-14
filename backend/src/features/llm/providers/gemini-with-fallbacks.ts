@@ -6,7 +6,7 @@ import {
   openrouterModels,
 } from '@codebuff/common/constants'
 
-import { CoreMessage } from 'ai'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { logger } from '../../../util/logger'
 import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
 
@@ -36,7 +36,7 @@ import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
  * @throws If all API calls (primary and fallbacks) fail.
  */
 export async function promptFlashWithFallbacks(
-  messages: CoreMessage[],
+  messages: CodebuffMessage[],
   options: {
     clientSessionId: string
     fingerprintId: string

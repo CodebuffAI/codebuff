@@ -13,13 +13,10 @@ import {
   geminiModels,
   TEST_USER_ID,
 } from '@codebuff/common/constants'
-import { Message } from '@codebuff/common/types/message'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { System } from '../../backend/src/features/llm/providers/claude'
-import {
-  promptAiSdk,
-  transformMessages,
-} from '@codebuff/backend/features/llm/providers/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from '@codebuff/backend/features/llm/providers/vercel-ai-sdk/ai-sdk'
 import { isValidationSample } from './collect-tuning-data'
 
 const isProd = process.argv.includes('--prod')
@@ -162,10 +159,10 @@ async function relabelTraceForModel(
   dataset: string
 ) {
   const payload = trace.payload as GetRelevantFilesPayload
-  const messages = payload.messages as Message[]
+  const messages = payload.messages as CodebuffMessage[]
   const system = payload.system as System
 
-  let transformedMessages = transformMessages(messages, system)
+  let transformedMessages = messages
   if (modelToTest === finetunedVertexModels.ft_filepicker_010) {
     transformedMessages = transformedMessages
       .map((msg, i) => {

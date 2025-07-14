@@ -7,7 +7,7 @@ import {
   Relabel,
   setupBigQuery,
 } from '@codebuff/bigquery'
-import { Message } from '@codebuff/common/types/message'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { closeXml } from '@codebuff/common/util/xml'
 
 // Get model from command line args
@@ -151,11 +151,11 @@ function compressMessagesToHistory(messages: GeminiMessage[]): string {
 
 function convertToGeminiFormat(
   system: SystemMessage[],
-  messages: Message[],
+  messages: CodebuffMessage[],
   output: string
 ): GeminiTuningExample {
   // Handle system message
-  let allMessages: Message[] = [
+  let allMessages: CodebuffMessage[] = [
     ...messages,
     { role: 'assistant', content: output },
   ]
@@ -235,10 +235,9 @@ function convertToGeminiFormat(
 
 function convertToOpenAIFormat(
   system: SystemMessage[],
-  messages: Message[],
+  messages: CodebuffMessage[],
   output: string
 ): OpenAITuningExample {
-  // Handle system message
   let systemMessages: OpenAIMessage[] = []
 
   if (Array.isArray(system)) {
@@ -290,7 +289,7 @@ function writeTracesAsOpenAIData(
       try {
         return convertToOpenAIFormat(
           trace.payload.system as SystemMessage[],
-          trace.payload.messages as Message[],
+          trace.payload.messages as CodebuffMessage[],
           relabel.payload.output
         )
       } catch (error) {
@@ -371,7 +370,7 @@ function writeTracesAsGeminiData(
         return {
           example: convertToGeminiFormat(
             trace.payload.system as SystemMessage[],
-            trace.payload.messages as Message[],
+            trace.payload.messages as CodebuffMessage[],
             relabel.payload.output
           ),
           deterministicSample: getDeterministicSample(trace.id),

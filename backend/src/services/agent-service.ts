@@ -12,7 +12,7 @@ import {
 import { 
   runAgentStep as originalRunAgentStep,
   loopAgentSteps as originalLoopAgentSteps
-} from '../run-agent-step'
+} from '../features/agents/execution/run-agent-step'
 import { WebSocket } from 'ws'
 
 export class AgentService implements IAgentService {

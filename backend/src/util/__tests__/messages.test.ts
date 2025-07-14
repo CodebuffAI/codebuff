@@ -7,7 +7,7 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { Message } from '@codebuff/common/types/message'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 
 import {
   trimMessagesToFitTokenLimit,
@@ -21,7 +21,7 @@ describe('messagesWithSystem', () => {
     const messages = [
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'hi' },
-    ] as Message[]
+    ] as CodebuffMessage[]
     const system = 'Be helpful'
 
     const result = messagesWithSystem(messages, system)
@@ -184,7 +184,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         text: 'Another long message that should never be shortened because it has no tool calls in it at all',
       },
     },
-  ] as Message[]
+  ] as CodebuffMessage[]
 
   it('handles all features working together correctly', () => {
     const maxTotalTokens = 3000
@@ -290,8 +290,12 @@ describe('trimMessagesToFitTokenLimit', () => {
   it('handles empty messages array', () => {
     const maxTotalTokens = 200
     const systemTokens = 100
-    const result = trimMessagesToFitTokenLimit([], systemTokens, maxTotalTokens)
-
-    expect(result).toEqual([])
   })
+
+    const result = trimMessagesToFitTokenLimit([], systemTokens, maxTotalTokens)
+    expect(result).toEqual([])
+    const message = { role: 'user', content: 'hello' } as CodebuffMessage
 })
+
+    } as CodebuffMessage
+    } as CodebuffMessage

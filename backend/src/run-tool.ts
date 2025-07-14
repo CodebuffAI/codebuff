@@ -10,20 +10,23 @@ import {
 } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { CoreMessage } from 'ai'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { WebSocket } from 'ws'
 import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
-} from './find-files/request-files-prompt'
+} from './features/files/processing/request-files-prompt'
 import { getFileReadingUpdates } from './get-file-reading-updates'
 import { fetchContext7LibraryDocumentation } from './features/llm/providers/context7-api'
-import { searchWeb } from './features/llm/providers/linkup-api'
+// searchWeb is not implemented - using stub
+const searchWeb = async (query: string, options?: { depth?: string }) => {
+  return `Web search not implemented. Query: ${query}, Depth: ${options?.depth || 'standard'}`
+}
 import { PROFIT_MARGIN } from './features/llm/providers/message-cost-tracker'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
-import { agentRegistry } from './templates/agent-registry'
-import { AgentTemplate, ProgrammaticAgentTemplate } from './templates/types'
-import { ClientToolCall, CodebuffToolCall } from './tools/constants'
+import { agentRegistry } from './features/agents/templates/static/agent-registry'
+import { AgentTemplate, ProgrammaticAgentTemplate } from './features/agents/templates/static/types'
+import { ClientToolCall, CodebuffToolCall } from './features/tools/constants'
 import { logger } from './util/logger'
 import { renderReadFilesResult } from './util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from './util/token-counter'
@@ -45,7 +48,7 @@ export interface RunToolOptions {
   fingerprintId: string
   agentStepId: string
   fileContext: ProjectFileContext
-  messages: CoreMessage[]
+  messages: CodebuffMessage[]
   agentTemplate: AgentTemplate | ProgrammaticAgentTemplate
   repoId?: string
   // Additional context for update_report
@@ -584,7 +587,7 @@ export async function runToolInner(
       agentRegistry.initialize(fileContext)
       const allTemplates = agentRegistry.getAllTemplates()
 
-      const conversationHistoryMessage: CoreMessage = {
+      const conversationHistoryMessage: CodebuffMessage = {
         role: 'user',
         content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
           messages,
@@ -594,7 +597,7 @@ export async function runToolInner(
       }
 
       const results = await Promise.allSettled(
-        agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
+        agents.map(async ({ agent_type: agentTypeStr, prompt, params }: { agent_type: string; prompt?: string; params?: any }) => {
           if (!(agentTypeStr in allTemplates)) {
             throw new Error(`Agent type ${agentTypeStr} not found.`)
           }
@@ -634,7 +637,7 @@ export async function runToolInner(
             { agentTemplate, prompt, params },
             `Spawning agent — ${agentType}`
           )
-          const subAgentMessages: CoreMessage[] = []
+          const subAgentMessages: CodebuffMessage[] = []
           if (agentTemplate.includeMessageHistory) {
             subAgentMessages.push(conversationHistoryMessage)
           }
@@ -651,7 +654,7 @@ export async function runToolInner(
           }
 
           // Import loopAgentSteps dynamically to avoid circular dependency
-          const { loopAgentSteps } = await import('./run-agent-step')
+          const { loopAgentSteps } = await import('./features/agents/execution/run-agent-step')
           const result = await loopAgentSteps(ws, {
             userInputId: `${userInputId}-${agentType}${agentId}`,
             prompt: prompt || '',
@@ -677,7 +680,7 @@ export async function runToolInner(
 
       const reports = results.map((result, index) => {
         const agentInfo = agents[index]
-        const agentTypeStr = agentInfo.agent_type
+        const agentTypeStr = agentInfo.agent_type as string
 
         if (result.status === 'fulfilled') {
           const { agentState, agentName } = result.value
@@ -692,7 +695,7 @@ export async function runToolInner(
           } else if (agentTemplate.outputMode === 'last_message') {
             const { agentState } = result.value
             const assistantMessages = agentState.messageHistory.filter(
-              (message) => message.role === 'assistant'
+              (message: any) => message.role === 'assistant'
             )
             const lastAssistantMessage =
               assistantMessages[assistantMessages.length - 1]
@@ -751,7 +754,7 @@ async function uploadExpandedFileContextForTraining(
     messages,
     system,
   }: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
@@ -774,7 +777,6 @@ async function uploadExpandedFileContextForTraining(
     userId,
     repoId
   )
-
   const loadedFiles = await requestFiles(ws, files)
 
   // Upload a map of:

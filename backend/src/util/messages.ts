@@ -1,4 +1,4 @@
-import { CodebuffMessage, Message } from '@codebuff/common/types/message'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import {
   withCacheControl,
   withCacheControlCore,
@@ -39,8 +39,10 @@ export function coreMessagesWithSystem(
 /**
  * @deprecated Use coreMessagesWithSystem instead
  */
-export const messagesWithSystem = (messages: Message[], system: System) =>
-  [{ role: 'system', content: system }, ...messages] as OpenAIMessage[]
+export const messagesWithSystem = (
+  messages: CodebuffMessage[],
+  system: System
+) => [{ role: 'system', content: system }, ...messages] as OpenAIMessage[]
 
 export function asUserMessage(str: string): string {
   return `<user_message>${str}${closeXml('user_message')}`
@@ -71,7 +73,7 @@ export function isSystemMessage(str: string): boolean {
  * @returns Combined text content of the message, or undefined if no text content
  * @deprecated Use getMessageTextCore instead
  */
-export function getMessageText(message: Message): string | undefined {
+export function getMessageText(message: CodebuffMessage): string | undefined {
   if (typeof message.content === 'string') {
     return message.content
   }
@@ -154,10 +156,10 @@ const shortenedMessageTokenFactor = 0.5
  * @deprecated Use trimCoreMessagesToFitTokenLimit instead
  */
 export function trimMessagesToFitTokenLimit(
-  messages: Message[],
+  messages: CodebuffMessage[],
   systemTokens: number,
   maxTotalTokens: number = 200_000
-): Message[] {
+): CodebuffMessage[] {
   const MAX_MESSAGE_TOKENS = maxTotalTokens - systemTokens
 
   // Check if we're already under the limit
@@ -169,7 +171,7 @@ export function trimMessagesToFitTokenLimit(
 
   let totalTokens = 0
   const targetTokens = MAX_MESSAGE_TOKENS * shortenedMessageTokenFactor
-  const results: Message[] = []
+  const results: CodebuffMessage[] = []
   let numKept = 0
 
   // Process messages from newest to oldest
@@ -187,29 +189,29 @@ export function trimMessagesToFitTokenLimit(
       numKept = result.numKept
     } else {
       // Handle array content (mixed content types)
-      newContent = []
-      // Process content parts from newest to oldest
-      for (let j = content.length - 1; j >= 0; j--) {
-        const messagePart = content[j]
-        // Preserve non-text content (i.e. images)
-        if (messagePart.type !== 'text') {
-          newContent.push(messagePart)
-          continue
-        }
+      newContent = []        // Process content parts from newest to oldest
+        const contentArray = content as any[]
+        for (let j = contentArray.length - 1; j >= 0; j--) {
+          const messagePart = contentArray[j]
+          // Preserve non-text content (i.e. images)
+          if (messagePart.type !== 'text') {
+            newContent.push(messagePart)
+            continue
+          }
 
-        const result = simplifyTerminalHelper(messagePart.text, numKept)
-        newContent.push({ ...messagePart, text: result.result })
-        numKept = result.numKept
-      }
-      newContent.reverse()
+          const result = simplifyTerminalHelper(messagePart.text, numKept)
+          newContent.push({ ...messagePart, text: result.result })
+          numKept = result.numKept
+        }
+        newContent.reverse()
     }
 
     // Check if adding this message would exceed our token target
-    const message = { role, content: newContent }
+    const message = { role, content: newContent } as CodebuffMessage
     const messageTokens = countTokensJson(message)
 
     if (totalTokens + messageTokens <= targetTokens) {
-      results.push({ role, content: newContent })
+      results.push(message)
       totalTokens += messageTokens
     } else {
       break
@@ -223,7 +225,10 @@ export function trimMessagesToFitTokenLimit(
 /**
  * @deprecated Use getCoreMessagesSubset instead
  */
-export function getMessagesSubset(messages: Message[], otherTokens: number) {
+export function getMessagesSubset(
+  messages: CodebuffMessage[],
+  otherTokens: number
+) {
   const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
     JSON.stringify(content).includes('COMPLETE')
   })
@@ -238,14 +243,17 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
   // Remove cache_control from all messages
   for (const message of messagesSubset) {
     if (typeof message.content === 'object' && message.content.length > 0) {
-      delete message.content[message.content.length - 1].cache_control
+      const lastContent = (message.content as any[])[message.content.length - 1]
+      if (lastContent && 'cache_control' in lastContent) {
+        delete lastContent.cache_control
+      }
     }
   }
 
   // Cache up to the last message!
   const lastMessage = messagesSubset[messagesSubset.length - 1]
   if (lastMessage) {
-    messagesSubset[messagesSubset.length - 1] = withCacheControl(lastMessage)
+    messagesSubset[messagesSubset.length - 1] = withCacheControlCore(lastMessage)
   } else {
     logger.debug(
       {
@@ -315,12 +323,12 @@ export function trimCoreMessagesToFitTokenLimit(
           const messagePart = m.content[j]
           // Preserve non-text content (i.e. images)
           if (messagePart.type !== 'text') {
-            newContent.push(messagePart)
+            newContent.push(messagePart as any)
             continue
           }
 
           const result = simplifyTerminalHelper(messagePart.text, numKept)
-          newContent.push({ ...messagePart, text: result.result })
+          newContent.push({ ...messagePart, text: result.result } as any)
           numKept = result.numKept
         }
         newContent.reverse()
@@ -342,12 +350,12 @@ export function trimCoreMessagesToFitTokenLimit(
           const messagePart = m.content[j]
           // Preserve non-text content (i.e. images)
           if (messagePart.type !== 'text') {
-            newContent.push(messagePart)
+            newContent.push(messagePart as any)
             continue
           }
 
           const result = simplifyTerminalHelper(messagePart.text, numKept)
-          newContent.push({ ...messagePart, text: result.result })
+          newContent.push({ ...messagePart, text: result.result } as any)
           numKept = result.numKept
         }
         newContent.reverse()
@@ -390,6 +398,12 @@ export function getCoreMessagesSubset(
 
   // Remove cache_control from all messages
   for (const message of messagesSubset) {
+    if (typeof message.content === 'object' && message.content.length > 0) {
+      const lastContent = message.content[message.content.length - 1] as any
+      if (lastContent && 'cache_control' in lastContent) {
+        delete lastContent.cache_control
+      }
+    }
     delete message.providerOptions?.anthropic?.cacheControl
     delete message.providerOptions?.openrouter?.cacheControl
   }

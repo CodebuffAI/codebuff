@@ -1,6 +1,6 @@
 import { IToolService, IFileService, IWebSocketService, ILLMService, ToolExecutionOptions } from './interfaces'
 import { ToolResult } from '@codebuff/common/types/session-state'
-import { CodebuffToolCall } from '../tools/constants'
+import { ClientToolCall, CodebuffToolCall } from '../features/tools/constants'
 import { runToolInner } from '../run-tool'
 import { logger } from '../util/logger'
 

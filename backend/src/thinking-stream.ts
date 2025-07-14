@@ -8,7 +8,7 @@ import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
 import { CoreMessage } from 'ai'
 
 import { toolNames } from '@codebuff/common/constants/tools'
-import { getAgentStream } from './prompt-agent-stream'
+import { getAgentStream } from './features/llm/prompt-agent-stream'
 import { logger } from './util/logger'
 
 export async function getThinkingStream(

@@ -20,12 +20,9 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { partition } from 'lodash'
 import { WebSocket } from 'ws'
-import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { checkLiveUserInput } from '../../../live-user-inputs'
 import { processFileBlock } from '../../files/processing/process-file-block'
 import { processStrReplace } from '../../files/processing/process-str-replace'
-import { getAgentStreamFromTemplate } from '../../../prompt-agent-stream'
-import { runProgrammaticAgent } from '../../../run-programmatic-agent'
 import { runToolInner } from '../../../run-tool'
 import { additionalSystemPrompts } from '../../../system-prompt/prompts'
 import { saveAgentRequest } from '../../../system-prompt/save-agent-request'
@@ -34,12 +31,6 @@ import { processAgentOverrides } from '../templates/static/agent-overrides'
 import { agentRegistry } from '../templates/static/agent-registry'
 import { formatPrompt, getAgentPrompt } from '../templates/static/strings'
 import { AgentTemplateUnion } from '../templates/static/types'
-import {
-  parseRawToolCall,
-  ToolCallError,
-  toolParams,
-  updateContextFromToolCalls,
-} from '../../../tools'
 import { ClientToolCall, CodebuffToolCall } from '../../tools/constants'
 import { logger } from '../../../util/logger'
 import {
@@ -62,6 +53,15 @@ import {
   requestOptionalFile,
   requestToolCall,
 } from '../../websockets/websocket-action'
+import { getFileReadingUpdates } from '../../../get-file-reading-updates'
+import { getAgentStreamFromTemplate } from '../../../prompt-agent-stream'
+import { runProgrammaticAgent } from '../../../run-programmatic-agent'
+import {
+  parseRawToolCall,
+  toolParams,
+  updateContextFromToolCalls,
+  ToolCallError,
+} from '../../../tools'
 import { processStreamWithTags } from '../../../xml-stream-parser'
 
 export interface AgentOptions {
@@ -659,10 +659,10 @@ export const runAgentStep = async (
     },
   ]
 
-  const agentContextPromise =
+  const agentStatePromise =
     subgoalToolCalls.length > 0
-      ? updateContextFromToolCalls(agentContext, subgoalToolCalls)
-      : Promise.resolve(agentContext)
+      ? updateContextFromToolCalls(agentState, subgoalToolCalls)
+      : Promise.resolve(agentState)
 
   for (const toolCall of allToolCalls) {
     const { toolName: name, args: parameters } = toolCall
@@ -792,7 +792,7 @@ export const runAgentStep = async (
   )
   clientToolCalls.unshift(...changeToolCalls)
 
-  const newAgentContext = await agentContextPromise
+  const newAgentState = await agentStatePromise
 
   let finalMessageHistory = expireMessages(messagesWithResponse, 'agentStep')
 
@@ -898,7 +898,7 @@ export const runAgentStep = async (
       toolCalls: allToolCalls,
       clientToolCalls,
       serverToolResults,
-      agentContext: newAgentContext,
+      agentContext: newAgentState.agentContext,
       messagesWithResponse,
       model,
       agentTemplate,
@@ -911,7 +911,7 @@ export const runAgentStep = async (
       ...agentState,
       messageHistory: finalMessageHistory,
       stepsRemaining: agentState.stepsRemaining - 1,
-      agentContext: newAgentContext,
+      agentContext: newAgentState.agentContext,
     },
     fullResponse,
     shouldEndTurn:

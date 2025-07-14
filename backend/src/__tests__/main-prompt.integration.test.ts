@@ -86,7 +86,7 @@ describe('mainPrompt (Integration)', () => {
     spyOn(logger, 'warn').mockImplementation(() => {})
     spyOn(requestFilesPrompt, 'requestRelevantFiles').mockResolvedValue([])
 
-    const initialContent = `import { Message } from '@codebuff/common/types/message'
+    const initialContent = `import { CodebuffMessage } from '@codebuff/common/types/message'
 import { withCacheControl } from '@codebuff/common/util/messages'
 
 import { System } from '../llm-apis/claude'

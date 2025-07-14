@@ -14,6 +14,7 @@ export const handleRunTerminalCommand = ((params: {
   const { previousToolCallFinished, toolCall, requestClientToolCall } = params
 
   const clientToolCall: ClientToolCall<'run_terminal_command'> = {
+    type: 'tool-call',
     toolName: 'run_terminal_command',
     toolCallId: toolCall.toolCallId,
     args: {

@@ -16,8 +16,8 @@ import {
 import { WebSocket } from 'ws'
 
 // Mock imports
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
-import { runAgentStep } from '../run-agent-step'
+import * as aisdk from '../features/llm/providers/vercel-ai-sdk/ai-sdk'
+import { runAgentStep } from '../features/agents/execution/run-agent-step'
 import * as tools from '../tools'
 import * as websocketAction from '../features/websockets/websocket-action'
 
@@ -33,8 +33,8 @@ mock.module('../util/logger', () => ({
 }))
 
 // Mock agent templates to include update_report in base
-mock.module('../templates/agent-list', () => {
-  const { agentTemplates } = require('../templates/agent-list')
+mock.module('../features/agents/templates/static/agent-list', () => {
+  const { agentTemplates } = require('../features/agents/templates/static/agent-list')
   return {
     agentTemplates: {
       ...agentTemplates,
@@ -187,6 +187,9 @@ describe('runAgentStep - update_report tool', () => {
       }
     )
 
+    console.log('Result shouldEndTurn:', result.shouldEndTurn)
+    console.log('Result fullResponse:', result.fullResponse)
+    
     expect(result.agentState.report).toEqual({
       message: 'Hi',
     })

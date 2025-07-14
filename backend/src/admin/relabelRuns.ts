@@ -14,17 +14,14 @@ import {
   models,
   TEST_USER_ID,
 } from '@codebuff/common/constants'
-import { Message } from '@codebuff/common/types/message'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { Request, Response } from 'express'
 
 import { System } from '../features/llm/providers/claude'
 import { rerank } from '../features/llm/providers/relace-api'
-import {
-  promptAiSdk,
-  transformMessages,
-} from '../features/llm/providers/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from '../features/llm/providers/vercel-ai-sdk/ai-sdk'
 import { logger } from '../util/logger'
 
 // --- GET Handler Logic ---
@@ -168,10 +165,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
             const system = payload.system
 
             output = await promptAiSdk({
-              messages: transformMessages(
-                messages as Message[],
-                system as System
-              ),
+              messages: messages as CodebuffMessage[],
               model: model,
               clientSessionId: 'relabel-trace-api',
               fingerprintId: 'relabel-trace-api',
@@ -276,7 +270,10 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
       relabelPromises.push(relabelWithRelace(trace, fileBlobs))
       didRelabel = true
     }
-    for (const model of [models.openrouter_claude_sonnet_4, models.openrouter_claude_opus_4]) {
+    for (const model of [
+      models.openrouter_claude_sonnet_4,
+      models.openrouter_claude_opus_4,
+    ]) {
       if (
         !traceBundle.relabels.some(
           (r) => r.model === `${model}-with-full-file-context`
@@ -391,7 +388,7 @@ export async function relabelWithClaudeWithFullFileContext(
   }
 
   const output = await promptAiSdk({
-    messages: transformMessages(trace.payload.messages as Message[], system),
+    messages: trace.payload.messages as CodebuffMessage[],
     model: model as any, // Model type is string here for flexibility
     clientSessionId: 'relabel-trace-api',
     fingerprintId: 'relabel-trace-api',

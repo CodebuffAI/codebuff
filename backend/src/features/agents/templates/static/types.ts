@@ -8,7 +8,7 @@ import {
   ToolResult,
 } from '@codebuff/common/types/session-state'
 import { closeXmlTags } from '@codebuff/common/util/xml'
-import { CodebuffToolCall } from '../../../../tools/constants'
+import { CodebuffToolCall } from '../../../tools/constants'
 
 export type AgentTemplate = {
   id: AgentTemplateType

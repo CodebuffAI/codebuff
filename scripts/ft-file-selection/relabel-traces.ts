@@ -5,13 +5,10 @@ import {
   insertRelabel,
 } from '@codebuff/bigquery'
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
-import { Message } from '@codebuff/common/types/message'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { generateCompactId } from '@codebuff/common/util/string'
 
-import {
-  promptAiSdk,
-  transformMessages,
-} from '@codebuff/backend/features/llm/providers/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from '@codebuff/backend/features/llm/providers/vercel-ai-sdk/ai-sdk'
 import { System } from '../../backend/src/features/llm/providers/claude'
 
 // Models we want to test
@@ -63,10 +60,7 @@ async function runTraces() {
 
               if (model.startsWith('claude')) {
                 output = await promptAiSdk({
-                  messages: transformMessages(
-                    messages as Message[],
-                    system as System
-                  ),
+                  messages: messages as CodebuffMessage[],
                   model: model as typeof models.openrouter_claude_sonnet_4,
                   clientSessionId: 'relabel-trace-run',
                   fingerprintId: 'relabel-trace-run',
@@ -75,7 +69,7 @@ async function runTraces() {
                 })
               } else {
                 output = await promptFlashWithFallbacks(
-                  transformMessages(messages as Message[], system as System),
+                  messages as CodebuffMessage[],
                   {
                     model: model as typeof models.gemini2_5_pro_preview,
                     clientSessionId: 'relabel-trace-run',

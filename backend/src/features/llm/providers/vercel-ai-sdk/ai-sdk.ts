@@ -46,58 +46,65 @@ import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
-import { Message } from '@codebuff/common/types/message'
 
 /**
  * Transforms legacy Message[] format to CodebuffMessage[] format
  * This function converts the old message format to the new CoreMessage-based format
  * @deprecated This function should be removed once all code uses CodebuffMessage directly
  */
-export function transformMessages(messages: Message[], system?: System): CodebuffMessage[] {
-  const systemMessage: CodebuffMessage | null = system ? {
-    role: 'system' as const,
-    content: typeof system === 'string' 
-      ? system 
-      : system.map((part) => part.text).join('\n\n'),
-  } : null;
+export function transformMessages(
+  messages: any[],
+  system?: System
+): CoreMessage[] {
+  const systemMessage: CoreMessage | null = system
+    ? {
+        role: 'system' as const,
+        content:
+          typeof system === 'string'
+            ? system
+            : system.map((part) => part.text).join('\n\n'),
+      }
+    : null
 
-  const transformedMessages: CodebuffMessage[] = messages.map((msg): CodebuffMessage => {
-    if (typeof msg.content === 'string') {
+  const transformedMessages: CoreMessage[] = messages.map(
+    (msg): CoreMessage => {
+      if (typeof msg.content === 'string') {
+        return {
+          role: msg.role,
+          content: msg.content,
+        }
+      }
+
+      // Transform array content
+      const transformedContent = msg.content.map((item: any) => {
+        if (item.type === 'text') {
+          // Remove cache_control from text items
+          const { cache_control, ...rest } = item
+          return rest
+        }
+
+        if (item.type === 'image') {
+          // Transform image format from custom to CoreMessage format
+          return {
+            type: 'image' as const,
+            image: `data:${item.source.media_type};base64,${item.source.data}`,
+          }
+        }
+
+        // Keep tool_use and tool_result as-is (they're compatible)
+        return item
+      })
+
       return {
         role: msg.role,
-        content: msg.content,
-      };
+        content: transformedContent as any,
+      }
     }
+  )
 
-    // Transform array content
-    const transformedContent = msg.content.map((item) => {
-      if (item.type === 'text') {
-        // Remove cache_control from text items
-        const { cache_control, ...rest } = item;
-        return rest;
-      }
-      
-      if (item.type === 'image') {
-        // Transform image format from custom to CoreMessage format
-        return {
-          type: 'image' as const,
-          image: `data:${item.source.media_type};base64,${item.source.data}`,
-        };
-      }
-
-      // Keep tool_use and tool_result as-is (they're compatible)
-      return item;
-    });
-
-    return {
-      role: msg.role,
-      content: transformedContent as any,
-    };
-  });
-
-  return systemMessage 
+  return systemMessage
     ? [systemMessage, ...transformedMessages]
-    : transformedMessages;
+    : transformedMessages
 }
 
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {

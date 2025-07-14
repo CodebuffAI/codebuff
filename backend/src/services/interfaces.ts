@@ -3,7 +3,7 @@ import { ProjectFileContext } from '@codebuff/common/util/file'
 import { CodebuffMessage } from '@codebuff/common/types/message'
 import { CoreMessage } from 'ai'
 import { WebSocket } from 'ws'
-import { CodebuffToolCall } from '../tools/constants'
+import { ClientToolCall, CodebuffToolCall } from '../features/tools/constants'
 
 // Agent Service Interface
 export interface IAgentService {

@@ -1,4 +1,5 @@
 import { ProgrammaticAgentContext, ProgrammaticAgentFunction } from '../types'
+import { CodebuffToolCall } from '../../../../tools/constants'
 
 // Example generator function that can be loaded from a file
 const exampleHandler: ProgrammaticAgentFunction = function* (
@@ -7,8 +8,9 @@ const exampleHandler: ProgrammaticAgentFunction = function* (
   // This is a simple example that just returns a greeting
   const greeting = `Hello! You said: "${context.prompt}"`
 
-  yield {
-    toolName: 'update_report' as const,
+  const toolCall: Omit<CodebuffToolCall<'update_report'>, 'toolCallId'> = {
+    type: 'tool-call',
+    toolName: 'update_report',
     args: {
       json_update: {
         greeting,
@@ -17,6 +19,8 @@ const exampleHandler: ProgrammaticAgentFunction = function* (
       },
     },
   }
+
+  yield toolCall
 }
 
 // Export as default for easy loading

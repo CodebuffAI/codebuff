@@ -10,7 +10,7 @@ import {
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from '../../../../system-prompt/prompts'
-import { getShortToolInstructions, getToolsInstructions } from '../../../../tools'
+import { getShortToolInstructions, getToolsInstructions } from '../../../../features/tools'
 
 import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'

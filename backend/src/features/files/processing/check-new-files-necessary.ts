@@ -1,7 +1,6 @@
 import { models } from '@codebuff/common/constants'
 
-import { CoreMessage } from 'ai'
-import { System } from '../../llm/providers/claude'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { promptFlashWithFallbacks } from '../../llm/providers/gemini-with-fallbacks'
 import { getCoreMessagesSubset } from '../../../util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
@@ -11,8 +10,8 @@ You are assisting the user with their software project, in the application Codeb
 `.trim()
 
 export const checkNewFilesNecessary = async (
-  messages: CoreMessage[],
-  system: System,
+  messages: CodebuffMessage[],
+  system: string | Array<{ text: string }>,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,

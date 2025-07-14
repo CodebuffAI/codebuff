@@ -7,8 +7,8 @@ import {
   FileReadingOptions,
   FileReadingResult
 } from './interfaces'
-import { processFileBlock as originalProcessFileBlock } from '../process-file-block'
-import { processStrReplace as originalProcessStrReplace } from '../process-str-replace'
+import { processFileBlock as originalProcessFileBlock } from '../features/files/processing/process-file-block'
+import { processStrReplace as originalProcessStrReplace } from '../features/files/processing/process-str-replace'
 import { getFileReadingUpdates as originalGetFileReadingUpdates } from '../get-file-reading-updates'
 
 export class FileService implements IFileService {

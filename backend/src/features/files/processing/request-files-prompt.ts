@@ -12,15 +12,13 @@ import {
   type FinetunedVertexModel,
 } from '@codebuff/common/constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
-import {
-  ProjectFileContext,
-} from '@codebuff/common/util/file'
+import { ProjectFileContext } from '@codebuff/common/util/file'
 import { range, shuffle, uniq } from 'lodash'
 
 import { logger } from '../../../util/logger'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
 
-import { CoreMessage } from 'ai'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { promptFlashWithFallbacks } from '../../llm/providers/gemini-with-fallbacks'
 import { promptAiSdk } from '../../llm/providers/vercel-ai-sdk/ai-sdk'
 import {
@@ -129,7 +127,7 @@ export async function requestRelevantFiles(
     messages,
     system,
   }: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
@@ -265,7 +263,7 @@ export async function requestRelevantFilesForTraining(
     messages,
     system,
   }: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
@@ -346,7 +344,7 @@ async function getRelevantFiles(
     messages,
     system,
   }: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     system: string | Array<TextBlock>
   },
   userPrompt: string,
@@ -429,7 +427,7 @@ async function getRelevantFilesForTraining(
     messages,
     system,
   }: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     system: string | Array<TextBlock>
   },
   userPrompt: string,

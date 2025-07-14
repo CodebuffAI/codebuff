@@ -5,7 +5,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { countTokens } from 'gpt-tokenizer'
 
-import { getFilteredToolsInstructions } from '../tools'
+import { getFilteredToolsInstructions } from '../features/tools'
 import { logger } from '../util/logger'
 import { countTokensJson } from '../util/token-counter'
 import {
@@ -52,8 +52,8 @@ export const getAgentSystemPrompt = (
   const configSchemaTokens = countTokens(configSchemaPrompt)
 
   const toolsInstructions = getFilteredToolsInstructions(
-    costMode || 'normal',
-    readOnlyMode
+    [], // TODO: Pass actual tool names
+    []  // TODO: Pass actual spawnable agents
   )
 
   const systemPrompt = buildArray(
