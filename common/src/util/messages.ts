@@ -9,6 +9,7 @@ interface ScreenshotRef {
 /**
  * Limits the total number of screenshots across all messages to maxCount,
  * keeping only the most recent ones.
+ * @deprecated Use limitScreenshotsCore instead
  */
 export function limitScreenshots(
   messages: Message[],
@@ -43,6 +44,43 @@ export function limitScreenshots(
   )
 }
 
+/**
+ * Limits the total number of screenshots across all messages to maxCount,
+ * keeping only the most recent ones.
+ */
+export function limitScreenshotsCore(
+  messages: CodebuffMessage[],
+  maxCount: number
+): CodebuffMessage[] {
+  const screenshots = messages.flatMap((msg, msgIdx) =>
+    Array.isArray(msg.content)
+      ? msg.content
+          .map((item, contentIdx) =>
+            item.type === 'image' ? { msgIdx, contentIdx } : null
+          )
+          .filter((ref): ref is ScreenshotRef => ref !== null)
+      : []
+  )
+
+  if (screenshots.length <= maxCount) return messages
+
+  const keepRefs = new Set(
+    screenshots.slice(-maxCount).map((ref) => `${ref.msgIdx}-${ref.contentIdx}`)
+  )
+
+  return messages.map((msg, msgIdx) =>
+    Array.isArray(msg.content)
+      ? {
+          ...msg,
+          content: msg.content.filter(
+            (item, contentIdx) =>
+              item.type !== 'image' || keepRefs.has(`${msgIdx}-${contentIdx}`)
+          ),
+        }
+      : msg
+  ) as CodebuffMessage[]
+}
+
 export function toContentString(msg: CoreMessage): string {
   const { content } = msg
   if (typeof content === 'string') return content
@@ -65,6 +103,9 @@ export function withCacheControlCore(msg: CodebuffMessage): CodebuffMessage {
   return message
 }
 
+/**
+ * @deprecated Use withCacheControlCore instead
+ */
 export function withCacheControl(msg: Message): Message {
   if (typeof msg.content === 'string') {
     return {
@@ -89,6 +130,9 @@ export function withCacheControl(msg: Message): Message {
   }
 }
 
+/**
+ * @deprecated Use removeCacheCore instead
+ */
 export function removeCache(messages: Message[]): Message[] {
   return messages.map((msg) => {
     if (typeof msg.content === 'object' && Array.isArray(msg.content)) {
@@ -101,5 +145,16 @@ export function removeCache(messages: Message[]): Message[] {
       }
     }
     return msg
+  })
+}
+
+export function removeCacheCore(
+  messages: CodebuffMessage[]
+): CodebuffMessage[] {
+  return messages.map((msg) => {
+    const message = { ...msg }
+    delete message.providerOptions?.anthropic?.cacheControl
+    delete message.providerOptions?.openrouter?.cacheControl
+    return message
   })
 }

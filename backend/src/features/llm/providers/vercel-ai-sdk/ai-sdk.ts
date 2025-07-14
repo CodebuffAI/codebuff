@@ -12,7 +12,7 @@ import {
   type GeminiModel,
   type openrouterModel,
 } from '@codebuff/common/constants'
-import { Message } from '@codebuff/common/types/message'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -42,7 +42,7 @@ export interface ModelConfig {
 export type ModelOrConfig = Model | ModelConfig | ModelConfig[]
 
 import { logger } from '../../../../util/logger'
-import { System } from '../../../../llm-apis/claude'
+import { System } from '../claude'
 import { saveMessage } from '../message-cost-tracker'
 import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
@@ -87,7 +87,7 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
 
 // Unified options interface for all LLM calls
 interface BaseLLMOptions {
-  messages: CoreMessage[]
+  messages: CodebuffMessage[]
   clientSessionId: string
   fingerprintId: string
   userInputId: string
@@ -168,22 +168,58 @@ export const promptAiSdkStream = async function* (
   options: BaseLLMOptions & {
     thinkingBudget?: number
   } & Omit<Parameters<typeof streamText>[0], 'model'>
-) {
+): AsyncGenerator<string, void, unknown> {
   const startTime = Date.now()
 
-  yield* await executeWithRetryAndFallback(
-    options,
-    async function* (model, aiSDKModel, attempt) {
-      yield* await executeStreamWithModel({
-        ...options,
-        model,
-        aiSDKModel,
-        startTime,
-        attempt,
-        maxRetries: 0, // Handled by outer retry logic
-      })
+  const modelConfigs = normalizeModelConfig(options.model)
+
+  // Try each model configuration with retries
+  for (const config of modelConfigs) {
+    const maxRetries = config.retries ?? options.maxRetries ?? 0
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const aiSDKModel = modelToAiSDKModel(config.model)
+        yield* await executeStreamWithModel({
+          ...options,
+          model: config.model,
+          aiSDKModel,
+          startTime,
+          attempt,
+          maxRetries: 0, // Handled by outer retry logic
+        })
+        return // Success, exit
+      } catch (error) {
+        const isLastAttempt = attempt === maxRetries
+        const isLastModel = config === modelConfigs[modelConfigs.length - 1]
+
+        logger.warn(
+          {
+            model: config.model,
+            attempt: attempt + 1,
+            maxRetries: maxRetries + 1,
+            error: error instanceof Error ? error.message : error,
+          },
+          `Model ${config.model} failed (attempt ${attempt + 1}/${maxRetries + 1})`
+        )
+
+        if (isLastAttempt && isLastModel) {
+          throw error // Re-throw if all models and retries exhausted
+        }
+
+        if (isLastAttempt) {
+          break // Try next model
+        }
+
+        // Wait before retry (exponential backoff)
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.min(1000 * Math.pow(2, attempt), 10000))
+        )
+      }
     }
-  )
+  }
+
+  throw new Error('All model configurations failed')
 }
 
 export const promptAiSdk = async function (
@@ -284,7 +320,7 @@ function normalizeModelConfig(model: ModelOrConfig): ModelConfig[] {
 // Helper function to execute streaming with a specific model
 async function* executeStreamWithModel(
   options: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     clientSessionId: string
     fingerprintId: string
     model: Model
@@ -417,144 +453,4 @@ async function* executeStreamWithModel(
     chargeUser: streamOptions.chargeUser ?? true,
     costOverrideDollars,
   })
-}
-
-// TODO: temporary - ideally we move to using CoreMessage[] directly
-// and don't need this transform!!
-export function transformMessages(
-  messages: (Message | CoreMessage)[],
-  system?: System
-): CoreMessage[] {
-  const coreMessages: CoreMessage[] = []
-
-  if (system) {
-    coreMessages.push({
-      role: 'system',
-      content:
-        typeof system === 'string'
-          ? system
-          : system.map((block) => block.text).join('\n\n'),
-    })
-  }
-
-  for (const message of messages) {
-    if (message.role === 'system') {
-      if (typeof message.content === 'string') {
-        coreMessages.push({ role: 'system', content: message.content })
-        continue
-      } else {
-        // Handle multi-part system messages
-        const parts: string[] = []
-        for (const part of message.content) {
-          if (part.type === 'text') {
-            parts.push(part.text)
-          } else {
-            // For non-text parts in system messages, convert to text representation
-            parts.push(`[${part.type.toUpperCase()}]`)
-          }
-        }
-        coreMessages.push({ role: 'system', content: parts.join('\n\n') })
-        continue
-      }
-    }
-
-    if (message.role === 'user') {
-      if (typeof message.content === 'string') {
-        coreMessages.push({
-          ...message,
-          role: 'user',
-          content: message.content,
-        })
-        continue
-      } else {
-        const parts: CoreUserMessage['content'] = []
-        const coreMessage: CoreUserMessage = { role: 'user', content: parts }
-        for (const part of message.content) {
-          // Add ephemeral if present
-          if ('cache_control' in part) {
-            coreMessage.providerOptions = {
-              anthropic: { cacheControl: { type: 'ephemeral' } },
-              openrouter: { cacheControl: { type: 'ephemeral' } },
-            }
-          }
-          // Handle Message type image format
-          if (part.type === 'image' && 'source' in part) {
-            parts.push({
-              type: 'image' as const,
-              image: `data:${part.source.media_type};base64,${part.source.data}`,
-            })
-            continue
-          }
-          if (part.type === 'file') {
-            throw new Error('File messages not supported')
-          }
-          if (part.type === 'text') {
-            parts.push({
-              type: 'text' as const,
-              text: part.text,
-            })
-            continue
-          }
-          if (part.type === 'tool_use' || part.type === 'tool_result') {
-            // Skip tool parts in user messages - they should be in assistant/tool messages
-            continue
-          }
-        }
-        coreMessages.push(coreMessage)
-        continue
-      }
-    }
-
-    if (message.role === 'assistant') {
-      if (message.content === undefined || message.content === null) {
-        continue
-      }
-      if (typeof message.content === 'string') {
-        coreMessages.push({
-          ...message,
-          role: 'assistant',
-          content: message.content,
-        })
-        continue
-      } else {
-        let messageContent: CoreAssistantMessage['content'] = []
-        const coreMessage: CoreAssistantMessage = {
-          ...message,
-          role: 'assistant',
-          content: messageContent,
-        }
-        for (const part of message.content) {
-          // Add ephemeral if present
-          if ('cache_control' in part) {
-            coreMessage.providerOptions = {
-              anthropic: { cacheControl: { type: 'ephemeral' } },
-              openrouter: { cacheControl: { type: 'ephemeral' } },
-            }
-          }
-          if (part.type === 'text') {
-            messageContent.push({ type: 'text', text: part.text })
-          }
-          if (part.type === 'tool_use') {
-            messageContent.push({
-              type: 'tool-call',
-              toolCallId: part.id,
-              toolName: part.name,
-              args: part.input,
-            })
-          }
-        }
-        coreMessages.push(coreMessage)
-        continue
-      }
-    }
-
-    if (message.role === 'tool') {
-      coreMessages.push(message)
-      continue
-    }
-
-    throw new Error('Unknown message role received: ' + message)
-  }
-
-  return coreMessages
 }

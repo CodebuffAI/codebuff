@@ -9,7 +9,7 @@ import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import { Message } from '@codebuff/common/types/message'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { withRetry } from '@codebuff/common/util/promise'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
@@ -330,7 +330,7 @@ type InsertMessageParams = {
   fingerprintId: string
   userInputId: string
   model: string
-  request: Message[] | OpenAIMessage[] | CoreMessage[]
+  request: CodebuffMessage[]
   response: string
   inputTokens: number
   outputTokens: number
@@ -541,7 +541,7 @@ export const saveMessage = async (value: {
   fingerprintId: string
   userInputId: string
   model: string
-  request: Message[] | OpenAIMessage[] | CoreMessage[]
+  request: CodebuffMessage[]
   response: string
   inputTokens: number
   outputTokens: number

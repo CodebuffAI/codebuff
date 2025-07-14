@@ -77,7 +77,10 @@ exports[`stringifySchema should correctly stringify CodebuffConfigSchema 1`] = `
   ] | undefined,
 
   // (optional): Maximum number of turns agent will take before being forced to end, default: 12
-  "maxAgentSteps": number
+  "maxAgentSteps": number,
+
+  // (optional): Whether to collect full file context for training purposes when using find_files tool, default: false
+  "collectFullFileContext": boolean | undefined
 }"
 `;
 

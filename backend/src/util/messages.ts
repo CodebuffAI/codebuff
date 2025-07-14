@@ -8,25 +8,22 @@ import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
 import { CoreMessage } from 'ai'
 import { AssertionError } from 'assert'
-import { System } from '../llm-apis/claude'
-import { OpenAIMessage } from '../llm-apis/openai-api'
+import { System } from '../features/llm/providers/claude'
+import { OpenAIMessage } from '../features/llm/providers/openai-api'
 import { logger } from './logger'
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
 
 /**
- * Wraps an array of messages with a system prompt for LLM API calls
+ * Wraps an array of CodebuffMessages with a system prompt for LLM API calls
  * @param messages - Array of messages to wrap
  * @param system - System prompt to prepend
  * @returns Array with system message followed by provided messages
  */
-export const messagesWithSystem = (messages: Message[], system: System) =>
-  [{ role: 'system', content: system }, ...messages] as OpenAIMessage[]
-
 export function coreMessagesWithSystem(
-  messages: CoreMessage[],
+  messages: CodebuffMessage[],
   system: System
-): CoreMessage[] {
+): CodebuffMessage[] {
   return [
     {
       role: 'system',
@@ -34,10 +31,16 @@ export function coreMessagesWithSystem(
         typeof system === 'string'
           ? system
           : system.map((part) => part.text).join('\n\n'),
-    },
+    } as CodebuffMessage,
     ...messages,
   ]
 }
+
+/**
+ * @deprecated Use coreMessagesWithSystem instead
+ */
+export const messagesWithSystem = (messages: Message[], system: System) =>
+  [{ role: 'system', content: system }, ...messages] as OpenAIMessage[]
 
 export function asUserMessage(str: string): string {
   return `<user_message>${str}${closeXml('user_message')}`
@@ -66,8 +69,23 @@ export function isSystemMessage(str: string): boolean {
  * Extracts the text content from a message, handling both string and array content types
  * @param message - Message to extract text from
  * @returns Combined text content of the message, or undefined if no text content
+ * @deprecated Use getMessageTextCore instead
  */
 export function getMessageText(message: Message): string | undefined {
+  if (typeof message.content === 'string') {
+    return message.content
+  }
+  return message.content.map((c) => ('text' in c ? c.text : '')).join('\n')
+}
+
+/**
+ * Extracts the text content from a CodebuffMessage, handling both string and array content types
+ * @param message - Message to extract text from
+ * @returns Combined text content of the message, or undefined if no text content
+ */
+export function getMessageTextCore(
+  message: CodebuffMessage
+): string | undefined {
   if (typeof message.content === 'string') {
     return message.content
   }
@@ -133,18 +151,7 @@ function simplifyTerminalHelper(
 const shortenedMessageTokenFactor = 0.5
 
 /**
- * Trims messages from the beginning to fit within token limits while preserving
- * important content. Also simplifies terminal command outputs to save tokens.
- *
- * The function:
- * 1. Processes messages from newest to oldest
- * 2. Simplifies terminal command outputs after keeping N most recent ones
- * 3. Stops adding messages when approaching token limit
- *
- * @param messages - Array of messages to trim
- * @param systemTokens - Number of tokens used by system prompt
- * @param maxTotalTokens - Maximum total tokens allowed, defaults to 200k
- * @returns Trimmed array of messages that fits within token limit
+ * @deprecated Use trimCoreMessagesToFitTokenLimit instead
  */
 export function trimMessagesToFitTokenLimit(
   messages: Message[],
@@ -213,6 +220,9 @@ export function trimMessagesToFitTokenLimit(
   return results
 }
 
+/**
+ * @deprecated Use getCoreMessagesSubset instead
+ */
 export function getMessagesSubset(messages: Message[], otherTokens: number) {
   const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
     JSON.stringify(content).includes('COMPLETE')
@@ -280,7 +290,7 @@ export function trimCoreMessagesToFitTokenLimit(
 
   let totalTokens = 0
   const targetTokens = MAX_MESSAGE_TOKENS * shortenedMessageTokenFactor
-  const results: CoreMessage[] = []
+  const results: CodebuffMessage[] = []
   let numKept = 0
 
   // Process messages from newest to oldest

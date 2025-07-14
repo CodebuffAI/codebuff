@@ -62,6 +62,11 @@ export const ProjectFileContextSchema = z.object({
     homedir: z.string(),
     cpus: z.number(),
   }),
+  codebuffConfig: z
+    .object({
+      collectFullFileContext: z.boolean().optional(),
+    })
+    .optional(),
   fileVersions: z.array(z.array(FileVersionSchema)).optional(), // Keep temporarily for migration
 })
 
@@ -107,6 +112,7 @@ export const getStubProjectFileContext = (): ProjectFileContext => ({
     homedir: '',
     cpus: 0,
   },
+  codebuffConfig: undefined,
 })
 
 export const createMarkdownFileBlock = (filePath: string, content: string) => {

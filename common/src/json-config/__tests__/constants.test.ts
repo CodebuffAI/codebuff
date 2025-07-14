@@ -25,7 +25,7 @@ describe('constants', () => {
         name: 'test-process',
         command: 'echo hello',
       }
-      
+
       const result = StartupProcessSchema.safeParse(validProcess)
       expect(result.success).toBe(true)
       if (result.success) {
@@ -42,7 +42,7 @@ describe('constants', () => {
         stdoutFile: 'logs/web.log',
         stderrFile: 'logs/web-error.log',
       }
-      
+
       const result = StartupProcessSchema.safeParse(validProcess)
       expect(result.success).toBe(true)
       if (result.success) {
@@ -55,7 +55,7 @@ describe('constants', () => {
         name: '',
         command: 'echo hello',
       }
-      
+
       const result = StartupProcessSchema.safeParse(invalidProcess)
       expect(result.success).toBe(false)
     })
@@ -65,7 +65,7 @@ describe('constants', () => {
         name: 'test',
         command: '',
       }
-      
+
       const result = StartupProcessSchema.safeParse(invalidProcess)
       expect(result.success).toBe(false)
     })
@@ -75,7 +75,7 @@ describe('constants', () => {
         name: 'test',
         command: 'echo hello',
       }
-      
+
       const result = StartupProcessSchema.safeParse(process)
       expect(result.success).toBe(true)
       if (result.success) {
@@ -90,7 +90,7 @@ describe('constants', () => {
         name: 'test-hook',
         command: 'npm test',
       }
-      
+
       const result = FileChangeHook.safeParse(validHook)
       expect(result.success).toBe(true)
       if (result.success) {
@@ -106,7 +106,7 @@ describe('constants', () => {
         filePattern: '**/*.ts',
         enabled: false,
       }
-      
+
       const result = FileChangeHook.safeParse(validHook)
       expect(result.success).toBe(true)
       if (result.success) {
@@ -119,7 +119,7 @@ describe('constants', () => {
         name: '',
         command: 'npm test',
       }
-      
+
       const result = FileChangeHook.safeParse(invalidHook)
       expect(result.success).toBe(false)
     })
@@ -129,7 +129,7 @@ describe('constants', () => {
         name: 'test',
         command: '',
       }
-      
+
       const result = FileChangeHook.safeParse(invalidHook)
       expect(result.success).toBe(false)
     })
@@ -138,7 +138,7 @@ describe('constants', () => {
   describe('CodebuffConfigSchema', () => {
     it('should validate an empty object as a valid config', () => {
       const emptyConfig = {}
-      
+
       const result = CodebuffConfigSchema.safeParse(emptyConfig)
       expect(result.success).toBe(true)
       if (result.success) {
@@ -153,7 +153,7 @@ describe('constants', () => {
       const config = {
         description: 'My project config',
       }
-      
+
       const result = CodebuffConfigSchema.safeParse(config)
       expect(result.success).toBe(true)
       if (result.success) {
@@ -181,8 +181,9 @@ describe('constants', () => {
           },
         ],
         maxAgentSteps: 20,
+        collectFullFileContext: false,
       }
-      
+
       const result = CodebuffConfigSchema.safeParse(config)
       expect(result.success).toBe(true)
       if (result.success) {
@@ -213,7 +214,7 @@ describe('constants', () => {
         { description: ['array', 'values'] },
         { description: null },
       ]
-      
+
       configs.forEach((config) => {
         const result = CodebuffConfigSchema.safeParse(config)
         expect(result.success).toBe(true)
@@ -224,7 +225,7 @@ describe('constants', () => {
       const config = {
         description: 'Test config',
       }
-      
+
       const result = CodebuffConfigSchema.safeParse(config)
       expect(result.success).toBe(true)
       if (result.success) {
@@ -236,7 +237,7 @@ describe('constants', () => {
       const config = {
         maxAgentSteps: 25,
       }
-      
+
       const result = CodebuffConfigSchema.safeParse(config)
       expect(result.success).toBe(true)
       if (result.success) {
@@ -253,7 +254,7 @@ describe('constants', () => {
           },
         ],
       }
-      
+
       const result = CodebuffConfigSchema.safeParse(config)
       expect(result.success).toBe(false)
     })
@@ -267,7 +268,7 @@ describe('constants', () => {
           },
         ],
       }
-      
+
       const result = CodebuffConfigSchema.safeParse(config)
       expect(result.success).toBe(false)
     })
@@ -276,7 +277,7 @@ describe('constants', () => {
       const config = {
         maxAgentSteps: 'not-a-number',
       }
-      
+
       const result = CodebuffConfigSchema.safeParse(config)
       expect(result.success).toBe(false)
     })
@@ -285,7 +286,7 @@ describe('constants', () => {
       const config = {
         startupProcesses: 'not-an-array',
       }
-      
+
       const result = CodebuffConfigSchema.safeParse(config)
       expect(result.success).toBe(false)
     })
@@ -294,7 +295,7 @@ describe('constants', () => {
       const config = {
         fileChangeHooks: 'not-an-array',
       }
-      
+
       const result = CodebuffConfigSchema.safeParse(config)
       expect(result.success).toBe(false)
     })
@@ -308,13 +309,13 @@ describe('constants', () => {
         command: 'echo hello',
         enabled: true,
       }
-      
+
       const config: CodebuffConfig = {
         description: 'Test config',
         startupProcesses: [startupProcess],
         maxAgentSteps: 15,
       }
-      
+
       // If this compiles without TypeScript errors, the types are correct
       expect(startupProcess.name).toBe('test')
       expect(config.maxAgentSteps).toBe(15)

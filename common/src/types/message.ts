@@ -1,6 +1,7 @@
 import { coreMessageSchema } from 'ai'
 import { z } from 'zod'
 
+// Legacy Message type - DEPRECATED: Use CodebuffMessage instead
 const MessageContentObjectSchema = z.union([
   z.object({
     type: z.literal('text'),
@@ -47,6 +48,7 @@ const MessageContentObjectSchema = z.union([
   }),
 ])
 
+// DEPRECATED: Use CodebuffMessage instead
 export const MessageSchema = z.object({
   role: z.union([z.literal('user'), z.literal('assistant')]),
   content: z.union([z.string(), z.array(MessageContentObjectSchema)]),
@@ -54,6 +56,7 @@ export const MessageSchema = z.object({
 export type Message = z.infer<typeof MessageSchema>
 export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
 
+// Primary message type - extends CoreMessage with timeToLive for expiration
 export const CodebuffMessageSchema = z.intersection(
   coreMessageSchema,
   z.object({
