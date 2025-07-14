@@ -51,10 +51,7 @@ export const getAgentSystemPrompt = (
 
   const configSchemaTokens = countTokens(configSchemaPrompt)
 
-  const toolsInstructions = getFilteredToolsInstructions(
-    [], // TODO: Pass actual tool names
-    []  // TODO: Pass actual spawnable agents
-  )
+  const toolsInstructions = getFilteredToolsInstructions('normal')
 
   const systemPrompt = buildArray(
     agentInstructions,

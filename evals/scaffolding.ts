@@ -1,9 +1,9 @@
-import { runAgentStep } from '@codebuff/backend/run-agent-step'
-import { ClientToolCall } from '@codebuff/backend/tools/constants'
+import { runAgentStep } from '@codebuff/backend/src/features/agents/execution/run-agent-step'
+import { ClientToolCall } from '@codebuff/backend/src/features/tools/constants'
 import {
   requestFiles as originalRequestFiles,
   requestToolCall as originalRequestToolCall,
-} from '@codebuff/backend/features/websockets/websocket-action'
+} from '@codebuff/backend/src/features/websockets/websocket-action'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { FileChanges } from '@codebuff/common/actions'
 import { TEST_USER_ID } from '@codebuff/common/constants'

@@ -18,10 +18,7 @@ import {
 } from './features/files/processing/request-files-prompt'
 import { getFileReadingUpdates } from './get-file-reading-updates'
 import { fetchContext7LibraryDocumentation } from './features/llm/providers/context7-api'
-// searchWeb is not implemented - using stub
-const searchWeb = async (query: string, options?: { depth?: string }) => {
-  return `Web search not implemented. Query: ${query}, Depth: ${options?.depth || 'standard'}`
-}
+import { searchWeb } from './features/llm/providers/linkup-api'
 import { PROFIT_MARGIN } from './features/llm/providers/message-cost-tracker'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentRegistry } from './features/agents/templates/static/agent-registry'
@@ -155,7 +152,7 @@ export async function runToolInner(
       }
 
       try {
-        const searchResult = await searchWeb(query, { depth })
+        const searchResult = await searchWeb(query, { depth: depth || 'standard' })
         const searchDuration = Date.now() - searchStartTime
         const resultLength = searchResult?.length || 0
         const hasResults = Boolean(searchResult && searchResult.trim())

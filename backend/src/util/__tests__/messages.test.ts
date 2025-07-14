@@ -296,6 +296,3 @@ describe('trimMessagesToFitTokenLimit', () => {
     expect(result).toEqual([])
     const message = { role: 'user', content: 'hello' } as CodebuffMessage
 })
-
-    } as CodebuffMessage
-    } as CodebuffMessage

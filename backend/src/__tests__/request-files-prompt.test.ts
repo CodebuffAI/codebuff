@@ -12,18 +12,25 @@ import {
 import { CoreMessage } from 'ai'
 import { CostMode, finetunedVertexModels } from '@codebuff/common/constants'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import * as checkNewFilesNecessaryModule from '../find-files/check-new-files-necessary'
-import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
+import * as checkNewFilesNecessaryModule from '../features/files/processing/check-new-files-necessary'
+import * as OriginalRequestFilesPromptModule from '../features/files/processing/request-files-prompt'
 import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
 
 // Restore module-level mocks using bunMockFn for the mock implementations
-bunMockFn.module('../find-files/check-new-files-necessary', () => ({
-  checkNewFilesNecessary: bunMockFn(() =>
-    Promise.resolve({ newFilesNecessary: true, response: 'YES', duration: 100 })
-  ),
-}))
+bunMockFn.module(
+  '../features/files/processing/check-new-files-necessary',
+  () => ({
+    checkNewFilesNecessary: bunMockFn(() =>
+      Promise.resolve({
+        newFilesNecessary: true,
+        response: 'YES',
+        duration: 100,
+      })
+    ),
+  })
+)
 
-bunMockFn.module('../llm-apis/gemini-with-fallbacks', () => ({
+bunMockFn.module('../features/llm/providers/gemini-with-fallbacks', () => ({
   promptFlashWithFallbacks: bunMockFn(() =>
     Promise.resolve('file1.ts\nfile2.ts')
   ),

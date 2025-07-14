@@ -18,12 +18,12 @@ import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { WebSocket } from 'ws'
 
-import { getRequestContext } from '../../../context/app-context'
+import { getRequestContext } from '../../websockets/request-context'
+
 import { stripNullCharsFromObject } from '../../../util/object'
 
 import { logger, withLoggerContext } from '../../../util/logger'
 import { SWITCHBOARD } from '../../websockets/server'
-
 import { ClientState } from '../../websockets/switchboard'
 import { sendAction } from '../../websockets/websocket-action'
 import { OpenAIMessage } from './openai-api'
@@ -140,8 +140,8 @@ const getGemini25ProPreviewCost = (
 ): number => {
   let inputCost = 0
   const tier1Tokens = Math.min(input_tokens, 200_000)
-  const tier2Tokens = Math.max(0, input_tokens - 200_000)
 
+  const tier2Tokens = Math.max(0, input_tokens - 200_000)
   inputCost += (tier1Tokens * 1.25) / 1_000_000
   inputCost += (tier2Tokens * 2.5) / 1_000_000
 
@@ -151,10 +151,8 @@ const getGemini25ProPreviewCost = (
   } else {
     outputCost = (output_tokens * 15) / 1_000_000
   }
-
   return inputCost + outputCost
 }
-
 /**
  * Calculates the cost for the Grok 4 model based on its tiered pricing.
  *
@@ -173,8 +171,8 @@ const getGemini25ProPreviewCost = (
 const getGrok4Cost = (input_tokens: number, output_tokens: number): number => {
   let inputCost = 0
   const tier1Tokens = Math.min(input_tokens, 128_000)
-  const tier2Tokens = Math.max(0, input_tokens - 128_000)
 
+  const tier2Tokens = Math.max(0, input_tokens - 128_000)
   inputCost += (tier1Tokens * 3.0) / 1_000_000
   inputCost += (tier2Tokens * 6.0) / 1_000_000
 
@@ -421,8 +419,10 @@ async function sendCostResponseToClient(
 ): Promise<void> {
   try {
     const clientEntry = Array.from(SWITCHBOARD.clients.entries()).find(
-      ([_, state]: [WebSocket, ClientState]) =>
-        state.sessionId === clientSessionId
+      (entry): entry is [WebSocket, ClientState] => {
+        const [_, state] = entry as [WebSocket, ClientState]
+        return state.sessionId === clientSessionId
+      }
     )
 
     if (clientEntry) {

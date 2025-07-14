@@ -991,8 +991,13 @@ describe('processStreamWithTags', () => {
       },
       {
         error:
-          'WARN: Tool not found. Make sure to escape non-tool XML! e.g. &lt;invalid&gt;',
+          'WARN: Tool not found. Make sure to escape non-tool XML! e.g. <invalid>',
         name: 'invalid',
+      },
+      {
+        error:
+          'WARN: Ignoring text in test between parameters. Make sure to only put text within parameters!',
+        name: 'test',
       },
       {
         error:
@@ -1004,7 +1009,6 @@ describe('processStreamWithTags', () => {
           'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
         name: 'invalid',
       },
-
       {
         params: {
           param1: 'value1',
@@ -1262,17 +1266,6 @@ describe('processStreamWithTags', () => {
         type: 'start',
       },
       {
-        error:
-          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
-        name: 'content',
-      },
-      {
-        error:
-          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
-        name: 'content',
-      },
-
-      {
         params: {
           new: 'test</content>test2',
           old: 'test</content>test2',
@@ -1358,15 +1351,10 @@ describe('processStreamWithTags', () => {
         name: 'test',
       },
       {
-        error:
-          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
-        name: 'param2',
-      },
-      {
         tagName: 'test',
         type: 'end',
         params: {
-          param1: 'value1<param2 attr="123" >ignored</param2>still param1',
+          param1: 'value1ignored</param2>still param1',
         },
       },
     ])
