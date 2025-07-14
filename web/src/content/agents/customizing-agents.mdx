@@ -9,7 +9,7 @@ order: 1
 
 Modify existing agents by creating JSON override files in `.agents/templates/`:
 
-```
+```markdown
 .agents/templates/
 ├── my-reviewer.json
 └── security-checker.json
@@ -175,7 +175,7 @@ When reviewing code changes, pay special attention to:
 
 ## Available Fields
 
-**Core:** `model`, `toolNames`, `spawnableAgents`  
+**Core:** `model`, `toolNames`, `spawnableAgents`
 **Prompts:** `systemPrompt`, `userInputPrompt`, `agentStepPrompt`
 
 ## Built-in Agents
@@ -190,8 +190,8 @@ When reviewing code changes, pay special attention to:
 
 ## Troubleshooting
 
-**Agent not loading:** Check `"override": true`, agent ID spelling, JSON syntax, file location  
-**Prompts not applying:** Verify file paths, override types spelling  
+**Agent not loading:** Check `"override": true`, agent ID spelling, JSON syntax, file location
+**Prompts not applying:** Verify file paths, override types spelling
 **Path errors:** Use `.agents/templates/my-file.md` (project root relative)
 
 **Debug tips:**

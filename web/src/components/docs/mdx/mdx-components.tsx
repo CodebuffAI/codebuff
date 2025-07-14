@@ -6,6 +6,7 @@ import { CodeDemo } from './code-demo'
 import { MarkdownTable } from './markdown-table'
 import { SchemaDisplay } from './schema-display'
 import { Check, Link } from 'lucide-react'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 import { HTMLAttributes, AnchorHTMLAttributes, ImgHTMLAttributes } from 'react'
 
@@ -24,6 +25,8 @@ const createHeadingWithCopyLink = (
     ...props
   }: HTMLAttributes<HTMLHeadingElement>) => {
     const [copied, setCopied] = useState(false)
+    const [showCopyButton, setShowCopyButton] = useState(false)
+    const isMobile = useIsMobile()
 
     useEffect(() => {
       if (copied) {
@@ -32,6 +35,15 @@ const createHeadingWithCopyLink = (
       }
       return undefined
     }, [copied])
+
+    // Auto-hide copy button on mobile after 3 seconds
+    useEffect(() => {
+      if (isMobile && showCopyButton) {
+        const timer = setTimeout(() => setShowCopyButton(false), 1_500)
+        return () => clearTimeout(timer)
+      }
+      return undefined
+    }, [isMobile, showCopyButton])
 
     const title = children?.toString()
 
@@ -81,32 +93,48 @@ const createHeadingWithCopyLink = (
       if (id) {
         document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
       }
+
+      // On mobile, toggle copy button visibility when title is tapped
+      if (isMobile) {
+        setShowCopyButton(!showCopyButton)
+      }
     }
 
+    // Determine button visibility based on device type
+    const buttonVisibilityClass = isMobile
+      ? showCopyButton
+        ? 'opacity-100'
+        : 'opacity-0'
+      : 'xs:opacity-100 xl:opacity-0 group-hover:opacity-100'
+
     return (
-      <div className="group relative">
-        <button
-          onClick={handleCopy}
-          className="xs:opacity-100 xl:opacity-0 group-hover:opacity-100 absolute -left-10 top-0 p-1.5 rounded-md bg-muted/50 hover:bg-muted border border-border/50 hover:border-border transition-all duration-200 ease-in-out inline-flex items-center justify-center shadow-sm hover:shadow-md"
-          aria-label="Copy link to section"
-        >
-          {copied ? (
-            <Check className="text-green-500 h-4 w-4" />
-          ) : (
-            <Link className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-          )}
-        </button>
+      <div className="group">
         <HeadingComponent
           {...props}
           id={id}
           className={cn(
-            'hover:cursor-pointer hover:underline scroll-m-20',
+            'hover:cursor-pointer hover:underline scroll-m-20 inline-flex items-center gap-2',
             defaultClasses,
             className
           )}
           onClick={handleClick}
         >
           {children}
+          <button
+            onClick={handleCopy}
+            className={cn(
+              buttonVisibilityClass,
+              'p-1.5 rounded-md bg-muted/50 hover:bg-muted border border-border/50 hover:border-border transition-all duration-200 ease-in-out inline-flex items-center justify-center shadow-sm hover:shadow-md',
+              isMobile ? 'min-h-[44px] min-w-[44px]' : 'h-auto w-auto'
+            )}
+            aria-label="Copy link to section"
+          >
+            {copied ? (
+              <Check className="text-green-500 h-4 w-4" />
+            ) : (
+              <Link className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+            )}
+          </button>
         </HeadingComponent>
       </div>
     )
@@ -127,11 +155,11 @@ const components = {
   ),
   h1: createHeadingWithCopyLink(
     'h1',
-    'mt-6 text-3xl font-semibold tracking-tight'
+    'mt-6 text-3xl font-semibold tracking-tight first:mt-0 first:mb-0'
   ),
   h2: createHeadingWithCopyLink(
     'h2',
-    'mt-8 border-b pb-2 text-2xl font-semibold tracking-tight first:mt-0'
+    'mt-8 text-2xl font-semibold tracking-tight'
   ),
   h3: createHeadingWithCopyLink(
     'h3',
@@ -171,7 +199,7 @@ const components = {
   ),
   hr: ({ ...props }) => <hr className="my-4 md:my-6" {...props} />,
   table: ({ className, ...props }: HTMLAttributes<HTMLTableElement>) => (
-    <div className="my-6 w-full overflow-y-auto">
+    <div className="my-6 w-full overflow-x-auto">
       <table className={cn('w-full', className)} {...props} />
     </div>
   ),

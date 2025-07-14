@@ -5,7 +5,7 @@ tags: ['troubleshooting', 'debugging', 'agents']
 order: 5
 ---
 
-# Troubleshooting
+# Troubleshooting Agent Customization
 
 Quick fixes for common agent customization issues.
 
@@ -19,25 +19,24 @@ Quick fixes for common agent customization issues.
 ## Common Errors
 
 ### "Agent not found"
-```
+```text
 Error: Agent 'my-custom-agent' not found
 ```
 
 **Fix:** Check agent ID spelling, file location (`.agents/templates/`), JSON syntax (`cat file.json | jq`)
 
-```
-
-
 ### "Invalid spawnable agent"
-```
+```text
 Validation error: spawnableAgents contains invalid agent 'researcher-typo'
+```
 
 **Fix:** Check spelling against [built-in agents list](/docs/agents/agent-reference#available-built-in-agents), use exact IDs
 
 ### "Path not found" Error
-```
+```text
 Error: Cannot resolve prompt file './my-prompt.md'
 ```
+
 **Causes:**
 - File doesn't exist at specified path
 - Incorrect relative path resolution
@@ -97,33 +96,36 @@ Error: Cannot resolve prompt file './my-prompt.md'
 }
 ```
 
-
 ### "Path not found"
 
 **Fix:** Use project root relative paths: `.agents/templates/my-prompt.md`, verify file exists
+
 ## Agent Behavior Issues
+
 ### Agent Not Using Custom Prompts
+
 **Symptoms:**
 - Agent behaves like default version
 - Custom instructions ignored
+
 **Debug Steps:**
 1. Check override is properly applied:
-   ```bash
-   # Restart Codebuff to reload templates
-   codebuff
-   ```
+```bash
+# Restart Codebuff to reload templates
+codebuff
+```
 
 2. Verify override syntax:
-   ```json
-   {
-     "id": "CodebuffAI/reviewer",  // ✅ Exact match required
-     "override": true,             // ✅ Must be true for overrides
-     "systemPrompt": {
-       "type": "append",           // ✅ Valid override type
-       "content": "Custom instructions..."
-     }
-   }
-   ```
+```json
+{
+  "id": "CodebuffAI/reviewer",  // ✅ Exact match required
+  "override": true,             // ✅ Must be true for overrides
+  "systemPrompt": {
+    "type": "append",           // ✅ Valid override type
+    "content": "Custom instructions..."
+  }
+}
+```
 
 ### Agent Spawning Wrong Sub-agents
 
@@ -133,14 +135,14 @@ Error: Cannot resolve prompt file './my-prompt.md'
 
 **Solutions:**
 1. Check `spawnableAgents` configuration:
-   ```json
-   {
-     "spawnableAgents": {
-       "type": "replace",  // Use "replace" to override completely
-       "content": ["researcher", "thinker"]
-     }
-   }
-   ```
+```json
+{
+  "spawnableAgents": {
+    "type": "replace",  // Use "replace" to override completely
+    "content": ["researcher", "thinker"]
+  }
+}
+```
 
 2. Verify agent names are correct (no typos)
 
@@ -158,11 +160,11 @@ Error: Cannot resolve prompt file './my-prompt.md'
 2. Limit `toolNames` to only required tools
 3. Set `includeMessageHistory: false` for stateless agents
 4. Use faster models for simple tasks:
-   ```json
-   {
-     "model": "anthropic/claude-3-5-haiku-20241022"  // Faster model
-   }
-   ```
+```json
+{
+  "model": "anthropic/claude-3-5-haiku-20241022"  // Faster model
+}
+```
 
 ### High Credit Usage
 
@@ -173,18 +175,18 @@ Error: Cannot resolve prompt file './my-prompt.md'
 
 **Solutions:**
 1. Use cost-effective models:
-   ```json
-   {
-     "model": "google/gemini-2.5-flash"  // More economical
-   }
-   ```
+```json
+{
+  "model": "google/gemini-2.5-flash"  // More economical
+}
+```
 
 2. Limit spawnable agents:
-   ```json
-   {
-     "spawnableAgents": []  // Prevent sub-agent spawning
-   }
-   ```
+```json
+{
+  "spawnableAgents": []  // Prevent sub-agent spawning
+}
+```
 
 ## File Organization Issues
 
@@ -196,23 +198,23 @@ Error: Cannot resolve prompt file './my-prompt.md'
 
 **Debug Steps:**
 1. Check directory structure:
-   ```
-   your-project/
-   ├── .agents/
-   │   └── templates/
-   │       ├── my-agent.json
-   │       └── my-prompts.md
-   ```
+```markdown
+your-project/
+├── .agents/
+│   └── templates/
+│       ├── my-agent.json
+│       └── my-prompts.md
+```
 
 2. Verify file permissions:
-   ```bash
-   ls -la .agents/templates/
-   ```
+```bash
+ls -la .agents/templates/
+```
 
 3. Check for hidden characters or encoding issues:
-   ```bash
-   file .agents/templates/*.json
-   ```
+```bash
+file .agents/templates/*.json
+```
 
 ## Best Practices for Debugging
 
@@ -267,7 +269,7 @@ If you're still experiencing issues:
 
 ### Valid Override Types
 - `"append"` - Add to existing content
-- `"prepend"` - Add before existing content  
+- `"prepend"` - Add before existing content
 - `"replace"` - Replace entire content
 
 ### Required Fields for New Agents
