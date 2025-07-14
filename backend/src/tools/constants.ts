@@ -109,6 +109,8 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     clientSessionId: string
     userInputId: string
 
+    fullResponse: string
+
     writeToClient: (chunk: string) => void
     state: { [K in string]?: any }
   } & PresentOrAbsent<
@@ -126,7 +128,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
  *   - Any additional arguments for the tool
  * - Returns a promise that will be awaited
  */
-const codebuffToolHandlers = {
+export const codebuffToolHandlers = {
   add_subgoal: handleAddSubgoal,
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
@@ -151,7 +153,7 @@ const codebuffToolHandlers = {
 type CodebuffToolHandler<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
-    callback: (typeof codebuffToolHandlers)[K]
+    callback: CodebuffToolHandlerFunction<K>
   }
 }[T]
 

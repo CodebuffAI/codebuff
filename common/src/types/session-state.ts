@@ -17,10 +17,20 @@ export const toolResultSchema = z.object({
 })
 export type ToolResult = z.infer<typeof toolResultSchema>
 
+export const subgoalSchema = z.object({
+  objective: z.string().optional(),
+  status: z
+    .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED'])
+    .optional(),
+  plan: z.string().optional(),
+  logs: z.string().array(),
+})
+export type Subgoal = z.infer<typeof subgoalSchema>
+
 export const AgentStateSchema: z.ZodType<{
   agentId: string
   agentType: AgentTemplateType | null
-  agentContext: string
+  agentContext: Record<string, Subgoal>
   subagents: AgentState[]
   messageHistory: CodebuffMessage[]
   stepsRemaining: number
@@ -29,7 +39,7 @@ export const AgentStateSchema: z.ZodType<{
   z.object({
     agentId: z.string(),
     agentType: agentTemplateTypeSchema.nullable(),
-    agentContext: z.string(),
+    agentContext: z.record(z.string(), subgoalSchema),
     subagents: AgentStateSchema.array(),
     messageHistory: CodebuffMessageSchema.array(),
     stepsRemaining: z.number(),
@@ -42,7 +52,7 @@ export const AgentTemplateTypeList = [
   // Base agents
   'base',
   'base_lite',
-  'base_max', 
+  'base_max',
   'base_experimental',
   'claude4_gemini_thinking',
 
@@ -81,7 +91,7 @@ export function getInitialSessionState(
     mainAgentState: {
       agentId: 'main-agent',
       agentType: null,
-      agentContext: '',
+      agentContext: {},
       subagents: [],
       messageHistory: [],
       stepsRemaining: 12,
