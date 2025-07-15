@@ -584,14 +584,10 @@ describe('Rage Detectors', () => {
       expect(detectors.keyMashingDetector).toBeDefined()
       expect(detectors.repeatInputDetector).toBeDefined()
       expect(detectors.exitAfterErrorDetector).toBeDefined()
-      expect(detectors.webSocketHangDetector).toBeDefined()
-
       expect(typeof detectors.keyMashingDetector.recordEvent).toBe('function')
       expect(typeof detectors.repeatInputDetector.recordEvent).toBe('function')
       expect(typeof detectors.exitAfterErrorDetector.start).toBe('function')
       expect(typeof detectors.exitAfterErrorDetector.end).toBe('function')
-      expect(typeof detectors.webSocketHangDetector.start).toBe('function')
-      expect(typeof detectors.webSocketHangDetector.stop).toBe('function')
     })
 
     test('keyMashingDetector should work with realistic scenario', () => {
@@ -632,33 +628,7 @@ describe('Rage Detectors', () => {
       })
     })
 
-    test('webSocketHangDetector should work with realistic scenario', async () => {
-      // Test the timeout detector directly without the complex shouldFire logic
-      const detector = createTimeoutDetector({
-        reason: 'websocket_persistent_failure',
-        timeoutMs: 60000,
-      })
 
-      // Simulate WebSocket connection hanging
-      detector.start({
-        connectionIssue: 'websocket_persistent_failure',
-        url: 'ws://localhost:3000',
-      })
-
-      // Advance time to trigger the timeout
-      advanceTime(60000)
-
-      expect(mockTrackEvent).toHaveBeenCalledWith(
-        AnalyticsEvent.RAGE,
-        expect.objectContaining({
-          reason: 'websocket_persistent_failure',
-          durationMs: 60000,
-          timeoutMs: 60000,
-          connectionIssue: 'websocket_persistent_failure',
-          url: 'ws://localhost:3000',
-        })
-      )
-    })
 
     test('should not produce false positives for normal usage', () => {
       const detectors = createRageDetectors()
@@ -674,11 +644,6 @@ describe('Rage Detectors', () => {
       detectors.repeatInputDetector.recordEvent('help')
       detectors.repeatInputDetector.recordEvent('fix the bug')
       detectors.repeatInputDetector.recordEvent('add tests')
-
-      // Normal WebSocket operation - connection succeeds quickly
-      detectors.webSocketHangDetector.start()
-      advanceTime(5000)
-      detectors.webSocketHangDetector.stop()
 
       expect(mockTrackEvent).not.toHaveBeenCalled()
     })

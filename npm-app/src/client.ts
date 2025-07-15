@@ -78,6 +78,7 @@ import {
   getWorkingDirectory,
   startNewChat,
 } from './project-files'
+import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
@@ -149,6 +150,7 @@ export class Client {
   private costMode: CostMode
   private responseComplete: boolean = false
   private userInputId: string | undefined
+  private isReceivingResponse: boolean = false
 
   public usageData: UsageData = {
     usage: 0,
@@ -1171,6 +1173,13 @@ export class Client {
 
       rawChunkBuffer.push(chunk)
 
+      // Reset the response hang detector on each chunk received
+      rageDetectors.responseHangDetector.stop()
+      rageDetectors.responseHangDetector.start({
+        promptId: userInputId,
+        isReceivingResponse: () => this.isReceivingResponse,
+      })
+
       const trimmed = chunk.trim()
       for (const tag of ONE_TIME_TAGS) {
         if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(closeXml(tag))) {
@@ -1328,6 +1337,16 @@ Go to https://www.codebuff.com/config for more information.`) +
 
     // Reset flags at the start of each response
     this.responseComplete = false
+    this.isReceivingResponse = true
+
+    // Start the response hang detector
+    rageDetectors.responseHangDetector.start({
+      promptId: userInputId,
+      isReceivingResponse: () => this.isReceivingResponse,
+    })
+
+    // Stop the response hang detector when user stops the response
+    rageDetectors.responseHangDetector.stop()
 
     return {
       responsePromise,
@@ -1353,6 +1372,9 @@ Go to https://www.codebuff.com/config for more information.`) +
         }),
       })
 
+      // Stop the response hang detector when response is complete
+      this.isReceivingResponse = false
+      rageDetectors.responseHangDetector.stop()
       const data = await response.json()
 
       // Use zod schema to validate response
