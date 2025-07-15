@@ -162,6 +162,7 @@ describe('mainPrompt', () => {
     },
     changesSinceLastChat: {},
     shellConfigFiles: {},
+    agentTemplates: {},
     systemInfo: {
       platform: 'test',
       shell: 'test',
@@ -318,8 +319,8 @@ describe('mainPrompt', () => {
       onResponseChunk: () => {},
     })
 
-    // Assert that requestToolCall was called exactly two times (write_file + end_turn)
-    expect(requestToolCallSpy).toHaveBeenCalledTimes(2)
+    // Assert that requestToolCall was called exactly once
+    expect(requestToolCallSpy).toHaveBeenCalledTimes(1)
 
     // Verify the write_file call was made with the correct arguments
     expect(requestToolCallSpy).toHaveBeenCalledWith(
@@ -331,14 +332,6 @@ describe('mainPrompt', () => {
         path: 'new-file.txt',
         content: 'Hello, world!',
       })
-    )
-
-    // Verify the end_turn call was made
-    expect(requestToolCallSpy).toHaveBeenCalledWith(
-      expect.any(Object), // WebSocket
-      expect.any(String), // userInputId
-      'end_turn',
-      expect.any(Object)
     )
   })
 
@@ -495,8 +488,8 @@ describe('mainPrompt', () => {
       onResponseChunk: () => {},
     })
 
-    // Assert that requestToolCall was called exactly two times (run_terminal_command + end_turn)
-    expect(requestToolCallSpy).toHaveBeenCalledTimes(2)
+    // Assert that requestToolCall was called exactly once
+    expect(requestToolCallSpy).toHaveBeenCalledTimes(1)
 
     // Verify the run_terminal_command call was made with the correct arguments
     expect(requestToolCallSpy).toHaveBeenCalledWith(
@@ -508,14 +501,6 @@ describe('mainPrompt', () => {
         process_type: 'SYNC',
         mode: 'assistant',
       })
-    )
-
-    // Verify the end_turn call was made
-    expect(requestToolCallSpy).toHaveBeenCalledWith(
-      expect.any(Object), // WebSocket
-      expect.any(String), // userInputId
-      'end_turn',
-      expect.any(Object)
     )
   })
 })
