@@ -1,14 +1,26 @@
-import { ToolName, toolNames } from '@codebuff/common/constants/tools'
-import { Subgoal, ToolResult } from '@codebuff/common/types/session-state'
+import {
+  renderToolResults,
+  ToolName,
+  toolNames,
+} from '@codebuff/common/constants/tools'
+import { CodebuffMessage } from '@codebuff/common/types/message'
+import {
+  AgentState,
+  Subgoal,
+  ToolResult,
+} from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { WebSocket } from 'ws'
+import { checkLiveUserInput } from '../live-user-inputs'
 import { AgentTemplate } from '../templates/types'
 import { parseRawToolCall, ToolCallError, toolParams } from '../tools'
 import { logger } from '../util/logger'
+import { asSystemMessage, expireMessages } from '../util/messages'
 import { requestToolCall } from '../websockets/websocket-action'
 import { processStreamWithTags } from '../xml-stream-parser'
 import {
+  ClientToolCall,
   CodebuffToolCall,
   CodebuffToolHandlerFunction,
   codebuffToolHandlers,
@@ -25,6 +37,8 @@ export async function processStreamWithTools<T extends string>(options: {
   repoId: string | undefined
   agentTemplate: AgentTemplate
   fileContext: ProjectFileContext
+  messages: CodebuffMessage[]
+  agentState: AgentState
   agentContext: Record<string, Subgoal>
   onResponseChunk: (chunk: string) => void
   fullResponse: string
@@ -41,9 +55,12 @@ export async function processStreamWithTools<T extends string>(options: {
     agentTemplate,
     fileContext,
     agentContext,
+    agentState,
     onResponseChunk,
   } = options
   let fullResponse = options.fullResponse
+
+  const messages = [...options.messages]
 
   const toolResults: ToolResult[] = []
   const toolCalls: CodebuffToolCall[] = []
@@ -54,10 +71,14 @@ export async function processStreamWithTools<T extends string>(options: {
     ws,
     clientSessionId,
     fingerprintId,
+    userInputId,
     userId,
     repoId,
+    agentTemplate,
     mutableState: {
+      agentState,
       agentContext,
+      messages,
     },
   }
 
@@ -114,12 +135,16 @@ export async function processStreamWithTools<T extends string>(options: {
           userInputId,
           fullResponse,
           writeToClient: onResponseChunk,
-          requestClientToolCall: async () => {
+          requestClientToolCall: async (clientToolCall: ClientToolCall<T>) => {
+            if (!checkLiveUserInput(userId, userInputId)) {
+              return ''
+            }
+
             const clientToolResult = await requestToolCall(
               ws,
               userInputId,
-              toolCall.toolName,
-              toolCall.args
+              clientToolCall.toolName,
+              clientToolCall.args
             )
             return (
               clientToolResult.error ??
@@ -136,10 +161,17 @@ export async function processStreamWithTools<T extends string>(options: {
           state[key] = value
         }
         previousToolCallFinished = toolResultPromise.then((result) => {
-          toolResults.push({
+          const toolResult = {
             toolName,
             toolCallId: toolCall.toolCallId,
             result,
+          }
+
+          toolResults.push(toolResult)
+
+          state.mutableState.messages.push({
+            role: 'user' as const,
+            content: asSystemMessage(renderToolResults([toolResult])),
           })
         })
       },
@@ -164,6 +196,14 @@ export async function processStreamWithTools<T extends string>(options: {
     onResponseChunk(chunk)
     fullResponse += chunk
   }
+
+  state.mutableState.messages = [
+    ...expireMessages(state.mutableState.messages, 'agentStep'),
+    {
+      role: 'assistant' as const,
+      content: fullResponse,
+    },
+  ]
 
   resolveStreamDonePromise()
   await previousToolCallFinished

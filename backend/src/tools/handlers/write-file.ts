@@ -10,8 +10,11 @@ import {
   CodebuffToolHandlerFunction,
 } from '../constants'
 
-export type FileProcessing = {
-  tool: 'write_file' | 'str_replace' | 'create_plan'
+type FileProcessingTools = 'write_file' | 'str_replace' | 'create_plan'
+export type FileProcessing<
+  T extends FileProcessingTools = FileProcessingTools,
+> = {
+  tool: T
   path: string
   toolCallId: string
 } & (
@@ -151,8 +154,8 @@ export const handleWriteFile = ((params: {
 
   return {
     result: previousToolCallFinished.then(async () => {
-      return await postStreamProcessing(
-        toolCall,
+      return await postStreamProcessing<'write_file'>(
+        await newPromise,
         mutableState,
         writeToClient,
         requestClientToolCall
@@ -162,10 +165,8 @@ export const handleWriteFile = ((params: {
   }
 }) satisfies CodebuffToolHandlerFunction<'write_file'>
 
-export async function postStreamProcessing<
-  T extends 'write_file' | 'str_replace' | 'create_plan',
->(
-  toolCall: CodebuffToolCall<T>,
+export async function postStreamProcessing<T extends FileProcessingTools>(
+  toolCall: FileProcessing<T>,
   mutableState: FileProcessingMutableState,
   writeToClient: (chunk: string) => void,
   requestClientToolCall: (toolCall: ClientToolCall<T>) => Promise<string>
@@ -203,7 +204,7 @@ export async function postStreamProcessing<
   for (const { path, content, patch } of changes) {
     const clientToolCall: ClientToolCall<T> = {
       toolCallId: toolCall.toolCallId,
-      toolName: toolCall.toolName,
+      toolName: toolCall.tool,
       args: patch
         ? { type: 'patch' as const, path, content: patch }
         : { type: 'file' as const, path, content },

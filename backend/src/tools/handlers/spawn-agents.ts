@@ -1,3 +1,4 @@
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import {
   AgentState,
   AgentTemplateType,
@@ -16,7 +17,6 @@ export const handleSpawnAgents = ((params: {
   toolCall: CodebuffToolCall<'spawn_agents'>
 
   fileContext: ProjectFileContext
-  agentStepId: string
   clientSessionId: string
   userInputId: string
 
@@ -24,8 +24,10 @@ export const handleSpawnAgents = ((params: {
     ws?: WebSocket
     fingerprintId?: string
     userId?: string
-    parentAgentTemplate?: AgentTemplate
-    messages?: CoreMessage[]
+    agentTemplate?: AgentTemplate
+    mutableState?: {
+      messages: CodebuffMessage[]
+    }
   }
 }): { result: Promise<string>; state: {} } => {
   const {
@@ -33,13 +35,18 @@ export const handleSpawnAgents = ((params: {
     toolCall,
 
     fileContext,
-    agentStepId,
     clientSessionId,
     userInputId,
     state,
   } = params
   const { agents } = toolCall.args
-  const { ws, fingerprintId, userId, parentAgentTemplate, messages } = state
+  const {
+    ws,
+    fingerprintId,
+    userId,
+    agentTemplate: parentAgentTemplate,
+  } = state
+  const mutableState = state.mutableState
 
   if (!ws) {
     throw new Error(
@@ -53,10 +60,10 @@ export const handleSpawnAgents = ((params: {
   }
   if (!parentAgentTemplate) {
     throw new Error(
-      'Internal error for spawn_agents: Missing parentAgentTemplate in state'
+      'Internal error for spawn_agents: Missing agentTemplate in state'
     )
   }
-  if (!messages) {
+  if (!mutableState?.messages) {
     throw new Error(
       'Internal error for spawn_agents: Missing messages in state'
     )
@@ -69,7 +76,7 @@ export const handleSpawnAgents = ((params: {
   const conversationHistoryMessage: CoreMessage = {
     role: 'user',
     content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
-      messages,
+      mutableState.messages,
       null,
       2
     )}`,
@@ -126,7 +133,7 @@ export const handleSpawnAgents = ((params: {
         const agentState: AgentState = {
           agentId,
           agentType,
-          agentContext: '',
+          agentContext: {},
           subagents: [],
           messageHistory: subAgentMessages,
           stepsRemaining: 20, // MAX_AGENT_STEPS

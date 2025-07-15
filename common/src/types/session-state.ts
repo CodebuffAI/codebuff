@@ -43,7 +43,7 @@ export const AgentStateSchema: z.ZodType<{
     subagents: AgentStateSchema.array(),
     messageHistory: CodebuffMessageSchema.array(),
     stepsRemaining: z.number(),
-    report: z.record(z.string(), z.string()),
+    report: z.record(z.string(), z.any()),
   })
 )
 export type AgentState = z.infer<typeof AgentStateSchema>

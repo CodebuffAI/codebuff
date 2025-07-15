@@ -78,8 +78,8 @@ export const handleStrReplace = ((params: {
 
   return {
     result: previousToolCallFinished.then(async () => {
-      return await postStreamProcessing(
-        toolCall,
+      return await postStreamProcessing<'str_replace'>(
+        await newPromise,
         mutableState,
         writeToClient,
         requestClientToolCall

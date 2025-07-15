@@ -5,29 +5,34 @@ import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
 export const handleUpdateReport = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'update_report'>
-  state: { agentState?: AgentState }
+  state: {
+    mutableState?: { agentState: AgentState }
+  }
 }): {
   result: Promise<string>
-  state: { agentState: AgentState }
+  state: { mutableState: { agentState: AgentState } }
 } => {
   const { previousToolCallFinished, toolCall, state } = params
   const { json_update: jsonUpdate } = toolCall.args
-  const { agentState } = state
+  const { mutableState } = state
 
-  if (!agentState) {
+  if (!mutableState?.agentState) {
     throw new Error(
       'Internal error for update_report: Missing agentState in state'
     )
   }
 
   const triggerUpdateReport = async () => {
-    agentState.report = { ...agentState.report, ...jsonUpdate }
+    mutableState.agentState.report = {
+      ...mutableState.agentState.report,
+      ...jsonUpdate,
+    }
 
     logger.debug(
       {
         jsonUpdate,
-        agentType: agentState.agentType,
-        agentId: agentState.agentId,
+        agentType: mutableState.agentState.agentType,
+        agentId: mutableState.agentState.agentId,
       },
       'update_report tool call'
     )
@@ -37,6 +42,6 @@ export const handleUpdateReport = ((params: {
 
   return {
     result: previousToolCallFinished.then(triggerUpdateReport),
-    state: { agentState },
+    state: { mutableState },
   }
 }) satisfies CodebuffToolHandlerFunction<'update_report'>

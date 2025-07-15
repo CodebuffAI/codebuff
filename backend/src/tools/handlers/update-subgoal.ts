@@ -12,7 +12,6 @@ export const handleUpdateSubgoal = ((params: {
   const { previousToolCallFinished, toolCall, state } = params
   const mutableState = state.mutableState ?? { agentContext: {} }
   const { agentContext } = mutableState
-  console.log({ state }, 'asdf')
 
   let messages: string[] = []
   if (!agentContext[toolCall.args.id]) {

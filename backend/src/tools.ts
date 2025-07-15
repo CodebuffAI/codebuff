@@ -89,9 +89,11 @@ function buildSpawnableAgentsDescription(
    * Convert a Zod schema to JSON string representation.
    * Schemas are now pre-converted during agent loading, so this is simpler.
    */
-  const schemaToJsonStr = (schema: z.ZodTypeAny | undefined | Record<string, z.ZodTypeAny>) => {
+  const schemaToJsonStr = (
+    schema: z.ZodTypeAny | undefined | Record<string, z.ZodTypeAny>
+  ) => {
     if (!schema) return 'None'
-    
+
     try {
       // Handle Zod schemas
       if (schema instanceof z.ZodType) {
@@ -99,10 +101,12 @@ function buildSpawnableAgentsDescription(
         delete jsonSchema['$schema']
         return JSON.stringify(jsonSchema, null, 2)
       }
-      
+
       // Handle objects containing Zod schemas (for dynamic agents)
       if (typeof schema === 'object' && schema !== null) {
-        const isValidSchemaObject = Object.values(schema).every(value => value instanceof z.ZodType)
+        const isValidSchemaObject = Object.values(schema).every(
+          (value) => value instanceof z.ZodType
+        )
         if (isValidSchemaObject) {
           const wrappedSchema = z.object(schema as Record<string, z.ZodTypeAny>)
           const jsonSchema = z.toJSONSchema(wrappedSchema)
@@ -110,7 +114,7 @@ function buildSpawnableAgentsDescription(
           return JSON.stringify(jsonSchema, null, 2)
         }
       }
-      
+
       return 'None'
     } catch (error) {
       // Graceful fallback
@@ -121,7 +125,8 @@ function buildSpawnableAgentsDescription(
   const agentsDescription = spawnableAgents
     .map((agentType) => {
       // Try to get from registry first (includes dynamic agents), then fall back to static
-      const agentTemplate = agentRegistry.getTemplate(agentType) || agentTemplates[agentType]
+      const agentTemplate =
+        agentRegistry.getTemplate(agentType) || agentTemplates[agentType]
       if (!agentTemplate) {
         // Fallback for unknown agents
         return `- ${agentType}: Dynamic agent (description not available)
@@ -175,7 +180,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
   if (!(toolName in codebuffToolDefs)) {
     return {
       toolName,
-      toolCallId: generateCompactId(),
+      toolCallId: rawToolCall.toolCallId,
       args: rawToolCall.args,
       error: `Tool ${toolName} not found`,
     }
@@ -213,13 +218,17 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
   if (!result.success) {
     return {
       toolName: validName,
-      toolCallId: generateCompactId(),
+      toolCallId: rawToolCall.toolCallId,
       args: rawToolCall.args,
       error: `Invalid parameters for ${validName}: ${JSON.stringify(result.error.issues, null, 2)}`,
     }
   }
 
-  return { toolName: validName, args: result.data } as CodebuffToolCall<T>
+  return {
+    toolName: validName,
+    args: result.data,
+    toolCallId: rawToolCall.toolCallId,
+  } as CodebuffToolCall<T>
 }
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
