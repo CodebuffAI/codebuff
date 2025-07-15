@@ -35,6 +35,19 @@ export const cliOptions: CliParam[] = [
     menuDescription: 'Initialize Codebuff for the project',
   },
   {
+    flags: '--agent <agent-id>',
+    description:
+      'Specify which agent to invoke (e.g., "file_picker", "reviewer", "thinker")',
+    menuDescription: 'Invoke a specific agent by ID',
+    hidden: false,
+  },
+  {
+    flags: '--params <json>',
+    description: 'JSON parameters to pass to the agent',
+    menuDescription: 'JSON parameters for the agent',
+    hidden: false,
+  },
+  {
     flags: '--model <model>',
     description:
       'Experimental: Specify the main model to use for the agent ("sonnet-3.6", "sonnet-3.7", "gpt-4.1", "gemini-2.5-pro", "o4-mini", "o3"). Be aware codebuff might not work as well with non-default models.',

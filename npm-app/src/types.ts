@@ -1,13 +1,15 @@
-import { CostMode } from '@codebuff/common/constants'
+import type { CostMode } from '@codebuff/common/constants'
 
 export type GitCommand = 'stage' | undefined
 
 export interface CliOptions {
   initialInput?: string
-  git: GitCommand
+  git?: GitCommand
   costMode: CostMode
   runInitFlow?: boolean
   model?: string
+  agent?: string
+  params?: Record<string, any>
 }
 
 /**

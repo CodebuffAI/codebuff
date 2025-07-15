@@ -25,7 +25,7 @@ import { logger } from './utils/logger'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, git, costMode, runInitFlow, model }: CliOptions
+  { initialInput, git, costMode, runInitFlow, model, agent, params }: CliOptions
 ) {
   initSquashNewLines()
   enableSquashNewlines()
@@ -52,7 +52,7 @@ async function codebuff(
   ])
 
   // Initialize the CLI singleton
-  CLI.initialize(readyPromise, { git, costMode, model })
+  CLI.initialize(readyPromise, { git, costMode, model, agent, params })
   const cli = CLI.getInstance()
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })
@@ -89,6 +89,8 @@ Examples:
   $ codebuff                            # Start in current directory
   $ codebuff my-project                 # Start in specific directory
   $ codebuff --create nextjs my-app     # Create and scaffold a new Next.js project
+  $ codebuff --agent file_picker "find relevant files for authentication"
+  $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
 
 For all commands and options, run 'codebuff' and then type 'help'.
 `
@@ -141,6 +143,19 @@ For all commands and options, run 'codebuff' and then type 'help'.
   // Handle git integration
   const git = options.git === 'stage' ? ('stage' as const) : undefined
 
+  // Parse agent params if provided
+  let parsedAgentParams: Record<string, any> | undefined
+  if (options.params) {
+    try {
+      parsedAgentParams = JSON.parse(options.params)
+    } catch (error) {
+      console.error(
+        red(`Error parsing --params JSON: ${error}`)
+      )
+      process.exit(1)
+    }
+  }
+
   // Get project directory and initial input
   const projectPath = args[0]
   const initialInput = args.slice(1).join(' ')
@@ -151,5 +166,7 @@ For all commands and options, run 'codebuff' and then type 'help'.
     costMode,
     runInitFlow: options.init,
     model: options.model,
+    agent: options.agent,
+    params: parsedAgentParams,
   })
 }

@@ -94,6 +94,8 @@ export class CLI {
   private readyPromise: Promise<any>
   private git: GitCommand
   private costMode: CostMode
+  public agent?: string
+  public initialParams?: Record<string, any>
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
   private lastSigintTime: number = 0
@@ -107,10 +109,12 @@ export class CLI {
 
   private constructor(
     readyPromise: Promise<[ProjectFileContext, void]>,
-    { git, costMode, model }: CliOptions
+    { git, costMode, model, agent, params }: CliOptions
   ) {
     this.git = git
     this.costMode = costMode
+    this.agent = agent
+    this.initialParams = params
 
     this.setupSignalHandlers()
     this.initReadlineInterface()

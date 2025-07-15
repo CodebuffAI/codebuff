@@ -11,6 +11,7 @@ import { WebSocket } from 'ws'
 import { renderToolResults } from '@codebuff/common/constants/tools'
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
+import { agentRegistry } from './templates/agent-registry'
 import { ClientToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
@@ -39,6 +40,8 @@ export const mainPrompt = async (
     fingerprintId,
     costMode,
     promptId,
+    agentId,
+    promptParams,
   } = action
   const { fileContext, mainAgentState } = sessionState
 
@@ -98,20 +101,46 @@ export const mainPrompt = async (
     }
   }
 
-  const agentType = (
-    {
-      ask: AgentTemplateTypes.ask,
-      lite: AgentTemplateTypes.base_lite,
-      normal: AgentTemplateTypes.base,
-      max: AgentTemplateTypes.base_max,
-      experimental: AgentTemplateTypes.base_experimental,
-    } satisfies Record<CostMode, AgentTemplateType>
-  )[costMode]
+  // Determine agent type - prioritize CLI agent selection over cost mode
+  let agentType: AgentTemplateType
+
+  if (agentId) {
+    // Initialize agent registry to validate agent ID
+    await agentRegistry.initialize(fileContext)
+
+    if (!agentRegistry.hasAgent(agentId)) {
+      const availableAgents = agentRegistry.getAvailableTypes()
+      throw new Error(
+        `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`
+      )
+    }
+
+    agentType = agentId
+    logger.info(
+      {
+        agentId,
+        promptParams,
+        prompt: prompt?.slice(0, 50),
+      },
+      `Using CLI-specified agent: ${agentId}`
+    )
+  } else {
+    // Fall back to cost mode mapping
+    agentType = (
+      {
+        ask: AgentTemplateTypes.ask,
+        lite: AgentTemplateTypes.base_lite,
+        normal: AgentTemplateTypes.base,
+        max: AgentTemplateTypes.base_max,
+        experimental: AgentTemplateTypes.base_experimental,
+      } satisfies Record<CostMode, AgentTemplateType>
+    )[costMode]
+  }
 
   const { agentState } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,
-    params: undefined,
+    params: promptParams,
     agentType,
     agentState: mainAgentState,
     fingerprintId,

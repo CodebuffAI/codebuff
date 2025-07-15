@@ -23,6 +23,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('prompt'),
     promptId: z.string(),
     prompt: z.string().or(z.undefined()),
+    promptParams: z.record(z.string(), z.any()).optional(), // Additional json params.
     fingerprintId: z.string(),
     authToken: z.string().optional(),
     costMode: z.enum(costModes).optional().default('normal'),
@@ -30,6 +31,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     toolResults: z.array(toolResultSchema),
     model: z.string().optional(),
     repoUrl: z.string().optional(),
+    agentId: z.string().optional(),
   }),
   z.object({
     type: z.literal('read-files-response'),

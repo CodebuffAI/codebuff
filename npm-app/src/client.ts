@@ -940,9 +940,6 @@ export class Client {
     loggerContext.clientRequestId = userInputId
     const startTime = Date.now() // Capture start time
 
-    // Check if we're in manager mode using CLI's isManagerMode flag
-    const cli = CLI.getInstance()
-
     const f = this.subscribeToResponse.bind(this)
 
     const { responsePromise, stopResponse } = f(
@@ -987,11 +984,18 @@ export class Client {
 
     Spinner.get().start('Thinking...')
 
-    const action = {
+    // Get agent and params from CLI instance
+    const cli = CLI.getInstance()
+    const cliAgent = cli.agent
+    const cliParams = cli.initialParams
+    cli.initialParams = undefined
+
+    const action: ClientAction = {
+      type: 'prompt',
       promptId: userInputId,
       prompt: cleanPrompt,
-      originalPrompt: prompt, // Keep original for context
-      preferredAgents,
+      agentId: cliAgent, // Add explicit agent selection
+      promptParams: cliParams, // Add parsed params
       sessionState: this.sessionState,
       toolResults,
       fingerprintId: await this.fingerprintId,
@@ -999,12 +1003,9 @@ export class Client {
       costMode: this.costMode,
       model: this.model,
       repoUrl: loggerContext.repoUrl,
-      repoName: loggerContext.repoName,
+      // repoName: loggerContext.repoName,
     }
-    this.webSocket.sendAction({
-      type: 'prompt',
-      ...action,
-    })
+    this.webSocket.sendAction(action)
 
     return {
       responsePromise,
