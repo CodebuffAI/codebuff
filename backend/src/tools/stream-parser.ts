@@ -69,9 +69,7 @@ export async function processStreamWithTools<T extends string>(options: {
   let previousToolCallFinished = streamDonePromise
   const state: Record<string, any> = {
     ws,
-    clientSessionId,
     fingerprintId,
-    userInputId,
     userId,
     repoId,
     agentTemplate,

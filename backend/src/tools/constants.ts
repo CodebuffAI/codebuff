@@ -104,10 +104,10 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
 
-    fileContext: ProjectFileContext
     agentStepId: string
     clientSessionId: string
     userInputId: string
+    fileContext: ProjectFileContext
 
     fullResponse: string
 

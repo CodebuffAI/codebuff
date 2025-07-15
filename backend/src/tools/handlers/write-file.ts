@@ -1,4 +1,4 @@
-import { CoreMessage } from 'ai'
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { partition } from 'lodash'
 import { WebSocket } from 'ws'
 import { processFileBlock } from '../../process-file-block'
@@ -39,6 +39,10 @@ export type FileProcessingMutableState = {
 export const handleWriteFile = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'write_file'>
+
+  clientSessionId: string
+  userInputId: string
+
   requestClientToolCall: (
     toolCall: ClientToolCall<'write_file'>
   ) => Promise<string>
@@ -46,15 +50,14 @@ export const handleWriteFile = ((params: {
 
   state: {
     ws?: WebSocket
-    clientSessionId?: string
     fingerprintId?: string
-    userInputId?: string
     userId?: string
-    agentMessagesUntruncated?: CoreMessage[]
     fullResponse?: string
     prompt?: string
 
-    mutableState?: FileProcessingMutableState
+    mutableState?: FileProcessingMutableState & {
+      messages: CodebuffMessage[]
+    }
   }
 }): {
   result: Promise<string>
@@ -65,32 +68,25 @@ export const handleWriteFile = ((params: {
   const {
     previousToolCallFinished,
     toolCall,
+
+    clientSessionId,
+    userInputId,
+
     requestClientToolCall,
     writeToClient,
     state,
   } = params
   const { path, instructions, content } = toolCall.args
-  const {
-    ws,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    fullResponse,
-    prompt,
-  } = state
-  if (ws === undefined) {
-    throw new Error('Internal error: Missing WebSocket in state')
+  const { ws, fingerprintId, userId, fullResponse, prompt } = state
+  if (!ws) {
+    throw new Error('Internal error for write_file: Missing WebSocket in state')
   }
-  if (clientSessionId === undefined) {
-    throw new Error('Internal error: Missing clientSessionId in state')
+  if (!fingerprintId) {
+    throw new Error(
+      'Internal error for write_file: Missing fingerprintId in state'
+    )
   }
-  if (fingerprintId === undefined) {
-    throw new Error('Internal error: Missing fingerprintId in state')
-  }
-  if (userInputId === undefined) {
-    throw new Error('Internal error: Missing userInputId in state')
-  }
+
   const mutableState = {
     promisesByPath: {},
     allPromises: [],
@@ -101,7 +97,10 @@ export const handleWriteFile = ((params: {
   }
   const fileProcessingPromisesByPath = mutableState.promisesByPath
   const fileProcessingPromises = mutableState.allPromises ?? []
-  const agentMessagesUntruncated = state.agentMessagesUntruncated ?? []
+  const agentMessagesUntruncated = mutableState.messages
+  if (!agentMessagesUntruncated) {
+    throw new Error('Internal error for write_file: Missing messages in state')
+  }
 
   // Initialize state for this file path if needed
   if (!fileProcessingPromisesByPath[path]) {
