@@ -87,8 +87,8 @@ export const handleCreatePlan = ((params: {
 
   return {
     result: previousToolCallFinished.then(async () => {
-      return await postStreamProcessing(
-        toolCall,
+      return await postStreamProcessing<'create_plan'>(
+        change,
         mutableState,
         writeToClient,
         requestClientToolCall

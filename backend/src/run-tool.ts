@@ -17,6 +17,7 @@ import {
   requestRelevantFilesForTraining,
 } from './find-files/request-files-prompt'
 import { getFileReadingUpdates } from './get-file-reading-updates'
+import { TextBlock } from './llm-apis/claude'
 import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
 import { searchWeb } from './llm-apis/linkup-api'
 import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
@@ -29,7 +30,6 @@ import { renderReadFilesResult } from './util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 import { requestFiles, requestToolCall } from './websockets/websocket-action'
-import { TextBlock } from './llm-apis/claude'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
@@ -640,7 +640,7 @@ export async function runToolInner(
           const agentState: AgentState = {
             agentId,
             agentType,
-            agentContext: '',
+            agentContext: {},
             subagents: [],
             messageHistory: subAgentMessages,
             stepsRemaining: 20, // MAX_AGENT_STEPS

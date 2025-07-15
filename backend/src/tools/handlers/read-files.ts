@@ -1,5 +1,5 @@
+import { CodebuffMessage } from '@codebuff/common/types/message'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { CoreMessage } from 'ai'
 import { WebSocket } from 'ws'
 import { getFileReadingUpdates } from '../../get-file-reading-updates'
 import { logger } from '../../util/logger'
@@ -12,13 +12,15 @@ export const handleReadFiles = ((params: {
   fileContext: ProjectFileContext
   state: {
     ws?: WebSocket
-    messages?: CoreMessage[]
     userId?: string
     agentStepId?: string
     clientSessionId?: string
     fingerprintId?: string
     userInputId?: string
     repoId?: string
+    mutableState?: {
+      messages: CodebuffMessage[]
+    }
   }
 }): {
   result: Promise<string>
@@ -27,19 +29,19 @@ export const handleReadFiles = ((params: {
   const { previousToolCallFinished, toolCall, fileContext, state } = params
   const {
     ws,
-    messages,
     agentStepId,
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
     repoId,
+    mutableState,
   } = state
   const { paths } = toolCall.args
   if (!ws) {
     throw new Error('Internal error for read_files: Missing WebSocket in state')
   }
-  if (!messages) {
+  if (!mutableState?.messages) {
     throw new Error('Internal error for read_files: Missing messages in state')
   }
   if (!agentStepId) {
@@ -66,7 +68,7 @@ export const handleReadFiles = ((params: {
   const readFilesResultsPromise = (async () => {
     const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
       ws,
-      messages,
+      mutableState.messages,
       fileContext,
       {
         requestedFiles: paths,

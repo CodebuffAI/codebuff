@@ -5,9 +5,9 @@ import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
 export const handleReadDocs = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'read_docs'>
+  agentStepId: string
   state: {
     userId?: string
-    agentStepId?: string
     clientSessionId?: string
     fingerprintId?: string
     userInputId?: string
@@ -17,23 +17,11 @@ export const handleReadDocs = ((params: {
   result: Promise<string>
   state: {}
 } => {
-  const { previousToolCallFinished, toolCall, state } = params
+  const { previousToolCallFinished, toolCall, agentStepId, state } = params
   const { libraryTitle, topic, max_tokens } = toolCall.args
-  const {
-    userId,
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    repoId,
-  } = state
+  const { userId, clientSessionId, fingerprintId, userInputId, repoId } = state
   if (!userId) {
     throw new Error('Internal error for read_docs: Missing userId in state')
-  }
-  if (!agentStepId) {
-    throw new Error(
-      'Internal error for read_docs: Missing agentStepId in state'
-    )
   }
   if (!clientSessionId) {
     throw new Error(
@@ -49,9 +37,6 @@ export const handleReadDocs = ((params: {
     throw new Error(
       'Internal error for read_docs: Missing userInputId in state'
     )
-  }
-  if (!repoId) {
-    throw new Error('Internal error for read_docs: Missing repoId in state')
   }
 
   const docsStartTime = Date.now()
