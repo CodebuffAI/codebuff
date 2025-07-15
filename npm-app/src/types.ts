@@ -10,6 +10,7 @@ export interface CliOptions {
   model?: string
   agent?: string
   params?: Record<string, any>
+  print?: boolean
 }
 
 /**

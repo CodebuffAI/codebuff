@@ -96,6 +96,7 @@ export class CLI {
   private costMode: CostMode
   public agent?: string
   public initialParams?: Record<string, any>
+  private printMode: boolean = false
   private isReceivingResponse: boolean = false
   private stopResponse: (() => void) | null = null
   private lastSigintTime: number = 0
@@ -109,12 +110,13 @@ export class CLI {
 
   private constructor(
     readyPromise: Promise<[ProjectFileContext, void]>,
-    { git, costMode, model, agent, params }: CliOptions
+    { git, costMode, model, agent, params, print }: CliOptions
   ) {
     this.git = git
     this.costMode = costMode
     this.agent = agent
     this.initialParams = params
+    this.printMode = print || false
 
     this.setupSignalHandlers()
     this.initReadlineInterface()
@@ -201,7 +203,7 @@ export class CLI {
       }
       sendKillSignalToAllBackgroundProcesses()
       const isHomeDir = getProjectRoot() === os.homedir()
-      if (!isHomeDir) {
+      if (!isHomeDir && !this.printMode) {
         console.log(green('Codebuff out!'))
       }
       if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
@@ -476,16 +478,29 @@ export class CLI {
     runInitFlow?: boolean
   }) {
     const client = Client.getInstance()
-    if (client.user) {
-      displayGreeting(this.costMode, client.user.name)
+
+    // In print mode, skip greeting and interactive setup
+    if (this.printMode) {
+      if (!client.user) {
+        console.error(
+          'Error: Print mode requires authentication. Please run "codebuff login" first.'
+        )
+        process.exit(1)
+      }
     } else {
-      console.log(
-        `Welcome to Codebuff! Give us a sec to get your account set up...`
-      )
-      await client.login()
-      return
+      // Normal interactive mode
+      if (client.user) {
+        displayGreeting(this.costMode, client.user.name)
+      } else {
+        console.log(
+          `Welcome to Codebuff! Give us a sec to get your account set up...`
+        )
+        await client.login()
+        return
+      }
+      this.freshPrompt()
     }
-    this.freshPrompt()
+
     if (runInitFlow) {
       process.stdout.write('init\n')
       await this.handleUserInput('init')
@@ -842,6 +857,12 @@ export class CLI {
     this.isReceivingResponse = false
 
     Spinner.get().stop()
+
+    // In print mode, exit after first response completes
+    if (this.printMode) {
+      await this.handleExit()
+      return
+    }
 
     this.freshPrompt()
   }

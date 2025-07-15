@@ -25,7 +25,16 @@ import { logger } from './utils/logger'
 
 async function codebuff(
   projectDir: string | undefined,
-  { initialInput, git, costMode, runInitFlow, model, agent, params }: CliOptions
+  {
+    initialInput,
+    git,
+    costMode,
+    runInitFlow,
+    model,
+    agent,
+    params,
+    print,
+  }: CliOptions
 ) {
   initSquashNewLines()
   enableSquashNewlines()
@@ -52,7 +61,7 @@ async function codebuff(
   ])
 
   // Initialize the CLI singleton
-  CLI.initialize(readyPromise, { git, costMode, model, agent, params })
+  CLI.initialize(readyPromise, { git, costMode, model, agent, params, print })
   const cli = CLI.getInstance()
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })
@@ -91,6 +100,7 @@ Examples:
   $ codebuff --create nextjs my-app     # Create and scaffold a new Next.js project
   $ codebuff --agent file_picker "find relevant files for authentication"
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
+  $ codebuff -p "tell me about the codebase"  # Print mode (non-interactive)
 
 For all commands and options, run 'codebuff' and then type 'help'.
 `
@@ -143,15 +153,26 @@ For all commands and options, run 'codebuff' and then type 'help'.
   // Handle git integration
   const git = options.git === 'stage' ? ('stage' as const) : undefined
 
+  // Validate print mode requirements
+  if (options.print) {
+    const hasPrompt = args.slice(1).length > 0
+    const hasParams = options.params
+
+    if (!hasPrompt && !hasParams) {
+      console.error(
+        red('Error: Print mode requires either a prompt or --params to be set')
+      )
+      process.exit(1)
+    }
+  }
+
   // Parse agent params if provided
   let parsedAgentParams: Record<string, any> | undefined
   if (options.params) {
     try {
       parsedAgentParams = JSON.parse(options.params)
     } catch (error) {
-      console.error(
-        red(`Error parsing --params JSON: ${error}`)
-      )
+      console.error(red(`Error parsing --params JSON: ${error}`))
       process.exit(1)
     }
   }
@@ -168,5 +189,6 @@ For all commands and options, run 'codebuff' and then type 'help'.
     model: options.model,
     agent: options.agent,
     params: parsedAgentParams,
+    print: options.print,
   })
 }

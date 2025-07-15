@@ -78,4 +78,11 @@ export const cliOptions: CliParam[] = [
     description: 'Use cutting-edge experimental features and models',
     hidden: true,
   },
+  {
+    flags: '--print, -p',
+    description:
+      'Print-only mode: run until first response completes then exit (requires prompt or params)',
+    menuDescription: 'Print-only mode: run once then exit',
+    hidden: false,
+  },
 ]
