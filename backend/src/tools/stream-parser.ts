@@ -112,7 +112,10 @@ export async function processStreamWithTools<T extends string>(options: {
           return
         }
 
-        logger.info({ toolCall }, `${toolName} tool call detected in stream`)
+        logger.debug(
+          { toolCall },
+          `${toolName} (${toolCall.toolCallId}) tool call detected in stream`
+        )
         toolCalls.push(toolCall)
 
         // Filter out restricted tools in ask mode unless exporting summary
@@ -166,6 +169,10 @@ export async function processStreamWithTools<T extends string>(options: {
             toolCallId: toolCall.toolCallId,
             result,
           }
+          logger.debug(
+            { toolResult },
+            `${toolName} (${toolResult.toolCallId}) tool result for tool`
+          )
 
           toolResults.push(toolResult)
 
