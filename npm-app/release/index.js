@@ -61,7 +61,6 @@ function httpGet(url, options = {}) {
     // Add GitHub token if available
     const token = process.env.GITHUB_TOKEN
     if (token) {
-      console.log('Using your GITHUB_TOKEN to download the latest version.')
       reqOptions.headers.Authorization = `Bearer ${token}`
     }
 
