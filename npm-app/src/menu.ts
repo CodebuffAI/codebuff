@@ -273,7 +273,7 @@ To get started:
   }
 
   console.log(
-    `Codebuff will read and write files in "${getProjectRoot()}". Type "help" for a list of commands.`
+    `Codebuff will read and write files in "${getProjectRoot()}". Type "/help" for a list of commands.`
   )
   const gitDir = path.join(getProjectRoot(), '.git')
   if (!fs.existsSync(gitDir)) {
@@ -318,7 +318,6 @@ export function displayMenu() {
   }
 
   console.log(`
-${colorizeRandom('          ')}
 ${colorizeRandom('██████╗')}${colorizeRandom(' ██████╗  ')}${colorizeRandom('██████╗ ')}${colorizeRandom('███████╗')}${colorizeRandom('██████╗ ')}${colorizeRandom('██╗   ██╗')}${colorizeRandom('███████╗')}${colorizeRandom('███████╗')}
 ${colorizeRandom('██╔════╝')}${colorizeRandom('██╔═══██╗')}${colorizeRandom('██╔══██╗')}${colorizeRandom('██╔════╝')}${colorizeRandom('██╔══██╗')}${colorizeRandom('██║   ██║')}${colorizeRandom('██╔════╝')}${colorizeRandom('██╔════╝')}
 ${colorizeRandom('██║     ')}${colorizeRandom('██║   ██║')}${colorizeRandom('██║  ██║')}${colorizeRandom('█████╗  ')}${colorizeRandom('██████╔╝')}${colorizeRandom('██║   ██║')}${colorizeRandom('█████╗  ')}${colorizeRandom('█████╗  ')}
@@ -428,7 +427,10 @@ ${cyan('  • "Set up CI/CD pipeline config"')}
     return `${paddedCommand}${description}`
   }
 
-  const menuLines = interactiveCommandDetails
+  const menuLines = [
+    { commandText: '"/"', description: 'Display commands' },
+    ...interactiveCommandDetails,
+  ]
     .filter((cmd) => cmd.commandText) // Filter out slash-only commands like the discrete undo/redo
     .map((cmd) => formatMenuLine(cmd.commandText, cmd.description))
 
