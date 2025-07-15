@@ -11,6 +11,7 @@ export interface CliOptions {
   agent?: string
   params?: Record<string, any>
   print?: boolean
+  cwd?: string
 }
 
 /**

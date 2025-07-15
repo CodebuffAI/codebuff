@@ -21,7 +21,7 @@
     "start-studio": "bun --cwd common db:studio",
     "start-server": "bun --cwd backend dev",
     "start-manifold": "bun --cwd npm-app start-manifold",
-    "start-codebuff-test": "bun --cwd npm-app start-dir ../../codebuff-test",
+    "start-codebuff-test": "bun --cwd npm-app start --cwd ../../codebuff-test",
     "start-litestar": "bun --cwd npm-app start-litestar",
     "start-jpcsp": "bun --cwd npm-app start-jpcsp",
     "start-vscode": "bun --cwd npm-app start-vscode",

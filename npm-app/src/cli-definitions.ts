@@ -8,10 +8,6 @@ export interface CliParam {
 
 export const cliArguments: CliParam[] = [
   {
-    flags: '[project-directory]',
-    description: 'Project directory (default: current directory)',
-  },
-  {
     flags: '[initial-prompt...]',
     description: 'Initial prompt to send',
     menuDescription: 'Initial prompt to send to Codebuff',
@@ -37,7 +33,7 @@ export const cliOptions: CliParam[] = [
   {
     flags: '--agent <agent-id>',
     description:
-      'Specify which agent to invoke (e.g., "file_picker", "reviewer", "thinker")',
+      'Specify which agent to invoke (e.g., "file_picker", "reviewer", "base")',
     menuDescription: 'Invoke a specific agent by ID',
     hidden: false,
   },
@@ -83,6 +79,12 @@ export const cliOptions: CliParam[] = [
     description:
       'Print-only mode: run until first response completes then exit (requires prompt or params)',
     menuDescription: 'Print-only mode: run once then exit',
+    hidden: false,
+  },
+  {
+    flags: '--cwd <directory>',
+    description: 'Set the working directory (default: current directory)',
+    menuDescription: 'Set the working directory',
     hidden: false,
   },
 ]

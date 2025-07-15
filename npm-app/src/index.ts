@@ -23,29 +23,29 @@ import { initAnalytics } from './utils/analytics'
 import { findGitRoot } from './utils/git'
 import { logger } from './utils/logger'
 
-async function codebuff(
-  projectDir: string | undefined,
-  {
-    initialInput,
-    git,
-    costMode,
-    runInitFlow,
-    model,
-    agent,
-    params,
-    print,
-  }: CliOptions
-) {
+async function codebuff({
+  initialInput,
+  git,
+  costMode,
+  runInitFlow,
+  model,
+  agent,
+  params,
+  print,
+  cwd,
+}: CliOptions) {
   initSquashNewLines()
   enableSquashNewlines()
 
   // Initialize starting directory
-  const { cwd, shouldSearch } = getStartingDirectory(projectDir)
-  const gitRoot = shouldSearch ? findGitRoot(cwd) ?? cwd : cwd
+  const { cwd: workingDir, shouldSearch } = getStartingDirectory(cwd)
+  const gitRoot = shouldSearch
+    ? findGitRoot(workingDir) ?? workingDir
+    : workingDir
   const projectRoot = setProjectRoot(gitRoot)
-  setWorkingDirectory(cwd)
+  setWorkingDirectory(workingDir)
 
-  await recreateShell(cwd)
+  await recreateShell(workingDir)
 
   // Kill all processes we failed to kill before
   const processCleanupPromise = logAndHandleStartup()
@@ -96,11 +96,11 @@ if (require.main === module) {
     `
 Examples:
   $ codebuff                            # Start in current directory
-  $ codebuff my-project                 # Start in specific directory
+  $ codebuff -p "tell me about the codebase"  # Print mode (non-interactive)
+  $ codebuff --cwd my-project           # Start in specific directory
   $ codebuff --create nextjs my-app     # Create and scaffold a new Next.js project
   $ codebuff --agent file_picker "find relevant files for authentication"
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
-  $ codebuff -p "tell me about the codebase"  # Print mode (non-interactive)
 
 For all commands and options, run 'codebuff' and then type 'help'.
 `
@@ -155,7 +155,7 @@ For all commands and options, run 'codebuff' and then type 'help'.
 
   // Validate print mode requirements
   if (options.print) {
-    const hasPrompt = args.slice(1).length > 0
+    const hasPrompt = args.length > 0
     const hasParams = options.params
 
     if (!hasPrompt && !hasParams) {
@@ -177,11 +177,10 @@ For all commands and options, run 'codebuff' and then type 'help'.
     }
   }
 
-  // Get project directory and initial input
-  const projectPath = args[0]
-  const initialInput = args.slice(1).join(' ')
+  // Get initial input
+  const initialInput = args.join(' ')
 
-  codebuff(projectPath, {
+  codebuff({
     initialInput,
     git,
     costMode,
@@ -190,5 +189,6 @@ For all commands and options, run 'codebuff' and then type 'help'.
     agent: options.agent,
     params: parsedAgentParams,
     print: options.print,
+    cwd: options.cwd,
   })
 }
