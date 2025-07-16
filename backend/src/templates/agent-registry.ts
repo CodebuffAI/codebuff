@@ -1,10 +1,10 @@
 import { AGENT_NAMES } from '@codebuff/common/constants/agents'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 
+import { logger } from '../util/logger'
 import { agentTemplates as staticTemplates } from './agent-list'
 import { dynamicAgentService } from './dynamic-agent-service'
-import { AgentTemplate, AgentTemplateUnion } from './types'
-import { logger } from '../util/logger'
+import { AgentTemplateUnion } from './types'
 
 /**
  * Global agent registry that combines static and dynamic agents
@@ -45,7 +45,6 @@ class AgentRegistry {
       if (updatedTemplates[baseType]) {
         updatedTemplates[baseType] = {
           ...updatedTemplates[baseType],
-          spawnableAgents: allAgentTypes as any[],
         }
       }
     }
