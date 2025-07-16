@@ -1,16 +1,18 @@
+import * as path from 'path'
+
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
+import { AgentTemplateType } from '@codebuff/common/types/session-state'
+import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
 import {
   validateSpawnableAgents,
   formatSpawnableAgentError,
 } from '@codebuff/common/util/agent-template-validation'
-import { AgentTemplateType } from '@codebuff/common/types/session-state'
-import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import * as path from 'path'
-import { z } from 'zod'
 import { jsonSchemaToZod } from 'json-schema-to-zod'
-import { logger } from '../util/logger'
+import { z } from 'zod'
+
 import { AgentTemplate, AgentTemplateUnion } from './types'
+import { logger } from '../util/logger'
 
 export interface DynamicAgentValidationError {
   filePath: string
@@ -33,7 +35,7 @@ export class DynamicAgentService {
   private isLoaded = false
 
   /**
-   * Load and validate dynamic agent templates from .agents/templates directory
+   * Load and validate dynamic agent templates from user-provided agentTemplates
    */
   async loadAgents(
     fileContext: ProjectFileContext
@@ -55,10 +57,10 @@ export class DynamicAgentService {
     }
 
     try {
-      // Use agentTemplates from fileContext
-      const jsonFiles = Object.keys(agentTemplates)
-        .filter((filePath) => filePath.endsWith('.json'))
-        .map((filePath) => path.basename(filePath))
+      // Use agentTemplates from fileContext - keys are already full paths
+      const jsonFiles = Object.keys(agentTemplates).filter((filePath) =>
+        filePath.endsWith('.json')
+      )
 
       // Pass 1: Collect all agent IDs from template files
       const dynamicAgentIds = await this.collectAgentIds(
@@ -67,9 +69,9 @@ export class DynamicAgentService {
       )
 
       // Pass 2: Load and validate each agent template
-      for (const fileName of jsonFiles) {
+      for (const filePath of jsonFiles) {
         await this.loadSingleAgent(
-          fileName,
+          filePath,
           dynamicAgentIds,
           fileContext,
           agentTemplates
@@ -101,9 +103,7 @@ export class DynamicAgentService {
   ): Promise<string[]> {
     const agentIds: string[] = []
 
-    for (const fileName of jsonFiles) {
-      const filePath = `.agents/templates/${fileName}`
-
+    for (const filePath of jsonFiles) {
       try {
         const content = agentTemplates[filePath]
         if (!content) {
@@ -124,7 +124,7 @@ export class DynamicAgentService {
       } catch (error) {
         // Log but don't fail the collection process
         logger.debug(
-          { fileName, error },
+          { filePath, error },
           'Failed to extract agent ID during collection phase'
         )
       }
@@ -137,12 +137,11 @@ export class DynamicAgentService {
    * Load and validate a single agent template file
    */
   private async loadSingleAgent(
-    fileName: string,
+    filePath: string,
     dynamicAgentIds: string[],
     fileContext: ProjectFileContext,
     agentTemplates: Record<string, string> = {}
   ): Promise<void> {
-    const filePath = `.agents/templates/${fileName}`
     const fileDir = path.join(fileContext.projectRoot, path.dirname(filePath))
 
     try {
