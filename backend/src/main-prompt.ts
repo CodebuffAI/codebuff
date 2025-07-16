@@ -106,10 +106,15 @@ export const mainPrompt = async (
 
   if (agentId) {
     // Initialize agent registry to validate agent ID
+    logger.debug({ agentId }, 'Validating CLI-specified agent ID')
     await agentRegistry.initialize(fileContext)
 
     if (!agentRegistry.hasAgent(agentId)) {
       const availableAgents = agentRegistry.getAvailableTypes()
+      logger.error(
+        { agentId, availableAgents },
+        'Invalid agent ID specified via CLI'
+      )
       throw new Error(
         `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`
       )
@@ -135,6 +140,11 @@ export const mainPrompt = async (
         experimental: AgentTemplateTypes.base_experimental,
       } satisfies Record<CostMode, AgentTemplateType>
     )[costMode]
+
+    logger.debug(
+      { costMode, agentType },
+      'Using cost mode to determine agent type'
+    )
   }
 
   const { agentState } = await loopAgentSteps(ws, {

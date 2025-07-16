@@ -7,6 +7,7 @@ import { getStubProjectFileContext } from '@codebuff/common/util/file'
 mock.module('../util/logger', () => ({
   logger: {
     debug: () => {},
+    info: () => {},
     warn: () => {},
     error: () => {},
   },

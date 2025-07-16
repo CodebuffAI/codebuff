@@ -67,22 +67,36 @@ async function getAgentTemplateWithOverrides(
   agentType: AgentTemplateType,
   fileContext: ProjectFileContext
 ): Promise<AgentTemplateUnion> {
+  logger.debug({ agentType }, 'Getting agent template with overrides')
+
   // Initialize registry if needed
   await agentRegistry.initialize(fileContext)
 
   const baseTemplate = agentRegistry.getTemplate(agentType)
   if (!baseTemplate) {
     const availableTypes = agentRegistry.getAvailableTypes()
+    logger.error({ agentType, availableTypes }, 'Agent template not found')
     throw new Error(
       `Agent template not found for type: ${agentType}. Available types: ${availableTypes.join(', ')}`
     )
   }
 
+  logger.debug(
+    {
+      agentType,
+      implementation: baseTemplate.implementation,
+      name: baseTemplate.name,
+    },
+    'Found base agent template'
+  )
+
   if (baseTemplate.implementation === 'programmatic') {
     // Programmatic agents cannot be overridden.
+    logger.debug({ agentType }, 'Programmatic agent, skipping overrides')
     return baseTemplate
   }
 
+  logger.debug({ agentType }, 'Processing agent overrides')
   return processAgentOverrides(baseTemplate, fileContext)
 }
 
@@ -122,10 +136,22 @@ export const runAgentStep = async (
     fileContext
   )
   if (!agentTemplate) {
+    logger.error({ agentType }, 'Failed to get agent template')
     throw new Error(
       `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
     )
   }
+
+  logger.info(
+    {
+      agentType,
+      agentName: agentTemplate.name,
+      implementation: agentTemplate.implementation,
+      model:
+        agentTemplate.implementation === 'llm' ? agentTemplate.model : 'N/A',
+    },
+    'Agent template resolved for execution'
+  )
 
   if (agentTemplate.implementation === 'programmatic') {
     const agentState = await runProgrammaticAgent(agentTemplate, {
