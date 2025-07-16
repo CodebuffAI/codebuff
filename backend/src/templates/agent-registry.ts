@@ -1,10 +1,10 @@
 import { AGENT_NAMES } from '@codebuff/common/constants/agents'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 
-import { logger } from '../util/logger'
 import { agentTemplates as staticTemplates } from './agent-list'
 import { dynamicAgentService } from './dynamic-agent-service'
 import { AgentTemplateUnion } from './types'
+import { logger } from '../util/logger'
 
 /**
  * Global agent registry that combines static and dynamic agents
@@ -29,7 +29,9 @@ class AgentRegistry {
 
     // Combine static and dynamic templates
     const allTemplates = { ...staticTemplates, ...dynamicTemplates }
-    const allAgentTypes = Object.keys(allTemplates)
+
+    // Get user-defined agent types (dynamic agents with override=false)
+    const userDefinedAgentTypes = Object.keys(dynamicTemplates)
 
     // Update base agent templates to include all available agents
     const updatedTemplates = { ...allTemplates }
@@ -43,8 +45,15 @@ class AgentRegistry {
     ]
     for (const baseType of baseAgentTypes) {
       if (updatedTemplates[baseType]) {
+        const baseTemplate = updatedTemplates[baseType]
+        // Add user-defined agents to the base agent's spawnable agents list
+        const updatedSpawnableAgents = [
+          ...baseTemplate.spawnableAgents,
+          ...userDefinedAgentTypes,
+        ]
         updatedTemplates[baseType] = {
-          ...updatedTemplates[baseType],
+          ...baseTemplate,
+          spawnableAgents: updatedSpawnableAgents as any[],
         }
       }
     }
