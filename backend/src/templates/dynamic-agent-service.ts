@@ -47,6 +47,8 @@ export class DynamicAgentService {
     const agentTemplates = fileContext.agentTemplates || {}
     const hasAgentTemplates = Object.keys(agentTemplates).length > 0
 
+
+
     if (!hasAgentTemplates) {
       this.isLoaded = true
       return {
@@ -86,13 +88,7 @@ export class DynamicAgentService {
 
     this.isLoaded = true
 
-    const templateCount = Object.keys(this.templates).length
-    if (templateCount > 0 && logger?.info) {
-      logger.info(
-        { templateCount, agentIds: Object.keys(this.templates) },
-        'Dynamic agents loaded successfully'
-      )
-    }
+
 
     return {
       templates: this.templates,

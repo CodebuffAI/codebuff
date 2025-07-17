@@ -9,7 +9,10 @@ import {
   DynamicAgentTemplateSchema,
 } from '../types/dynamic-agent-template'
 import { AgentTemplateTypes } from '../types/session-state'
-import { normalizeAgentName, normalizeAgentNames } from './agent-name-normalization'
+import {
+  normalizeAgentName,
+  normalizeAgentNames,
+} from './agent-name-normalization'
 
 export interface SpawnableAgentValidationResult {
   valid: boolean
