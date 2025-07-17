@@ -243,19 +243,12 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     console.log(`${costModeDescription[costMode]}`)
   }
 
-  const news =
-    'New July 2: Codebuff has been updated to be multi-agent! You may see Codebuff spawn subagents to better fulfill your requests.'
-  if (news) {
-    console.log()
-    console.log(blueBright(news))
-    if (costMode === 'max') {
-      console.log(
-        blueBright(
-          'Max mode is now even more powerful, though more expensive, as it uses Claude Opus.'
-        )
+  if (costMode === 'max') {
+    console.log(
+      blueBright(
+        '\n\nMax mode is now even more powerful, though more expensive, as it uses Claude Opus.\n\n'
       )
-    }
-    console.log()
+    )
   }
 
   if (!isValidProjectRoot(getProjectRoot())) {
