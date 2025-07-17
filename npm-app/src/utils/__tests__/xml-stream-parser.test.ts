@@ -3,8 +3,8 @@ import path from 'path'
 import { Writable } from 'stream'
 
 // @ts-ignore
-import { describe, expect, test } from 'bun:test'
 import { getToolCallString } from '@codebuff/common/constants/tools'
+import { describe, expect, test } from 'bun:test'
 import stripAnsi from 'strip-ansi'
 
 import { defaultToolCallRenderer } from '../tool-renderers'
@@ -18,9 +18,13 @@ const toolRenderers = {
 
 describe('createXMLStreamParser', () => {
   test('pipes output to writable stream', async () => {
-    const xml = getToolCallString('run_terminal_command', {
-      command: 'echo hello',
-    })
+    const xml = getToolCallString(
+      'run_terminal_command',
+      {
+        command: 'echo hello',
+      },
+      true
+    )
     let result = ''
 
     const processor = createXMLStreamParser(toolRenderers)
@@ -47,8 +51,8 @@ describe('createXMLStreamParser', () => {
 
   test('handles multiple tool calls in sequence', async () => {
     const xml =
-      getToolCallString('run_terminal_command', { command: 'ls' }) +
-      getToolCallString('read_files', { paths: 'file.txt' })
+      getToolCallString('run_terminal_command', { command: 'ls' }, true) +
+      getToolCallString('read_files', { paths: 'file.txt' }, true)
     let result = ''
 
     const processor = createXMLStreamParser(toolRenderers)
@@ -77,9 +81,9 @@ describe('createXMLStreamParser', () => {
 
   test('handles text content between tool calls', async () => {
     const xml =
-      getToolCallString('run_terminal_command', { command: 'ls' }) +
+      getToolCallString('run_terminal_command', { command: 'ls' }, true) +
       'Some text between tool calls' +
-      getToolCallString('read_files', { paths: 'file.txt' })
+      getToolCallString('read_files', { paths: 'file.txt' }, true)
     let result = ''
 
     const processor = createXMLStreamParser(toolRenderers)
@@ -109,10 +113,18 @@ describe('createXMLStreamParser', () => {
 
   test('processes chunks incrementally with output verification', async () => {
     // Define chunks that will be written one at a time
-    const terminalCommand = getToolCallString('run_terminal_command', {
-      command: 'npm install',
-    })
-    const codeSearch = getToolCallString('code_search', { pattern: 'function' })
+    const terminalCommand = getToolCallString(
+      'run_terminal_command',
+      {
+        command: 'npm install',
+      },
+      true
+    )
+    const codeSearch = getToolCallString(
+      'code_search',
+      { pattern: 'function' },
+      true
+    )
 
     // Split the XML into chunks
     const chunks = [

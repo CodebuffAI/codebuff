@@ -68,6 +68,7 @@ export function createXMLStreamParser(
       params = JSON.parse(paramsContent)
     } catch (error: any) {
       // do nothing
+      return
     }
 
     const toolName = params[toolNameParam] as string
