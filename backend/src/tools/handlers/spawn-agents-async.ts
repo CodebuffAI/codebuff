@@ -12,6 +12,8 @@ import { agentRegistry } from '../../templates/agent-registry'
 import { AgentTemplate } from '../../templates/types'
 import { logger } from '../../util/logger'
 import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
+import { handleSpawnAgents } from './spawn-agents'
 
 export const handleSpawnAgentsAsync = ((params: {
   previousToolCallFinished: Promise<void>
@@ -32,6 +34,16 @@ export const handleSpawnAgentsAsync = ((params: {
     }
   }
 }): { result: Promise<string>; state: {} } => {
+  if (!ASYNC_AGENTS_ENABLED) {
+    return handleSpawnAgents({
+      ...params,
+      toolCall: {
+        ...params.toolCall,
+        toolName: 'spawn_agents',
+      },
+    })
+  }
+
   const {
     previousToolCallFinished,
     toolCall,
