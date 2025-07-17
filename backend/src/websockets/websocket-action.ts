@@ -278,11 +278,56 @@ const onInit = async (
     const { agentTemplates } = fileContext
     let allValidationErrors: Array<{ filePath: string; message: string }> = []
 
+    logger.debug(
+      {
+        hasAgentTemplates: !!agentTemplates,
+        agentTemplateCount: agentTemplates ? Object.keys(agentTemplates).length : 0,
+        agentTemplatePaths: agentTemplates ? Object.keys(agentTemplates) : [],
+      },
+      'backend: onInit received agent templates from npm-app'
+    )
+
     if (agentTemplates) {
+      // Log each template content for debugging
+      for (const [filePath, content] of Object.entries(agentTemplates)) {
+        try {
+          const parsed = JSON.parse(content)
+          logger.debug(
+            {
+              filePath,
+              templateId: parsed.id,
+              templateName: parsed.name,
+              override: parsed.override,
+              contentLength: content.length,
+            },
+            'backend: Processing agent template file'
+          )
+        } catch (error) {
+          logger.debug(
+            {
+              filePath,
+              contentLength: content.length,
+              parseError: error instanceof Error ? error.message : 'Unknown error',
+            },
+            'backend: Failed to parse agent template JSON'
+          )
+        }
+      }
+
       // Load dynamic agent templates first to get their IDs
+      logger.debug('backend: Loading dynamic agents via dynamicAgentService')
       const { validationErrors: dynamicErrors } =
         await dynamicAgentService.loadAgents(fileContext)
       allValidationErrors.push(...dynamicErrors)
+
+      logger.debug(
+        {
+          dynamicAgentCount: dynamicAgentService.getAgentTypes().length,
+          dynamicAgentTypes: dynamicAgentService.getAgentTypes(),
+          dynamicValidationErrors: dynamicErrors,
+        },
+        'backend: Dynamic agent service loaded agents'
+      )
 
       // Get dynamic agent IDs for override validation
       const dynamicAgentIds = dynamicAgentService.getAgentTypes()
@@ -293,13 +338,31 @@ const onInit = async (
         dynamicAgentIds
       )
       allValidationErrors.push(...overrideErrors)
+
+      logger.debug(
+        {
+          overrideValidationErrors: overrideErrors,
+          totalValidationErrors: allValidationErrors.length,
+        },
+        'backend: Completed agent template validation'
+      )
     }
 
     const errorMessage = formatValidationErrorMessage(allValidationErrors)
 
     // Get all agent names (static + dynamic) for frontend
+    logger.debug('backend: Initializing agent registry')
     await agentRegistry.initialize(fileContext)
     const allAgentNames = agentRegistry.getAllAgentNames()
+
+    logger.debug(
+      {
+        totalAgentCount: Object.keys(allAgentNames).length,
+        agentNames: Object.keys(allAgentNames),
+        registryValidationErrors: agentRegistry.getValidationErrors(),
+      },
+      'backend: Agent registry initialized'
+    )
 
     // Send combined init and usage response
     const usageResponse = await genUsageResponse(

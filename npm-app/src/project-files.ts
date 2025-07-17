@@ -270,6 +270,15 @@ export const getProjectFileContext = async (
       )
     })
 
+    logger.debug(
+      {
+        agentTemplatePaths,
+        agentTemplateCount: agentTemplatePaths.length,
+        projectRoot,
+      },
+      'npm-app: Found agent template files'
+    )
+
     // Filter out agent template paths from knowledge files to avoid duplication
     const filteredKnowledgeFilePaths = knowledgeFilePaths.filter(
       (filePath) => !filePath.startsWith(AGENT_TEMPLATES_DIR)
@@ -283,6 +292,19 @@ export const getProjectFileContext = async (
     const agentTemplateFiles = getExistingFiles(agentTemplatePaths)
     const agentTemplateFilesWithScrapedContent =
       await addScrapedContentToFiles(agentTemplateFiles)
+
+    logger.debug(
+      {
+        loadedAgentTemplates: Object.keys(agentTemplateFilesWithScrapedContent),
+        agentTemplateFileSizes: Object.fromEntries(
+          Object.entries(agentTemplateFilesWithScrapedContent).map(([path, content]) => [
+            path,
+            content.length
+          ])
+        ),
+      },
+      'npm-app: Loaded agent template files with content'
+    )
 
     // Get knowledge files from user's home directory
     const homeDir = os.homedir()
@@ -312,6 +334,14 @@ export const getProjectFileContext = async (
       changesSinceLastChat,
       fileVersions: [],
     }
+
+    logger.debug(
+      {
+        agentTemplatesInContext: Object.keys(cachedProjectFileContext.agentTemplates),
+        contextAgentTemplateCount: Object.keys(cachedProjectFileContext.agentTemplates).length,
+      },
+      'npm-app: Created ProjectFileContext with agent templates'
+    )
   }
 
   return cachedProjectFileContext
