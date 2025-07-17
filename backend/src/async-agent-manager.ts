@@ -242,6 +242,36 @@ export class AsyncAgentManager {
   }
 
   /**
+   * Cleanup all agents associated with a specific user input ID
+   */
+  cleanupUserInputAgents(userInputId: string): void {
+    const agentsToCleanup: string[] = []
+
+    // Find all agents with the matching userInputId
+    for (const [agentId, agent] of this.agents.entries()) {
+      if (agent.userInputId.startsWith(userInputId)) {
+        agentsToCleanup.push(agentId)
+      }
+    }
+
+    // Cancel and remove the agents
+    for (const agentId of agentsToCleanup) {
+      const agent = this.agents.get(agentId)
+      if (agent && agent.status === 'running') {
+        agent.status = 'cancelled'
+        // Note: We don't terminate the WebSocket here as it might be shared
+        // The actual cleanup should happen in the agent execution loop
+      }
+      this.removeAgent(agentId)
+    }
+
+    logger.debug(
+      { userInputId, agentCount: agentsToCleanup.length },
+      'Cleaned up agents for user input ID'
+    )
+  }
+
+  /**
    * Get all running agents
    */
   getRunningAgents(): AsyncAgentInfo[] {

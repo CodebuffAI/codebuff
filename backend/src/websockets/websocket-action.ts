@@ -21,6 +21,7 @@ import { eq } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 
 import {
+  cancelUserInput,
   checkLiveUserInput,
   endUserInput,
   startUserInput,
@@ -32,6 +33,7 @@ import { logger, withLoggerContext } from '../util/logger'
 import { asSystemMessage } from '../util/messages'
 import { dynamicAgentService } from '../templates/dynamic-agent-service'
 import { agentRegistry } from '../templates/agent-registry'
+import { asyncAgentManager } from '../async-agent-manager'
 
 /**
  * Sends an action to the client via WebSocket
@@ -327,7 +329,8 @@ const onCancelUserInput = async ({
     logger.error({ authToken }, 'User id not found for authToken')
     return
   }
-  endUserInput(userId, promptId)
+  cancelUserInput(userId, promptId)
+  asyncAgentManager.cleanupUserInputAgents(promptId)
 }
 
 /**

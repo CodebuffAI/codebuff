@@ -1,3 +1,4 @@
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 import { logger } from './util/logger'
 
 let liveUserInputCheckEnabled = true
@@ -18,7 +19,7 @@ export function startUserInput(userId: string, userInputId: string): void {
   live[userId].push(userInputId)
 }
 
-export function endUserInput(userId: string, userInputId: string): void {
+export function cancelUserInput(userId: string, userInputId: string): void {
   if (live[userId] && live[userId].includes(userInputId)) {
     live[userId] = live[userId].filter((id) => id !== userInputId)
     if (live[userId].length === 0) {
@@ -27,8 +28,16 @@ export function endUserInput(userId: string, userInputId: string): void {
   } else {
     logger.debug(
       { userId, userInputId, liveUserInputId: live[userId] ?? 'undefined' },
-      'Tried to end user input with incorrect userId or userInputId'
+      'Tried to cancel user input with incorrect userId or userInputId'
     )
+  }
+}
+
+export function endUserInput(userId: string, userInputId: string): void {
+  if (ASYNC_AGENTS_ENABLED) {
+    // Don't remove user input id, since it can still be triggered by async agents.
+  } else {
+    cancelUserInput(userId, userInputId)
   }
 }
 
@@ -47,11 +56,6 @@ export function checkLiveUserInput(
   // Check if WebSocket is still connected for this session
   if (!sessionConnections[sessionId]) {
     return false
-  }
-
-  if (userInputId.includes('-async-')) {
-    // Allow async agents to continue even if main input ended
-    return true
   }
 
   if (!live[userId]) {
