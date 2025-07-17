@@ -372,6 +372,7 @@ export const runAgentStep = async (
   logger.debug(
     {
       agentMessages,
+      agentId: agentState.agentId,
       system,
       prompt,
       params,
@@ -487,6 +488,7 @@ export const runAgentStep = async (
   logger.debug(
     {
       iteration: iterationNum,
+      agentId: agentState.agentId,
       prompt,
       fullResponse,
       toolCalls,
