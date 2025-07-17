@@ -29,21 +29,24 @@ export type Subgoal = z.infer<typeof subgoalSchema>
 
 export const AgentStateSchema: z.ZodType<{
   agentId: string
-  agentType: AgentTemplateType | null
+  agentType: AgentTemplateType
   agentContext: Record<string, Subgoal>
   subagents: AgentState[]
   messageHistory: CodebuffMessage[]
   stepsRemaining: number
   report: Record<string, any>
+  parentId?: string
 }> = z.lazy(() =>
   z.object({
     agentId: z.string(),
-    agentType: agentTemplateTypeSchema.nullable(),
+    agentType: agentTemplateTypeSchema,
     agentContext: z.record(z.string(), subgoalSchema),
     subagents: AgentStateSchema.array(),
     messageHistory: CodebuffMessageSchema.array(),
     stepsRemaining: z.number(),
     report: z.record(z.string(), z.any()),
+    childrenIds: z.array(z.string()).optional(),
+    parentId: z.string().optional(),
   })
 )
 export type AgentState = z.infer<typeof AgentStateSchema>
@@ -90,7 +93,7 @@ export function getInitialSessionState(
   return {
     mainAgentState: {
       agentId: 'main-agent',
-      agentType: null,
+      agentType: 'base',
       agentContext: {},
       subagents: [],
       messageHistory: [],

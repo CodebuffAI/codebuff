@@ -16,6 +16,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { WebSocket } from 'ws'
+import { asyncAgentManager } from './async-agent-manager'
 import { getFileReadingUpdates } from './get-file-reading-updates'
 import { checkLiveUserInput } from './live-user-inputs'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -246,6 +247,35 @@ export const runAgentStep = async (
 
   const hasPrompt = Boolean(prompt || params)
 
+  // Register this agent in the async manager so it can receive messages
+  const isRegistered = asyncAgentManager.getAgent(agentState.agentId)
+  if (!isRegistered && userId) {
+    asyncAgentManager.registerAgent({
+      agentState,
+      sessionId: clientSessionId,
+      userId,
+      fingerprintId,
+      userInputId,
+      ws,
+      fileContext,
+      startTime: new Date(),
+      status: 'running',
+    })
+  } else {
+    // Update status to running for existing agents
+    asyncAgentManager.updateAgentStatus(agentState.agentId, 'running')
+  }
+
+  // Check for pending messages from other agents
+  const pendingMessages = asyncAgentManager.retrieveMessages(agentState.agentId)
+  for (const message of pendingMessages) {
+    toolResults.push({
+      toolName: 'send_agent_message',
+      toolCallId: generateCompactId(),
+      result: `Message from agent ${message.fromAgentId}:\n\nPrompt: ${message.prompt}${message.params ? `\n\nParams: ${JSON.stringify(message.params, null, 2)}` : ''}`,
+    })
+  }
+
   const agentStepPrompt = await getAgentPrompt(
     agentTemplate,
     { type: 'agentStepPrompt' },
@@ -467,6 +497,15 @@ export const runAgentStep = async (
     },
     `End agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`
   )
+  const shouldEndTurn =
+    toolCalls.some((call) => call.toolName === 'end_turn') ||
+    (toolCalls.length === 0 && toolResults.length === 0)
+
+  // Mark agent as completed if it should end turn
+  if (shouldEndTurn) {
+    asyncAgentManager.updateAgentStatus(agentState.agentId, 'completed')
+  }
+
   return {
     agentState: {
       ...agentState,
@@ -475,9 +514,7 @@ export const runAgentStep = async (
       agentContext: newAgentContext,
     },
     fullResponse,
-    shouldEndTurn:
-      toolCalls.some((call) => call.toolName === 'end_turn') ||
-      (toolCalls.length === 0 && toolResults.length === 0),
+    shouldEndTurn,
   }
 }
 

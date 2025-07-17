@@ -7,6 +7,7 @@ import {
 import { isError } from 'lodash'
 import { RawData, WebSocket, WebSocketServer } from 'ws'
 
+import { asyncAgentManager } from '../async-agent-manager'
 import { logger } from '../util/logger'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
@@ -134,6 +135,10 @@ export function listen(server: HttpServer, path: string) {
       //   { code, reason: reason.toString() },
       //   'WS client disconnected.'
       // )
+
+      // Cleanup async agents for this session
+      asyncAgentManager.cleanupSession(clientSessionId)
+
       SWITCHBOARD.disconnect(ws)
     })
     ws.on('error', (err: Error) => {

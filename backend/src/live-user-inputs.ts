@@ -40,9 +40,11 @@ export function checkLiveUserInput(
     return false
   }
   if (!live[userId]) {
-    return false
+    // Allow async agents to continue even if main input ended
+    return userInputId.includes('-async-')
   }
-  return live[userId].some((stored) => userInputId.startsWith(stored))
+  return live[userId].some((stored) => userInputId.startsWith(stored)) || 
+         userInputId.includes('-async-')
 }
 
 export function getLiveUserInputIds(
