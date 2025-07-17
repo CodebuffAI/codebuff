@@ -24,9 +24,11 @@ export const spawnAgentsAsyncTool = {
       `Spawn multiple agents asynchronously and continue execution without waiting for them to complete.`
     ),
   description: `
-Use this tool to spawn subagents asynchronously to help you complete the user request. Unlike spawn_agents, this tool does not wait for the agents to complete and allows the parent agent to continue execution.
+Use this tool to spawn subagents asynchronously to help you complete the user request. Unlike spawn_agents, this tool does not wait for the agents to complete and allows the parent agent to continue execution. The subagents can continue to run even if the parent agent ends its turn.
 
-The spawned agents run independently and can communicate back to the parent using send_agent_message. The parent agent can end its turn without waiting for the async agents to complete. If so, async children will wake the parent when they send a message.
+The spawned agents run independently and can communicate back to the parent using send_agent_message. The parent agent can also send further messages to the async agents. The parent agent can end its turn without waiting for the async agents to complete. If so, async children will wake the parent when they send a message.
+
+Prefer to use spawn_agents unless you really need this ability to spawn asynchronous agents.
 
 Example:
 ${getToolCallString('spawn_agents_async', {

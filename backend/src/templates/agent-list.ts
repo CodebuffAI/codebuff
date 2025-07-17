@@ -16,6 +16,7 @@ import { reviewer } from './agents/reviewer'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
 import { AgentTemplateUnion } from './types'
+import { superagent } from './agents/super-agent'
 
 export const agentTemplates: Record<
   AgentTemplateType | string,
@@ -40,6 +41,10 @@ export const agentTemplates: Record<
   ask: {
     id: AgentTemplateTypes.ask,
     ...ask(models.gemini2_5_pro_preview),
+  },
+  superagent: {
+    id: AgentTemplateTypes.superagent,
+    ...superagent(models.openrouter_claude_sonnet_4),
   },
   claude4_gemini_thinking: {
     id: AgentTemplateTypes.claude4_gemini_thinking,

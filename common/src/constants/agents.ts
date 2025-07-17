@@ -22,6 +22,12 @@ export const AGENT_PERSONAS = {
     description: 'Base agent that orchestrates the full response.',
   },
 
+  superagent: {
+    name: 'Superagent',
+    description:
+      'Superagent that can spawn multiple code editing agents to complete a task.',
+  },
+
   // Ask mode
   ask: {
     name: 'Buffy the Enthusiastic Coding Assistant',
