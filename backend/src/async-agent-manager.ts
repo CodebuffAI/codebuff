@@ -192,9 +192,16 @@ export class AsyncAgentManager {
   }
 
   /**
+   * Get pending messages for an agent, without clearing them.
+   */
+  getMessages(agentId: string): AsyncAgentMessage[] {
+    return [...(this.messageQueues.get(agentId) || [])]
+  }
+
+  /**
    * Retrieve pending messages for an agent, and clear them.
    */
-  retrieveMessages(agentId: string): AsyncAgentMessage[] {
+  getAndClearMessages(agentId: string): AsyncAgentMessage[] {
     const messages = this.messageQueues.get(agentId) || []
     this.messageQueues.set(agentId, []) // Clear queue after reading
     return messages

@@ -267,7 +267,9 @@ export const runAgentStep = async (
   }
 
   // Check for pending messages from other agents
-  const pendingMessages = asyncAgentManager.retrieveMessages(agentState.agentId)
+  const pendingMessages = asyncAgentManager.getAndClearMessages(
+    agentState.agentId
+  )
   for (const message of pendingMessages) {
     toolResults.push({
       toolName: 'send_agent_message',
@@ -614,6 +616,12 @@ export const loopAgentSteps = async (
           prompt ?? ''
         )),
     })
+
+    const hasMessages =
+      asyncAgentManager.getMessages(newAgentState.agentId).length > 0
+    if (hasMessages) {
+      continue
+    }
 
     if (shouldEndTurn) {
       const hasEndTurn = fullResponse.includes(
