@@ -45,16 +45,6 @@ export class AsyncAgentManager {
       this.sessionAgents.set(sessionId, new Set())
     }
     this.sessionAgents.get(sessionId)!.add(agentId)
-
-    logger.debug(
-      {
-        agentId: agentId,
-        agentType: agentType,
-        parentId: agentState.parentId,
-        sessionId,
-      },
-      'Registered agent'
-    )
   }
 
   /**
@@ -147,7 +137,6 @@ export class AsyncAgentManager {
 
     // Atomic check and update to prevent race conditions
     if (agent.status === 'running') {
-      logger.debug({ agentId }, 'Agent already running, skipping trigger')
       return // Already running, nothing to do
     }
 
@@ -227,8 +216,6 @@ export class AsyncAgentManager {
 
       // Remove agent
       this.agents.delete(agentId)
-
-      logger.debug({ agentId }, 'Removed async agent')
     }
   }
 

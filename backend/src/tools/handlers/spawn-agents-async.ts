@@ -171,6 +171,83 @@ export const handleSpawnAgentsAsync = ((params: {
               clientSessionId,
               onResponseChunk: () => {}, // Async agents don't stream to parent
             })
+
+            // Send completion message to parent if agent has appropriate output mode
+            if (agentState.parentId && agentTemplate.implementation === 'llm') {
+              const { outputMode } = agentTemplate
+              if (
+                outputMode === 'last_message' ||
+                outputMode === 'all_messages'
+              ) {
+                try {
+                  let messageContent = ''
+
+                  if (outputMode === 'last_message') {
+                    const assistantMessages =
+                      result.agentState.messageHistory.filter(
+                        (message) => message.role === 'assistant'
+                      )
+                    const lastAssistantMessage =
+                      assistantMessages[assistantMessages.length - 1]
+                    if (lastAssistantMessage) {
+                      if (typeof lastAssistantMessage.content === 'string') {
+                        messageContent = lastAssistantMessage.content
+                      } else {
+                        messageContent = JSON.stringify(
+                          lastAssistantMessage.content,
+                          null,
+                          2
+                        )
+                      }
+                    } else {
+                      messageContent = 'No response from agent'
+                    }
+                  } else if (outputMode === 'all_messages') {
+                    // Remove the first message, which includes the previous conversation history
+                    const agentMessages =
+                      result.agentState.messageHistory.slice(1)
+                    messageContent = `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
+                  }
+
+                  // Send the message to the parent agent
+                  const { asyncAgentManager } = await import(
+                    '../../async-agent-manager'
+                  )
+                  asyncAgentManager.sendMessage({
+                    fromAgentId: agentId,
+                    toAgentId: agentState.parentId,
+                    prompt: `Agent ${agentType} completed with output:\n\n${messageContent}`,
+                    params: {
+                      agentType,
+                      agentId,
+                      outputMode,
+                      completed: true,
+                    },
+                    timestamp: new Date(),
+                  })
+
+                  logger.debug(
+                    {
+                      agentId,
+                      parentId: agentState.parentId,
+                      agentType,
+                      outputMode,
+                    },
+                    'Sent completion message to parent agent'
+                  )
+                } catch (error) {
+                  logger.error(
+                    {
+                      agentId,
+                      parentId: agentState.parentId,
+                      error,
+                    },
+                    'Failed to send completion message to parent agent'
+                  )
+                }
+              }
+            }
+
             return result
           } catch (error) {
             logger.error({ agentId, error }, 'Async agent failed')
