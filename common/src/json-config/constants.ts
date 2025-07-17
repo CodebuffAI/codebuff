@@ -66,24 +66,11 @@ export const FileChangeHook = z
 
 export const CodebuffConfigSchema = z
   .object({
-    description: z
-      .any()
-      .optional()
-      .describe('Does nothing. Put any thing you want here!'),
-    startupProcesses: z
-      .array(StartupProcessSchema)
-      .optional()
-      .describe('An array of startup processes.'),
-    fileChangeHooks: z
-      .array(FileChangeHook)
-      .optional()
-      .describe('An array of commands to run on file changes.'),
-    maxAgentSteps: z
-      .number()
-      .default(12)
-      .describe(
-        'Maximum number of turns agent will take before being forced to end'
-      ),
+    description: z.string().optional(),
+    agentInstructions: z.record(z.string(), z.string()).optional(),
+    startupProcesses: z.array(StartupProcessSchema).optional(),
+    fileChangeHooks: z.array(FileChangeHook).optional(),
+    maxAgentSteps: z.number().optional(),
   })
   .describe(
     `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration. This schema can be found at https://www.codebuff.com/config`

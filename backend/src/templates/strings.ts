@@ -4,20 +4,80 @@ import {
   AgentState,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
+import { z } from 'zod/v4'
 
 import {
+  getAgentInstructionsPrompt,
   getGitChangesPrompt,
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from '../system-prompt/prompts'
-import { getShortToolInstructions, getToolsInstructions } from '../tools'
+import {
+  getShortToolInstructions,
+  getToolsInstructions,
+} from '../tools'
 
 import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { agentTemplates } from './agent-list'
-import { PLACEHOLDER, PlaceholderValue, placeholderValues, AgentTemplate } from './types'
+import {
+  PLACEHOLDER,
+  PlaceholderValue,
+  placeholderValues,
+  AgentTemplate,
+} from './types'
 import { agentRegistry } from './agent-registry'
+
+// Local implementation since buildSpawnableAgentsDescription is not exported from tools
+function buildSpawnableAgentsDescription(
+  spawnableAgents: AgentTemplateType[]
+): string {
+  if (spawnableAgents.length === 0) {
+    return ''
+  }
+
+  const schemaToJsonStr = (
+    schema: any
+  ) => {
+    if (!schema) return 'None'
+    try {
+      if (schema instanceof z.ZodType) {
+        const jsonSchema = z.toJSONSchema(schema)
+        delete jsonSchema['$schema']
+        return JSON.stringify(jsonSchema, null, 2)
+      }
+      return 'None'
+    } catch (error) {
+      return 'None'
+    }
+  }
+
+  const agentsDescription = spawnableAgents
+    .map((agentType) => {
+      const agentTemplate =
+        agentRegistry.getTemplate(agentType) || agentTemplates[agentType]
+      if (!agentTemplate) {
+        return `- ${agentType}: Dynamic agent (description not available)
+prompt: {"description": "A coding task to complete", "type": "string"}
+params: None`
+      }
+      const { promptSchema } = agentTemplate
+      if (!promptSchema) {
+        return `- ${agentType}: ${agentTemplate.description}
+prompt: None
+params: None`
+      }
+      const { prompt, params } = promptSchema
+      return `- ${agentType}: ${agentTemplate.description}
+prompt: ${schemaToJsonStr(prompt)}
+params: ${schemaToJsonStr(params)}`
+    })
+    .filter(Boolean)
+    .join('\n\n')
+
+  return `\n\n## Spawnable Agents\n\nUse the spawn_agents tool to spawn subagents to help you complete the user request. Here are the available agents by their agent_type:\n\n${agentsDescription}`
+}
 
 export async function formatPrompt(
   prompt: string,
@@ -49,10 +109,12 @@ export async function formatPrompt(
 
   // Initialize agent registry to ensure dynamic agents are available
   await agentRegistry.initialize(fileContext)
-  
+
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.AGENT_NAME]: agentState.agentType
-      ? agentRegistry.getAgentName(agentState.agentType) || agentTemplates[agentState.agentType]?.name || 'Unknown Agent'
+      ? agentRegistry.getAgentName(agentState.agentType) ||
+        agentTemplates[agentState.agentType]?.name ||
+        'Unknown Agent'
       : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
@@ -88,6 +150,12 @@ export async function formatPrompt(
         result: JSON.stringify({ path, content }),
       }))
     ),
+  }
+
+  // Add agent instructions if available
+  const agentInstructions = getAgentInstructionsPrompt(fileContext, agentState.agentType || undefined)
+  if (agentInstructions) {
+    toInject[PLACEHOLDER.INITIAL_AGENT_PROMPT] = processedPrompt + agentInstructions
   }
 
   for (const varName of placeholderValues) {

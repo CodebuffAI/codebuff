@@ -5,6 +5,7 @@ import {
 } from '@codebuff/common/project-file-tree'
 import {
   codebuffConfigFile,
+  codebuffConfigFileBackup,
   CodebuffConfigSchema,
 } from '@codebuff/common/json-config/constants'
 import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
@@ -224,6 +225,58 @@ ${closeXml('recently_read_file_paths_most_recent_first')}
 `.trim()
 }
 
+export const getAgentInstructionsPrompt = (
+  fileContext: ProjectFileContext,
+  agentType?: string
+) => {
+  // Load config directly since it's not in ProjectFileContext yet
+  let codebuffConfig
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const configPath = path.join(fileContext.projectRoot, codebuffConfigFile)
+    const configBackupPath = path.join(
+      fileContext.projectRoot,
+      codebuffConfigFileBackup
+    )
+
+    let configContent = '{}'
+    if (fs.existsSync(configPath)) {
+      configContent = fs.readFileSync(configPath, 'utf8')
+    } else if (fs.existsSync(configBackupPath)) {
+      configContent = fs.readFileSync(configBackupPath, 'utf8')
+    }
+
+    // Simple JSON parsing (ignoring comments for now)
+    codebuffConfig = JSON.parse(
+      configContent.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
+    )
+  } catch (error) {
+    // If config can't be loaded, return empty
+    return ''
+  }
+
+  if (!codebuffConfig?.agentInstructions) {
+    return ''
+  }
+
+  const instructions = codebuffConfig.agentInstructions
+  const relevantInstruction = agentType && instructions[agentType]
+
+  if (relevantInstruction) {
+    return `\n## Agent-Specific Instructions\n\n**${agentType}**: ${relevantInstruction}\n`
+  }
+
+  // Show all instructions if no specific agent type
+  const allInstructions = Object.entries(instructions)
+    .map(([type, instruction]) => `**${type}**: ${instruction}`)
+    .join('\n')
+
+  return allInstructions
+    ? `\n## Agent Instructions\n\n${allInstructions}\n`
+    : ''
+}
+
 export const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
   const { gitChanges } = fileContext
   if (!gitChanges) {
@@ -257,7 +310,7 @@ When the user requests a new git commit, please follow these steps closely:
 
 1. **Run two run_terminal_command tool calls:**
    - Run \`git diff\` to review both staged and unstaged modifications.
-   - Run \`git log\` to check recent commit messages, ensuring consistency with this repository’s style.
+   - Run \`git log\` to check recent commit messages, ensuring consistency with this repository's style.
 
 2. **Select relevant files to include in the commit:**
    Use the git context established at the start of this conversation to decide which files are pertinent to the changes. Stage any new untracked files that are relevant, but avoid committing previously modified files (from the beginning of the conversation) unless they directly relate to this commit.
@@ -270,9 +323,9 @@ When the user requests a new git commit, please follow these steps closely:
    - Refrain from using tools to inspect code beyond what is presented in the git context.
    - Evaluate the overall impact on the project.
    - Check for sensitive details that should not be committed.
-   - Draft a concise, one- to two-sentence commit message focusing on the “why” rather than the “what.”
+   - Draft a concise, one- to two-sentence commit message focusing on the "why" rather than the "what."
    - Use precise, straightforward language that accurately represents the changes.
-   - Ensure the message provides clarity—avoid generic or vague terms like “Update” or “Fix” without context.
+   - Ensure the message provides clarity—avoid generic or vague terms like "Update" or "Fix" without context.
    - Revisit your draft to confirm it truly reflects the changes and their intention.
 
 4. **Create the commit, ending with this specific footer:**

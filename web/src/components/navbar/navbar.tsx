@@ -61,6 +61,12 @@ export const Navbar = async () => {
             >
               Usage
             </Link>
+            <Link
+              href="/traces"
+              className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              Traces
+            </Link>
           </>
         )}
       </nav>
@@ -92,6 +98,12 @@ export const Navbar = async () => {
                   <Link href="/usage" className="flex items-center">
                     <BarChart2 className="mr-2 h-4 w-4" />
                     Usage
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/traces" className="flex items-center">
+                    <BarChart2 className="mr-2 h-4 w-4" />
+                    Traces
                   </Link>
                 </DropdownMenuItem>
               </>
