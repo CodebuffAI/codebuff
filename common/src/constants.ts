@@ -5,6 +5,9 @@ export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 // Directory where agent template override files are stored
 export const AGENT_TEMPLATES_DIR = '.agents/templates/'
 
+// Enable async agents to run tool calls even when main user input is cancelled
+export const ASYNC_AGENTS_ENABLED = true
+
 // Allowed model prefixes for validation
 export const ALLOWED_MODEL_PREFIXES = [
   'anthropic',

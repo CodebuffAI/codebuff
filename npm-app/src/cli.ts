@@ -5,7 +5,7 @@ import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
 import { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import type { CostMode } from '@codebuff/common/constants'
+import { ASYNC_AGENTS_ENABLED, type CostMode } from '@codebuff/common/constants'
 import {
   AGENT_PERSONAS,
   UNIQUE_AGENT_NAMES,
@@ -428,7 +428,9 @@ export class CLI {
     const client = Client.getInstance()
     Spinner.get().stop()
     this.isReceivingResponse = false
-    client.cancelCurrentInput()
+    if (!ASYNC_AGENTS_ENABLED) {
+      client.cancelCurrentInput()
+    }
 
     if (this.shouldReconnectWhenIdle) {
       client.reconnect()
