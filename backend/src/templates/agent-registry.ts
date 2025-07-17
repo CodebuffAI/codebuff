@@ -20,34 +20,18 @@ class AgentRegistry {
    */
   async initialize(fileContext: ProjectFileContext): Promise<void> {
     if (this.isInitialized) {
-      logger.debug('Agent registry already initialized, skipping')
       return
     }
-
-    logger.info('Initializing agent registry with dynamic agents')
 
     // Load dynamic agents using the service
     const { templates: dynamicTemplates, validationErrors } =
       await dynamicAgentService.loadAgents(fileContext)
-
-    logger.debug(
-      {
-        staticTemplateCount: Object.keys(staticTemplates).length,
-        dynamicTemplateCount: Object.keys(dynamicTemplates).length,
-        validationErrorCount: validationErrors.length,
-      },
-      'Agent registry: loaded templates summary'
-    )
 
     // Combine static and dynamic templates
     const allTemplates = { ...staticTemplates, ...dynamicTemplates }
 
     // Get user-defined agent types (dynamic agents with override=false)
     const userDefinedAgentTypes = Object.keys(dynamicTemplates)
-    logger.info(
-      { userDefinedAgentTypes },
-      'User-defined agent types discovered'
-    )
 
     // Update base agent templates to include all available agents
     const updatedTemplates = { ...allTemplates }
@@ -73,6 +57,7 @@ class AgentRegistry {
         }
       }
     }
+
     this.allTemplates = updatedTemplates
     this.validationErrors = validationErrors
 
@@ -88,16 +73,6 @@ class AgentRegistry {
     }
 
     this.isInitialized = true
-
-    logger.info(
-      {
-        totalTemplateCount: Object.keys(this.allTemplates).length,
-        staticCount: Object.keys(staticTemplates).length,
-        dynamicCount: Object.keys(dynamicTemplates).length,
-        totalAgentNames: Object.keys(this.allAgentNames).length,
-      },
-      'Agent registry initialization completed'
-    )
 
     if (this.validationErrors.length > 0) {
       logger.warn(

@@ -80,7 +80,6 @@ export const handleSpawnAgents = ((params: {
 
   const triggerSpawnAgents = async () => {
     // Initialize registry and get all templates
-    logger.debug('Initializing agent registry for spawn_agents')
     await agentRegistry.initialize(fileContext)
     const allTemplates = agentRegistry.getAllTemplates()
     logger.debug(
@@ -92,39 +91,13 @@ export const handleSpawnAgents = ((params: {
     )
     const results = await Promise.allSettled(
       agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
-        logger.debug(
-          { agentTypeStr, hasPrompt: !!prompt, hasParams: !!params },
-          'Processing spawn request for agent'
-        )
-
         if (!(agentTypeStr in allTemplates)) {
-          logger.error(
-            { agentTypeStr, availableTypes: Object.keys(allTemplates) },
-            'Agent type not found in templates'
-          )
           throw new Error(`Agent type ${agentTypeStr} not found.`)
         }
         const agentType = agentTypeStr as AgentTemplateType
         const agentTemplate = allTemplates[agentType]
 
-        logger.debug(
-          {
-            agentType,
-            parentAgentType: parentAgentTemplate.id,
-            parentSpawnableAgents: parentAgentTemplate.spawnableAgents,
-          },
-          'Checking spawn permissions'
-        )
-
         if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
-          logger.error(
-            {
-              parentAgentType: parentAgentTemplate.id,
-              requestedAgentType: agentType,
-              allowedAgents: parentAgentTemplate.spawnableAgents,
-            },
-            'Agent spawn permission denied'
-          )
           throw new Error(
             `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`
           )
@@ -153,14 +126,8 @@ export const handleSpawnAgents = ((params: {
           }
         }
 
-        logger.info(
-          {
-            agentType,
-            agentName: agentTemplate.name,
-            implementation: agentTemplate.implementation,
-            prompt: prompt?.slice(0, 100),
-            params,
-          },
+        logger.debug(
+          { agentTemplate, prompt, params },
           `Spawning agent — ${agentType}`
         )
         const subAgentMessages: CoreMessage[] = []

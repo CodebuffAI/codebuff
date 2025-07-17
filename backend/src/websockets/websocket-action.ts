@@ -278,29 +278,14 @@ const onInit = async (
     const { agentTemplates } = fileContext
     let allValidationErrors: Array<{ filePath: string; message: string }> = []
 
-    logger.debug(
-      {
-        hasAgentTemplates: !!agentTemplates,
-        agentTemplateCount: agentTemplates
-          ? Object.keys(agentTemplates).length
-          : 0,
-      },
-      'Starting agent template validation during init'
-    )
-
     if (agentTemplates) {
       // Load dynamic agent templates first to get their IDs
-      logger.debug('Loading dynamic agent templates for validation')
       const { validationErrors: dynamicErrors } =
         await dynamicAgentService.loadAgents(fileContext)
       allValidationErrors.push(...dynamicErrors)
 
       // Get dynamic agent IDs for override validation
       const dynamicAgentIds = dynamicAgentService.getAgentTypes()
-      logger.debug(
-        { dynamicAgentIds },
-        'Retrieved dynamic agent IDs for override validation'
-      )
 
       // Validate override templates with dynamic agent IDs
       const { validationErrors: overrideErrors } = validateAgentTemplateConfigs(
@@ -308,30 +293,13 @@ const onInit = async (
         dynamicAgentIds
       )
       allValidationErrors.push(...overrideErrors)
-
-      logger.debug(
-        {
-          dynamicErrorCount: dynamicErrors.length,
-          overrideErrorCount: overrideErrors.length,
-          totalErrorCount: allValidationErrors.length,
-        },
-        'Agent template validation completed'
-      )
     }
 
     const errorMessage = formatValidationErrorMessage(allValidationErrors)
 
     // Get all agent names (static + dynamic) for frontend
-    logger.debug('Initializing agent registry for frontend agent names')
     await agentRegistry.initialize(fileContext)
     const allAgentNames = agentRegistry.getAllAgentNames()
-    logger.debug(
-      {
-        agentNameCount: Object.keys(allAgentNames).length,
-        agentNames: Object.keys(allAgentNames),
-      },
-      'Retrieved all agent names for frontend'
-    )
 
     // Send combined init and usage response
     const usageResponse = await genUsageResponse(

@@ -40,22 +40,12 @@ export class DynamicAgentService {
   async loadAgents(
     fileContext: ProjectFileContext
   ): Promise<DynamicAgentLoadResult> {
-    logger.info('Starting dynamic agent loading process')
     this.templates = {}
     this.validationErrors = []
 
     // Check if we have agentTemplates in fileContext
     const agentTemplates = fileContext.agentTemplates || {}
     const hasAgentTemplates = Object.keys(agentTemplates).length > 0
-
-    logger.debug(
-      {
-        hasAgentTemplates,
-        agentTemplateCount: Object.keys(agentTemplates).length,
-        agentTemplateFiles: Object.keys(agentTemplates),
-      },
-      'Dynamic agent templates discovery'
-    )
 
     if (!hasAgentTemplates) {
       logger.debug('No agent templates found in fileContext')
@@ -73,17 +63,13 @@ export class DynamicAgentService {
       )
 
       // Pass 1: Collect all agent IDs from template files
-      logger.debug({ jsonFiles }, 'Starting agent ID collection phase')
       const dynamicAgentIds = await this.collectAgentIds(
         jsonFiles,
         agentTemplates
       )
-      logger.info({ dynamicAgentIds }, 'Collected dynamic agent IDs')
 
       // Pass 2: Load and validate each agent template
-      logger.debug('Starting agent template loading phase')
       for (const filePath of jsonFiles) {
-        logger.debug({ filePath }, 'Loading agent template')
         await this.loadSingleAgent(
           filePath,
           dynamicAgentIds,
@@ -101,15 +87,6 @@ export class DynamicAgentService {
     }
 
     this.isLoaded = true
-
-    logger.info(
-      {
-        loadedTemplateCount: Object.keys(this.templates).length,
-        loadedTemplateIds: Object.keys(this.templates),
-        validationErrorCount: this.validationErrors.length,
-      },
-      'Dynamic agent loading completed'
-    )
 
     return {
       templates: this.templates,
@@ -202,17 +179,6 @@ export class DynamicAgentService {
       const validatedSpawnableAgents = normalizeAgentNames(
         dynamicAgent.spawnableAgents
       ) as AgentTemplateType[]
-
-      logger.debug(
-        {
-          agentId: dynamicAgent.id,
-          agentName: dynamicAgent.name,
-          model: dynamicAgent.model,
-          toolNames: dynamicAgent.toolNames,
-          spawnableAgents: validatedSpawnableAgents,
-        },
-        'Converting dynamic agent to internal format'
-      )
 
       const basePaths = [fileDir, fileContext.projectRoot]
 
@@ -308,10 +274,6 @@ export class DynamicAgentService {
       }
 
       this.templates[dynamicAgent.id] = agentTemplate
-      logger.info(
-        { agentId: dynamicAgent.id, agentName: dynamicAgent.name },
-        'Successfully loaded dynamic agent template'
-      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error'
