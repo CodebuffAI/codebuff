@@ -173,7 +173,7 @@ const onPrompt = async (
             userId,
             clientSessionId,
             onResponseChunk: (chunk) => {
-              if (checkLiveUserInput(userId, promptId)) {
+              if (checkLiveUserInput(userId, promptId, clientSessionId)) {
                 sendAction(ws, {
                   type: 'response-chunk',
                   userInputId: promptId,

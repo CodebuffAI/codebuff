@@ -574,7 +574,7 @@ export const loopAgentSteps = async (
     ? undefined
     : initialAssistantPrefix
   let currentAgentState = agentState
-  while (checkLiveUserInput(userId, userInputId)) {
+  while (checkLiveUserInput(userId, userInputId, clientSessionId)) {
     const {
       agentState: newAgentState,
       fullResponse,

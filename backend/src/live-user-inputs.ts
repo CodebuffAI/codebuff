@@ -8,6 +8,9 @@ export const disableLiveUserInputCheck = () => {
 /** Map from userId to main userInputIds */
 const live: Record<string, string[]> = {}
 
+/** Map from sessionId to WebSocket connection status */
+const sessionConnections: Record<string, true | undefined> = {}
+
 export function startUserInput(userId: string, userInputId: string): void {
   if (!live[userId]) {
     live[userId] = []
@@ -31,7 +34,8 @@ export function endUserInput(userId: string, userInputId: string): void {
 
 export function checkLiveUserInput(
   userId: string | undefined,
-  userInputId: string
+  userInputId: string,
+  sessionId: string
 ): boolean {
   if (!liveUserInputCheckEnabled) {
     return true
@@ -39,12 +43,32 @@ export function checkLiveUserInput(
   if (!userId) {
     return false
   }
-  if (!live[userId]) {
-    // Allow async agents to continue even if main input ended
-    return userInputId.includes('-async-')
+
+  // Check if WebSocket is still connected for this session
+  if (!sessionConnections[sessionId]) {
+    return false
   }
-  return live[userId].some((stored) => userInputId.startsWith(stored)) || 
-         userInputId.includes('-async-')
+
+  if (userInputId.includes('-async-')) {
+    // Allow async agents to continue even if main input ended
+    return true
+  }
+
+  if (!live[userId]) {
+    return false
+  }
+  return live[userId].some((stored) => userInputId.startsWith(stored))
+}
+
+export function setSessionConnected(
+  sessionId: string,
+  connected: boolean
+): void {
+  if (connected) {
+    sessionConnections[sessionId] = true
+  } else {
+    delete sessionConnections[sessionId]
+  }
 }
 
 export function getLiveUserInputIds(
