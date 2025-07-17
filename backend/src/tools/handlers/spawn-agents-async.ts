@@ -232,6 +232,7 @@ export const handleSpawnAgentsAsync = ((params: {
                       parentId: agentState.parentId,
                       agentType,
                       outputMode,
+                      messageContent,
                     },
                     'Sent completion message to parent agent'
                   )

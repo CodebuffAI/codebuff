@@ -737,7 +737,10 @@ export class Client {
       const { requestId, toolName, args, userInputId } = action
 
       // Check if the userInputId matches or is from a spawned agent
-      if (!this.userInputId || !userInputId.startsWith(this.userInputId)) {
+      if (
+        !userInputId.includes('async-') &&
+        (!this.userInputId || !userInputId.startsWith(this.userInputId))
+      ) {
         logger.warn(
           {
             requestId,
