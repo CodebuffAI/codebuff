@@ -2,6 +2,8 @@ import { AgentState } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { WebSocket } from 'ws'
 import { logger } from './util/logger'
+import { sendAction } from './websockets/websocket-action'
+import { checkLiveUserInput } from './live-user-inputs'
 
 export interface AsyncAgentInfo {
   agentState: AgentState
@@ -142,12 +144,14 @@ export class AsyncAgentManager {
 
     logger.debug({ agentId }, 'Triggering idle agent due to new message')
 
+    const { ws, userId, sessionId, userInputId } = agent
+
     try {
       // Import loopAgentSteps dynamically to avoid circular dependency
       const { loopAgentSteps } = await import('./run-agent-step')
 
-      const agentPromise = loopAgentSteps(agent.ws, {
-        userInputId: agent.userInputId,
+      const agentPromise = loopAgentSteps(ws, {
+        userInputId,
         prompt: undefined, // No initial prompt, will get messages from queue
         params: undefined,
         agentType: agent.agentState.agentType,
@@ -156,8 +160,19 @@ export class AsyncAgentManager {
         fileContext: agent.fileContext,
         toolResults: [],
         userId: agent.userId,
-        clientSessionId: agent.sessionId,
-        onResponseChunk: () => {}, // Async agents don't stream to parent
+        clientSessionId: sessionId,
+        onResponseChunk:
+          agent.agentState.agentId === 'main-agent'
+            ? (chunk: string) => {
+                if (checkLiveUserInput(userId, userInputId, sessionId)) {
+                  sendAction(agent.ws, {
+                    type: 'response-chunk',
+                    userInputId,
+                    chunk,
+                  })
+                }
+              }
+            : () => {}, // Async agents don't stream to parent
       })
 
       // Store the promise and handle completion
