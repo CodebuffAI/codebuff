@@ -144,8 +144,6 @@ const onPrompt = async (
     authToken,
     promptId,
     prompt,
-    toolResults,
-    model,
     costMode,
   } = action
 
@@ -168,31 +166,10 @@ const onPrompt = async (
       startUserInput(userId, promptId)
 
       try {
-        const { sessionState, toolCalls, toolResults } = await mainPrompt(
-          ws,
-          action,
-          {
-            userId,
-            clientSessionId,
-            onResponseChunk: (chunk) => {
-              if (checkLiveUserInput(userId, promptId, clientSessionId)) {
-                sendAction(ws, {
-                  type: 'response-chunk',
-                  userInputId: promptId,
-                  chunk,
-                })
-              }
-            },
-          }
-        )
-
-        // Send prompt data back
-        sendAction(ws, {
-          type: 'prompt-response',
+        await callMainPrompt(ws, action, {
+          userId,
           promptId,
-          sessionState,
-          toolCalls: toolCalls as any[],
-          toolResults,
+          clientSessionId,
         })
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
@@ -243,6 +220,43 @@ const onPrompt = async (
       }
     }
   )
+}
+
+export const callMainPrompt = async (
+  ws: WebSocket,
+  action: Extract<ClientAction, { type: 'prompt' }>,
+  options: {
+    userId: string
+    promptId: string
+    clientSessionId: string
+  }
+) => {
+  const { userId, promptId, clientSessionId } = options
+  const result = await mainPrompt(ws, action, {
+    userId,
+    clientSessionId,
+    onResponseChunk: (chunk) => {
+      if (checkLiveUserInput(userId, promptId, clientSessionId)) {
+        sendAction(ws, {
+          type: 'response-chunk',
+          userInputId: promptId,
+          chunk,
+        })
+      }
+    },
+  })
+
+  const { sessionState, toolCalls, toolResults } = result
+  // Send prompt data back
+  sendAction(ws, {
+    type: 'prompt-response',
+    promptId,
+    sessionState,
+    toolCalls: toolCalls as any[],
+    toolResults,
+  })
+
+  return result
 }
 
 /**

@@ -1276,7 +1276,6 @@ export class Client {
         })
 
         this.lastToolResults = toolResults
-        xmlStreamParser.end()
 
         askConfig: if (
           this.oneTimeFlags[SHOULD_ASK_CONFIG] &&
@@ -1338,8 +1337,11 @@ Go to https://www.codebuff.com/config for more information.`) +
           this.freshPrompt()
         }
 
-        unsubscribeChunks()
-        unsubscribeComplete()
+        if (!ASYNC_AGENTS_ENABLED) {
+          xmlStreamParser.end()
+          unsubscribeChunks()
+          unsubscribeComplete()
+        }
         resolveResponse({ ...a, wasStoppedByUser: false })
       }
     )

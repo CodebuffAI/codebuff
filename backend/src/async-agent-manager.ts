@@ -2,8 +2,7 @@ import { AgentState } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { WebSocket } from 'ws'
 import { logger } from './util/logger'
-import { sendAction } from './websockets/websocket-action'
-import { checkLiveUserInput } from './live-user-inputs'
+import { callMainPrompt } from './websockets/websocket-action'
 
 export interface AsyncAgentInfo {
   agentState: AgentState
@@ -146,35 +145,52 @@ export class AsyncAgentManager {
 
     const { ws, userId, sessionId, userInputId } = agent
 
+    let agentPromise: Promise<{ agentState: AgentState; hasEndTurn?: boolean }>
     try {
-      // Import loopAgentSteps dynamically to avoid circular dependency
-      const { loopAgentSteps } = await import('./run-agent-step')
+      if (agent.agentState.agentId === 'main-agent') {
+        const mainAgentPromise = callMainPrompt(
+          ws,
+          {
+            type: 'prompt',
+            prompt: undefined,
+            promptId: userInputId,
+            fingerprintId: agent.fingerprintId,
+            costMode: 'normal',
+            sessionState: {
+              ...agent.agentState,
+              fileContext: agent.fileContext,
+              mainAgentState: agent.agentState,
+            },
+            toolResults: [],
+          },
+          {
+            userId,
+            promptId: userInputId,
+            clientSessionId: sessionId,
+          }
+        )
+        agentPromise = mainAgentPromise.then(({ sessionState }) => ({
+          agentState: sessionState.mainAgentState,
+          hasEndTurn: true,
+        }))
+      } else {
+        // Import loopAgentSteps dynamically to avoid circular dependency
+        const { loopAgentSteps } = await import('./run-agent-step')
 
-      const agentPromise = loopAgentSteps(ws, {
-        userInputId,
-        prompt: undefined, // No initial prompt, will get messages from queue
-        params: undefined,
-        agentType: agent.agentState.agentType,
-        agentState: agent.agentState,
-        fingerprintId: agent.fingerprintId,
-        fileContext: agent.fileContext,
-        toolResults: [],
-        userId: agent.userId,
-        clientSessionId: sessionId,
-        onResponseChunk:
-          agent.agentState.agentId === 'main-agent'
-            ? (chunk: string) => {
-                if (checkLiveUserInput(userId, userInputId, sessionId)) {
-                  sendAction(agent.ws, {
-                    type: 'response-chunk',
-                    userInputId,
-                    chunk,
-                  })
-                }
-              }
-            : () => {}, // Async agents don't stream to parent
-      })
-
+        agentPromise = loopAgentSteps(ws, {
+          userInputId,
+          prompt: undefined, // No initial prompt, will get messages from queue
+          params: undefined,
+          agentType: agent.agentState.agentType,
+          agentState: agent.agentState,
+          fingerprintId: agent.fingerprintId,
+          fileContext: agent.fileContext,
+          toolResults: [],
+          userId: agent.userId,
+          clientSessionId: sessionId,
+          onResponseChunk: () => {}, // Async agents don't stream to parent
+        })
+      }
       // Store the promise and handle completion
       agent.promise = agentPromise
       await agentPromise
