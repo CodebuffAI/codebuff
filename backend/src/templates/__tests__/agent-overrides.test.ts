@@ -36,7 +36,12 @@ describe('processAgentOverrides', () => {
     shellConfigFiles: {},
     systemInfo: { platform: 'darwin', shell: 'bash' },
     userKnowledgeFiles: {},
-    gitChanges: { status: '', diff: '', diffCached: '', lastCommitMessages: '' },
+    gitChanges: {
+      status: '',
+      diff: '',
+      diffCached: '',
+      lastCommitMessages: '',
+    },
     changesSinceLastChat: {},
     fileVersions: [],
   }
@@ -46,7 +51,7 @@ describe('processAgentOverrides', () => {
     expect(result).toEqual(mockBaseTemplate)
   })
 
-  it('should apply model override', () => {
+  it('should return base template when override: true is found (no longer supported)', () => {
     const fileContextWithOverride: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
@@ -59,11 +64,11 @@ describe('processAgentOverrides', () => {
       },
     }
 
-    const result = processAgentOverrides(mockBaseTemplate, fileContextWithOverride)
-    expect(result.model).toBe(openrouterModels.openrouter_claude_sonnet_4)
+    expect(() =>
+      processAgentOverrides(mockBaseTemplate, fileContextWithOverride)
+    ).toThrow('Dynamic agents no longer support override: true')
   })
-
-  it('should apply systemPrompt append override with content', () => {
+  it('should throw error for systemPrompt override with override: true', () => {
     const fileContextWithOverride: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
@@ -79,11 +84,11 @@ describe('processAgentOverrides', () => {
       },
     }
 
-    const result = processAgentOverrides(mockBaseTemplate, fileContextWithOverride)
-    expect(result.systemPrompt).toBe('Base system prompt\n\nAdditional system instructions')
+    expect(() =>
+      processAgentOverrides(mockBaseTemplate, fileContextWithOverride)
+    ).toThrow('Dynamic agents no longer support override: true')
   })
-
-  it('should apply systemPrompt append override with external file', () => {
+  it('should throw error for systemPrompt override with external file when override: true', () => {
     const fileContextWithOverride: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
@@ -100,11 +105,11 @@ describe('processAgentOverrides', () => {
       },
     }
 
-    const result = processAgentOverrides(mockBaseTemplate, fileContextWithOverride)
-    expect(result.systemPrompt).toBe('Base system prompt\n\nExternal system prompt content')
+    expect(() =>
+      processAgentOverrides(mockBaseTemplate, fileContextWithOverride)
+    ).toThrow('Dynamic agents no longer support override: true')
   })
-
-  it('should apply spawnableAgents append override', () => {
+  it('should throw error for spawnableAgents override when override: true', () => {
     const fileContextWithOverride: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
@@ -120,8 +125,9 @@ describe('processAgentOverrides', () => {
       },
     }
 
-    const result = processAgentOverrides(mockBaseTemplate, fileContextWithOverride)
-    expect(result.spawnableAgents).toEqual(['thinker'])
+    expect(() =>
+      processAgentOverrides(mockBaseTemplate, fileContextWithOverride)
+    ).toThrow('Dynamic agents no longer support override: true')
   })
 
   it('should handle invalid JSON gracefully', () => {
@@ -132,11 +138,14 @@ describe('processAgentOverrides', () => {
       },
     }
 
-    const result = processAgentOverrides(mockBaseTemplate, fileContextWithInvalidOverride)
+    const result = processAgentOverrides(
+      mockBaseTemplate,
+      fileContextWithInvalidOverride
+    )
     expect(result).toEqual(mockBaseTemplate)
   })
 
-  it('should ignore non-matching agent types', () => {
+  it('should throw error even for non-matching agent types when override: true', () => {
     const fileContextWithNonMatchingOverride: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
@@ -149,11 +158,14 @@ describe('processAgentOverrides', () => {
       },
     }
 
-    const result = processAgentOverrides(mockBaseTemplate, fileContextWithNonMatchingOverride)
-    expect(result).toEqual(mockBaseTemplate)
+    expect(() =>
+      processAgentOverrides(
+        mockBaseTemplate,
+        fileContextWithNonMatchingOverride
+      )
+    ).toThrow('Dynamic agents no longer support override: true')
   })
-
-  it('should reject invalid model names and use base template', () => {
+  it('should throw error for invalid model when override: true', () => {
     const fileContextWithInvalidModel: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
@@ -166,8 +178,8 @@ describe('processAgentOverrides', () => {
       },
     }
 
-    const result = processAgentOverrides(mockBaseTemplate, fileContextWithInvalidModel)
-    // Should return base template since invalid model was rejected
-    expect(result).toEqual(mockBaseTemplate)
+    expect(() =>
+      processAgentOverrides(mockBaseTemplate, fileContextWithInvalidModel)
+    ).toThrow('Dynamic agents no longer support override: true')
   })
 })

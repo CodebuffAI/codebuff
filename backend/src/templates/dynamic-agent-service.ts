@@ -47,8 +47,6 @@ export class DynamicAgentService {
     const agentTemplates = fileContext.agentTemplates || {}
     const hasAgentTemplates = Object.keys(agentTemplates).length > 0
 
-
-
     if (!hasAgentTemplates) {
       this.isLoaded = true
       return {
@@ -78,17 +76,24 @@ export class DynamicAgentService {
         )
       }
     } catch (error) {
-      logger.error({ error }, 'Failed to process agent templates')
-      this.validationErrors.push({
-        filePath: 'agentTemplates',
-        message: 'Failed to process agent templates',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      })
+      // Re-throw override errors to surface them properly
+      if (error instanceof Error && error.message.includes('override: true')) {
+        this.validationErrors.push({
+          filePath: 'agentTemplates',
+          message: error.message,
+          details: error.message,
+        })
+      } else {
+        logger.error({ error }, 'Failed to process agent templates')
+        this.validationErrors.push({
+          filePath: 'agentTemplates',
+          message: 'Failed to process agent templates',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
     }
 
     this.isLoaded = true
-
-
 
     return {
       templates: this.templates,
@@ -114,9 +119,12 @@ export class DynamicAgentService {
 
         const parsedContent = JSON.parse(content)
 
-        // Skip override templates (they modify existing agents)
+        // Throw error if override: true is found
         if (parsedContent.override === true) {
-          continue
+          throw new Error(
+            `Dynamic agents no longer support override: true. Found in ${filePath}. ` +
+              `Please set override: false or remove the override field entirely.`
+          )
         }
 
         // Extract the agent ID if it exists
@@ -124,7 +132,14 @@ export class DynamicAgentService {
           agentIds.push(parsedContent.id)
         }
       } catch (error) {
-        // Log but don't fail the collection process
+        // Re-throw override errors
+        if (
+          error instanceof Error &&
+          error.message.includes('override: true')
+        ) {
+          throw error
+        }
+        // Log but don't fail the collection process for other errors
         logger.debug(
           { filePath, error },
           'Failed to extract agent ID during collection phase'
@@ -154,9 +169,12 @@ export class DynamicAgentService {
 
       const parsedContent = JSON.parse(content)
 
-      // Skip override templates (they modify existing agents)
+      // Throw error if override: true is found
       if (parsedContent.override === true) {
-        return
+        throw new Error(
+          `Dynamic agents no longer support override: true. Found in ${filePath}. ` +
+            `Please set override: false or remove the override field entirely.`
+        )
       }
 
       // Validate against schema
