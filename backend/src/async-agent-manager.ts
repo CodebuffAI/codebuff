@@ -156,6 +156,7 @@ export class AsyncAgentManager {
             promptId: userInputId,
             fingerprintId: agent.fingerprintId,
             costMode: 'normal',
+            agentId: agent.agentState.agentType,
             sessionState: {
               ...agent.agentState,
               fileContext: agent.fileContext,
