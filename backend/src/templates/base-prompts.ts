@@ -251,9 +251,6 @@ export const baseAgentUserInputPrompt = (model: Model) => {
         'To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.',
 
       (isFlash || isGeminiPro) &&
-        `Don't forget to close your your tags, e.g. <think_deeply> <thought> ${closeXml('thought')} ${closeXml('think_deeply')} or <write_file> <path> ${closeXml('path')} <content> ${closeXml('content')} ${closeXml('write_file')}!`,
-
-      (isFlash || isGeminiPro) &&
         'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area. Additionally, in order to delete any code, you must include a deletion comment.',
 
       'If the user request is very complex, consider invoking think_deeply.',

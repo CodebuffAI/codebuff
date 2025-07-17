@@ -1,7 +1,7 @@
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { closeXmlTags } from '@codebuff/common/util/xml'
+import { getStopSequences } from '@codebuff/common/util/xml'
 import z from 'zod/v4'
 
 import { ToolName } from '@codebuff/common/constants/tools'
@@ -12,7 +12,10 @@ import {
 } from '../base-prompts'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
-export const base = (model: Model, allAvailableAgents?: string[]): Omit<AgentTemplate, 'id'> => ({
+export const base = (
+  model: Model,
+  allAvailableAgents?: string[]
+): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['base'].name,
   implementation: 'llm',
@@ -37,19 +40,21 @@ export const base = (model: Model, allAvailableAgents?: string[]): Omit<AgentTem
     'update_subgoal',
     'update_report',
   ],
-  stopSequences: closeXmlTags([
+  stopSequences: getStopSequences([
     'read_files',
     'find_files',
     'run_terminal_command',
     'code_search',
     'spawn_agents',
   ] satisfies readonly ToolName[]),
-  spawnableAgents: allAvailableAgents ? allAvailableAgents as any[] : [
-    AgentTemplateTypes.file_picker,
-    AgentTemplateTypes.researcher,
-    AgentTemplateTypes.thinker,
-    AgentTemplateTypes.reviewer,
-  ],
+  spawnableAgents: allAvailableAgents
+    ? (allAvailableAgents as any[])
+    : [
+        AgentTemplateTypes.file_picker,
+        AgentTemplateTypes.researcher,
+        AgentTemplateTypes.thinker,
+        AgentTemplateTypes.reviewer,
+      ],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
   stepAssistantMessage: '',

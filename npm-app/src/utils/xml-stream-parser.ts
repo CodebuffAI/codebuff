@@ -7,6 +7,8 @@ import { Saxy } from '@codebuff/common/util/saxy'
 
 import { ToolCallRenderer, defaultToolCallRenderer } from './tool-renderers'
 
+const PREFIX = 'codebuff_tool_'
+
 /**
  * Creates a transform stream that processes XML tool calls
  * @param renderer Custom renderer for tool calls or a map of renderers per tool
@@ -18,13 +20,18 @@ export function createXMLStreamParser(
   callback?: (chunk: string) => void
 ) {
   // Create parser with tool schema validation
-  const parser = new Saxy(toolSchema)
+  const parser = new Saxy(
+    Object.fromEntries(
+      Object.entries(toolSchema).map(([tool, schema]) => {
+        return [`codebuff_tool_${tool}`, schema]
+      })
+    )
+  )
 
   // Current state
   let currentTool: string | null = null
-  let currentParam: string | null = null
   let params: Record<string, string> = {}
-  let paramContent = ''
+  let paramsContent = ''
 
   // Helper to get the appropriate renderer for the current tool
   const getRenderer = (toolName: string): ToolCallRenderer => {
@@ -44,7 +51,7 @@ export function createXMLStreamParser(
 
   // Set up event handlers
   parser.on('tagopen', (tag) => {
-    const { name } = tag
+    const name = tag.name.slice(PREFIX.length)
 
     // Check if this is a tool tag
     if (toolNames.includes(name as ToolName)) {
@@ -66,44 +73,12 @@ export function createXMLStreamParser(
         }
       }
     }
-    // Check if this is a parameter tag inside a tool
-    else if (currentTool && !currentParam) {
-      currentParam = name
-      paramContent = ''
-
-      // Call renderer if available
-      const toolRenderer = getRenderer(currentTool)
-      if (toolRenderer.onParamStart) {
-        const output = toolRenderer.onParamStart(name, currentTool)
-        if (typeof output === 'string') {
-          parser.push(output)
-          if (callback) callback(output)
-        } else if (output !== null) {
-          output()
-        }
-      }
-    }
   })
 
   parser.on('text', (data) => {
-    if (currentTool && currentParam) {
-      paramContent += data.contents
-
-      // Call renderer if available
-      const toolRenderer = getRenderer(currentTool)
-      if (toolRenderer.onParamChunk) {
-        const output = toolRenderer.onParamChunk(
-          data.contents,
-          currentParam,
-          currentTool
-        )
-        if (typeof output === 'string') {
-          parser.push(output)
-          if (callback) callback(output)
-        } else if (output !== null) {
-          output()
-        }
-      }
+    if (currentTool) {
+      // do nothing
+      paramsContent += data.contents
     } else {
       // Text outside of tool tags
       parser.push(data.contents)
@@ -112,36 +87,46 @@ export function createXMLStreamParser(
   })
 
   parser.on('tagclose', (tag) => {
-    const { name } = tag
+    const name = tag.name.slice(PREFIX.length)
 
-    // Check if this is a parameter tag closing
-    if (currentTool && currentParam && name === currentParam) {
-      // Store parameter content
-      params[currentParam] = paramContent
-
+    if (currentTool && name === currentTool) {
       // Call renderer if available
       const toolRenderer = getRenderer(currentTool)
-      if (toolRenderer.onParamEnd) {
-        const output = toolRenderer.onParamEnd(
-          currentParam,
-          currentTool,
-          paramContent
-        )
-        if (typeof output === 'string') {
-          parser.push(output)
-          if (callback) callback(output)
-        } else if (output !== null) {
-          output()
+      const params = JSON.parse(paramsContent)
+      for (const [key, value] of Object.entries(params)) {
+        const stringValue = JSON.stringify(value)
+        if (toolRenderer.onParamStart) {
+          const output = toolRenderer.onParamStart(key, stringValue)
+          if (typeof output === 'string') {
+            parser.push(output)
+            if (callback) callback(output)
+          } else if (output !== null) {
+            output()
+          }
+        }
+        if (toolRenderer.onParamChunk) {
+          const output = toolRenderer.onParamChunk(
+            stringValue,
+            key,
+            currentTool
+          )
+          if (typeof output === 'string') {
+            parser.push(output)
+            if (callback) callback(output)
+          } else if (output !== null) {
+            output()
+          }
+        }
+        if (toolRenderer.onParamEnd) {
+          const output = toolRenderer.onParamEnd(key, currentTool, stringValue)
+          if (typeof output === 'string') {
+            parser.push(output)
+            if (callback) callback(output)
+          } else if (output !== null) {
+            output()
+          }
         }
       }
-
-      currentParam = null
-      paramContent = ''
-    }
-    // Check if this is a tool tag closing
-    else if (currentTool && name === currentTool) {
-      // Call renderer if available
-      const toolRenderer = getRenderer(currentTool)
       if (toolRenderer.onToolEnd) {
         const output = toolRenderer.onToolEnd(currentTool, params)
         if (typeof output === 'string') {
@@ -153,7 +138,7 @@ export function createXMLStreamParser(
       }
 
       currentTool = null
-      params = {}
+      paramsContent = ''
     }
   })
 

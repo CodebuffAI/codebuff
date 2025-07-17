@@ -7,7 +7,7 @@ import {
   AgentTemplateTypes,
   ToolResult,
 } from '@codebuff/common/types/session-state'
-import { closeXmlTags } from '@codebuff/common/util/xml'
+import { getStopSequences } from '@codebuff/common/util/xml'
 import { CodebuffToolCall } from '../tools/constants'
 
 export type AgentTemplate = {
@@ -107,7 +107,7 @@ export const baseAgentToolNames: ToolName[] = [
 ] as const
 
 // Use the utility function to generate stop sequences for key tools
-export const baseAgentStopSequences: string[] = closeXmlTags([
+export const baseAgentStopSequences: string[] = getStopSequences([
   'read_files',
   'find_files',
   'run_terminal_command',

@@ -65,40 +65,10 @@ export const toolSchema = {
 } as const satisfies Record<ToolName, string[]>
 
 export const getToolCallString = (
-  toolName: ToolName,
+  toolName: string,
   params: Record<string, any>
 ) => {
-  const openTag = `<${toolName}>`
-  const closeTag = closeXml(toolName)
-
-  // Get the parameter order from toolSchema
-  const paramOrder = toolSchema[toolName] as string[]
-
-  // Create an array of parameter strings in the correct order
-  const orderedParams = paramOrder
-    .filter((param) => param in params) // Only include params that are actually provided
-    .map((param) => {
-      const val =
-        typeof params[param] === 'string'
-          ? params[param]
-          : JSON.stringify(params[param])
-      return `<${param}>${val}${closeXml(param)}`
-    })
-
-  // Get any additional parameters not in the schema order
-  const additionalParams = Object.entries(params)
-    .filter(([param]) => !paramOrder.includes(param))
-    .map(([param, value]) => {
-      const val = typeof value === 'string' ? value : JSON.stringify(value)
-      return `<${param}>${val}${closeXml(param)}`
-    })
-
-  // Combine ordered and additional parameters
-  const paramsString = [...orderedParams, ...additionalParams].join('\n')
-
-  return paramsString
-    ? `${openTag}\n${paramsString}\n${closeTag}`
-    : `${openTag}${closeTag}`
+  return `\n<codebuff_tool_${toolName}>\n${JSON.stringify(params, null, 2)}\n</codebuff_tool_${toolName}>\n`
 }
 
 export type StringToolResultPart = Omit<ToolResultPart, 'type'> & {

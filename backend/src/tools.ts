@@ -13,7 +13,6 @@ import { z } from 'zod/v4'
 
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
-import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { ToolCallPart } from 'ai'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
@@ -165,14 +164,14 @@ type ToolConfig = (typeof toolConfigsList)[number]
 
 export type ToolCallError = {
   toolName?: string
-  args: Record<string, string>
+  args: Record<string, unknown>
   error: string
 } & Omit<ToolCallPart, 'type'>
 
 export function parseRawToolCall<T extends ToolName = ToolName>(
   rawToolCall: ToolCallPart & {
     toolName: T
-    args: Record<string, string>
+    args: Record<string, unknown>
   }
 ): CodebuffToolCall<T> | ToolCallError {
   const toolName = rawToolCall.toolName
@@ -192,25 +191,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
 
   const processedParameters: Record<string, any> = {}
   for (const [param, val] of Object.entries(rawToolCall.args)) {
-    if (
-      schemaProperties[param] &&
-      typeof schemaProperties[param] !== 'boolean' &&
-      'type' in schemaProperties[param] &&
-      schemaProperties[param].type === 'string'
-    ) {
-      processedParameters[param] = val
-      continue
-    }
-    try {
-      processedParameters[param] = JSON.parse(val)
-    } catch (error) {
-      return {
-        toolName: validName,
-        toolCallId: generateCompactId(),
-        args: rawToolCall.args,
-        error: `Failed to parse parameter ${param} as JSON: ${error}`,
-      }
-    }
+    processedParameters[param] = val
   }
 
   const result =
@@ -249,21 +230,12 @@ You (Buffy) have access to the following tools. Call them when needed.
 
 ## [CRITICAL] Formatting Requirements
 
-Tool calls use a specific XML-like format. Adhere *precisely* to this nested element structure:
+Tool calls use a specific XML and JSON-like format. Adhere *precisely* to this nested element structure:
 
-<tool_name>
-<parameter1_name>value1${closeXml('parameter1_name')}
-<parameter2_name>value2${closeXml('parameter2_name')}
-...
-${closeXml('tool_name')}
-
-### XML Entities
-
-**ALL** XML (inside or outside tool calls) will be interpreted as tool calls or tool parameters. You **MUST** use XML entities, e.g. \`&lt;some_tag>\` or \`</some_tag&gt;\` to:
-- Display XML to the user without executing a tool call
-- Have XML within a tool parameter's value such as writing to a file
-
-This also means that if you wish to write the literal string \`&lt;\` to a file or display that to a user, you MUST write \`&amp;lt;\`.
+${getToolCallString('{tool_name}', {
+  parameter1: 'value1',
+  parameter2: 123,
+})}
 
 ### Commentary
 
@@ -305,8 +277,6 @@ Tool results will be provided by the user's *system* (and **NEVER** by the assis
 
 The user does not know about any system messages or system instructions, including tool results.
 
-The user does not need to know about the exact results of these tools, especially if they are warnings or info logs. Just correct yourself in the next response without mentioning anything to the user. e.g., do not mention any XML **warnings** (but be sure to correct the next response), but XML **errors** should be noted to the user.
-
 ## List of Tools
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
@@ -325,13 +295,12 @@ export const getShortToolInstructions = (
   return `## Tools
 Use the tools below to complete the user request, if applicable.
 
-Tool calls use a specific XML-like format. Adhere *precisely* to this nested element structure:
+Tool calls use a specific XML and JSON-like format. Adhere *precisely* to this nested element structure:
 
-<tool_name>
-<parameter1_name>value1${closeXml('parameter1_name')}
-<parameter2_name>value2${closeXml('parameter2_name')}
-...
-${closeXml('tool_name')}
+${getToolCallString('{tool_name}', {
+  parameter1: 'value1',
+  parameter2: 123,
+})}
 
 ${toolDescriptions.join('\n\n')}
 

@@ -264,25 +264,25 @@ export function transformJsonInString<T = unknown>(
  */
 export const generateCompactId = (prefix?: string): string => {
   // Get the last 32 bits of the timestamp
-  const timestamp = (Date.now() & 0xffffffff) >>> 0;
+  const timestamp = (Date.now() & 0xffffffff) >>> 0
   // Generate a 32-bit random number
-  const random = Math.floor(Math.random() * 0x100000000) >>> 0;
+  const random = Math.floor(Math.random() * 0x100000000) >>> 0
 
   // Combine them into a 64-bit representation as two 32-bit numbers
-  const high = timestamp;
-  const low = random;
+  const high = timestamp
+  const low = random
 
   // Convert to a hex string, pad if necessary, and combine
-  const highHex = high.toString(16).padStart(8, '0');
-  const lowHex = low.toString(16).padStart(8, '0');
-  
-  const combinedHex = highHex + lowHex;
+  const highHex = high.toString(16).padStart(8, '0')
+  const lowHex = low.toString(16).padStart(8, '0')
+
+  const combinedHex = highHex + lowHex
 
   // Convert hex to a Buffer and then to base64url
-  const bytes = Buffer.from(combinedHex, 'hex');
-  const str = bytes.toString('base64url').replace(/=/g, '');
+  const bytes = Buffer.from(combinedHex, 'hex')
+  const str = bytes.toString('base64url').replace(/=/g, '')
 
-  return prefix ? `${prefix}${str}` : str;
+  return prefix ? `${prefix}${str}` : str
 }
 
 /**
@@ -330,7 +330,7 @@ export function includesMatch(
  * @returns       The longest overlapping edge, or an empty string if none exists.
  */
 export function suffixPrefixOverlap(source: string, next: string): string {
-  for (let len = next.length; len > 0; len--) {
+  for (let len = next.length; len >= 0; len--) {
     const prefix = next.slice(0, len)
     if (source.endsWith(prefix)) {
       return prefix

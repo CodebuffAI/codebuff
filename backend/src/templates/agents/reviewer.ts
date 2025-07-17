@@ -1,7 +1,7 @@
-import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
+import { closeXml, getStopSequences } from '@codebuff/common/util/xml'
+import z from 'zod/v4'
 
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
@@ -16,7 +16,7 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn', 'run_file_change_hooks'],
-  stopSequences: closeXmlTags(['end_turn', 'run_file_change_hooks']),
+  stopSequences: getStopSequences(['end_turn', 'run_file_change_hooks']),
   spawnableAgents: [],
   initialAssistantMessage: undefined,
   initialAssistantPrefix: undefined,

@@ -4,7 +4,7 @@ import {
   Model,
   models,
 } from '@codebuff/common/constants'
-import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
+import { closeXml, getStopSequences } from '@codebuff/common/util/xml'
 import { CoreMessage } from 'ai'
 
 import { toolNames } from '@codebuff/common/constants/tools'
@@ -28,7 +28,7 @@ export async function getThinkingStream(
     costMode: options.costMode,
     selectedModel: model,
     stopSequences: [
-      ...closeXmlTags(['thought', 'think_deeply']),
+      ...getStopSequences(['thought', 'think_deeply']),
       '<read_files>',
       '<write_files>',
       '<end_turn>',
