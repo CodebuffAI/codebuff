@@ -1066,7 +1066,8 @@ export class Client {
     cleanPrompt: string
     preferredAgents: string[]
   } {
-    let cleanPrompt = prompt
+    // Keep the original prompt intact - don't strip @mentions
+    const cleanPrompt = prompt
     const preferredAgents: string[] = []
 
     // Get local agents and combine with built-in agents
@@ -1100,12 +1101,6 @@ export class Client {
         if (agentTypes && agentTypes.length > 0) {
           // Use the first matching agent type
           preferredAgents.push(agentTypes[0])
-          // Remove ALL occurrences of this @ reference from the prompt using global replace
-          const matchRegex = new RegExp(
-            match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-            'g'
-          )
-          cleanPrompt = cleanPrompt.replace(matchRegex, '').trim()
         }
       } else {
         // Check if it's a local agent
@@ -1117,12 +1112,6 @@ export class Client {
         if (localAgentKey) {
           // Use the local agent key as the agent type
           preferredAgents.push(localAgentKey)
-          // Remove ALL occurrences of this @ reference from the prompt using global replace
-          const matchRegex = new RegExp(
-            match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-            'g'
-          )
-          cleanPrompt = cleanPrompt.replace(matchRegex, '').trim()
         }
       }
     }

@@ -12,10 +12,7 @@ import {
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from '../system-prompt/prompts'
-import {
-  getShortToolInstructions,
-  getToolsInstructions,
-} from '../tools'
+import { getShortToolInstructions, getToolsInstructions } from '../tools'
 
 import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
@@ -37,9 +34,7 @@ function buildSpawnableAgentsDescription(
     return ''
   }
 
-  const schemaToJsonStr = (
-    schema: any
-  ) => {
+  const schemaToJsonStr = (schema: any) => {
     if (!schema) return 'None'
     try {
       if (schema instanceof z.ZodType) {
@@ -85,7 +80,8 @@ export async function formatPrompt(
   agentState: AgentState,
   tools: ToolName[],
   spawnableAgents: AgentTemplateType[],
-  intitialAgentPrompt?: string
+  intitialAgentPrompt?: string,
+  agentType?: AgentTemplateType
 ): Promise<string> {
   // Handle structured prompt data
   let processedPrompt = intitialAgentPrompt ?? ''
@@ -110,10 +106,20 @@ export async function formatPrompt(
   // Initialize agent registry to ensure dynamic agents are available
   await agentRegistry.initialize(fileContext)
 
+  // Add agent instructions if available
+  const currentAgentType = agentType || agentState.agentType || undefined
+  const agentInstructions = getAgentInstructionsPrompt(
+    fileContext,
+    currentAgentType
+  )
+  if (agentInstructions) {
+    processedPrompt += agentInstructions
+  }
+
   const toInject: Record<PlaceholderValue, string> = {
-    [PLACEHOLDER.AGENT_NAME]: agentState.agentType
-      ? agentRegistry.getAgentName(agentState.agentType) ||
-        agentTemplates[agentState.agentType]?.name ||
+    [PLACEHOLDER.AGENT_NAME]: currentAgentType
+      ? agentRegistry.getAgentName(currentAgentType) ||
+        agentTemplates[currentAgentType]?.name ||
         'Unknown Agent'
       : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
@@ -152,12 +158,6 @@ export async function formatPrompt(
     ),
   }
 
-  // Add agent instructions if available
-  const agentInstructions = getAgentInstructionsPrompt(fileContext, agentState.agentType || undefined)
-  if (agentInstructions) {
-    toInject[PLACEHOLDER.INITIAL_AGENT_PROMPT] = processedPrompt + agentInstructions
-  }
-
   for (const varName of placeholderValues) {
     if (toInject[varName]) {
       prompt = prompt.replaceAll(varName, toInject[varName])
@@ -185,7 +185,8 @@ export async function getAgentPrompt<T extends StringField | RequirePrompt>(
     agentState,
     agentTemplate.toolNames,
     agentTemplate.spawnableAgents,
-    ''
+    '',
+    agentTemplate.id as AgentTemplateType
   )
 
   const addendum =

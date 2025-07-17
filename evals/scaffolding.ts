@@ -137,6 +137,7 @@ export async function getProjectFileContext(
     fileTokenScores,
     fileTree,
     agentTemplates: {},
+    agentInstructions: {},
   }
 }
 

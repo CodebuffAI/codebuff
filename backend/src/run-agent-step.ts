@@ -562,7 +562,8 @@ export const loopAgentSteps = async (
             currentAgentState,
             agentTemplate.toolNames,
             agentTemplate.spawnableAgents,
-            prompt ?? ''
+            prompt ?? '',
+            agentType
           )
         : undefined,
       assistantPrefix:
@@ -573,7 +574,8 @@ export const loopAgentSteps = async (
           currentAgentState,
           agentTemplate.toolNames,
           agentTemplate.spawnableAgents,
-          prompt ?? ''
+          prompt ?? '',
+          agentType
         )),
     })
 

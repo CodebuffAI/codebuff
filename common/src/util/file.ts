@@ -46,6 +46,7 @@ export const ProjectFileContextSchema = z.object({
   knowledgeFiles: z.record(z.string(), z.string()),
   userKnowledgeFiles: z.record(z.string(), z.string()).optional(),
   agentTemplates: z.record(z.string(), z.string()).default({}),
+  agentInstructions: z.record(z.string(), z.string()).default({}),
   gitChanges: z.object({
     status: z.string(),
     diff: z.string(),
@@ -91,6 +92,7 @@ export const getStubProjectFileContext = (): ProjectFileContext => ({
   knowledgeFiles: {},
   userKnowledgeFiles: {},
   agentTemplates: {},
+  agentInstructions: {},
   gitChanges: {
     status: '',
     diff: '',

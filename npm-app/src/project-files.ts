@@ -284,6 +284,26 @@ export const getProjectFileContext = async (
     const agentTemplateFilesWithScrapedContent =
       await addScrapedContentToFiles(agentTemplateFiles)
 
+    // Load agent instructions config
+    const agentInstructionsConfigPath = path.join(
+      projectRoot,
+      AGENT_TEMPLATES_DIR,
+      'agent-instructions-config.json'
+    )
+    let agentInstructions: Record<string, string> = {}
+    try {
+      if (fs.existsSync(agentInstructionsConfigPath)) {
+        const configContent = fs.readFileSync(
+          agentInstructionsConfigPath,
+          'utf8'
+        )
+        const config = JSON.parse(configContent)
+        agentInstructions = config.agentInstructions || {}
+      }
+    } catch (error) {
+      logger.error({ error }, 'Failed to load agent instructions config')
+    }
+
     // Get knowledge files from user's home directory
     const homeDir = os.homedir()
     const userKnowledgeFiles = findKnowledgeFilesInDir(homeDir)
@@ -305,6 +325,7 @@ export const getProjectFileContext = async (
       tokenCallers,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
       agentTemplates: agentTemplateFilesWithScrapedContent,
+      agentInstructions,
       shellConfigFiles,
       systemInfo: getSystemInfo(),
       userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,

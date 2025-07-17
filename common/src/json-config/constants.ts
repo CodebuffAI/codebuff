@@ -67,7 +67,6 @@ export const FileChangeHook = z
 export const CodebuffConfigSchema = z
   .object({
     description: z.any().optional(),
-    agentInstructions: z.record(z.string(), z.string()).optional(),
     startupProcesses: z.array(StartupProcessSchema).optional(),
     fileChangeHooks: z.array(FileChangeHook).optional(),
     maxAgentSteps: z.number().optional().default(12),

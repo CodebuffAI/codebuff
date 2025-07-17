@@ -14,6 +14,7 @@ export const mockFileContext: ProjectFileContext = {
   fileTokenScores: {},
   knowledgeFiles: {},
   agentTemplates: {},
+  agentInstructions: {},
   gitChanges: {
     status: '',
     diff: '',

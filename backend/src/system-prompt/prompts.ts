@@ -229,52 +229,24 @@ export const getAgentInstructionsPrompt = (
   fileContext: ProjectFileContext,
   agentType?: string
 ) => {
-  // Load config directly since it's not in ProjectFileContext yet
-  let codebuffConfig
-  try {
-    const fs = require('fs')
-    const path = require('path')
-    const configPath = path.join(fileContext.projectRoot, codebuffConfigFile)
-    const configBackupPath = path.join(
-      fileContext.projectRoot,
-      codebuffConfigFileBackup
-    )
+  const instructions = fileContext.agentInstructions
 
-    let configContent = '{}'
-    if (fs.existsSync(configPath)) {
-      configContent = fs.readFileSync(configPath, 'utf8')
-    } else if (fs.existsSync(configBackupPath)) {
-      configContent = fs.readFileSync(configBackupPath, 'utf8')
-    }
-
-    // Simple JSON parsing (ignoring comments for now)
-    codebuffConfig = JSON.parse(
-      configContent.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
-    )
-  } catch (error) {
-    // If config can't be loaded, return empty
+  if (!instructions || Object.keys(instructions).length === 0) {
     return ''
   }
 
-  if (!codebuffConfig?.agentInstructions) {
+  // Only return instructions if we have a specific agent type and it has instructions
+  if (!agentType) {
     return ''
   }
 
-  const instructions = codebuffConfig.agentInstructions
-  const relevantInstruction = agentType && instructions[agentType]
-
+  const relevantInstruction = instructions[agentType]
   if (relevantInstruction) {
     return `\n## Agent-Specific Instructions\n\n**${agentType}**: ${relevantInstruction}\n`
   }
 
-  // Show all instructions if no specific agent type
-  const allInstructions = Object.entries(instructions)
-    .map(([type, instruction]) => `**${type}**: ${instruction}`)
-    .join('\n')
-
-  return allInstructions
-    ? `\n## Agent Instructions\n\n${allInstructions}\n`
-    : ''
+  // Return empty string if agent type doesn't have instructions
+  return ''
 }
 
 export const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
