@@ -1008,7 +1008,9 @@ export class Client {
         if (this.userInputId !== userInputId) {
           return
         }
-        Spinner.get().stop()
+        if (chunk) {
+          Spinner.get().stop()
+        }
         DiffManager.receivedResponse()
         process.stdout.write(chunk)
       },

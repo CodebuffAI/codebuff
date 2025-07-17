@@ -1,10 +1,8 @@
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { getStopSequences } from '@codebuff/common/util/xml'
 import z from 'zod/v4'
 
-import { ToolName } from '@codebuff/common/constants/tools'
 import {
   baseAgentAgentStepPrompt,
   baseAgentSystemPrompt,
@@ -40,13 +38,6 @@ export const base = (
     'update_subgoal',
     'update_report',
   ],
-  stopSequences: getStopSequences([
-    'read_files',
-    'find_files',
-    'run_terminal_command',
-    'code_search',
-    'spawn_agents',
-  ] satisfies readonly ToolName[]),
   spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [

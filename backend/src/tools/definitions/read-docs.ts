@@ -1,12 +1,12 @@
-import z from 'zod/v4'
-
 import { getToolCallString } from '@codebuff/common/constants/tools'
-
+import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'read_docs'
+const endsAgentStep = true
 export const readDocsTool = {
-  toolName: 'read_docs',
-  endsAgentStep: true,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       libraryTitle: z
@@ -51,14 +51,22 @@ Use cases:
 The tool will search for the library and return the most relevant documentation content. If a topic is specified, it will focus the results on that specific area.
 
 Example:
-${getToolCallString('read_docs', {
-  libraryTitle: 'Next.js',
-  topic: 'app router',
-  max_tokens: 15000,
-})}
+${getToolCallString(
+  toolName,
+  {
+    libraryTitle: 'Next.js',
+    topic: 'app router',
+    max_tokens: 15000,
+  },
+  endsAgentStep
+)}
 
-${getToolCallString('read_docs', {
-  libraryTitle: 'MongoDB',
-})}
+${getToolCallString(
+  toolName,
+  {
+    libraryTitle: 'MongoDB',
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

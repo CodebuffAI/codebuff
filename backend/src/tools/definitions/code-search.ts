@@ -1,12 +1,12 @@
-import z from 'zod/v4'
-
 import { getToolCallString } from '@codebuff/common/constants/tools'
-
+import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'code_search'
+const endsAgentStep = true
 export const codeSearchTool = {
-  toolName: 'code_search',
-  endsAgentStep: true,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       pattern: z
@@ -63,9 +63,9 @@ Advanced ripgrep flags (use the flags parameter):
 Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
 
 Examples:
-${getToolCallString('code_search', { pattern: 'foo' })}
-${getToolCallString('code_search', { pattern: 'import.*foo', cwd: 'src' })}
-${getToolCallString('code_search', { pattern: 'function.*authenticate', flags: '-i -t ts' })}
-${getToolCallString('code_search', { pattern: 'TODO', flags: '-n --type-not test' })}
+${getToolCallString(toolName, { pattern: 'foo' }, endsAgentStep)}
+${getToolCallString(toolName, { pattern: 'import.*foo', cwd: 'src' }, endsAgentStep)}
+${getToolCallString(toolName, { pattern: 'function.*authenticate', flags: '-i -t ts' }, endsAgentStep)}
+${getToolCallString(toolName, { pattern: 'TODO', flags: '-n --type-not test' }, endsAgentStep)}
     `.trim(),
 } satisfies CodebuffToolDef

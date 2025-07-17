@@ -2,9 +2,11 @@ import { getToolCallString } from '@codebuff/common/constants/tools'
 import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'update_report'
+const endsAgentStep = false
 export const updateReportTool = {
-  toolName: 'update_report',
-  endsAgentStep: false,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       json_update: z
@@ -21,10 +23,14 @@ You must use this tool as it is the only way to report any findings to the user.
 
 Please update the report with all the information and analysis you want to pass on to the user. If you just want to send a simple message, use an object with the key "message" and value of the message you want to send.
 Example:
-${getToolCallString('update_report', {
-  jsonUpdate: {
-    message: 'I found a bug in the code!',
+${getToolCallString(
+  toolName,
+  {
+    jsonUpdate: {
+      message: 'I found a bug in the code!',
+    },
   },
-})}
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

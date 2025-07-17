@@ -1,12 +1,12 @@
-import z from 'zod/v4'
-
 import { getToolCallString } from '@codebuff/common/constants/tools'
-
+import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'find_files'
+const endsAgentStep = true
 export const findFilesTool = {
-  toolName: 'find_files',
-  endsAgentStep: true,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       description: z
@@ -21,9 +21,13 @@ export const findFilesTool = {
     ),
   description: `
 Example:
-${getToolCallString('find_files', {
-  description: 'The implementation of function foo',
-})}
+${getToolCallString(
+  toolName,
+  {
+    description: 'The implementation of function foo',
+  },
+  endsAgentStep
+)}
 
 Purpose: Better fulfill the user request by reading files which could contain information relevant to the user's request.
 Use cases:

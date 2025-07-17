@@ -68,7 +68,6 @@ export const DynamicAgentTemplateSchema = z.object({
         }
       }
     ),
-  stopSequences: z.array(z.string()).default([]),
   spawnableAgents: z.array(z.string()).default([]),
   promptSchema: PromptSchemaObjectSchema,
 

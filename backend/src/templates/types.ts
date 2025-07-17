@@ -7,7 +7,6 @@ import {
   AgentTemplateTypes,
   ToolResult,
 } from '@codebuff/common/types/session-state'
-import { getStopSequences } from '@codebuff/common/util/xml'
 import { CodebuffToolCall } from '../tools/constants'
 
 export type AgentTemplate = {
@@ -24,7 +23,6 @@ export type AgentTemplate = {
   outputMode: 'last_message' | 'report' | 'all_messages'
   includeMessageHistory: boolean
   toolNames: ToolName[]
-  stopSequences: string[]
   spawnableAgents: AgentTemplateType[]
 
   initialAssistantMessage: string | undefined
@@ -105,15 +103,6 @@ export const baseAgentToolNames: ToolName[] = [
   'think_deeply',
   'update_subgoal',
 ] as const
-
-// Use the utility function to generate stop sequences for key tools
-export const baseAgentStopSequences: string[] = getStopSequences([
-  'read_files',
-  'find_files',
-  'run_terminal_command',
-  'code_search',
-  'spawn_agents',
-] as ToolName[])
 
 export const baseAgentSpawnableAgents: AgentTemplateType[] = [
   AgentTemplateTypes.file_picker,

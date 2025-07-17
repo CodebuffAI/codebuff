@@ -4,9 +4,11 @@ import { getToolCallString } from '@codebuff/common/constants/tools'
 
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'add_subgoal'
+const endsAgentStep = false
 export const addSubgoalTool = {
-  toolName: 'add_subgoal',
-  endsAgentStep: false,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       id: z
@@ -36,10 +38,14 @@ export const addSubgoalTool = {
 
   description: `
 Example:
-${getToolCallString('add_subgoal', {
-  id: '1',
-  objective: 'Add a new "deploy api" subgoal',
-  status: 'IN_PROGRESS',
-})}
+${getToolCallString(
+  toolName,
+  {
+    id: '1',
+    objective: 'Add a new "deploy api" subgoal',
+    status: 'IN_PROGRESS',
+  },
+  endsAgentStep
+)}
 `.trim(),
 } satisfies CodebuffToolDef

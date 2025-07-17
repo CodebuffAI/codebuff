@@ -1,8 +1,8 @@
-import { processAgentOverrides } from '../agent-overrides'
-import { AgentTemplate } from '../types'
+import { openrouterModels } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { openrouterModels } from '@codebuff/common/constants'
+import { processAgentOverrides } from '../agent-overrides'
+import { AgentTemplate } from '../types'
 
 describe('processAgentOverrides', () => {
   const mockBaseTemplate: AgentTemplate = {
@@ -14,7 +14,6 @@ describe('processAgentOverrides', () => {
     outputMode: 'last_message',
     includeMessageHistory: true,
     toolNames: ['end_turn'],
-    stopSequences: [],
     spawnableAgents: [],
     initialAssistantMessage: '',
     initialAssistantPrefix: '',
@@ -23,6 +22,7 @@ describe('processAgentOverrides', () => {
     systemPrompt: 'Base system prompt',
     userInputPrompt: 'Base user input prompt',
     agentStepPrompt: 'Base agent step prompt',
+    implementation: 'llm',
   }
 
   const mockFileContext: ProjectFileContext = {
@@ -34,7 +34,14 @@ describe('processAgentOverrides', () => {
     knowledgeFiles: {},
     agentTemplates: {},
     shellConfigFiles: {},
-    systemInfo: { platform: 'darwin', shell: 'bash' },
+    systemInfo: {
+      platform: 'darwin',
+      shell: 'bash',
+      nodeVersion: 'v20.0.0',
+      arch: 'arm64',
+      homedir: '/Users/test',
+      cpus: 8,
+    },
     userKnowledgeFiles: {},
     gitChanges: {
       status: '',

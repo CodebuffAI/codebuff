@@ -1,7 +1,7 @@
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { getToolCallString } from '@codebuff/common/constants/tools'
-import { closeXml, getStopSequences } from '@codebuff/common/util/xml'
+import { closeXml } from '@codebuff/common/util/xml'
 import z from 'zod/v4'
 
 import { AgentTemplate, PLACEHOLDER } from '../types'
@@ -17,12 +17,15 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['find_files', 'end_turn'],
-  stopSequences: getStopSequences(['find_files', 'end_turn']),
   spawnableAgents: [],
 
-  initialAssistantMessage: getToolCallString('find_files', {
-    description: PLACEHOLDER.INITIAL_AGENT_PROMPT,
-  }),
+  initialAssistantMessage: getToolCallString(
+    'find_files',
+    {
+      description: PLACEHOLDER.INITIAL_AGENT_PROMPT,
+    },
+    true
+  ),
   initialAssistantPrefix: '',
   stepAssistantMessage: '',
   stepAssistantPrefix: '',

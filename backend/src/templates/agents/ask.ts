@@ -1,13 +1,13 @@
-import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
+import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import z from 'zod/v4'
 import {
   askAgentAgentStepPrompt,
   askAgentSystemPrompt,
   askAgentUserInputPrompt,
 } from '../ask-prompts'
-import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
-import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
+import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
@@ -15,7 +15,9 @@ export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
   implementation: 'llm',
   description: 'Base ask-mode agent that orchestrates the full response.',
   promptSchema: {
-    prompt: z.string().describe('A question you would like answered about this project.'),
+    prompt: z
+      .string()
+      .describe('A question you would like answered about this project.'),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
@@ -29,7 +31,6 @@ export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
     'read_files',
     'think_deeply',
   ],
-  stopSequences: baseAgentStopSequences,
   spawnableAgents: [AgentTemplateTypes.file_picker],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',

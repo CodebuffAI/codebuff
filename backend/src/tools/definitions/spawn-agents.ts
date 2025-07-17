@@ -1,12 +1,12 @@
-import z from 'zod/v4'
-
 import { getToolCallString } from '@codebuff/common/constants/tools'
-
+import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'spawn_agents'
+const endsAgentStep = true
 export const spawnAgentsTool = {
-  toolName: 'spawn_agents',
-  endsAgentStep: true,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       agents: z
@@ -27,14 +27,18 @@ Use this tool to spawn subagents to help you complete the user request. Each age
 The prompt field is a simple string, while params is a JSON object that gets validated against the agent's schema.
 
 Example:
-${getToolCallString('spawn_agents', {
-  agents: JSON.stringify([
-    {
-      agent_type: 'planner',
-      prompt: 'Create a plan for implementing user authentication',
-      params: { filePaths: ['src/auth.ts', 'src/user.ts'] },
-    },
-  ]),
-})}
+${getToolCallString(
+  toolName,
+  {
+    agents: JSON.stringify([
+      {
+        agent_type: 'planner',
+        prompt: 'Create a plan for implementing user authentication',
+        params: { filePaths: ['src/auth.ts', 'src/user.ts'] },
+      },
+    ]),
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

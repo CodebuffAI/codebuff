@@ -9,7 +9,6 @@
   "outputMode": "last_message",
   "includeMessageHistory": true,
   "toolNames": ["end_turn"],
-  "stopSequences": ["</end_turn>"],
   "spawnableAgents": ["thinker", "researcher"],
   "promptSchema": {
     "prompt": {

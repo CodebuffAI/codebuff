@@ -1,6 +1,12 @@
 import { ToolResultPart } from 'ai'
 import { closeXml } from '../util/xml'
 
+export const toolNameParam = 'codebuff_tool_name'
+export const endsAgentStepParam = 'codebuff_end_step'
+export const toolXmlName = 'codebuff_tool_call'
+export const startToolTag = `<${toolXmlName}>\n`
+export const endToolTag = `\n</${toolXmlName}>`
+
 // List of all available tools
 export const toolNames = [
   'add_subgoal',
@@ -66,9 +72,22 @@ export const toolSchema = {
 
 export const getToolCallString = (
   toolName: string,
-  params: Record<string, any>
+  params: Record<string, any>,
+  endsAgentStep: boolean
 ) => {
-  return `\n<codebuff_tool_${toolName}>\n${JSON.stringify(params, null, 2)}\n</codebuff_tool_${toolName}>\n`
+  return [
+    startToolTag,
+    JSON.stringify(
+      {
+        [toolNameParam]: toolName,
+        ...params,
+        [endsAgentStepParam]: endsAgentStep,
+      },
+      null,
+      2
+    ),
+    endToolTag,
+  ].join('')
 }
 
 export type StringToolResultPart = Omit<ToolResultPart, 'type'> & {

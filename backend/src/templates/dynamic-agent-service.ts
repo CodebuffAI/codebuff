@@ -4,15 +4,15 @@ import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
 import {
-  validateSpawnableAgents,
   formatSpawnableAgentError,
+  validateSpawnableAgents,
 } from '@codebuff/common/util/agent-template-validation'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { jsonSchemaToZod } from 'json-schema-to-zod'
 import { z } from 'zod'
 
-import { AgentTemplate, AgentTemplateUnion } from './types'
 import { logger } from '../util/logger'
+import { AgentTemplate, AgentTemplateUnion } from './types'
 
 export interface DynamicAgentValidationError {
   filePath: string
@@ -231,7 +231,6 @@ export class DynamicAgentService {
         outputMode: dynamicAgent.outputMode,
         includeMessageHistory: dynamicAgent.includeMessageHistory,
         toolNames: dynamicAgent.toolNames as any[],
-        stopSequences: dynamicAgent.stopSequences,
         spawnableAgents: validatedSpawnableAgents,
 
         systemPrompt: this.resolvePromptFieldFromAgentTemplates(

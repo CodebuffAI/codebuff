@@ -14,7 +14,6 @@ import { Message } from '@codebuff/common/types/message'
 import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { closeXml } from '@codebuff/common/util/xml'
 import { OpenRouterUsageAccounting } from '@codebuff/internal/openrouter-ai-sdk'
 import {
   CoreAssistantMessage,
@@ -143,14 +142,20 @@ export const promptAiSdkStream = async function* (
     if (chunk.type === 'reasoning') {
       if (!reasoning) {
         reasoning = true
-        yield '<think_deeply>\n<thought>'
+        yield `<codebuff_tool_call>
+{
+  "codebuff_tool_name": "think_deeply",
+  "thought": "`
       }
-      yield chunk.textDelta
+      yield JSON.stringify(chunk.textDelta).slice(1, -1)
     }
     if (chunk.type === 'text-delta') {
       if (reasoning) {
         reasoning = false
-        yield `${closeXml('thought')}\n${closeXml('think_deeply')}\n\n`
+        yield `",
+  "codebuff_end_step": false
+}
+</codebuff_tool_call>\n\n`
       }
       content += chunk.textDelta
       yield chunk.textDelta

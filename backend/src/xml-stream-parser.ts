@@ -1,7 +1,34 @@
+import {
+  endsAgentStepParam,
+  endToolTag,
+  startToolTag,
+  toolNameParam,
+} from '@codebuff/common/constants/tools'
 import { suffixPrefixOverlap } from '@codebuff/common/util/string'
 
-export async function* processStreamWithTags<T extends string>(
-  stream: AsyncGenerator<T> | ReadableStream<T>,
+const toolExtractionPattern = new RegExp(
+  `${startToolTag}(.*?)${endToolTag}`,
+  'gs'
+)
+
+const completionSuffix = `${JSON.stringify(endsAgentStepParam)}: true\n}${endToolTag}`
+
+function removeProcessedToolCalls(buffer: string): string {
+  const suffix = suffixPrefixOverlap(buffer, startToolTag)
+  if (suffix) {
+    return suffix
+  }
+
+  const lastIndex = buffer.lastIndexOf(startToolTag)
+  if (lastIndex === -1) {
+    return ''
+  }
+
+  return buffer.slice(lastIndex)
+}
+
+export async function* processStreamWithTags(
+  stream: AsyncGenerator<string> | ReadableStream<string>,
   processors: Record<
     string,
     {
@@ -11,91 +38,73 @@ export async function* processStreamWithTags<T extends string>(
     }
   >,
   onError: (tagName: string, errorMessage: string) => void
-) {
-  const matches = Object.keys(processors).flatMap((tool) => [
-    `\n<codebuff_tool_${tool}>`,
-    `\n</codebuff_tool_${tool}>`,
-  ])
-
+): AsyncGenerator<string> {
   let streamCompleted = false
   let buffer = ''
-  let currentTool: string | null = null
-  function* processChunk(chunk: string | undefined) {
-    if (chunk === undefined) {
-      streamCompleted = true
+
+  function extractToolCalls(): string[] {
+    const matches: string[] = []
+    let lastIndex = -1
+    for (const match of buffer.matchAll(toolExtractionPattern)) {
+      lastIndex = match.index + match[0].length
+      matches.push(match[1])
     }
 
-    let chunkStr =
-      chunk !== undefined
-        ? chunk
-        : currentTool !== null
-          ? `</codebuff_tool_${currentTool}>`
-          : undefined
-    if (chunkStr === undefined) {
+    if (lastIndex === -1) {
+      lastIndex = 0
+    }
+    buffer = removeProcessedToolCalls(buffer.slice(lastIndex))
+    return matches
+  }
+
+  function processToolCallContents(contents: string): void {
+    let parsedParams: any
+    try {
+      parsedParams = JSON.parse(contents)
+    } catch (error: any) {
+      onError('parse_error', error.message)
       return
     }
-    yield chunkStr
 
-    for (const c of chunkStr) {
-      buffer += c
-      let suffix = ''
-      for (const match of matches) {
-        const newSuffix = suffixPrefixOverlap(buffer, match)
-        if (newSuffix.length > suffix.length) {
-          suffix = newSuffix
-        }
+    const toolName = parsedParams[toolNameParam] as keyof typeof processors
+    if (!processors[toolName]) {
+      onError(toolName, `Tool not found: ${toolName}`)
+    }
+
+    delete parsedParams[toolNameParam]
+
+    processors[toolName].onTagStart(toolName, {})
+    processors[toolName].onTagEnd(toolName, parsedParams)
+  }
+
+  function extractToolsFromBufferAndProcess() {
+    console.log({ buffer }, 'asdf')
+    const matches = extractToolCalls()
+    console.log({ matches, buffer }, 'asdf')
+    matches.forEach(processToolCallContents)
+  }
+
+  function* processChunk(chunk: string | undefined) {
+    if (chunk !== undefined) {
+      buffer += chunk
+    }
+    extractToolsFromBufferAndProcess()
+
+    if (chunk === undefined) {
+      streamCompleted = true
+      if (buffer) {
+        buffer += completionSuffix
+        chunk = completionSuffix
       }
-      if (!suffix.endsWith('>')) {
-        continue
-      }
+      extractToolsFromBufferAndProcess()
+    }
 
-      handleTags: if (suffix.startsWith('\n</codebuff_tool_')) {
-        const tool = suffix.slice('\n</codebuff_tool_'.length, -'>'.length)
-        const openTag = `\n<codebuff_tool_${tool}>\n`
-        const previousIndex = buffer.lastIndexOf(openTag)
-        if (previousIndex === -1) {
-          onError(tool, `Unexpected closing tag: ${JSON.stringify(suffix)}`)
-          break handleTags
-        }
-
-        const content = buffer.slice(
-          previousIndex + openTag.length,
-          buffer.length - suffix.length
-        )
-
-        if (!processors[tool]) {
-          onError(tool, `Tool not found: ${tool}`)
-          break handleTags
-        }
-
-        let params: Record<string, any>
-        try {
-          params = JSON.parse(content)
-        } catch (error: any) {
-          onError(tool, `Failed to parse params for tool: ${error.message}`)
-          break handleTags
-        }
-
-        processors[tool].onTagEnd(tool, params)
-
-        buffer = ''
-        currentTool = null
-      } else if (suffix.startsWith('\n<codebuff_tool_')) {
-        const tool = suffix.slice('\n<codebuff_tool_'.length, -'>'.length)
-        currentTool = tool
-        if (!processors[tool]) {
-          break handleTags
-        }
-        processors[tool].onTagStart(tool, {})
-        buffer = suffix
-      }
-      if (currentTool === null) {
-        buffer = suffix
-      }
+    if (chunk) {
+      yield chunk
     }
   }
 
-  for await (const chunk of stream as AsyncIterable<T>) {
+  for await (const chunk of stream as AsyncIterable<string>) {
     if (streamCompleted) {
       break
     }
@@ -107,6 +116,6 @@ export async function* processStreamWithTags<T extends string>(
     yield* processChunk(undefined)
   }
 
-  for await (const chunk of stream as AsyncIterable<T>) {
+  for await (const chunk of stream as AsyncIterable<string>) {
   }
 }

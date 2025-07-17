@@ -21,7 +21,6 @@
     "think_deeply",
     "end_turn"
   ],
-  "stopSequences": ["read_files", "run_terminal_command"],
   "systemPrompt": "You are an expert software developer. Your job is to create a git commit with a really good commit message.",
   "userInputPrompt": {
     "path": "./git-committer-user-prompt.md"

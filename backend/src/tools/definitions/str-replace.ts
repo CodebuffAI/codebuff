@@ -1,13 +1,13 @@
-import z from 'zod/v4'
-
 import { getToolCallString } from '@codebuff/common/constants/tools'
-
 import { closeXml } from '@codebuff/common/util/xml'
+import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'str_replace'
+const endsAgentStep = false
 export const strReplaceTool = {
-  toolName: 'str_replace',
-  endsAgentStep: false,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       path: z
@@ -45,12 +45,16 @@ If you are making multiple edits in a row to a file, use only one <str_replace> 
 Don't forget to close the <str_replace> tag with ${closeXml('str_replace')} after you have finished making all the replacements.
 
 Example:
-${getToolCallString('str_replace', {
-  path: 'path/to/file',
-  replacements: [
-    { old: 'This is the old string', new: 'This is the new string' },
-    { old: 'line to delete\n', new: '' },
-  ],
-})}
+${getToolCallString(
+  toolName,
+  {
+    path: 'path/to/file',
+    replacements: [
+      { old: 'This is the old string', new: 'This is the new string' },
+      { old: 'line to delete\n', new: '' },
+    ],
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

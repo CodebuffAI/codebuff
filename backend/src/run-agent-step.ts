@@ -636,7 +636,7 @@ export const loopAgentSteps = async (
 
     if (shouldEndTurn) {
       const hasEndTurn = fullResponse.includes(
-        getToolCallString('end_turn', {})
+        getToolCallString('end_turn', {}, true)
       )
       return {
         agentState: newAgentState,

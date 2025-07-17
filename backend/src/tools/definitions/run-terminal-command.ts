@@ -1,13 +1,13 @@
-import z from 'zod/v4'
-
 import { getToolCallString } from '@codebuff/common/constants/tools'
-
+import z from 'zod/v4'
 import { gitCommitGuidePrompt } from '../../system-prompt/prompts'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'run_terminal_command'
+const endsAgentStep = true
 export const runTerminalCommandTool = {
-  toolName: 'run_terminal_command',
-  endsAgentStep: true,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       // Can be empty to use it for a timeout.
@@ -68,9 +68,13 @@ Notes:
 ${gitCommitGuidePrompt}
 
 Example:
-${getToolCallString('run_terminal_command', {
-  command: 'echo "hello world"',
-  process_type: 'SYNC',
-})}
+${getToolCallString(
+  toolName,
+  {
+    command: 'echo "hello world"',
+    process_type: 'SYNC',
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef
