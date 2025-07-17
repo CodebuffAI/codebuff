@@ -284,9 +284,15 @@ const onInit = async (
         await dynamicAgentService.loadAgents(fileContext)
       allValidationErrors.push(...dynamicErrors)
 
+      if (dynamicErrors.length > 0 && logger?.warn) {
+        logger.warn(
+          { errorCount: dynamicErrors.length },
+          'Dynamic agent validation errors found'
+        )
+      }
+
       // Get dynamic agent IDs for override validation
       const dynamicAgentIds = dynamicAgentService.getAgentTypes()
-
       // Validate override templates with dynamic agent IDs
       const { validationErrors: overrideErrors } = validateAgentTemplateConfigs(
         agentTemplates,

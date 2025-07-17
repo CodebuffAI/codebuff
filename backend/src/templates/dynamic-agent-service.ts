@@ -48,14 +48,12 @@ export class DynamicAgentService {
     const hasAgentTemplates = Object.keys(agentTemplates).length > 0
 
     if (!hasAgentTemplates) {
-      logger.debug('No agent templates found in fileContext')
       this.isLoaded = true
       return {
         templates: this.templates,
         validationErrors: this.validationErrors,
       }
     }
-
     try {
       // Use agentTemplates from fileContext - keys are already full paths
       const jsonFiles = Object.keys(agentTemplates).filter((filePath) =>
@@ -87,6 +85,14 @@ export class DynamicAgentService {
     }
 
     this.isLoaded = true
+
+    const templateCount = Object.keys(this.templates).length
+    if (templateCount > 0 && logger?.info) {
+      logger.info(
+        { templateCount, agentIds: Object.keys(this.templates) },
+        'Dynamic agents loaded successfully'
+      )
+    }
 
     return {
       templates: this.templates,
@@ -277,6 +283,7 @@ export class DynamicAgentService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error'
+
       this.validationErrors.push({
         filePath,
         message: `Error in agent template ${filePath}: ${errorMessage}`,
@@ -326,7 +333,6 @@ export class DynamicAgentService {
 
     return ''
   }
-
   /**
    * Convert JSON schema to Zod schema format using json-schema-to-zod.
    * This is done once during loading to avoid repeated conversions.
@@ -396,14 +402,12 @@ export class DynamicAgentService {
 
     return result
   }
-
   /**
    * Get a specific agent template by type
    */
   getTemplate(agentType: string): AgentTemplate | undefined {
     return this.templates[agentType]
   }
-
   /**
    * Get all loaded dynamic agent templates
    */
