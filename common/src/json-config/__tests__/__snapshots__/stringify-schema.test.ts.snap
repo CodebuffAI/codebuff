@@ -26,7 +26,7 @@ exports[`stringifySchema should correctly stringify StartupProcessSchema 1`] = `
 exports[`stringifySchema should correctly stringify CodebuffConfigSchema 1`] = `
 "// Defines the overall Codebuff configuration file (e.g., codebuff.json). This schema defines the top-level structure of the configuration. This schema can be found at https://www.codebuff.com/config
 {
-  "description": string | undefined,
+  "description": any | undefined,
   "agentInstructions": Record<string, string> | undefined,
   "startupProcesses": [
 
