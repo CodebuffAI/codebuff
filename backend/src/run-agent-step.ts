@@ -263,7 +263,7 @@ export const runAgentStep = async (
     })
   } else {
     // Update status to running for existing agents
-    asyncAgentManager.updateAgentStatus(agentState.agentId, 'running')
+    asyncAgentManager.updateAgentState(agentState, 'running')
   }
 
   // Check for pending messages from other agents
@@ -501,18 +501,19 @@ export const runAgentStep = async (
     toolCalls.some((call) => call.toolName === 'end_turn') ||
     (toolCalls.length === 0 && toolResults.length === 0)
 
+  const newAgentState = {
+    ...agentState,
+    messageHistory: finalMessageHistory,
+    stepsRemaining: agentState.stepsRemaining - 1,
+    agentContext: newAgentContext,
+  }
   // Mark agent as completed if it should end turn
   if (shouldEndTurn) {
-    asyncAgentManager.updateAgentStatus(agentState.agentId, 'completed')
+    asyncAgentManager.updateAgentState(newAgentState, 'completed')
   }
 
   return {
-    agentState: {
-      ...agentState,
-      messageHistory: finalMessageHistory,
-      stepsRemaining: agentState.stepsRemaining - 1,
-      agentContext: newAgentContext,
-    },
+    agentState: newAgentState,
     fullResponse,
     shouldEndTurn,
   }

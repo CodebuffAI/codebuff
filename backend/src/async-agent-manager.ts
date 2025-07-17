@@ -58,13 +58,16 @@ export class AsyncAgentManager {
   }
 
   /**
-   * Update agent status
+   * Update agent state and status
    */
-  updateAgentStatus(agentId: string, status: AsyncAgentInfo['status']): void {
-    const agent = this.agents.get(agentId)
+  updateAgentState(
+    agentState: AgentState,
+    status: AsyncAgentInfo['status']
+  ): void {
+    const agent = this.agents.get(agentState.agentId)
     if (agent) {
       agent.status = status
-      logger.debug({ agentId, status }, 'Updated async agent status')
+      agent.agentState = agentState
     }
   }
 
@@ -144,13 +147,11 @@ export class AsyncAgentManager {
 
     // Atomic check and update to prevent race conditions
     if (agent.status === 'running') {
+      logger.debug({ agentId }, 'Agent already running, skipping trigger')
       return // Already running, nothing to do
     }
 
     logger.debug({ agentId }, 'Triggering idle agent due to new message')
-
-    // Update status to running
-    agent.status = 'running'
 
     try {
       // Import loopAgentSteps dynamically to avoid circular dependency
@@ -172,13 +173,8 @@ export class AsyncAgentManager {
 
       // Store the promise and handle completion
       agent.promise = agentPromise
-
-      const result = await agentPromise
-
-      // Update agent state and status, clean up promise
-      agent.agentState = result.agentState
-      agent.status = 'completed'
-      agent.promise = undefined // Clean up promise reference
+      await agentPromise
+      agent.promise = undefined
 
       logger.debug(
         { agentId },
@@ -186,7 +182,7 @@ export class AsyncAgentManager {
       )
     } catch (error) {
       // Reset status to allow retry and clean up promise
-      agent.status = 'completed' // Allow retry by setting to completed
+      agent.status = 'failed' // Allow retry by setting to completed
       agent.promise = undefined
       logger.error(
         { agentId, error },

@@ -171,11 +171,8 @@ export const handleSpawnAgentsAsync = ((params: {
               clientSessionId,
               onResponseChunk: () => {}, // Async agents don't stream to parent
             })
-
-            asyncAgentManager.updateAgentStatus(agentId, 'completed')
             return result
           } catch (error) {
-            asyncAgentManager.updateAgentStatus(agentId, 'failed')
             logger.error({ agentId, error }, 'Async agent failed')
             throw error
           }
