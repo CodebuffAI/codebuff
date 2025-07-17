@@ -125,10 +125,10 @@ export const getModelForMode = (
 ) => {
   if (operation === 'agent') {
     return {
-      lite: models.openrouter_kimi_k2,
+      lite: models.openrouter_claude_3_5_haiku,
       normal: models.openrouter_claude_sonnet_4,
       max: models.openrouter_claude_sonnet_4,
-      experimental: models.openrouter_gemini2_5_pro_preview,
+      experimental: models.openrouter_kimi_k2,
       ask: models.openrouter_gemini2_5_pro_preview,
     }[costMode]
   }

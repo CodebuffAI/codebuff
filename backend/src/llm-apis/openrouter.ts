@@ -10,7 +10,6 @@ const providerOrder = {
     'Amazon Bedrock',
   ],
   [models.openrouter_claude_opus_4]: ['Google', 'Anthropic'],
-  [models.openrouter_kimi_k2]: ['groq'],
 } as const
 
 export function openRouterLanguageModel(model: Model) {
@@ -21,6 +20,11 @@ export function openRouterLanguageModel(model: Model) {
       allow_fallbacks: false,
     }
   }
+
+  // Use nitro flag for kimi-k2 to get fastest provider
+  const modelWithFlags =
+    model === models.openrouter_kimi_k2 ? `${model}:nitro` : model
+
   return createOpenRouter({
     apiKey: env.OPEN_ROUTER_API_KEY,
     headers: {
@@ -28,7 +32,7 @@ export function openRouterLanguageModel(model: Model) {
       'X-Title': 'Codebuff',
     },
     extraBody,
-  }).languageModel(model, {
+  }).languageModel(modelWithFlags, {
     usage: { include: true },
     includeReasoning: true,
     logprobs: true,
