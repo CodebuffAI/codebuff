@@ -94,7 +94,8 @@ export function createXMLStreamParser(
       const toolRenderer = getRenderer(currentTool)
       const params = JSON.parse(paramsContent)
       for (const [key, value] of Object.entries(params)) {
-        const stringValue = JSON.stringify(value)
+        const stringValue =
+          typeof value === 'string' ? value : JSON.stringify(value)
         if (toolRenderer.onParamStart) {
           const output = toolRenderer.onParamStart(key, stringValue)
           if (typeof output === 'string') {
