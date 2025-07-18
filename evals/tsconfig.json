@@ -5,5 +5,5 @@
     "baseUrl": "."
   },
   "include": ["**/*.ts"],
-  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "__tests__", "test-repos"]
+  "exclude": ["node_modules", "test-repos"]
 }
