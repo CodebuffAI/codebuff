@@ -16,8 +16,13 @@ import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { agentTemplates } from './agent-list'
-import { PLACEHOLDER, PlaceholderValue, placeholderValues, AgentTemplate } from './types'
-import { agentRegistry } from './agent-registry'
+import {
+  PLACEHOLDER,
+  PlaceholderValue,
+  placeholderValues,
+  AgentTemplate,
+} from './types'
+import type { AgentRegistry } from './agent-registry'
 
 export async function formatPrompt(
   prompt: string,
@@ -25,6 +30,7 @@ export async function formatPrompt(
   agentState: AgentState,
   tools: ToolName[],
   spawnableAgents: AgentTemplateType[],
+  agentRegistry: AgentRegistry,
   intitialAgentPrompt?: string
 ): Promise<string> {
   // Handle structured prompt data
@@ -49,10 +55,12 @@ export async function formatPrompt(
 
   // Initialize agent registry to ensure dynamic agents are available
   await agentRegistry.initialize(fileContext)
-  
+
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.AGENT_NAME]: agentState.agentType
-      ? agentRegistry.getAgentName(agentState.agentType) || agentTemplates[agentState.agentType]?.name || 'Unknown Agent'
+      ? agentRegistry.getAgentName(agentState.agentType) ||
+        agentTemplates[agentState.agentType]?.name ||
+        'Unknown Agent'
       : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
@@ -105,7 +113,8 @@ export async function getAgentPrompt<T extends StringField | RequirePrompt>(
   agentTemplate: AgentTemplate,
   promptType: T extends StringField ? { type: T } : { type: T; prompt: string },
   fileContext: ProjectFileContext,
-  agentState: AgentState
+  agentState: AgentState,
+  agentRegistry: AgentRegistry
 ): Promise<string | undefined> {
   const promptValue = agentTemplate[promptType.type]
   if (promptValue === undefined) {
@@ -117,6 +126,7 @@ export async function getAgentPrompt<T extends StringField | RequirePrompt>(
     agentState,
     agentTemplate.toolNames,
     agentTemplate.spawnableAgents,
+    agentRegistry,
     ''
   )
 

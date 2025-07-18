@@ -284,7 +284,8 @@ export const runAgentStep = async (
     agentTemplate,
     { type: 'agentStepPrompt' },
     fileContext,
-    agentState
+    agentState,
+    agentRegistry
   )
 
   // Extract user input prompt to match hasPrompt && {...} pattern
@@ -293,7 +294,8 @@ export const runAgentStep = async (
         agentTemplate,
         { type: 'userInputPrompt' },
         fileContext,
-        agentState
+        agentState,
+        agentRegistry
       )
     : undefined
 
@@ -348,7 +350,8 @@ export const runAgentStep = async (
     agentTemplate,
     { type: 'systemPrompt' },
     fileContext,
-    agentState
+    agentState,
+    agentRegistry
   )
   if (!system) {
     throw new Error(`System prompt is required for agent type: ${agentType}`)
@@ -606,6 +609,7 @@ export const loopAgentSteps = async (
             currentAgentState,
             agentTemplate.toolNames,
             agentTemplate.spawnableAgents,
+            agentRegistry,
             prompt ?? ''
           )
         : undefined,
@@ -617,6 +621,7 @@ export const loopAgentSteps = async (
           currentAgentState,
           agentTemplate.toolNames,
           agentTemplate.spawnableAgents,
+          agentRegistry,
           prompt ?? ''
         )),
     })

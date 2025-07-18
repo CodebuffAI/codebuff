@@ -9,7 +9,7 @@ import { logger } from '../util/logger'
 /**
  * Global agent registry that combines static and dynamic agents
  */
-class AgentRegistry {
+export class AgentRegistry {
   private allTemplates: Record<string, AgentTemplateUnion> = {}
   private allAgentNames: Record<string, string> = {}
   private isInitialized = false
@@ -79,8 +79,6 @@ class AgentRegistry {
         'Dynamic agent template validation errors'
       )
     }
-
-
   }
 
   /**
