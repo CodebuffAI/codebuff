@@ -71,9 +71,52 @@ import {
 } from './terminal/run-command'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
+
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { withHangDetection } from './utils/with-hang-detection'
+
+/**
+ * Get local agent names from the .agents/templates directory
+ * @returns Record of agent type to agent name
+ */
+function getLocalAgentNames(): Record<string, string> {
+  const agentsDir = path.join(getProjectRoot(), '.agents', 'templates')
+
+  if (!fs.existsSync(agentsDir)) {
+    return {}
+  }
+
+  const agentNames: Record<string, string> = {}
+
+  try {
+    const files = fs.readdirSync(agentsDir)
+
+    for (const file of files) {
+      if (file.endsWith('.json')) {
+        const agentType = file.replace('.json', '')
+        const filePath = path.join(agentsDir, file)
+
+        try {
+          const content = fs.readFileSync(filePath, 'utf8')
+          const agentConfig = JSON.parse(content)
+
+          // Use the name from the config, or fall back to the filename
+          const agentName = agentConfig.name || agentType
+          agentNames[agentType] = agentName
+        } catch (error) {
+          // Skip invalid JSON files
+          continue
+        }
+      }
+    }
+  } catch (error) {
+    // Return empty object if directory can't be read
+    return {}
+  }
+
+  return agentNames
+}
 
 const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
 
@@ -322,8 +365,13 @@ export class CLI {
     if (lastWord.startsWith('@')) {
       const searchTerm = lastWord.substring(1).toLowerCase() // Remove @ prefix
 
+      // Get local agents and combine with built-in agents
+      const localAgentNames = getLocalAgentNames()
+      const localAgentDisplayNames = Object.values(localAgentNames)
+      const allAgentNames = [...UNIQUE_AGENT_NAMES, ...localAgentDisplayNames]
+
       // Filter agent names that match the search term
-      const matchingAgents = UNIQUE_AGENT_NAMES.filter((name) =>
+      const matchingAgents = allAgentNames.filter((name) =>
         name.toLowerCase().startsWith(searchTerm)
       )
 
@@ -379,16 +427,24 @@ export class CLI {
   }
 
   private displayAgentMenu() {
-    const maxNameLength = Math.max(
-      ...UNIQUE_AGENT_NAMES.map((name) => name.length)
-    )
+    // Get local agents
+    const localAgentNames = getLocalAgentNames()
+    const localAgentDisplayNames = Object.values(localAgentNames)
 
-    const agentLines = UNIQUE_AGENT_NAMES.map((name) => {
+    // Combine built-in and local agent names
+    const allAgentNames = [...UNIQUE_AGENT_NAMES, ...localAgentDisplayNames]
+
+    const maxNameLength = Math.max(...allAgentNames.map((name) => name.length))
+
+    const agentLines = allAgentNames.map((name) => {
       const padding = '.'.repeat(maxNameLength - name.length + 3)
-      // Find the description directly from the metadata
-      const description =
-        Object.values(AGENT_PERSONAS).find((metadata) => metadata.name === name)
-          ?.description || 'AI specialist agent'
+
+      // Check if it's a built-in agent
+      const builtInDescription = Object.values(AGENT_PERSONAS).find(
+        (metadata) => metadata.name === name
+      )?.description
+
+      const description = builtInDescription || 'Custom user-defined agent'
       return `${cyan(`@${name}`)} ${padding} ${description}`
     })
 

@@ -72,21 +72,37 @@ function findOverrideFiles(
   const { agentTemplates } = fileContext
   if (!agentTemplates) return { overrideFiles: [], validationErrors: [] }
 
+  // Check for any override: true templates and throw error
+  for (const [filePath, content] of Object.entries(agentTemplates)) {
+    if (filePath.endsWith('.json')) {
+      try {
+        const parsedContent = JSON.parse(content)
+        if (parsedContent.override === true) {
+          throw new Error(
+            `Dynamic agents no longer support override: true. Found in ${filePath}. ` +
+              `Please set override: false or remove the override field entirely.`
+          )
+        }
+      } catch (error) {
+        // Re-throw override errors
+        if (
+          error instanceof Error &&
+          error.message.includes('override: true')
+        ) {
+          throw error
+        }
+        // Ignore JSON parse errors here, they'll be handled elsewhere
+      }
+    }
+  }
+
   const { validConfigs, validationErrors } = validateAgentTemplateConfigs(
     agentTemplates,
     []
   )
 
-  // Filter valid configs for the specific agent type and only override configs
-  const overrideFiles = validConfigs
-    .filter(({ config }) => 'override' in config && config.override === true)
-    .filter(({ config }) =>
-      shouldApplyOverride(config as AgentOverrideConfig, agentType)
-    )
-    .map(({ filePath, config }) => ({
-      path: filePath,
-      config: config as AgentOverrideConfig,
-    }))
+  // Since we no longer support override: true, this will always return empty
+  const overrideFiles: Array<{ path: string; config: AgentOverrideConfig }> = []
 
   return { overrideFiles, validationErrors }
 }

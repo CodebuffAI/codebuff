@@ -9,7 +9,10 @@ import {
   DynamicAgentTemplateSchema,
 } from '../types/dynamic-agent-template'
 import { AgentTemplateTypes } from '../types/session-state'
-import { normalizeAgentName, normalizeAgentNames } from './agent-name-normalization'
+import {
+  normalizeAgentName,
+  normalizeAgentNames,
+} from './agent-name-normalization'
 
 export interface SpawnableAgentValidationResult {
   valid: boolean
@@ -32,17 +35,22 @@ export function validateSpawnableAgents(
   spawnableAgents: string[],
   dynamicAgentIds: string[]
 ): SpawnableAgentValidationResult & { availableAgents: string[] } {
-  // Build complete list of available agent types
+  // Normalize dynamic agent IDs to allow users to reference them without org prefixes
+  const normalizedDynamicAgentIds = normalizeAgentNames(dynamicAgentIds)
+
+  // Build complete list of available agent types (normalized)
   const availableAgentTypes = [
     ...Object.values(AgentTemplateTypes),
-    ...dynamicAgentIds,
+    ...normalizedDynamicAgentIds,
   ]
 
-  // Find invalid agents (those not in available types, even after normalization)
+  // Normalize spawnable agents for comparison
+  const normalizedSpawnableAgents = normalizeAgentNames(spawnableAgents)
+
+  // Find invalid agents (those not in available types after normalization)
   const invalidAgents = spawnableAgents.filter(
-    (agent) =>
-      !availableAgentTypes.includes(agent) &&
-      !availableAgentTypes.includes(normalizeAgentName(agent))
+    (agent, index) =>
+      !availableAgentTypes.includes(normalizedSpawnableAgents[index])
   )
 
   return {
@@ -284,23 +292,16 @@ export function validateAgentTemplateConfigs(
           dynamicConfig.spawnableAgents &&
           dynamicConfig.spawnableAgents.length > 0
         ) {
-          // Strip CodebuffAI/ prefix before validation
-          const normalizedAgents = normalizeAgentNames(
-            dynamicConfig.spawnableAgents
+          const validation = validateSpawnableAgents(
+            dynamicConfig.spawnableAgents,
+            dynamicAgentIds
           )
-          const availableAgentTypes = [
-            ...Object.values(AgentTemplateTypes),
-            ...dynamicAgentIds,
-          ]
-          const invalidAgents = normalizedAgents.filter(
-            (agent) => !availableAgentTypes.includes(agent as any)
-          )
-          if (invalidAgents.length > 0) {
+          if (!validation.valid) {
             validationErrors.push({
               filePath,
               message: formatSpawnableAgentError(
-                invalidAgents,
-                availableAgentTypes
+                validation.invalidAgents,
+                validation.availableAgents
               ),
             })
             continue

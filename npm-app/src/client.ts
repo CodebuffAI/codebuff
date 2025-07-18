@@ -12,6 +12,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   unlinkSync,
   writeFileSync,
 } from 'fs'
@@ -30,6 +31,7 @@ import {
 } from '@codebuff/common/constants'
 import {
   AGENT_NAME_TO_TYPES,
+  AGENT_PERSONAS,
   UNIQUE_AGENT_NAMES,
 } from '@codebuff/common/constants/agents'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -84,11 +86,54 @@ import { handleToolCall } from './tool-handlers'
 import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
+
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+
+/**
+ * Get local agent names from the .agents/templates directory
+ * @returns Record of agent type to agent name
+ */
+function getLocalAgentNames(): Record<string, string> {
+  const agentsDir = path.join(getProjectRoot(), '.agents', 'templates')
+
+  if (!existsSync(agentsDir)) {
+    return {}
+  }
+
+  const agentNames: Record<string, string> = {}
+
+  try {
+    const files = readdirSync(agentsDir)
+
+    for (const file of files) {
+      if (file.endsWith('.json')) {
+        const agentType = file.replace('.json', '')
+        const filePath = path.join(agentsDir, file)
+
+        try {
+          const content = readFileSync(filePath, 'utf8')
+          const agentConfig = JSON.parse(content)
+
+          // Use the name from the config, or fall back to the filename
+          const agentName = agentConfig.name || agentType
+          agentNames[agentType] = agentName
+        } catch (error) {
+          // Skip invalid JSON files
+          continue
+        }
+      }
+    }
+  } catch (error) {
+    // Return empty object if directory can't be read
+    return {}
+  }
+
+  return agentNames
+}
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -199,6 +244,10 @@ export class Client {
     const repoInfoPromise = this.setRepoContext()
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
+
+    // Display loaded agents when client is instantiated
+    this.displayLoadedAgents()
+
     repoInfoPromise.then(() =>
       logger.info(
         {
@@ -1032,10 +1081,17 @@ export class Client {
     let cleanPrompt = prompt
     const preferredAgents: string[] = []
 
+    // Get local agents and combine with built-in agents
+    const localAgentNames = getLocalAgentNames()
+    const localAgentDisplayNames = Object.values(localAgentNames)
+    const allAgentNames = [...UNIQUE_AGENT_NAMES, ...localAgentDisplayNames]
+
     // Create a regex pattern that matches any of the known agent names
-    const agentNamePattern = UNIQUE_AGENT_NAMES.map(
-      (name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
-    ).join('|')
+    const agentNamePattern = allAgentNames
+      .map(
+        (name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
+      )
+      .join('|')
 
     const agentRegex = new RegExp(
       `@(${agentNamePattern})(?=\\s|$|[,.!?])`,
@@ -1045,7 +1101,8 @@ export class Client {
 
     for (const match of matches) {
       const agentName = match.substring(1).trim() // Remove @ and trim
-      // Find the exact agent name (case-insensitive)
+
+      // Check if it's a built-in agent first
       const exactAgentName = UNIQUE_AGENT_NAMES.find(
         (name) => name.toLowerCase() === agentName.toLowerCase()
       )
@@ -1055,6 +1112,23 @@ export class Client {
         if (agentTypes && agentTypes.length > 0) {
           // Use the first matching agent type
           preferredAgents.push(agentTypes[0])
+          // Remove ALL occurrences of this @ reference from the prompt using global replace
+          const matchRegex = new RegExp(
+            match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            'g'
+          )
+          cleanPrompt = cleanPrompt.replace(matchRegex, '').trim()
+        }
+      } else {
+        // Check if it's a local agent
+        const localAgentKey = Object.keys(localAgentNames).find(
+          (key) =>
+            localAgentNames[key].toLowerCase() === agentName.toLowerCase()
+        )
+
+        if (localAgentKey) {
+          // Use the local agent key as the agent type
+          preferredAgents.push(localAgentKey)
           // Remove ALL occurrences of this @ reference from the prompt using global replace
           const matchRegex = new RegExp(
             match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
@@ -1494,7 +1568,9 @@ Go to https://www.codebuff.com/config for more information.`) +
 
     this.webSocket.subscribe('init-response', (a) => {
       const parsedAction = InitResponseSchema.safeParse(a)
-      if (!parsedAction.success) return
+      if (!parsedAction.success) {
+        return
+      }
 
       // Store agent names for tool renderer
       if (parsedAction.data.agentNames) {
@@ -1522,6 +1598,30 @@ Go to https://www.codebuff.com/config for more information.`) +
     this.webSocket.sendAction(initAction)
 
     await this.fetchStoredApiKeyTypes()
+  }
+
+  /**
+   * Display loaded agents to the user
+   */
+  private displayLoadedAgents() {
+    try {
+      const projectRoot = getProjectRoot() as string
+      if (projectRoot) {
+        const localAgentNames = getLocalAgentNames()
+
+        if (Object.keys(localAgentNames).length > 0) {
+          console.log(
+            `\n${green('Found custom agents:')} ${(
+              Object.values(localAgentNames) as string[]
+            )
+              .map((name) => cyan(name))
+              .join(', ')}\n`
+          )
+        }
+      }
+    } catch (error) {
+      // Silently fail if we can't read local agents
+    }
   }
 
   /**

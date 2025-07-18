@@ -295,26 +295,26 @@ const onInit = async (
     let allValidationErrors: Array<{ filePath: string; message: string }> = []
 
     if (agentTemplates) {
-      // Load dynamic agent templates first to get their IDs
-      const { validationErrors: dynamicErrors } =
-        await dynamicAgentService.loadAgents(fileContext)
-      allValidationErrors.push(...dynamicErrors)
+      // Initialize agent registry (this will load dynamic agents and handle validation)
+      await agentRegistry.initialize(fileContext)
 
-      // Get dynamic agent IDs for override validation
-      const dynamicAgentIds = dynamicAgentService.getAgentTypes()
+      // Get validation errors from the registry
+      allValidationErrors = agentRegistry.getValidationErrors()
 
-      // Validate override templates with dynamic agent IDs
-      const { validationErrors: overrideErrors } = validateAgentTemplateConfigs(
-        agentTemplates,
-        dynamicAgentIds
-      )
-      allValidationErrors.push(...overrideErrors)
+      if (allValidationErrors.length > 0) {
+        logger.warn(
+          { errorCount: allValidationErrors.length },
+          'Agent template validation errors found'
+        )
+      }
+    } else {
+      // Still need to initialize the registry even without agent templates
+      await agentRegistry.initialize(fileContext)
     }
 
     const errorMessage = formatValidationErrorMessage(allValidationErrors)
 
     // Get all agent names (static + dynamic) for frontend
-    await agentRegistry.initialize(fileContext)
     const allAgentNames = agentRegistry.getAllAgentNames()
 
     // Send combined init and usage response

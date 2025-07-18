@@ -84,7 +84,7 @@ describe('Dynamic Agent Loader', () => {
     expect(result.templates.brainstormer.id).toBe('brainstormer')
   })
 
-  it('should skip templates with override: true', async () => {
+  it('should reject templates with override: true', async () => {
     const fileContext = {
       ...mockFileContext,
       agentTemplates: {
@@ -99,7 +99,10 @@ describe('Dynamic Agent Loader', () => {
 
     const result = await dynamicAgentService.loadAgents(fileContext)
 
-    expect(result.validationErrors).toHaveLength(0)
+    expect(result.validationErrors).toHaveLength(1)
+    expect(result.validationErrors[0].message).toContain(
+      'Dynamic agents no longer support override: true'
+    )
     expect(Object.keys(result.templates)).toHaveLength(0)
   })
 
@@ -340,7 +343,7 @@ describe('Dynamic Agent Loader', () => {
         '.agents/templates/base.json': JSON.stringify({
           id: 'CodebuffAI/base',
           version: '0.0.420',
-          override: true, // Should be skipped
+          override: true, // Should cause validation error
           spawnableAgents: {
             type: 'append',
             content: 'CodebuffAI/git-committer',
@@ -351,11 +354,12 @@ describe('Dynamic Agent Loader', () => {
 
     const result = await testService.loadAgents(fileContext)
 
-    expect(result.validationErrors).toHaveLength(0)
-    // git-committer should be loaded (override: false)
-    expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
-    // base should NOT be loaded (override: true)
-    expect(result.templates).not.toHaveProperty('CodebuffAI/base')
+    expect(result.validationErrors).toHaveLength(1)
+    expect(result.validationErrors[0].message).toContain(
+      'Dynamic agents no longer support override: true'
+    )
+    // No templates should be loaded when override: true error occurs during collection
+    expect(Object.keys(result.templates)).toHaveLength(0)
   })
 
   it('should handle missing override field as non-override template', async () => {

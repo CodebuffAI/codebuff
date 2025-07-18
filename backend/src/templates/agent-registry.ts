@@ -19,9 +19,8 @@ class AgentRegistry {
    * Initialize the registry with a file context (needed for dynamic agent loading)
    */
   async initialize(fileContext: ProjectFileContext): Promise<void> {
-    if (this.isInitialized) {
-      return
-    }
+    // Reset state to ensure fresh loading
+    this.reset()
 
     // Load dynamic agents using the service
     const { templates: dynamicTemplates, validationErrors } =
@@ -80,6 +79,8 @@ class AgentRegistry {
         'Dynamic agent template validation errors'
       )
     }
+
+
   }
 
   /**
@@ -169,6 +170,8 @@ class AgentRegistry {
     this.allAgentNames = {}
     this.isInitialized = false
     this.validationErrors = []
+    // Also reset the dynamic agent service
+    dynamicAgentService.reset()
   }
 }
 

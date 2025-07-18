@@ -75,10 +75,6 @@ export const handleSpawnAgents = ((params: {
     )
   }
 
-  // Initialize registry and get all templates
-  agentRegistry.initialize(fileContext)
-  const allTemplates = agentRegistry.getAllTemplates()
-
   const conversationHistoryMessage: CoreMessage = {
     role: 'user',
     content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
@@ -89,6 +85,16 @@ export const handleSpawnAgents = ((params: {
   }
 
   const triggerSpawnAgents = async () => {
+    // Initialize registry and get all templates
+    await agentRegistry.initialize(fileContext)
+    const allTemplates = agentRegistry.getAllTemplates()
+    logger.debug(
+      {
+        availableAgentCount: Object.keys(allTemplates).length,
+        requestedAgents: agents.map((a) => a.agent_type),
+      },
+      'Agent registry initialized for spawning'
+    )
     const results = await Promise.allSettled(
       agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
         if (!(agentTypeStr in allTemplates)) {

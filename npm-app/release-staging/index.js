@@ -22,10 +22,9 @@ function createConfig(packageName) {
     configDir,
     binaryName,
     binaryPath: path.join(configDir, binaryName),
-    githubRepo: 'CodebuffAI/codebuff-community',
+
     userAgent: `${packageName}-cli`,
     requestTimeout: 20000,
-    isPrerelease: true, // codecane always looks for prereleases
   }
 }
 
@@ -70,13 +69,6 @@ function httpGet(url, options = {}) {
       },
     }
 
-    // Add GitHub token if available
-    const token = process.env.GITHUB_TOKEN
-    if (token) {
-      console.log('Using your GITHUB_TOKEN to download the latest version.')
-      reqOptions.headers.Authorization = `Bearer ${token}`
-    }
-
     const req = https.get(reqOptions, (res) => {
       if (res.statusCode === 302 || res.statusCode === 301) {
         return httpGet(new URL(res.headers.location, url).href, options)
@@ -98,44 +90,17 @@ function httpGet(url, options = {}) {
 
 async function getLatestVersion() {
   try {
+    // Use the direct /latest endpoint for stable releases
     const res = await httpGet(
-      `https://github.com/${CONFIG.githubRepo}/releases.atom`
+      `https://registry.npmjs.org/${packageName}/latest`
     )
 
     if (res.statusCode !== 200) return null
 
     const body = await streamToString(res)
+    const packageData = JSON.parse(body)
 
-    // Parse the Atom XML to extract releases
-    const tagMatches = body.match(
-      /<id>tag:github\.com,2008:Repository\/\d+\/([^<]+)<\/id>/g
-    )
-
-    if (!tagMatches) return null
-
-    // Extract all version tags
-    const versions = tagMatches
-      .map((match) => {
-        const tagMatch = match.match(
-          /<id>tag:github\.com,2008:Repository\/\d+\/([^<]+)<\/id>/
-        )
-        return tagMatch ? tagMatch[1].replace(/^v/, '') : null
-      })
-      .filter(Boolean)
-
-    if (versions.length === 0) return null
-
-    // Filter versions based on whether we want prereleases or stable releases
-    const filteredVersions = versions.filter((version) => {
-      const isPrerelease = version.includes('-')
-      return CONFIG.isPrerelease === isPrerelease
-    })
-
-    if (filteredVersions.length === 0) return null
-
-    // Sort and return the latest version
-    filteredVersions.sort(compareVersions)
-    return filteredVersions[filteredVersions.length - 1]
+    return packageData.version || null
   } catch (error) {
     return null
   }
@@ -284,7 +249,9 @@ async function downloadBinary(version) {
     throw new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
   }
 
-  const downloadUrl = `https://github.com/${CONFIG.githubRepo}/releases/download/v${version}/${fileName}`
+  // For now, we get version info from npm but still download binaries from GitHub
+  // TODO: This assumes GitHub releases still exist with the same naming convention
+  const downloadUrl = `https://github.com/CodebuffAI/codebuff-community/releases/download/v${version}/${fileName}`
 
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
@@ -413,14 +380,10 @@ async function checkForUpdates(runningProcess, exitListener) {
       await downloadBinary(latestVersion)
 
       // Restart with new binary - this replaces the current process
-      const newChild = spawn(
-        CONFIG.binaryPath,
-        process.argv.slice(2),
-        {
-          stdio: 'inherit',
-          detached: false,
-        }
-      )
+      const newChild = spawn(CONFIG.binaryPath, process.argv.slice(2), {
+        stdio: 'inherit',
+        detached: false,
+      })
 
       // Set up exit handler for the new process
       newChild.on('exit', (code) => {
@@ -448,13 +411,9 @@ async function main() {
   await ensureBinaryExists()
 
   // Start the binary with codecane argument
-  const child = spawn(
-    CONFIG.binaryPath,
-    process.argv.slice(2),
-    {
-      stdio: 'inherit',
-    }
-  )
+  const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
+    stdio: 'inherit',
+  })
 
   // Store reference to the exit listener so we can remove it during updates
   const exitListener = (code) => {

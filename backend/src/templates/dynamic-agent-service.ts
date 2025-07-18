@@ -48,14 +48,12 @@ export class DynamicAgentService {
     const hasAgentTemplates = Object.keys(agentTemplates).length > 0
 
     if (!hasAgentTemplates) {
-      logger.debug('No agent templates found in fileContext')
       this.isLoaded = true
       return {
         templates: this.templates,
         validationErrors: this.validationErrors,
       }
     }
-
     try {
       // Use agentTemplates from fileContext - keys are already full paths
       const jsonFiles = Object.keys(agentTemplates).filter((filePath) =>
@@ -78,12 +76,21 @@ export class DynamicAgentService {
         )
       }
     } catch (error) {
-      logger.error({ error }, 'Failed to process agent templates')
-      this.validationErrors.push({
-        filePath: 'agentTemplates',
-        message: 'Failed to process agent templates',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      })
+      // Re-throw override errors to surface them properly
+      if (error instanceof Error && error.message.includes('override: true')) {
+        this.validationErrors.push({
+          filePath: 'agentTemplates',
+          message: error.message,
+          details: error.message,
+        })
+      } else {
+        logger.error({ error }, 'Failed to process agent templates')
+        this.validationErrors.push({
+          filePath: 'agentTemplates',
+          message: 'Failed to process agent templates',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
     }
 
     this.isLoaded = true
@@ -112,9 +119,12 @@ export class DynamicAgentService {
 
         const parsedContent = JSON.parse(content)
 
-        // Skip override templates (they modify existing agents)
+        // Throw error if override: true is found
         if (parsedContent.override === true) {
-          continue
+          throw new Error(
+            `Dynamic agents no longer support override: true. Found in ${filePath}. ` +
+              `Please set override: false or remove the override field entirely.`
+          )
         }
 
         // Extract the agent ID if it exists
@@ -122,7 +132,14 @@ export class DynamicAgentService {
           agentIds.push(parsedContent.id)
         }
       } catch (error) {
-        // Log but don't fail the collection process
+        // Re-throw override errors
+        if (
+          error instanceof Error &&
+          error.message.includes('override: true')
+        ) {
+          throw error
+        }
+        // Log but don't fail the collection process for other errors
         logger.debug(
           { filePath, error },
           'Failed to extract agent ID during collection phase'
@@ -152,9 +169,12 @@ export class DynamicAgentService {
 
       const parsedContent = JSON.parse(content)
 
-      // Skip override templates (they modify existing agents)
+      // Throw error if override: true is found
       if (parsedContent.override === true) {
-        return
+        throw new Error(
+          `Dynamic agents no longer support override: true. Found in ${filePath}. ` +
+            `Please set override: false or remove the override field entirely.`
+        )
       }
 
       // Validate against schema
@@ -277,6 +297,7 @@ export class DynamicAgentService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error'
+
       this.validationErrors.push({
         filePath,
         message: `Error in agent template ${filePath}: ${errorMessage}`,
@@ -326,7 +347,6 @@ export class DynamicAgentService {
 
     return ''
   }
-
   /**
    * Convert JSON schema to Zod schema format using json-schema-to-zod.
    * This is done once during loading to avoid repeated conversions.
@@ -396,14 +416,12 @@ export class DynamicAgentService {
 
     return result
   }
-
   /**
    * Get a specific agent template by type
    */
   getTemplate(agentType: string): AgentTemplate | undefined {
     return this.templates[agentType]
   }
-
   /**
    * Get all loaded dynamic agent templates
    */
