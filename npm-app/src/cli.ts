@@ -442,7 +442,7 @@ export class CLI {
       // Check if it's a built-in agent
       const builtInDescription = Object.values(AGENT_PERSONAS).find(
         (metadata) => metadata.name === name
-      )?.description
+      )?.purpose
 
       const description = builtInDescription || 'Custom user-defined agent'
       return `${cyan(`@${name}`)} ${padding} ${description}`
