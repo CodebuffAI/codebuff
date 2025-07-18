@@ -2,7 +2,6 @@ import { AgentState } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { WebSocket } from 'ws'
 import { logger } from './util/logger'
-import { callMainPrompt } from './websockets/websocket-action'
 
 export interface AsyncAgentInfo {
   agentState: AgentState
@@ -148,6 +147,8 @@ export class AsyncAgentManager {
     let agentPromise: Promise<{ agentState: AgentState; hasEndTurn?: boolean }>
     try {
       if (agent.agentState.agentId === 'main-agent') {
+        // Dynamic import to avoid circular dependency
+        const { callMainPrompt } = await import('./websockets/websocket-action')
         const mainAgentPromise = callMainPrompt(
           ws,
           {

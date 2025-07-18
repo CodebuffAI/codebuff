@@ -3,7 +3,6 @@ import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 import {
   afterEach,
   beforeEach,

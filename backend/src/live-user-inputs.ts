@@ -83,3 +83,12 @@ export function getLiveUserInputIds(
   }
   return live[userId]
 }
+
+// For testing purposes - reset all state
+export function resetLiveUserInputsState(): void {
+  Object.keys(live).forEach((key) => delete live[key])
+  Object.keys(sessionConnections).forEach(
+    (key) => delete sessionConnections[key]
+  )
+  liveUserInputCheckEnabled = true
+}
