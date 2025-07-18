@@ -191,11 +191,6 @@ export function validateAgentTemplateConfigs(
       continue
     }
 
-    // Skip agent instructions config file - it's not an agent template
-    if (filePath.endsWith('agent-instructions-config.json')) {
-      continue
-    }
-
     try {
       const parsedContent = JSON.parse(content)
 

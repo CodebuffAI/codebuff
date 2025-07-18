@@ -56,10 +56,8 @@ export class DynamicAgentService {
     }
     try {
       // Use agentTemplates from fileContext - keys are already full paths
-      const jsonFiles = Object.keys(agentTemplates).filter(
-        (filePath) =>
-          filePath.endsWith('.json') &&
-          !filePath.endsWith('agent-instructions-config.json')
+      const jsonFiles = Object.keys(agentTemplates).filter((filePath) =>
+        filePath.endsWith('.json')
       )
 
       // Pass 1: Collect all agent IDs from template files

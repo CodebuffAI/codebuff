@@ -284,13 +284,15 @@ export const getProjectFileContext = async (
     const agentTemplateFilesWithScrapedContent =
       await addScrapedContentToFiles(agentTemplateFiles)
 
-    // Load agent instructions config
+    // Aggregate agent instructions from all templates
+    let agentInstructions: Record<string, string> = {}
+
+    // First, try to load from the old standalone config file for backward compatibility
     const agentInstructionsConfigPath = path.join(
       projectRoot,
       AGENT_TEMPLATES_DIR,
       'agent-instructions-config.json'
     )
-    let agentInstructions: Record<string, string> = {}
     try {
       if (fs.existsSync(agentInstructionsConfigPath)) {
         const configContent = fs.readFileSync(
@@ -298,10 +300,39 @@ export const getProjectFileContext = async (
           'utf8'
         )
         const config = JSON.parse(configContent)
-        agentInstructions = config.agentInstructions || {}
+        agentInstructions = { ...config.agentInstructions } || {}
+        logger.warn(
+          'Using deprecated agent-instructions-config.json. Consider migrating to agentInstructions field in individual agent templates.'
+        )
       }
     } catch (error) {
       logger.error({ error }, 'Failed to load agent instructions config')
+    }
+
+    // Then, aggregate instructions from individual agent templates (these take precedence)
+    for (const [filePath, content] of Object.entries(
+      agentTemplateFilesWithScrapedContent
+    )) {
+      if (filePath.endsWith('.json')) {
+        try {
+          const template = JSON.parse(content)
+          if (
+            template.agentInstructions &&
+            typeof template.agentInstructions === 'object'
+          ) {
+            // Merge instructions from this template, with template-specific instructions taking precedence
+            agentInstructions = {
+              ...agentInstructions,
+              ...template.agentInstructions,
+            }
+          }
+        } catch (error) {
+          logger.error(
+            { error, filePath },
+            'Failed to parse agent template for instructions'
+          )
+        }
+      }
     }
 
     // Get knowledge files from user's home directory

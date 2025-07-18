@@ -82,6 +82,9 @@ export const DynamicAgentTemplateSchema = z.object({
   initialAssistantPrefix: PromptFieldSchema.optional(),
   stepAssistantMessage: PromptFieldSchema.optional(),
   stepAssistantPrefix: PromptFieldSchema.optional(),
+
+  // Agent-specific instructions for spawned agents
+  agentInstructions: z.record(z.string()).optional(),
 })
 
 export type DynamicAgentTemplate = z.infer<typeof DynamicAgentTemplateSchema>
