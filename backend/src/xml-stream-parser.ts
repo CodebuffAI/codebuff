@@ -78,9 +78,7 @@ export async function* processStreamWithTags(
   }
 
   function extractToolsFromBufferAndProcess() {
-    console.log({ buffer }, 'asdf')
     const matches = extractToolCalls()
-    console.log({ matches, buffer }, 'asdf')
     matches.forEach(processToolCallContents)
   }
 

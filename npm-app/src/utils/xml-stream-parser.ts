@@ -3,9 +3,8 @@ import {
   toolNameParam,
   toolXmlName,
 } from '@codebuff/common/constants/tools'
+import { getPartialJsonDelta } from '@codebuff/common/util/partial-json-delta'
 import { Saxy } from '@codebuff/common/util/saxy'
-
-import { Spinner } from './spinner'
 import { defaultToolCallRenderer, ToolCallRenderer } from './tool-renderers'
 
 /**
@@ -22,8 +21,11 @@ export function createXMLStreamParser(
   const parser = new Saxy({ [toolXmlName]: [] })
 
   // Current state
-  let currentTool = false
+  let inToolCallTag = false
+  let currentTool: string | null = null
   let params: Record<string, string> = {}
+  let completedParams: string[] = []
+  let currentParam: string | null = null
   let paramsContent = ''
 
   // Helper to get the appropriate renderer for the current tool
@@ -44,58 +46,90 @@ export function createXMLStreamParser(
 
   // Set up event handlers
   parser.on('tagopen', (tag) => {
-    currentTool = true
-    Spinner.get().start('Using tool...')
+    inToolCallTag = true
   })
 
   parser.on('text', (data) => {
-    if (currentTool) {
-      paramsContent += data.contents
-    } else {
+    if (!inToolCallTag) {
       // Text outside of tool tags
       parser.push(data.contents)
-      if (callback) callback(data.contents)
-    }
-  })
-
-  parser.on('tagclose', (tag) => {
-    if (!currentTool) {
-      return
-    }
-
-    let params: any
-    try {
-      params = JSON.parse(paramsContent)
-    } catch (error: any) {
-      // do nothing
-      return
-    }
-
-    const toolName = params[toolNameParam] as string
-    delete params[toolNameParam]
-    delete params[endsAgentStepParam]
-
-    // Call renderer if available
-    const toolRenderer = getRenderer(toolName)
-    if (toolRenderer.onToolStart) {
-      const output = toolRenderer.onToolStart(toolName, {})
-      if (typeof output === 'string') {
-        parser.push(output)
-        if (callback) callback(output)
-      } else if (output !== null) {
-        output()
+      if (callback) {
+        callback(data.contents)
       }
+      return
     }
-    for (const [key, value] of Object.entries(params)) {
+
+    paramsContent += data.contents
+    const {
+      delta,
+      result,
+      lastParam: { key: lastKey, complete: lastComplete },
+    } = getPartialJsonDelta(paramsContent, params)
+    if (lastKey === toolNameParam && lastComplete) {
+      delta[lastKey] = ''
+    }
+    for (const [key, value] of Object.entries(delta)) {
+      if (key === toolNameParam) {
+        if (key === lastKey && !lastComplete) {
+          continue
+        }
+        if (currentTool !== null) {
+          continue
+        }
+        // start tool
+        const toolRenderer = getRenderer(result[key])
+        if (toolRenderer.onToolStart) {
+          const output = toolRenderer.onToolStart(result[key], {})
+          if (typeof output === 'string') {
+            parser.push(output)
+            if (callback) callback(output)
+          } else if (output !== null) {
+            output()
+          }
+        }
+        currentTool = result[key]
+        continue
+      }
+
+      // handle tool params
       const stringValue =
         typeof value === 'string' ? value : JSON.stringify(value)
-      if (toolRenderer.onParamStart) {
-        const output = toolRenderer.onParamStart(key, stringValue)
-        if (typeof output === 'string') {
-          parser.push(output)
-          if (callback) callback(output)
-        } else if (output !== null) {
-          output()
+      if (key === endsAgentStepParam) {
+        continue
+      }
+      const toolName = result[toolNameParam]
+      if (currentParam !== null && currentParam !== key) {
+        const toolRenderer = getRenderer(toolName)
+        if (toolRenderer.onParamEnd) {
+          const output = toolRenderer.onParamEnd(
+            currentParam,
+            toolName,
+            result[currentParam]
+          )
+          if (typeof output === 'string') {
+            parser.push(output)
+            if (callback) callback(output)
+          } else if (output !== null) {
+            output()
+          }
+        }
+        completedParams.push(currentParam)
+      }
+      if (completedParams.includes(key)) {
+        currentParam = null
+        continue
+      }
+      currentParam = key
+      const toolRenderer = getRenderer(toolName)
+      if (params[key] === undefined) {
+        if (toolRenderer.onParamStart) {
+          const output = toolRenderer.onParamStart(key, toolName)
+          if (typeof output === 'string') {
+            parser.push(output)
+            if (callback) callback(output)
+          } else if (output !== null) {
+            output()
+          }
         }
       }
       if (toolRenderer.onParamChunk) {
@@ -107,8 +141,49 @@ export function createXMLStreamParser(
           output()
         }
       }
+      if (key === lastKey && lastComplete) {
+        const toolRenderer = getRenderer(toolName)
+        if (toolRenderer.onParamEnd) {
+          const output = toolRenderer.onParamEnd(
+            key,
+            toolName,
+            typeof result[key] === 'string'
+              ? result[key]
+              : JSON.stringify(result[key])
+          )
+          if (typeof output === 'string') {
+            parser.push(output)
+            if (callback) callback(output)
+          } else if (output !== null) {
+            output()
+          }
+        }
+        completedParams.push(key)
+        currentParam = null
+      }
+    }
+    params = Object.fromEntries(
+      Object.entries(result).map(([k, v]) => [
+        k,
+        typeof v === 'string' ? v : JSON.stringify(v),
+      ])
+    )
+  })
+
+  parser.on('tagclose', (tag) => {
+    if (!inToolCallTag) {
+      return
+    }
+    const toolName = params[toolNameParam]
+    const toolRenderer = getRenderer(toolName)
+
+    if (currentParam !== null) {
       if (toolRenderer.onParamEnd) {
-        const output = toolRenderer.onParamEnd(key, toolName, stringValue)
+        const output = toolRenderer.onParamEnd(
+          currentParam,
+          toolName,
+          params[currentParam]
+        )
         if (typeof output === 'string') {
           parser.push(output)
           if (callback) callback(output)
@@ -117,6 +192,7 @@ export function createXMLStreamParser(
         }
       }
     }
+
     if (toolRenderer.onToolEnd) {
       const output = toolRenderer.onToolEnd(toolName, params)
       if (typeof output === 'string') {
@@ -127,8 +203,12 @@ export function createXMLStreamParser(
       }
     }
 
-    currentTool = false
+    inToolCallTag = false
     paramsContent = ''
+    params = {}
+    currentParam = null
+    currentTool = null
+    completedParams = []
   })
 
   parser.on('end', () => {
