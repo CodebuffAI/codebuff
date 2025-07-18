@@ -7,9 +7,12 @@ import {
 import { isError } from 'lodash'
 import { RawData, WebSocket, WebSocketServer } from 'ws'
 
+import { asyncAgentManager } from '../async-agent-manager'
+import { setSessionConnected } from '../live-user-inputs'
 import { logger } from '../util/logger'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 
 export const SWITCHBOARD = new Switchboard()
 
@@ -124,6 +127,9 @@ export function listen(server: HttpServer, path: string) {
     SWITCHBOARD.connect(ws)
     const clientSessionId =
       SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'
+
+    // Mark session as connected
+    setSessionConnected(clientSessionId, true)
     ws.on('message', async (data: RawData) => {
       const result = await processMessage(ws, clientSessionId, data)
       // mqp: check ws.readyState before sending?
@@ -134,6 +140,15 @@ export function listen(server: HttpServer, path: string) {
       //   { code, reason: reason.toString() },
       //   'WS client disconnected.'
       // )
+
+      // Mark session as disconnected to stop all agents
+      setSessionConnected(clientSessionId, false)
+
+      if (ASYNC_AGENTS_ENABLED) {
+        // Cleanup async agents for this session
+        asyncAgentManager.cleanupSession(clientSessionId)
+      }
+
       SWITCHBOARD.disconnect(ws)
     })
     ws.on('error', (err: Error) => {

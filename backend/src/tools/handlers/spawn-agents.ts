@@ -27,6 +27,7 @@ export const handleSpawnAgents = ((params: {
     agentTemplate?: AgentTemplate
     mutableState?: {
       messages: CodebuffMessage[]
+      agentState: AgentState
     }
   }
 }): { result: Promise<string>; state: {} } => {
@@ -66,6 +67,11 @@ export const handleSpawnAgents = ((params: {
   if (!mutableState?.messages) {
     throw new Error(
       'Internal error for spawn_agents: Missing messages in state'
+    )
+  }
+  if (!mutableState?.agentState) {
+    throw new Error(
+      'Internal error for spawn_agents: Missing agentState in state'
     )
   }
 
@@ -144,6 +150,8 @@ export const handleSpawnAgents = ((params: {
           messageHistory: subAgentMessages,
           stepsRemaining: 20, // MAX_AGENT_STEPS
           report: {},
+          // Add parent ID to agent state for communication
+          parentId: mutableState.agentState.agentId,
         }
 
         // Import loopAgentSteps dynamically to avoid circular dependency

@@ -13,7 +13,9 @@ export const toolNames = [
   'read_files',
   'run_file_change_hooks',
   'run_terminal_command',
+  'send_agent_message',
   'spawn_agents',
+  'spawn_agents_async',
   'str_replace',
   'think_deeply',
   'update_report',
@@ -45,7 +47,9 @@ export const toolSchema = {
 
   browser_logs: ['type', 'url', 'waitUntil'],
 
+  send_agent_message: ['target_agent_id', 'prompt', 'params'],
   spawn_agents: ['agents'],
+  spawn_agents_async: ['agents'],
   update_report: ['json_update'],
 
   // Documentation tool

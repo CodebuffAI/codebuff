@@ -1,6 +1,6 @@
 import { AgentResponseTrace, insertTrace } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
-import { models } from '@codebuff/common/constants'
+import { ASYNC_AGENTS_ENABLED, models } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getToolCallString,
@@ -16,6 +16,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { WebSocket } from 'ws'
+import { asyncAgentManager } from './async-agent-manager'
 import { getFileReadingUpdates } from './get-file-reading-updates'
 import { checkLiveUserInput } from './live-user-inputs'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -246,11 +247,45 @@ export const runAgentStep = async (
 
   const hasPrompt = Boolean(prompt || params)
 
+  if (ASYNC_AGENTS_ENABLED) {
+    // Register this agent in the async manager so it can receive messages
+    const isRegistered = asyncAgentManager.getAgent(agentState.agentId)
+    if (!isRegistered && userId) {
+      asyncAgentManager.registerAgent({
+        agentState,
+        sessionId: clientSessionId,
+        userId,
+        fingerprintId,
+        userInputId,
+        ws,
+        fileContext,
+        startTime: new Date(),
+        status: 'running',
+      })
+    } else {
+      // Update status to running for existing agents
+      asyncAgentManager.updateAgentState(agentState, 'running')
+    }
+
+    // Check for pending messages from other agents
+    const pendingMessages = asyncAgentManager.getAndClearMessages(
+      agentState.agentId
+    )
+    for (const message of pendingMessages) {
+      toolResults.push({
+        toolName: 'send_agent_message',
+        toolCallId: generateCompactId(),
+        result: `Message from agent ${message.fromAgentId}:\n\nPrompt: ${message.prompt}${message.params ? `\n\nParams: ${JSON.stringify(message.params, null, 2)}` : ''}`,
+      })
+    }
+  }
+
   const agentStepPrompt = await getAgentPrompt(
     agentTemplate,
     { type: 'agentStepPrompt' },
     fileContext,
-    agentState
+    agentState,
+    agentRegistry
   )
 
   // Extract user input prompt to match hasPrompt && {...} pattern
@@ -259,7 +294,8 @@ export const runAgentStep = async (
         agentTemplate,
         { type: 'userInputPrompt' },
         fileContext,
-        agentState
+        agentState,
+        agentRegistry
       )
     : undefined
 
@@ -314,7 +350,8 @@ export const runAgentStep = async (
     agentTemplate,
     { type: 'systemPrompt' },
     fileContext,
-    agentState
+    agentState,
+    agentRegistry
   )
   if (!system) {
     throw new Error(`System prompt is required for agent type: ${agentType}`)
@@ -340,6 +377,7 @@ export const runAgentStep = async (
   logger.debug(
     {
       agentMessages,
+      agentId: agentState.agentId,
       system,
       prompt,
       params,
@@ -455,6 +493,7 @@ export const runAgentStep = async (
   logger.debug(
     {
       iteration: iterationNum,
+      agentId: agentState.agentId,
       prompt,
       fullResponse,
       toolCalls,
@@ -467,17 +506,25 @@ export const runAgentStep = async (
     },
     `End agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`
   )
+  const shouldEndTurn =
+    toolCalls.some((call) => call.toolName === 'end_turn') ||
+    (toolCalls.length === 0 && toolResults.length === 0)
+
+  const newAgentState = {
+    ...agentState,
+    messageHistory: finalMessageHistory,
+    stepsRemaining: agentState.stepsRemaining - 1,
+    agentContext: newAgentContext,
+  }
+  // Mark agent as completed if it should end turn
+  if (ASYNC_AGENTS_ENABLED && shouldEndTurn) {
+    asyncAgentManager.updateAgentState(newAgentState, 'completed')
+  }
+
   return {
-    agentState: {
-      ...agentState,
-      messageHistory: finalMessageHistory,
-      stepsRemaining: agentState.stepsRemaining - 1,
-      agentContext: newAgentContext,
-    },
+    agentState: newAgentState,
     fullResponse,
-    shouldEndTurn:
-      toolCalls.some((call) => call.toolName === 'end_turn') ||
-      (toolCalls.length === 0 && toolResults.length === 0),
+    shouldEndTurn,
   }
 }
 
@@ -537,7 +584,7 @@ export const loopAgentSteps = async (
     ? undefined
     : initialAssistantPrefix
   let currentAgentState = agentState
-  while (checkLiveUserInput(userId, userInputId)) {
+  while (checkLiveUserInput(userId, userInputId, clientSessionId)) {
     const {
       agentState: newAgentState,
       fullResponse,
@@ -562,6 +609,7 @@ export const loopAgentSteps = async (
             currentAgentState,
             agentTemplate.toolNames,
             agentTemplate.spawnableAgents,
+            agentRegistry,
             prompt ?? ''
           )
         : undefined,
@@ -573,9 +621,18 @@ export const loopAgentSteps = async (
           currentAgentState,
           agentTemplate.toolNames,
           agentTemplate.spawnableAgents,
+          agentRegistry,
           prompt ?? ''
         )),
     })
+
+    if (ASYNC_AGENTS_ENABLED) {
+      const hasMessages =
+        asyncAgentManager.getMessages(newAgentState.agentId).length > 0
+      if (hasMessages) {
+        continue
+      }
+    }
 
     if (shouldEndTurn) {
       const hasEndTurn = fullResponse.includes(

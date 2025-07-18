@@ -1,7 +1,7 @@
 import { ToolName } from '@codebuff/common/constants/tools'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
 import { capitalize, snakeToTitleCase } from '@codebuff/common/util/string'
-import { AGENT_NAMES, AGENT_PERSONAS } from '@codebuff/common/constants/agents'
+import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { bold, gray, strikethrough } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
@@ -300,12 +300,70 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       }
     },
   },
+  spawn_agents_async: {
+    onToolStart: (toolName) => {
+      return '\n\n' + gray(`[${bold('Spawn Agents')}]`) + '\n'
+    },
+    onParamEnd: (paramName, toolName, content) => {
+      if (paramName === 'agents') {
+        let agents = []
+        try {
+          agents = JSON.parse(content)
+        } catch (e) {
+          return null
+        }
+        if (agents.length > 0) {
+          return gray(
+            agents
+              .map((props: any) => {
+                const agentType = props?.agent_type
+                const prompt = props?.prompt
+                // Try to get agent name from client's stored names (includes dynamic agents),
+                // fallback to static personas, then agent type
+                const client = Client.getInstance(false) // Don't throw if not initialized
+                const agentName =
+                  (client?.agentNames && client.agentNames[agentType]) ||
+                  AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
+                    ?.name ||
+                  null
+
+                if (!agentName) {
+                  // Invalid agent type - skip it
+                  return null
+                }
+
+                return `@${bold(agentName)}:\n${prompt || 'No prompt provided'}`
+              })
+              .join('\n\n') + '\n'
+          )
+        }
+      }
+      return null
+    },
+    onToolEnd: () => {
+      return () => {
+        Spinner.get().start('Agents running...')
+        return '\n'
+      }
+    },
+  },
   update_report: {
     onToolStart: (toolName) => {
       return '\n\n' + gray(`[${bold('Update Report')}]`) + '\n'
     },
     onParamChunk: (content, paramName, toolName) => {
       if (paramName === 'jsonUpdate') {
+        return gray(content)
+      }
+      return null
+    },
+  },
+  send_agent_message: {
+    onToolStart: (toolName) => {
+      return '\n\n' + gray(`[${bold('Send Agent Message')}]`) + '\n'
+    },
+    onParamChunk: (content, paramName, toolName) => {
+      if (paramName === 'prompt') {
         return gray(content)
       }
       return null

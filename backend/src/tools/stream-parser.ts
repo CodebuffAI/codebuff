@@ -137,7 +137,7 @@ export async function processStreamWithTools<T extends string>(options: {
           fullResponse,
           writeToClient: onResponseChunk,
           requestClientToolCall: async (clientToolCall: ClientToolCall<T>) => {
-            if (!checkLiveUserInput(userId, userInputId)) {
+            if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
               return ''
             }
 

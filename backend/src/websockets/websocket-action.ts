@@ -5,7 +5,7 @@ import {
   UsageResponse,
 } from '@codebuff/common/actions'
 import { trackEvent } from '@codebuff/common/analytics'
-import { toOptionalFile, AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import { toOptionalFile, AGENT_TEMPLATES_DIR, ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
@@ -21,6 +21,7 @@ import { eq } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 
 import {
+  cancelUserInput,
   checkLiveUserInput,
   endUserInput,
   startUserInput,
@@ -32,6 +33,7 @@ import { logger, withLoggerContext } from '../util/logger'
 import { asSystemMessage } from '../util/messages'
 import { dynamicAgentService } from '../templates/dynamic-agent-service'
 import { agentRegistry } from '../templates/agent-registry'
+import { asyncAgentManager } from '../async-agent-manager'
 
 /**
  * Sends an action to the client via WebSocket
@@ -142,8 +144,6 @@ const onPrompt = async (
     authToken,
     promptId,
     prompt,
-    toolResults,
-    model,
     costMode,
   } = action
 
@@ -166,31 +166,10 @@ const onPrompt = async (
       startUserInput(userId, promptId)
 
       try {
-        const { sessionState, toolCalls, toolResults } = await mainPrompt(
-          ws,
-          action,
-          {
-            userId,
-            clientSessionId,
-            onResponseChunk: (chunk) => {
-              if (checkLiveUserInput(userId, promptId)) {
-                sendAction(ws, {
-                  type: 'response-chunk',
-                  userInputId: promptId,
-                  chunk,
-                })
-              }
-            },
-          }
-        )
-
-        // Send prompt data back
-        sendAction(ws, {
-          type: 'prompt-response',
+        await callMainPrompt(ws, action, {
+          userId,
           promptId,
-          sessionState,
-          toolCalls: toolCalls as any[],
-          toolResults,
+          clientSessionId,
         })
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
@@ -241,6 +220,43 @@ const onPrompt = async (
       }
     }
   )
+}
+
+export const callMainPrompt = async (
+  ws: WebSocket,
+  action: Extract<ClientAction, { type: 'prompt' }>,
+  options: {
+    userId: string
+    promptId: string
+    clientSessionId: string
+  }
+) => {
+  const { userId, promptId, clientSessionId } = options
+  const result = await mainPrompt(ws, action, {
+    userId,
+    clientSessionId,
+    onResponseChunk: (chunk) => {
+      if (checkLiveUserInput(userId, promptId, clientSessionId)) {
+        sendAction(ws, {
+          type: 'response-chunk',
+          userInputId: promptId,
+          chunk,
+        })
+      }
+    },
+  })
+
+  const { sessionState, toolCalls, toolResults } = result
+  // Send prompt data back
+  sendAction(ws, {
+    type: 'prompt-response',
+    promptId,
+    sessionState,
+    toolCalls: toolCalls as any[],
+    toolResults,
+  })
+
+  return result
 }
 
 /**
@@ -327,7 +343,10 @@ const onCancelUserInput = async ({
     logger.error({ authToken }, 'User id not found for authToken')
     return
   }
-  endUserInput(userId, promptId)
+  cancelUserInput(userId, promptId)
+  if (ASYNC_AGENTS_ENABLED) {
+    asyncAgentManager.cleanupUserInputAgents(promptId)
+  }
 }
 
 /**

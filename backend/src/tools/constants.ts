@@ -14,6 +14,8 @@ import { readFilesTool } from './definitions/read-files'
 import { runFileChangeHooksTool } from './definitions/run-file-change-hooks'
 import { runTerminalCommandTool } from './definitions/run-terminal-command'
 import { spawnAgentsTool } from './definitions/spawn-agents'
+import { spawnAgentsAsyncTool } from './definitions/spawn-agents-async'
+import { sendAgentMessageTool } from './definitions/send-agent-message'
 import { strReplaceTool } from './definitions/str-replace'
 import { thinkDeeplyTool } from './definitions/think-deeply'
 import { updateReportTool } from './definitions/update-report'
@@ -31,6 +33,8 @@ import { handleReadFiles } from './handlers/read-files'
 import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
 import { handleSpawnAgents } from './handlers/spawn-agents'
+import { handleSpawnAgentsAsync } from './handlers/spawn-agents-async'
+import { handleSendAgentMessage } from './handlers/send-agent-message'
 import { handleStrReplace } from './handlers/str-replace'
 import { handleThinkDeeply } from './handlers/think-deeply'
 import { handleUpdateReport } from './handlers/update-report'
@@ -58,7 +62,9 @@ export const codebuffToolDefs = {
   read_files: readFilesTool,
   run_file_change_hooks: runFileChangeHooksTool,
   run_terminal_command: runTerminalCommandTool,
+  send_agent_message: sendAgentMessageTool,
   spawn_agents: spawnAgentsTool,
+  spawn_agents_async: spawnAgentsAsyncTool,
   str_replace: strReplaceTool,
   think_deeply: thinkDeeplyTool,
   update_report: updateReportTool,
@@ -139,7 +145,9 @@ export const codebuffToolHandlers = {
   read_files: handleReadFiles,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
+  send_agent_message: handleSendAgentMessage,
   spawn_agents: handleSpawnAgents,
+  spawn_agents_async: handleSpawnAgentsAsync,
   str_replace: handleStrReplace,
   think_deeply: handleThinkDeeply,
   update_report: handleUpdateReport,

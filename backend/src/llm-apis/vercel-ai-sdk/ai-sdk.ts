@@ -74,7 +74,13 @@ export const promptAiSdkStream = async function* (
     maxRetries?: number
   } & Omit<Parameters<typeof streamText>[0], 'model'>
 ) {
-  if (!checkLiveUserInput(options.userId, options.userInputId)) {
+  if (
+    !checkLiveUserInput(
+      options.userId,
+      options.userInputId,
+      options.clientSessionId
+    )
+  ) {
     logger.info(
       {
         userId: options.userId,
@@ -214,7 +220,13 @@ export const promptAiSdk = async function (
     chargeUser?: boolean
   } & Omit<Parameters<typeof generateText>[0], 'model'>
 ): Promise<string> {
-  if (!checkLiveUserInput(options.userId, options.userInputId)) {
+  if (
+    !checkLiveUserInput(
+      options.userId,
+      options.userInputId,
+      options.clientSessionId
+    )
+  ) {
     logger.info(
       {
         userId: options.userId,
@@ -271,7 +283,13 @@ export const promptAiSdkStructured = async function <T>(options: {
   timeout?: number
   chargeUser?: boolean
 }): Promise<T> {
-  if (!checkLiveUserInput(options.userId, options.userInputId)) {
+  if (
+    !checkLiveUserInput(
+      options.userId,
+      options.userInputId,
+      options.clientSessionId
+    )
+  ) {
     logger.info(
       {
         userId: options.userId,

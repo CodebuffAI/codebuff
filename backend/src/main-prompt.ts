@@ -137,6 +137,8 @@ export const mainPrompt = async (
     )[costMode]
   }
 
+  mainAgentState.agentType = agentType
+
   const { agentState } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,

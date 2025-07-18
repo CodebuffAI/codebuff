@@ -60,6 +60,7 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 import { closeXml } from '@codebuff/common/util/xml'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
@@ -194,6 +195,7 @@ export class Client {
   private costMode: CostMode
   private responseComplete: boolean = false
   private userInputId: string | undefined
+  private nonCancelledUserInputIds: string[] = []
 
   public usageData: UsageData = {
     usage: 0,
@@ -786,12 +788,17 @@ export class Client {
       const { requestId, toolName, args, userInputId } = action
 
       // Check if the userInputId matches or is from a spawned agent
-      if (!this.userInputId || !userInputId.startsWith(this.userInputId)) {
+      const isValidUserInput = ASYNC_AGENTS_ENABLED
+        ? this.nonCancelledUserInputIds.some((id) => userInputId.startsWith(id))
+        : this.userInputId && userInputId.startsWith(this.userInputId)
+
+      if (!isValidUserInput) {
         logger.warn(
           {
             requestId,
             toolName,
-            expectedUserInputId: this.userInputId,
+            currentUserInputId: this.userInputId,
+            nonCancelledUserInputIds: this.nonCancelledUserInputIds,
             receivedUserInputId: userInputId,
           },
           'User input ID mismatch - rejecting tool call request'
@@ -801,7 +808,9 @@ export class Client {
           type: 'tool-call-response',
           requestId,
           success: false,
-          error: `User input ID mismatch: expected ${this.userInputId}, got ${userInputId}. Most likely cancelled by user.`,
+          error: ASYNC_AGENTS_ENABLED
+            ? `User input ID mismatch: expected one of ${this.nonCancelledUserInputIds.join(', ')}, got ${userInputId}. That user input id might have been cancelled by the user.`
+            : `User input ID mismatch: expected ${this.userInputId}, got ${userInputId}. Most likely cancelled by user.`,
         })
         return
       }
@@ -989,6 +998,9 @@ export class Client {
     loggerContext.clientRequestId = userInputId
     const startTime = Date.now() // Capture start time
 
+    // Add to non-cancelled list
+    this.nonCancelledUserInputIds.push(userInputId)
+
     const f = this.subscribeToResponse.bind(this)
 
     const { responsePromise, stopResponse } = f(
@@ -1159,6 +1171,12 @@ export class Client {
     if (!this.userInputId) {
       return
     }
+
+    // Remove the cancelled input ID from the non-cancelled list
+    this.nonCancelledUserInputIds = this.nonCancelledUserInputIds.filter(
+      (id) => id !== this.userInputId
+    )
+
     this.webSocket.sendAction({
       type: 'cancel-user-input',
       authToken: this.user?.authToken,
@@ -1332,7 +1350,6 @@ export class Client {
         })
 
         this.lastToolResults = toolResults
-        xmlStreamParser.end()
 
         askConfig: if (
           this.oneTimeFlags[SHOULD_ASK_CONFIG] &&
@@ -1394,8 +1411,11 @@ Go to https://www.codebuff.com/config for more information.`) +
           this.freshPrompt()
         }
 
-        unsubscribeChunks()
-        unsubscribeComplete()
+        if (!ASYNC_AGENTS_ENABLED) {
+          xmlStreamParser.end()
+          unsubscribeChunks()
+          unsubscribeComplete()
+        }
         resolveResponse({ ...a, wasStoppedByUser: false })
       }
     )
