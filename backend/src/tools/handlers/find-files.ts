@@ -66,9 +66,6 @@ export const handleFindFiles = ((params: {
       'Internal error for find_files: Missing fingerprintId in state'
     )
   }
-  if (!repoId) {
-    throw new Error('Internal error for find_files: Missing repoId in state')
-  }
 
   const fileRequestMessagesTokens = countTokensJson(messages)
   const system = getSearchSystemPrompt(fileContext, fileRequestMessagesTokens, {
