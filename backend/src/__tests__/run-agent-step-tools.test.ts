@@ -157,11 +157,15 @@ describe('runAgentStep - update_report tool', () => {
 
   it('should update report with simple key-value pair', async () => {
     const mockResponse =
-      getToolCallString('update_report', {
-        json_update: {
-          message: 'Hi',
+      getToolCallString(
+        'update_report',
+        {
+          json_update: {
+            message: 'Hi',
+          },
         },
-      }) + getToolCallString('end_turn', {})
+        false
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -196,13 +200,17 @@ describe('runAgentStep - update_report tool', () => {
 
   it('should update report with json_update', async () => {
     const mockResponse =
-      getToolCallString('update_report', {
-        json_update: {
-          message: 'Analysis complete',
-          status: 'success',
-          findings: ['Bug in auth.ts', 'Missing validation'],
+      getToolCallString(
+        'update_report',
+        {
+          json_update: {
+            message: 'Analysis complete',
+            status: 'success',
+            findings: ['Bug in auth.ts', 'Missing validation'],
+          },
         },
-      }) + getToolCallString('end_turn', {})
+        false
+      ) + getToolCallString('end_turn', {}, true)
     console.log('mockResponse', mockResponse)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
@@ -240,12 +248,16 @@ describe('runAgentStep - update_report tool', () => {
 
   it('should merge with existing report data', async () => {
     const mockResponse =
-      getToolCallString('update_report', {
-        json_update: {
-          newField: 'new value',
-          existingField: 'updated value',
+      getToolCallString(
+        'update_report',
+        {
+          json_update: {
+            newField: 'new value',
+            existingField: 'updated value',
+          },
         },
-      }) + getToolCallString('end_turn', {})
+        false
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -286,9 +298,13 @@ describe('runAgentStep - update_report tool', () => {
 
   it('should handle empty json_update parameter', async () => {
     const mockResponse =
-      getToolCallString('update_report', {
-        json_update: {},
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'update_report',
+        {
+          json_update: {},
+        },
+        false
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse

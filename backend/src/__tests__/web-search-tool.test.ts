@@ -6,7 +6,6 @@ import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 import {
   afterEach,
   beforeEach,
@@ -87,9 +86,13 @@ describe('web_search tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString('web_search', {
-        query: 'test query',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'web_search',
+        {
+          query: 'test query',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -131,9 +134,13 @@ describe('web_search tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString('web_search', {
-        query: 'Next.js 15 new features',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'web_search',
+        {
+          query: 'Next.js 15 new features',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -171,15 +178,16 @@ describe('web_search tool with researcher agent', () => {
     )
 
     // Check that the search results were added to the message history
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('web_search')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('web_search')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(mockSearchResult)
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      mockSearchResult
+    )
   })
 
   test('should handle custom depth parameter', async () => {
@@ -191,10 +199,14 @@ describe('web_search tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString('web_search', {
-        query: 'React Server Components tutorial',
-        depth: 'deep',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'web_search',
+        {
+          query: 'React Server Components tutorial',
+          depth: 'deep',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -233,9 +245,13 @@ describe('web_search tool with researcher agent', () => {
     spyOn(linkupApi, 'searchWeb').mockImplementation(async () => null)
 
     const mockResponse =
-      getToolCallString('web_search', {
-        query: 'very obscure search query that returns nothing',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'web_search',
+        {
+          query: 'very obscure search query that returns nothing',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -274,15 +290,16 @@ describe('web_search tool with researcher agent', () => {
     )
 
     // Check that the "no results found" message was added
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('web_search')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('web_search')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('No search results found')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      'No search results found'
+    )
   })
 
   test('should handle API errors gracefully', async () => {
@@ -293,9 +310,13 @@ describe('web_search tool with researcher agent', () => {
     })
 
     const mockResponse =
-      getToolCallString('web_search', {
-        query: 'test query',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'web_search',
+        {
+          query: 'test query',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -331,25 +352,32 @@ describe('web_search tool with researcher agent', () => {
     })
 
     // Check that the error message was added
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('web_search')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('web_search')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Error performing web search')
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Linkup API timeout')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      'Error performing web search'
+    )
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      'Linkup API timeout'
+    )
   })
 
   test('should handle null response from searchWeb', async () => {
     spyOn(linkupApi, 'searchWeb').mockImplementation(async () => null)
 
     const mockResponse =
-      getToolCallString('web_search', {
-        query: 'test query',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'web_search',
+        {
+          query: 'test query',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -391,9 +419,13 @@ describe('web_search tool with researcher agent', () => {
     })
 
     const mockResponse =
-      getToolCallString('web_search', {
-        query: 'test query',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'web_search',
+        {
+          query: 'test query',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -429,15 +461,16 @@ describe('web_search tool with researcher agent', () => {
     })
 
     // Check that the error message was added
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('web_search')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('web_search')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Error performing web search')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      'Error performing web search'
+    )
   })
 
   test('should format search results correctly', async () => {
@@ -449,9 +482,13 @@ describe('web_search tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString('web_search', {
-        query: 'test formatting',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'web_search',
+        {
+          query: 'test formatting',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -487,14 +524,15 @@ describe('web_search tool with researcher agent', () => {
     })
 
     // Check that the search results were formatted correctly
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('web_search')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('web_search')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(mockSearchResult)
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      mockSearchResult
+    )
   })
 })

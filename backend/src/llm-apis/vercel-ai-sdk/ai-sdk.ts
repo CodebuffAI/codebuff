@@ -10,6 +10,12 @@ import {
   type GeminiModel,
   type openrouterModel,
 } from '@codebuff/common/constants'
+import {
+  endsAgentStepParam,
+  endToolTag,
+  startToolTag,
+  toolNameParam,
+} from '@codebuff/common/constants/tools'
 import { Message } from '@codebuff/common/types/message'
 import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
@@ -142,9 +148,8 @@ export const promptAiSdkStream = async function* (
     if (chunk.type === 'reasoning') {
       if (!reasoning) {
         reasoning = true
-        yield `<codebuff_tool_call>
-{
-  "codebuff_tool_name": "think_deeply",
+        yield `${startToolTag}{
+  ${JSON.stringify(toolNameParam)}: "think_deeply",
   "thought": "`
       }
       yield JSON.stringify(chunk.textDelta).slice(1, -1)
@@ -153,9 +158,8 @@ export const promptAiSdkStream = async function* (
       if (reasoning) {
         reasoning = false
         yield `",
-  "codebuff_end_step": false
-}
-</codebuff_tool_call>\n\n`
+  ${JSON.stringify(endsAgentStepParam)}: false
+}${endToolTag}\n\n`
       }
       content += chunk.textDelta
       yield chunk.textDelta

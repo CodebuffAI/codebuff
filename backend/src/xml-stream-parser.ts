@@ -69,6 +69,7 @@ export async function* processStreamWithTags(
     const toolName = parsedParams[toolNameParam] as keyof typeof processors
     if (!processors[toolName]) {
       onError(toolName, `Tool not found: ${toolName}`)
+      return
     }
 
     delete parsedParams[toolNameParam]

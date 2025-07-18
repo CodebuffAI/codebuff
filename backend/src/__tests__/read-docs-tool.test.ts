@@ -84,9 +84,13 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString('read_docs', {
-        libraryTitle: 'React',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'read_docs',
+        {
+          libraryTitle: 'React',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -122,15 +126,16 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     // Check that the documentation was added to the message history
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('read_docs')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('read_docs')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(mockDocumentation)
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      mockDocumentation
+    )
   })
 
   test('should fetch documentation with topic and max_tokens', async () => {
@@ -142,11 +147,15 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString('read_docs', {
-        libraryTitle: 'React',
-        topic: 'hooks',
-        max_tokens: 5000,
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'read_docs',
+        {
+          libraryTitle: 'React',
+          topic: 'hooks',
+          max_tokens: 5000,
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -188,9 +197,13 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString('read_docs', {
-        libraryTitle: 'NonExistentLibrary',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'read_docs',
+        {
+          libraryTitle: 'NonExistentLibrary',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -221,13 +234,12 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     // Check that the "no documentation found" message was added
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('read_docs')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('read_docs')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'No documentation found for "NonExistentLibrary"'
@@ -244,9 +256,13 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString('read_docs', {
-        libraryTitle: 'React',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'read_docs',
+        {
+          libraryTitle: 'React',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -277,18 +293,19 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     // Check that the error message was added
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('read_docs')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('read_docs')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'Error fetching documentation for "React"'
     )
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Network timeout')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      'Network timeout'
+    )
   })
 
   test('should include topic in error message when specified', async () => {
@@ -297,10 +314,14 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString('read_docs', {
-        libraryTitle: 'React',
-        topic: 'server-components',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'read_docs',
+        {
+          libraryTitle: 'React',
+          topic: 'server-components',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -331,13 +352,12 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     // Check that the topic is included in the error message
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('read_docs')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('read_docs')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'No documentation found for "React" with topic "server-components"'
@@ -352,9 +372,13 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString('read_docs', {
-        libraryTitle: 'React',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'read_docs',
+        {
+          libraryTitle: 'React',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -385,17 +409,18 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     // Check that the generic error message was added
-    const toolResultMessages =
-      newAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('read_docs')
-      )
+    const toolResultMessages = newAgentState.messageHistory.filter(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.includes('read_docs')
+    )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'Error fetching documentation for "React"'
     )
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain('Unknown error')
+    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
+      'Unknown error'
+    )
   })
 })

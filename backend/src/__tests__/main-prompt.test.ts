@@ -291,11 +291,15 @@ describe('mainPrompt', () => {
   it('should handle write_file tool call', async () => {
     // Mock LLM to return a write_file tool call using getToolCallString
     const mockResponse =
-      getToolCallString('write_file', {
-        path: 'new-file.txt',
-        instructions: 'Added Hello World',
-        content: 'Hello, world!',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'write_file',
+        {
+          path: 'new-file.txt',
+          instructions: 'Added Hello World',
+          content: 'Hello, world!',
+        },
+        false
+      ) + getToolCallString('end_turn', {}, true)
 
     mockAgentStream(mockResponse)
 
@@ -462,10 +466,14 @@ describe('mainPrompt', () => {
     const expectedCommand = 'cd backend && bun test'
 
     const mockResponse =
-      getToolCallString('run_terminal_command', {
-        command: escapedCommand,
-        process_type: 'SYNC',
-      }) + getToolCallString('end_turn', {})
+      getToolCallString(
+        'run_terminal_command',
+        {
+          command: escapedCommand,
+          process_type: 'SYNC',
+        },
+        true
+      ) + getToolCallString('end_turn', {}, true)
 
     mockAgentStream(mockResponse)
 
