@@ -53,19 +53,27 @@ describe('Tool renderers with XML parser', () => {
   }
 
   test('formats write_file tool call', async () => {
-    const xml = getToolCallString('write_file', {
-      path: 'test.ts',
-      content: 'console.log("test");\n',
-    }).trim()
+    const xml = getToolCallString(
+      'write_file',
+      {
+        path: 'test.ts',
+        content: 'console.log("test");\n',
+      },
+      false
+    )
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
     expect(stripped).toBe('\n\n[Write File]\nEditing file at test.ts...\n\n')
   })
 
   test('formats read_files tool call', async () => {
-    const xml = getToolCallString('read_files', {
-      paths: ['file1.ts', 'file2.ts'],
-    }).trim()
+    const xml = getToolCallString(
+      'read_files',
+      {
+        paths: ['file1.ts', 'file2.ts'],
+      },
+      false
+    )
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
     expect(stripped).toBe('\n\n[Read Files]\nfile1.ts\nfile2.ts\n\n')

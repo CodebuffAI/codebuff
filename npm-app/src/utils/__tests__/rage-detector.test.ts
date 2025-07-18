@@ -1,5 +1,13 @@
 // @ts-ignore
-import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from 'bun:test'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
@@ -44,25 +52,26 @@ describe('Rage Detectors', () => {
     mockDateNow = spyOn(Date, 'now').mockImplementation(() => currentTime)
 
     // Mock setTimeout
-    mockSetTimeout = spyOn(global, 'setTimeout').mockImplementation(
-      (callback: Function, delay: number) => {
-        const id = timeoutId++
-        timeouts.push({
-          callback,
-          delay,
-          id,
-          scheduledTime: currentTime + delay,
-        })
-        return id as any
-      }
-    )
+    mockSetTimeout = spyOn(global, 'setTimeout').mockImplementation(((
+      callback: Function,
+      delay: number
+    ) => {
+      const id = timeoutId++
+      timeouts.push({
+        callback,
+        delay,
+        id,
+        scheduledTime: currentTime + delay,
+      })
+      return id as any
+    }) as typeof setTimeout)
 
     // Mock clearTimeout
-    mockClearTimeout = spyOn(global, 'clearTimeout').mockImplementation(
-      (id: number) => {
-        timeouts = timeouts.filter((timeout) => timeout.id !== id)
-      }
-    )
+    mockClearTimeout = spyOn(global, 'clearTimeout').mockImplementation(((
+      id: number
+    ) => {
+      timeouts = timeouts.filter((timeout) => timeout.id !== id)
+    }) as typeof clearTimeout)
   })
 
   afterEach(() => {
@@ -533,10 +542,15 @@ describe('Rage Detectors', () => {
     })
 
     test('should merge context from options and start() call', () => {
+      const context: {
+        globalContext?: string
+        localContext?: string
+        overrideGlobal?: string
+      } = { globalContext: 'global' }
       const detector = createTimeoutDetector({
         reason: 'context_test',
         timeoutMs: 60000,
-        context: { globalContext: 'global' },
+        context,
       })
 
       detector.start({ localContext: 'local', overrideGlobal: 'fromLocal' })
@@ -599,9 +613,15 @@ describe('Rage Detectors', () => {
 
       // Simulate user mashing the 'd' key 5 times quickly
       for (let i = 0; i < 5; i++) {
-        detectors.keyMashingDetector.recordEvent({ 
-          str: 'd', 
-          key: { name: 'd', ctrl: false, meta: false, alt: false, shift: false } 
+        detectors.keyMashingDetector.recordEvent({
+          str: 'd',
+          key: {
+            name: 'd',
+            ctrl: false,
+            meta: false,
+            alt: false,
+            shift: false,
+          },
         })
       }
 
@@ -609,9 +629,15 @@ describe('Rage Detectors', () => {
         reason: 'key_mashing',
         count: 5,
         timeWindow: 1000,
-        repeatedKey: { 
-          str: 'd', 
-          key: { name: 'd', ctrl: false, meta: false, alt: false, shift: false } 
+        repeatedKey: {
+          str: 'd',
+          key: {
+            name: 'd',
+            ctrl: false,
+            meta: false,
+            alt: false,
+            shift: false,
+          },
         },
       })
     })
