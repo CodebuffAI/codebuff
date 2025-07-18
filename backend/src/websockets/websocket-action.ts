@@ -5,7 +5,7 @@ import {
   UsageResponse,
 } from '@codebuff/common/actions'
 import { trackEvent } from '@codebuff/common/analytics'
-import { toOptionalFile, AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import { toOptionalFile, AGENT_TEMPLATES_DIR, ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
@@ -344,7 +344,9 @@ const onCancelUserInput = async ({
     return
   }
   cancelUserInput(userId, promptId)
-  asyncAgentManager.cleanupUserInputAgents(promptId)
+  if (ASYNC_AGENTS_ENABLED) {
+    asyncAgentManager.cleanupUserInputAgents(promptId)
+  }
 }
 
 /**

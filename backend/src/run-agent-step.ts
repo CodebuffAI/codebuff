@@ -1,6 +1,6 @@
 import { AgentResponseTrace, insertTrace } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
-import { models } from '@codebuff/common/constants'
+import { ASYNC_AGENTS_ENABLED, models } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getToolCallString,
@@ -247,35 +247,37 @@ export const runAgentStep = async (
 
   const hasPrompt = Boolean(prompt || params)
 
-  // Register this agent in the async manager so it can receive messages
-  const isRegistered = asyncAgentManager.getAgent(agentState.agentId)
-  if (!isRegistered && userId) {
-    asyncAgentManager.registerAgent({
-      agentState,
-      sessionId: clientSessionId,
-      userId,
-      fingerprintId,
-      userInputId,
-      ws,
-      fileContext,
-      startTime: new Date(),
-      status: 'running',
-    })
-  } else {
-    // Update status to running for existing agents
-    asyncAgentManager.updateAgentState(agentState, 'running')
-  }
+  if (ASYNC_AGENTS_ENABLED) {
+    // Register this agent in the async manager so it can receive messages
+    const isRegistered = asyncAgentManager.getAgent(agentState.agentId)
+    if (!isRegistered && userId) {
+      asyncAgentManager.registerAgent({
+        agentState,
+        sessionId: clientSessionId,
+        userId,
+        fingerprintId,
+        userInputId,
+        ws,
+        fileContext,
+        startTime: new Date(),
+        status: 'running',
+      })
+    } else {
+      // Update status to running for existing agents
+      asyncAgentManager.updateAgentState(agentState, 'running')
+    }
 
-  // Check for pending messages from other agents
-  const pendingMessages = asyncAgentManager.getAndClearMessages(
-    agentState.agentId
-  )
-  for (const message of pendingMessages) {
-    toolResults.push({
-      toolName: 'send_agent_message',
-      toolCallId: generateCompactId(),
-      result: `Message from agent ${message.fromAgentId}:\n\nPrompt: ${message.prompt}${message.params ? `\n\nParams: ${JSON.stringify(message.params, null, 2)}` : ''}`,
-    })
+    // Check for pending messages from other agents
+    const pendingMessages = asyncAgentManager.getAndClearMessages(
+      agentState.agentId
+    )
+    for (const message of pendingMessages) {
+      toolResults.push({
+        toolName: 'send_agent_message',
+        toolCallId: generateCompactId(),
+        result: `Message from agent ${message.fromAgentId}:\n\nPrompt: ${message.prompt}${message.params ? `\n\nParams: ${JSON.stringify(message.params, null, 2)}` : ''}`,
+      })
+    }
   }
 
   const agentStepPrompt = await getAgentPrompt(
@@ -512,7 +514,7 @@ export const runAgentStep = async (
     agentContext: newAgentContext,
   }
   // Mark agent as completed if it should end turn
-  if (shouldEndTurn) {
+  if (ASYNC_AGENTS_ENABLED && shouldEndTurn) {
     asyncAgentManager.updateAgentState(newAgentState, 'completed')
   }
 
@@ -619,10 +621,12 @@ export const loopAgentSteps = async (
         )),
     })
 
-    const hasMessages =
-      asyncAgentManager.getMessages(newAgentState.agentId).length > 0
-    if (hasMessages) {
-      continue
+    if (ASYNC_AGENTS_ENABLED) {
+      const hasMessages =
+        asyncAgentManager.getMessages(newAgentState.agentId).length > 0
+      if (hasMessages) {
+        continue
+      }
     }
 
     if (shouldEndTurn) {

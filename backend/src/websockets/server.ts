@@ -12,6 +12,7 @@ import { setSessionConnected } from '../live-user-inputs'
 import { logger } from '../util/logger'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 
 export const SWITCHBOARD = new Switchboard()
 
@@ -143,8 +144,10 @@ export function listen(server: HttpServer, path: string) {
       // Mark session as disconnected to stop all agents
       setSessionConnected(clientSessionId, false)
 
-      // Cleanup async agents for this session
-      asyncAgentManager.cleanupSession(clientSessionId)
+      if (ASYNC_AGENTS_ENABLED) {
+        // Cleanup async agents for this session
+        asyncAgentManager.cleanupSession(clientSessionId)
+      }
 
       SWITCHBOARD.disconnect(ws)
     })

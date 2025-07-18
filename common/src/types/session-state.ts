@@ -45,7 +45,6 @@ export const AgentStateSchema: z.ZodType<{
     messageHistory: CodebuffMessageSchema.array(),
     stepsRemaining: z.number(),
     report: z.record(z.string(), z.any()),
-    childrenIds: z.array(z.string()).optional(),
     parentId: z.string().optional(),
   })
 )

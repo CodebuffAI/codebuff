@@ -77,9 +77,14 @@ export const handleSpawnAgentsAsync = ((params: {
       'Internal error for spawn_agents_async: Missing agentTemplate in state'
     )
   }
-  if (!mutableState?.messages || !mutableState?.agentState) {
+  if (!mutableState?.messages) {
     throw new Error(
-      'Internal error for spawn_agents_async: Missing messages or agentState in state'
+      'Internal error for spawn_agents_async: Missing messages in state'
+    )
+  }
+  if (!mutableState?.agentState) {
+    throw new Error(
+      'Internal error for spawn_agents: Missing agentState in state'
     )
   }
 
