@@ -138,12 +138,12 @@ params: None`
       }
       const { promptSchema } = agentTemplate
       if (!promptSchema) {
-        return `- ${agentType}: ${agentTemplate.description}
+        return `- ${agentType}: ${agentTemplate.purpose}
 prompt: None
 params: None`
       }
       const { prompt, params } = promptSchema
-      return `- ${agentType}: ${agentTemplate.description}
+      return `- ${agentType}: ${agentTemplate.purpose}
 prompt: ${schemaToJsonStr(prompt)}
 params: ${schemaToJsonStr(params)}`
     })

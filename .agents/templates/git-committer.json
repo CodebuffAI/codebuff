@@ -5,7 +5,7 @@
   "override": false,
   "implementation": "llm",
   "name": "Git Committer",
-  "description": "A git committer agent specialized to commit current changes with an appropriate commit message.",
+  "purpose": "A git committer agent specialized to commit current changes with an appropriate commit message.",
   "promptSchema": {
     "prompt": {
       "type": "string",

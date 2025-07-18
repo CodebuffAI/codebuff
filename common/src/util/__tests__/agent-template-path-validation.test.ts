@@ -8,8 +8,8 @@ describe('validateAgentTemplateConfigs - Path Validation', () => {
     override: true,
     systemPrompt: {
       type: 'append',
-      path: './system-prompt.md'
-    }
+      path: './system-prompt.md',
+    },
   }
 
   const validDynamicTemplate = {
@@ -17,23 +17,26 @@ describe('validateAgentTemplateConfigs - Path Validation', () => {
     version: '1.0.0',
     override: false,
     name: 'Test Agent',
-    description: 'A test agent',
+    purpose: 'A test agent',
     model: 'anthropic/claude-4-sonnet-20250522',
     systemPrompt: {
-      path: './prompts/system.md'
+      path: './prompts/system.md',
     },
     userInputPrompt: 'Test prompt',
-    agentStepPrompt: 'Test step prompt'
+    agentStepPrompt: 'Test step prompt',
   }
 
   it('should accept valid relative paths within agent templates directory', () => {
     const agentTemplates = {
-      [`${AGENT_TEMPLATES_DIR}test-override.json`]: JSON.stringify(validOverrideTemplate),
-      [`${AGENT_TEMPLATES_DIR}test-dynamic.json`]: JSON.stringify(validDynamicTemplate)
+      [`${AGENT_TEMPLATES_DIR}test-override.json`]: JSON.stringify(
+        validOverrideTemplate
+      ),
+      [`${AGENT_TEMPLATES_DIR}test-dynamic.json`]:
+        JSON.stringify(validDynamicTemplate),
     }
 
     const result = validateAgentTemplateConfigs(agentTemplates)
-    
+
     expect(result.validationErrors).toHaveLength(0)
     expect(result.validConfigs).toHaveLength(2)
   })
@@ -43,18 +46,20 @@ describe('validateAgentTemplateConfigs - Path Validation', () => {
       ...validOverrideTemplate,
       systemPrompt: {
         type: 'append',
-        path: '../../../etc/passwd'
-      }
+        path: '../../../etc/passwd',
+      },
     }
 
     const agentTemplates = {
-      [`${AGENT_TEMPLATES_DIR}invalid.json`]: JSON.stringify(invalidOverride)
+      [`${AGENT_TEMPLATES_DIR}invalid.json`]: JSON.stringify(invalidOverride),
     }
 
     const result = validateAgentTemplateConfigs(agentTemplates)
-    
+
     expect(result.validationErrors).toHaveLength(1)
-    expect(result.validationErrors[0].message).toContain('outside the .agents/templates/ directory')
+    expect(result.validationErrors[0].message).toContain(
+      'outside the .agents/templates/ directory'
+    )
     expect(result.validConfigs).toHaveLength(0)
   })
 
@@ -62,16 +67,16 @@ describe('validateAgentTemplateConfigs - Path Validation', () => {
     const invalidDynamic = {
       ...validDynamicTemplate,
       systemPrompt: {
-        path: '/etc/passwd'
-      }
+        path: '/etc/passwd',
+      },
     }
 
     const agentTemplates = {
-      [`${AGENT_TEMPLATES_DIR}invalid.json`]: JSON.stringify(invalidDynamic)
+      [`${AGENT_TEMPLATES_DIR}invalid.json`]: JSON.stringify(invalidDynamic),
     }
 
     const result = validateAgentTemplateConfigs(agentTemplates)
-    
+
     expect(result.validationErrors).toHaveLength(1)
     expect(result.validationErrors[0].message).toContain('absolute path')
     expect(result.validConfigs).toHaveLength(0)
@@ -82,18 +87,20 @@ describe('validateAgentTemplateConfigs - Path Validation', () => {
       ...validOverrideTemplate,
       userInputPrompt: {
         type: 'prepend',
-        path: '../../backend/src/secret.ts'
-      }
+        path: '../../backend/src/secret.ts',
+      },
     }
 
     const agentTemplates = {
-      [`${AGENT_TEMPLATES_DIR}invalid.json`]: JSON.stringify(invalidOverride)
+      [`${AGENT_TEMPLATES_DIR}invalid.json`]: JSON.stringify(invalidOverride),
     }
 
     const result = validateAgentTemplateConfigs(agentTemplates)
-    
+
     expect(result.validationErrors).toHaveLength(1)
-    expect(result.validationErrors[0].message).toContain('outside the .agents/templates/ directory')
+    expect(result.validationErrors[0].message).toContain(
+      'outside the .agents/templates/ directory'
+    )
     expect(result.validConfigs).toHaveLength(0)
   })
 
@@ -102,16 +109,17 @@ describe('validateAgentTemplateConfigs - Path Validation', () => {
       ...validOverrideTemplate,
       systemPrompt: {
         type: 'append',
-        path: './prompts/subfolder/system.md'
-      }
+        path: './prompts/subfolder/system.md',
+      },
     }
 
     const agentTemplates = {
-      [`${AGENT_TEMPLATES_DIR}valid-subdir.json`]: JSON.stringify(validSubdirTemplate)
+      [`${AGENT_TEMPLATES_DIR}valid-subdir.json`]:
+        JSON.stringify(validSubdirTemplate),
     }
 
     const result = validateAgentTemplateConfigs(agentTemplates)
-    
+
     expect(result.validationErrors).toHaveLength(0)
     expect(result.validConfigs).toHaveLength(1)
   })
@@ -122,17 +130,21 @@ describe('validateAgentTemplateConfigs - Path Validation', () => {
       systemPrompt: { path: './system.md' },
       userInputPrompt: { path: './user-input.md' },
       agentStepPrompt: { path: './agent-step.md' },
-      initialAssistantMessage: { path: '../../../invalid.md' } // This should fail
+      initialAssistantMessage: { path: '../../../invalid.md' }, // This should fail
     }
 
     const agentTemplates = {
-      [`${AGENT_TEMPLATES_DIR}multi-path.json`]: JSON.stringify(templateWithMultiplePaths)
+      [`${AGENT_TEMPLATES_DIR}multi-path.json`]: JSON.stringify(
+        templateWithMultiplePaths
+      ),
     }
 
     const result = validateAgentTemplateConfigs(agentTemplates)
-    
+
     expect(result.validationErrors).toHaveLength(1)
-    expect(result.validationErrors[0].message).toContain('Invalid initialAssistantMessage path')
+    expect(result.validationErrors[0].message).toContain(
+      'Invalid initialAssistantMessage path'
+    )
     expect(result.validConfigs).toHaveLength(0)
   })
 
@@ -141,15 +153,16 @@ describe('validateAgentTemplateConfigs - Path Validation', () => {
       ...validDynamicTemplate,
       systemPrompt: 'Direct string content',
       userInputPrompt: 'Direct user input prompt',
-      agentStepPrompt: 'Direct agent step prompt'
+      agentStepPrompt: 'Direct agent step prompt',
     }
 
     const agentTemplates = {
-      [`${AGENT_TEMPLATES_DIR}no-paths.json`]: JSON.stringify(templateWithoutPaths)
+      [`${AGENT_TEMPLATES_DIR}no-paths.json`]:
+        JSON.stringify(templateWithoutPaths),
     }
 
     const result = validateAgentTemplateConfigs(agentTemplates)
-    
+
     expect(result.validationErrors).toHaveLength(0)
     expect(result.validConfigs).toHaveLength(1)
   })
@@ -159,8 +172,8 @@ describe('validateAgentTemplateConfigs - Path Validation', () => {
       ...validOverrideTemplate,
       systemPrompt: {
         type: 'append',
-        path: './valid.md'
-      }
+        path: './valid.md',
+      },
     }
 
     const invalidTemplate = {
@@ -168,19 +181,21 @@ describe('validateAgentTemplateConfigs - Path Validation', () => {
       id: 'another-reviewer',
       systemPrompt: {
         type: 'append',
-        path: '../../../invalid.md'
-      }
+        path: '../../../invalid.md',
+      },
     }
 
     const agentTemplates = {
       [`${AGENT_TEMPLATES_DIR}valid.json`]: JSON.stringify(validTemplate),
-      [`${AGENT_TEMPLATES_DIR}invalid.json`]: JSON.stringify(invalidTemplate)
+      [`${AGENT_TEMPLATES_DIR}invalid.json`]: JSON.stringify(invalidTemplate),
     }
 
     const result = validateAgentTemplateConfigs(agentTemplates)
-    
+
     expect(result.validationErrors).toHaveLength(1)
     expect(result.validConfigs).toHaveLength(1)
-    expect(result.validConfigs[0].filePath).toBe(`${AGENT_TEMPLATES_DIR}valid.json`)
+    expect(result.validConfigs[0].filePath).toBe(
+      `${AGENT_TEMPLATES_DIR}valid.json`
+    )
   })
 })

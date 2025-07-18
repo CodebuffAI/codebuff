@@ -8,7 +8,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['planner'].name,
   implementation: 'llm',
-  description: AGENT_PERSONAS['planner'].description,
+  purpose: AGENT_PERSONAS['planner'].purpose,
   promptSchema: {
     prompt: z
       .string()

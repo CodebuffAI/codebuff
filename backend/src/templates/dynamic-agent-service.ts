@@ -225,7 +225,7 @@ export class DynamicAgentService {
         id: dynamicAgent.id as AgentTemplateType,
         name: dynamicAgent.name,
         implementation: 'llm',
-        description: dynamicAgent.description,
+        purpose: dynamicAgent.purpose,
         model: dynamicAgent.model as any,
         promptSchema,
         outputMode: dynamicAgent.outputMode,

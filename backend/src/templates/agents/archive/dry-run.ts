@@ -8,7 +8,7 @@ export const dryRun = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['dry_run'].name,
   implementation: 'llm',
-  description: AGENT_PERSONAS['dry_run'].description,
+  purpose: AGENT_PERSONAS['dry_run'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },

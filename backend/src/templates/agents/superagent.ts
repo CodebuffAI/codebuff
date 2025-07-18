@@ -12,13 +12,19 @@ export const superagent = (
   model,
   name: AGENT_PERSONAS['superagent'].name,
   implementation: 'llm',
-  description: AGENT_PERSONAS['superagent'].description,
+  purpose: AGENT_PERSONAS['superagent'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: ['spawn_agents', 'spawn_agents_async', 'send_agent_message', 'end_turn', 'think_deeply'],
+  toolNames: [
+    'spawn_agents',
+    'spawn_agents_async',
+    'send_agent_message',
+    'end_turn',
+    'think_deeply',
+  ],
   spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [

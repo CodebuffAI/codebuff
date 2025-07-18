@@ -17,7 +17,7 @@ export const base = (
   model,
   name: AGENT_PERSONAS['base'].name,
   implementation: 'llm',
-  description: AGENT_PERSONAS['base'].description,
+  purpose: AGENT_PERSONAS['base'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },

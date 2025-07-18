@@ -41,7 +41,7 @@ export const DynamicAgentTemplateSchema = z.object({
 
   // Required fields for new agents
   name: z.string(),
-  description: z.string(),
+  purpose: z.string(),
   model: z.enum(filteredModels as [string, ...string[]]),
   outputMode: z
     .enum(['last_message', 'report', 'all_messages'])

@@ -9,7 +9,7 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['researcher'].name,
   implementation: 'llm',
-  description: AGENT_PERSONAS['researcher'].description,
+  purpose: AGENT_PERSONAS['researcher'].purpose,
   promptSchema: {
     prompt: z
       .string()

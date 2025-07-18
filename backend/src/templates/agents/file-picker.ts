@@ -10,7 +10,7 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['file_picker'].name,
   implementation: 'llm',
-  description: AGENT_PERSONAS['file_picker'].description,
+  purpose: AGENT_PERSONAS['file_picker'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },

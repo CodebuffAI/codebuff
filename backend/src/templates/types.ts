@@ -12,7 +12,7 @@ import { CodebuffToolCall } from '../tools/constants'
 export type AgentTemplate = {
   id: AgentTemplateType
   name: string
-  description: string
+  purpose: string
   model: Model
   implementation: 'llm'
   // Required parameters for spawning this agent.
@@ -39,7 +39,7 @@ export interface ProgrammaticAgentTemplate {
   id: AgentTemplateType
   implementation: 'programmatic'
   name: string
-  description: string
+  purpose: string
   handler: ProgrammaticAgentFunction // Direct generator function. TODO: replace with path to a file or string of source code?
   includeMessageHistory: boolean
   promptSchema: {

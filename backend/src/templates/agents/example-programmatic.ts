@@ -26,7 +26,7 @@ export const exampleProgrammatic: ProgrammaticAgentTemplate = {
   id: 'example_programmatic',
   implementation: 'programmatic',
   name: 'Example Programmatic Agent',
-  description:
+  purpose:
     'A simple example of a programmatic agent using direct generator functions',
   handler: exampleHandler,
   includeMessageHistory: true,

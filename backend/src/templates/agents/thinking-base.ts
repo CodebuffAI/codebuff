@@ -21,7 +21,7 @@ export const thinkingBase = (
   model,
   implementation: 'llm',
   name: AGENT_PERSONAS['base_lite'].name,
-  description: AGENT_PERSONAS['base_lite'].description,
+  purpose: AGENT_PERSONAS['base_lite'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },

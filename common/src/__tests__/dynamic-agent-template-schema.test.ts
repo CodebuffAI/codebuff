@@ -7,7 +7,7 @@ describe('DynamicAgentTemplateSchema', () => {
     version: '1.0.0',
     override: false,
     name: 'Test Agent',
-    description: 'A test agent',
+    purpose: 'A test agent',
     model: 'anthropic/claude-4-sonnet-20250522',
     systemPrompt: 'Test system prompt',
     userInputPrompt: 'Test user prompt',

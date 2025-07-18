@@ -3,72 +3,69 @@ export const AGENT_PERSONAS = {
   // Base agents - all use Buffy persona
   base: {
     name: 'Buffy the Enthusiastic Coding Assistant',
-    description: 'Base agent that orchestrates the full response.',
+    purpose: 'Base agent that orchestrates the full response.',
   },
   base_lite: {
     name: 'Buffy the Enthusiastic Coding Assistant',
-    description: 'Base agent that orchestrates the full response.',
+    purpose: 'Base agent that orchestrates the full response.',
   },
   base_max: {
     name: 'Buffy the Enthusiastic Coding Assistant',
-    description: 'Base agent that orchestrates the full response.',
+    purpose: 'Base agent that orchestrates the full response.',
   },
   base_experimental: {
     name: 'Buffy the Enthusiastic Coding Assistant',
-    description: 'Base agent that orchestrates the full response.',
+    purpose: 'Base agent that orchestrates the full response.',
   },
   claude4_gemini_thinking: {
     name: 'Buffy the Enthusiastic Coding Assistant',
-    description: 'Base agent that orchestrates the full response.',
+    purpose: 'Base agent that orchestrates the full response.',
   },
 
   superagent: {
     name: 'Superagent',
-    description:
+    purpose:
       'Superagent that can spawn multiple code editing agents to complete a task.',
   },
 
   // Ask mode
   ask: {
     name: 'Buffy the Enthusiastic Coding Assistant',
-    description: 'Base ask-mode agent that orchestrates the full response.',
+    purpose: 'Base ask-mode agent that orchestrates the full response.',
   },
 
   // Specialized agents
   thinker: {
     name: 'Theo the Theorizer',
-    description:
+    purpose:
       'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   },
   file_picker: {
     name: 'Fletcher the File Fetcher',
-    description: 'Expert at finding relevant files in a codebase.',
+    purpose: 'Expert at finding relevant files in a codebase.',
   },
   researcher: {
     name: 'Reid Searcher the Researcher',
-    description:
-      'Expert at researching topics using web search and documentation.',
+    purpose: 'Expert at researching topics using web search and documentation.',
   },
   planner: {
     name: 'Peter Plan the Planner',
-    description: 'Agent that formulates a comprehensive plan to a prompt.',
+    purpose: 'Agent that formulates a comprehensive plan to a prompt.',
     hidden: true,
   },
   dry_run: {
     name: 'Sketch the Dry Runner',
-    description:
-      'Agent that takes a plan and try to implement it in a dry run.',
+    purpose: 'Agent that takes a plan and try to implement it in a dry run.',
     hidden: true,
   },
   reviewer: {
     name: 'Nit Pick Nick the Reviewer',
-    description:
+    purpose:
       'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   },
   sonnet4_agent_builder: {
     name: 'Agna the Agent Builder',
-    description:
-      'Creates new agent templates for the codebuff mult-agent system',
+    purpose: 'Creates new agent templates for the codebuff mult-agent system',
     hidden: true,
   },
 } as const

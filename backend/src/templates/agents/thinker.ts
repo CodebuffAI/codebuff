@@ -9,7 +9,7 @@ export const thinker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['thinker'].name,
   implementation: 'llm',
-  description: AGENT_PERSONAS['thinker'].description,
+  purpose: AGENT_PERSONAS['thinker'].purpose,
   promptSchema: {
     prompt: z.string().describe('The problem you are trying to solve'),
   },
