@@ -54,6 +54,7 @@ const mockFileContext: ProjectFileContext = {
     cpus: 1,
   },
   fileVersions: [],
+  agentTemplates: {},
 }
 
 // --- Integration Test with Real LLM Call ---
@@ -62,9 +63,9 @@ describe.skip('mainPrompt (Integration)', () => {
     spyOn(websocketAction, 'requestToolCall').mockImplementation(
       async (
         ws: WebSocket,
+        userInputId: string,
         toolName: string,
-        args: Record<string, any>,
-        timeout: number = 30_000
+        args: Record<string, any>
       ) => {
         return {
           success: true,
@@ -323,9 +324,13 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     sessionState.mainAgentState.messageHistory.push(
       {
         role: 'assistant',
-        content: getToolCallString('read_files', {
-          paths: 'src/util/messages.ts',
-        }),
+        content: getToolCallString(
+          'read_files',
+          {
+            paths: 'src/util/messages.ts',
+          },
+          true
+        ),
       },
       {
         role: 'user',
@@ -366,7 +371,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 
     // Find the write_file tool call
     const writeFileCall = requestToolCallSpy.mock.calls.find(
-      (call) => call[1] === 'write_file'
+      (call: any) => call[1] === 'write_file'
     )
     expect(writeFileCall).toBeDefined()
     expect(writeFileCall[2].path).toBe('src/util/messages.ts')
@@ -404,9 +409,13 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       sessionState.mainAgentState.messageHistory.push(
         {
           role: 'assistant',
-          content: getToolCallString('read_files', {
-            paths: 'packages/backend/src/index.ts',
-          }),
+          content: getToolCallString(
+            'read_files',
+            {
+              paths: 'packages/backend/src/index.ts',
+            },
+            true
+          ),
         },
         {
           role: 'user',
@@ -444,7 +453,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 
       // Find the write_file tool call
       const writeFileCall = requestToolCallSpy.mock.calls.find(
-        (call) => call[1] === 'write_file'
+        (call: any) => call[1] === 'write_file'
       )
       expect(writeFileCall).toBeDefined()
       expect(writeFileCall[2].path).toBe('packages/backend/src/index.ts')

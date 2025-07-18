@@ -1,5 +1,5 @@
-import { describe, it, expect, mock } from 'bun:test'
 import { ProjectFileContext } from '@codebuff/common/util/file'
+import { describe, expect, it, mock } from 'bun:test'
 import {
   dynamicAgentService,
   DynamicAgentService,
@@ -275,7 +275,7 @@ describe('Dynamic Agent Loader', () => {
       },
     }
 
-    const result = await testService.loadAgents(fileContext)
+    const result = (await testService.loadAgents(fileContext)) as any
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('prompt_ref_agent')
@@ -314,7 +314,7 @@ describe('Dynamic Agent Loader', () => {
       },
     }
 
-    const result = await testService.loadAgents(fileContext)
+    const result = (await testService.loadAgents(fileContext)) as any
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('CodebuffAI/git-committer')

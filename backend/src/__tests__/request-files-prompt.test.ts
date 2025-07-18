@@ -9,9 +9,9 @@ import {
 } from 'bun:test'
 
 // Import the entire module to spy on its exports
-import { CoreMessage } from 'ai'
 import { CostMode, finetunedVertexModels } from '@codebuff/common/constants'
 import { ProjectFileContext } from '@codebuff/common/util/file'
+import { CoreMessage } from 'ai'
 import * as checkNewFilesNecessaryModule from '../find-files/check-new-files-necessary'
 import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
 import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
@@ -83,6 +83,7 @@ describe('requestRelevantFiles', () => {
       homedir: '/Users/test',
       cpus: 8,
     },
+    agentTemplates: {},
   }
   const mockAssistantPrompt = null
   const mockAgentStepId = 'step1'
@@ -141,7 +142,6 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockCostMode,
       mockRepoId
     )
     expect(
@@ -167,7 +167,6 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      'normal',
       mockRepoId
     )
     expect(
@@ -192,7 +191,6 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockCostMode,
       mockRepoId
     )
     expect(result).toBeArray()
@@ -217,7 +215,6 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockCostMode,
       mockRepoId
     )
     expect(
@@ -246,7 +243,6 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockCostMode, // This is 'normal'
       mockRepoId
     )
     const expectedModel = finetunedVertexModels.ft_filepicker_010
@@ -282,7 +278,6 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockCostMode,
       mockRepoId
     )
 

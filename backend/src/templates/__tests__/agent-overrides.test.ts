@@ -1,6 +1,7 @@
 import { openrouterModels } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
+import { describe, expect, it } from 'bun:test'
 import { processAgentOverrides } from '../agent-overrides'
 import { AgentTemplate } from '../types'
 
@@ -8,7 +9,7 @@ describe('processAgentOverrides', () => {
   const mockBaseTemplate: AgentTemplate = {
     id: AgentTemplateTypes.reviewer,
     name: 'Test Reviewer',
-    description: 'Test description',
+    purpose: 'Test description',
     model: openrouterModels.openrouter_claude_3_5_sonnet,
     promptSchema: { prompt: undefined },
     outputMode: 'last_message',

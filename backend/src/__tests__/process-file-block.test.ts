@@ -1,7 +1,7 @@
-import { describe, expect, it, mock } from 'bun:test'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { applyPatch } from '@codebuff/common/util/patch'
+import { describe, expect, it, mock } from 'bun:test'
 
 import { processFileBlock } from '../process-file-block'
 
@@ -75,8 +75,7 @@ describe('processFileBlock', () => {
       'clientSessionId',
       'fingerprintId',
       'userInputId',
-      TEST_USER_ID,
-      'normal'
+      TEST_USER_ID
     )
 
     expect(result).not.toBeNull()
@@ -112,8 +111,7 @@ describe('processFileBlock', () => {
       'clientSessionId',
       'fingerprintId',
       'userInputId',
-      TEST_USER_ID,
-      'normal'
+      TEST_USER_ID
     )
 
     expect(result).not.toBeNull()
@@ -145,8 +143,7 @@ describe('processFileBlock', () => {
       'clientSessionId',
       'fingerprintId',
       'userInputId',
-      TEST_USER_ID,
-      'normal'
+      TEST_USER_ID
     )
 
     expect(result).not.toBeNull()
@@ -215,8 +212,7 @@ function divide(a: number, b: number) {
       'clientSessionId',
       'fingerprintId',
       'userInputId',
-      TEST_USER_ID,
-      'normal'
+      TEST_USER_ID
     )
 
     expect(result).not.toBeNull()
@@ -253,8 +249,7 @@ function divide(a: number, b: number) {
       'clientSessionId',
       'fingerprintId',
       'userInputId',
-      TEST_USER_ID,
-      'normal'
+      TEST_USER_ID
     )
 
     expect(result).not.toBeNull()
@@ -282,7 +277,8 @@ function divide(a: number, b: number) {
   })
 
   it('should return error when creating new file with lazy edit', async () => {
-    const newContent = '// ... existing code ...\nconst x = 1;\n// ... existing code ...'
+    const newContent =
+      '// ... existing code ...\nconst x = 1;\n// ... existing code ...'
 
     const result = await processFileBlock(
       'test.ts',
@@ -295,8 +291,7 @@ function divide(a: number, b: number) {
       'clientSessionId',
       'fingerprintId',
       'userInputId',
-      TEST_USER_ID,
-      'normal'
+      TEST_USER_ID
     )
 
     expect(result).not.toBeNull()
