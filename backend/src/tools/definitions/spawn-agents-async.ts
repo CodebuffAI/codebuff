@@ -1,12 +1,12 @@
-import z from 'zod/v4'
-
 import { getToolCallString } from '@codebuff/common/constants/tools'
-
+import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'spawn_agents_async'
+const endsAgentStep = false
 export const spawnAgentsAsyncTool = {
-  toolName: 'spawn_agents_async',
-  endsAgentStep: false,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       agents: z
@@ -31,18 +31,22 @@ The spawned agents run independently and can communicate back to the parent usin
 Prefer to use spawn_agents unless you really need this ability to spawn asynchronous agents.
 
 Example:
-${getToolCallString('spawn_agents_async', {
-  agents: JSON.stringify([
-    {
-      agent_type: 'file_picker',
-      prompt: 'Find files related to authentication',
-    },
-    {
-      agent_type: 'researcher',
-      prompt: 'Research best practices for user authentication',
-      params: { keywords: ['authentication', 'nextjs', 'auth0'] },
-    },
-  ]),
-})}
+${getToolCallString(
+  toolName,
+  {
+    agents: JSON.stringify([
+      {
+        agent_type: 'file_picker',
+        prompt: 'Find files related to authentication',
+      },
+      {
+        agent_type: 'researcher',
+        prompt: 'Research best practices for user authentication',
+        params: { keywords: ['authentication', 'nextjs', 'auth0'] },
+      },
+    ]),
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

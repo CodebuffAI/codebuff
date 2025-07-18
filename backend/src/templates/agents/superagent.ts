@@ -1,10 +1,8 @@
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { closeXmlTags } from '@codebuff/common/util/xml'
 import z from 'zod/v4'
 
-import { ToolName } from '@codebuff/common/constants/tools'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const superagent = (
@@ -21,7 +19,6 @@ export const superagent = (
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'spawn_agents_async', 'end_turn', 'think_deeply'],
-  stopSequences: closeXmlTags(['spawn_agents'] satisfies readonly ToolName[]),
   spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [
