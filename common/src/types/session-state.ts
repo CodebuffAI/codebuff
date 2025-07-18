@@ -91,10 +91,9 @@ export function getInitialSessionState(
   fileContext: ProjectFileContext
 ): SessionState {
   return {
-    // TODO: remove mainAgentState or make it nullable. The server should specifiy it initially not the client.
     mainAgentState: {
       agentId: 'main-agent',
-      agentType: 'base',
+      agentType: 'base', // NOTE(James): Sorry, this is a fake agent type. The server sets it to the computed one.
       agentContext: {},
       subagents: [],
       messageHistory: [],
