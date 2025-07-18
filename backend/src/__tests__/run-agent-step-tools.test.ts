@@ -152,6 +152,7 @@ describe('runAgentStep - update_report tool', () => {
       cpus: 1,
     },
     fileVersions: [],
+    agentTemplates: {},
   }
 
   it('should update report with simple key-value pair', async () => {
