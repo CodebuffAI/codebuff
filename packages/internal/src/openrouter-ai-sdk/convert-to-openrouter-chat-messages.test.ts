@@ -1,4 +1,5 @@
-import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
+import { describe, expect, it } from 'bun:test'
+import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages'
 
 describe('user messages', () => {
   it('should convert messages with image parts to multiple parts', async () => {
@@ -14,7 +15,7 @@ describe('user messages', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -27,8 +28,8 @@ describe('user messages', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should convert messages with only a text part to a string content', async () => {
     const result = convertToOpenRouterChatMessages([
@@ -36,11 +37,11 @@ describe('user messages', () => {
         role: 'user',
         content: [{ type: 'text', text: 'Hello' }],
       },
-    ]);
+    ])
 
-    expect(result).toEqual([{ role: 'user', content: 'Hello' }]);
-  });
-});
+    expect(result).toEqual([{ role: 'user', content: 'Hello' }])
+  })
+})
 
 describe('cache control', () => {
   it('should pass cache control from system message provider metadata', () => {
@@ -54,7 +55,7 @@ describe('cache control', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -62,8 +63,8 @@ describe('cache control', () => {
         content: 'System prompt',
         cache_control: { type: 'ephemeral' },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should pass cache control from user message provider metadata (single text part)', () => {
     const result = convertToOpenRouterChatMessages([
@@ -76,7 +77,7 @@ describe('cache control', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -84,8 +85,8 @@ describe('cache control', () => {
         content: 'Hello',
         cache_control: { type: 'ephemeral' },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should pass cache control from user message provider metadata (multiple parts)', () => {
     const result = convertToOpenRouterChatMessages([
@@ -105,7 +106,7 @@ describe('cache control', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -123,8 +124,8 @@ describe('cache control', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should pass cache control to multiple image parts from user message provider metadata', () => {
     const result = convertToOpenRouterChatMessages([
@@ -149,7 +150,7 @@ describe('cache control', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -172,8 +173,8 @@ describe('cache control', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should pass cache control to file parts from user message provider metadata', () => {
     const result = convertToOpenRouterChatMessages([
@@ -198,7 +199,7 @@ describe('cache control', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -219,8 +220,8 @@ describe('cache control', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle mixed part-specific and message-level cache control for multiple parts', () => {
     const result = convertToOpenRouterChatMessages([
@@ -260,7 +261,7 @@ describe('cache control', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -286,8 +287,8 @@ describe('cache control', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should pass cache control from individual content part provider metadata', () => {
     const result = convertToOpenRouterChatMessages([
@@ -310,7 +311,7 @@ describe('cache control', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -327,8 +328,8 @@ describe('cache control', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should pass cache control from assistant message provider metadata', () => {
     const result = convertToOpenRouterChatMessages([
@@ -341,7 +342,7 @@ describe('cache control', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -349,8 +350,8 @@ describe('cache control', () => {
         content: 'Assistant response',
         cache_control: { type: 'ephemeral' },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should pass cache control from tool message provider metadata', () => {
     const result = convertToOpenRouterChatMessages([
@@ -371,7 +372,7 @@ describe('cache control', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -380,8 +381,8 @@ describe('cache control', () => {
         content: JSON.stringify({ answer: 42 }),
         cache_control: { type: 'ephemeral' },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should support the alias cache_control field', () => {
     const result = convertToOpenRouterChatMessages([
@@ -394,7 +395,7 @@ describe('cache control', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -402,8 +403,8 @@ describe('cache control', () => {
         content: 'System prompt',
         cache_control: { type: 'ephemeral' },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should support cache control on last message in content array', () => {
     const result = convertToOpenRouterChatMessages([
@@ -424,7 +425,7 @@ describe('cache control', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -442,6 +443,6 @@ describe('cache control', () => {
           },
         ],
       },
-    ]);
-  });
-});
+    ])
+  })
+})
