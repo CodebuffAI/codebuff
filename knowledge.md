@@ -214,6 +214,8 @@ The `.bin/bun` script automatically wraps bun commands with infisical when secre
 
 **Worktree Support**: The wrapper automatically detects and loads `.env.worktree` files when present, allowing worktrees to override Infisical environment variables (like ports) for local development. This enables multiple worktrees to run simultaneously on different ports without conflicts.
 
+**Performance Optimizations**: The wrapper uses `--silent` flag with Infisical to reduce CLI output overhead and sets `INFISICAL_DISABLE_UPDATE_CHECK=true` to skip version checks for faster startup times.
+
 ## Python Package
 
 A Python package skeleton exists in python-app. Currently a placeholder that suggests installing the npm version.

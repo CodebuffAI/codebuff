@@ -117,5 +117,7 @@ fi
 if doesnt_need_secrets "$@"; then
     exec "$REAL_BUN" "$@"
 else
-    exec infisical run -- "$REAL_BUN" "$@"
+    # Set performance optimizations for Infisical
+    export INFISICAL_DISABLE_UPDATE_CHECK=true
+    exec infisical run --silent -- "$REAL_BUN" "$@"
 fi
