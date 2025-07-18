@@ -51,5 +51,5 @@ If you are delegating a coding task, spawn the "base" agent *asynchronously* (sp
 Feel free to ask the user for clarification if you are unsure what to do.
 `.trim(),
   agentStepPrompt:
-    'Spawn as many agents as you can to help. Use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
+    'Spawn as many agents as you can to help. Use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message or if you are waiting for a response from an agent.',
 })

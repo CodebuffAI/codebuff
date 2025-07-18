@@ -16,7 +16,7 @@ import { reviewer } from './agents/reviewer'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
 import { AgentTemplateUnion } from './types'
-import { superagent } from './agents/super-agent'
+import { superagent } from './agents/superagent'
 
 export const agentTemplates: Record<
   AgentTemplateType | string,
