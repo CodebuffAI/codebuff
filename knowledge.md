@@ -90,6 +90,107 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 - Prefer specific imports over import \* to make dependencies explicit
 - Exception: When mocking modules with many internal dependencies (like isomorphic-git), use import \* to avoid listing every internal function
 
+### Bun Testing Best Practices
+
+**Always use `spyOn()` instead of `mock.module()` for function and method mocking.**
+
+**Preferred approach:**
+
+```typescript
+// ✅ Good: Use spyOn for clear, explicit mocking
+import { spyOn, beforeEach, afterEach } from 'bun:test'
+import * as analytics from '../analytics'
+
+beforeEach(() => {
+  // Spy on module functions
+  spyOn(analytics, 'trackEvent').mockImplementation(() => {})
+  spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
+
+  // Spy on global functions like Date.now and setTimeout
+  spyOn(Date, 'now').mockImplementation(() => 1234567890)
+  spyOn(global, 'setTimeout').mockImplementation((callback, delay) => {
+    // Custom timeout logic for tests
+    return 123 as any
+  })
+})
+
+afterEach(() => {
+  // Restore all mocks
+  mock.restore()
+})
+```
+
+**Real examples from our codebase:**
+
+```typescript
+// From main-prompt.test.ts - Mocking LLM APIs
+spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
+  Promise.resolve('Test response')
+)
+spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+  yield 'Test response'
+})
+
+// From rage-detector.test.ts - Mocking Date
+spyOn(Date, 'now').mockImplementation(() => currentTime)
+
+// From run-agent-step-tools.test.ts - Mocking imported modules
+spyOn(websocketAction, 'requestFiles').mockImplementation(
+  async (ws: any, paths: string[]) => {
+    const results: Record<string, string | null> = {}
+    paths.forEach((p) => {
+      if (p === 'src/auth.ts') {
+        results[p] = 'export function authenticate() { return true; }'
+      } else {
+        results[p] = null
+      }
+    })
+    return results
+  }
+)
+```
+
+**Use `mock.module()` only for entire module replacement:**
+
+```typescript
+// ✅ Good: Use mock.module for replacing entire modules
+mock.module('../util/logger', () => ({
+  logger: {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  },
+  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+}))
+
+// ✅ Good: Mock entire module with multiple exports using anonymous function
+mock.module('../services/api-client', () => ({
+  fetchUserData: jest.fn().mockResolvedValue({ id: 1, name: 'Test User' }),
+  updateUserProfile: jest.fn().mockResolvedValue({ success: true }),
+  deleteUser: jest.fn().mockResolvedValue(true),
+  ApiError: class MockApiError extends Error {
+    constructor(
+      message: string,
+      public status: number
+    ) {
+      super(message)
+    }
+  },
+  API_ENDPOINTS: {
+    USERS: '/api/users',
+    PROFILES: '/api/profiles',
+  },
+}))
+```
+
+**Benefits of spyOn:**
+
+- Easier to restore original functionality with `mock.restore()`
+- Clearer test isolation
+- Doesn't interfere with global state (mock.module carrries over from test file to test file, which is super bad and unintutitve.)
+- Simpler debugging when mocks fail
+
 ## Constants and Configuration
 
 Important constants are centralized in `common/src/constants.ts`:
