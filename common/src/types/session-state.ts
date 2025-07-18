@@ -29,7 +29,7 @@ export type Subgoal = z.infer<typeof subgoalSchema>
 
 export const AgentStateSchema: z.ZodType<{
   agentId: string
-  agentType: AgentTemplateType
+  agentType: AgentTemplateType | null
   agentContext: Record<string, Subgoal>
   subagents: AgentState[]
   messageHistory: CodebuffMessage[]
@@ -39,7 +39,7 @@ export const AgentStateSchema: z.ZodType<{
 }> = z.lazy(() =>
   z.object({
     agentId: z.string(),
-    agentType: agentTemplateTypeSchema,
+    agentType: agentTemplateTypeSchema.nullable(),
     agentContext: z.record(z.string(), subgoalSchema),
     subagents: AgentStateSchema.array(),
     messageHistory: CodebuffMessageSchema.array(),
@@ -93,7 +93,7 @@ export function getInitialSessionState(
   return {
     mainAgentState: {
       agentId: 'main-agent',
-      agentType: 'base', // NOTE(James): Sorry, this is a fake agent type. The server sets it to the computed one.
+      agentType: null,
       agentContext: {},
       subagents: [],
       messageHistory: [],

@@ -157,7 +157,7 @@ export class AsyncAgentManager {
             promptId: userInputId,
             fingerprintId: agent.fingerprintId,
             costMode: 'normal',
-            agentId: agent.agentState.agentType,
+            agentId: agent.agentState.agentType!,
             sessionState: {
               ...agent.agentState,
               fileContext: agent.fileContext,
@@ -183,7 +183,7 @@ export class AsyncAgentManager {
           userInputId,
           prompt: undefined, // No initial prompt, will get messages from queue
           params: undefined,
-          agentType: agent.agentState.agentType,
+          agentType: agent.agentState.agentType!,
           agentState: agent.agentState,
           fingerprintId: agent.fingerprintId,
           fileContext: agent.fileContext,
