@@ -243,7 +243,7 @@ describe('DynamicAgentTemplateSchema', () => {
     })
 
     it('should handle very long schema definitions', () => {
-      const largeSchema = {
+      const largeSchema: any = {
         type: 'object',
         properties: {},
       }

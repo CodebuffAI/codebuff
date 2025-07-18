@@ -1,5 +1,6 @@
-import { validateAgentTemplateConfigs } from '../agent-template-validation'
+import { describe, expect, it } from 'bun:test'
 import { AGENT_TEMPLATES_DIR } from '../../constants'
+import { validateAgentTemplateConfigs } from '../agent-template-validation'
 
 describe('validateAgentTemplateConfigs - Path Validation', () => {
   const validOverrideTemplate = {
