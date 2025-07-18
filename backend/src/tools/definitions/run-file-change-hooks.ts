@@ -1,12 +1,12 @@
-import z from 'zod/v4'
-
 import { getToolCallString } from '@codebuff/common/constants/tools'
-
+import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'run_file_change_hooks'
+const endsAgentStep = true
 export const runFileChangeHooksTool = {
-  toolName: 'run_file_change_hooks',
-  endsAgentStep: true,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       files: z
@@ -29,8 +29,12 @@ Use cases:
 The client will run only the hooks whose filePattern matches the provided files.
 
 Example:
-${getToolCallString('run_file_change_hooks', {
-  files: ['src/components/Button.tsx', 'src/utils/helpers.ts'],
-})}
+${getToolCallString(
+  toolName,
+  {
+    files: ['src/components/Button.tsx', 'src/utils/helpers.ts'],
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

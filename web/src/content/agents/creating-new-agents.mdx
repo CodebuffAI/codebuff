@@ -29,7 +29,6 @@ New agents need `"override": false` and these required fields:
   "outputMode": "last_message",
   "includeMessageHistory": true,
   "toolNames": ["read_files", "write_file", "end_turn"],
-  "stopSequences": ["</end_turn>"],
   "spawnableAgents": ["researcher"],
   "promptSchema": {
     "prompt": {
@@ -81,7 +80,6 @@ Specialized for documenting REST APIs and GraphQL schemas:
   "includeMessageHistory": true,
 
   "toolNames": ["read_files", "code_search", "write_file", "spawn_agents", "end_turn"],
-  "stopSequences": ["</end_turn>"],
   "spawnableAgents": ["researcher"],
 
   "promptSchema": {
@@ -116,7 +114,6 @@ Specialized for creating and reviewing database migrations:
   "includeMessageHistory": true,
 
   "toolNames": ["read_files", "write_file", "code_search", "run_terminal_command", "end_turn"],
-  "stopSequences": ["</end_turn>"],
   "spawnableAgents": ["reviewer"],
 
   "systemPrompt": {

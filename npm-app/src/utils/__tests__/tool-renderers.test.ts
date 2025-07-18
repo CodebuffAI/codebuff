@@ -1,14 +1,22 @@
 import { Writable } from 'stream'
-import { createXMLStreamParser } from '../xml-stream-parser'
-import { toolRenderers } from '../../utils/tool-renderers'
 import stripAnsi from 'strip-ansi'
+import { toolRenderers } from '../../utils/tool-renderers'
+import { createXMLStreamParser } from '../xml-stream-parser'
 
 import * as projectFiles from '../../project-files'
 
 // @ts-ignore
-import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import { getToolCallString } from '@codebuff/common/constants/tools'
 import * as projectFileTree from '@codebuff/common/project-file-tree'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from 'bun:test'
 
 describe('Tool renderers with XML parser', () => {
   beforeEach(() => {
@@ -48,7 +56,7 @@ describe('Tool renderers with XML parser', () => {
     const xml = getToolCallString('write_file', {
       path: 'test.ts',
       content: 'console.log("test");\n',
-    })
+    }).trim()
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
     expect(stripped).toBe('\n\n[Write File]\nEditing file at test.ts...\n\n')
@@ -57,7 +65,7 @@ describe('Tool renderers with XML parser', () => {
   test('formats read_files tool call', async () => {
     const xml = getToolCallString('read_files', {
       paths: ['file1.ts', 'file2.ts'],
-    })
+    }).trim()
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
     expect(stripped).toBe('\n\n[Read Files]\nfile1.ts\nfile2.ts\n\n')

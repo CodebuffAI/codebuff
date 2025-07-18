@@ -1,7 +1,7 @@
 import { FileChange } from '@codebuff/common/actions'
-import { ToolName } from '@codebuff/common/constants/tools'
+import { endsAgentStepParam, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { ToolCallPart, ToolResultPart, ToolSet } from 'ai'
+import { ToolCallPart, ToolSet } from 'ai'
 import z from 'zod/v4'
 import { addSubgoalTool } from './definitions/add-subgoal'
 import { browserLogsTool } from './definitions/browser-logs'
@@ -41,6 +41,11 @@ import { handleUpdateReport } from './handlers/update-report'
 import { handleUpdateSubgoal } from './handlers/update-subgoal'
 import { handleWebSearch } from './handlers/web-search'
 import { handleWriteFile } from './handlers/write-file'
+
+export const globalStopSequences = [
+  `${JSON.stringify(endsAgentStepParam)}:true`,
+  `${JSON.stringify(endsAgentStepParam)}: true`,
+]
 
 type Prettify<T> = { [K in keyof T]: T[K] } & {}
 
@@ -157,19 +162,3 @@ export const codebuffToolHandlers = {
 } satisfies {
   [K in ToolName]: CodebuffToolHandlerFunction<K>
 }
-
-type CodebuffToolHandler<T extends ToolName = ToolName> = {
-  [K in ToolName]: {
-    toolName: K
-    callback: CodebuffToolHandlerFunction<K>
-  }
-}[T]
-
-// WIP: Replacement for ServerToolResult
-type CodebuffToolResult<T extends ToolName = ToolName> = {
-  [K in ToolName]: {
-    toolName: K
-    result: Prettify<Awaited<ReturnType<CodebuffToolHandler<T>['callback']>>>
-  }
-}[T] &
-  Omit<ToolResultPart, 'type'>

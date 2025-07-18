@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { DynamicAgentTemplateSchema } from '../types/dynamic-agent-template'
 
 describe('DynamicAgentTemplateSchema', () => {
@@ -127,7 +127,6 @@ describe('DynamicAgentTemplateSchema', () => {
         expect(result.data.outputMode).toBe('last_message')
         expect(result.data.includeMessageHistory).toBe(true)
         expect(result.data.toolNames).toEqual(['end_turn'])
-        expect(result.data.stopSequences).toEqual([])
         expect(result.data.spawnableAgents).toEqual([])
       }
     })

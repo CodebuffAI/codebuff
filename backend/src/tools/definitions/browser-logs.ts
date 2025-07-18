@@ -1,12 +1,12 @@
-import z from 'zod/v4'
-
 import { getToolCallString } from '@codebuff/common/constants/tools'
-
+import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'browser_logs'
+const endsAgentStep = true
 export const browserLogsTool = {
-  toolName: 'browser_logs',
-  endsAgentStep: true,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       type: z
@@ -70,10 +70,14 @@ Navigate:
    - \`waitUntil\`: (required) One of 'load', 'domcontentloaded', 'networkidle0'
 
 Example:
-${getToolCallString('browser_logs', {
-  type: 'navigate',
-  url: 'localhost:3000',
-  waitUntil: 'domcontentloaded',
-})}
+${getToolCallString(
+  toolName,
+  {
+    type: 'navigate',
+    url: 'localhost:3000',
+    waitUntil: 'domcontentloaded',
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

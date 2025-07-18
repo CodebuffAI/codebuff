@@ -1,6 +1,12 @@
 import { ToolResultPart } from 'ai'
 import { closeXml } from '../util/xml'
 
+export const toolNameParam = 'codebuff_tool_name'
+export const endsAgentStepParam = 'codebuff_end_step'
+export const toolXmlName = 'codebuff_tool_call'
+export const startToolTag = `<${toolXmlName}>\n`
+export const endToolTag = `\n</${toolXmlName}>`
+
 // List of all available tools
 export const toolNames = [
   'add_subgoal',
@@ -65,40 +71,23 @@ export const toolSchema = {
 } as const satisfies Record<ToolName, string[]>
 
 export const getToolCallString = (
-  toolName: ToolName,
-  params: Record<string, any>
+  toolName: string,
+  params: Record<string, any>,
+  endsAgentStep: boolean
 ) => {
-  const openTag = `<${toolName}>`
-  const closeTag = closeXml(toolName)
-
-  // Get the parameter order from toolSchema
-  const paramOrder = toolSchema[toolName] as string[]
-
-  // Create an array of parameter strings in the correct order
-  const orderedParams = paramOrder
-    .filter((param) => param in params) // Only include params that are actually provided
-    .map((param) => {
-      const val =
-        typeof params[param] === 'string'
-          ? params[param]
-          : JSON.stringify(params[param])
-      return `<${param}>${val}${closeXml(param)}`
-    })
-
-  // Get any additional parameters not in the schema order
-  const additionalParams = Object.entries(params)
-    .filter(([param]) => !paramOrder.includes(param))
-    .map(([param, value]) => {
-      const val = typeof value === 'string' ? value : JSON.stringify(value)
-      return `<${param}>${val}${closeXml(param)}`
-    })
-
-  // Combine ordered and additional parameters
-  const paramsString = [...orderedParams, ...additionalParams].join('\n')
-
-  return paramsString
-    ? `${openTag}\n${paramsString}\n${closeTag}`
-    : `${openTag}${closeTag}`
+  return [
+    startToolTag,
+    JSON.stringify(
+      {
+        [toolNameParam]: toolName,
+        ...params,
+        [endsAgentStepParam]: endsAgentStep,
+      },
+      null,
+      2
+    ),
+    endToolTag,
+  ].join('')
 }
 
 export type StringToolResultPart = Omit<ToolResultPart, 'type'> & {

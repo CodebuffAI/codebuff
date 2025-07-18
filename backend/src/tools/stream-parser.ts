@@ -1,4 +1,5 @@
 import {
+  endsAgentStepParam,
   renderToolResults,
   ToolName,
   toolNames,
@@ -11,10 +12,12 @@ import {
 } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { ToolCallPart } from 'ai'
 import { WebSocket } from 'ws'
+import z from 'zod/v4'
 import { checkLiveUserInput } from '../live-user-inputs'
 import { AgentTemplate } from '../templates/types'
-import { parseRawToolCall, ToolCallError, toolParams } from '../tools'
+import { toolParams } from '../tools'
 import { logger } from '../util/logger'
 import { asSystemMessage, expireMessages } from '../util/messages'
 import { requestToolCall } from '../websockets/websocket-action'
@@ -22,9 +25,65 @@ import { processStreamWithTags } from '../xml-stream-parser'
 import {
   ClientToolCall,
   CodebuffToolCall,
+  codebuffToolDefs,
   CodebuffToolHandlerFunction,
   codebuffToolHandlers,
 } from './constants'
+
+export type ToolCallError = {
+  toolName?: string
+  args: Record<string, unknown>
+  error: string
+} & Omit<ToolCallPart, 'type'>
+
+function parseRawToolCall<T extends ToolName = ToolName>(
+  rawToolCall: ToolCallPart & {
+    toolName: T
+    args: Record<string, unknown>
+  }
+): CodebuffToolCall<T> | ToolCallError {
+  const toolName = rawToolCall.toolName
+
+  if (!(toolName in codebuffToolDefs)) {
+    return {
+      toolName,
+      toolCallId: rawToolCall.toolCallId,
+      args: rawToolCall.args,
+      error: `Tool ${toolName} not found`,
+    }
+  }
+  const validName = toolName as T
+
+  const processedParameters: Record<string, any> = {}
+  for (const [param, val] of Object.entries(rawToolCall.args)) {
+    processedParameters[param] = val
+  }
+
+  const result = (
+    codebuffToolDefs[validName].parameters satisfies z.ZodObject as z.ZodObject
+  )
+    .extend({
+      [endsAgentStepParam]: z.literal(
+        codebuffToolDefs[validName].endsAgentStep
+      ),
+    })
+    .safeParse(processedParameters)
+  if (!result.success) {
+    return {
+      toolName: validName,
+      toolCallId: rawToolCall.toolCallId,
+      args: rawToolCall.args,
+      error: `Invalid parameters for ${validName}: ${JSON.stringify(result.error.issues, null, 2)}`,
+    }
+  }
+
+  delete result.data[endsAgentStepParam]
+  return {
+    toolName: validName,
+    args: result.data,
+    toolCallId: rawToolCall.toolCallId,
+  } as CodebuffToolCall<T>
+}
 
 export async function processStreamWithTools<T extends string>(options: {
   stream: AsyncGenerator<T> | ReadableStream<T>

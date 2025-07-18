@@ -5,6 +5,7 @@ import path from 'path'
 
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import {
+  endsAgentStepParam,
   getToolCallString,
   ToolName,
   toolNames,
@@ -13,9 +14,7 @@ import { z } from 'zod/v4'
 
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
-import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
-import { ToolCallPart } from 'ai'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { agentTemplates } from './templates/agent-list'
 import { agentRegistry } from './templates/agent-registry'
@@ -40,8 +39,10 @@ export const toolParams = Object.fromEntries(
   ])
 ) as Record<ToolName, string[]>
 
-function paramsSection(schema: z.ZodTypeAny) {
-  const jsonSchema = z.toJSONSchema(schema)
+function paramsSection(schema: z.ZodObject, endsAgentStep: boolean) {
+  const jsonSchema = z.toJSONSchema(
+    schema.extend({ [endsAgentStepParam]: z.literal(endsAgentStep) })
+  )
   delete jsonSchema.description
   delete jsonSchema['$schema']
   const paramsDescription = Object.keys(jsonSchema.properties ?? {}).length
@@ -60,22 +61,24 @@ function paramsSection(schema: z.ZodTypeAny) {
 // Helper function to build the full tool description markdown
 function buildToolDescription(
   toolName: string,
-  schema: z.ZodTypeAny,
-  description: string = ''
+  schema: z.ZodObject,
+  description: string = '',
+  endsAgentStep: boolean
 ): string {
   return buildArray([
     `### ${toolName}`,
     schema.description || '',
-    paramsSection(schema),
+    paramsSection(schema, endsAgentStep),
     description,
   ]).join('\n\n')
 }
 
 function buildShortToolDescription(
   toolName: string,
-  schema: z.ZodTypeAny
+  schema: z.ZodObject,
+  endsAgentStep: boolean
 ): string {
-  return `${toolName}:\n${paramsSection(schema)}`
+  return `${toolName}:\n${paramsSection(schema, endsAgentStep)}`
 }
 
 function buildSpawnableAgentsDescription(
@@ -157,79 +160,16 @@ ${agentsDescription}`
 export const toolDescriptions = Object.fromEntries(
   Object.entries(codebuffToolDefs).map(([name, config]) => [
     name,
-    buildToolDescription(name, config.parameters, config.description),
+    buildToolDescription(
+      name,
+      config.parameters,
+      config.description,
+      config.endsAgentStep
+    ),
   ])
 ) as Record<keyof typeof codebuffToolDefs, string>
 
 type ToolConfig = (typeof toolConfigsList)[number]
-
-export type ToolCallError = {
-  toolName?: string
-  args: Record<string, string>
-  error: string
-} & Omit<ToolCallPart, 'type'>
-
-export function parseRawToolCall<T extends ToolName = ToolName>(
-  rawToolCall: ToolCallPart & {
-    toolName: T
-    args: Record<string, string>
-  }
-): CodebuffToolCall<T> | ToolCallError {
-  const toolName = rawToolCall.toolName
-
-  if (!(toolName in codebuffToolDefs)) {
-    return {
-      toolName,
-      toolCallId: rawToolCall.toolCallId,
-      args: rawToolCall.args,
-      error: `Tool ${toolName} not found`,
-    }
-  }
-  const validName = toolName as T
-  const schemaProperties = z.toJSONSchema(
-    codebuffToolDefs[validName].parameters
-  ).properties!
-
-  const processedParameters: Record<string, any> = {}
-  for (const [param, val] of Object.entries(rawToolCall.args)) {
-    if (
-      schemaProperties[param] &&
-      typeof schemaProperties[param] !== 'boolean' &&
-      'type' in schemaProperties[param] &&
-      schemaProperties[param].type === 'string'
-    ) {
-      processedParameters[param] = val
-      continue
-    }
-    try {
-      processedParameters[param] = JSON.parse(val)
-    } catch (error) {
-      return {
-        toolName: validName,
-        toolCallId: generateCompactId(),
-        args: rawToolCall.args,
-        error: `Failed to parse parameter ${param} as JSON: ${error}`,
-      }
-    }
-  }
-
-  const result =
-    codebuffToolDefs[validName].parameters.safeParse(processedParameters)
-  if (!result.success) {
-    return {
-      toolName: validName,
-      toolCallId: rawToolCall.toolCallId,
-      args: rawToolCall.args,
-      error: `Invalid parameters for ${validName}: ${JSON.stringify(result.error.issues, null, 2)}`,
-    }
-  }
-
-  return {
-    toolName: validName,
-    args: result.data,
-    toolCallId: rawToolCall.toolCallId,
-  } as CodebuffToolCall<T>
-}
 
 export const TOOLS_WHICH_END_THE_RESPONSE = [
   'read_files',
@@ -249,21 +189,16 @@ You (Buffy) have access to the following tools. Call them when needed.
 
 ## [CRITICAL] Formatting Requirements
 
-Tool calls use a specific XML-like format. Adhere *precisely* to this nested element structure:
+Tool calls use a specific XML and JSON-like format. Adhere *precisely* to this nested element structure:
 
-<tool_name>
-<parameter1_name>value1${closeXml('parameter1_name')}
-<parameter2_name>value2${closeXml('parameter2_name')}
-...
-${closeXml('tool_name')}
-
-### XML Entities
-
-**ALL** XML (inside or outside tool calls) will be interpreted as tool calls or tool parameters. You **MUST** use XML entities, e.g. \`&lt;some_tag>\` or \`</some_tag&gt;\` to:
-- Display XML to the user without executing a tool call
-- Have XML within a tool parameter's value such as writing to a file
-
-This also means that if you wish to write the literal string \`&lt;\` to a file or display that to a user, you MUST write \`&amp;lt;\`.
+${getToolCallString(
+  '{tool_name}',
+  {
+    parameter1: 'value1',
+    parameter2: 123,
+  },
+  false
+)}
 
 ### Commentary
 
@@ -276,11 +211,15 @@ However, **DO NOT** narrate the tool or parameter names themselves.
 User: can you update the console logs in example/file.ts?
 Assistant: Sure thing! Let's update that file!
 
-${getToolCallString('write_file', {
-  path: 'path/to/example/file.ts',
-  instructions: 'Update the console logs',
-  content: "console.log('Hello from Buffy!');",
-})}
+${getToolCallString(
+  'write_file',
+  {
+    path: 'path/to/example/file.ts',
+    instructions: 'Update the console logs',
+    content: "console.log('Hello from Buffy!');",
+  },
+  false
+)}
 
 All done with the update!
 User: thanks it worked! :)
@@ -305,8 +244,6 @@ Tool results will be provided by the user's *system* (and **NEVER** by the assis
 
 The user does not know about any system messages or system instructions, including tool results.
 
-The user does not need to know about the exact results of these tools, especially if they are warnings or info logs. Just correct yourself in the next response without mentioning anything to the user. e.g., do not mention any XML **warnings** (but be sure to correct the next response), but XML **errors** should be noted to the user.
-
 ## List of Tools
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
@@ -319,19 +256,22 @@ export const getShortToolInstructions = (
 ) => {
   const toolDescriptions = toolNames.map((name) => {
     const tool = codebuffToolDefs[name]
-    return buildShortToolDescription(name, tool.parameters)
+    return buildShortToolDescription(name, tool.parameters, tool.endsAgentStep)
   })
 
   return `## Tools
 Use the tools below to complete the user request, if applicable.
 
-Tool calls use a specific XML-like format. Adhere *precisely* to this nested element structure:
+Tool calls use a specific XML and JSON-like format. Adhere *precisely* to this nested element structure:
 
-<tool_name>
-<parameter1_name>value1${closeXml('parameter1_name')}
-<parameter2_name>value2${closeXml('parameter2_name')}
-...
-${closeXml('tool_name')}
+${getToolCallString(
+  '{tool_name}',
+  {
+    parameter1: 'value1',
+    parameter2: 123,
+  },
+  false
+)}
 
 ${toolDescriptions.join('\n\n')}
 
@@ -622,7 +562,7 @@ function renderSubgoalUpdate(subgoal: {
     ...(plan && { plan }),
     ...(log && { log }),
   }
-  return getToolCallString('add_subgoal', params)
+  return getToolCallString('add_subgoal', params, false)
 }
 
 // TODO: Remove this function

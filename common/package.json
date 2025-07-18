@@ -41,6 +41,7 @@
     "ignore": "5.3.2",
     "lodash": "*",
     "next-auth": "^4.24.7",
+    "partial-json": "^0.1.7",
     "pg": "^8.14.1",
     "readable-stream": "^4.7.0",
     "seedrandom": "^3.0.5",

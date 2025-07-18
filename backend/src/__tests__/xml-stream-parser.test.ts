@@ -1,5 +1,6 @@
+import { getToolCallString } from '@codebuff/common/constants/tools'
+
 import { describe, expect, it } from 'bun:test'
-import { toolSchema } from '@codebuff/common/constants/tools'
 import { processStreamWithTags } from '../xml-stream-parser'
 
 describe('processStreamWithTags', () => {
@@ -9,116 +10,16 @@ describe('processStreamWithTags', () => {
     }
   }
 
-  it('should handle basic tag parsing', async () => {
-    const streamChunks = ['<test>', '<param>', 'content', '</param>', '</test>']
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      {
-        attributes: {},
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        params: { param: 'content' },
-        tagName: 'test',
-        type: 'end',
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should parse tag attributes', async () => {
+  it('should handle basic tool call parsing', async () => {
     const streamChunks = [
-      '<test name="value" id="123">',
-      '<param>',
-      'content',
-      '</param>',
-      '</test>',
+      '<codebuff_tool_call>\n{\n  "codebuff_tool_name": "test_tool",\n  "param1": "value1"\n}\n</codebuff_tool_call>',
     ]
     const stream = createMockStream(streamChunks)
 
     const events: any[] = []
 
     const processors = {
-      test: {
-        params: ['param', 'name', 'id'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      {
-        tagName: 'test',
-        type: 'start',
-        attributes: { id: '123', name: 'value' },
-      },
-      {
-        tagName: 'test',
-        type: 'end',
-        params: { id: '123', name: 'value', param: 'content' },
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle multiple tags', async () => {
-    const streamChunks = [
-      '<tag1><param1>content1</param1></tag1>',
-      'text between tags',
-      '<tag2><param2>content2</param2></tag2>',
-    ]
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      tag1: {
+      test_tool: {
         params: ['param1'] as string[],
         onTagStart: (tagName: string, attributes: Record<string, string>) => {
           events.push({ tagName, type: 'start', attributes })
@@ -127,7 +28,107 @@ describe('processStreamWithTags', () => {
           events.push({ tagName, type: 'end', params })
         },
       },
-      tag2: {
+    }
+
+    function onError(name: string, error: string) {
+      events.push({ name, error })
+    }
+
+    const result: string[] = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+
+    expect(events).toEqual([
+      {
+        tagName: 'test_tool',
+        type: 'start',
+        attributes: {},
+      },
+      {
+        tagName: 'test_tool',
+        type: 'end',
+        params: { param1: 'value1' },
+      },
+    ])
+    expect(result).toEqual(streamChunks)
+  })
+
+  it('should handle tool calls split across chunks', async () => {
+    const streamChunks = [
+      '<codebuff_tool_call>\n{\n  "codebuff_tool_name": "test',
+      '_tool",\n  "param1": "val',
+      'ue1"\n}\n</codebuff_tool_call>',
+    ]
+    const stream = createMockStream(streamChunks)
+
+    const events: any[] = []
+
+    const processors = {
+      test_tool: {
+        params: ['param1'] as string[],
+        onTagStart: (tagName: string, attributes: Record<string, string>) => {
+          events.push({ tagName, type: 'start', attributes })
+        },
+        onTagEnd: (tagName: string, params: Record<string, string>) => {
+          events.push({ tagName, type: 'end', params })
+        },
+      },
+    }
+
+    function onError(name: string, error: string) {
+      events.push({ name, error })
+    }
+
+    const result: string[] = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+
+    expect(events).toEqual([
+      {
+        tagName: 'test_tool',
+        type: 'start',
+        attributes: {},
+      },
+      {
+        tagName: 'test_tool',
+        type: 'end',
+        params: { param1: 'value1' },
+      },
+    ])
+    expect(result).toEqual(streamChunks)
+  })
+
+  it('should handle multiple tool calls in sequence', async () => {
+    const streamChunks = [
+      '<codebuff_tool_call>\n{\n  "codebuff_tool_name": "tool1",\n  "param1": "value1"\n}\n</codebuff_tool_call>',
+      'text between tools',
+      '<codebuff_tool_call>\n{\n  "codebuff_tool_name": "tool2",\n  "param2": "value2"\n}\n</codebuff_tool_call>',
+    ]
+    const stream = createMockStream(streamChunks)
+
+    const events: any[] = []
+
+    const processors = {
+      tool1: {
+        params: ['param1'] as string[],
+        onTagStart: (tagName: string, attributes: Record<string, string>) => {
+          events.push({ tagName, type: 'start', attributes })
+        },
+        onTagEnd: (tagName: string, params: Record<string, string>) => {
+          events.push({ tagName, type: 'end', params })
+        },
+      },
+      tool2: {
         params: ['param2'] as string[],
         onTagStart: (tagName: string, attributes: Record<string, string>) => {
           events.push({ tagName, type: 'start', attributes })
@@ -142,7 +143,7 @@ describe('processStreamWithTags', () => {
       events.push({ name, error })
     }
 
-    const result = []
+    const result: string[] = []
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
@@ -153,949 +154,39 @@ describe('processStreamWithTags', () => {
 
     expect(events).toEqual([
       {
+        tagName: 'tool1',
+        type: 'start',
         attributes: {},
-        tagName: 'tag1',
-        type: 'start',
       },
       {
-        params: {
-          param1: 'content1',
-        },
-        tagName: 'tag1',
+        tagName: 'tool1',
         type: 'end',
+        params: { param1: 'value1' },
       },
       {
+        tagName: 'tool2',
+        type: 'start',
         attributes: {},
-        tagName: 'tag2',
-        type: 'start',
       },
       {
-        params: {
-          param2: 'content2',
-        },
-        tagName: 'tag2',
+        tagName: 'tool2',
         type: 'end',
+        params: { param2: 'value2' },
       },
     ])
     expect(result).toEqual(streamChunks)
   })
 
-  it('should handle split tags across chunks', async () => {
+  it('should handle malformed JSON and call onError', async () => {
     const streamChunks = [
-      '<te',
-      'st><pa',
-      'ram>con',
-      'tent</param',
-      '></te',
-      'st>',
+      '<codebuff_tool_call>\n{\n  "codebuff_tool_name": "test_tool",\n  "param1": invalid_json\n}\n</codebuff_tool_call>',
     ]
     const stream = createMockStream(streamChunks)
 
     const events: any[] = []
 
     const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
-      { tagName: 'test', type: 'end', params: { param: 'content' } },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle early completion', async () => {
-    const streamChunks = [
-      '<test><param>content</param></test>',
-      'should not process this',
-      '<test><param>more content</param></test>',
-    ]
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      {
-        attributes: {},
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        params: {
-          param: 'content',
-        },
-        tagName: 'test',
-        type: 'end',
-      },
-      {
-        attributes: {},
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        params: {
-          param: 'more content',
-        },
-        tagName: 'test',
-        type: 'end',
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle nested content with same tag name', async () => {
-    const streamChunks = [
-      '<test><param>outer </param><test><param>inner</param></test> content</test>',
-    ]
-
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      {
-        attributes: {},
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        error:
-          'WARN: New tool started while parsing tool test. Ending current tool. Make sure to close all tool calls!',
-        name: 'test',
-      },
-      {
-        params: {
-          param: 'outer ',
-        },
-        tagName: 'test',
-        type: 'end',
-      },
-      {
-        attributes: {},
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        params: {
-          param: 'inner',
-        },
-        tagName: 'test',
-        type: 'end',
-      },
-      {
-        error:
-          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
-        name: 'test',
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle EOF without closing tag', async () => {
-    const streamChunks = ['<test><param>content']
-
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
-      {
-        error:
-          'WARN: Found end of stream while parsing parameter. End of parameter appended to response. Make sure to close all parameters!',
-        name: 'param',
-      },
-      { tagName: 'test', type: 'end', params: { param: 'content' } },
-    ])
-    expect(result).toEqual([...streamChunks, '</param>', '</test>'])
-  })
-
-  it('should handle malformed attributes', async () => {
-    const streamChunks = [
-      '<test space name=malformed id="123" value=\'><param>content</param></test><test novalue></test>',
-    ]
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      {
-        error: 'Attribute names may not contain whitespace: space',
-        name: 'test',
-      },
-      {
-        error: 'Attribute values should be quoted: name=malformed',
-        name: 'test',
-      },
-      {
-        error: "Unclosed attribute value: value='",
-        name: 'test',
-      },
-      {
-        attributes: {
-          id: '123',
-        },
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        error:
-          'WARN: Ignoring extra parameters found in test attributes: ["id"]. Make sure to only use parameters defined in the tool!',
-        name: 'test',
-      },
-      {
-        params: { param: 'content' },
-        tagName: 'test',
-        type: 'end',
-      },
-      {
-        error: 'Expected a value for the attribute: novalue',
-        name: 'test',
-      },
-      {
-        attributes: {},
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        params: {},
-        tagName: 'test',
-        type: 'end',
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle empty tags', async () => {
-    const streamChunks = ['<test><param></param></test>']
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
-      { tagName: 'test', type: 'end', params: { param: '' } },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle whitespace in tags', async () => {
-    const streamChunks = [
-      '<test   name="value"   ><param>  content  </param></test>',
-    ]
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['name', 'param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: { name: 'value' } },
-      {
-        tagName: 'test',
-        type: 'end',
-        params: { name: 'value', param: '  content  ' },
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle extraneous attributes', async () => {
-    const streamChunks = [
-      '<test name="value quoted here" id="123"><param>content</param></test>',
-    ]
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      {
-        attributes: {
-          id: '123',
-          name: 'value quoted here',
-        },
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        error:
-          'WARN: Ignoring extra parameters found in test attributes: ["name","id"]. Make sure to only use parameters defined in the tool!',
-        name: 'test',
-      },
-      {
-        params: { param: 'content' },
-        tagName: 'test',
-        type: 'end',
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle multiple chunks within tag content', async () => {
-    const streamChunks = [
-      '<test><param>first ',
-      'second ',
-      'third</param></test>',
-    ]
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
-      { tagName: 'test', type: 'end', params: { param: 'first second third' } },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle unregistered tags', async () => {
-    const streamChunks = ['<unknown>ignored</unknown>']
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      {
-        error:
-          'WARN: Ignoring non-tool XML tag. Make sure to escape non-tool XML!',
-        name: 'unknown',
-      },
-      {
-        error:
-          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
-        name: 'unknown',
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle special characters in content', async () => {
-    const streamChunks = [
-      '<test><param>content with <>&"\' special chars</param></test>',
-    ]
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
-      {
-        tagName: 'test',
-        type: 'end',
-        params: { param: 'content with <>&"\' special chars' },
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle attributes with equals signs in values', async () => {
-    const streamChunks = ['<test path="x=1&y=2"><param>content</param></test>']
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['path', 'param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      {
-        attributes: {
-          path: 'x=1&y=2',
-        },
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        params: {
-          path: 'x=1&y=2',
-          param: 'content',
-        },
-        tagName: 'test',
-        type: 'end',
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle newlines in content', async () => {
-    const streamChunks = ['<test><param>line1\nline2\r\nline3</param></test>']
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      {
-        attributes: {},
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        params: { param: 'line1\nline2\r\nline3' },
-        tagName: 'test',
-        type: 'end',
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle tags with parameters', async () => {
-    const streamChunks = [
-      '<test>',
-      '<param1>value1</param1>',
-      '<param2>value2</param2>',
-      '</test>',
-    ]
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param1', 'param2'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
-      {
-        tagName: 'test',
-        type: 'end',
-        params: { param1: 'value1', param2: 'value2' },
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle split parameter tags across chunks', async () => {
-    const streamChunks = [
-      '<test><par',
-      'am1>val',
-      'ue1</param1><param2>value2</param2></test>',
-    ]
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param1', 'param2'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
-      {
-        tagName: 'test',
-        type: 'end',
-        params: { param1: 'value1', param2: 'value2' },
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle invalid parameter tags as content', async () => {
-    const streamChunks = [
-      '<test>',
-      '<invalid>value</invalid>',
-      '<param1>value1</param1>',
-      '</test>',
-    ]
-    const stream = createMockStream(streamChunks)
-
-    const events: any[] = []
-
-    const processors = {
-      test: {
-        params: ['param1', 'param2'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-
-    expect(events).toEqual([
-      {
-        attributes: {},
-        tagName: 'test',
-        type: 'start',
-      },
-      {
-        error:
-          'WARN: Tool not found. Make sure to escape non-tool XML! e.g. &lt;invalid&gt;',
-        name: 'invalid',
-      },
-      {
-        error:
-          'WARN: Ignoring text in test between parameters. Make sure to only put text within parameters!',
-        name: 'test',
-      },
-      {
-        error:
-          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
-        name: 'invalid',
-      },
-
-      {
-        params: {
-          param1: 'value1',
-        },
-        tagName: 'test',
-        type: 'end',
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle missing parameters', async () => {
-    const streamChunks = ['<test><param1>value1</param1></test>']
-    const stream = createMockStream(streamChunks)
-    const events: any[] = []
-    const processors = {
-      test: {
-        params: ['param1', 'param2'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
-      { tagName: 'test', type: 'end', params: { param1: 'value1' } },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle parameters with empty values', async () => {
-    const streamChunks = [
-      '<test><param1></param1><param2>value2</param2></test>',
-    ]
-    const stream = createMockStream(streamChunks)
-    const events: any[] = []
-    const processors = {
-      test: {
-        params: ['param1', 'param2'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
-      {
-        tagName: 'test',
-        type: 'end',
-        params: { param1: '', param2: 'value2' },
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle XML entities', async () => {
-    const streamChunks = [
-      '<test><param1>value with &lt;&gt;&amp;&quot;&apos; entities &amp;amp;</param1></test>',
-    ]
-    const stream = createMockStream(streamChunks)
-    const events: any[] = []
-    const processors = {
-      test: {
+      test_tool: {
         params: ['param1'] as string[],
         onTagStart: (tagName: string, attributes: Record<string, string>) => {
           events.push({ tagName, type: 'start', attributes })
@@ -1105,10 +196,12 @@ describe('processStreamWithTags', () => {
         },
       },
     }
+
     function onError(name: string, error: string) {
-      events.push({ name, error })
+      events.push({ name, error, type: 'error' })
     }
-    const result = []
+
+    const result: string[] = []
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
@@ -1116,31 +209,27 @@ describe('processStreamWithTags', () => {
     )) {
       result.push(chunk)
     }
+
     expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
       {
-        tagName: 'test',
-        type: 'end',
-        params: { param1: 'value with <>&"\' entities &amp;' },
+        name: 'parse_error',
+        error: expect.stringContaining('Unexpected identifier'),
+        type: 'error',
       },
     ])
     expect(result).toEqual(streamChunks)
   })
 
-  it('should handle split XML entities', async () => {
+  it('should handle unknown tool names and call onError', async () => {
     const streamChunks = [
-      '<test><param1>value with &l',
-      't;&g',
-      't;&am',
-      'p;&quo',
-      't;&',
-      'apos; entities &amp;am',
-      'p;</param1></test>',
+      '<codebuff_tool_call>\n{\n  "codebuff_tool_name": "unknown_tool",\n  "param1": "value1"\n}\n</codebuff_tool_call>',
     ]
     const stream = createMockStream(streamChunks)
+
     const events: any[] = []
+
     const processors = {
-      test: {
+      test_tool: {
         params: ['param1'] as string[],
         onTagStart: (tagName: string, attributes: Record<string, string>) => {
           events.push({ tagName, type: 'start', attributes })
@@ -1150,10 +239,12 @@ describe('processStreamWithTags', () => {
         },
       },
     }
+
     function onError(name: string, error: string) {
-      events.push({ name, error })
+      events.push({ name, error, type: 'error' })
     }
-    const result = []
+
+    const result: string[] = []
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
@@ -1161,42 +252,47 @@ describe('processStreamWithTags', () => {
     )) {
       result.push(chunk)
     }
+
     expect(events).toEqual([
       {
-        tagName: 'test',
-        type: 'start',
-        attributes: {},
-      },
-      {
-        tagName: 'test',
-        type: 'end',
-        params: { param1: 'value with <>&"\' entities &amp;' },
+        name: 'unknown_tool',
+        error: 'Tool not found: unknown_tool',
+        type: 'error',
       },
     ])
     expect(result).toEqual(streamChunks)
   })
 
-  it('should handle parameters with special characters in values', async () => {
+  it('should handle tool calls with complex parameters', async () => {
     const streamChunks = [
-      '<test><param1>value with <>&"\' chars</param1></test>',
+      '<codebuff_tool_call>\n{\n  "codebuff_tool_name": "complex_tool",\n  "array_param": ["item1", "item2"],\n  "object_param": {"nested": "value"},\n  "boolean_param": true,\n  "number_param": 42\n}\n</codebuff_tool_call>',
     ]
     const stream = createMockStream(streamChunks)
+
     const events: any[] = []
+
     const processors = {
-      test: {
-        params: ['param1'] as string[],
+      complex_tool: {
+        params: [
+          'array_param',
+          'object_param',
+          'boolean_param',
+          'number_param',
+        ] as string[],
         onTagStart: (tagName: string, attributes: Record<string, string>) => {
           events.push({ tagName, type: 'start', attributes })
         },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
+        onTagEnd: (tagName: string, params: Record<string, any>) => {
           events.push({ tagName, type: 'end', params })
         },
       },
     }
+
     function onError(name: string, error: string) {
-      events.push({ name, error })
+      events.push({ name, error, type: 'error' })
     }
-    const result = []
+
+    const result: string[] = []
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
@@ -1204,172 +300,287 @@ describe('processStreamWithTags', () => {
     )) {
       result.push(chunk)
     }
+
     expect(events).toEqual([
       {
-        tagName: 'test',
+        tagName: 'complex_tool',
         type: 'start',
         attributes: {},
       },
       {
-        tagName: 'test',
+        tagName: 'complex_tool',
         type: 'end',
-        params: { param1: 'value with <>&"\' chars' },
-      },
-    ])
-    expect(result).toEqual(streamChunks)
-  })
-
-  it('should handle parameters with special characters in values', async () => {
-    const streamChunks = [
-      '<str_replace>\n',
-      '<path>test.txt',
-      '</path>\n',
-      '<old>test</content>test',
-      '2</old>\n',
-      '<new>test</content',
-      '>test2</new',
-      '>\n</str_',
-      'replace>\n',
-    ]
-    const stream = createMockStream(streamChunks)
-    const events: any[] = []
-    const processors = {
-      str_replace: {
-        params: ['path', 'old', 'new'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-    expect(events).toEqual([
-      {
-        attributes: {},
-        tagName: 'str_replace',
-        type: 'start',
-      },
-      {
-        error:
-          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
-        name: 'content',
-      },
-      {
-        error:
-          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
-        name: 'content',
-      },
-
-      {
         params: {
-          new: 'test</content>test2',
-          old: 'test</content>test2',
-          path: 'test.txt',
+          array_param: ['item1', 'item2'],
+          object_param: { nested: 'value' },
+          boolean_param: true,
+          number_param: 42,
         },
-        tagName: 'str_replace',
-        type: 'end',
       },
     ])
     expect(result).toEqual(streamChunks)
   })
 
-  it('should handle shortened real world example', async () => {
+  it('should handle text content mixed with tool calls', async () => {
     const streamChunks = [
-      "I notice there's still an issue with the test dependencies. Let me fix that by removing the unused openai-go import and run the tests again:\n\n<write_file>\n<path>acp/internal/server/server_test.go</path>\n<content> {\n\tserver := ",
-      '&APIServer\n</content',
-      '>\n</write_file>\n\n<run_terminal_command>\n<command>cd acp && go test -v ./internal/server</command>\n</run_terminal_command>\n',
+      'Some text before',
+      '<codebuff_tool_call>\n{\n  "codebuff_tool_name": "test_tool",\n  "param1": "value1"\n}\n</codebuff_tool_call>',
+      'Some text after',
     ]
     const stream = createMockStream(streamChunks)
+
     const events: any[] = []
-    const processors = Object.fromEntries(
-      Object.entries(toolSchema).map(([tool, params]) => [
-        tool,
+
+    const processors = {
+      test_tool: {
+        params: ['param1'] as string[],
+        onTagStart: (tagName: string, attributes: Record<string, string>) => {
+          events.push({ tagName, type: 'start', attributes })
+        },
+        onTagEnd: (tagName: string, params: Record<string, string>) => {
+          events.push({ tagName, type: 'end', params })
+        },
+      },
+    }
+
+    function onError(name: string, error: string) {
+      events.push({ name, error, type: 'error' })
+    }
+
+    const result: string[] = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+
+    expect(events).toEqual([
+      {
+        tagName: 'test_tool',
+        type: 'start',
+        attributes: {},
+      },
+      {
+        tagName: 'test_tool',
+        type: 'end',
+        params: { param1: 'value1' },
+      },
+    ])
+    expect(result).toEqual(streamChunks)
+  })
+
+  it('should handle incomplete tool calls at end of stream due to stop sequence', async () => {
+    const streamChunks = [
+      '<codebuff_tool_call>\n{\n  "codebuff_tool_name": "test_tool",\n  "param1": "value1",\n  ',
+      // Missing closing tag
+    ]
+    const stream = createMockStream(streamChunks)
+
+    const events: any[] = []
+
+    const processors = {
+      test_tool: {
+        params: ['param1'] as string[],
+        onTagStart: (tagName: string, attributes: Record<string, string>) => {
+          events.push({ tagName, type: 'start', attributes })
+        },
+        onTagEnd: (tagName: string, params: Record<string, string>) => {
+          events.push({ tagName, type: 'end', params })
+        },
+      },
+    }
+
+    function onError(name: string, error: string) {
+      events.push({ name, error, type: 'error' })
+    }
+
+    const result: string[] = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+
+    // Should complete the tool call with the completion suffix
+    expect(events).toEqual([
+      {
+        tagName: 'test_tool',
+        type: 'start',
+        attributes: {},
+      },
+      {
+        tagName: 'test_tool',
+        type: 'end',
+        params: { param1: 'value1', codebuff_end_step: true },
+      },
+    ])
+
+    // Should include the completion suffix in the result
+    expect(result.join('')).toContain('"codebuff_end_step": true')
+  })
+
+  it('should handle empty stream', async () => {
+    const streamChunks: string[] = []
+    const stream = createMockStream(streamChunks)
+
+    const events: any[] = []
+
+    const processors = {}
+
+    function onError(name: string, error: string) {
+      events.push({ name, error, type: 'error' })
+    }
+
+    const result: string[] = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+
+    expect(events).toEqual([])
+    expect(result).toEqual([])
+  })
+
+  it('should handle stream with only text content', async () => {
+    const streamChunks = ['Just some text', ' with no tool calls']
+    const stream = createMockStream(streamChunks)
+
+    const events: any[] = []
+
+    const processors = {}
+
+    function onError(name: string, error: string) {
+      events.push({ name, error, type: 'error' })
+    }
+
+    const result: string[] = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+
+    expect(events).toEqual([])
+    expect(result).toEqual(streamChunks)
+  })
+
+  it('should handle tool call with missing codebuff_tool_name', async () => {
+    const streamChunks = [
+      '<codebuff_tool_call>\n{\n  "param1": "value1"\n}\n</codebuff_tool_call>',
+    ]
+    const stream = createMockStream(streamChunks)
+
+    const events: any[] = []
+
+    const processors = {
+      test_tool: {
+        params: ['param1'] as string[],
+        onTagStart: (tagName: string, attributes: Record<string, string>) => {
+          events.push({ tagName, type: 'start', attributes })
+        },
+        onTagEnd: (tagName: string, params: Record<string, string>) => {
+          events.push({ tagName, type: 'end', params })
+        },
+      },
+    }
+
+    function onError(name: string, error: string) {
+      events.push({ name, error, type: 'error' })
+    }
+
+    const result: string[] = []
+    for await (const chunk of processStreamWithTags(
+      stream,
+      processors,
+      onError
+    )) {
+      result.push(chunk)
+    }
+
+    expect(events).toEqual([
+      {
+        name: undefined,
+        error: 'Tool not found: undefined',
+        type: 'error',
+      },
+    ])
+    expect(result).toEqual(streamChunks)
+  })
+
+  describe('real world examples', () => {
+    it('should handle </codebuff_tool_call> within tool contents', async () => {
+      const toolName = 'write_file'
+      const streamChunks = [
+        getToolCallString(
+          toolName,
+          {
+            path: 'backend/src/__tests__/xml-stream-parser.test.ts',
+            instructions:
+              'Write comprehensive unit tests for the processStreamWithTags function',
+            content:
+              "import { describe, expect, it } from 'bun:test'\nimport { toolSchema } from '@codebuff/common/constants/tools'\nimport { processStreamWithTags } from '../xml-stream-parser'\n\ndescribe('processStreamWithTags', () => {\n  async function* createMockStream(chunks: string[]) {\n    for (const chunk of chunks) {\n      yield chunk\n    }\n  }\n\n  it('should handle basic tool call parsing', async () => {\n    const streamChunks = [\n      '<codebuff_tool_call>\\n{\\n  \"codebuff_tool_name\": \"test_tool\",\\n  \"param1\": \"value1\"\\n}\\n</codebuff_tool_call>',\n    ]\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {\n      test_tool: {\n        params: ['param1'] as string[],\n        onTagStart: (tagName: string, attributes: Record<string, string>) => {\n          events.push({ tagName, type: 'start', attributes })\n        },\n        onTagEnd: (tagName: string, params: Record<string, string>) => {\n          events.push({ tagName, type: 'end', params })\n        },\n      },\n    }\n\n    function onError(name: string, error: string) {\n      events.push({ name, error })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    expect(events).toEqual([\n      {\n        tagName: 'test_tool',\n        type: 'start',\n        attributes: {},\n      },\n      {\n        tagName: 'test_tool',\n        type: 'end',\n        params: { param1: 'value1' },\n      },\n    ])\n    expect(result).toEqual(streamChunks)\n  })\n\n  it('should handle tool calls split across chunks', async () => {\n    const streamChunks = [\n      '<codebuff_tool_call>\\n{\\n  \"codebuff_tool_name\": \"test',\n      '_tool\",\\n  \"param1\": \"val',\n      'ue1\"\\n}\\n</codebuff_tool_call>',\n    ]\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {\n      test_tool: {\n        params: ['param1'] as string[],\n        onTagStart: (tagName: string, attributes: Record<string, string>) => {\n          events.push({ tagName, type: 'start', attributes })\n        },\n        onTagEnd: (tagName: string, params: Record<string, string>) => {\n          events.push({ tagName, type: 'end', params })\n        },\n      },\n    }\n\n    function onError(name: string, error: string) {\n      events.push({ name, error })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    expect(events).toEqual([\n      {\n        tagName: 'test_tool',\n        type: 'start',\n        attributes: {},\n      },\n      {\n        tagName: 'test_tool',\n        type: 'end',\n        params: { param1: 'value1' },\n      },\n    ])\n    expect(result).toEqual(streamChunks)\n  })\n\n  it('should handle multiple tool calls in sequence', async () => {\n    const streamChunks = [\n      '<codebuff_tool_call>\\n{\\n  \"codebuff_tool_name\": \"tool1\",\\n  \"param1\": \"value1\"\\n}\\n</codebuff_tool_call>',\n      'text between tools',\n      '<codebuff_tool_call>\\n{\\n  \"codebuff_tool_name\": \"tool2\",\\n  \"param2\": \"value2\"\\n}\\n</codebuff_tool_call>',\n    ]\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {\n      tool1: {\n        params: ['param1'] as string[],\n        onTagStart: (tagName: string, attributes: Record<string, string>) => {\n          events.push({ tagName, type: 'start', attributes })\n        },\n        onTagEnd: (tagName: string, params: Record<string, string>) => {\n          events.push({ tagName, type: 'end', params })\n        },\n      },\n      tool2: {\n        params: ['param2'] as string[],\n        onTagStart: (tagName: string, attributes: Record<string, string>) => {\n          events.push({ tagName, type: 'start', attributes })\n        },\n        onTagEnd: (tagName: string, params: Record<string, string>) => {\n          events.push({ tagName, type: 'end', params })\n        },\n      },\n    }\n\n    function onError(name: string, error: string) {\n      events.push({ name, error })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    expect(events).toEqual([\n      {\n        tagName: 'tool1',\n        type: 'start',\n        attributes: {},\n      },\n      {\n        tagName: 'tool1',\n        type: 'end',\n        params: { param1: 'value1' },\n      },\n      {\n        tagName: 'tool2',\n        type: 'start',\n        attributes: {},\n      },\n      {\n        tagName: 'tool2',\n        type: 'end',\n        params: { param2: 'value2' },\n      },\n    ])\n    expect(result).toEqual(streamChunks)\n  })\n\n  it('should handle malformed JSON and call onError', async () => {\n    const streamChunks = [\n      '<codebuff_tool_call>\\n{\\n  \"codebuff_tool_name\": \"test_tool\",\\n  \"param1\": invalid_json\\n}\\n</codebuff_tool_call>',\n    ]\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {\n      test_tool: {\n        params: ['param1'] as string[],\n        onTagStart: (tagName: string, attributes: Record<string, string>) => {\n          events.push({ tagName, type: 'start', attributes })\n        },\n        onTagEnd: (tagName: string, params: Record<string, string>) => {\n          events.push({ tagName, type: 'end', params })\n        },\n      },\n    }\n\n    function onError(name: string, error: string) {\n      events.push({ name, error, type: 'error' })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    expect(events).toEqual([\n      {\n        name: 'parse_error',\n        error: expect.stringContaining('Unexpected token'),\n        type: 'error',\n      },\n    ])\n    expect(result).toEqual(streamChunks)\n  })\n\n  it('should handle unknown tool names and call onError', async () => {\n    const streamChunks = [\n      '<codebuff_tool_call>\\n{\\n  \"codebuff_tool_name\": \"unknown_tool\",\\n  \"param1\": \"value1\"\\n}\\n</codebuff_tool_call>',\n    ]\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {\n      test_tool: {\n        params: ['param1'] as string[],\n        onTagStart: (tagName: string, attributes: Record<string, string>) => {\n          events.push({ tagName, type: 'start', attributes })\n        },\n        onTagEnd: (tagName: string, params: Record<string, string>) => {\n          events.push({ tagName, type: 'end', params })\n        },\n      },\n    }\n\n    function onError(name: string, error: string) {\n      events.push({ name, error, type: 'error' })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    expect(events).toEqual([\n      {\n        name: 'unknown_tool',\n        error: 'Tool not found: unknown_tool',\n        type: 'error',\n      },\n    ])\n    expect(result).toEqual(streamChunks)\n  })\n\n  it('should handle tool calls with complex parameters', async () => {\n    const streamChunks = [\n      '<codebuff_tool_call>\\n{\\n  \"codebuff_tool_name\": \"complex_tool\",\\n  \"array_param\": [\"item1\", \"item2\"],\\n  \"object_param\": {\"nested\": \"value\"},\\n  \"boolean_param\": true,\\n  \"number_param\": 42\\n}\\n</codebuff_tool_call>',\n    ]\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {\n      complex_tool: {\n        params: ['array_param', 'object_param', 'boolean_param', 'number_param'] as string[],\n        onTagStart: (tagName: string, attributes: Record<string, string>) => {\n          events.push({ tagName, type: 'start', attributes })\n        },\n        onTagEnd: (tagName: string, params: Record<string, any>) => {\n          events.push({ tagName, type: 'end', params })\n        },\n      },\n    }\n\n    function onError(name: string, error: string) {\n      events.push({ name, error, type: 'error' })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    expect(events).toEqual([\n      {\n        tagName: 'complex_tool',\n        type: 'start',\n        attributes: {},\n      },\n      {\n        tagName: 'complex_tool',\n        type: 'end',\n        params: {\n          array_param: ['item1', 'item2'],\n          object_param: { nested: 'value' },\n          boolean_param: true,\n          number_param: 42,\n        },\n      },\n    ])\n    expect(result).toEqual(streamChunks)\n  })\n\n  it('should handle text content mixed with tool calls', async () => {\n    const streamChunks = [\n      'Some text before',\n      '<codebuff_tool_call>\\n{\\n  \"codebuff_tool_name\": \"test_tool\",\\n  \"param1\": \"value1\"\\n}\\n</codebuff_tool_call>',\n      'Some text after',\n    ]\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {\n      test_tool: {\n        params: ['param1'] as string[],\n        onTagStart: (tagName: string, attributes: Record<string, string>) => {\n          events.push({ tagName, type: 'start', attributes })\n        },\n        onTagEnd: (tagName: string, params: Record<string, string>) => {\n          events.push({ tagName, type: 'end', params })\n        },\n      },\n    }\n\n    function onError(name: string, error: string) {\n      events.push({ name, error, type: 'error' })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    expect(events).toEqual([\n      {\n        tagName: 'test_tool',\n        type: 'start',\n        attributes: {},\n      },\n      {\n        tagName: 'test_tool',\n        type: 'end',\n        params: { param1: 'value1' },\n      },\n    ])\n    expect(result).toEqual(streamChunks)\n  })\n\n  it('should handle incomplete tool calls at end of stream', async () => {\n    const streamChunks = [\n      '<codebuff_tool_call>\\n{\\n  \"codebuff_tool_name\": \"test_tool\",\\n  \"param1\": \"value1\"\\n}',\n      // Missing closing tag\n    ]\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {\n      test_tool: {\n        params: ['param1'] as string[],\n        onTagStart: (tagName: string, attributes: Record<string, string>) => {\n          events.push({ tagName, type: 'start', attributes })\n        },\n        onTagEnd: (tagName: string, params: Record<string, string>) => {\n          events.push({ tagName, type: 'end', params })\n        },\n      },\n    }\n\n    function onError(name: string, error: string) {\n      events.push({ name, error, type: 'error' })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    // Should complete the tool call with the completion suffix\n    expect(events).toEqual([\n      {\n        tagName: 'test_tool',\n        type: 'start',\n        attributes: {},\n      },\n      {\n        tagName: 'test_tool',\n        type: 'end',\n        params: { param1: 'value1' },\n      },\n    ])\n    \n    // Should include the completion suffix in the result\n    expect(result.join('')).toContain('\"codebuff_end_step\": true')\n  })\n\n  it('should handle empty stream', async () => {\n    const streamChunks: string[] = []\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {}\n\n    function onError(name: string, error: string) {\n      events.push({ name, error, type: 'error' })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    expect(events).toEqual([])\n    expect(result).toEqual([])\n  })\n\n  it('should handle stream with only text content', async () => {\n    const streamChunks = ['Just some text', ' with no tool calls']\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {}\n\n    function onError(name: string, error: string) {\n      events.push({ name, error, type: 'error' })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    expect(events).toEqual([])\n    expect(result).toEqual(streamChunks)\n  })\n\n  it('should handle tool call with missing codebuff_tool_name', async () => {\n    const streamChunks = [\n      '<codebuff_tool_call>\\n{\\n  \"param1\": \"value1\"\\n}\\n</codebuff_tool_call>',\n    ]\n    const stream = createMockStream(streamChunks)\n\n    const events: any[] = []\n\n    const processors = {\n      test_tool: {\n        params: ['param1'] as string[],\n        onTagStart: (tagName: string, attributes: Record<string, string>) => {\n          events.push({ tagName, type: 'start', attributes })\n        },\n        onTagEnd: (tagName: string, params: Record<string, string>) => {\n          events.push({ tagName, type: 'end', params })\n        },\n      },\n    }\n\n    function onError(name: string, error: string) {\n      events.push({ name, error, type: 'error' })\n    }\n\n    const result = []\n    for await (const chunk of processStreamWithTags(\n      stream,\n      processors,\n      onError\n    )) {\n      result.push(chunk)\n    }\n\n    expect(events).toEqual([\n      {\n        name: 'undefined',\n        error: 'Tool not found: undefined',\n        type: 'error',\n      },\n    ])\n    expect(result).toEqual(streamChunks)\n  })\n})",
+          },
+          false
+        ),
+      ]
+
+      const stream = createMockStream(streamChunks)
+
+      const events: any[] = []
+
+      const processors = {
+        write_file: {
+          params: ['path', 'instructions', 'content'] as string[],
+          onTagStart: (tagName: string, attributes: Record<string, string>) => {
+            events.push({ tagName, type: 'start', attributes })
+          },
+          onTagEnd: (tagName: string, params: Record<string, string>) => {
+            events.push({ tagName, type: 'end', params })
+          },
+        },
+      }
+
+      function onError(name: string, error: string) {
+        events.push({ name, error })
+      }
+
+      const result: string[] = []
+      for await (const chunk of processStreamWithTags(
+        stream,
+        processors,
+        onError
+      )) {
+        result.push(chunk)
+      }
+
+      expect(events).toEqual([
         {
-          params,
-          onTagStart: (tagName: string, attributes: Record<string, string>) =>
-            events.push({ tagName, type: 'start', attributes }),
-          onTagEnd: (tagName: string, params: Record<string, string>) =>
-            events.push({ tagName, type: 'end', params }),
+          attributes: {},
+          tagName: 'write_file',
+          type: 'start',
+        },
+        {
+          params: {
+            codebuff_end_step: false,
+            content: expect.stringContaining('<codebuff_tool_call>'),
+            instructions:
+              'Write comprehensive unit tests for the processStreamWithTags function',
+            path: 'backend/src/__tests__/xml-stream-parser.test.ts',
+          },
+          tagName: 'write_file',
+          type: 'end',
         },
       ])
-    )
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-    for (const event of events) {
-      expect(event).not.toHaveProperty('error')
       expect(result).toEqual(streamChunks)
-    }
-  })
-
-  it('should ignore new parameters while parsing current parameter', async () => {
-    const streamChunks = [
-      '<test><param1>value1<param2 attr="123" >ignored</param2>still param1</param1></test>',
-    ]
-    const stream = createMockStream(streamChunks)
-    const events: any[] = []
-    const processors = {
-      test: {
-        params: ['param1', 'param2'] as string[],
-        onTagStart: (tagName: string, attributes: Record<string, string>) => {
-          events.push({ tagName, type: 'start', attributes })
-        },
-        onTagEnd: (tagName: string, params: Record<string, string>) => {
-          events.push({ tagName, type: 'end', params })
-        },
-      },
-    }
-    function onError(name: string, error: string) {
-      events.push({ name, error })
-    }
-    const result = []
-    for await (const chunk of processStreamWithTags(
-      stream,
-      processors,
-      onError
-    )) {
-      result.push(chunk)
-    }
-    expect(events).toEqual([
-      { tagName: 'test', type: 'start', attributes: {} },
-      {
-        error:
-          'WARN: Parameter found while parsing param param1 of test. Ignoring new parameter. Make sure to close all params and escape XML!',
-        name: 'test',
-      },
-      {
-        error:
-          'WARN: Ignoring stray closing tag. Make sure to escape non-tool XML!',
-        name: 'param2',
-      },
-      {
-        tagName: 'test',
-        type: 'end',
-        params: {
-          param1: 'value1<param2 attr="123" >ignored</param2>still param1',
-        },
-      },
-    ])
-    expect(result).toEqual(streamChunks)
+    })
   })
 })

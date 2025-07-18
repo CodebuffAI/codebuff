@@ -1,8 +1,8 @@
-import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { closeXml } from '@codebuff/common/util/xml'
-import { AgentTemplate, baseAgentStopSequences, PLACEHOLDER } from '../types'
+import z from 'zod/v4'
+import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
@@ -19,7 +19,6 @@ export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
-  stopSequences: baseAgentStopSequences,
   spawnableAgents: [], // ARCHIVED: [AgentTemplateTypes.dry_run],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',

@@ -15,7 +15,6 @@ Complete reference for all agent configuration fields and tools.
 **Override:** Modify existing agent without creating new one  
 **Spawnable Agents:** Sub-agents this agent can create  
 **Tool Names:** Capabilities (read files, run commands, etc.)  
-**Stop Sequences:** Text patterns that stop generation  
 **Output Mode:** Response format (last message, report, all messages)  
 **Prompt Schema:** Input validation rules
 
@@ -190,14 +189,6 @@ List of tools the agent can use.
 "toolNames": ["read_files", "write_file", "code_search", "end_turn"]
 ```
 
-#### `stopSequences` (array, optional, default: [])
-
-Sequences that will stop the agent's generation.
-
-```json
-"stopSequences": ["</end_turn>"]
-```
-
 #### `spawnableAgents` (array, optional, default: [])
 
 Other agents this agent can spawn.
@@ -310,7 +301,6 @@ JSON Schema definitions for validating prompt and params when spawning the agent
     "spawn_agents",
     "end_turn"
   ],
-  "stopSequences": ["</end_turn>"],
   "spawnableAgents": ["CodebuffAI/researcher"],
 
   "promptSchema": {

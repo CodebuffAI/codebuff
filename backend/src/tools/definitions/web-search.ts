@@ -2,9 +2,11 @@ import { getToolCallString } from '@codebuff/common/constants/tools'
 import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'web_search'
+const endsAgentStep = true
 export const webSearchTool = {
-  toolName: 'web_search',
-  endsAgentStep: true,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       query: z
@@ -33,14 +35,22 @@ Use cases:
 The tool will return search results with titles, URLs, and content snippets.
 
 Example:
-${getToolCallString('web_search', {
-  query: 'Next.js 15 new features',
-  depth: 'standard',
-})}
+${getToolCallString(
+  toolName,
+  {
+    query: 'Next.js 15 new features',
+    depth: 'standard',
+  },
+  endsAgentStep
+)}
 
-${getToolCallString('web_search', {
-  query: 'React Server Components tutorial',
-  depth: 'deep',
-})}
+${getToolCallString(
+  toolName,
+  {
+    query: 'React Server Components tutorial',
+    depth: 'deep',
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

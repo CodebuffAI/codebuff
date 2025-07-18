@@ -2,9 +2,11 @@ import { getToolCallString } from '@codebuff/common/constants/tools'
 import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'read_files'
+const endsAgentStep = true
 export const readFilesTool = {
-  toolName: 'read_files',
-  endsAgentStep: true,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       paths: z
@@ -25,8 +27,12 @@ export const readFilesTool = {
 Note: DO NOT call this tool for files you've already read! There's no need to read them again — any changes to the files will be surfaced to you as a file update tool result.
 
 Example:
-${getToolCallString('read_files', {
-  paths: ['path/to/file1.ts', 'path/to/file2.ts'],
-})}
+${getToolCallString(
+  toolName,
+  {
+    paths: ['path/to/file1.ts', 'path/to/file2.ts'],
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

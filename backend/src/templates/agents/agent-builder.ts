@@ -1,8 +1,8 @@
-import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { ToolName } from '@codebuff/common/constants/tools'
-import { AgentTemplate } from '../types'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import z from 'zod/v4'
+import { AgentTemplate } from '../types'
 
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
   name: 'Agent Builder',
@@ -10,7 +10,12 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
   implementation: 'llm',
   model,
   promptSchema: {
-    prompt: z.string().optional().describe('What agent type you would like to create. Include as many details as possible.'),
+    prompt: z
+      .string()
+      .optional()
+      .describe(
+        'What agent type you would like to create. Include as many details as possible.'
+      ),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
@@ -22,7 +27,6 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
     'spawn_agents',
     'end_turn',
   ] satisfies ToolName[],
-  stopSequences: ['</read_files>', '</code_search>', '</spawn_agents>'],
   spawnableAgents: [AgentTemplateTypes.file_picker],
   initialAssistantMessage: '',
   initialAssistantPrefix: '',
@@ -47,7 +51,6 @@ Every agent template must include these fields:
 - **outputMode**: 'last_message' | 'report' | 'all_messages'
 - **includeMessageHistory**: boolean - Whether to include conversation history
 - **toolNames**: ToolName[] - Array of available tools
-- **stopSequences**: string[] - XML closing tags for tool calls
 - **spawnableAgents**: AgentTemplateType[] - Sub-agents this agent can spawn
 - **initialAssistantMessage**: string - First message when agent starts
 - **initialAssistantPrefix**: string - Prefix for initial response
@@ -112,7 +115,6 @@ Use these placeholders in prompts:
 3. **Clear Prompts**: Write clear, specific system prompts
 4. **Consistent Naming**: Follow naming conventions (e.g., 'gemini25flash_my_agent')
 5. **Appropriate Model**: Choose the right model for the task complexity
-6. **Stop Sequences**: Include appropriate XML closing tags for tools used
 
 ## Your Task:
 When asked to create an agent template, you should:

@@ -2,9 +2,11 @@ import { getToolCallString } from '@codebuff/common/constants/tools'
 import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'think_deeply'
+const endsAgentStep = false
 export const thinkDeeplyTool = {
-  toolName: 'think_deeply',
-  endsAgentStep: false,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       thought: z
@@ -28,13 +30,17 @@ Avoid for simple changes (e.g., single functions, minor edits).
 This tool does not generate a tool result.
 
 Example:
-${getToolCallString('think_deeply', {
-  thought: [
-    '1. Check current user authentication',
-    '2. Refactor auth logic into module',
-    '3. Update imports across project',
-    '4. Add tests for new module',
-  ].join('\n'),
-})}
+${getToolCallString(
+  toolName,
+  {
+    thought: [
+      '1. Check current user authentication',
+      '2. Refactor auth logic into module',
+      '3. Update imports across project',
+      '4. Add tests for new module',
+    ].join('\n'),
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

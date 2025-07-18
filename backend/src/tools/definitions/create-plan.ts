@@ -1,12 +1,12 @@
-import z from 'zod/v4'
-
 import { getToolCallString } from '@codebuff/common/constants/tools'
-
+import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'create_plan'
+const endsAgentStep = false
 export const createPlanTool = {
-  toolName: 'create_plan',
-  endsAgentStep: false,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       path: z
@@ -52,17 +52,21 @@ After creating the plan, you should end turn to let the user review the plan.
 Important: Use this tool sparingly. Do not use this tool more than once in a conversation, unless in ask mode.
 
 Examples:
-${getToolCallString('create_plan', {
-  path: 'feature-x-plan.md',
-  plan: [
-    '1. Create module `auth.ts` in `/src/auth/`.',
-    '```ts',
-    'export function authenticate(user: User): boolean { /* pseudo-code logic */ }',
-    '```',
-    '2. Refactor existing auth logic into this module.',
-    '3. Update imports across codebase.',
-    '4. Write integration tests covering new module logic.',
-  ].join('\n'),
-})}
+${getToolCallString(
+  toolName,
+  {
+    path: 'feature-x-plan.md',
+    plan: [
+      '1. Create module `auth.ts` in `/src/auth/`.',
+      '```ts',
+      'export function authenticate(user: User): boolean { /* pseudo-code logic */ }',
+      '```',
+      '2. Refactor existing auth logic into this module.',
+      '3. Update imports across codebase.',
+      '4. Write integration tests covering new module logic.',
+    ].join('\n'),
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

@@ -2,9 +2,11 @@ import { getToolCallString } from '@codebuff/common/constants/tools'
 import z from 'zod/v4'
 import { CodebuffToolDef } from '../constants'
 
+const toolName = 'update_subgoal'
+const endsAgentStep = false
 export const updateSubgoalTool = {
-  toolName: 'update_subgoal',
-  endsAgentStep: false,
+  toolName,
+  endsAgentStep,
   parameters: z
     .object({
       id: z
@@ -30,28 +32,44 @@ export const updateSubgoalTool = {
 Examples:
 
 Usage 1 (update status):
-${getToolCallString('update_subgoal', {
-  id: '1',
-  status: 'COMPLETE',
-})}
+${getToolCallString(
+  toolName,
+  {
+    id: '1',
+    status: 'COMPLETE',
+  },
+  endsAgentStep
+)}
 
 Usage 2 (update plan):
-${getToolCallString('update_subgoal', {
-  id: '3',
-  plan: 'Create file for endpoint in the api. Register it in the router.',
-})}
+${getToolCallString(
+  toolName,
+  {
+    id: '3',
+    plan: 'Create file for endpoint in the api. Register it in the router.',
+  },
+  endsAgentStep
+)}
 
 Usage 3 (add log):
-${getToolCallString('update_subgoal', {
-  id: '1',
-  log: 'Found the error in the tests. Culprit: foo function.',
-})}
+${getToolCallString(
+  toolName,
+  {
+    id: '1',
+    log: 'Found the error in the tests. Culprit: foo function.',
+  },
+  endsAgentStep
+)}
 
 Usage 4 (update status and add log):
-${getToolCallString('update_subgoal', {
-  id: '1',
-  status: 'COMPLETE',
-  log: 'Reran the tests (passed)',
-})}
+${getToolCallString(
+  toolName,
+  {
+    id: '1',
+    status: 'COMPLETE',
+    log: 'Reran the tests (passed)',
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef

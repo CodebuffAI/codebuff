@@ -1,9 +1,8 @@
-import z from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { getToolCallString } from '@codebuff/common/constants/tools'
-import { closeXml, closeXmlTags } from '@codebuff/common/util/xml'
-
+import { closeXml } from '@codebuff/common/util/xml'
+import z from 'zod/v4'
 import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
@@ -12,23 +11,25 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   implementation: 'llm',
   description: AGENT_PERSONAS['researcher'].description,
   promptSchema: {
-    prompt: z.string().describe('A question you would like answered using web search and documentation'),
+    prompt: z
+      .string()
+      .describe(
+        'A question you would like answered using web search and documentation'
+      ),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-  stopSequences: closeXmlTags([
-    'web_search',
-    'read_docs',
-    'read_files',
-    'end_turn',
-  ]),
   spawnableAgents: [],
 
-  initialAssistantMessage: getToolCallString('web_search', {
-    query: PLACEHOLDER.INITIAL_AGENT_PROMPT,
-    depth: 'standard',
-  }),
+  initialAssistantMessage: getToolCallString(
+    'web_search',
+    {
+      query: PLACEHOLDER.INITIAL_AGENT_PROMPT,
+      depth: 'standard',
+    },
+    true
+  ),
   initialAssistantPrefix: '',
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
