@@ -289,8 +289,5 @@ You have ${PLACEHOLDER.REMAINING_STEPS} more response(s) before you will be cut 
 Assistant cwd (project root): ${PLACEHOLDER.PROJECT_ROOT}
 User cwd: ${PLACEHOLDER.USER_CWD}
 ${closeXml('system')}
-
-<system_instructions>
-Reminder: Don't forget to spawn agents that could help: the file picker to get codebase context, the thinker to do deep thinking on a problem, and the reviewer to review your code changes.
-${closeXml('system_instructions')}`
+`
 }
