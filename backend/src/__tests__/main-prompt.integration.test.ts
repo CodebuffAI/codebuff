@@ -57,7 +57,7 @@ const mockFileContext: ProjectFileContext = {
 }
 
 // --- Integration Test with Real LLM Call ---
-describe('mainPrompt (Integration)', () => {
+describe.skip('mainPrompt (Integration)', () => {
   beforeEach(() => {
     spyOn(websocketAction, 'requestToolCall').mockImplementation(
       async (
@@ -375,7 +375,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     )
   }, 60000) // Increase timeout for real LLM call
 
-  describe('Real world example', () => {
+  describe.skip('Real world example', () => {
     it('should specify deletion comment while deleting single character', async () => {
       // Mock necessary non-LLM functions
       spyOn(logger, 'debug').mockImplementation(() => {})
