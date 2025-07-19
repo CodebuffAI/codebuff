@@ -42,6 +42,7 @@ export const base = (
     ? (allAvailableAgents as any[])
     : [
         AgentTemplateTypes.file_picker,
+        AgentTemplateTypes.deep_file_picker,
         AgentTemplateTypes.researcher,
         AgentTemplateTypes.thinker,
         AgentTemplateTypes.reviewer,

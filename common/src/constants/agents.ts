@@ -44,6 +44,11 @@ export const AGENT_PERSONAS = {
     name: 'Fletcher the File Fetcher',
     purpose: 'Expert at finding relevant files in a codebase.',
   },
+  deep_file_picker: {
+    name: 'Deep File Explorer',
+    purpose:
+      'Spawns multiple file_picker agents in rounds to deeply explore the codebase and provide comprehensive file recommendations',
+  },
   researcher: {
     name: 'Reid Searcher the Researcher',
     purpose: 'Expert at researching topics using web search and documentation.',

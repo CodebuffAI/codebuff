@@ -10,6 +10,7 @@ import { ask } from './agents/ask'
 import { base } from './agents/base'
 import { exampleProgrammatic } from './agents/example-programmatic'
 import { filePicker } from './agents/file-picker'
+import { deepFilePicker } from './agents/deep-file-picker'
 import { planner } from './agents/planner'
 import { researcher } from './agents/researcher'
 import { reviewer } from './agents/reviewer'
@@ -58,6 +59,10 @@ export const agentTemplates: Record<
   file_picker: {
     id: AgentTemplateTypes.file_picker,
     ...filePicker(models.gemini2_5_flash),
+  },
+  deep_file_picker: {
+    id: AgentTemplateTypes.deep_file_picker,
+    ...deepFilePicker(models.openrouter_claude_sonnet_4),
   },
   researcher: {
     id: AgentTemplateTypes.researcher,
