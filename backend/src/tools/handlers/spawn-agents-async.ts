@@ -1,3 +1,4 @@
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 import { CodebuffMessage } from '@codebuff/common/types/message'
 import {
   AgentState,
@@ -12,7 +13,6 @@ import { agentRegistry } from '../../templates/agent-registry'
 import { AgentTemplate } from '../../templates/types'
 import { logger } from '../../util/logger'
 import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
-import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 import { handleSpawnAgents } from './spawn-agents'
 
 export const handleSpawnAgentsAsync = ((params: {
@@ -92,15 +92,6 @@ export const handleSpawnAgentsAsync = ((params: {
   agentRegistry.initialize(fileContext)
   const allTemplates = agentRegistry.getAllTemplates()
 
-  const conversationHistoryMessage: CoreMessage = {
-    role: 'user',
-    content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
-      mutableState.messages,
-      null,
-      2
-    )}`,
-  }
-
   const triggerSpawnAgentsAsync = async () => {
     const results: Array<{
       agentType: string
@@ -108,6 +99,15 @@ export const handleSpawnAgentsAsync = ((params: {
       agentId?: string
       error?: string
     }> = []
+
+    const conversationHistoryMessage: CoreMessage = {
+      role: 'user',
+      content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
+        mutableState.messages,
+        null,
+        2
+      )}`,
+    }
 
     // Validate and spawn agents asynchronously
     for (const { agent_type: agentTypeStr, prompt, params } of agents) {
