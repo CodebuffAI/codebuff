@@ -61,6 +61,44 @@ export function validateSpawnableAgents(
 }
 
 /**
+ * Centralized validation for parent instructions.
+ * Validates that all parent instruction keys reference valid agent types.
+ */
+export function validateParentInstructions(
+  parentInstructions: Record<string, string>,
+  dynamicAgentIds: string[]
+): SpawnableAgentValidationResult & { availableAgents: string[] } {
+  // Normalize dynamic agent IDs to allow users to reference them without org prefixes
+  const normalizedDynamicAgentIds = normalizeAgentNames(dynamicAgentIds)
+
+  // Build complete list of available agent types (normalized)
+  const availableAgentTypes = [
+    ...Object.values(AgentTemplateTypes),
+    ...normalizedDynamicAgentIds,
+  ]
+
+  // Get the keys (agent IDs) from parentInstructions
+  const parentInstructionKeys = Object.keys(parentInstructions)
+
+  // Normalize parent instruction keys for comparison
+  const normalizedParentInstructionKeys = normalizeAgentNames(
+    parentInstructionKeys
+  )
+
+  // Find invalid agents (those not in available types after normalization)
+  const invalidAgents = parentInstructionKeys.filter(
+    (agent, index) =>
+      !availableAgentTypes.includes(normalizedParentInstructionKeys[index])
+  )
+
+  return {
+    valid: invalidAgents.length === 0,
+    invalidAgents,
+    availableAgents: availableAgentTypes,
+  }
+}
+
+/**
  * Formats a validation error message for spawnable agents
  */
 export function formatSpawnableAgentError(
@@ -68,6 +106,20 @@ export function formatSpawnableAgentError(
   availableAgents: string[]
 ): string {
   let message = `Invalid spawnable agents: ${invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`
+
+  message += `\n\nAvailable agents: ${availableAgents.join(', ')}`
+
+  return message
+}
+
+/**
+ * Formats a validation error message for parent instructions
+ */
+export function formatParentInstructionsError(
+  invalidAgents: string[],
+  availableAgents: string[]
+): string {
+  let message = `Invalid parent instruction agent IDs: ${invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`
 
   message += `\n\nAvailable agents: ${availableAgents.join(', ')}`
 

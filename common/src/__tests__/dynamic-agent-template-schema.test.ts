@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { DynamicAgentTemplateSchema } from '../types/dynamic-agent-template'
+import {
+  validateParentInstructions,
+  formatParentInstructionsError,
+} from '../util/agent-template-validation'
 
 describe('DynamicAgentTemplateSchema', () => {
   const validBaseTemplate = {
@@ -130,6 +134,20 @@ describe('DynamicAgentTemplateSchema', () => {
         expect(result.data.spawnableAgents).toEqual([])
       }
     })
+
+    it('should validate template with parentInstructions', () => {
+      const template = {
+        ...validBaseTemplate,
+        parentInstructions: {
+          researcher: 'Spawn when you need research',
+          file_picker: 'Spawn when you need files',
+          base: 'Spawn for general tasks',
+        },
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(true)
+    })
   })
 
   describe('Invalid Templates', () => {
@@ -212,6 +230,25 @@ describe('DynamicAgentTemplateSchema', () => {
       const result = DynamicAgentTemplateSchema.safeParse(template)
       expect(result.success).toBe(false)
     })
+
+    it('should accept template with any parentInstructions agent ID at schema level', () => {
+      const template = {
+        ...validBaseTemplate,
+        parentInstructions: {
+          invalid_agent_id: 'Some instruction',
+          custom_agent: 'Another instruction',
+        },
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.parentInstructions).toEqual({
+          invalid_agent_id: 'Some instruction',
+          custom_agent: 'Another instruction',
+        })
+      }
+    })
   })
 
   describe('Edge Cases', () => {
@@ -265,6 +302,58 @@ describe('DynamicAgentTemplateSchema', () => {
 
       const result = DynamicAgentTemplateSchema.safeParse(template)
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('Parent Instructions Runtime Validation', () => {
+    it('should validate parent instructions with valid agent IDs', () => {
+      const parentInstructions = {
+        researcher: 'Spawn when you need research',
+        file_picker: 'Spawn when you need files',
+        custom_agent: 'Spawn for custom tasks',
+      }
+      const dynamicAgentIds = ['custom_agent']
+
+      const result = validateParentInstructions(
+        parentInstructions,
+        dynamicAgentIds
+      )
+      expect(result.valid).toBe(true)
+      expect(result.invalidAgents).toEqual([])
+    })
+
+    it('should reject parent instructions with invalid agent IDs', () => {
+      const parentInstructions = {
+        researcher: 'Spawn when you need research',
+        invalid_agent: 'Invalid instruction',
+        another_invalid: 'Another invalid instruction',
+      }
+      const dynamicAgentIds = ['custom_agent']
+
+      const result = validateParentInstructions(
+        parentInstructions,
+        dynamicAgentIds
+      )
+      expect(result.valid).toBe(false)
+      expect(result.invalidAgents).toEqual(['invalid_agent', 'another_invalid'])
+      expect(result.availableAgents).toContain('researcher')
+      expect(result.availableAgents).toContain('custom_agent')
+    })
+
+    it('should format parent instructions error message correctly', () => {
+      const invalidAgents = ['invalid_agent', 'another_invalid']
+      const availableAgents = ['researcher', 'file_picker', 'custom_agent']
+
+      const errorMessage = formatParentInstructionsError(
+        invalidAgents,
+        availableAgents
+      )
+      expect(errorMessage).toContain(
+        'Invalid parent instruction agent IDs: invalid_agent, another_invalid'
+      )
+      expect(errorMessage).toContain(
+        'Available agents: researcher, file_picker, custom_agent'
+      )
     })
   })
 })

@@ -4,7 +4,9 @@ import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
 import {
+  formatParentInstructionsError,
   formatSpawnableAgentError,
+  validateParentInstructions,
   validateSpawnableAgents,
 } from '@codebuff/common/util/agent-template-validation'
 import { ProjectFileContext } from '@codebuff/common/util/file'
@@ -196,6 +198,25 @@ export class DynamicAgentService {
         return
       }
 
+      // Validate parent instructions if they exist
+      if (dynamicAgent.parentInstructions) {
+        const parentInstructionsValidation = validateParentInstructions(
+          dynamicAgent.parentInstructions,
+          dynamicAgentIds
+        )
+        if (!parentInstructionsValidation.valid) {
+          this.validationErrors.push({
+            filePath,
+            message: formatParentInstructionsError(
+              parentInstructionsValidation.invalidAgents,
+              parentInstructionsValidation.availableAgents
+            ),
+            details: `Available agents: ${parentInstructionsValidation.availableAgents.join(', ')}`,
+          })
+          return
+        }
+      }
+
       const validatedSpawnableAgents = normalizeAgentNames(
         dynamicAgent.spawnableAgents
       ) as AgentTemplateType[]
@@ -232,6 +253,7 @@ export class DynamicAgentService {
         includeMessageHistory: dynamicAgent.includeMessageHistory,
         toolNames: dynamicAgent.toolNames as any[],
         spawnableAgents: validatedSpawnableAgents,
+        parentInstructions: dynamicAgent.parentInstructions,
 
         systemPrompt: this.resolvePromptFieldFromAgentTemplates(
           dynamicAgent.systemPrompt,

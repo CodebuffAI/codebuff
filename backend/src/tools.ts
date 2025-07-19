@@ -107,20 +107,35 @@ function buildSpawnableAgentsDescription(
 
       // Handle objects containing Zod schemas (for dynamic agents)
       if (typeof schema === 'object' && schema !== null) {
-        const isValidSchemaObject = Object.values(schema).every(
-          (value) => value instanceof z.ZodType
-        )
-        if (isValidSchemaObject) {
-          const wrappedSchema = z.object(schema as Record<string, z.ZodTypeAny>)
-          const jsonSchema = z.toJSONSchema(wrappedSchema)
-          delete jsonSchema['$schema']
-          return JSON.stringify(jsonSchema, null, 2)
+        // Check if it's a plain object with Zod schemas as values
+        const schemaEntries = Object.entries(schema)
+        if (schemaEntries.length > 0) {
+          const isValidSchemaObject = schemaEntries.every(
+            ([key, value]) => value instanceof z.ZodType
+          )
+          if (isValidSchemaObject) {
+            const wrappedSchema = z.object(
+              schema as Record<string, z.ZodTypeAny>
+            )
+            const jsonSchema = z.toJSONSchema(wrappedSchema)
+            delete jsonSchema['$schema']
+            return JSON.stringify(jsonSchema, null, 2)
+          }
         }
+
+        // Handle case where schema might be a plain object (fallback)
+        return JSON.stringify(schema, null, 2)
       }
 
       return 'None'
     } catch (error) {
-      // Graceful fallback
+      // Graceful fallback with more debugging info
+      console.warn(
+        'Failed to convert schema to JSON:',
+        error,
+        'Schema:',
+        schema
+      )
       return 'None'
     }
   }

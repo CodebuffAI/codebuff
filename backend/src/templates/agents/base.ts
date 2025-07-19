@@ -51,10 +51,7 @@ export const base = (
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  systemPrompt:
-    `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Enthusiastic Coding Assistant
-
-` + baseAgentSystemPrompt(model),
+  systemPrompt: baseAgentSystemPrompt(model),
   userInputPrompt: baseAgentUserInputPrompt(model),
   agentStepPrompt: baseAgentAgentStepPrompt(model),
 })
