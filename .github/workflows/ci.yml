@@ -49,8 +49,8 @@ jobs:
             packages/*/node_modules
           retention-days: 1
 
-  # Build web in parallel
-  build-web:
+  # Build and check
+  build-and-check:
     needs: setup
     runs-on: ubuntu-latest
     steps:
@@ -79,65 +79,13 @@ jobs:
           echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Build web
+      - name: Typecheck and Build web in parallel
         run: |
-          cd web && bun run build
-
-  # Typecheck in parallel
-  typecheck:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.2.12'
-
-      - name: Download node_modules
-        uses: actions/download-artifact@v4
-        with:
-          name: node_modules
-
-      - name: Set environment variables
-        env:
-          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
-        run: |
-          VAR_NAMES=$(node scripts/generate-ci-env.js)
-          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
-            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
-          ' >> $GITHUB_ENV
-          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
-          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
-
-      - name: Typecheck
-        run: |
-          bun run typecheck
-
-  # Build npm-app in parallel
-  build:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.2.12'
-
-      - name: Download node_modules
-        uses: actions/download-artifact@v4
-        with:
-          name: node_modules
-
-      - name: Build
-        run: |
-          cd npm-app && bun run build
+          timeout 10m bash -c '
+            bun run typecheck &
+            cd web && bun run build &
+            wait
+          '
 
       # - name: Open interactive debug shell
       #   if: ${{ failure() }}
@@ -146,7 +94,7 @@ jobs:
 
   # Template for test jobs
   test:
-    needs: [build-web, typecheck, build]
+    needs: [build-and-check]
     strategy:
       matrix:
         package: [npm-app, backend, common]
@@ -197,7 +145,7 @@ jobs:
 
   # Integration tests job
   test-integration:
-    needs: [build-web, typecheck, build]
+    needs: [build-and-check]
     strategy:
       matrix:
         package: [npm-app, backend, common]
