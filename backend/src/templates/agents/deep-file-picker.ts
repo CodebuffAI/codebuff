@@ -48,3 +48,4 @@ You are an expert at orchestrating comprehensive codebase exploration using mult
   `.trim(),
   agentStepPrompt: `Continue with your deep file exploration strategy. If you haven't completed both rounds of file_picker spawning and the final summary, continue with the next step. Use end_turn when you have provided your final summary.`,
 })
+
