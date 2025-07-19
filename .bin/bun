@@ -22,8 +22,21 @@ if [ -z "$REAL_BUN" ]; then
     REAL_BUN=$(PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "^$SCRIPT_DIR$" | tr '\n' ':') which bun)
 fi
 
+# Function to find project root using git
+find_project_root() {
+    # Use git to find the repository root
+    local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+    if [ -n "$git_root" ]; then
+        echo "$git_root"
+    else
+        # Fallback to current directory if not in a git repo
+        echo "$(pwd)"
+    fi
+}
+
 # Infisical cache configuration
-CACHE_FILE=".infisical-cache"
+PROJECT_ROOT="$(find_project_root)"
+CACHE_FILE="$PROJECT_ROOT/.infisical-cache"
 CACHE_TTL_SECONDS=${INFISICAL_CACHE_TTL:-900}  # Default 15 minutes, configurable via env var
 
 # Clean up any leftover temporary files
@@ -45,8 +58,8 @@ is_cache_valid() {
     fi
 
     # Check if .infisical.json has been modified since cache was created
-    if [ -f ".infisical.json" ]; then
-        local infisical_time=$(stat -f "%m" ".infisical.json" 2>/dev/null || stat -c "%Y" ".infisical.json" 2>/dev/null)
+    if [ -f "$PROJECT_ROOT/.infisical.json" ]; then
+        local infisical_time=$(stat -f "%m" "$PROJECT_ROOT/.infisical.json" 2>/dev/null || stat -c "%Y" "$PROJECT_ROOT/.infisical.json" 2>/dev/null)
         if [ $infisical_time -gt $cache_time ]; then
             return 1
         fi
@@ -82,12 +95,12 @@ create_cache() {
     # Set performance optimizations for Infisical
     export INFISICAL_DISABLE_UPDATE_CHECK=true
 
-    # Try to get secrets using infisical export with timeout (fast path)
+    # Run infisical export in a subshell from project root to avoid cd in main shell
     local output
     local temp_file=$(mktemp)
     
-    # Run infisical export in background, suppress stderr to avoid cluttered output
-    (infisical export > "$temp_file" 2>/dev/null; echo $? > "$temp_file.exit") &
+    # Run infisical export in background from project root, suppress stderr to avoid cluttered output
+    (cd "$PROJECT_ROOT" && infisical export > "$temp_file" 2>/dev/null; echo $? > "$temp_file.exit") &
     local pid=$!
     
     # Wait up to 10 seconds
