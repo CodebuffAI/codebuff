@@ -109,6 +109,25 @@ export async function formatPrompt(
 type StringField = 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt'
 type RequirePrompt = 'initialAssistantMessage' | 'initialAssistantPrefix'
 
+export async function collectParentInstructions(
+  agentType: string,
+  agentRegistry: AgentRegistry
+): Promise<string[]> {
+  const instructions: string[] = []
+  const allTemplates = agentRegistry.getAllTemplates()
+
+  for (const template of Object.values(allTemplates)) {
+    if (template.implementation === 'llm' && template.parentInstructions) {
+      const instruction = template.parentInstructions[agentType]
+      if (instruction) {
+        instructions.push(instruction)
+      }
+    }
+  }
+
+  return instructions
+}
+
 export async function getAgentPrompt<T extends StringField | RequirePrompt>(
   agentTemplate: AgentTemplate,
   promptType: T extends StringField ? { type: T } : { type: T; prompt: string },
@@ -130,13 +149,29 @@ export async function getAgentPrompt<T extends StringField | RequirePrompt>(
     ''
   )
 
-  const addendum =
-    promptType.type === 'userInputPrompt'
-      ? '\n\n' +
-        getShortToolInstructions(
-          agentTemplate.toolNames,
-          agentTemplate.spawnableAgents
-        )
-      : ''
+  let addendum = ''
+
+  // Add parent instructions for userInputPrompt
+  if (promptType.type === 'userInputPrompt' && agentState.agentType) {
+    const parentInstructions = await collectParentInstructions(
+      agentState.agentType,
+      agentRegistry
+    )
+
+    if (parentInstructions.length > 0) {
+      addendum += '\n\n## Instructions for Spawning Agents\n\n'
+      addendum += parentInstructions
+        .map((instruction) => `- ${instruction}`)
+        .join('\n')
+    }
+
+    addendum +=
+      '\n\n' +
+      getShortToolInstructions(
+        agentTemplate.toolNames,
+        agentTemplate.spawnableAgents
+      )
+  }
+
   return prompt + addendum
 }

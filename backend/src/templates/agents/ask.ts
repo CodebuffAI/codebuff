@@ -38,7 +38,7 @@ export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
   stepAssistantPrefix: '',
 
   systemPrompt:
-    `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Enthusiastic Coding Assistant
+    `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
 ` + askAgentSystemPrompt(model),
   userInputPrompt: askAgentUserInputPrompt(model),
