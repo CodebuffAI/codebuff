@@ -39,7 +39,7 @@ export const AgentStateSchema: z.ZodType<{
 }> = z.lazy(() =>
   z.object({
     agentId: z.string(),
-    agentType: agentTemplateTypeSchema.nullable(),
+    agentType: z.string().nullable(),
     agentContext: z.record(z.string(), subgoalSchema),
     subagents: AgentStateSchema.array(),
     messageHistory: CodebuffMessageSchema.array(),

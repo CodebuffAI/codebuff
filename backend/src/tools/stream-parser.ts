@@ -179,7 +179,7 @@ export async function processStreamWithTools<T extends string>(options: {
         if (!agentTemplate.toolNames.includes(toolCall.toolName)) {
           toolResults.push({
             toolName,
-            toolCallId: generateCompactId(),
+            toolCallId: toolCall.toolCallId,
             result: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
           })
           return

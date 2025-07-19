@@ -6,9 +6,7 @@ import {
   Model,
   OpenAIModel,
   openaiModels,
-  openrouterModels,
   type GeminiModel,
-  type openrouterModel,
 } from '@codebuff/common/constants'
 import {
   endsAgentStepParam,
@@ -17,11 +15,13 @@ import {
   toolNameParam,
 } from '@codebuff/common/constants/tools'
 import { Message } from '@codebuff/common/types/message'
+import { buildArray } from '@codebuff/common/util/array'
 import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { OpenRouterUsageAccounting } from '@codebuff/internal/openrouter-ai-sdk'
 import {
+  APICallError,
   CoreAssistantMessage,
   CoreMessage,
   CoreUserMessage,
@@ -56,11 +56,8 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
   if (Object.values(openaiModels).includes(model as OpenAIModel)) {
     return openai.languageModel(model)
   }
-  // All Claude models go through OpenRouter
-  if (Object.values(openrouterModels).includes(model as openrouterModel)) {
-    return openRouterLanguageModel(model)
-  }
-  throw new Error('Unknown model: ' + model)
+  // All other models go through OpenRouter
+  return openRouterLanguageModel(model)
 }
 
 // TODO: Add retries & fallbacks: likely by allowing this to instead of "model"
@@ -128,21 +125,20 @@ export const promptAiSdkStream = async function* (
         },
         'Error from AI SDK'
       )
-      if (process.env.ENVIRONMENT !== 'prod') {
-        throw chunk.error instanceof Error
-          ? new Error(
-              `Error from AI SDK (${options.model}): ${chunk.error.message}`,
-              {
-                cause: chunk.error,
-              }
-            )
-          : new Error(
-              `Error from AI SDK (${options.model}): ${
-                typeof chunk.error === 'string'
-                  ? chunk.error
-                  : JSON.stringify(chunk.error)
-              }`
-            )
+      if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
+        const errorBody = APICallError.isInstance(chunk.error)
+          ? chunk.error.responseBody
+          : undefined
+        const mainErrorMessage =
+          chunk.error instanceof Error
+            ? chunk.error.message
+            : typeof chunk.error === 'string'
+              ? chunk.error
+              : JSON.stringify(chunk.error)
+        const errorMessage = `Error from AI SDK (model ${options.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
+        throw new Error(errorMessage, {
+          cause: chunk.error,
+        })
       }
     }
     if (chunk.type === 'reasoning') {
