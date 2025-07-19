@@ -115,7 +115,7 @@ jobs:
 
       - name: Generate contentlayer for web typecheck
         run: |
-          cd web && mkdir -p .contentlayer/generated && echo 'export {}' > .contentlayer/generated/index.ts
+          cd web && mkdir -p .contentlayer/generated && echo 'export const allDocs: any[] = [];' > .contentlayer/generated/index.ts
 
       - name: Typecheck
         run: |
