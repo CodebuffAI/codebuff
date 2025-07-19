@@ -27,3 +27,7 @@ debug/
 # Nx cache directories
 .nx/cache
 .nx/workspace-data
+
+# Infisical cache (contains secrets, should not be committed)
+.infisical-cache
+.infisical-cache.tmp

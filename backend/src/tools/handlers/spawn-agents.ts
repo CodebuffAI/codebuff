@@ -75,16 +75,15 @@ export const handleSpawnAgents = ((params: {
     )
   }
 
-  const conversationHistoryMessage: CoreMessage = {
-    role: 'user',
-    content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
-      mutableState.messages,
-      null,
-      2
-    )}`,
-  }
-
   const triggerSpawnAgents = async () => {
+    const conversationHistoryMessage: CoreMessage = {
+      role: 'user',
+      content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
+        mutableState.messages,
+        null,
+        2
+      )}`,
+    }
     // Initialize registry and get all templates
     await agentRegistry.initialize(fileContext)
     const allTemplates = agentRegistry.getAllTemplates()

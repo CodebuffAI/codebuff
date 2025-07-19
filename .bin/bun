@@ -22,6 +22,136 @@ if [ -z "$REAL_BUN" ]; then
     REAL_BUN=$(PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "^$SCRIPT_DIR$" | tr '\n' ':') which bun)
 fi
 
+# Function to find project root using git
+find_project_root() {
+    # Use git to find the repository root
+    local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+    if [ -n "$git_root" ]; then
+        echo "$git_root"
+    else
+        # Fallback to current directory if not in a git repo
+        echo "$(pwd)"
+    fi
+}
+
+# Infisical cache configuration
+PROJECT_ROOT="$(find_project_root)"
+CACHE_FILE="$PROJECT_ROOT/.infisical-cache"
+CACHE_TTL_SECONDS=${INFISICAL_CACHE_TTL:-900}  # Default 15 minutes, configurable via env var
+
+# Clean up any leftover temporary files
+rm -f "$CACHE_FILE.tmp" 2>/dev/null
+
+# Function to check if cache is valid
+is_cache_valid() {
+    if [ ! -f "$CACHE_FILE" ]; then
+        return 1
+    fi
+
+    local cache_time=$(stat -f "%m" "$CACHE_FILE" 2>/dev/null || stat -c "%Y" "$CACHE_FILE" 2>/dev/null)
+    local current_time=$(date +%s)
+    local age=$((current_time - cache_time))
+
+    # Check if cache has expired
+    if [ $age -ge $CACHE_TTL_SECONDS ]; then
+        return 1
+    fi
+
+    # Check if .infisical.json has been modified since cache was created
+    if [ -f "$PROJECT_ROOT/.infisical.json" ]; then
+        local infisical_time=$(stat -f "%m" "$PROJECT_ROOT/.infisical.json" 2>/dev/null || stat -c "%Y" "$PROJECT_ROOT/.infisical.json" 2>/dev/null)
+        if [ $infisical_time -gt $cache_time ]; then
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+# Function to load environment variables from cache
+load_from_cache() {
+    if [ ! -f "$CACHE_FILE" ]; then
+        return 1
+    fi
+
+    # Use source to handle multi-line environment variables correctly
+    set -a  # automatically export all variables
+    source "$CACHE_FILE" 2>/dev/null
+    set +a
+    
+    # Verify that key variables are set to confirm success
+    if [ -n "$PORT" ] || [ -n "$DATABASE_URL" ] || [ -n "$ANTHROPIC_API_KEY" ]; then
+        return 0
+    else
+        # Cache validation failed
+        return 1
+    fi
+}
+
+
+
+# Function to create cache from infisical
+create_cache() {
+    # Set performance optimizations for Infisical
+    export INFISICAL_DISABLE_UPDATE_CHECK=true
+
+    # Run infisical export in a subshell from project root to avoid cd in main shell
+    local output
+    local temp_file=$(mktemp)
+    
+    # Run infisical export in background from project root, suppress stderr to avoid cluttered output
+    (cd "$PROJECT_ROOT" && infisical export > "$temp_file" 2>/dev/null; echo $? > "$temp_file.exit") &
+    local pid=$!
+    
+    # Wait up to 10 seconds
+    local count=0
+    while [ $count -lt 100 ]; do  # 100 * 0.1s = 10s
+        if ! kill -0 $pid 2>/dev/null; then
+            # Process finished
+            wait $pid 2>/dev/null
+            output=$(cat "$temp_file")
+            local exit_code=$(cat "$temp_file.exit" 2>/dev/null || echo 1)
+            rm -f "$temp_file" "$temp_file.exit"
+            break
+        fi
+        sleep 0.1
+        count=$((count + 1))
+    done
+    
+    # If still running, kill it (timeout)
+    if kill -0 $pid 2>/dev/null; then
+        kill $pid 2>/dev/null
+        wait $pid 2>/dev/null
+        local exit_code=124  # Timeout exit code
+        output=""
+        rm -f "$temp_file" "$temp_file.exit"
+    fi
+
+    if [ $exit_code -eq 0 ]; then
+        # Command succeeded, write to cache
+        echo "$output" > "$CACHE_FILE"
+        if [ -s "$CACHE_FILE" ]; then
+            return 0  # Cache created successfully
+        else
+            rm -f "$CACHE_FILE"
+            return 1  # No variables found
+        fi
+    else
+        # Command failed or timed out
+        if echo "$output" | grep -q "Select the environment"; then
+            echo "⚠️  Infisical session expired or not logged in."
+        elif [ $exit_code -eq 124 ]; then
+            echo "⚠️  Infisical command timed out. Please check your connection or run 'infisical login'."
+        else
+            echo "⚠️  Infisical session expired or not logged in."
+        fi
+        echo "   Please run: infisical login"
+        echo "   Then try your command again."
+        rm -f "$CACHE_FILE"
+        return 1
+    fi
+}
+
 # Function to check if command doesn't need secrets
 # Returns 0 if secrets are NOT needed, 1 if they ARE needed
 doesnt_need_secrets() {
@@ -113,11 +243,25 @@ if [ -f ".env.worktree" ]; then
     set +a
 fi
 
-# Main logic - default to using infisical unless command doesn't need secrets
+# Main logic - determine execution path based on secrets requirement
 if doesnt_need_secrets "$@"; then
+    # Path 1: Command doesn't need secrets - run directly
     exec "$REAL_BUN" "$@"
-else
-    # Set performance optimizations for Infisical
-    export INFISICAL_DISABLE_UPDATE_CHECK=true
-    exec infisical run --silent -- "$REAL_BUN" "$@"
 fi
+
+# Path 2: Command needs secrets - try cache first, then create if needed
+if is_cache_valid && load_from_cache; then
+    # Path 2a: Valid cache exists - use it
+    export NEXT_PUBLIC_INFISICAL_UP=true
+    exec "$REAL_BUN" "$@"
+fi
+
+# Path 2b: No valid cache - create new one
+if create_cache; then
+    load_from_cache
+    export NEXT_PUBLIC_INFISICAL_UP=true
+    exec "$REAL_BUN" "$@"
+fi
+
+# Path 2c: Cache creation failed - exit with error
+exit 1

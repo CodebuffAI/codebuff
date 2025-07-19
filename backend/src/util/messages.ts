@@ -367,16 +367,7 @@ export function getCoreMessagesSubset(
   otherTokens: number,
   includeCacheControl: boolean = true
 ): CodebuffMessage[] {
-  const indexLastSubgoalComplete = messages.findLastIndex(({ content }) => {
-    JSON.stringify(content).includes('COMPLETE')
-  })
-
-  const messagesSubset = trimCoreMessagesToFitTokenLimit(
-    indexLastSubgoalComplete === -1
-      ? messages
-      : messages.slice(indexLastSubgoalComplete),
-    otherTokens
-  )
+  const messagesSubset = trimCoreMessagesToFitTokenLimit(messages, otherTokens)
 
   // Remove cache_control from all messages
   for (const message of messagesSubset) {
