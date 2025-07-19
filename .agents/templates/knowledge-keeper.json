@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "override": false,
   "name": "Kendra the Knowledge Keeper",
-  "description": "Expert at gathering, organizing, and maintaining project knowledge files and documentation.",
+  "purpose": "Expert at gathering, organizing, and maintaining project knowledge files and documentation.",
   "model": "anthropic/claude-4-sonnet-20250522",
   "outputMode": "last_message",
   "includeMessageHistory": false,
