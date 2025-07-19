@@ -572,10 +572,7 @@ export function TimelineChart({
                             </h4>
                             <div className="bg-muted p-3 rounded overflow-auto max-h-96">
                               <pre className="text-xs whitespace-pre-wrap">
-                                {responseContent.length > 1000
-                                  ? responseContent.substring(0, 1000) +
-                                    '...\n\n[Truncated - showing first 1000 characters]'
-                                  : responseContent}
+                                {responseContent}
                               </pre>
                             </div>
                           </div>
