@@ -40,7 +40,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Upload node_modules
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: node_modules
           path: |
@@ -63,7 +63,7 @@ jobs:
           bun-version: '1.2.12'
 
       - name: Download node_modules
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: node_modules
 
@@ -97,7 +97,7 @@ jobs:
           bun-version: '1.2.12'
 
       - name: Download node_modules
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: node_modules
 
@@ -135,7 +135,7 @@ jobs:
           bun-version: '1.2.12'
 
       - name: Download node_modules
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: node_modules
 
@@ -170,7 +170,7 @@ jobs:
           bun-version: '1.2.12'
 
       - name: Download node_modules
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: node_modules
 
@@ -221,7 +221,7 @@ jobs:
           bun-version: '1.2.12'
 
       - name: Download node_modules
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: node_modules
 
