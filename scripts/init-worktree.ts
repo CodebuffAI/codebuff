@@ -13,8 +13,8 @@ const WorktreeArgsSchema = z.object({
     .min(1, 'Worktree name cannot be empty')
     .max(50, 'Worktree name must be 50 characters or less')
     .regex(
-      /^[a-zA-Z0-9_-]+$/,
-      'Worktree name must contain only letters, numbers, hyphens, and underscores'
+      /^[a-zA-Z0-9_/-]+$/,
+      'Worktree name must contain only letters, numbers, hyphens, underscores, and forward slashes'
     ),
   backendPort: z
     .number()
