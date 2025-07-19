@@ -42,6 +42,10 @@ export function coreMessagesWithSystem(
 export function asUserMessage(str: string): string {
   return `<user_message>${str}${closeXml('user_message')}`
 }
+export function parseUserMessage(str: string): string | undefined {
+  const match = str.match(/<user_message>(.*?)<\/user_message>/s)
+  return match ? match[1] : undefined
+}
 
 export function asSystemInstruction(str: string): string {
   return `<system_instructions>${str}${closeXml('system_instructions')}`

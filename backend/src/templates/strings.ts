@@ -23,6 +23,7 @@ import {
   AgentTemplate,
 } from './types'
 import type { AgentRegistry } from './agent-registry'
+import { parseUserMessage } from '../util/messages'
 
 export async function formatPrompt(
   prompt: string,
@@ -33,25 +34,16 @@ export async function formatPrompt(
   agentRegistry: AgentRegistry,
   intitialAgentPrompt?: string
 ): Promise<string> {
-  // Handle structured prompt data
-  let processedPrompt = intitialAgentPrompt ?? ''
-
-  try {
-    // Try to parse as JSON to extract structured data
-    const promptData = JSON.parse(intitialAgentPrompt ?? '{}')
-    if (typeof promptData === 'object' && promptData !== null) {
-      // If it's structured data, extract the main prompt
-      processedPrompt = promptData.prompt || intitialAgentPrompt || ''
-
-      // Handle file paths for planner agent
-      if (promptData.filePaths && Array.isArray(promptData.filePaths)) {
-        processedPrompt += `\n\nRelevant files to consider:\n${promptData.filePaths.map((path: string) => `- ${path}`).join('\n')}`
-      }
-    }
-  } catch {
-    // If not JSON, use as-is
-    processedPrompt = intitialAgentPrompt ?? ''
-  }
+  const { messageHistory } = agentState
+  const lastUserMessage = messageHistory.findLast(
+    ({ role, content }) =>
+      role === 'user' &&
+      typeof content === 'string' &&
+      parseUserMessage(content)
+  )
+  const lastUserInput = lastUserMessage
+    ? parseUserMessage(lastUserMessage.content as string)
+    : undefined
 
   // Initialize agent registry to ensure dynamic agents are available
   await agentRegistry.initialize(fileContext)
@@ -69,12 +61,13 @@ export async function formatPrompt(
       'agent'
     ),
     [PLACEHOLDER.GIT_CHANGES_PROMPT]: getGitChangesPrompt(fileContext),
+    [PLACEHOLDER.USER_INPUT_PROMPT]: lastUserInput ?? '',
     [PLACEHOLDER.REMAINING_STEPS]: `${agentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools, spawnableAgents),
     [PLACEHOLDER.USER_CWD]: fileContext.cwd,
-    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: processedPrompt,
+    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: intitialAgentPrompt ?? '',
     [PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS]: renderToolResults(
       Object.entries({
         ...Object.fromEntries(
