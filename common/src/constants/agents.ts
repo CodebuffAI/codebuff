@@ -70,6 +70,11 @@ export const AGENT_PERSONAS = {
   },
 } as const
 
+// Agent IDs list from AGENT_PERSONAS keys
+export const AGENT_IDS = Object.keys(
+  AGENT_PERSONAS
+) as (keyof typeof AGENT_PERSONAS)[]
+
 // Agent ID prefix constant
 export const AGENT_ID_PREFIX = 'CodebuffAI/'
 

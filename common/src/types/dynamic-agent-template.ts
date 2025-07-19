@@ -70,6 +70,7 @@ export const DynamicAgentTemplateSchema = z.object({
     ),
   spawnableAgents: z.array(z.string()).default([]),
   promptSchema: PromptSchemaObjectSchema,
+  parentInstructions: z.record(z.string(), z.string()).optional(),
 
   // Required prompts (only strings or path references)
   systemPrompt: PromptFieldSchema,

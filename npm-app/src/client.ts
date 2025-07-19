@@ -1574,9 +1574,13 @@ Go to https://www.codebuff.com/config for more information.`) +
         return
       }
 
-      // Store agent names for tool renderer
+      // Store agent names for tool renderer (merge backend and local agents)
       if (parsedAction.data.agentNames) {
-        this.agentNames = parsedAction.data.agentNames
+        const localAgentNames = getLocalAgentNames()
+        this.agentNames = {
+          ...parsedAction.data.agentNames,
+          ...localAgentNames
+        }
       }
 
       // Log the message if it's defined

@@ -24,6 +24,7 @@ export type AgentTemplate = {
   includeMessageHistory: boolean
   toolNames: ToolName[]
   spawnableAgents: AgentTemplateType[]
+  parentInstructions?: Record<string, string>
 
   initialAssistantMessage: string | undefined
   initialAssistantPrefix: string | undefined
