@@ -10,15 +10,67 @@ import {
   ToolName,
   toolNames,
 } from '@codebuff/common/constants/tools'
-import { z } from 'zod/v4'
-
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
+import { z } from 'zod/v4'
+
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { agentTemplates } from './templates/agent-list'
 import { agentRegistry } from './templates/agent-registry'
 import { CodebuffToolCall, codebuffToolDefs } from './tools/constants'
+
+// Helper function to extract clean schema information for logging
+function getSchemaInfo(schema: any) {
+  const def = schema._def
+
+  // Map Zod type names to cleaner type strings
+  const getCleanType = (typeName: string): string => {
+    switch (typeName) {
+      case 'ZodString':
+      case 'string':
+        return 'string'
+      case 'ZodNumber':
+      case 'number':
+        return 'number'
+      case 'ZodBoolean':
+      case 'boolean':
+        return 'boolean'
+      case 'ZodArray':
+      case 'array':
+        return 'array'
+      case 'ZodObject':
+      case 'object':
+        return 'object'
+      case 'ZodOptional':
+        return (
+          getCleanType(
+            def.innerType?._def?.typeName ||
+              def.innerType?._def?.type ||
+              'unknown'
+          ) + ' (optional)'
+        )
+      case 'ZodUnion':
+      case 'union':
+        return 'union'
+      case 'ZodEnum':
+      case 'enum':
+        return 'enum'
+      default:
+        return 'unknown'
+    }
+  }
+
+  // Handle both regular zod and zod/v4 formats
+  const typeName = def.typeName || def.type || 'unknown'
+  const description =
+    def.description || schema.description || 'No description provided'
+
+  return {
+    type: getCleanType(typeName),
+    description: description,
+  }
+}
 
 const toolConfigsList = Object.entries(codebuffToolDefs).map(
   ([name, config]) =>
@@ -89,8 +141,7 @@ function buildSpawnableAgentsDescription(
   }
 
   /**
-   * Convert a Zod schema to JSON string representation.
-   * Schemas are now pre-converted during agent loading, so this is simpler.
+   * Convert a Zod schema to clean JSON string representation for logging.
    */
   const schemaToJsonStr = (
     schema: z.ZodTypeAny | undefined | Record<string, z.ZodTypeAny>
@@ -98,11 +149,20 @@ function buildSpawnableAgentsDescription(
     if (!schema) return 'None'
 
     try {
-      // Handle Zod schemas
-      if (schema instanceof z.ZodType) {
-        const jsonSchema = z.toJSONSchema(schema)
-        delete jsonSchema['$schema']
-        return JSON.stringify(jsonSchema, null, 2)
+      // Helper function to check if something is a Zod schema (supports both regular zod and zod/v4)
+      const isZodSchema = (obj: any) => {
+        return (
+          obj &&
+          typeof obj === 'object' &&
+          obj._def &&
+          (typeof obj._def.typeName === 'string' ||
+            typeof obj._def.type === 'string')
+        )
+      }
+
+      // Handle Zod schemas (more robust than instanceof due to zod version differences)
+      if (isZodSchema(schema)) {
+        return JSON.stringify(getSchemaInfo(schema as any), null, 2)
       }
 
       // Handle objects containing Zod schemas (for dynamic agents)
@@ -110,16 +170,15 @@ function buildSpawnableAgentsDescription(
         // Check if it's a plain object with Zod schemas as values
         const schemaEntries = Object.entries(schema)
         if (schemaEntries.length > 0) {
-          const isValidSchemaObject = schemaEntries.every(
-            ([key, value]) => value instanceof z.ZodType
+          const isValidSchemaObject = schemaEntries.every(([key, value]) =>
+            isZodSchema(value)
           )
           if (isValidSchemaObject) {
-            const wrappedSchema = z.object(
-              schema as Record<string, z.ZodTypeAny>
-            )
-            const jsonSchema = z.toJSONSchema(wrappedSchema)
-            delete jsonSchema['$schema']
-            return JSON.stringify(jsonSchema, null, 2)
+            const cleanSchema: Record<string, any> = {}
+            for (const [key, value] of schemaEntries) {
+              cleanSchema[key] = getSchemaInfo(value as any)
+            }
+            return JSON.stringify(cleanSchema, null, 2)
           }
         }
 
