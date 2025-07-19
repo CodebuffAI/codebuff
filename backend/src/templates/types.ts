@@ -76,6 +76,7 @@ const placeholderNames = [
   'SYSTEM_INFO_PROMPT',
   'TOOLS_PROMPT',
   'USER_CWD',
+  'USER_INPUT_PROMPT',
 ] as const
 
 type PlaceholderType<T extends typeof placeholderNames> = {
