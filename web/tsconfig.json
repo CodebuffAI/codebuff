@@ -30,10 +30,9 @@
     "**/*.ts",
     "**/*.tsx",
     "**/*.mjs",
-    ".next/types/**/*.ts",
-    ".contentlayer/generated"
+    ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", ".contentlayer"],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }

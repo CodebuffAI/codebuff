@@ -113,10 +113,6 @@ jobs:
           echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Generate contentlayer for web typecheck
-        run: |
-          cd web && mkdir -p .contentlayer/generated && echo 'export const allDocs: any[] = [];' > .contentlayer/generated/index.ts
-
       - name: Typecheck
         run: |
           bun run typecheck
