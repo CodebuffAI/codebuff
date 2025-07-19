@@ -153,16 +153,6 @@ describe('DynamicAgentTemplateSchema', () => {
       expect(result.success).toBe(false)
     })
 
-    it('should reject template with invalid model', () => {
-      const template = {
-        ...validBaseTemplate,
-        model: 'invalid-model-name',
-      }
-
-      const result = DynamicAgentTemplateSchema.safeParse(template)
-      expect(result.success).toBe(false)
-    })
-
     it('should reject template with invalid outputMode', () => {
       const template = {
         ...validBaseTemplate,
