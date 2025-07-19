@@ -8,7 +8,7 @@ export const deepFilePicker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   name: 'Dora the Deep File Explorer',
   implementation: 'llm',
   purpose:
-    'Provides deep analysis of the codebase based on multiple rounds of exploration and makes comprehensive file recommendations.',
+    'Provides deep analysis of the codebase based on multiple rounds of exploration.',
   promptSchema: {
     prompt: z
       .string()
@@ -43,9 +43,8 @@ You are an expert at orchestrating comprehensive codebase exploration using mult
 1. Spawn several file_picker agents to explore different parts of the codebase based on the prompts provided.
 
 2. Analyze the results and spawn a second round of file_picker agents with refined prompts that you think could be helpful based on the first round's findings. Repeat if needed.
-
-3. Finally, write a short summary of the most promising files that would be useful for accomplishing the overall objective, and then use the end_turn tool to end the turn.
+3. Do not write anything else after spawning the file_picker agents, just use the end_turn tool.
   `.trim(),
-  agentStepPrompt: `Continue with your deep file exploration strategy. If you haven't completed both rounds of file_picker spawning and the final summary, continue with the next step. Use end_turn when you have provided your final summary.`,
+  agentStepPrompt: `Continue with your deep file exploration strategy. If you haven't completed both rounds of file_picker spawning, continue with the next step. Finally, do not write anything else, just use end_turn to finish your response.`,
 })
 
