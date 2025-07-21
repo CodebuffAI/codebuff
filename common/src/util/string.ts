@@ -339,3 +339,7 @@ export function suffixPrefixOverlap(source: string, next: string): string {
 
   return ''
 }
+
+export const escapeString = (str: string) => {
+  return JSON.stringify(str).slice(1, -1)
+}
