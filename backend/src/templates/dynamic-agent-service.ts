@@ -14,7 +14,7 @@ import { jsonSchemaToZod } from 'json-schema-to-zod'
 import { z } from 'zod'
 
 import { logger } from '../util/logger'
-import { AgentTemplate, AgentTemplateUnion } from './types'
+import { AgentTemplate } from './types'
 
 export interface DynamicAgentValidationError {
   filePath: string
@@ -23,7 +23,7 @@ export interface DynamicAgentValidationError {
 }
 
 export interface DynamicAgentLoadResult {
-  templates: Record<string, AgentTemplateUnion>
+  templates: Record<string, AgentTemplate>
   validationErrors: DynamicAgentValidationError[]
 }
 
@@ -245,7 +245,6 @@ export class DynamicAgentService {
       const agentTemplate: AgentTemplate = {
         id: dynamicAgent.id as AgentTemplateType,
         name: dynamicAgent.name,
-        implementation: 'llm',
         purpose: dynamicAgent.purpose,
         model: dynamicAgent.model as any,
         promptSchema,

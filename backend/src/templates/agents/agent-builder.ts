@@ -7,7 +7,6 @@ import { AgentTemplate } from '../types'
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
   name: 'Agent Builder',
   purpose: 'Creates new agent templates for the codebuff mult-agent system',
-  implementation: 'llm',
   model,
   promptSchema: {
     prompt: z

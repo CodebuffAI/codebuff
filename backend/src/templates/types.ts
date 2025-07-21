@@ -3,6 +3,7 @@ import { z } from 'zod/v4'
 import { Model } from '@codebuff/common/constants'
 import { ToolName } from '@codebuff/common/constants/tools'
 import {
+  AgentState,
   AgentTemplateType,
   AgentTemplateTypes,
   ToolResult,
@@ -14,7 +15,6 @@ export type AgentTemplate = {
   name: string
   purpose: string
   model: Model
-  implementation: 'llm'
   // Required parameters for spawning this agent.
   promptSchema: {
     prompt?: z.ZodSchema<string | undefined>
@@ -34,36 +34,17 @@ export type AgentTemplate = {
   systemPrompt: string
   userInputPrompt: string
   agentStepPrompt: string
+
+  handleStep?: StepHandler
 }
 
-export interface ProgrammaticAgentTemplate {
-  id: AgentTemplateType
-  implementation: 'programmatic'
-  name: string
-  purpose: string
-  handler: ProgrammaticAgentFunction // Direct generator function. TODO: replace with path to a file or string of source code?
-  includeMessageHistory: boolean
-  promptSchema: {
-    prompt?: z.ZodSchema<string | undefined>
-    params?: z.ZodSchema<any>
-  }
-  toolNames: ToolName[] // Tools this programmatic agent can use
-  spawnableAgents: AgentTemplateType[] // Agents it can spawn
-}
+export type StepGenerator = Generator<
+  Omit<CodebuffToolCall, 'toolCallId'> | 'STEP' | 'STEP_ALL',
+  void,
+  ToolResult | undefined
+>
 
-// Union type for all agent templates
-export type AgentTemplateUnion = AgentTemplate | ProgrammaticAgentTemplate
-
-// Context passed to programmatic agents
-export interface ProgrammaticAgentContext {
-  prompt: string
-  params: any
-}
-
-// The generator function signature
-export type ProgrammaticAgentFunction = (
-  context: ProgrammaticAgentContext
-) => Generator<Omit<CodebuffToolCall, 'toolCallId'>, void, ToolResult>
+export type StepHandler = (agentState: AgentState) => StepGenerator
 
 const placeholderNames = [
   'AGENT_NAME',

@@ -19,7 +19,6 @@ export const thinkingBase = (
   allAvailableAgents?: string[]
 ): Omit<AgentTemplate, 'id'> => ({
   model,
-  implementation: 'llm',
   name: AGENT_PERSONAS['base_lite'].name,
   purpose: AGENT_PERSONAS['base_lite'].purpose,
   promptSchema: {

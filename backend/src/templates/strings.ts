@@ -110,7 +110,7 @@ export async function collectParentInstructions(
   const allTemplates = agentRegistry.getAllTemplates()
 
   for (const template of Object.values(allTemplates)) {
-    if (template.implementation === 'llm' && template.parentInstructions) {
+    if (template.parentInstructions) {
       const instruction = template.parentInstructions[agentType]
       if (instruction) {
         instructions.push(instruction)

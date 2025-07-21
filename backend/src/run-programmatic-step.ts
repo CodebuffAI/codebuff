@@ -1,22 +1,24 @@
 import {
   AgentState,
   AgentTemplateType,
+  ToolResult,
 } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { WebSocket } from 'ws'
 import { runTool } from './run-tool'
-import {
-  ProgrammaticAgentContext,
-  ProgrammaticAgentTemplate,
-} from './templates/types'
+import { AgentTemplate, StepGenerator } from './templates/types'
 import { CodebuffToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import { getRequestContext } from './websockets/request-context'
 
+// Maintains generator state for all agents. Generator state can't be serialized, so we store it in memory.
+const agentIdToGenerator: Record<string, StepGenerator | undefined> = {}
+
 // Function to handle programmatic agents
-export async function runProgrammaticAgent(
-  template: ProgrammaticAgentTemplate,
-  options: {
+export async function runProgrammaticStep(
+  agentState: AgentState,
+  params: {
+    template: AgentTemplate
     userId: string | undefined
     userInputId: string
     clientSessionId: string
@@ -24,7 +26,6 @@ export async function runProgrammaticAgent(
     onResponseChunk: (chunk: string) => void
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
-    agentState: AgentState
     prompt: string | undefined
     params: Record<string, any> | undefined
     assistantMessage: string | undefined
@@ -33,7 +34,7 @@ export async function runProgrammaticAgent(
   }
 ): Promise<AgentState> {
   const {
-    agentState,
+    template,
     onResponseChunk,
     ws,
     userId,
@@ -41,30 +42,47 @@ export async function runProgrammaticAgent(
     clientSessionId,
     fingerprintId,
     fileContext,
-  } = options
+  } = params
 
   logger.info(
     {
       template: template.id,
-      agentType: options.agentType,
-      prompt: options.prompt,
-      params: options.params,
+      agentType: params.agentType,
+      prompt: params.prompt,
+      params: params.params,
     },
-    'Running programmatic agent'
+    'Running programmatic step'
   )
-  // Create context for the programmatic agent
-  const context: ProgrammaticAgentContext = {
-    prompt: options.prompt || '',
-    params: options.params || {},
+
+  let generator = agentIdToGenerator[agentState.agentId]
+  if (!generator) {
+    if (!template.handleStep) {
+      throw new Error('No step handler found for agent template ' + template.id)
+    }
+    generator = template.handleStep(agentState)
+    agentIdToGenerator[agentState.agentId] = generator
   }
 
-  try {
-    // Run the generator function and handle tool calls
-    const generator = template.handler(context)
-    let result = generator.next()
+  if (Math.random() <= 1) {
+    throw new Error('Not implemented yet!')
+  }
 
-    // Process tool calls yielded by the generator
-    while (!result.done) {
+  let toolResult: ToolResult | undefined
+
+  try {
+    do {
+      let result = generator.next(toolResult)
+      if (result.done) {
+        break
+      }
+      if (result.value === 'STEP') {
+        break
+      }
+      if (result.value === 'STEP_ALL') {
+        break
+      }
+
+      // Process tool calls yielded by the generator
       const toolCallWithoutId = result.value
       const toolCall = {
         ...toolCallWithoutId,
@@ -79,7 +97,7 @@ export async function runProgrammaticAgent(
       const repoId = requestContext?.processedRepoId
 
       // Execute the tool call using the simplified wrapper
-      const toolResult = await runTool(toolCall, {
+      toolResult = await runTool(toolCall, {
         ws,
         userId,
         userInputId,
@@ -93,13 +111,10 @@ export async function runProgrammaticAgent(
         agentState,
       })
 
-      // Send the tool result back to the generator
-      result = generator.next(toolResult)
-
       if (result.value && result.value.toolName === 'end_turn') {
         break
       }
-    }
+    } while (true)
 
     logger.info(
       { report: agentState.report },

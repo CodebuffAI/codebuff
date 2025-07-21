@@ -23,7 +23,6 @@ describe('processAgentOverrides', () => {
     systemPrompt: 'Base system prompt',
     userInputPrompt: 'Base user input prompt',
     agentStepPrompt: 'Base agent step prompt',
-    implementation: 'llm',
   }
 
   const mockFileContext: ProjectFileContext = {

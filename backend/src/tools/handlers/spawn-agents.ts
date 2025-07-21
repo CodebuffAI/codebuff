@@ -187,10 +187,7 @@ export const handleSpawnAgents = ((params: {
         const agentTemplate = allTemplates[agentState.agentType!]
         let report = ''
 
-        if (
-          agentTemplate.implementation === 'programmatic' ||
-          agentTemplate.outputMode === 'report'
-        ) {
+        if (agentTemplate.outputMode === 'report') {
           report = JSON.stringify(result.value.agentState.report, null, 2)
         } else if (agentTemplate.outputMode === 'last_message') {
           const { agentState } = result.value
