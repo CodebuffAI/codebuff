@@ -288,12 +288,12 @@ export const providerModelNames = {
 
 export type Model = (typeof models)[keyof typeof models] | (string & {})
 
-const modelsGeneric = Object.values(models) as string[]
+const modelsGeneric = Object.values(models) satisfies string[] as string[]
 const nonCacheableModels = [
   models.openrouter_grok_4,
 ] satisfies string[] as string[]
 export function supportsCacheControl(model: Model): boolean {
-  if (!modelsGeneric.includes(model satisfies string as string)) {
+  if (!modelsGeneric.includes(model)) {
     // Default to no cache control for unknown models
     return false
   }
