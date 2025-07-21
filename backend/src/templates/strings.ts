@@ -14,7 +14,7 @@ import { getShortToolInstructions, getToolsInstructions } from '../tools'
 
 import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { generateCompactId } from '@codebuff/common/util/string'
+import { escapeString, generateCompactId } from '@codebuff/common/util/string'
 import { agentTemplates } from './agent-list'
 import {
   PLACEHOLDER,
@@ -61,13 +61,13 @@ export async function formatPrompt(
       'agent'
     ),
     [PLACEHOLDER.GIT_CHANGES_PROMPT]: getGitChangesPrompt(fileContext),
-    [PLACEHOLDER.USER_INPUT_PROMPT]: lastUserInput ?? '',
     [PLACEHOLDER.REMAINING_STEPS]: `${agentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools, spawnableAgents),
     [PLACEHOLDER.USER_CWD]: fileContext.cwd,
-    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: intitialAgentPrompt ?? '',
+    [PLACEHOLDER.USER_INPUT_PROMPT]: escapeString(lastUserInput ?? ''),
+    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: escapeString(intitialAgentPrompt ?? ''),
     [PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS]: renderToolResults(
       Object.entries({
         ...Object.fromEntries(
