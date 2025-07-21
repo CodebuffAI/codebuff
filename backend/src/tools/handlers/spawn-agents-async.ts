@@ -147,8 +147,18 @@ export const handleSpawnAgentsAsync = ((params: {
           }
         }
 
+        const { formatPrompt } = await import('../../templates/strings')
+        const formattedPrompt = await formatPrompt(
+          prompt || '',
+          fileContext,
+          mutableState.agentState,
+          parentAgentTemplate.toolNames,
+          parentAgentTemplate.spawnableAgents,
+          agentRegistry
+        )
+
         logger.debug(
-          { agentTemplate, prompt, params },
+          { agentTemplate, prompt: formattedPrompt, params },
           `Spawning async agent — ${agentType}`
         )
 
@@ -177,7 +187,7 @@ export const handleSpawnAgentsAsync = ((params: {
             const { loopAgentSteps } = await import('../../run-agent-step')
             const result = await loopAgentSteps(ws, {
               userInputId: `${userInputId}-async-${agentType}-${agentId}`,
-              prompt: prompt || '',
+              prompt: formattedPrompt,
               params,
               agentType: agentTemplate.id,
               agentState,

@@ -131,8 +131,18 @@ export const handleSpawnAgents = ((params: {
           }
         }
 
+        const { formatPrompt } = await import('../../templates/strings')
+        const formattedPrompt = await formatPrompt(
+          prompt || '',
+          fileContext,
+          mutableState.agentState,
+          parentAgentTemplate.toolNames,
+          parentAgentTemplate.spawnableAgents,
+          agentRegistry
+        )
+
         logger.debug(
-          { agentTemplate, prompt, params },
+          { agentTemplate, prompt: formattedPrompt, params },
           `Spawning agent — ${agentType}`
         )
         const subAgentMessages: CoreMessage[] = []
@@ -157,7 +167,7 @@ export const handleSpawnAgents = ((params: {
         const { loopAgentSteps } = await import('../../run-agent-step')
         const result = await loopAgentSteps(ws, {
           userInputId: `${userInputId}-${agentType}${agentId}`,
-          prompt: prompt || '',
+          prompt: formattedPrompt,
           params,
           agentType: agentTemplate.id,
           agentState,
