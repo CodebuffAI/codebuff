@@ -190,7 +190,7 @@ export const handleSpawnAgentsAsync = ((params: {
             })
 
             // Send completion message to parent if agent has appropriate output mode
-            if (agentState.parentId && agentTemplate.implementation === 'llm') {
+            if (agentState.parentId) {
               const { outputMode } = agentTemplate
               if (
                 outputMode === 'last_message' ||

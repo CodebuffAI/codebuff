@@ -8,7 +8,6 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 export const reviewer = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   name: AGENT_PERSONAS['reviewer'].name,
-  implementation: 'llm',
   purpose: AGENT_PERSONAS['reviewer'].purpose,
   promptSchema: {
     prompt: z.string().describe('What should be reviewed. Be brief.'),

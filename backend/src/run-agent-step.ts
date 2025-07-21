@@ -23,14 +23,14 @@ import { asyncAgentManager } from './async-agent-manager'
 import { getFileReadingUpdates } from './get-file-reading-updates'
 import { checkLiveUserInput } from './live-user-inputs'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
-import { runProgrammaticAgent } from './run-programmatic-agent'
+import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { agentTemplates } from './templates/agent-list'
 import { processAgentOverrides } from './templates/agent-overrides'
 import { agentRegistry } from './templates/agent-registry'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
-import { AgentTemplateUnion } from './templates/types'
+import { AgentTemplate } from './templates/types'
 import { processStreamWithTools } from './tools/stream-parser'
 import { logger } from './util/logger'
 import {
@@ -70,7 +70,7 @@ export interface AgentOptions {
 async function getAgentTemplateWithOverrides(
   agentType: AgentTemplateType,
   fileContext: ProjectFileContext
-): Promise<AgentTemplateUnion> {
+): Promise<AgentTemplate> {
   // Initialize registry if needed
   await agentRegistry.initialize(fileContext)
 
@@ -80,11 +80,6 @@ async function getAgentTemplateWithOverrides(
     throw new Error(
       `Agent template not found for type: ${agentType}. Available types: ${availableTypes.join(', ')}`
     )
-  }
-
-  if (baseTemplate.implementation === 'programmatic') {
-    // Programmatic agents cannot be overridden.
-    return baseTemplate
   }
 
   return processAgentOverrides(baseTemplate, fileContext)
@@ -106,12 +101,12 @@ export const runAgentStep = async (
     onResponseChunk,
     fileContext,
     agentType,
-    agentState,
     prompt,
     params,
     assistantMessage,
     assistantPrefix,
   } = options
+  let agentState = options.agentState
 
   const { agentContext } = agentState
 
@@ -131,16 +126,13 @@ export const runAgentStep = async (
     )
   }
 
-  if (agentTemplate.implementation === 'programmatic') {
-    const agentState = await runProgrammaticAgent(agentTemplate, {
+  const { handleStep } = agentTemplate
+  if (handleStep) {
+    agentState = await runProgrammaticStep(agentState, {
       ...options,
       ws,
+      template: agentTemplate,
     })
-    return {
-      agentState,
-      shouldEndTurn: true,
-      fullResponse: '',
-    }
   }
 
   const { model } = agentTemplate
@@ -569,15 +561,7 @@ export const loopAgentSteps = async (
     initialAssistantPrefix,
     stepAssistantMessage,
     stepAssistantPrefix,
-  } =
-    agentTemplate.implementation === 'llm'
-      ? agentTemplate
-      : {
-          initialAssistantMessage: undefined,
-          initialAssistantPrefix: undefined,
-          stepAssistantMessage: undefined,
-          stepAssistantPrefix: undefined,
-        }
+  } = agentTemplate
   let isFirstStep = true
   let currentPrompt = prompt
   let currentParams = params

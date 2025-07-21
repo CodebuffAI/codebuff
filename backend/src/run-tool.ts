@@ -23,7 +23,7 @@ import { searchWeb } from './llm-apis/linkup-api'
 import { PROFIT_MARGIN } from './llm-apis/message-cost-tracker'
 import { getSearchSystemPrompt } from './system-prompt/search-system-prompt'
 import { agentRegistry } from './templates/agent-registry'
-import { AgentTemplate, ProgrammaticAgentTemplate } from './templates/types'
+import { AgentTemplate } from './templates/types'
 import { ClientToolCall, CodebuffToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import { renderReadFilesResult } from './util/parse-tool-call-xml'
@@ -43,7 +43,7 @@ export interface RunToolOptions {
   agentStepId: string
   fileContext: ProjectFileContext
   messages: CoreMessage[]
-  agentTemplate: AgentTemplate | ProgrammaticAgentTemplate
+  agentTemplate: AgentTemplate
   repoId?: string
   // Additional context for update_report
   agentState?: AgentState
@@ -681,10 +681,7 @@ export async function runToolInner(
           const agentTemplate = allTemplates[agentState.agentType!]
           let report = ''
 
-          if (
-            agentTemplate.implementation === 'programmatic' ||
-            agentTemplate.outputMode === 'report'
-          ) {
+          if (agentTemplate.outputMode === 'report') {
             report = JSON.stringify(result.value.agentState.report, null, 2)
           } else if (agentTemplate.outputMode === 'last_message') {
             const { agentState } = result.value
