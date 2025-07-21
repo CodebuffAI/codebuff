@@ -41,8 +41,8 @@ export const base = (
   spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [
-        AgentTemplateTypes.file_picker,
-        AgentTemplateTypes.deep_file_picker,
+        // AgentTemplateTypes.file_picker,
+        AgentTemplateTypes.broad_file_picker,
         AgentTemplateTypes.researcher,
         AgentTemplateTypes.thinker,
         AgentTemplateTypes.reviewer,

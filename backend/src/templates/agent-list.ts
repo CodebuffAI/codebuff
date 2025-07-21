@@ -8,7 +8,7 @@ import { agentBuilder } from './agents/agent-builder'
 import { dryRun } from './agents/archive/dry-run'
 import { ask } from './agents/ask'
 import { base } from './agents/base'
-import { exampleProgrammatic } from './agents/example-programmatic'
+import { broadFilePicker } from './agents/broad-file-picker'
 import { filePicker } from './agents/file-picker'
 import { deepFilePicker } from './agents/deep-file-picker'
 import { planner } from './agents/planner'
@@ -84,5 +84,5 @@ export const agentTemplates: Record<
     id: AgentTemplateTypes.sonnet4_agent_builder,
     ...agentBuilder(models.openrouter_claude_sonnet_4),
   },
-  example_programmatic: exampleProgrammatic,
+  broad_file_picker: broadFilePicker,
 }
