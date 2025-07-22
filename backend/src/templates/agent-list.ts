@@ -16,6 +16,7 @@ import { superagent } from './agents/superagent'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
 import { AgentTemplate } from './types'
+import { broadFilePicker } from './agents/broad-file-picker'
 
 export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
   {
@@ -76,4 +77,5 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
       id: AgentTemplateTypes.sonnet4_agent_builder,
       ...agentBuilder(models.openrouter_claude_sonnet_4),
     },
+    broad_file_picker: broadFilePicker as any as AgentTemplate,
   }
