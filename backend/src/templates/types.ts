@@ -41,7 +41,7 @@ export type AgentTemplate = {
 export type StepGenerator = Generator<
   Omit<CodebuffToolCall, 'toolCallId'> | 'STEP' | 'STEP_ALL',
   void,
-  ToolResult | undefined
+  { agentState: AgentState; toolResult: ToolResult | undefined }
 >
 
 export type StepHandler = (agentState: AgentState) => StepGenerator

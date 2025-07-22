@@ -128,11 +128,19 @@ export const runAgentStep = async (
 
   const { handleStep } = agentTemplate
   if (handleStep) {
-    agentState = await runProgrammaticStep(agentState, {
+    const { agentState: newAgentState, endTurn } = await runProgrammaticStep(agentState, {
       ...options,
       ws,
       template: agentTemplate,
     })
+    agentState = newAgentState
+    if (endTurn) {
+      return {
+        agentState,
+        fullResponse: '',
+        shouldEndTurn: true,
+      }
+    }
   }
 
   const { model } = agentTemplate

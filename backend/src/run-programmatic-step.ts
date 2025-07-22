@@ -12,7 +12,10 @@ import { logger } from './util/logger'
 import { getRequestContext } from './websockets/request-context'
 
 // Maintains generator state for all agents. Generator state can't be serialized, so we store it in memory.
-const agentIdToGenerator: Record<string, StepGenerator | undefined> = {}
+const agentIdToGenerator: Record<
+  string,
+  StepGenerator | 'STEP_ALL' | undefined
+> = {}
 
 // Function to handle programmatic agents
 export async function runProgrammaticStep(
@@ -32,7 +35,7 @@ export async function runProgrammaticStep(
     assistantPrefix: string | undefined
     ws: WebSocket
   }
-): Promise<AgentState> {
+): Promise<{ agentState: AgentState; endTurn: boolean }> {
   const {
     template,
     onResponseChunk,
@@ -62,23 +65,25 @@ export async function runProgrammaticStep(
     generator = template.handleStep(agentState)
     agentIdToGenerator[agentState.agentId] = generator
   }
-
-  if (Math.random() <= 1) {
-    throw new Error('Not implemented yet!')
+  if (generator === 'STEP_ALL') {
+    return { agentState, endTurn: false }
   }
 
   let toolResult: ToolResult | undefined
+  let endTurn = false
 
   try {
     do {
-      let result = generator.next(toolResult)
+      let result = generator.next({ agentState: { ...agentState }, toolResult })
       if (result.done) {
+        endTurn = true
         break
       }
       if (result.value === 'STEP') {
         break
       }
       if (result.value === 'STEP_ALL') {
+        agentIdToGenerator[agentState.agentId] = 'STEP_ALL'
         break
       }
 
@@ -112,15 +117,10 @@ export async function runProgrammaticStep(
       })
 
       if (result.value && result.value.toolName === 'end_turn') {
+        endTurn = true
         break
       }
     } while (true)
-
-    logger.info(
-      { report: agentState.report },
-      'Programmatic agent execution completed'
-    )
-    return agentState
   } catch (error) {
     logger.error(
       { error, template: template.id },
@@ -132,6 +132,13 @@ export async function runProgrammaticStep(
 
     agentState.report.error = errorMessage
 
-    return agentState
+    return { agentState, endTurn: true }
   }
+
+  logger.info(
+    { report: agentState.report },
+    'Programmatic agent execution completed'
+  )
+
+  return { agentState, endTurn }
 }
