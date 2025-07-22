@@ -1,5 +1,5 @@
-import { AgentTemplate } from '../types'
 import { z } from 'zod/v4'
+import { AgentTemplate } from '../types'
 
 const paramsSchema = z.object({
   prompts: z
@@ -9,9 +9,9 @@ const paramsSchema = z.object({
     ),
 })
 
-export const broadFilePicker = {
-  id: 'broad_file_picker',
-  name: 'Broad File Picker',
+export const fileExplorer = {
+  id: 'file_explorer',
+  name: 'Dora the File Explorer',
   purpose:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
   model: 'anthropic/claude-4-sonnet-20250522',
@@ -26,9 +26,9 @@ export const broadFilePicker = {
     params: paramsSchema,
   },
   systemPrompt:
-    'You are a broad file picker agent that spawns multiple file picker agents in parallel to comprehensively explore the codebase.',
-  userInputPrompt: 'Execute the broad file picking strategy.',
-  agentStepPrompt: 'Continue with the broad file picking process.',
+    'You are a file explorer agent that spawns multiple file picker agents in parallel to comprehensively explore the codebase.',
+  userInputPrompt: '',
+  agentStepPrompt: '',
 
   initialAssistantMessage: '',
   initialAssistantPrefix: '',

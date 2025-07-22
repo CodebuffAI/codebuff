@@ -8,6 +8,7 @@ import { agentBuilder } from './agents/agent-builder'
 import { dryRun } from './agents/archive/dry-run'
 import { ask } from './agents/ask'
 import { base } from './agents/base'
+import { fileExplorer } from './agents/file-explorer'
 import { filePicker } from './agents/file-picker'
 import { planner } from './agents/planner'
 import { researcher } from './agents/researcher'
@@ -16,7 +17,6 @@ import { superagent } from './agents/superagent'
 import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
 import { AgentTemplate } from './types'
-import { broadFilePicker } from './agents/broad-file-picker'
 
 export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
   {
@@ -77,5 +77,5 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
       id: AgentTemplateTypes.sonnet4_agent_builder,
       ...agentBuilder(models.openrouter_claude_sonnet_4),
     },
-    broad_file_picker: broadFilePicker as any as AgentTemplate,
+    file_explorer: fileExplorer as any as AgentTemplate,
   }
