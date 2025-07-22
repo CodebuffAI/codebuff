@@ -25,6 +25,8 @@ export async function runProgrammaticStep(
   agentState: AgentState,
   params: {
     template: AgentTemplate
+    prompt: string | undefined
+    params: Record<string, any> | undefined
     userId: string | undefined
     userInputId: string
     clientSessionId: string
@@ -32,8 +34,6 @@ export async function runProgrammaticStep(
     onResponseChunk: (chunk: string) => void
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
-    prompt: string | undefined
-    params: Record<string, any> | undefined
     assistantMessage: string | undefined
     assistantPrefix: string | undefined
     ws: WebSocket
@@ -65,7 +65,11 @@ export async function runProgrammaticStep(
     if (!template.handleStep) {
       throw new Error('No step handler found for agent template ' + template.id)
     }
-    generator = template.handleStep(agentState)
+    generator = template.handleStep({
+      agentState,
+      prompt: params.prompt,
+      params: params.params,
+    })
     agentIdToGenerator[agentState.agentId] = generator
   }
   if (generator === 'STEP_ALL') {
