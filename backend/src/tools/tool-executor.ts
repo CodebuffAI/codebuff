@@ -124,11 +124,6 @@ export async function executeSingleTool<T extends ToolName>(
     state,
   } = context
 
-  logger.debug(
-    { toolCall },
-    `${toolCall.toolName} (${toolCall.toolCallId}) executing single tool`
-  )
-
   // Check if tool is allowed for this agent
   if (!agentTemplate.toolNames.includes(toolCall.toolName)) {
     const errorResult = {
@@ -193,11 +188,6 @@ export async function executeSingleTool<T extends ToolName>(
       toolCallId: toolCall.toolCallId,
       result,
     }
-
-    logger.debug(
-      { toolResult },
-      `${toolCall.toolName} (${toolResult.toolCallId}) tool result for single tool`
-    )
 
     // Add tool result to message history
     state.mutableState.messages.push({
