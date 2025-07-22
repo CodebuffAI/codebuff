@@ -57,10 +57,10 @@ describe('Dynamic Agent Loader', () => {
   }
 
   it('should load valid dynamic agent template', async () => {
-    const fileContext = {
+    const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        '.agents/templates/brainstormer.json': JSON.stringify({
+        brainstormer: {
           id: 'brainstormer',
           version: '1.0.0',
           override: false,
@@ -72,7 +72,13 @@ describe('Dynamic Agent Loader', () => {
           agentStepPrompt: 'Continue brainstorming.',
           toolNames: ['end_turn'],
           spawnableAgents: ['thinker', 'researcher'],
-        }),
+          initialAssistantMessage: '',
+          initialAssistantPrefix: '',
+          stepAssistantMessage: '',
+          stepAssistantPrefix: '',
+          outputMode: 'last_message',
+          includeMessageHistory: true,
+        },
       },
     }
 
@@ -84,33 +90,11 @@ describe('Dynamic Agent Loader', () => {
     expect(result.templates.brainstormer.id).toBe('brainstormer')
   })
 
-  it('should reject templates with override: true', async () => {
-    const fileContext = {
-      ...mockFileContext,
-      agentTemplates: {
-        '.agents/templates/override.json': JSON.stringify({
-          id: 'reviewer',
-          version: '1.0.0',
-          override: true,
-          systemPrompt: 'Override system prompt',
-        }),
-      },
-    }
-
-    const result = await dynamicAgentService.loadAgents(fileContext)
-
-    expect(result.validationErrors).toHaveLength(1)
-    expect(result.validationErrors[0].message).toContain(
-      'Dynamic agents no longer support override: true'
-    )
-    expect(Object.keys(result.templates)).toHaveLength(0)
-  })
-
   it('should validate spawnable agents', async () => {
-    const fileContext = {
+    const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        '.agents/templates/invalid.json': JSON.stringify({
+        invalid: {
           id: 'invalid_agent',
           version: '1.0.0',
           override: false,
@@ -121,7 +105,14 @@ describe('Dynamic Agent Loader', () => {
           userInputPrompt: 'Test',
           agentStepPrompt: 'Test',
           spawnableAgents: ['nonexistent_agent'],
-        }),
+          outputMode: 'last_message',
+          includeMessageHistory: true,
+          toolNames: ['end_turn'],
+          initialAssistantMessage: '',
+          initialAssistantPrefix: '',
+          stepAssistantMessage: '',
+          stepAssistantPrefix: '',
+        },
       },
     }
 
@@ -133,27 +124,11 @@ describe('Dynamic Agent Loader', () => {
     )
   })
 
-  it('should handle invalid JSON', async () => {
-    const fileContext = {
-      ...mockFileContext,
-      agentTemplates: {
-        '.agents/templates/broken.json': 'invalid json{',
-      },
-    }
-
-    const result = await dynamicAgentService.loadAgents(fileContext)
-
-    expect(result.validationErrors).toHaveLength(1)
-    expect(result.validationErrors[0].message).toContain(
-      'Error in agent template'
-    )
-  })
-
   it('should merge static and dynamic templates', async () => {
-    const fileContext = {
+    const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        '.agents/templates/custom.json': JSON.stringify({
+        custom: {
           id: 'custom_agent',
           version: '1.0.0',
           override: false,
@@ -163,7 +138,15 @@ describe('Dynamic Agent Loader', () => {
           systemPrompt: 'Custom system prompt',
           userInputPrompt: 'Custom user prompt',
           agentStepPrompt: 'Custom step prompt',
-        }),
+          outputMode: 'last_message',
+          includeMessageHistory: true,
+          toolNames: ['end_turn'],
+          spawnableAgents: [],
+          initialAssistantMessage: '',
+          initialAssistantPrefix: '',
+          stepAssistantMessage: '',
+          stepAssistantPrefix: '',
+        },
       },
     }
 
@@ -177,10 +160,10 @@ describe('Dynamic Agent Loader', () => {
     // Create a new service instance to avoid global state issues
     const testService = new DynamicAgentService()
 
-    const fileContext = {
+    const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        '.agents/templates/schema-agent.json': JSON.stringify({
+        'schema-agent': {
           id: 'schema_agent',
           version: '1.0.0',
           override: false,
@@ -202,7 +185,15 @@ describe('Dynamic Agent Loader', () => {
               },
             },
           },
-        }),
+          outputMode: 'last_message',
+          includeMessageHistory: true,
+          toolNames: ['end_turn'],
+          spawnableAgents: [],
+          initialAssistantMessage: '',
+          initialAssistantPrefix: '',
+          stepAssistantMessage: '',
+          stepAssistantPrefix: '',
+        },
       },
     }
 
@@ -218,10 +209,10 @@ describe('Dynamic Agent Loader', () => {
     // Create a new service instance to avoid global state issues
     const testService = new DynamicAgentService()
 
-    const fileContext = {
+    const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        '.agents/templates/invalid-schema-agent.json': JSON.stringify({
+        'invalid-schema-agent': {
           id: 'invalid_schema_agent',
           version: '1.0.0',
           override: false,
@@ -236,7 +227,15 @@ describe('Dynamic Agent Loader', () => {
               type: 'number', // Invalid - should allow strings
             },
           },
-        }),
+          outputMode: 'last_message',
+          includeMessageHistory: true,
+          toolNames: ['end_turn'],
+          spawnableAgents: [],
+          initialAssistantMessage: '',
+          initialAssistantPrefix: '',
+          stepAssistantMessage: '',
+          stepAssistantPrefix: '',
+        },
       },
     }
 
@@ -252,123 +251,13 @@ describe('Dynamic Agent Loader', () => {
     expect(result.templates).not.toHaveProperty('invalid_schema_agent')
   })
 
-  it('should resolve prompts from agentTemplates', async () => {
-    const testService = new DynamicAgentService()
-
-    const fileContext = {
-      ...mockFileContext,
-      agentTemplates: {
-        '.agents/templates/prompt-ref-agent.json': JSON.stringify({
-          id: 'prompt_ref_agent',
-          version: '1.0.0',
-          override: false,
-          name: 'Prompt Reference Agent',
-          purpose: 'Agent with prompt references',
-          model: 'anthropic/claude-4-sonnet-20250522',
-          systemPrompt: { path: '.agents/templates/system-prompt.md' },
-          userInputPrompt: 'Direct user prompt',
-          agentStepPrompt: { path: '.agents/templates/step-prompt.md' },
-        }),
-        '.agents/templates/system-prompt.md':
-          'System prompt from agentTemplates',
-        '.agents/templates/step-prompt.md': 'Step prompt from agentTemplates',
-      },
-    }
-
-    const result = (await testService.loadAgents(fileContext)) as any
-
-    expect(result.validationErrors).toHaveLength(0)
-    expect(result.templates).toHaveProperty('prompt_ref_agent')
-    expect(result.templates.prompt_ref_agent.systemPrompt).toBe(
-      'System prompt from agentTemplates'
-    )
-    expect(result.templates.prompt_ref_agent.userInputPrompt).toBe(
-      'Direct user prompt'
-    )
-    expect(result.templates.prompt_ref_agent.agentStepPrompt).toBe(
-      'Step prompt from agentTemplates'
-    )
-  })
-
-  it('should resolve relative path prompts with multiple path variations', async () => {
-    const testService = new DynamicAgentService()
-
-    const fileContext = {
-      ...mockFileContext,
-      agentTemplates: {
-        '.agents/templates/git-committer.json': JSON.stringify({
-          id: 'CodebuffAI/git-committer',
-          version: '0.0.1',
-          override: false,
-          name: 'Git Committer',
-          purpose:
-            'A git committer agent specialized to commit current changes',
-          model: 'google/gemini-2.5-pro',
-          systemPrompt: 'You are an expert software developer.',
-          userInputPrompt: { path: './git-committer-user-prompt.md' }, // Relative path
-          agentStepPrompt: 'Make sure to end your response.',
-        }),
-        // The content should be found with the full path
-        '.agents/templates/git-committer-user-prompt.md':
-          'Please follow the below steps to create a good commit message...',
-      },
-    }
-
-    const result = (await testService.loadAgents(fileContext)) as any
-
-    expect(result.validationErrors).toHaveLength(0)
-    expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
-    expect(result.templates['CodebuffAI/git-committer'].userInputPrompt).toBe(
-      'Please follow the below steps to create a good commit message...'
-    )
-  })
-
-  it('should handle override: false correctly (not skip non-override templates)', async () => {
-    const testService = new DynamicAgentService()
-
-    const fileContext = {
-      ...mockFileContext,
-      agentTemplates: {
-        '.agents/templates/git-committer.json': JSON.stringify({
-          id: 'CodebuffAI/git-committer',
-          version: '0.0.1',
-          override: false, // Explicitly false - should NOT be skipped
-          name: 'Git Committer',
-          purpose: 'A git committer agent',
-          model: 'google/gemini-2.5-pro',
-          systemPrompt: 'You are an expert software developer.',
-          userInputPrompt: 'Create a commit message.',
-          agentStepPrompt: 'Make sure to end your response.',
-        }),
-        '.agents/templates/base.json': JSON.stringify({
-          id: 'CodebuffAI/base',
-          version: '0.0.420',
-          override: true, // Should cause validation error
-          spawnableAgents: {
-            type: 'append',
-            content: 'CodebuffAI/git-committer',
-          },
-        }),
-      },
-    }
-
-    const result = await testService.loadAgents(fileContext)
-
-    expect(result.validationErrors).toHaveLength(1)
-    expect(result.validationErrors[0].message).toContain(
-      'Dynamic agents no longer support override: true'
-    )
-    // No templates should be loaded when override: true error occurs during collection
-    expect(Object.keys(result.templates)).toHaveLength(0)
-  })
-
   it('should handle missing override field as non-override template', async () => {
     const testService = new DynamicAgentService()
 
-    const fileContext = {
+    const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        '.agents/templates/no-override-field.json': JSON.stringify({
+        'no-override-field': {
           id: 'no_override_agent',
           version: '1.0.0',
           // No override field - should be treated as non-override
@@ -378,7 +267,16 @@ describe('Dynamic Agent Loader', () => {
           systemPrompt: 'Test system prompt',
           userInputPrompt: 'Test user prompt',
           agentStepPrompt: 'Test step prompt',
-        }),
+          override: false,
+          outputMode: 'last_message',
+          includeMessageHistory: true,
+          toolNames: ['end_turn'],
+          spawnableAgents: [],
+          initialAssistantMessage: '',
+          initialAssistantPrefix: '',
+          stepAssistantMessage: '',
+          stepAssistantPrefix: '',
+        },
       },
     }
 
@@ -391,10 +289,10 @@ describe('Dynamic Agent Loader', () => {
   it('should validate spawnable agents including dynamic agents from first pass', async () => {
     const testService = new DynamicAgentService()
 
-    const fileContext = {
+    const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        '.agents/templates/git-committer.json': JSON.stringify({
+        'git-committer': {
           id: 'CodebuffAI/git-committer',
           version: '0.0.1',
           override: false,
@@ -405,8 +303,15 @@ describe('Dynamic Agent Loader', () => {
           userInputPrompt: 'Create a commit message.',
           agentStepPrompt: 'Make sure to end your response.',
           spawnableAgents: [], // No spawnable agents
-        }),
-        '.agents/templates/spawner.json': JSON.stringify({
+          outputMode: 'last_message',
+          includeMessageHistory: true,
+          toolNames: ['end_turn'],
+          initialAssistantMessage: '',
+          initialAssistantPrefix: '',
+          stepAssistantMessage: '',
+          stepAssistantPrefix: '',
+        },
+        spawner: {
           id: 'spawner_agent',
           version: '1.0.0',
           override: false,
@@ -417,7 +322,14 @@ describe('Dynamic Agent Loader', () => {
           userInputPrompt: 'Test user prompt',
           agentStepPrompt: 'Test step prompt',
           spawnableAgents: ['CodebuffAI/git-committer'], // Should be valid after first pass
-        }),
+          outputMode: 'last_message',
+          includeMessageHistory: true,
+          toolNames: ['end_turn'],
+          initialAssistantMessage: '',
+          initialAssistantPrefix: '',
+          stepAssistantMessage: '',
+          stepAssistantPrefix: '',
+        },
       },
     }
 

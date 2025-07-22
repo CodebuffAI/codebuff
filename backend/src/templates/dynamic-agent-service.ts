@@ -1,6 +1,6 @@
 import * as path from 'path'
 
-import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
+import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
 import {
@@ -13,6 +13,7 @@ import { ProjectFileContext } from '@codebuff/common/util/file'
 import { jsonSchemaToZod } from 'json-schema-to-zod'
 import { z } from 'zod'
 
+import { ToolName } from '@codebuff/common/constants/tools'
 import { logger } from '../util/logger'
 import { AgentTemplate } from './types'
 
@@ -57,21 +58,18 @@ export class DynamicAgentService {
       }
     }
     try {
-      // Use agentTemplates from fileContext - keys are already full paths
-      const jsonFiles = Object.keys(agentTemplates).filter((filePath) =>
-        filePath.endsWith('.json')
-      )
+      const agentKeys = Object.keys(agentTemplates)
 
       // Pass 1: Collect all agent IDs from template files
       const dynamicAgentIds = await this.collectAgentIds(
-        jsonFiles,
+        agentKeys,
         agentTemplates
       )
 
       // Pass 2: Load and validate each agent template
-      for (const filePath of jsonFiles) {
+      for (const agentKey of agentKeys) {
         await this.loadSingleAgent(
-          filePath,
+          agentKey,
           dynamicAgentIds,
           fileContext,
           agentTemplates
@@ -108,7 +106,7 @@ export class DynamicAgentService {
    */
   private async collectAgentIds(
     jsonFiles: string[],
-    agentTemplates: Record<string, string> = {}
+    agentTemplates: Record<string, DynamicAgentTemplate> = {}
   ): Promise<string[]> {
     const agentIds: string[] = []
 
@@ -119,19 +117,9 @@ export class DynamicAgentService {
           continue
         }
 
-        const parsedContent = JSON.parse(content)
-
-        // Throw error if override: true is found
-        if (parsedContent.override === true) {
-          throw new Error(
-            `Dynamic agents no longer support override: true. Found in ${filePath}. ` +
-              `Please set override: false or remove the override field entirely.`
-          )
-        }
-
         // Extract the agent ID if it exists
-        if (parsedContent.id && typeof parsedContent.id === 'string') {
-          agentIds.push(parsedContent.id)
+        if (content.id && typeof content.id === 'string') {
+          agentIds.push(content.id)
         }
       } catch (error) {
         // Re-throw override errors
@@ -159,7 +147,7 @@ export class DynamicAgentService {
     filePath: string,
     dynamicAgentIds: string[],
     fileContext: ProjectFileContext,
-    agentTemplates: Record<string, string> = {}
+    agentTemplates: Record<string, DynamicAgentTemplate> = {}
   ): Promise<void> {
     const fileDir = path.join(fileContext.projectRoot, path.dirname(filePath))
 
@@ -169,21 +157,8 @@ export class DynamicAgentService {
         return
       }
 
-      const parsedContent = JSON.parse(content)
-
-      // Throw error if override: true is found
-      if (parsedContent.override === true) {
-        throw new Error(
-          `Dynamic agents no longer support override: true. Found in ${filePath}. ` +
-            `Please set override: false or remove the override field entirely.`
-        )
-      }
-
-      // Validate against schema
-      const dynamicAgent = DynamicAgentTemplateSchema.parse(parsedContent)
-
       const spawnableValidation = validateSpawnableAgents(
-        dynamicAgent.spawnableAgents,
+        content.spawnableAgents,
         dynamicAgentIds
       )
       if (!spawnableValidation.valid) {
@@ -199,9 +174,9 @@ export class DynamicAgentService {
       }
 
       // Validate parent instructions if they exist
-      if (dynamicAgent.parentInstructions) {
+      if (content.parentInstructions) {
         const parentInstructionsValidation = validateParentInstructions(
-          dynamicAgent.parentInstructions,
+          content.parentInstructions,
           dynamicAgentIds
         )
         if (!parentInstructionsValidation.valid) {
@@ -218,7 +193,7 @@ export class DynamicAgentService {
       }
 
       const validatedSpawnableAgents = normalizeAgentNames(
-        dynamicAgent.spawnableAgents
+        content.spawnableAgents
       ) as AgentTemplateType[]
 
       const basePaths = [fileDir, fileContext.projectRoot]
@@ -227,8 +202,8 @@ export class DynamicAgentService {
       let promptSchema: AgentTemplate['promptSchema']
       try {
         promptSchema = this.convertPromptSchema(
-          dynamicAgent.promptSchema?.prompt,
-          dynamicAgent.promptSchema?.params,
+          content.promptSchema?.prompt,
+          content.promptSchema?.params,
           filePath
         )
       } catch (error) {
@@ -243,77 +218,13 @@ export class DynamicAgentService {
 
       // Convert to internal AgentTemplate format
       const agentTemplate: AgentTemplate = {
-        id: dynamicAgent.id as AgentTemplateType,
-        name: dynamicAgent.name,
-        purpose: dynamicAgent.purpose,
-        model: dynamicAgent.model as any,
+        ...content,
         promptSchema,
-        outputMode: dynamicAgent.outputMode,
-        includeMessageHistory: dynamicAgent.includeMessageHistory,
-        toolNames: dynamicAgent.toolNames as any[],
+        toolNames: content.toolNames as ToolName[],
         spawnableAgents: validatedSpawnableAgents,
-        parentInstructions: dynamicAgent.parentInstructions,
-
-        systemPrompt: this.resolvePromptFieldFromAgentTemplates(
-          dynamicAgent.systemPrompt,
-          agentTemplates,
-          basePaths
-        ),
-        userInputPrompt: this.resolvePromptFieldFromAgentTemplates(
-          dynamicAgent.userInputPrompt,
-          agentTemplates,
-          basePaths
-        ),
-        agentStepPrompt: this.resolvePromptFieldFromAgentTemplates(
-          dynamicAgent.agentStepPrompt,
-          agentTemplates,
-          basePaths
-        ),
-
-        initialAssistantMessage: undefined,
-        initialAssistantPrefix: undefined,
-        stepAssistantMessage: undefined,
-        stepAssistantPrefix: undefined,
       }
 
-      // Add optional prompt fields only if they exist
-      if (dynamicAgent.initialAssistantMessage) {
-        agentTemplate.initialAssistantMessage =
-          this.resolvePromptFieldFromAgentTemplates(
-            dynamicAgent.initialAssistantMessage,
-            agentTemplates,
-            basePaths
-          )
-      }
-
-      if (dynamicAgent.initialAssistantPrefix) {
-        agentTemplate.initialAssistantPrefix =
-          this.resolvePromptFieldFromAgentTemplates(
-            dynamicAgent.initialAssistantPrefix,
-            agentTemplates,
-            basePaths
-          )
-      }
-
-      if (dynamicAgent.stepAssistantMessage) {
-        agentTemplate.stepAssistantMessage =
-          this.resolvePromptFieldFromAgentTemplates(
-            dynamicAgent.stepAssistantMessage,
-            agentTemplates,
-            basePaths
-          )
-      }
-
-      if (dynamicAgent.stepAssistantPrefix) {
-        agentTemplate.stepAssistantPrefix =
-          this.resolvePromptFieldFromAgentTemplates(
-            dynamicAgent.stepAssistantPrefix,
-            agentTemplates,
-            basePaths
-          )
-      }
-
-      this.templates[dynamicAgent.id] = agentTemplate
+      this.templates[content.id] = agentTemplate
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error'
@@ -330,43 +241,6 @@ export class DynamicAgentService {
     }
   }
 
-  /**
-   * Resolve prompt field from agentTemplates with enhanced path resolution
-   */
-  private resolvePromptFieldFromAgentTemplates(
-    promptField: string | { path: string } | undefined,
-    agentTemplates: Record<string, string>,
-    basePaths: string[]
-  ): string {
-    if (!promptField) return ''
-
-    if (typeof promptField === 'string') {
-      return promptField
-    }
-
-    if (typeof promptField === 'object' && promptField.path) {
-      const originalPath = promptField.path
-
-      // Try multiple path variations for better compatibility
-      const pathVariations = [
-        originalPath, // Original path as-is
-        `.agents/templates/${path.basename(originalPath)}`, // Full prefixed path
-        originalPath.replace(/^\.\//, ''), // Remove leading ./
-      ]
-
-      for (const pathVariation of pathVariations) {
-        const content = agentTemplates[pathVariation]
-        if (content !== undefined) {
-          return content
-        }
-      }
-
-      // No filesystem fallback - return empty string if not found in agentTemplates
-      return ''
-    }
-
-    return ''
-  }
   /**
    * Convert JSON schema to Zod schema format using json-schema-to-zod.
    * This is done once during loading to avoid repeated conversions.

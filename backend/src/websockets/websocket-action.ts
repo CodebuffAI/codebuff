@@ -5,14 +5,14 @@ import {
   UsageResponse,
 } from '@codebuff/common/actions'
 import { trackEvent } from '@codebuff/common/analytics'
-import { toOptionalFile, AGENT_TEMPLATES_DIR, ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
+import {
+  ASYNC_AGENTS_ENABLED,
+  toOptionalFile,
+} from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import {
-  validateAgentTemplateConfigs,
-  formatValidationErrorMessage,
-} from '@codebuff/common/util/agent-template-validation'
+import { formatValidationErrorMessage } from '@codebuff/common/util/agent-template-validation'
 import { buildArray } from '@codebuff/common/util/array'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -20,6 +20,7 @@ import { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import { eq } from 'drizzle-orm'
 import { WebSocket } from 'ws'
 
+import { asyncAgentManager } from '../async-agent-manager'
 import {
   cancelUserInput,
   checkLiveUserInput,
@@ -27,13 +28,11 @@ import {
   startUserInput,
 } from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
-import { protec } from './middleware'
-import { sendMessage } from './server'
+import { agentRegistry } from '../templates/agent-registry'
 import { logger, withLoggerContext } from '../util/logger'
 import { asSystemMessage } from '../util/messages'
-import { dynamicAgentService } from '../templates/dynamic-agent-service'
-import { agentRegistry } from '../templates/agent-registry'
-import { asyncAgentManager } from '../async-agent-manager'
+import { protec } from './middleware'
+import { sendMessage } from './server'
 
 /**
  * Sends an action to the client via WebSocket
@@ -139,13 +138,7 @@ const onPrompt = async (
   clientSessionId: string,
   ws: WebSocket
 ) => {
-  const {
-    fingerprintId,
-    authToken,
-    promptId,
-    prompt,
-    costMode,
-  } = action
+  const { fingerprintId, authToken, promptId, prompt, costMode } = action
 
   await withLoggerContext(
     { fingerprintId, clientRequestId: promptId, costMode },
