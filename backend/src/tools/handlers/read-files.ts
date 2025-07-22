@@ -20,9 +20,7 @@ export const handleReadFiles = ((params: {
     userId?: string
     fingerprintId?: string
     repoId?: string
-    mutableState?: {
-      messages: CodebuffMessage[]
-    }
+    messages?: CodebuffMessage[]
   }
 }): {
   result: Promise<string>
@@ -37,12 +35,12 @@ export const handleReadFiles = ((params: {
     fileContext,
     state,
   } = params
-  const { ws, fingerprintId, userId, repoId, mutableState } = state
+  const { ws, fingerprintId, userId, repoId, messages } = state
   const { paths } = toolCall.args
   if (!ws) {
     throw new Error('Internal error for read_files: Missing WebSocket in state')
   }
-  if (!mutableState?.messages) {
+  if (!messages) {
     throw new Error('Internal error for read_files: Missing messages in state')
   }
   if (!fingerprintId) {
@@ -59,7 +57,7 @@ export const handleReadFiles = ((params: {
   const readFilesResultsPromise = (async () => {
     const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
       ws,
-      mutableState.messages,
+      messages,
       fileContext,
       {
         requestedFiles: paths,

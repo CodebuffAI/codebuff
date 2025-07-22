@@ -13,9 +13,9 @@ import { readDocsTool } from './definitions/read-docs'
 import { readFilesTool } from './definitions/read-files'
 import { runFileChangeHooksTool } from './definitions/run-file-change-hooks'
 import { runTerminalCommandTool } from './definitions/run-terminal-command'
+import { sendAgentMessageTool } from './definitions/send-agent-message'
 import { spawnAgentsTool } from './definitions/spawn-agents'
 import { spawnAgentsAsyncTool } from './definitions/spawn-agents-async'
-import { sendAgentMessageTool } from './definitions/send-agent-message'
 import { strReplaceTool } from './definitions/str-replace'
 import { thinkDeeplyTool } from './definitions/think-deeply'
 import { updateReportTool } from './definitions/update-report'
@@ -32,9 +32,9 @@ import { handleReadDocs } from './handlers/read-docs'
 import { handleReadFiles } from './handlers/read-files'
 import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
+import { handleSendAgentMessage } from './handlers/send-agent-message'
 import { handleSpawnAgents } from './handlers/spawn-agents'
 import { handleSpawnAgentsAsync } from './handlers/spawn-agents-async'
-import { handleSendAgentMessage } from './handlers/send-agent-message'
 import { handleStrReplace } from './handlers/str-replace'
 import { handleThinkDeeply } from './handlers/think-deeply'
 import { handleUpdateReport } from './handlers/update-report'
@@ -123,6 +123,8 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     fullResponse: string
 
     writeToClient: (chunk: string) => void
+
+    getLatestState: () => any
     state: { [K in string]?: any }
   } & PresentOrAbsent<
     'requestClientToolCall',

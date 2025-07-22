@@ -37,9 +37,7 @@ export const handleFindFiles = ((params: {
     fingerprintId?: string
     userId?: string
     repoId?: string
-    mutableState?: {
-      messages: CodebuffMessage[]
-    }
+    messages?: CodebuffMessage[]
   }
 }): { result: Promise<string>; state: {} } => {
   const {
@@ -52,8 +50,7 @@ export const handleFindFiles = ((params: {
     state,
   } = params
   const { description } = toolCall.args
-  const { ws, fingerprintId, userId, repoId, mutableState } = state
-  const messages = mutableState?.messages
+  const { ws, fingerprintId, userId, repoId, messages } = state
 
   if (!ws) {
     throw new Error('Internal error for find_files: Missing WebSocket in state')

@@ -28,12 +28,35 @@ export type FileProcessing<
     }
 )
 
-export type FileProcessingMutableState = {
+export type FileProcessingState = {
   promisesByPath: Record<string, Promise<FileProcessing>[]>
   allPromises: Promise<FileProcessing>[]
   fileChangeErrors: Extract<FileProcessing, { error: string }>[]
   fileChanges: Exclude<FileProcessing, { error: string }>[]
   firstFileProcessed: boolean
+}
+
+export type OptionalFileProcessingState = {
+  [K in keyof FileProcessingState]?: FileProcessingState[K]
+}
+
+export function getFileProcessingValues(
+  state: OptionalFileProcessingState
+): FileProcessingState {
+  const fileProcessingValues: FileProcessingState = {
+    promisesByPath: {},
+    allPromises: [],
+    fileChangeErrors: [],
+    fileChanges: [],
+    firstFileProcessed: false,
+  }
+  for (const [key, value] of Object.entries(state)) {
+    const typedKey = key as keyof typeof fileProcessingValues
+    if (fileProcessingValues[typedKey] !== undefined) {
+      fileProcessingValues[typedKey] = value as any
+    }
+  }
+  return fileProcessingValues
 }
 
 export const handleWriteFile = ((params: {
@@ -48,22 +71,18 @@ export const handleWriteFile = ((params: {
   ) => Promise<string>
   writeToClient: (chunk: string) => void
 
+  getLatestState: () => FileProcessingState
   state: {
     ws?: WebSocket
     fingerprintId?: string
     userId?: string
     fullResponse?: string
     prompt?: string
-
-    mutableState?: FileProcessingMutableState & {
-      messages: CodebuffMessage[]
-    }
-  }
+    messages?: CodebuffMessage[]
+  } & OptionalFileProcessingState
 }): {
   result: Promise<string>
-  state: {
-    mutableState: FileProcessingMutableState
-  }
+  state: FileProcessingState
 } => {
   const {
     previousToolCallFinished,
@@ -74,6 +93,8 @@ export const handleWriteFile = ((params: {
 
     requestClientToolCall,
     writeToClient,
+
+    getLatestState,
     state,
   } = params
   const { path, instructions, content } = toolCall.args
@@ -87,17 +108,10 @@ export const handleWriteFile = ((params: {
     )
   }
 
-  const mutableState = {
-    promisesByPath: {},
-    allPromises: [],
-    fileChangeErrors: [],
-    fileChanges: [],
-    firstFileProcessed: false,
-    ...state.mutableState,
-  }
-  const fileProcessingPromisesByPath = mutableState.promisesByPath
-  const fileProcessingPromises = mutableState.allPromises ?? []
-  const agentMessagesUntruncated = mutableState.messages
+  const fileProcessingState = getFileProcessingValues(state)
+  const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
+  const fileProcessingPromises = fileProcessingState.allPromises ?? []
+  const agentMessagesUntruncated = state.messages
   if (!agentMessagesUntruncated) {
     throw new Error('Internal error for write_file: Missing messages in state')
   }
@@ -155,49 +169,49 @@ export const handleWriteFile = ((params: {
     result: previousToolCallFinished.then(async () => {
       return await postStreamProcessing<'write_file'>(
         await newPromise,
-        mutableState,
+        getLatestState(),
         writeToClient,
         requestClientToolCall
       )
     }),
-    state: { mutableState },
+    state: fileProcessingState,
   }
 }) satisfies CodebuffToolHandlerFunction<'write_file'>
 
 export async function postStreamProcessing<T extends FileProcessingTools>(
   toolCall: FileProcessing<T>,
-  mutableState: FileProcessingMutableState,
+  fileProcessingState: FileProcessingState,
   writeToClient: (chunk: string) => void,
   requestClientToolCall: (toolCall: ClientToolCall<T>) => Promise<string>
 ) {
-  const allFileProcessingResults = await Promise.all(mutableState.allPromises)
-  if (!mutableState.firstFileProcessed) {
-    ;[mutableState.fileChangeErrors, mutableState.fileChanges] = partition(
-      allFileProcessingResults,
-      (result) => 'error' in result
-    )
+  const allFileProcessingResults = await Promise.all(
+    fileProcessingState.allPromises
+  )
+  if (!fileProcessingState.firstFileProcessed) {
+    ;[fileProcessingState.fileChangeErrors, fileProcessingState.fileChanges] =
+      partition(allFileProcessingResults, (result) => 'error' in result)
     if (
-      mutableState.fileChanges.length === 0 &&
+      fileProcessingState.fileChanges.length === 0 &&
       allFileProcessingResults.length > 0
     ) {
       writeToClient('No changes to existing files.\n')
     }
-    if (mutableState.fileChanges.length > 0) {
+    if (fileProcessingState.fileChanges.length > 0) {
       writeToClient(`\n`)
     }
-    mutableState.firstFileProcessed = true
+    fileProcessingState.firstFileProcessed = true
   }
 
   const toolCallResults: string[] = []
 
-  const errors = mutableState.fileChangeErrors.filter(
+  const errors = fileProcessingState.fileChangeErrors.filter(
     (result) => result.toolCallId === toolCall.toolCallId
   )
   toolCallResults.push(
     ...errors.map(({ path, error }) => `Error processing ${path}: ${error}`)
   )
 
-  const changes = mutableState.fileChanges.filter(
+  const changes = fileProcessingState.fileChanges.filter(
     (result) => result.toolCallId === toolCall.toolCallId
   )
   for (const { path, content, patch } of changes) {

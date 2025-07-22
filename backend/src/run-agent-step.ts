@@ -435,7 +435,7 @@ export const runAgentStep = async (
     },
   ]
 
-  const newAgentContext = state.mutableState.agentContext
+  const newAgentContext = state.agentContext
 
   let finalMessageHistory = expireMessages(messagesWithResponse, 'agentStep')
 

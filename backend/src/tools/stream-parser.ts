@@ -132,11 +132,9 @@ export async function processStreamWithTools<T extends string>(options: {
     userId,
     repoId,
     agentTemplate,
-    mutableState: {
-      agentState,
-      agentContext,
-      messages,
-    },
+    agentState,
+    agentContext,
+    messages,
   }
 
   function toolCallback<T extends ToolName>(
@@ -214,6 +212,7 @@ export async function processStreamWithTools<T extends string>(options: {
             )
           },
           toolCall,
+          getLatestState: () => state,
           state,
         })
 
@@ -233,7 +232,7 @@ export async function processStreamWithTools<T extends string>(options: {
 
           toolResults.push(toolResult)
 
-          state.mutableState.messages.push({
+          state.messages.push({
             role: 'user' as const,
             content: asSystemMessage(renderToolResults([toolResult])),
           })
@@ -261,8 +260,8 @@ export async function processStreamWithTools<T extends string>(options: {
     fullResponse += chunk
   }
 
-  state.mutableState.messages = [
-    ...expireMessages(state.mutableState.messages, 'agentStep'),
+  state.messages = [
+    ...expireMessages(state.messages, 'agentStep'),
     {
       role: 'assistant' as const,
       content: fullResponse,

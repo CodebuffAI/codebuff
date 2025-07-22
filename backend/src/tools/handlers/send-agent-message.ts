@@ -8,29 +8,27 @@ export const handleSendAgentMessage = ((params: {
   toolCall: CodebuffToolCall<'send_agent_message'>
 
   state: {
-    mutableState?: {
-      agentState: AgentState
-    }
+    agentState?: AgentState
   }
 }): { result: Promise<string>; state: {} } => {
   const { previousToolCallFinished, toolCall, state } = params
   const { target_agent_id, prompt, params: messageParams } = toolCall.args
-  const mutableState = state.mutableState
+  const { agentState } = state
 
-  if (!mutableState?.agentState) {
+  if (!agentState) {
     throw new Error(
       'Internal error for send_agent_message: Missing agentState in state'
     )
   }
 
   const sendMessage = async () => {
-    const currentAgentId = mutableState.agentState.agentId
+    const currentAgentId = agentState.agentId
     let targetAgentId = target_agent_id
 
     // Handle special "PARENT_ID" case
     if (target_agent_id === 'PARENT_ID') {
-      if (mutableState.agentState.parentId) {
-        targetAgentId = mutableState.agentState.parentId
+      if (agentState.parentId) {
+        targetAgentId = agentState.parentId
       } else {
         throw new Error('No parent agent found for this agent')
       }

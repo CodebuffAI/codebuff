@@ -7,7 +7,12 @@ import {
   CodebuffToolCall,
   CodebuffToolHandlerFunction,
 } from '../constants'
-import { FileProcessingMutableState, postStreamProcessing } from './write-file'
+import {
+  FileProcessingState,
+  getFileProcessingValues,
+  OptionalFileProcessingState,
+  postStreamProcessing,
+} from './write-file'
 
 export const handleStrReplace = ((params: {
   previousToolCallFinished: Promise<void>
@@ -17,19 +22,20 @@ export const handleStrReplace = ((params: {
   ) => Promise<string>
   writeToClient: (chunk: string) => void
 
+  getLatestState: () => FileProcessingState
   state: {
     ws?: WebSocket
-    mutableState?: FileProcessingMutableState
-  }
+  } & OptionalFileProcessingState
 }): {
   result: Promise<string>
-  state: { mutableState: FileProcessingMutableState }
+  state: FileProcessingState
 } => {
   const {
     previousToolCallFinished,
     toolCall,
     requestClientToolCall,
     writeToClient,
+    getLatestState,
     state,
   } = params
   const { path, replacements } = toolCall.args
@@ -39,21 +45,14 @@ export const handleStrReplace = ((params: {
       'Internal error for str_replace: Missing WebSocket in state'
     )
   }
-  const mutableState = {
-    promisesByPath: {},
-    allPromises: [],
-    fileChangeErrors: [],
-    fileChanges: [],
-    firstFileProcessed: false,
-    ...state.mutableState,
-  }
+  const fileProcessingState = getFileProcessingValues(state)
 
-  if (!mutableState.promisesByPath[path]) {
-    mutableState.promisesByPath[path] = []
+  if (!fileProcessingState.promisesByPath[path]) {
+    fileProcessingState.promisesByPath[path] = []
   }
 
   const latestContentPromise = Promise.all(
-    mutableState.promisesByPath[path]
+    fileProcessingState.promisesByPath[path]
   ).then((results) => {
     const previousEdit = results.findLast((r) => 'content' in r)
     return previousEdit ? previousEdit.content : requestOptionalFile(ws, path)
@@ -73,18 +72,18 @@ export const handleStrReplace = ((params: {
       toolCallId: toolCall.toolCallId,
     }))
 
-  mutableState.promisesByPath[path].push(newPromise)
-  mutableState.allPromises.push(newPromise)
+  fileProcessingState.promisesByPath[path].push(newPromise)
+  fileProcessingState.allPromises.push(newPromise)
 
   return {
     result: previousToolCallFinished.then(async () => {
       return await postStreamProcessing<'str_replace'>(
         await newPromise,
-        mutableState,
+        getLatestState(),
         writeToClient,
         requestClientToolCall
       )
     }),
-    state: { mutableState },
+    state: fileProcessingState,
   }
 }) satisfies CodebuffToolHandlerFunction<'str_replace'>
