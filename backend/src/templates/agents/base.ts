@@ -8,7 +8,7 @@ import {
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
 } from '../base-prompts'
-import { AgentTemplate, PLACEHOLDER } from '../types'
+import { AgentTemplate } from '../types'
 
 export const base = (
   model: Model,

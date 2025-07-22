@@ -216,19 +216,22 @@ export async function processStreamWithTools<T extends string>(options: {
           state,
         })
 
-        for (const [key, value] of Object.entries(stateUpdate)) {
+        for (const [key, value] of Object.entries(stateUpdate ?? {})) {
           state[key] = value
         }
         previousToolCallFinished = toolResultPromise.then((result) => {
           const toolResult = {
             toolName,
             toolCallId: toolCall.toolCallId,
-            result,
+            result: result as NonNullable<typeof result>,
           }
           logger.debug(
             { toolResult },
             `${toolName} (${toolResult.toolCallId}) tool result for tool`
           )
+          if (result === undefined) {
+            return
+          }
 
           toolResults.push(toolResult)
 

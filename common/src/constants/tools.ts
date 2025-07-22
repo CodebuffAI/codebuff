@@ -10,6 +10,7 @@ export const endToolTag = `\n</${toolXmlName}>`
 // List of all available tools
 export const toolNames = [
   'add_subgoal',
+  'add_message',
   'browser_logs',
   'code_search',
   'create_plan',
@@ -20,6 +21,7 @@ export const toolNames = [
   'run_file_change_hooks',
   'run_terminal_command',
   'send_agent_message',
+  'set_messages',
   'spawn_agents',
   'spawn_agents_async',
   'str_replace',
@@ -66,6 +68,10 @@ export const toolSchema = {
 
   // File change hooks tool
   run_file_change_hooks: ['files'],
+
+  // Tools that change the conversation history
+  add_message: ['role', 'content'],
+  set_messages: ['messages'],
 
   end_turn: [],
 } as const satisfies Record<ToolName, string[]>

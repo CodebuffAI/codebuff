@@ -2,7 +2,14 @@ import { fetchContext7LibraryDocumentation } from '../../llm-apis/context7-api'
 import { logger } from '../../util/logger'
 import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
 
-export const handleReadDocs = ((params: {
+export const handleReadDocs = (({
+  previousToolCallFinished,
+  toolCall,
+  agentStepId,
+  clientSessionId,
+  userInputId,
+  state,
+}: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'read_docs'>
 
@@ -19,14 +26,6 @@ export const handleReadDocs = ((params: {
   result: Promise<string>
   state: {}
 } => {
-  const {
-    previousToolCallFinished,
-    toolCall,
-    agentStepId,
-    clientSessionId,
-    userInputId,
-    state,
-  } = params
   const { libraryTitle, topic, max_tokens } = toolCall.args
   const { userId, fingerprintId, repoId } = state
   if (!userId) {
