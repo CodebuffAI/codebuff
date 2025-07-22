@@ -64,6 +64,16 @@ Agents adapt to your specific workflow and project needs. You can create special
 - **Backend**: API security reviewer
 - **DevOps**: Infrastructure deployment agent
 
+### Agent Coordination
+
+Agents can coordinate with each other using **parent instructions** - a powerful feature that allows one agent to provide specific guidance to the agents it spawns. This creates intelligent workflows where:
+
+- A security-focused agent ensures all spawned reviewers check for vulnerabilities
+- A frontend coordinator guides file pickers to find React components
+- A documentation agent instructs researchers to prioritize official docs
+
+This coordination happens automatically without requiring complex overrides or manual configuration.
+
 ## Quick Start
 
 1. **[Customize existing agents](/docs/agents#customizing-agents)** - Modify prompts and tools

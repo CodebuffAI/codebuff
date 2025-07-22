@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test'
-import { DynamicAgentTemplateSchema } from '../types/dynamic-agent-template'
+import { DynamicAgentConfigSchema } from '../types/dynamic-agent-template'
 import {
   validateParentInstructions,
   formatParentInstructionsError,
 } from '../util/agent-template-validation'
 
-describe('DynamicAgentTemplateSchema', () => {
+describe('DynamicAgentConfigSchema', () => {
   const validBaseTemplate = {
     id: 'test_agent',
     version: '1.0.0',
@@ -20,7 +20,7 @@ describe('DynamicAgentTemplateSchema', () => {
 
   describe('Valid Templates', () => {
     it('should validate minimal valid template', () => {
-      const result = DynamicAgentTemplateSchema.safeParse(validBaseTemplate)
+      const result = DynamicAgentConfigSchema.safeParse(validBaseTemplate)
       expect(result.success).toBe(true)
     })
 
@@ -35,7 +35,7 @@ describe('DynamicAgentTemplateSchema', () => {
         },
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
     })
 
@@ -56,7 +56,7 @@ describe('DynamicAgentTemplateSchema', () => {
         },
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
     })
 
@@ -77,7 +77,7 @@ describe('DynamicAgentTemplateSchema', () => {
         },
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
     })
 
@@ -108,7 +108,7 @@ describe('DynamicAgentTemplateSchema', () => {
         },
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
     })
 
@@ -120,12 +120,12 @@ describe('DynamicAgentTemplateSchema', () => {
         agentStepPrompt: { path: './agent-step-prompt.md' },
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
     })
 
     it('should apply default values', () => {
-      const result = DynamicAgentTemplateSchema.safeParse(validBaseTemplate)
+      const result = DynamicAgentConfigSchema.safeParse(validBaseTemplate)
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.outputMode).toBe('last_message')
@@ -145,7 +145,7 @@ describe('DynamicAgentTemplateSchema', () => {
         },
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
     })
   })
@@ -157,7 +157,7 @@ describe('DynamicAgentTemplateSchema', () => {
         // Missing other required fields
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(false)
     })
 
@@ -167,7 +167,7 @@ describe('DynamicAgentTemplateSchema', () => {
         override: true,
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(false)
     })
 
@@ -177,7 +177,7 @@ describe('DynamicAgentTemplateSchema', () => {
         outputMode: 'invalid_mode',
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(false)
     })
 
@@ -187,7 +187,7 @@ describe('DynamicAgentTemplateSchema', () => {
         promptSchema: 'not an object',
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(false)
     })
 
@@ -197,7 +197,7 @@ describe('DynamicAgentTemplateSchema', () => {
         promptSchema: { params: 'not an object' },
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(false)
     })
 
@@ -207,7 +207,7 @@ describe('DynamicAgentTemplateSchema', () => {
         promptSchema: null,
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(false)
     })
 
@@ -217,7 +217,7 @@ describe('DynamicAgentTemplateSchema', () => {
         systemPrompt: { invalidField: 'value' }, // Should be { path: string }
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(false)
     })
 
@@ -230,7 +230,7 @@ describe('DynamicAgentTemplateSchema', () => {
         },
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.parentInstructions).toEqual({
@@ -248,7 +248,7 @@ describe('DynamicAgentTemplateSchema', () => {
         promptSchema: {},
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
     })
 
@@ -265,7 +265,7 @@ describe('DynamicAgentTemplateSchema', () => {
         },
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
     })
 
@@ -290,7 +290,7 @@ describe('DynamicAgentTemplateSchema', () => {
         },
       }
 
-      const result = DynamicAgentTemplateSchema.safeParse(template)
+      const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
     })
   })

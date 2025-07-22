@@ -30,6 +30,7 @@ New agents need `"override": false` and these required fields:
   "includeMessageHistory": true,
   "toolNames": ["read_files", "write_file", "end_turn"],
   "spawnableAgents": ["researcher"],
+
   "promptSchema": {
     "prompt": {
       "type": "string",
@@ -37,8 +38,12 @@ New agents need `"override": false` and these required fields:
     }
   },
 
+  "parentInstructions": {
+    "researcher": "When you need to understand API patterns or find code examples for documentation, spawn my-custom-agent to gather information about our repository's best practices."
+  },
+
   "systemPrompt": {
-    "path": "./doc-writer-system.md"
+    "path": "./system.md"
   },
   "userInputPrompt": "Create comprehensive documentation based on the user's request. Research existing code and patterns first.",
   "agentStepPrompt": "Continue working on the documentation. Use end_turn when complete."
@@ -116,6 +121,10 @@ Specialized for creating and reviewing database migrations:
   "toolNames": ["read_files", "write_file", "code_search", "run_terminal_command", "end_turn"],
   "spawnableAgents": ["reviewer"],
 
+  "parentInstructions": {
+    "reviewer": "When database migrations are created or modified, spawn migration-specialist to review for data loss risks, locking issues, rollback procedures, and performance impact."
+  },
+
   "systemPrompt": {
     "path": "./migration-guidelines.md"
   },
@@ -148,13 +157,126 @@ Specialized for creating and reviewing database migrations:
 - Keep migrations atomic and focused
 ```
 
+## Parent Instructions
+
+Parent instructions allow your agent to provide specific guidance to other agents when spawning them. This creates a hierarchical coordination system without requiring full agent overrides.
+
+### When to Use Parent Instructions
+
+- **Workflow Coordination**: Ensure spawned agents follow specific patterns
+- **Domain Expertise**: Share specialized knowledge with sub-agents
+- **Context Preservation**: Pass important context from parent to child agents
+- **Quality Control**: Add specific validation requirements
+
+### Real-World Examples
+
+#### Frontend Development Coordinator
+
+```json
+{
+  "id": "frontend-coordinator",
+  "version": "1.0.0",
+  "override": false,
+  "name": "Frontend Development Coordinator",
+  "purpose": "Coordinates frontend development with React best practices",
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "outputMode": "last_message",
+  "includeMessageHistory": true,
+  "toolNames": ["read_files", "write_file", "code_search", "spawn_agents", "end_turn"],
+  "spawnableAgents": ["reviewer", "researcher", "file_picker"],
+  "promptSchema": {
+    "prompt": {
+      "type": "string",
+      "description": "Frontend development task to coordinate"
+    }
+  },
+  "parentInstructions": {
+    "reviewer": "Spawn frontend-coordinator when you are looking at changes to React components or hooks to ensure proper hook usage, component composition, accessibility, and performance.",
+    "researcher": "Need React patterns or component library info? Spawn frontend-coordinator to research official React docs and modern frontend practices.",
+    "file_picker": "To understand the React codebase structure, spawn frontend-coordinator to find components, hooks, styles, and configuration files."
+  },
+  "systemPrompt": "You are a frontend development coordinator specializing in React best practices. Guide development workflows and ensure code quality.",
+  "userInputPrompt": "Coordinate the frontend development task, spawning appropriate agents as needed.",
+  "agentStepPrompt": "Continue coordinating the frontend development workflow. Use end_turn when complete."
+}
+```
+
+#### API Development Specialist
+
+```json
+{
+  "id": "api-specialist",
+  "version": "1.0.0",
+  "override": false,
+  "name": "API Development Specialist",
+  "purpose": "Specialized for REST API development and documentation",
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "outputMode": "last_message",
+  "includeMessageHistory": true,
+  "toolNames": ["read_files", "write_file", "code_search", "spawn_agents", "run_terminal_command", "end_turn"],
+  "spawnableAgents": ["reviewer", "researcher", "file_picker"],
+  "promptSchema": {
+    "prompt": {
+      "type": "string",
+      "description": "API development or documentation task"
+    }
+  },
+  "parentInstructions": {
+    "reviewer": "When API endpoints are created or modified, spawn api-specialist to review HTTP methods, status codes, error handling, and OpenAPI compliance.",
+    "researcher": "For API design patterns or authentication strategies, spawn api-specialist to research industry standards and best practices.",
+    "file_picker": "Understanding API structure requires spawning api-specialist to locate route definitions, middleware, controllers, and schema files."
+  },
+  "systemPrompt": "You are an API development specialist focused on creating robust, well-documented REST APIs following industry standards.",
+  "userInputPrompt": "Handle the API development task, ensuring proper design patterns and documentation.",
+  "agentStepPrompt": "Continue working on the API development task. Use end_turn when complete."
+}
+```
+
+#### DevOps Automation Agent
+
+```json
+{
+  "id": "devops-automator",
+  "version": "1.0.0",
+  "override": false,
+  "name": "DevOps Automation Specialist",
+  "purpose": "Handles infrastructure and deployment automation",
+  "model": "anthropic/claude-4-sonnet-20250522",
+  "outputMode": "last_message",
+  "includeMessageHistory": true,
+  "toolNames": ["read_files", "write_file", "code_search", "spawn_agents", "run_terminal_command", "end_turn"],
+  "spawnableAgents": ["reviewer", "researcher", "file_picker"],
+  "promptSchema": {
+    "prompt": {
+      "type": "string",
+      "description": "Infrastructure or deployment automation task"
+    }
+  },
+  "parentInstructions": {
+    "reviewer": "Infrastructure code changes should be sent to devops-automator for review, security, resource optimization, deployment safety, and secrets management.",
+    "researcher": "Cloud best practices or CI/CD patterns needed? Spawn devops-automator to apply container orchestration and disaster recovery best practices.",
+    "file_picker": "Spawn devops-automator when infrastructure setup understanding is needed - it excels at finding Docker files, CI/CD configs, and deployment scripts."
+  },
+  "systemPrompt": "You are a DevOps automation specialist focused on secure, scalable infrastructure and deployment pipelines.",
+  "userInputPrompt": "Handle the infrastructure or deployment automation task with security and reliability in mind.",
+  "agentStepPrompt": "Continue working on the DevOps automation task. Use end_turn when complete."
+}
+```
+
+### Best Practices for Parent Instructions
+
+1. **Stay Focused**: Each instruction should relate to the target agent's core purpose.
+2. **Avoid Conflicts**: Consider how multiple parent instructions might interact. Each instruction across all your agents are added to the parent agent.
+3. **Test Thoroughly**: Verify instructions work across different scenarios. Start Codebuff with the option `--agent <agent-id>` to talk with a specific agent to debug.
+
 ## Programmatic Agents
 
 **Coming Soon** - Use JavaScript/TypeScript for complex orchestration logic.
 
 ## Best Practices
 
-1. **Start small** - Begin with overrides before new agents
+1. **Start small** - Begin with simple agents before complex ones
 2. **Experiment** - Try different tool/prompt combinations
 3. **Share** - Version control your `.agents/` directory
 4. **Iterate** - Improve based on usage
+5. **Leverage `parentInstructions`** - Coordinate agent behavior effectively

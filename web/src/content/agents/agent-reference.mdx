@@ -11,123 +11,23 @@ Complete reference for all agent configuration fields and tools.
 
 ## Key Terms
 
-**Agent Template:** JSON file defining agent behavior  
-**Override:** Modify existing agent without creating new one  
-**Spawnable Agents:** Sub-agents this agent can create  
-**Tool Names:** Capabilities (read files, run commands, etc.)  
-**Output Mode:** Response format (last message, report, all messages)  
+**Agent Template:** JSON file defining agent behavior
+**Spawnable Agents:** Sub-agents this agent can create
+**Tool Names:** Capabilities (read files, run commands, etc.)
+**Output Mode:** Response format (last message, report, all messages)
 **Prompt Schema:** Input validation rules
 
-## Overriding Existing Agents
+## Agent Configuration
 
-When creating override templates (`"override": true`), you can modify existing agents by changing their prompts, tools, and models.
+When creating agent templates, you define all aspects of the agent from scratch.
 
-### Agent Override Schema
-
-<AgentOverrideSchemaDisplay />
-
-### Model Configuration (Overrides)
-
-#### `model` (string, optional for overrides)
-
-The model to use, which can be any model string from [Openrouter](https://openrouter.ai/models).
-
-**Popular Models:**
-
-- `anthropic/claude-4-sonnet-20250522`
-- `anthropic/claude-3-5-sonnet-20241022`
-- `anthropic/claude-3-5-haiku-20241022`
-- `openai/gpt-4o`
-- `openai/gpt-4o-mini`
-- `openai/o4-mini`
-- `google/gemini-2.5-pro`
-- `google/gemini-2.5-flash`
-
-```json
-"model": "anthropic/claude-4-sonnet-20250522"
-```
-
-### Prompt Overrides
-
-All prompt fields support override types to modify existing agent prompts:
-
-```json
-"systemPrompt": {
-  "type": "append",     // Add to existing prompt
-  "content": "Additional instructions..."
-}
-```
-
-```json
-"systemPrompt": {
-  "type": "prepend",    // Add before existing prompt
-  "content": "Before starting..."
-}
-```
-
-```json
-"systemPrompt": {
-  "type": "replace",    // Replace entire prompt
-  "content": "New instructions..."
-}
-```
-
-```json
-"systemPrompt": {
-  "type": "append",
-  "path": "./additional-instructions.md"  // Reference external file
-}
-```
-
-### Array Overrides
-
-For `toolNames` and `spawnableAgents`:
-
-```json
-"toolNames": {
-  "type": "append",     // Add to existing tools
-  "content": ["web_search", "browser_logs"]
-}
-```
-
-```json
-"spawnableAgents": {
-  "type": "replace",    // Replace all spawnable agents
-  "content": ["CodebuffAI/thinker"]
-}
-```
-
-### Override Example
-
-```json
-{
-  "id": "CodebuffAI/reviewer",
-  "version": "0.1.7",
-  "override": true,
-
-  "model": "anthropic/claude-4-sonnet-20250522",
-  "systemPrompt": {
-    "type": "append",
-    "content": "\n\nAlways check for TypeScript errors using `bun run typecheck`."
-  },
-  "toolNames": {
-    "type": "append",
-    "content": ["web_search"]
-  }
-}
-```
-
-## Creating New Agents
-
-When creating new agent templates (`"override": false`), you define all aspects of the agent from scratch.
-
-### New Agent Schema
+### Agent Schema
 
 <AgentTemplateSchemaDisplay />
 
-### Model Configuration (New Agents)
+### Model Configuration
 
-#### `model` (string, required for new agents)
+#### `model` (string, required)
 
 The model to use, which can be any model string from  [Openrouter](https://openrouter.ai/models).
 
@@ -226,15 +126,15 @@ All prompt fields support two formats:
 
 #### Required Prompts
 
-#### `systemPrompt` (string or object, required for new agents)
+#### `systemPrompt` (string or object, required)
 
 Core instructions that define the agent's behavior and personality.
 
-#### `userInputPrompt` (string or object, required for new agents)
+#### `userInputPrompt` (string or object, required)
 
 Instructions for how to process user input.
 
-#### `agentStepPrompt` (string or object, required for new agents)
+#### `agentStepPrompt` (string or object, required)
 
 Instructions for each step of the agent's execution.
 
@@ -280,7 +180,43 @@ JSON Schema definitions for validating prompt and params when spawning the agent
 }
 ```
 
-### New Agent Example
+### Parent Instructions
+
+#### `parentInstructions` (object, optional)
+
+Defines instructions that this agent provides to other agents when they are spawned. This allows agents to guide the behavior of their sub-agents without creating full overrides.
+
+**How it works:**
+- When an agent spawns another agent, the system looks for any `parentInstructions` targeting that agent type
+- These instructions are automatically injected into the spawned agent's `userInputPrompt`
+- Multiple agents can provide instructions for the same target agent - all will be included
+
+**Structure:**
+```json
+"parentInstructions": {
+  "researcher": "Instruction text for researcher to know when to spawn your agent",
+  "another-agent": "Different instruction for another-agent to know when to spawn your agent"
+}
+```
+
+**When to use:**
+- **Conditional guidance**: Provide context-specific instructions based on the spawning scenario
+- **Workflow coordination**: Ensure spawned agents follow specific patterns or requirements
+- **Domain expertise**: Share specialized knowledge with relevant sub-agents
+- **Quality control**: Add validation or review requirements for specific agent types
+
+**Validation:**
+- Agent types in `parentInstructions` must be valid (either built-in or custom agents)
+- Invalid agent types will cause validation errors during agent loading
+
+**Best practices:**
+- Keep instructions concise and actionable
+- Focus on behavior modifications rather than complete workflow changes
+- Test instructions with different spawning scenarios
+- Consider the cumulative effect when multiple agents provide instructions for the same target
+- Remember that `parentInstructions` can only be defined in new agent templates, not in override files
+
+### Agent Example
 
 ```json
 {

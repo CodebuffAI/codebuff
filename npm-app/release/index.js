@@ -117,10 +117,13 @@ function streamToString(stream) {
 }
 
 function getCurrentVersion() {
-  if (!fs.existsSync(CONFIG.binaryPath)) return null
+  return new Promise((resolve, reject) => {
+    try {
+      if (!fs.existsSync(CONFIG.binaryPath)) {
+        resolve('error')
+        return
+      }
 
-  try {
-    return new Promise((resolve, reject) => {
       const child = spawn(CONFIG.binaryPath, ['--version'], {
         cwd: os.homedir(),
         stdio: 'pipe',
@@ -160,10 +163,10 @@ function getCurrentVersion() {
         clearTimeout(timeout)
         resolve('error')
       })
-    })
-  } catch (error) {
-    return 'error'
-  }
+    } catch (error) {
+      resolve('error')
+    }
+  })
 }
 
 function compareVersions(v1, v2) {
@@ -296,10 +299,9 @@ async function ensureBinaryExists() {
   }
 }
 
-async function checkForUpdates(runningProcess, exitListener) {
+async function checkForUpdates(runningProcess, exitListener, retry) {
   try {
     const currentVersion = await getCurrentVersion()
-    if (!currentVersion) return
 
     const latestVersion = await getLatestVersion()
     if (!latestVersion) return
@@ -333,48 +335,52 @@ async function checkForUpdates(runningProcess, exitListener) {
 
       await downloadBinary(latestVersion)
 
-      // Restart with new binary - this replaces the current process
-      const newChild = spawn(CONFIG.binaryPath, process.argv.slice(2), {
-        stdio: 'inherit',
-        detached: false,
-      })
-
-      // Set up exit handler for the new process
-      newChild.on('exit', (code) => {
-        process.exit(code || 0)
-      })
-
-      // Don't return - keep this function running to maintain the wrapper
-      return new Promise(() => {}) // Never resolves, keeps wrapper alive
+      await retry()
     }
   } catch (error) {
     // Silently ignore update check errors
   }
 }
 
-async function main() {
+async function main(firstRun = false) {
   await ensureBinaryExists()
 
-  // Start codebuff
-  const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
-    stdio: 'inherit',
-  })
+  let error = null
+  try {
+    // Start codebuff
+    const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
+      stdio: 'inherit',
+    })
 
-  // Store reference to the exit listener so we can remove it during updates
-  const exitListener = (code) => {
-    process.exit(code || 0)
+    // Store reference to the exit listener so we can remove it during updates
+    const exitListener = (code) => {
+      process.exit(code || 0)
+    }
+
+    child.on('exit', exitListener)
+
+    if (firstRun) {
+      // Check for updates in background
+      setTimeout(() => {
+        if (!error) {
+          checkForUpdates(child, exitListener, main)
+        }
+      }, 100)
+    }
+  } catch (err) {
+    error = err
+    if (firstRun) {
+      console.error('❌ Codebuff failed to start:', error.message)
+      console.log('Redownloading Codebuff...')
+      // Binary could be corrupted (killed before download completed), so delete and retry.
+      fs.unlinkSync(CONFIG.binaryPath)
+      await main()
+    }
   }
-
-  child.on('exit', exitListener)
-
-  // Check for updates in background
-  setTimeout(() => {
-    checkForUpdates(child, exitListener)
-  }, 100)
 }
 
 // Run the main function
-main().catch((error) => {
+main(true).catch((error) => {
   console.error('❌ Unexpected error:', error.message)
   process.exit(1)
 })

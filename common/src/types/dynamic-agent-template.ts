@@ -33,8 +33,9 @@ const PromptFieldSchema = z.union([
   z.string(), // Direct string content
   z.object({ path: z.string() }), // Path reference to external file
 ])
+export type PromptField = z.infer<typeof PromptFieldSchema>
 
-export const DynamicAgentTemplateSchema = z.object({
+export const DynamicAgentConfigSchema = z.object({
   id: z.string(), // The unique identifier for this agent
   version: z.string(),
   override: z.literal(false).optional().default(false), // Must be false for new agents, defaults to false if missing
@@ -82,6 +83,18 @@ export const DynamicAgentTemplateSchema = z.object({
   initialAssistantPrefix: PromptFieldSchema.optional(),
   stepAssistantMessage: PromptFieldSchema.optional(),
   stepAssistantPrefix: PromptFieldSchema.optional(),
+})
+export type DynamicAgentConfig = z.input<typeof DynamicAgentConfigSchema>
+export type DynamicAgentConfigParsed = z.infer<typeof DynamicAgentConfigSchema>
+
+export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
+  systemPrompt: z.string(),
+  userInputPrompt: z.string(),
+  agentStepPrompt: z.string(),
+  initialAssistantMessage: z.string(),
+  initialAssistantPrefix: z.string(),
+  stepAssistantMessage: z.string(),
+  stepAssistantPrefix: z.string(),
 })
 
 export type DynamicAgentTemplate = z.infer<typeof DynamicAgentTemplateSchema>

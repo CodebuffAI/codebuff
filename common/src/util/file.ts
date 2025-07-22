@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { z } from 'zod'
+import { DynamicAgentTemplateSchema } from '../types/dynamic-agent-template'
 
 export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
   name: z.string(),
@@ -45,7 +46,7 @@ export const ProjectFileContextSchema = z.object({
     .optional(),
   knowledgeFiles: z.record(z.string(), z.string()),
   userKnowledgeFiles: z.record(z.string(), z.string()).optional(),
-  agentTemplates: z.record(z.string(), z.string()).default({}),
+  agentTemplates: z.record(z.string(), DynamicAgentTemplateSchema).default({}),
   gitChanges: z.object({
     status: z.string(),
     diff: z.string(),

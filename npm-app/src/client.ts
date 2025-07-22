@@ -12,7 +12,6 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  readdirSync,
   unlinkSync,
   writeFileSync,
 } from 'fs'
@@ -31,7 +30,6 @@ import {
 } from '@codebuff/common/constants'
 import {
   AGENT_NAME_TO_TYPES,
-  AGENT_PERSONAS,
   UNIQUE_AGENT_NAMES,
 } from '@codebuff/common/constants/agents'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -87,53 +85,12 @@ import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 
+import { getLoadedAgentNames } from './agents/load-agents'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-
-/**
- * Get local agent names from the .agents/templates directory
- * @returns Record of agent type to agent name
- */
-function getLocalAgentNames(): Record<string, string> {
-  const agentsDir = path.join(getProjectRoot(), '.agents', 'templates')
-
-  if (!existsSync(agentsDir)) {
-    return {}
-  }
-
-  const agentNames: Record<string, string> = {}
-
-  try {
-    const files = readdirSync(agentsDir)
-
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        const agentType = file.replace('.json', '')
-        const filePath = path.join(agentsDir, file)
-
-        try {
-          const content = readFileSync(filePath, 'utf8')
-          const agentConfig = JSON.parse(content)
-
-          // Use the name from the config, or fall back to the filename
-          const agentName = agentConfig.name || agentType
-          agentNames[agentType] = agentName
-        } catch (error) {
-          // Skip invalid JSON files
-          continue
-        }
-      }
-    }
-  } catch (error) {
-    // Return empty object if directory can't be read
-    return {}
-  }
-
-  return agentNames
-}
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -244,9 +201,6 @@ export class Client {
     const repoInfoPromise = this.setRepoContext()
     this.freshPrompt = freshPrompt
     this.reconnectWhenNextIdle = reconnectWhenNextIdle
-
-    // Display loaded agents when client is instantiated
-    this.displayLoadedAgents()
 
     repoInfoPromise.then(() =>
       logger.info(
@@ -1084,7 +1038,7 @@ export class Client {
     const preferredAgents: string[] = []
 
     // Get local agents and combine with built-in agents
-    const localAgentNames = getLocalAgentNames()
+    const localAgentNames = getLoadedAgentNames()
     const localAgentDisplayNames = Object.values(localAgentNames)
     const allAgentNames = [...UNIQUE_AGENT_NAMES, ...localAgentDisplayNames]
 
@@ -1576,10 +1530,10 @@ Go to https://www.codebuff.com/config for more information.`) +
 
       // Store agent names for tool renderer (merge backend and local agents)
       if (parsedAction.data.agentNames) {
-        const localAgentNames = getLocalAgentNames()
+        const localAgentNames = getLoadedAgentNames()
         this.agentNames = {
           ...parsedAction.data.agentNames,
-          ...localAgentNames
+          ...localAgentNames,
         }
       }
 
@@ -1604,30 +1558,6 @@ Go to https://www.codebuff.com/config for more information.`) +
     this.webSocket.sendAction(initAction)
 
     await this.fetchStoredApiKeyTypes()
-  }
-
-  /**
-   * Display loaded agents to the user
-   */
-  private displayLoadedAgents() {
-    try {
-      const projectRoot = getProjectRoot() as string
-      if (projectRoot) {
-        const localAgentNames = getLocalAgentNames()
-
-        if (Object.keys(localAgentNames).length > 0) {
-          console.log(
-            `\n${green('Found custom agents:')} ${(
-              Object.values(localAgentNames) as string[]
-            )
-              .map((name) => cyan(name))
-              .join(', ')}\n`
-          )
-        }
-      }
-    } catch (error) {
-      // Silently fail if we can't read local agents
-    }
   }
 
   /**

@@ -7,9 +7,9 @@ import { Worker } from 'worker_threads'
 
 import { getFileTokenScores } from '@codebuff/code-map'
 import {
+  AGENT_TEMPLATES_DIR,
   FILE_READ_STATUS,
   toOptionalFile,
-  AGENT_TEMPLATES_DIR,
 } from '@codebuff/common/constants'
 
 import {
@@ -29,13 +29,13 @@ import {
   codebuffConfigFile,
   codebuffConfigFileBackup,
 } from '@codebuff/common/json-config/constants'
+import { loadedAgents, loadLocalAgents } from './agents/load-agents'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
 import { gitCommandIsAvailable } from './utils/git'
 import { logger } from './utils/logger'
 import { getSystemInfo } from './utils/system-info'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import { validateAgentTemplateFiles } from '@codebuff/common/util/agent-template-validation'
 
 // Global variables for chat management
 // Initialize chat ID on first import with singleton pattern
@@ -296,6 +296,7 @@ export const getProjectFileContext = async (
       projectRoot,
       allFilePaths
     )
+    await loadLocalAgents({ verbose: false })
 
     cachedProjectFileContext = {
       projectRoot,
@@ -304,7 +305,7 @@ export const getProjectFileContext = async (
       fileTokenScores: tokenScores,
       tokenCallers,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
-      agentTemplates: agentTemplateFilesWithScrapedContent,
+      agentTemplates: loadedAgents,
       shellConfigFiles,
       systemInfo: getSystemInfo(),
       userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,

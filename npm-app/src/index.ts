@@ -4,6 +4,7 @@ import { type CostMode } from '@codebuff/common/constants'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'
 
+import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { npmAppVersion } from './config'
@@ -62,6 +63,7 @@ async function codebuff({
 
   // Initialize the CLI singleton
   CLI.initialize(readyPromise, { git, costMode, model, agent, params, print })
+  await loadLocalAgents({ verbose: true }).then(() => displayLoadedAgents())
   const cli = CLI.getInstance()
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })

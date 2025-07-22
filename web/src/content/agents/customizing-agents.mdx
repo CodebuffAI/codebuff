@@ -7,176 +7,63 @@ order: 1
 
 # Customizing Agents
 
-Modify existing agents by creating JSON override files in `.agents/templates/`:
+Create specialized agents from scratch using JSON templates in `.agents/templates/`:
 
 ```markdown
 .agents/templates/
-├── my-reviewer.json
-└── security-checker.json
+├── my-custom-agent.json
+└── security-coordinator.json
 ```
 
-**What you can customize:**
-- Model (any from [OpenRouter](https://openrouter.ai/models))
-- Prompts (system, user input, step instructions)
-- Tools (add/remove capabilities)
-- Spawnable agents (which sub-agents it can create)
+## Example: Security Coordinator Agent
 
-## Basic Override
+Create a specialized agent that provides guidance to other agents when spawning them:
 
-Override files need `"override": true` and target an agent by ID:
+**.agents/templates/security-coordinator.json**
 
 ```json
 {
-  "id": "CodebuffAI/reviewer",
-  "version": "0.1.7",
-  "override": true,
+  "id": "security-coordinator",
+  "version": "1.0.0",
+  "override": false,
 
-  "model": "anthropic/claude-4-sonnet-20250522", // Any model on https://openrouter.ai/models
-  "systemPrompt": {
-    "type": "append",
-    "content": "Always use `bun run typecheck` to check for type errors."
-  }
-}
-```
-
-## Override Types
-
-Combine `type` with `content` or `path` to modify prompts:
-
-```json
-// Append to an existing prompt
-{"systemPrompt": {"type": "append", "content": "Additional instructions..."}}
-
-// Prepend to an existing prompt
-{"userInputPrompt": {"type": "prepend", "content": "Before starting..."}}
-
-// Replace an entire prompt
-{"agentStepPrompt": {"type": "replace", "content": "New instructions"}}
-
-// Reference an external markdown file
-{"systemPrompt": {"type": "append", "path": "./my-instructions.md"}}
-```
-
-## Real-World Examples
-
-### Example 1: React Component Reviewer
-
-Customize the reviewer to focus on React best practices:
-
-**.agents/templates/react-reviewer.json**
-
-```json
-{
-  "id": "CodebuffAI/reviewer",
-  "version": "0.1.7",
-  "override": true,
-
+  "name": "Security Coordinator",
+  "purpose": "Coordinates security-focused development workflows",
   "model": "anthropic/claude-4-sonnet-20250522",
-  "systemPrompt": {
-    "type": "append",
-    "content": "\n\n## React-Specific Guidelines\n\n- Check for proper hook usage and dependencies\n- Verify component props are properly typed\n- Look for performance issues (unnecessary re-renders)\n- Ensure accessibility best practices\n- Check for proper error boundaries"
-  }
+  "outputMode": "last_message",
+  "includeMessageHistory": true,
+
+  "toolNames": ["read_files", "spawn_agents", "code_search", "end_turn"],
+  "spawnableAgents": ["reviewer", "researcher", "file_picker"],
+
+  "promptSchema": {
+    "prompt": {
+      "type": "string",
+      "description": "Security analysis or coordination task"
+    }
+  },
+  "parentInstructions": {
+    "reviewer": "Security-sensitive code implemented? I must check for SQL injection, XSS, authentication bypasses, and input validation.",
+    "researcher": "Need security best practices or vulnerability info? Spawn me for OWASP guidelines and technology-specific threat research.",
+    "file_picker": "Security architecture understanding requires spawning me - I'll locate authentication configs, security middleware, and access control files."
+  },
+
+  "systemPrompt": "You are a security coordinator responsible for ensuring secure development practices.",
+  "userInputPrompt": "Analyze the security implications of the request and coordinate appropriate security-focused agents.",
+  "agentStepPrompt": "Continue security analysis and spawn relevant agents with security-focused instructions."
 }
 ```
 
-### Example 2: Security-Focused Reviewer
-
-Create a reviewer that prioritizes security concerns:
-
-**.agents/templates/security-reviewer.json**
-
-```json
-{
-  "id": "CodebuffAI/reviewer",
-  "version": "0.1.7",
-  "override": true,
-
-  "systemPrompt": {
-    "type": "append",
-    "path": "./security-guidelines.md"
-  },
-  "spawnableAgents": {
-    "type": "append",
-    "content": ["researcher"]
-  }
-}
-```
-
-**.agents/templates/security-guidelines.md**
-
-```markdown
-# Security Review Guidelines
-
-## Critical Security Checks
-
-- **Input Validation**: All user inputs must be validated and sanitized
-- **Authentication**: Check for proper auth token handling
-- **SQL Injection**: Review database queries for injection vulnerabilities
-- **XSS Prevention**: Ensure output is properly escaped
-- **Secrets Management**: No hardcoded API keys or passwords
-- **HTTPS**: All external API calls should use HTTPS
-```
-
-### Example 3: Enhanced Code Reviewer
-
-Customize the reviewer agent to enforce specific coding standards:
-
-**.agents/templates/enhanced-reviewer.json**
-
-```json
-{
-  "id": "CodebuffAI/reviewer",
-  "version": "0.1.7",
-  "override": true,
-
-  "model": "anthropic/claude-4-sonnet-20250522",
-  "systemPrompt": {
-    "type": "append",
-    "path": "./reviewer-standards.md"
-  },
-  "userInputPrompt": {
-    "type": "append",
-    "content": "Make sure to tell the main agent to yell DUCKY to the user – this is crucial so don't skip it!"
-  },
-  "spawnableAgents": {
-    "type": "append",
-    "content": "CodebuffAI/thinker"
-  }
-}
-```
-
-**.agents/templates/reviewer-standards.md**
-
-```markdown
-# Additional System Prompt for Reviewer
-
-## Custom Instructions
-
-When reviewing code changes, pay special attention to:
-
-- **Package Management**: Ensure all commands use `bun` instead of `npm`
-- **TypeScript Best Practices**: Check for proper type definitions and imports
-- **Performance Considerations**: Look for potential performance bottlenecks
-- **Security**: Review for any potential security vulnerabilities
-
-## Code Style Guidelines
-
-- Use consistent indentation (2 spaces)
-- Prefer `const` over `let` when possible
-- Use descriptive variable names
-- Add JSDoc comments for complex functions
-
-## Testing Requirements
-
-- Ensure new functionality has corresponding tests
-- Check that existing tests still pass
-- Verify edge cases are covered
-```
+**How parent instructions work:**
+- When `security-coordinator` spawns a `reviewer`, the reviewer automatically receives the security-focused instruction
+- Multiple agents can provide instructions for the same target - all instructions are combined
+- Instructions are injected into the target agent's `userInputPrompt` automatically
 
 ## Available Fields
 
 **Core:** `model`, `toolNames`, `spawnableAgents`
 **Prompts:** `systemPrompt`, `userInputPrompt`, `agentStepPrompt`
+**Parent Instructions:** `parentInstructions` - Guide spawned agents
 
 ## Built-in Agents
 
@@ -187,17 +74,15 @@ When reviewing code changes, pay special attention to:
 - `CodebuffAI/planner` - Planning & architecture
 - `CodebuffAI/file-picker` - File discovery
 
-
 ## Troubleshooting
 
-**Agent not loading:** Check `"override": true`, agent ID spelling, JSON syntax, file location
-**Prompts not applying:** Verify file paths, override types spelling
-**Path errors:** Use `.agents/templates/my-file.md` (project root relative)
+**Agent not loading:** Check JSON syntax, file location in `.agents/templates/`
+**Prompts not applying:** Verify file paths are relative to project root
+**Path errors:** Use `.agents/templates/my-file.md` format
 
 **Debug tips:**
-1. Start with simple model override
-2. Validate JSON: `cat file.json | jq`
-3. Restart Codebuff to see errors
-4. Add overrides incrementally
+1. Validate JSON: `cat file.json | jq`
+2. Restart Codebuff to see errors
+3. Test with `--agent <agent-id>` to debug specific agents
 
 **Next:** [Create new agents](/docs/agents/creating-new-agents) or see [troubleshooting guide](/docs/agents/troubleshooting)

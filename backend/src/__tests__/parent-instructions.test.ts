@@ -1,14 +1,15 @@
 import { AgentState } from '@codebuff/common/types/session-state'
-import { ProjectFileContext, FileTreeNode } from '@codebuff/common/util/file'
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { FileTreeNode, ProjectFileContext } from '@codebuff/common/util/file'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 
+import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import { agentRegistry } from '../templates/agent-registry'
 import { collectParentInstructions } from '../templates/strings'
 import { AgentTemplate } from '../templates/types'
 
 // Helper to create a mock ProjectFileContext
 const createMockFileContext = (
-  agentTemplates: Record<string, string>
+  agentTemplates: Record<string, DynamicAgentTemplate>
 ): ProjectFileContext => ({
   projectRoot: '/test',
   cwd: '/test',
@@ -54,10 +55,11 @@ describe('Parent Instructions Injection', () => {
   it('should inject parent instructions into userInputPrompt', async () => {
     // Mock file context with agent templates
     const fileContext = createMockFileContext({
-      '.agents/templates/knowledge-keeper.json': JSON.stringify({
+      'knowledge-keeper': {
         version: '1.0.0',
         id: 'knowledge-keeper',
         name: 'Knowledge Keeper',
+        override: false,
         purpose: 'Test agent',
         model: 'anthropic/claude-4-sonnet-20250522',
         outputMode: 'last_message',
@@ -72,11 +74,16 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a test agent.',
         userInputPrompt: 'Process the user request.',
         agentStepPrompt: 'Continue processing.',
-      }),
-      '.agents/templates/researcher.json': JSON.stringify({
+        initialAssistantMessage: '',
+        initialAssistantPrefix: '',
+        stepAssistantMessage: '',
+        stepAssistantPrefix: '',
+      },
+      researcher: {
         version: '1.0.0',
         id: 'researcher',
         name: 'Researcher',
+        override: false,
         purpose: 'Research agent',
         model: 'anthropic/claude-4-sonnet-20250522',
         outputMode: 'last_message',
@@ -86,7 +93,11 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a researcher.',
         userInputPrompt: 'Research the topic.',
         agentStepPrompt: 'Continue research.',
-      }),
+        initialAssistantMessage: '',
+        initialAssistantPrefix: '',
+        stepAssistantMessage: '',
+        stepAssistantPrefix: '',
+      },
     })
 
     // Initialize the registry
@@ -125,9 +136,10 @@ describe('Parent Instructions Injection', () => {
   it('should not inject parent instructions when none exist', async () => {
     // Mock file context with agent templates without parentInstructions
     const fileContext = createMockFileContext({
-      '.agents/templates/researcher.json': JSON.stringify({
+      researcher: {
         version: '1.0.0',
         id: 'researcher',
+        override: false,
         name: 'Researcher',
         purpose: 'Research agent',
         model: 'anthropic/claude-4-sonnet-20250522',
@@ -138,7 +150,11 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a researcher.',
         userInputPrompt: 'Research the topic.',
         agentStepPrompt: 'Continue research.',
-      }),
+        initialAssistantMessage: '',
+        initialAssistantPrefix: '',
+        stepAssistantMessage: '',
+        stepAssistantPrefix: '',
+      },
     })
 
     // Initialize the registry
@@ -174,10 +190,11 @@ describe('Parent Instructions Injection', () => {
   it('should handle multiple agents with instructions for the same target', async () => {
     // Mock file context with multiple agents having instructions for researcher
     const fileContext = createMockFileContext({
-      '.agents/templates/knowledge-keeper.json': JSON.stringify({
+      'knowledge-keeper': {
         version: '1.0.0',
         id: 'knowledge-keeper',
         name: 'Knowledge Keeper',
+        override: false,
         purpose: 'Test agent',
         model: 'anthropic/claude-4-sonnet-20250522',
         outputMode: 'last_message',
@@ -190,11 +207,16 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a test agent.',
         userInputPrompt: 'Process the user request.',
         agentStepPrompt: 'Continue processing.',
-      }),
-      '.agents/templates/planner.json': JSON.stringify({
+        initialAssistantMessage: '',
+        initialAssistantPrefix: '',
+        stepAssistantMessage: '',
+        stepAssistantPrefix: '',
+      },
+      planner: {
         version: '1.0.0',
         id: 'planner',
         name: 'Planner',
+        override: false,
         purpose: 'Planning agent',
         model: 'anthropic/claude-4-sonnet-20250522',
         outputMode: 'last_message',
@@ -207,11 +229,16 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a planner.',
         userInputPrompt: 'Plan the task.',
         agentStepPrompt: 'Continue planning.',
-      }),
-      '.agents/templates/researcher.json': JSON.stringify({
+        initialAssistantMessage: '',
+        initialAssistantPrefix: '',
+        stepAssistantMessage: '',
+        stepAssistantPrefix: '',
+      },
+      researcher: {
         version: '1.0.0',
         id: 'researcher',
         name: 'Researcher',
+        override: false,
         purpose: 'Research agent',
         model: 'anthropic/claude-4-sonnet-20250522',
         outputMode: 'last_message',
@@ -221,7 +248,11 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a researcher.',
         userInputPrompt: 'Research the topic.',
         agentStepPrompt: 'Continue research.',
-      }),
+        initialAssistantMessage: '',
+        initialAssistantPrefix: '',
+        stepAssistantMessage: '',
+        stepAssistantPrefix: '',
+      },
     })
 
     // Initialize the registry
