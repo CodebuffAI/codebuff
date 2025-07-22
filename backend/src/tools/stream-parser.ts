@@ -10,6 +10,7 @@ import {
   Subgoal,
   ToolResult,
 } from '@codebuff/common/types/session-state'
+import { buildArray } from '@codebuff/common/util/array'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { ToolCallPart } from 'ai'
@@ -263,13 +264,13 @@ export async function processStreamWithTools<T extends string>(options: {
     fullResponse += chunk
   }
 
-  state.messages = [
+  state.messages = buildArray<CodebuffMessage>([
     ...expireMessages(state.messages, 'agentStep'),
-    {
+    fullResponse && {
       role: 'assistant' as const,
       content: fullResponse,
     },
-  ]
+  ])
 
   resolveStreamDonePromise()
   await previousToolCallFinished
