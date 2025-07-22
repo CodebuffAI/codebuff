@@ -1,9 +1,6 @@
 import { DynamicAgentConfig } from '@codebuff/common/types/dynamic-agent-template'
 import { z } from 'zod/v4'
 
-// run any arbitrary logic
-console.log(`Some extra logic goes here`)
-
 export default {
   id: 'brainstormer',
   version: '1.0.0',
