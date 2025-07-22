@@ -1177,13 +1177,15 @@ export class Client {
       unsubscribeComplete()
       this.cancelCurrentInput()
 
-      const additionalMessages = [
-        { role: 'user' as const, content: prompt },
-        {
-          role: 'user' as const,
-          content: `<system><assistant_message>${rawChunkBuffer.join('')}${closeXml('assistant_message')}[RESPONSE_CANCELED_BY_USER]${closeXml('system')}`,
-        },
-      ]
+      const additionalMessages = prompt
+        ? [
+            { role: 'user' as const, content: prompt },
+            {
+              role: 'user' as const,
+              content: `<system><assistant_message>${rawChunkBuffer.join('')}${closeXml('assistant_message')}[RESPONSE_CANCELED_BY_USER]${closeXml('system')}`,
+            },
+          ]
+        : []
 
       // Update the agent state with just the assistant's response
       const {
