@@ -1,9 +1,4 @@
-import {
-  endsAgentStepParam,
-  renderToolResults,
-  ToolName,
-  toolNames,
-} from '@codebuff/common/constants/tools'
+import { ToolName, toolNames } from '@codebuff/common/constants/tools'
 import { CodebuffMessage } from '@codebuff/common/types/message'
 import {
   AgentState,
@@ -12,78 +7,19 @@ import {
 } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { ToolCallPart } from 'ai'
 import { WebSocket } from 'ws'
-import z from 'zod/v4'
-import { checkLiveUserInput } from '../live-user-inputs'
 import { AgentTemplate } from '../templates/types'
 import { toolParams } from '../tools'
 import { logger } from '../util/logger'
-import { asSystemMessage, expireMessages } from '../util/messages'
-import { requestToolCall } from '../websockets/websocket-action'
+import { expireMessages } from '../util/messages'
 import { processStreamWithTags } from '../xml-stream-parser'
+import { CodebuffToolCall } from './constants'
 import {
-  ClientToolCall,
-  CodebuffToolCall,
-  codebuffToolDefs,
-  CodebuffToolHandlerFunction,
-  codebuffToolHandlers,
-} from './constants'
-
-export type ToolCallError = {
-  toolName?: string
-  args: Record<string, unknown>
-  error: string
-} & Omit<ToolCallPart, 'type'>
-
-function parseRawToolCall<T extends ToolName = ToolName>(
-  rawToolCall: ToolCallPart & {
-    toolName: T
-    args: Record<string, unknown>
-  }
-): CodebuffToolCall<T> | ToolCallError {
-  const toolName = rawToolCall.toolName
-
-  if (!(toolName in codebuffToolDefs)) {
-    return {
-      toolName,
-      toolCallId: rawToolCall.toolCallId,
-      args: rawToolCall.args,
-      error: `Tool ${toolName} not found`,
-    }
-  }
-  const validName = toolName as T
-
-  const processedParameters: Record<string, any> = {}
-  for (const [param, val] of Object.entries(rawToolCall.args)) {
-    processedParameters[param] = val
-  }
-
-  const result = (
-    codebuffToolDefs[validName].parameters satisfies z.ZodObject as z.ZodObject
-  )
-    .extend({
-      [endsAgentStepParam]: z.literal(
-        codebuffToolDefs[validName].endsAgentStep
-      ),
-    })
-    .safeParse(processedParameters)
-  if (!result.success) {
-    return {
-      toolName: validName,
-      toolCallId: rawToolCall.toolCallId,
-      args: rawToolCall.args,
-      error: `Invalid parameters for ${validName}: ${JSON.stringify(result.error.issues, null, 2)}`,
-    }
-  }
-
-  delete result.data[endsAgentStepParam]
-  return {
-    toolName: validName,
-    args: result.data,
-    toolCallId: rawToolCall.toolCallId,
-  } as CodebuffToolCall<T>
-}
+  ToolCallError,
+  parseRawToolCall,
+  createToolExecutionContext,
+  executeSingleTool,
+} from './tool-executor'
 
 export async function processStreamWithTools<T extends string>(options: {
   stream: AsyncGenerator<T> | ReadableStream<T>
@@ -126,18 +62,23 @@ export async function processStreamWithTools<T extends string>(options: {
   const { promise: streamDonePromise, resolve: resolveStreamDonePromise } =
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
-  const state: Record<string, any> = {
+
+  // Create tool execution context
+  const toolContext = createToolExecutionContext({
     ws,
+    agentStepId,
+    clientSessionId,
     fingerprintId,
+    userInputId,
     userId,
     repoId,
     agentTemplate,
-    mutableState: {
-      agentState,
-      agentContext,
-      messages,
-    },
-  }
+    fileContext,
+    onResponseChunk,
+    agentState,
+    messages,
+    agentContext,
+  })
 
   function toolCallback<T extends ToolName>(
     toolName: T
@@ -185,58 +126,11 @@ export async function processStreamWithTools<T extends string>(options: {
           return
         }
 
-        const { result: toolResultPromise, state: stateUpdate } = (
-          codebuffToolHandlers[toolName] as CodebuffToolHandlerFunction<T>
-        )({
-          previousToolCallFinished,
-          fileContext,
-          agentStepId,
-          clientSessionId,
-          userInputId,
-          fullResponse,
-          writeToClient: onResponseChunk,
-          requestClientToolCall: async (clientToolCall: ClientToolCall<T>) => {
-            if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
-              return ''
-            }
+        // Use the extracted tool execution helper
+        const toolResultPromise = executeSingleTool(toolCall, toolContext)
 
-            const clientToolResult = await requestToolCall(
-              ws,
-              userInputId,
-              clientToolCall.toolName,
-              clientToolCall.args
-            )
-            return (
-              clientToolResult.error ??
-              (typeof clientToolResult.result === 'string'
-                ? clientToolResult.result
-                : JSON.stringify(clientToolResult.result))
-            )
-          },
-          toolCall,
-          state,
-        })
-
-        for (const [key, value] of Object.entries(stateUpdate)) {
-          state[key] = value
-        }
-        previousToolCallFinished = toolResultPromise.then((result) => {
-          const toolResult = {
-            toolName,
-            toolCallId: toolCall.toolCallId,
-            result,
-          }
-          logger.debug(
-            { toolResult },
-            `${toolName} (${toolResult.toolCallId}) tool result for tool`
-          )
-
+        previousToolCallFinished = toolResultPromise.then((toolResult) => {
           toolResults.push(toolResult)
-
-          state.mutableState.messages.push({
-            role: 'user' as const,
-            content: asSystemMessage(renderToolResults([toolResult])),
-          })
         })
       },
     }
@@ -261,8 +155,8 @@ export async function processStreamWithTools<T extends string>(options: {
     fullResponse += chunk
   }
 
-  state.mutableState.messages = [
-    ...expireMessages(state.mutableState.messages, 'agentStep'),
+  toolContext.state.mutableState.messages = [
+    ...expireMessages(toolContext.state.mutableState.messages, 'agentStep'),
     {
       role: 'assistant' as const,
       content: fullResponse,
@@ -272,5 +166,5 @@ export async function processStreamWithTools<T extends string>(options: {
   resolveStreamDonePromise()
   await previousToolCallFinished
 
-  return { toolCalls, toolResults, state, fullResponse }
+  return { toolCalls, toolResults, state: toolContext.state, fullResponse }
 }
