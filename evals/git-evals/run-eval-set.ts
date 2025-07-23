@@ -203,9 +203,21 @@ async function runEvalSet(options: {
   })
 
   const settledResults = await Promise.allSettled(evalPromises)
-  settledResults.forEach((res) => {
+  settledResults.forEach((res, index) => {
     if (res.status === 'fulfilled') {
       results.push(res.value)
+    } else {
+      console.error(
+        `❌ Eval config ${evalConfigs[index].name} was rejected:`,
+        res.reason
+      )
+      results.push({
+        name: evalConfigs[index].name,
+        status: 'error' as const,
+        error:
+          res.reason instanceof Error ? res.reason.message : String(res.reason),
+        duration: 0,
+      })
     }
   })
 

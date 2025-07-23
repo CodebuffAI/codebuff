@@ -311,9 +311,14 @@ export async function runGitEvals(
   limit?: number,
   logToStdout: boolean = false
 ): Promise<FullEvalLog> {
+  console.log(`Loading eval data from: ${evalDataPath}`)
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8')
   ) as GitRepoEvalData
+
+  console.log(
+    `Loaded ${evalData.evalCommits.length} eval commits from ${evalDataPath}`
+  )
 
   const { repoUrl } = evalData
 
@@ -345,7 +350,12 @@ export async function runGitEvals(
     ? evalData.evalCommits.slice(0, limit)
     : evalData.evalCommits
 
-  console.log(`Running ${commitsToRun.length} evaluations...`)
+  console.log(
+    `Running ${commitsToRun.length} evaluations out of ${evalData.evalCommits.length} total commits...`
+  )
+  console.log(
+    `Using concurrency limit: ${globalConcurrencyLimiter ? 'global limiter' : 'local limiter (20)'}`
+  )
 
   // Use global limiter if available, otherwise create a local one
   const limitConcurrency = globalConcurrencyLimiter || pLimit(20)
@@ -460,6 +470,20 @@ export async function runGitEvals(
   })
 
   const results = await Promise.allSettled(evalPromises)
+
+  console.log(
+    `Promise.allSettled completed. Results: ${results.length} total, ${results.filter((r) => r.status === 'fulfilled').length} fulfilled, ${results.filter((r) => r.status === 'rejected').length} rejected`
+  )
+
+  // Log rejected promises for debugging
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      console.error(
+        `❌ Eval ${index + 1}/${commitsToRun.length} (${commitsToRun[index].sha}) was rejected:`,
+        result.reason
+      )
+    }
+  })
 
   const evalRuns = results
     .filter((result) => result.status === 'fulfilled')
