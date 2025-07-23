@@ -1,3 +1,4 @@
+import { z } from 'zod/v4'
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
 import {
@@ -146,11 +147,6 @@ export async function getAgentPrompt<T extends StringField | RequirePrompt>(
 
   // Add parent instructions for userInputPrompt
   if (promptType.type === 'userInputPrompt' && agentState.agentType) {
-    const parentInstructions = await collectParentInstructions(
-      agentState.agentType,
-      agentRegistry
-    )
-
     addendum +=
       '\n\n' +
       getShortToolInstructions(
@@ -158,11 +154,38 @@ export async function getAgentPrompt<T extends StringField | RequirePrompt>(
         agentTemplate.spawnableAgents
       )
 
+    const parentInstructions = await collectParentInstructions(
+      agentState.agentType,
+      agentRegistry
+    )
+
     if (parentInstructions.length > 0) {
       addendum += '\n\n## Additional Instructions for Spawning Agents\n\n'
       addendum += parentInstructions
         .map((instruction) => `- ${instruction}`)
         .join('\n')
+    }
+
+    // Add output schema information if defined
+    if (agentTemplate.outputSchema) {
+      addendum += '\n\n## Output Schema\n\n'
+      addendum +=
+        'When using the set_output tool, your output must conform to this schema:\n\n'
+      addendum += '```json\n'
+      try {
+        // Convert Zod schema to JSON schema for display
+        const jsonSchema = z.toJSONSchema(agentTemplate.outputSchema)
+        delete jsonSchema['$schema'] // Remove the $schema field for cleaner display
+        addendum += JSON.stringify(jsonSchema, null, 2)
+      } catch {
+        // Fallback to a simple description
+        addendum += JSON.stringify(
+          { type: 'object', description: 'Output schema validation enabled' },
+          null,
+          2
+        )
+      }
+      addendum += '\n```'
     }
   }
 

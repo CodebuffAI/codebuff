@@ -484,7 +484,7 @@ export const runAgentStep = async (
     (toolCalls.length === 0 && toolResults.length === 0)
 
   const newAgentState = {
-    ...agentState, // This now includes any updates from tool execution (like output)
+    ...agentState,
     messageHistory: finalMessageHistoryWithToolResults,
     stepsRemaining: agentState.stepsRemaining - 1,
     agentContext: newAgentContext,
