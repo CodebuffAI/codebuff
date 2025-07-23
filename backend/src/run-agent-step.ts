@@ -439,6 +439,7 @@ export const runAgentStep = async (
   insertTrace(agentResponseTrace)
 
   const newAgentContext = state.agentContext as AgentState['agentContext']
+  // Use the updated agent state from tool execution
   agentState = state.agentState as AgentState
 
   let finalMessageHistoryWithToolResults = expireMessages(
@@ -483,7 +484,7 @@ export const runAgentStep = async (
     (toolCalls.length === 0 && toolResults.length === 0)
 
   const newAgentState = {
-    ...agentState,
+    ...agentState, // This now includes any updates from tool execution (like output)
     messageHistory: finalMessageHistoryWithToolResults,
     stepsRemaining: agentState.stepsRemaining - 1,
     agentContext: newAgentContext,

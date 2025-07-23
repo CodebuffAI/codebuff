@@ -166,7 +166,7 @@ export const handleSpawnAgentsAsync = ((params: {
           subagents: [],
           messageHistory: subAgentMessages,
           stepsRemaining: 20, // MAX_AGENT_STEPS
-          report: {},
+          output: undefined,
           // Add parent ID to agent state for communication
           parentId: agentState!.agentId,
         }

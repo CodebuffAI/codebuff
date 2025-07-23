@@ -54,8 +54,9 @@ export const handleSetOutput = ((params: {
         output,
         agentType: agentState.agentType,
         agentId: agentState.agentId,
+        updatedOutput: agentState.output,
       },
-      'set_output tool call'
+      'set_output tool call completed'
     )
 
     return 'Output set'
@@ -63,6 +64,6 @@ export const handleSetOutput = ((params: {
 
   return {
     result: previousToolCallFinished.then(triggerSetOutput),
-    state: { agentState },
+    state: { agentState: agentState },
   }
 }) satisfies CodebuffToolHandlerFunction<'set_output'>

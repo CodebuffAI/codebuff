@@ -194,7 +194,7 @@ export async function runProgrammaticStep(
     } while (true)
 
     logger.info(
-      { report: state.agentState.report },
+      { output: state.agentState.output },
       'Programmatic agent execution completed'
     )
 
@@ -210,7 +210,10 @@ export async function runProgrammaticStep(
     }`
     onResponseChunk(errorMessage)
 
-    state.agentState.report.error = errorMessage
+    state.agentState.output = {
+      ...state.agentState.output,
+      error: errorMessage,
+    }
 
     return {
       agentState: state.agentState,

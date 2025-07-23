@@ -5,7 +5,6 @@ export default {
   version: '0.0.1',
   model: 'google/gemini-2.5-pro',
   override: false,
-  // implementation: 'llm',
   name: 'Git Committer',
   purpose:
     'A git committer agent specialized to commit current changes with an appropriate commit message.',

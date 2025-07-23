@@ -21,7 +21,7 @@ describe('QuickJS Sandbox Generator', () => {
       agentId: 'test-agent-123',
       agentType: 'test-vm-agent',
       messageHistory: [],
-      report: {},
+      output: undefined,
       agentContext: {},
       subagents: [],
       stepsRemaining: 10,
@@ -118,7 +118,7 @@ describe('QuickJS Sandbox Generator', () => {
     const result = await runProgrammaticStep(mockAgentState, mockParams)
 
     expect(result.endTurn).toBe(true)
-    expect(result.agentState.report.error).toContain(
+    expect(result.agentState.output?.error).toContain(
       'Error executing programmatic agent'
     )
   })

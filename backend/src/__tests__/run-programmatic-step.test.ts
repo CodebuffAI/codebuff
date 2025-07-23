@@ -99,7 +99,7 @@ describe('runProgrammaticStep', () => {
         { role: 'user', content: 'Initial message' },
         { role: 'assistant', content: 'Initial response' },
       ],
-      report: {},
+      output: undefined,
     }
 
     // Create mock params
@@ -369,7 +369,7 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
       expect(result.endTurn).toBe(true)
-      expect(result.agentState.report.error).toContain('Generator error')
+      expect(result.agentState.output?.error).toContain('Generator error')
       expect(
         responseChunks.some((chunk) => chunk.includes('Generator error'))
       ).toBe(true)
@@ -390,7 +390,7 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
       expect(result.endTurn).toBe(true)
-      expect(result.agentState.report.error).toContain('Tool execution failed')
+      expect(result.agentState.output?.error).toContain('Tool execution failed')
     })
 
     it('should handle non-Error exceptions', async () => {
@@ -403,7 +403,7 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
       expect(result.endTurn).toBe(true)
-      expect(result.agentState.report.error).toContain('Unknown error')
+      expect(result.agentState.output?.error).toContain('Unknown error')
     })
   })
 

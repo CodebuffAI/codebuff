@@ -149,7 +149,7 @@ export const handleSpawnAgents = ((params: {
           subagents: [],
           messageHistory: subAgentMessages,
           stepsRemaining: 20, // MAX_AGENT_STEPS
-          report: {},
+          output: undefined,
           // Add parent ID to agent state for communication
           parentId: agentState!.agentId,
         }
@@ -189,7 +189,7 @@ export const handleSpawnAgents = ((params: {
         let report = ''
 
         if (agentTemplate.outputMode === 'json') {
-          report = JSON.stringify(result.value.agentState.report, null, 2)
+          report = JSON.stringify(result.value.agentState.output, null, 2)
         } else if (agentTemplate.outputMode === 'last_message') {
           const { agentState } = result.value
           const assistantMessages = agentState.messageHistory.filter(

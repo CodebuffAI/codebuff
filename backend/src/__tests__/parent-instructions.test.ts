@@ -117,7 +117,7 @@ describe('Parent Instructions Injection', () => {
       subagents: [],
       messageHistory: [],
       stepsRemaining: 10,
-      report: {},
+      output: undefined,
     }
 
     // Test parent instructions collection directly
@@ -165,17 +165,6 @@ describe('Parent Instructions Injection', () => {
       'researcher'
     ) as AgentTemplate
     expect(researcherTemplate).toBeDefined()
-
-    // Create mock agent state
-    const agentState: AgentState = {
-      agentId: 'test-agent',
-      agentType: 'researcher',
-      agentContext: {},
-      subagents: [],
-      messageHistory: [],
-      stepsRemaining: 10,
-      report: {},
-    }
 
     // Test parent instructions collection directly
     const parentInstructions = await collectParentInstructions(
@@ -263,17 +252,6 @@ describe('Parent Instructions Injection', () => {
       'researcher'
     ) as AgentTemplate
     expect(researcherTemplate).toBeDefined()
-
-    // Create mock agent state
-    const agentState: AgentState = {
-      agentId: 'test-agent',
-      agentType: 'researcher',
-      agentContext: {},
-      subagents: [],
-      messageHistory: [],
-      stepsRemaining: 10,
-      report: {},
-    }
 
     // Test parent instructions collection directly
     const parentInstructions = await collectParentInstructions(
