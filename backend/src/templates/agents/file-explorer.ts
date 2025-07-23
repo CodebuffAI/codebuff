@@ -60,7 +60,7 @@ export const fileExplorer = {
       toolName: 'update_report' as const,
       args: {
         json_update: {
-          broad_file_picker_results: spawnResult?.result,
+          results: spawnResult?.result,
         },
       },
     }
