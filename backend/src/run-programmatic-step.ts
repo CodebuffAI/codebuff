@@ -17,6 +17,13 @@ const agentIdToGenerator: Record<
   StepGenerator | 'STEP_ALL' | undefined
 > = {}
 
+// Function to clear the generator cache for testing purposes
+export function clearAgentGeneratorCache() {
+  for (const key in agentIdToGenerator) {
+    delete agentIdToGenerator[key]
+  }
+}
+
 // Function to handle programmatic agents
 export async function runProgrammaticStep(
   agentState: AgentState,
