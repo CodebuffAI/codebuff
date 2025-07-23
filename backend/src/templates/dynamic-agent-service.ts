@@ -10,8 +10,7 @@ import {
   validateSpawnableAgents,
 } from '@codebuff/common/util/agent-template-validation'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { jsonSchemaToZod } from 'json-schema-to-zod'
-import { z } from 'zod'
+import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { ToolName } from '@codebuff/common/constants/tools'
 import { logger } from '../util/logger'
@@ -257,9 +256,7 @@ export class DynamicAgentService {
     // Handle prompt schema
     if (promptSchema && Object.keys(promptSchema).length > 0) {
       try {
-        const zodSchemaCode = jsonSchemaToZod(promptSchema)
-        const schemaFunction = new Function('z', `return ${zodSchemaCode}`)
-        const promptZodSchema = schemaFunction(z)
+        const promptZodSchema = convertJsonSchemaToZod(promptSchema)
 
         // Validate that the schema results in string or undefined
         const testResult = promptZodSchema.safeParse('test')
@@ -295,9 +292,8 @@ export class DynamicAgentService {
     // Handle params schema
     if (paramsSchema && Object.keys(paramsSchema).length > 0) {
       try {
-        const zodSchemaCode = jsonSchemaToZod(paramsSchema)
-        const schemaFunction = new Function('z', `return ${zodSchemaCode}`)
-        result.params = schemaFunction(z)
+        const paramsZodSchema = convertJsonSchemaToZod(paramsSchema)
+        result.params = paramsZodSchema
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error'
