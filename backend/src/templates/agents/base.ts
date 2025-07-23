@@ -35,11 +35,11 @@ export const base = (
     'read_files',
     'think_deeply',
     'update_subgoal',
-    'update_report',
   ],
   spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [
+        AgentTemplateTypes.file_explorer,
         AgentTemplateTypes.file_picker,
         AgentTemplateTypes.researcher,
         AgentTemplateTypes.thinker,

@@ -8,6 +8,7 @@ import { agentBuilder } from './agents/agent-builder'
 import { dryRun } from './agents/archive/dry-run'
 import { ask } from './agents/ask'
 import { base } from './agents/base'
+import { fileExplorer } from './agents/file-explorer'
 import { filePicker } from './agents/file-picker'
 import { planner } from './agents/planner'
 import { researcher } from './agents/researcher'
@@ -76,4 +77,5 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
       id: AgentTemplateTypes.sonnet4_agent_builder,
       ...agentBuilder(models.openrouter_claude_sonnet_4),
     },
+    file_explorer: fileExplorer as any as AgentTemplate,
   }

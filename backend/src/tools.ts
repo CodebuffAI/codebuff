@@ -2,6 +2,8 @@
 import { spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+import { z } from 'zod/v4'
+
 
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import {
@@ -13,62 +15,41 @@ import {
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
-import { z } from 'zod/v4'
 
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { agentTemplates } from './templates/agent-list'
 import { agentRegistry } from './templates/agent-registry'
 import { CodebuffToolCall, codebuffToolDefs } from './tools/constants'
+import { logger } from '@codebuff/common/util/logger'
 
-// Helper function to extract clean schema information for logging
-function getSchemaInfo(schema: any) {
-  const def = schema._def
+/**
+ * Convert a Zod/v4 schema to JSON string representation.
+ */
+const schemaToJsonStr = (
+  schema: z.ZodTypeAny | undefined | Record<string, any>
+): string => {
+  if (!schema) return 'None'
 
-  // Map Zod type names to cleaner type strings
-  const getCleanType = (typeName: string): string => {
-    switch (typeName) {
-      case 'ZodString':
-      case 'string':
-        return 'string'
-      case 'ZodNumber':
-      case 'number':
-        return 'number'
-      case 'ZodBoolean':
-      case 'boolean':
-        return 'boolean'
-      case 'ZodArray':
-      case 'array':
-        return 'array'
-      case 'ZodObject':
-      case 'object':
-        return 'object'
-      case 'ZodOptional':
-        return (
-          getCleanType(
-            def.innerType?._def?.typeName ||
-              def.innerType?._def?.type ||
-              'unknown'
-          ) + ' (optional)'
-        )
-      case 'ZodUnion':
-      case 'union':
-        return 'union'
-      case 'ZodEnum':
-      case 'enum':
-        return 'enum'
-      default:
-        return 'unknown'
+  try {
+    // Handle Zod schemas
+    if (schema instanceof z.ZodType) {
+      const jsonSchema = z.toJSONSchema(schema)
+      delete jsonSchema['$schema']
+      return JSON.stringify(jsonSchema, null, 2)
     }
-  }
 
-  // Handle both regular zod and zod/v4 formats
-  const typeName = def.typeName || def.type || 'unknown'
-  const description =
-    def.description || schema.description || 'No description provided'
-
-  return {
-    type: getCleanType(typeName),
-    description: description,
+    // Otherwise, pass on plain object
+    return JSON.stringify(schema, null, 2)
+  } catch (error) {
+    // Graceful fallback
+    logger.warn(
+      {
+        error,
+        schema,
+      },
+      'Failed to convert schema to JSON'
+    )
+    return 'None'
   }
 }
 
@@ -138,65 +119,6 @@ function buildSpawnableAgentsDescription(
 ): string {
   if (spawnableAgents.length === 0) {
     return ''
-  }
-
-  /**
-   * Convert a Zod schema to clean JSON string representation for logging.
-   */
-  const schemaToJsonStr = (
-    schema: z.ZodTypeAny | undefined | Record<string, z.ZodTypeAny>
-  ) => {
-    if (!schema) return 'None'
-
-    try {
-      // Helper function to check if something is a Zod schema (supports both regular zod and zod/v4)
-      const isZodSchema = (obj: any) => {
-        return (
-          obj &&
-          typeof obj === 'object' &&
-          obj._def &&
-          (typeof obj._def.typeName === 'string' ||
-            typeof obj._def.type === 'string')
-        )
-      }
-
-      // Handle Zod schemas (more robust than instanceof due to zod version differences)
-      if (isZodSchema(schema)) {
-        return JSON.stringify(getSchemaInfo(schema as any), null, 2)
-      }
-
-      // Handle objects containing Zod schemas (for dynamic agents)
-      if (typeof schema === 'object' && schema !== null) {
-        // Check if it's a plain object with Zod schemas as values
-        const schemaEntries = Object.entries(schema)
-        if (schemaEntries.length > 0) {
-          const isValidSchemaObject = schemaEntries.every(([key, value]) =>
-            isZodSchema(value)
-          )
-          if (isValidSchemaObject) {
-            const cleanSchema: Record<string, any> = {}
-            for (const [key, value] of schemaEntries) {
-              cleanSchema[key] = getSchemaInfo(value as any)
-            }
-            return JSON.stringify(cleanSchema, null, 2)
-          }
-        }
-
-        // Handle case where schema might be a plain object (fallback)
-        return JSON.stringify(schema, null, 2)
-      }
-
-      return 'None'
-    } catch (error) {
-      // Graceful fallback with more debugging info
-      console.warn(
-        'Failed to convert schema to JSON:',
-        error,
-        'Schema:',
-        schema
-      )
-      return 'None'
-    }
   }
 
   const agentsDescription = spawnableAgents

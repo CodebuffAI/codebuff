@@ -40,6 +40,10 @@ export const AGENT_PERSONAS = {
     purpose:
       'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   },
+  file_explorer: {
+    name: 'Dora The File Explorer',
+    purpose: 'Expert at exploring a codebase and finding relevant files.',
+  },
   file_picker: {
     name: 'Fletcher the File Fetcher',
     purpose: 'Expert at finding relevant files in a codebase.',

@@ -10,15 +10,18 @@ import {
 } from '@codebuff/common/types/session-state'
 import { CodebuffToolCall } from '../tools/constants'
 
-export type AgentTemplate = {
+export type AgentTemplate<
+  P = string | undefined,
+  T = Record<string, any> | undefined,
+> = {
   id: AgentTemplateType
   name: string
   purpose: string
   model: Model
   // Required parameters for spawning this agent.
   promptSchema: {
-    prompt?: z.ZodSchema<string | undefined>
-    params?: z.ZodSchema<any>
+    prompt?: z.ZodSchema<P>
+    params?: z.ZodSchema<T>
   }
   outputMode: 'last_message' | 'report' | 'all_messages'
   includeMessageHistory: boolean
@@ -35,16 +38,19 @@ export type AgentTemplate = {
   userInputPrompt: string
   agentStepPrompt: string
 
-  handleStep?: StepHandler
+  handleStep?: StepHandler<P, T>
 }
 
 export type StepGenerator = Generator<
   Omit<CodebuffToolCall, 'toolCallId'> | 'STEP' | 'STEP_ALL',
   void,
-  ToolResult | undefined
+  { agentState: AgentState; toolResult: ToolResult | undefined }
 >
 
-export type StepHandler = (agentState: AgentState) => StepGenerator
+export type StepHandler<
+  P = string | undefined,
+  T = Record<string, any> | undefined,
+> = (params: { agentState: AgentState; prompt: P; params: T }) => StepGenerator
 
 const placeholderNames = [
   'AGENT_NAME',

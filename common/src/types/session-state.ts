@@ -69,6 +69,7 @@ export const AgentTemplateTypeList = [
 
   // Other agents
   'file_picker',
+  'file_explorer',
   'researcher',
   'reviewer',
   'sonnet4_agent_builder',

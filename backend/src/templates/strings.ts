@@ -151,19 +151,19 @@ export async function getAgentPrompt<T extends StringField | RequirePrompt>(
       agentRegistry
     )
 
-    if (parentInstructions.length > 0) {
-      addendum += '\n\n## Instructions for Spawning Agents\n\n'
-      addendum += parentInstructions
-        .map((instruction) => `- ${instruction}`)
-        .join('\n')
-    }
-
     addendum +=
       '\n\n' +
       getShortToolInstructions(
         agentTemplate.toolNames,
         agentTemplate.spawnableAgents
       )
+
+    if (parentInstructions.length > 0) {
+      addendum += '\n\n## Additional Instructions for Spawning Agents\n\n'
+      addendum += parentInstructions
+        .map((instruction) => `- ${instruction}`)
+        .join('\n')
+    }
   }
 
   return prompt + addendum

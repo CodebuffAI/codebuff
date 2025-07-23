@@ -5,20 +5,32 @@ import {
 } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { WebSocket } from 'ws'
-import { runTool } from './run-tool'
 import { AgentTemplate, StepGenerator } from './templates/types'
 import { CodebuffToolCall } from './tools/constants'
+import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
 import { getRequestContext } from './websockets/request-context'
 
 // Maintains generator state for all agents. Generator state can't be serialized, so we store it in memory.
-const agentIdToGenerator: Record<string, StepGenerator | undefined> = {}
+const agentIdToGenerator: Record<
+  string,
+  StepGenerator | 'STEP_ALL' | undefined
+> = {}
+
+// Function to clear the generator cache for testing purposes
+export function clearAgentGeneratorCache() {
+  for (const key in agentIdToGenerator) {
+    delete agentIdToGenerator[key]
+  }
+}
 
 // Function to handle programmatic agents
 export async function runProgrammaticStep(
   agentState: AgentState,
   params: {
     template: AgentTemplate
+    prompt: string | undefined
+    params: Record<string, any> | undefined
     userId: string | undefined
     userInputId: string
     clientSessionId: string
@@ -26,13 +38,11 @@ export async function runProgrammaticStep(
     onResponseChunk: (chunk: string) => void
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
-    prompt: string | undefined
-    params: Record<string, any> | undefined
     assistantMessage: string | undefined
     assistantPrefix: string | undefined
     ws: WebSocket
   }
-): Promise<AgentState> {
+): Promise<{ agentState: AgentState; endTurn: boolean }> {
   const {
     template,
     onResponseChunk,
@@ -59,26 +69,55 @@ export async function runProgrammaticStep(
     if (!template.handleStep) {
       throw new Error('No step handler found for agent template ' + template.id)
     }
-    generator = template.handleStep(agentState)
+    generator = template.handleStep({
+      agentState,
+      prompt: params.prompt,
+      params: params.params,
+    })
     agentIdToGenerator[agentState.agentId] = generator
   }
+  if (generator === 'STEP_ALL') {
+    return { agentState, endTurn: false }
+  }
 
-  if (Math.random() <= 1) {
-    throw new Error('Not implemented yet!')
+  const agentStepId = crypto.randomUUID()
+
+  const requestContext = getRequestContext()
+  const repoId = requestContext?.processedRepoId
+
+  // Initialize state for tool execution
+  const toolCalls: CodebuffToolCall[] = []
+  const toolResults: ToolResult[] = []
+  const state = {
+    ws,
+    fingerprintId,
+    userId,
+    repoId,
+    agentTemplate: template,
+    agentState: { ...agentState },
+    agentContext: agentState.agentContext,
+    messages: [...agentState.messageHistory],
   }
 
   let toolResult: ToolResult | undefined
+  let endTurn = false
 
   try {
+    // Execute tools synchronously as the generator yields them
     do {
-      let result = generator.next(toolResult)
+      let result = generator.next({
+        agentState: { ...state.agentState },
+        toolResult,
+      })
       if (result.done) {
+        endTurn = true
         break
       }
       if (result.value === 'STEP') {
         break
       }
       if (result.value === 'STEP_ALL') {
+        agentIdToGenerator[agentState.agentId] = 'STEP_ALL'
         break
       }
 
@@ -89,49 +128,62 @@ export async function runProgrammaticStep(
         toolCallId: crypto.randomUUID(),
       } as CodebuffToolCall
 
-      // Generate a unique agent step ID for this tool execution
-      const agentStepId = crypto.randomUUID()
+      logger.debug(
+        { toolCall },
+        `${toolCall.toolName} tool call from programmatic agent`
+      )
 
-      // Get the extracted repo ID from request context
-      const requestContext = getRequestContext()
-      const repoId = requestContext?.processedRepoId
-
-      // Execute the tool call using the simplified wrapper
-      toolResult = await runTool(toolCall, {
+      // Execute the tool synchronously and get the result immediately
+      await executeToolCall({
+        toolName: toolCall.toolName,
+        args: toolCall.args,
+        toolCalls,
+        toolResults,
+        previousToolCallFinished: Promise.resolve(),
         ws,
-        userId,
-        userInputId,
-        clientSessionId,
-        fingerprintId,
-        agentStepId,
-        fileContext,
-        messages: agentState.messageHistory,
         agentTemplate: template,
-        repoId,
-        agentState,
+        fileContext,
+        agentStepId,
+        clientSessionId,
+        userInputId,
+        fullResponse: '',
+        onResponseChunk,
+        state,
+        userId,
+        autoInsertEndStepParam: true,
       })
 
-      if (result.value && result.value.toolName === 'end_turn') {
+      // Get the latest tool result
+      toolResult = toolResults[toolResults.length - 1]
+
+      if (toolCall.toolName === 'end_turn') {
+        endTurn = true
         break
       }
     } while (true)
 
     logger.info(
-      { report: agentState.report },
+      { report: state.agentState.report },
       'Programmatic agent execution completed'
     )
-    return agentState
+
+    return { agentState: state.agentState, endTurn }
   } catch (error) {
     logger.error(
       { error, template: template.id },
       'Programmatic agent execution failed'
     )
 
-    const errorMessage = `Error executing programmatic agent: ${error instanceof Error ? error.message : 'Unknown error'}`
+    const errorMessage = `Error executing programmatic agent: ${
+      error instanceof Error ? error.message : 'Unknown error'
+    }`
     onResponseChunk(errorMessage)
 
-    agentState.report.error = errorMessage
+    state.agentState.report.error = errorMessage
 
-    return agentState
+    return {
+      agentState: state.agentState,
+      endTurn: true,
+    }
   }
 }
