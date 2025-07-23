@@ -27,7 +27,6 @@ export const toolNames = [
   'spawn_agents_async',
   'str_replace',
   'think_deeply',
-  'update_report',
   'update_subgoal',
   'web_search',
   'write_file',
@@ -59,8 +58,7 @@ export const toolSchema = {
   send_agent_message: ['target_agent_id', 'prompt', 'params'],
   spawn_agents: ['agents'],
   spawn_agents_async: ['agents'],
-  set_output: ['output'],
-  update_report: ['json_update'],
+  set_output: [],
 
   // Documentation tool
   read_docs: ['libraryTitle', 'topic', 'max_tokens'],

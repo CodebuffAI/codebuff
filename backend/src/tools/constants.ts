@@ -21,7 +21,6 @@ import { spawnAgentsTool } from './definitions/spawn-agents'
 import { spawnAgentsAsyncTool } from './definitions/spawn-agents-async'
 import { strReplaceTool } from './definitions/str-replace'
 import { thinkDeeplyTool } from './definitions/think-deeply'
-import { updateReportTool } from './definitions/update-report'
 import { updateSubgoalTool } from './definitions/update-subgoal'
 import { webSearchTool } from './definitions/web-search'
 import { writeFileTool } from './definitions/write-file'
@@ -43,7 +42,6 @@ import { handleSpawnAgents } from './handlers/spawn-agents'
 import { handleSpawnAgentsAsync } from './handlers/spawn-agents-async'
 import { handleStrReplace } from './handlers/str-replace'
 import { handleThinkDeeply } from './handlers/think-deeply'
-import { handleUpdateReport } from './handlers/update-report'
 import { handleUpdateSubgoal } from './handlers/update-subgoal'
 import { handleWebSearch } from './handlers/web-search'
 import { handleWriteFile } from './handlers/write-file'
@@ -81,7 +79,6 @@ export const codebuffToolDefs = {
   spawn_agents_async: spawnAgentsAsyncTool,
   str_replace: strReplaceTool,
   think_deeply: thinkDeeplyTool,
-  update_report: updateReportTool,
   update_subgoal: updateSubgoalTool,
   web_search: webSearchTool,
   write_file: writeFileTool,
@@ -172,7 +169,6 @@ export const codebuffToolHandlers = {
   spawn_agents_async: handleSpawnAgentsAsync,
   str_replace: handleStrReplace,
   think_deeply: handleThinkDeeply,
-  update_report: handleUpdateReport,
   update_subgoal: handleUpdateSubgoal,
   web_search: handleWebSearch,
   write_file: handleWriteFile,

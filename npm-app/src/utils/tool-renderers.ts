@@ -347,17 +347,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       }
     },
   },
-  update_report: {
-    onToolStart: (toolName) => {
-      return '\n\n' + gray(`[${bold('Update Report')}]`) + '\n'
-    },
-    onParamChunk: (content, paramName, toolName) => {
-      if (paramName === 'jsonUpdate') {
-        return gray(content)
-      }
-      return null
-    },
-  },
+
   send_agent_message: {
     onToolStart: (toolName) => {
       return '\n\n' + gray(`[${bold('Send Agent Message')}]`) + '\n'

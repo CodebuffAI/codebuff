@@ -184,7 +184,7 @@ export async function runToolCalls(toolCalls: ClientToolCall[]) {
   for (const toolCall of toolCalls) {
     if (
       toolCall.toolName === 'spawn_agents' ||
-      toolCall.toolName === 'update_report'
+      toolCall.toolName === 'set_output'
     ) {
       // should never happen
       continue

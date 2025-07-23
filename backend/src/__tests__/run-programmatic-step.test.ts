@@ -319,48 +319,25 @@ describe('runProgrammaticStep', () => {
     it('should preserve agent state changes', async () => {
       const mockGenerator = (function* () {
         yield {
-          toolName: 'update_report',
-          args: { json_update: { status: 'complete' } },
+          toolName: 'set_output',
+          args: { status: 'complete' },
         }
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
-      mockTemplate.toolNames.push('update_report')
+      mockTemplate.toolNames.push('set_output')
 
       // Mock executeToolCall to update state
       executeToolCallSpy.mockImplementation(async (options: any) => {
-        if (options.toolName === 'update_report') {
-          options.state.agentState.report = { status: 'complete' }
+        if (options.toolName === 'set_output') {
+          options.state.agentState.output = { status: 'complete' }
         }
       })
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
-      expect(result.agentState.report).toEqual({ status: 'complete' })
-    })
-
-    it('should properly update report using actual update_report tool handler', async () => {
-      const mockGenerator = (function* () {
-        yield {
-          toolName: 'update_report',
-          args: { json_update: { message: 'Task completed', progress: 100 } },
-        }
-        yield { toolName: 'end_turn', args: {} }
-      })() as StepGenerator
-
-      mockTemplate.handleSteps = () => mockGenerator
-      mockTemplate.toolNames.push('update_report')
-
-      // Don't mock executeToolCall - let it use the real implementation
-      executeToolCallSpy.mockRestore()
-
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
-
-      expect(result.agentState.report).toEqual({
-        message: 'Task completed',
-        progress: 100,
-      })
+      expect(result.agentState.output).toEqual({ status: 'complete' })
     })
 
     it('should preserve message history', async () => {
