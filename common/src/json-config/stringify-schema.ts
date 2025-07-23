@@ -238,6 +238,6 @@ function stringifyZodType(
  * @param schema The Zod schema object (e.g., z.object({...})).
  * @returns A string describing the schema structure and field descriptions.
  */
-export function stringifySchema(schema: z.ZodObject<any>): string {
+export function stringifySchema(schema: z.ZodObject<any> | z.ZodEffects<any>): string {
   return stringifyZodType(schema, 0)
 }
