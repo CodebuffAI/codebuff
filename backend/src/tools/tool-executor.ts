@@ -3,14 +3,9 @@ import {
   renderToolResults,
   ToolName,
 } from '@codebuff/common/constants/tools'
-import { CodebuffMessage } from '@codebuff/common/types/message'
-import {
-  AgentState,
-  Subgoal,
-  ToolResult,
-} from '@codebuff/common/types/session-state'
+import { ToolResult } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { ToolCallPart } from 'ai'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { WebSocket } from 'ws'
 import z from 'zod/v4'
 import { checkLiveUserInput } from '../live-user-inputs'
@@ -22,6 +17,7 @@ import {
   ClientToolCall,
   CodebuffToolCall,
   codebuffToolDefs,
+  CodebuffToolHandlerFunction,
   codebuffToolHandlers,
 } from './constants'
 
@@ -29,14 +25,13 @@ export type ToolCallError = {
   toolName?: string
   args: Record<string, unknown>
   error: string
-} & Omit<ToolCallPart, 'type'>
+} & Pick<CodebuffToolCall, 'toolCallId'>
 
-export function parseRawToolCall<T extends ToolName = ToolName>(
-  rawToolCall: ToolCallPart & {
-    toolName: T
-    args: Record<string, unknown>
-  }
-): CodebuffToolCall<T> | ToolCallError {
+export function parseRawToolCall<T extends ToolName = ToolName>(rawToolCall: {
+  toolName: T
+  toolCallId: string
+  args: Record<string, unknown>
+}): CodebuffToolCall<T> | ToolCallError {
   const toolName = rawToolCall.toolName
 
   if (!(toolName in codebuffToolDefs)) {
@@ -63,12 +58,17 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
       ),
     })
     .safeParse(processedParameters)
+
   if (!result.success) {
     return {
       toolName: validName,
       toolCallId: rawToolCall.toolCallId,
       args: rawToolCall.args,
-      error: `Invalid parameters for ${validName}: ${JSON.stringify(result.error.issues, null, 2)}`,
+      error: `Invalid parameters for ${validName}: ${JSON.stringify(
+        result.error.issues,
+        null,
+        2
+      )}`,
     }
   }
 
@@ -80,195 +80,130 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
   } as CodebuffToolCall<T>
 }
 
-export interface ToolExecutionContext {
+export interface ExecuteToolCallParams<T extends ToolName = ToolName> {
+  toolName: T
+  args: Record<string, string>
+  toolCalls: CodebuffToolCall[]
+  toolResults: ToolResult[]
+  previousToolCallFinished: Promise<void>
   ws: WebSocket
-  agentStepId: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  repoId: string | undefined
   agentTemplate: AgentTemplate
   fileContext: ProjectFileContext
+  agentStepId: string
+  clientSessionId: string
+  userInputId: string
+  fullResponse: string
   onResponseChunk: (chunk: string) => void
-  state: {
-    ws: WebSocket
-    fingerprintId: string
-    userId: string | undefined
-    repoId: string | undefined
-    agentTemplate: AgentTemplate
-    mutableState: {
-      agentState: AgentState
-      agentContext: Record<string, Subgoal>
-      messages: CodebuffMessage[]
-    }
-  }
+  state: Record<string, any>
+  userId: string | undefined
 }
 
-/**
- * Execute a single tool call synchronously and return the result
- */
-export async function executeSingleTool<T extends ToolName>(
-  toolCall: CodebuffToolCall<T>,
-  context: ToolExecutionContext
-): Promise<ToolResult> {
+export function executeToolCall<T extends ToolName>(
+  options: ExecuteToolCallParams<T>
+): Promise<void> {
   const {
+    toolName,
+    args,
+    toolCalls,
+    toolResults,
+    previousToolCallFinished,
     ws,
+    agentTemplate,
+    fileContext,
     agentStepId,
     clientSessionId,
     userInputId,
-    userId,
-    agentTemplate,
-    fileContext,
+    fullResponse,
     onResponseChunk,
     state,
-  } = context
+    userId,
+  } = options
 
-  // Check if tool is allowed for this agent
-  if (!agentTemplate.toolNames.includes(toolCall.toolName)) {
-    const errorResult = {
-      toolName: toolCall.toolName,
+  const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
+    toolName,
+    toolCallId: generateCompactId(),
+    args,
+  })
+  if ('error' in toolCall) {
+    toolResults.push({
+      toolName,
       toolCallId: toolCall.toolCallId,
-      result: `Tool \`${toolCall.toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-    }
-    return errorResult
-  }
-
-  const toolHandler = codebuffToolHandlers[toolCall.toolName]
-  if (!toolHandler) {
-    const errorResult = {
-      toolName: toolCall.toolName,
-      toolCallId: toolCall.toolCallId,
-      result: `Tool handler for ${toolCall.toolName} not found`,
-    }
-    return errorResult
-  }
-
-  try {
-    const { result: toolResultPromise, state: stateUpdate } = (
-      toolHandler as any
-    )({
-      previousToolCallFinished: Promise.resolve(),
-      fileContext,
-      agentStepId,
-      clientSessionId,
-      userInputId,
-      fullResponse: '',
-      writeToClient: onResponseChunk,
-      requestClientToolCall: async (clientToolCall: ClientToolCall) => {
-        if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
-          return ''
-        }
-
-        const clientToolResult = await requestToolCall(
-          ws,
-          userInputId,
-          clientToolCall.toolName,
-          clientToolCall.args
-        )
-        return (
-          clientToolResult.error ??
-          (typeof clientToolResult.result === 'string'
-            ? clientToolResult.result
-            : JSON.stringify(clientToolResult.result))
-        )
-      },
-      toolCall,
-      state,
+      result: toolCall.error,
     })
+    return previousToolCallFinished
+  }
 
-    // Update state with any changes from the tool handler
-    Object.assign(state, stateUpdate)
+  logger.debug(
+    { toolCall },
+    `${toolName} (${toolCall.toolCallId}) tool call detected in stream`
+  )
+  toolCalls.push(toolCall)
 
-    // Wait for the tool to complete and get the result
-    const result = await toolResultPromise
-
-    const toolResult = {
-      toolName: toolCall.toolName,
+  // Filter out restricted tools in ask mode unless exporting summary
+  if (!agentTemplate.toolNames.includes(toolCall.toolName)) {
+    toolResults.push({
+      toolName,
       toolCallId: toolCall.toolCallId,
-      result,
+      result: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+    })
+    return previousToolCallFinished
+  }
+
+  const { result: toolResultPromise, state: stateUpdate } = (
+    codebuffToolHandlers[toolName] as CodebuffToolHandlerFunction<T>
+  )({
+    previousToolCallFinished,
+    fileContext,
+    agentStepId,
+    clientSessionId,
+    userInputId,
+    fullResponse,
+    writeToClient: onResponseChunk,
+    requestClientToolCall: async (clientToolCall: ClientToolCall<T>) => {
+      if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
+        return ''
+      }
+
+      const clientToolResult = await requestToolCall(
+        ws,
+        userInputId,
+        clientToolCall.toolName,
+        clientToolCall.args
+      )
+      return (
+        clientToolResult.error ??
+        (typeof clientToolResult.result === 'string'
+          ? clientToolResult.result
+          : JSON.stringify(clientToolResult.result))
+      )
+    },
+    toolCall,
+    getLatestState: () => state,
+    state,
+  })
+
+  for (const [key, value] of Object.entries(stateUpdate ?? {})) {
+    state[key] = value
+  }
+  return toolResultPromise.then((result) => {
+    const toolResult = {
+      toolName,
+      toolCallId: toolCall.toolCallId,
+      result: result as NonNullable<typeof result>,
+    }
+    logger.debug(
+      { toolResult },
+      `${toolName} (${toolResult.toolCallId}) tool result for tool`
+    )
+    if (result === undefined) {
+      return
     }
 
-    // Add tool result to message history
-    state.mutableState.messages.push({
+    toolResults.push(toolResult)
+
+    state.messages.push({
       role: 'user' as const,
       content: asSystemMessage(renderToolResults([toolResult])),
     })
-
-    return toolResult
-  } catch (error) {
-    logger.error(
-      { error, toolCall },
-      `Error executing tool ${toolCall.toolName}`
-    )
-
-    const errorResult = {
-      toolName: toolCall.toolName,
-      toolCallId: toolCall.toolCallId,
-      result: `Error executing ${toolCall.toolName}: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`,
-    }
-    return errorResult
-  }
-}
-
-/**
- * Create a tool execution context for use with executeSingleTool
- */
-export function createToolExecutionContext(options: {
-  ws: WebSocket
-  agentStepId: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  repoId: string | undefined
-  agentTemplate: AgentTemplate
-  fileContext: ProjectFileContext
-  onResponseChunk: (chunk: string) => void
-  agentState: AgentState
-  messages: CodebuffMessage[]
-  agentContext?: Record<string, Subgoal>
-}): ToolExecutionContext {
-  const {
-    ws,
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoId,
-    agentTemplate,
-    fileContext,
-    onResponseChunk,
-    agentState,
-    messages,
-    agentContext = {},
-  } = options
-
-  return {
-    ws,
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoId,
-    agentTemplate,
-    fileContext,
-    onResponseChunk,
-    state: {
-      ws,
-      fingerprintId,
-      userId,
-      repoId,
-      agentTemplate,
-      mutableState: {
-        agentState,
-        agentContext,
-        messages: [...messages],
-      },
-    },
-  }
+  })
 }

@@ -7,10 +7,7 @@ import { ProjectFileContext } from '@codebuff/common/util/file'
 import { WebSocket } from 'ws'
 import { AgentTemplate, StepGenerator } from './templates/types'
 import { CodebuffToolCall } from './tools/constants'
-import {
-  createToolExecutionContext,
-  executeSingleTool,
-} from './tools/tool-executor'
+import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
 import { getRequestContext } from './websockets/request-context'
 
@@ -81,20 +78,13 @@ export async function runProgrammaticStep(
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
-  const toolContext = createToolExecutionContext({
-    ws,
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoId,
-    agentTemplate: template,
-    fileContext,
-    onResponseChunk,
-    agentState,
-    messages: agentState.messageHistory,
-  })
+  // Initialize state for tool execution
+  const toolCalls: CodebuffToolCall[] = []
+  const toolResults: ToolResult[] = []
+  const state = {
+    messages: [...agentState.messageHistory],
+    agentState: { ...agentState },
+  }
 
   let toolResult: ToolResult | undefined
   let endTurn = false
@@ -103,7 +93,7 @@ export async function runProgrammaticStep(
     // Execute tools synchronously as the generator yields them
     do {
       let result = generator.next({
-        agentState: { ...toolContext.state.mutableState.agentState },
+        agentState: { ...state.agentState },
         toolResult,
       })
       if (result.done) {
@@ -131,7 +121,28 @@ export async function runProgrammaticStep(
       )
 
       // Execute the tool synchronously and get the result immediately
-      toolResult = await executeSingleTool(toolCall, toolContext)
+      await executeToolCall({
+        toolName: toolCall.toolName,
+        args: Object.fromEntries(
+          Object.entries(toolCall.args).map(([k, v]) => [k, String(v)])
+        ),
+        toolCalls,
+        toolResults,
+        previousToolCallFinished: Promise.resolve(),
+        ws,
+        agentTemplate: template,
+        fileContext,
+        agentStepId,
+        clientSessionId,
+        userInputId,
+        fullResponse: '',
+        onResponseChunk,
+        state,
+        userId,
+      })
+
+      // Get the latest tool result
+      toolResult = toolResults[toolResults.length - 1]
 
       if (toolCall.toolName === 'end_turn') {
         endTurn = true
@@ -139,13 +150,12 @@ export async function runProgrammaticStep(
       }
     } while (true)
 
-    const { mutableState } = toolContext.state
     logger.info(
-      { report: mutableState.agentState.report },
+      { report: state.agentState.report },
       'Programmatic agent execution completed'
     )
 
-    return { agentState: mutableState.agentState, endTurn }
+    return { agentState: state.agentState, endTurn }
   } catch (error) {
     logger.error(
       { error, template: template.id },
@@ -157,11 +167,10 @@ export async function runProgrammaticStep(
     }`
     onResponseChunk(errorMessage)
 
-    const { mutableState } = toolContext.state
-    mutableState.agentState.report.error = errorMessage
+    state.agentState.report.error = errorMessage
 
     return {
-      agentState: mutableState.agentState,
+      agentState: state.agentState,
       endTurn: true,
     }
   }
