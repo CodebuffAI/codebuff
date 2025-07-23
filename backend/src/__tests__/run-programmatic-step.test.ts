@@ -202,9 +202,7 @@ describe('runProgrammaticStep', () => {
       expect(executeToolCallSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           toolName: 'read_files',
-          args: expect.objectContaining({
-            paths: expect.any(String), // Should be stringified
-          }),
+          args: expect.any(Object),
           agentTemplate: mockTemplate,
           fileContext: mockFileContext,
         })
@@ -228,34 +226,6 @@ describe('runProgrammaticStep', () => {
 
       expect(executeToolCallSpy).toHaveBeenCalledTimes(3)
       expect(result.endTurn).toBe(true)
-    })
-
-    it('should convert tool args to strings', async () => {
-      const mockGenerator = (function* () {
-        yield {
-          toolName: 'run_terminal_command',
-          args: {
-            command: 'test',
-            timeout_seconds: 30, // number
-            process_type: 'SYNC',
-          },
-        }
-        yield { toolName: 'end_turn', args: {} }
-      })() as StepGenerator
-
-      mockTemplate.handleStep = () => mockGenerator
-
-      await runProgrammaticStep(mockAgentState, mockParams)
-
-      expect(executeToolCallSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          args: {
-            command: 'test',
-            timeout_seconds: '30', // Should be converted to string
-            process_type: 'SYNC',
-          },
-        })
-      )
     })
 
     it('should pass tool results back to generator', async () => {
@@ -368,6 +338,29 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
       expect(result.agentState.report).toEqual({ status: 'complete' })
+    })
+
+    it('should properly update report using actual update_report tool handler', async () => {
+      const mockGenerator = (function* () {
+        yield {
+          toolName: 'update_report',
+          args: { json_update: { message: 'Task completed', progress: 100 } },
+        }
+        yield { toolName: 'end_turn', args: {} }
+      })() as StepGenerator
+
+      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.toolNames.push('update_report')
+
+      // Don't mock executeToolCall - let it use the real implementation
+      executeToolCallSpy.mockRestore()
+
+      const result = await runProgrammaticStep(mockAgentState, mockParams)
+
+      expect(result.agentState.report).toEqual({
+        message: 'Task completed',
+        progress: 100,
+      })
     })
 
     it('should preserve message history', async () => {

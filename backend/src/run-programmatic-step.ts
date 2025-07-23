@@ -89,8 +89,14 @@ export async function runProgrammaticStep(
   const toolCalls: CodebuffToolCall[] = []
   const toolResults: ToolResult[] = []
   const state = {
-    messages: [...agentState.messageHistory],
+    ws,
+    fingerprintId,
+    userId,
+    repoId,
+    agentTemplate: template,
     agentState: { ...agentState },
+    agentContext: agentState.agentContext,
+    messages: [...agentState.messageHistory],
   }
 
   let toolResult: ToolResult | undefined
@@ -124,15 +130,13 @@ export async function runProgrammaticStep(
 
       logger.debug(
         { toolCall },
-        `${toolCall.toolName} (${toolCall.toolCallId}) tool call from programmatic agent`
+        `${toolCall.toolName} tool call from programmatic agent`
       )
 
       // Execute the tool synchronously and get the result immediately
       await executeToolCall({
         toolName: toolCall.toolName,
-        args: Object.fromEntries(
-          Object.entries(toolCall.args).map(([k, v]) => [k, String(v)])
-        ),
+        args: toolCall.args,
         toolCalls,
         toolResults,
         previousToolCallFinished: Promise.resolve(),
@@ -146,6 +150,7 @@ export async function runProgrammaticStep(
         onResponseChunk,
         state,
         userId,
+        autoInsertEndStepParam: true,
       })
 
       // Get the latest tool result

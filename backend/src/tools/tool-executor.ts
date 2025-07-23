@@ -27,11 +27,14 @@ export type ToolCallError = {
   error: string
 } & Pick<CodebuffToolCall, 'toolCallId'>
 
-export function parseRawToolCall<T extends ToolName = ToolName>(rawToolCall: {
-  toolName: T
-  toolCallId: string
-  args: Record<string, unknown>
-}): CodebuffToolCall<T> | ToolCallError {
+export function parseRawToolCall<T extends ToolName = ToolName>(
+  rawToolCall: {
+    toolName: T
+    toolCallId: string
+    args: Record<string, unknown>
+  },
+  autoInsertEndStepParam: boolean = false
+): CodebuffToolCall<T> | ToolCallError {
   const toolName = rawToolCall.toolName
 
   if (!(toolName in codebuffToolDefs)) {
@@ -47,6 +50,12 @@ export function parseRawToolCall<T extends ToolName = ToolName>(rawToolCall: {
   const processedParameters: Record<string, any> = {}
   for (const [param, val] of Object.entries(rawToolCall.args)) {
     processedParameters[param] = val
+  }
+
+  // Add the required codebuff_end_step parameter with the correct value for this tool if requested
+  if (autoInsertEndStepParam) {
+    processedParameters[endsAgentStepParam] =
+      codebuffToolDefs[validName].endsAgentStep
   }
 
   const result = (
@@ -82,7 +91,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(rawToolCall: {
 
 export interface ExecuteToolCallParams<T extends ToolName = ToolName> {
   toolName: T
-  args: Record<string, string>
+  args: Record<string, unknown>
   toolCalls: CodebuffToolCall[]
   toolResults: ToolResult[]
   previousToolCallFinished: Promise<void>
@@ -96,6 +105,7 @@ export interface ExecuteToolCallParams<T extends ToolName = ToolName> {
   onResponseChunk: (chunk: string) => void
   state: Record<string, any>
   userId: string | undefined
+  autoInsertEndStepParam?: boolean
 }
 
 export function executeToolCall<T extends ToolName>(
@@ -117,13 +127,17 @@ export function executeToolCall<T extends ToolName>(
     onResponseChunk,
     state,
     userId,
+    autoInsertEndStepParam = false,
   } = options
 
-  const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
-    toolName,
-    toolCallId: generateCompactId(),
-    args,
-  })
+  const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>(
+    {
+      toolName,
+      toolCallId: generateCompactId(),
+      args,
+    },
+    autoInsertEndStepParam
+  )
   if ('error' in toolCall) {
     toolResults.push({
       toolName,
@@ -183,8 +197,14 @@ export function executeToolCall<T extends ToolName>(
   })
 
   for (const [key, value] of Object.entries(stateUpdate ?? {})) {
-    state[key] = value
+    if (key === 'agentState' && typeof value === 'object' && value !== null) {
+      // Merge agentState updates instead of replacing the reference
+      Object.assign(state.agentState, value)
+    } else {
+      state[key] = value
+    }
   }
+
   return toolResultPromise.then((result) => {
     const toolResult = {
       toolName,
