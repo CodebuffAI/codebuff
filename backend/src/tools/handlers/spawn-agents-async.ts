@@ -23,15 +23,14 @@ export const handleSpawnAgentsAsync = ((params: {
   clientSessionId: string
   userInputId: string
 
+  getLatestState: () => { messages: CodebuffMessage[] }
   state: {
     ws?: WebSocket
     fingerprintId?: string
     userId?: string
     agentTemplate?: AgentTemplate
-    mutableState?: {
-      messages: CodebuffMessage[]
-      agentState: AgentState
-    }
+    messages?: CodebuffMessage[]
+    agentState?: AgentState
   }
 }): { result: Promise<string>; state: {} } => {
   if (!ASYNC_AGENTS_ENABLED) {
@@ -51,6 +50,7 @@ export const handleSpawnAgentsAsync = ((params: {
     fileContext,
     clientSessionId,
     userInputId,
+    getLatestState,
     state,
   } = params
   const { agents } = toolCall.args
@@ -59,8 +59,9 @@ export const handleSpawnAgentsAsync = ((params: {
     fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
+    messages,
   } = state
-  const mutableState = state.mutableState
+  let { agentState } = state
 
   if (!ws) {
     throw new Error(
@@ -77,12 +78,12 @@ export const handleSpawnAgentsAsync = ((params: {
       'Internal error for spawn_agents_async: Missing agentTemplate in state'
     )
   }
-  if (!mutableState?.messages) {
+  if (!messages) {
     throw new Error(
       'Internal error for spawn_agents_async: Missing messages in state'
     )
   }
-  if (!mutableState?.agentState) {
+  if (!agentState) {
     throw new Error(
       'Internal error for spawn_agents: Missing agentState in state'
     )
@@ -103,7 +104,7 @@ export const handleSpawnAgentsAsync = ((params: {
     const conversationHistoryMessage: CoreMessage = {
       role: 'user',
       content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
-        mutableState.messages,
+        getLatestState().messages,
         null,
         2
       )}`,
@@ -158,7 +159,7 @@ export const handleSpawnAgentsAsync = ((params: {
         }
 
         const agentId = generateCompactId()
-        const agentState: AgentState = {
+        agentState = {
           agentId,
           agentType,
           agentContext: {},
@@ -167,7 +168,7 @@ export const handleSpawnAgentsAsync = ((params: {
           stepsRemaining: 20, // MAX_AGENT_STEPS
           report: {},
           // Add parent ID to agent state for communication
-          parentId: mutableState.agentState.agentId,
+          parentId: agentState!.agentId,
         }
 
         // Start the agent asynchronously

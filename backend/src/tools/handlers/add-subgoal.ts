@@ -5,14 +5,13 @@ import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
 export const handleAddSubgoal = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'add_subgoal'>
-  state: { mutableState?: { agentContext: Record<string, Subgoal> } }
+  state: { agentContext?: Record<string, Subgoal> }
 }): {
   result: Promise<string>
-  state: { mutableState: { agentContext: Record<string, Subgoal> } }
+  state: { agentContext: Record<string, Subgoal> }
 } => {
   const { previousToolCallFinished, toolCall, state } = params
-  const mutableState = state.mutableState ?? { agentContext: {} }
-  const { agentContext } = mutableState
+  const agentContext = state.agentContext ?? {}
 
   agentContext[toolCall.args.id] = {
     objective: toolCall.args.objective,
@@ -23,6 +22,6 @@ export const handleAddSubgoal = ((params: {
 
   return {
     result: previousToolCallFinished.then(() => 'Successfully added subgoal'),
-    state: { mutableState },
+    state: { agentContext },
   }
 }) satisfies CodebuffToolHandlerFunction<'add_subgoal'>

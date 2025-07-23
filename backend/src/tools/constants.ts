@@ -3,6 +3,7 @@ import { endsAgentStepParam, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { ToolCallPart, ToolSet } from 'ai'
 import z from 'zod/v4'
+import { addMessageTool } from './definitions/add-message'
 import { addSubgoalTool } from './definitions/add-subgoal'
 import { browserLogsTool } from './definitions/browser-logs'
 import { codeSearchTool } from './definitions/code-search'
@@ -13,15 +14,17 @@ import { readDocsTool } from './definitions/read-docs'
 import { readFilesTool } from './definitions/read-files'
 import { runFileChangeHooksTool } from './definitions/run-file-change-hooks'
 import { runTerminalCommandTool } from './definitions/run-terminal-command'
+import { sendAgentMessageTool } from './definitions/send-agent-message'
+import { setMessagesTool } from './definitions/set-messages'
 import { spawnAgentsTool } from './definitions/spawn-agents'
 import { spawnAgentsAsyncTool } from './definitions/spawn-agents-async'
-import { sendAgentMessageTool } from './definitions/send-agent-message'
 import { strReplaceTool } from './definitions/str-replace'
 import { thinkDeeplyTool } from './definitions/think-deeply'
 import { updateReportTool } from './definitions/update-report'
 import { updateSubgoalTool } from './definitions/update-subgoal'
 import { webSearchTool } from './definitions/web-search'
 import { writeFileTool } from './definitions/write-file'
+import { handleAddMessage } from './handlers/add-message'
 import { handleAddSubgoal } from './handlers/add-subgoal'
 import { handleBrowserLogs } from './handlers/browser-logs'
 import { handleCodeSearch } from './handlers/code-search'
@@ -32,9 +35,10 @@ import { handleReadDocs } from './handlers/read-docs'
 import { handleReadFiles } from './handlers/read-files'
 import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
+import { handleSendAgentMessage } from './handlers/send-agent-message'
+import { handleSetMessages } from './handlers/set-messages'
 import { handleSpawnAgents } from './handlers/spawn-agents'
 import { handleSpawnAgentsAsync } from './handlers/spawn-agents-async'
-import { handleSendAgentMessage } from './handlers/send-agent-message'
 import { handleStrReplace } from './handlers/str-replace'
 import { handleThinkDeeply } from './handlers/think-deeply'
 import { handleUpdateReport } from './handlers/update-report'
@@ -57,6 +61,7 @@ export type CodebuffToolDef = {
 }
 
 export const codebuffToolDefs = {
+  add_message: addMessageTool,
   add_subgoal: addSubgoalTool,
   browser_logs: browserLogsTool,
   code_search: codeSearchTool,
@@ -68,6 +73,7 @@ export const codebuffToolDefs = {
   run_file_change_hooks: runFileChangeHooksTool,
   run_terminal_command: runTerminalCommandTool,
   send_agent_message: sendAgentMessageTool,
+  set_messages: setMessagesTool,
   spawn_agents: spawnAgentsTool,
   spawn_agents_async: spawnAgentsAsyncTool,
   str_replace: strReplaceTool,
@@ -123,12 +129,17 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     fullResponse: string
 
     writeToClient: (chunk: string) => void
+
+    getLatestState: () => any
     state: { [K in string]?: any }
   } & PresentOrAbsent<
     'requestClientToolCall',
     (toolCall: ClientToolCall<T>) => Promise<string>
   >
-) => { result: Promise<string>; state: Record<string, any> }
+) => {
+  result: Promise<string | undefined>
+  state?: Record<string, any>
+}
 
 /**
  * Each value in this record that:
@@ -140,6 +151,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
  * - Returns a promise that will be awaited
  */
 export const codebuffToolHandlers = {
+  add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
@@ -151,6 +163,7 @@ export const codebuffToolHandlers = {
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
   send_agent_message: handleSendAgentMessage,
+  set_messages: handleSetMessages,
   spawn_agents: handleSpawnAgents,
   spawn_agents_async: handleSpawnAgentsAsync,
   str_replace: handleStrReplace,

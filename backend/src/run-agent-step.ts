@@ -435,24 +435,20 @@ export const runAgentStep = async (
 
   insertTrace(agentResponseTrace)
 
-  const messagesWithResponse = [
-    ...agentMessages,
-    {
-      role: 'assistant' as const,
-      content: fullResponse,
-    },
-  ]
+  const newAgentContext = state.agentContext as AgentState['agentContext']
+  agentState = state.agentState as AgentState
 
-  const newAgentContext = state.mutableState.agentContext
-
-  let finalMessageHistory = expireMessages(messagesWithResponse, 'agentStep')
+  let finalMessageHistoryWithToolResults = expireMessages(
+    state.messages,
+    'agentStep'
+  )
 
   // Handle /compact command: replace message history with the summary
   const wasCompacted =
     prompt &&
     (prompt.toLowerCase() === '/compact' || prompt.toLowerCase() === 'compact')
   if (wasCompacted) {
-    finalMessageHistory = [
+    finalMessageHistoryWithToolResults = [
       {
         role: 'user',
         content: asSystemMessage(
@@ -463,11 +459,6 @@ export const runAgentStep = async (
     logger.debug({ summary: fullResponse }, 'Compacted messages')
   }
 
-  finalMessageHistory.push({
-    role: 'user',
-    content: asSystemMessage(renderToolResults(toolResults)),
-  })
-
   logger.debug(
     {
       iteration: iterationNum,
@@ -477,7 +468,7 @@ export const runAgentStep = async (
       toolCalls,
       toolResults,
       agentContext: newAgentContext,
-      messagesWithResponse,
+      finalMessageHistoryWithToolResults,
       model,
       agentTemplate,
       duration: Date.now() - startTime,
@@ -490,7 +481,7 @@ export const runAgentStep = async (
 
   const newAgentState = {
     ...agentState,
-    messageHistory: finalMessageHistory,
+    messageHistory: finalMessageHistoryWithToolResults,
     stepsRemaining: agentState.stepsRemaining - 1,
     agentContext: newAgentContext,
   }

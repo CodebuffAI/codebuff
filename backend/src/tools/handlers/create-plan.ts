@@ -6,7 +6,12 @@ import {
   CodebuffToolCall,
   CodebuffToolHandlerFunction,
 } from '../constants'
-import { FileProcessingMutableState, postStreamProcessing } from './write-file'
+import {
+  FileProcessingState,
+  getFileProcessingValues,
+  OptionalFileProcessingState,
+  postStreamProcessing,
+} from './write-file'
 
 export const handleCreatePlan = ((params: {
   previousToolCallFinished: Promise<void>
@@ -16,6 +21,7 @@ export const handleCreatePlan = ((params: {
   ) => Promise<string>
   writeToClient: (chunk: string) => void
 
+  getLatestState: () => FileProcessingState
   state: {
     agentStepId?: string
     clientSessionId?: string
@@ -23,17 +29,17 @@ export const handleCreatePlan = ((params: {
     userId?: string
     userInputId?: string
     repoId?: string
-    mutableState?: FileProcessingMutableState
-  }
+  } & OptionalFileProcessingState
 }): {
   result: Promise<string>
-  state: { mutableState: FileProcessingMutableState }
+  state: FileProcessingState
 } => {
   const {
     previousToolCallFinished,
     toolCall,
     requestClientToolCall,
     writeToClient,
+    getLatestState,
     state,
   } = params
   const { path, plan } = toolCall.args
@@ -45,14 +51,7 @@ export const handleCreatePlan = ((params: {
     userInputId,
     repoId,
   } = state
-  const mutableState = {
-    promisesByPath: {},
-    allPromises: [],
-    fileChangeErrors: [],
-    fileChanges: [],
-    firstFileProcessed: false,
-    ...state.mutableState,
-  }
+  const fileProcessingState = getFileProcessingValues(state)
 
   logger.debug(
     {
@@ -62,8 +61,8 @@ export const handleCreatePlan = ((params: {
     'Create plan'
   )
   // Add the plan file to the processing queue
-  if (!mutableState.promisesByPath[path]) {
-    mutableState.promisesByPath[path] = []
+  if (!fileProcessingState.promisesByPath[path]) {
+    fileProcessingState.promisesByPath[path] = []
     if (path.endsWith('knowledge.md')) {
       trackEvent(AnalyticsEvent.KNOWLEDGE_FILE_UPDATED, userId ?? '', {
         agentStepId,
@@ -82,18 +81,18 @@ export const handleCreatePlan = ((params: {
     messages: [],
     toolCallId: toolCall.toolCallId,
   }
-  mutableState.promisesByPath[path].push(Promise.resolve(change))
-  mutableState.allPromises.push(Promise.resolve(change))
+  fileProcessingState.promisesByPath[path].push(Promise.resolve(change))
+  fileProcessingState.allPromises.push(Promise.resolve(change))
 
   return {
     result: previousToolCallFinished.then(async () => {
       return await postStreamProcessing<'create_plan'>(
         change,
-        mutableState,
+        getLatestState(),
         writeToClient,
         requestClientToolCall
       )
     }),
-    state: { mutableState },
+    state: fileProcessingState,
   }
 }) satisfies CodebuffToolHandlerFunction<'create_plan'>
