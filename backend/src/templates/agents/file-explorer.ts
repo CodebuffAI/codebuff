@@ -22,7 +22,7 @@ export const fileExplorer = {
   promptSchema: {
     prompt: z
       .string()
-      .describe('Overall objective for what is trying to be accomplished'),
+      .describe('What you need to accomplish by exploring the codebase'),
     params: paramsSchema,
   },
   systemPrompt:
@@ -36,13 +36,10 @@ export const fileExplorer = {
   stepAssistantPrefix: '',
 
   handleStep: function* ({ prompt, params }) {
-    const filePickerPrompts = [
-      prompt,
-      ...params.prompts.map(
-        (focusPrompt) =>
-          `Based on the overall goal "${prompt}", find files related to this specific area: ${focusPrompt}`
-      ),
-    ]
+    const filePickerPrompts = params.prompts.map(
+      (focusPrompt) =>
+        `Based on the overall goal "${prompt}", find files related to this specific area: ${focusPrompt}`
+    )
 
     // Spawn all file pickers in parallel
     const { toolResult: spawnResult } = yield {
