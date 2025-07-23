@@ -87,7 +87,7 @@ describe('runProgrammaticStep', () => {
       systemPrompt: 'Test system prompt',
       userInputPrompt: 'Test user prompt',
       agentStepPrompt: 'Test agent step prompt',
-      handleStep: undefined, // Will be set in individual tests
+      handleSteps: undefined, // Will be set in individual tests
     } as AgentTemplate
 
     // Create mock agent state
@@ -132,7 +132,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -149,7 +149,7 @@ describe('runProgrammaticStep', () => {
         })() as StepGenerator
       }
 
-      mockTemplate.handleStep = createGenerator
+      mockTemplate.handleSteps = createGenerator
       // First call
       await runProgrammaticStep(mockAgentState, mockParams)
       expect(callCount).toBe(1)
@@ -166,7 +166,7 @@ describe('runProgrammaticStep', () => {
         yield 'STEP_ALL'
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       // First call to set STEP_ALL state
       const result1 = await runProgrammaticStep(mockAgentState, mockParams)
@@ -179,7 +179,7 @@ describe('runProgrammaticStep', () => {
     })
 
     it('should throw error when template has no handleStep', async () => {
-      mockTemplate.handleStep = undefined
+      mockTemplate.handleSteps = undefined
 
       await expect(
         runProgrammaticStep(mockAgentState, mockParams)
@@ -194,7 +194,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -220,7 +220,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -241,7 +241,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       // Mock executeToolCall to add tool results
       executeToolCallSpy.mockImplementation(async (options: any) => {
@@ -275,7 +275,7 @@ describe('runProgrammaticStep', () => {
         }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -289,7 +289,7 @@ describe('runProgrammaticStep', () => {
         return // Generator completes
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -306,7 +306,7 @@ describe('runProgrammaticStep', () => {
         } // Should not execute
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -325,7 +325,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
       mockTemplate.toolNames.push('update_report')
 
       // Mock executeToolCall to update state
@@ -349,7 +349,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
       mockTemplate.toolNames.push('update_report')
 
       // Don't mock executeToolCall - let it use the real implementation
@@ -368,7 +368,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -384,7 +384,7 @@ describe('runProgrammaticStep', () => {
         throw new Error('Generator error')
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       const responseChunks: string[] = []
       mockParams.onResponseChunk = (chunk: string) => responseChunks.push(chunk)
@@ -404,7 +404,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
       executeToolCallSpy.mockRejectedValue(new Error('Tool execution failed'))
 
       const responseChunks: string[] = []
@@ -421,7 +421,7 @@ describe('runProgrammaticStep', () => {
         throw 'String error'
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -436,7 +436,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -449,7 +449,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -462,7 +462,7 @@ describe('runProgrammaticStep', () => {
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
-      mockTemplate.handleStep = () => mockGenerator
+      mockTemplate.handleSteps = () => mockGenerator
 
       await runProgrammaticStep(mockAgentState, mockParams)
 

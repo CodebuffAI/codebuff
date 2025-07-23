@@ -1,11 +1,11 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
-import {
-  runProgrammaticStep,
-  clearAgentGeneratorCache,
-} from '../run-programmatic-step'
 import { AgentState } from '@codebuff/common/types/session-state'
-import { AgentTemplate } from '../templates/types'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { WebSocket } from 'ws'
+import {
+  clearAgentGeneratorCache,
+  runProgrammaticStep,
+} from '../run-programmatic-step'
+import { AgentTemplate } from '../templates/types'
 import { mockFileContext, MockWebSocket } from './test-utils'
 
 describe('QuickJS Sandbox Generator', () => {
@@ -45,7 +45,7 @@ describe('QuickJS Sandbox Generator', () => {
       initialAssistantPrefix: '',
       stepAssistantMessage: '',
       stepAssistantPrefix: '',
-      handleStep: '', // Will be set per test
+      handleSteps: '', // Will be set per test
     }
 
     // Common params structure
@@ -72,7 +72,7 @@ describe('QuickJS Sandbox Generator', () => {
 
   test('should execute string-based generator in QuickJS sandbox', async () => {
     // Customize template for this test
-    mockTemplate.handleStep = `
+    mockTemplate.handleSteps = `
       function* ({ agentState, prompt, params }) {
         yield {
           toolName: 'update_report',
@@ -104,7 +104,7 @@ describe('QuickJS Sandbox Generator', () => {
     mockTemplate.name = 'Test VM Agent Error'
     mockTemplate.purpose = 'Test QuickJS error handling'
     mockTemplate.toolNames = []
-    mockTemplate.handleStep = `
+    mockTemplate.handleSteps = `
       function* ({ agentState, prompt, params }) {
         throw new Error('QuickJS error test')
       }

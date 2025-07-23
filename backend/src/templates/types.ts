@@ -38,7 +38,7 @@ export type AgentTemplate<
   userInputPrompt: string
   agentStepPrompt: string
 
-  handleStep?: StepHandler<P, T> | string // Function or string of the generator code for running in a sandbox
+  handleSteps?: StepHandler<P, T> | string // Function or string of the generator code for running in a sandbox
 }
 
 export type StepGenerator = Generator<

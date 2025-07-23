@@ -35,7 +35,7 @@ export const fileExplorer = {
   stepAssistantMessage: '',
   stepAssistantPrefix: '',
 
-  handleStep: function* ({ prompt, params }) {
+  handleSteps: function* ({ prompt, params }) {
     const filePickerPrompts = params.prompts.map(
       (focusPrompt) =>
         `Based on the overall goal "${prompt}", find files related to this specific area: ${focusPrompt}`

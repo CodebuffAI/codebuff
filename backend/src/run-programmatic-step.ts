@@ -9,8 +9,8 @@ import { AgentTemplate, StepGenerator } from './templates/types'
 import { CodebuffToolCall } from './tools/constants'
 import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
-import { getRequestContext } from './websockets/request-context'
 import { SandboxManager } from './util/quickjs-sandbox'
+import { getRequestContext } from './websockets/request-context'
 
 // Global sandbox manager for QuickJS contexts
 const sandboxManager = new SandboxManager()
@@ -59,7 +59,7 @@ export async function runProgrammaticStep(
     fingerprintId,
     fileContext,
   } = params
-  if (!template.handleStep) {
+  if (!template.handleSteps) {
     throw new Error('No step handler found for agent template ' + template.id)
   }
 
@@ -79,11 +79,11 @@ export async function runProgrammaticStep(
 
   // Check if we need to initialize a generator (either native or QuickJS-based)
   if (!generator && !sandbox) {
-    if (typeof template.handleStep === 'string') {
+    if (typeof template.handleSteps === 'string') {
       // Initialize QuickJS sandbox for string-based generator
       sandbox = await sandboxManager.getOrCreateSandbox(
         agentState.agentId,
-        template.handleStep,
+        template.handleSteps,
         {
           agentState,
           prompt: params.prompt,
@@ -92,7 +92,7 @@ export async function runProgrammaticStep(
       )
     } else {
       // Initialize native generator
-      generator = template.handleStep({
+      generator = template.handleSteps({
         agentState,
         prompt: params.prompt,
         params: params.params,

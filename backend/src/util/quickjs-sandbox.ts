@@ -86,10 +86,10 @@ export class QuickJSSandbox {
         };
         
         // Agent function
-        const handleStep = ${generatorCode};
+        const handleSteps = ${generatorCode};
         
         // Create generator instance
-        let generator = handleStep(${JSON.stringify(initialInput)});
+        let generator = handleSteps(${JSON.stringify(initialInput)});
         
         // Generator management
         globalThis._generator = generator;
