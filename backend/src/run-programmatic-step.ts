@@ -10,6 +10,10 @@ import { CodebuffToolCall } from './tools/constants'
 import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
 import { getRequestContext } from './websockets/request-context'
+import { SandboxManager } from './util/quickjs-sandbox'
+
+// Global sandbox manager for QuickJS contexts
+const sandboxManager = new SandboxManager()
 
 // Maintains generator state for all agents. Generator state can't be serialized, so we store it in memory.
 const agentIdToGenerator: Record<
@@ -22,6 +26,8 @@ export function clearAgentGeneratorCache() {
   for (const key in agentIdToGenerator) {
     delete agentIdToGenerator[key]
   }
+  // Clean up QuickJS sandboxes
+  sandboxManager.dispose()
 }
 
 // Function to handle programmatic agents
@@ -53,6 +59,9 @@ export async function runProgrammaticStep(
     fingerprintId,
     fileContext,
   } = params
+  if (!template.handleStep) {
+    throw new Error('No step handler found for agent template ' + template.id)
+  }
 
   logger.info(
     {
@@ -64,18 +73,34 @@ export async function runProgrammaticStep(
     'Running programmatic step'
   )
 
+  // Run with either a generator or a sandbox.
   let generator = agentIdToGenerator[agentState.agentId]
-  if (!generator) {
-    if (!template.handleStep) {
-      throw new Error('No step handler found for agent template ' + template.id)
+  let sandbox = sandboxManager.getSandbox(agentState.agentId)
+
+  // Check if we need to initialize a generator (either native or QuickJS-based)
+  if (!generator && !sandbox) {
+    if (typeof template.handleStep === 'string') {
+      // Initialize QuickJS sandbox for string-based generator
+      sandbox = await sandboxManager.getOrCreateSandbox(
+        agentState.agentId,
+        template.handleStep,
+        {
+          agentState,
+          prompt: params.prompt,
+          params: params.params,
+        }
+      )
+    } else {
+      // Initialize native generator
+      generator = template.handleStep({
+        agentState,
+        prompt: params.prompt,
+        params: params.params,
+      })
+      agentIdToGenerator[agentState.agentId] = generator
     }
-    generator = template.handleStep({
-      agentState,
-      prompt: params.prompt,
-      params: params.params,
-    })
-    agentIdToGenerator[agentState.agentId] = generator
   }
+
   if (generator === 'STEP_ALL') {
     return { agentState, endTurn: false }
   }
@@ -105,10 +130,16 @@ export async function runProgrammaticStep(
   try {
     // Execute tools synchronously as the generator yields them
     do {
-      let result = generator.next({
-        agentState: { ...state.agentState },
-        toolResult,
-      })
+      const result = sandbox
+        ? await sandbox.executeStep({
+            agentState: { ...state.agentState },
+            toolResult,
+          })
+        : generator!.next({
+            agentState: { ...state.agentState },
+            toolResult,
+          })
+
       if (result.done) {
         endTurn = true
         break
@@ -184,6 +215,11 @@ export async function runProgrammaticStep(
     return {
       agentState: state.agentState,
       endTurn: true,
+    }
+  } finally {
+    // Clean up QuickJS sandbox if execution is complete
+    if (endTurn && sandbox) {
+      sandboxManager.removeSandbox(agentState.agentId)
     }
   }
 }

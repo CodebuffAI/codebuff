@@ -13,6 +13,7 @@ export const mockFileContext: ProjectFileContext = {
   fileTree: [],
   fileTokenScores: {},
   knowledgeFiles: {},
+  userKnowledgeFiles: {},
   agentTemplates: {},
   gitChanges: {
     status: '',

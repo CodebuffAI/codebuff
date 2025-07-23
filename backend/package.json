@@ -38,6 +38,8 @@
     "express": "4.19.2",
     "gpt-tokenizer": "2.8.1",
     "ignore": "5.3.2",
+    "@jitl/quickjs-wasmfile-release-sync": "0.31.0",
+    "quickjs-emscripten-core": "0.31.0",
     "lodash": "*",
     "openai": "^4.78.1",
     "pino": "9.4.0",
