@@ -7,10 +7,19 @@ import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { CoreMessage } from 'ai'
 import { WebSocket } from 'ws'
+
 import { agentRegistry } from '../../templates/agent-registry'
 import { AgentTemplate } from '../../templates/types'
 import { logger } from '../../util/logger'
 import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
+
+export type SendSubagentChunk = (data: {
+  userInputId: string
+  agentId: string
+  agentType: string
+  chunk: string
+  prompt?: string
+}) => void
 
 export const handleSpawnAgents = ((params: {
   previousToolCallFinished: Promise<void>
@@ -26,6 +35,7 @@ export const handleSpawnAgents = ((params: {
     fingerprintId?: string
     userId?: string
     agentTemplate?: AgentTemplate
+    sendSubagentChunk?: SendSubagentChunk
     messages?: CodebuffMessage[]
     agentState?: AgentState
   }
@@ -46,6 +56,7 @@ export const handleSpawnAgents = ((params: {
     fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
+    sendSubagentChunk,
     messages,
   } = state
   let { agentState } = state
@@ -63,6 +74,11 @@ export const handleSpawnAgents = ((params: {
   if (!parentAgentTemplate) {
     throw new Error(
       'Internal error for spawn_agents: Missing agentTemplate in state'
+    )
+  }
+  if (!sendSubagentChunk) {
+    throw new Error(
+      'Internal error for spawn_agents: Missing sendSubagentChunk in state'
     )
   }
   if (!messages) {
@@ -156,6 +172,7 @@ export const handleSpawnAgents = ((params: {
 
         // Import loopAgentSteps dynamically to avoid circular dependency
         const { loopAgentSteps } = await import('../../run-agent-step')
+
         const result = await loopAgentSteps(ws, {
           userInputId: `${userInputId}-${agentType}${agentId}`,
           prompt: prompt || '',
@@ -167,7 +184,16 @@ export const handleSpawnAgents = ((params: {
           toolResults: [],
           userId,
           clientSessionId,
-          onResponseChunk: () => {},
+          onResponseChunk: (chunk: string) => {
+            // Send subagent streaming chunks to client
+            sendSubagentChunk({
+              userInputId,
+              agentId,
+              agentType,
+              chunk,
+              prompt,
+            })
+          },
         })
 
         return {

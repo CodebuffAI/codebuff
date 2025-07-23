@@ -12,9 +12,9 @@ import { asyncAgentManager } from '../../async-agent-manager'
 import { agentRegistry } from '../../templates/agent-registry'
 import { AgentTemplate } from '../../templates/types'
 import { logger } from '../../util/logger'
-import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
-import { handleSpawnAgents } from './spawn-agents'
 
+import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
+import { handleSpawnAgents, SendSubagentChunk } from './spawn-agents'
 export const handleSpawnAgentsAsync = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'spawn_agents_async'>
@@ -29,6 +29,7 @@ export const handleSpawnAgentsAsync = ((params: {
     fingerprintId?: string
     userId?: string
     agentTemplate?: AgentTemplate
+    sendSubagentChunk?: SendSubagentChunk
     messages?: CodebuffMessage[]
     agentState?: AgentState
   }
@@ -59,6 +60,7 @@ export const handleSpawnAgentsAsync = ((params: {
     fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
+    sendSubagentChunk,
     messages,
   } = state
   let { agentState } = state
@@ -86,6 +88,11 @@ export const handleSpawnAgentsAsync = ((params: {
   if (!agentState) {
     throw new Error(
       'Internal error for spawn_agents: Missing agentState in state'
+    )
+  }
+  if (!sendSubagentChunk) {
+    throw new Error(
+      'Internal error for spawn_agents_async: Missing sendSubagentChunk in state'
     )
   }
 
@@ -176,6 +183,7 @@ export const handleSpawnAgentsAsync = ((params: {
           try {
             // Import loopAgentSteps dynamically to avoid circular dependency
             const { loopAgentSteps } = await import('../../run-agent-step')
+
             const result = await loopAgentSteps(ws, {
               userInputId: `${userInputId}-async-${agentType}-${agentId}`,
               prompt: prompt || '',
@@ -187,7 +195,14 @@ export const handleSpawnAgentsAsync = ((params: {
               toolResults: [],
               userId,
               clientSessionId,
-              onResponseChunk: () => {}, // Async agents don't stream to parent
+              onResponseChunk: (chunk: string) =>
+                sendSubagentChunk({
+                  userInputId,
+                  agentId,
+                  agentType,
+                  chunk,
+                  prompt,
+                }),
             })
 
             // Send completion message to parent if agent has appropriate output mode

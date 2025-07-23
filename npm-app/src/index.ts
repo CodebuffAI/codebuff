@@ -34,6 +34,7 @@ async function codebuff({
   params,
   print,
   cwd,
+  trace,
 }: CliOptions) {
   initSquashNewLines()
   enableSquashNewlines()
@@ -62,7 +63,15 @@ async function codebuff({
   ])
 
   // Initialize the CLI singleton
-  CLI.initialize(readyPromise, { git, costMode, model, agent, params, print })
+  CLI.initialize(readyPromise, {
+    git,
+    costMode,
+    model,
+    agent,
+    params,
+    print,
+    trace,
+  })
   await loadLocalAgents({ verbose: true }).then(() => displayLoadedAgents())
   const cli = CLI.getInstance()
 
@@ -100,6 +109,7 @@ Examples:
   $ codebuff                            # Start in current directory
   $ codebuff -p "tell me about the codebase"  # Print mode (non-interactive)
   $ codebuff --cwd my-project           # Start in specific directory
+  $ codebuff --trace                    # Enable subagent trace logging to .agents/traces/*.log
   $ codebuff --create nextjs my-app     # Create and scaffold a new Next.js project
   $ codebuff --agent file_picker "find relevant files for authentication"
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
@@ -192,5 +202,6 @@ For all commands and options, run 'codebuff' and then type 'help'.
     params: parsedAgentParams,
     print: options.print,
     cwd: options.cwd,
+    trace: options.trace,
   })
 }

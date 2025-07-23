@@ -133,6 +133,14 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     userInputId: z.string(),
     chunk: z.string(),
   }),
+  z.object({
+    type: z.literal('subagent-response-chunk'),
+    userInputId: z.string(),
+    agentId: z.string(),
+    agentType: z.string(),
+    chunk: z.string(),
+    prompt: z.string().optional(),
+  }),
   ResponseCompleteSchema,
   PromptResponseSchema,
   z.object({

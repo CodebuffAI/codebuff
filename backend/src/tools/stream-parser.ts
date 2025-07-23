@@ -16,6 +16,7 @@ import { processStreamWithTags } from '../xml-stream-parser'
 import { executeToolCall } from './tool-executor'
 import { CodebuffToolCall } from './constants'
 import { expireMessages } from '../util/messages'
+import { sendAction } from '../websockets/websocket-action'
 
 export type ToolCallError = {
   toolName?: string
@@ -70,6 +71,19 @@ export async function processStreamWithTools<T extends string>(options: {
     userId,
     repoId,
     agentTemplate,
+    sendSubagentChunk: (data: {
+      userInputId: string
+      agentId: string
+      agentType: string
+      chunk: string
+      prompt?: string
+    }) => {
+      sendAction(ws, {
+        type: 'subagent-response-chunk',
+        ...data,
+      })
+    },
+
     agentState,
     agentContext,
     messages,

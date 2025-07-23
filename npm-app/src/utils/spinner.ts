@@ -4,6 +4,7 @@ import { green } from 'picocolors'
 
 import { getPrevious, setPrevious } from '../display'
 import { createTimeoutDetector } from './rage-detector'
+import { HIDE_CURSOR_ALT, SHOW_CURSOR_ALT } from './terminal'
 
 const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
@@ -39,7 +40,7 @@ export class Spinner {
 
     let i = 0
     // Hide cursor while spinner is active
-    process.stdout.write('\u001B[?25l')
+    process.stdout.write(HIDE_CURSOR_ALT)
     this.loadingInterval = setInterval(() => {
       this.rewriteLine(green(`${chars[i]} ${this.text}`))
       i = (i + 1) % chars.length
@@ -66,7 +67,7 @@ export class Spinner {
   }
 
   restoreCursor() {
-    process.stdout.write('\u001B[?25h')
+    process.stdout.write(SHOW_CURSOR_ALT)
   }
 
   private rewriteLine(line: string) {
