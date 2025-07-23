@@ -119,13 +119,13 @@ jobs:
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
-          max_attempts: 5
+          max_attempts: 1
           command: cd ${{ matrix.package }} && bun test $(find src -name '*.test.ts' ! -name '*.integration.test.ts')
 
-      # - name: Open interactive debug shell
-      #   if: ${{ failure() }}
-      #   uses: mxschmitt/action-tmate@v3
-      #   timeout-minutes: 15 # optional guard
+      - name: Open interactive debug shell
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15 # optional guard
 
   # Integration tests job
   test-integration:
