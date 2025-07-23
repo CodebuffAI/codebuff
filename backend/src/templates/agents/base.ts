@@ -35,7 +35,6 @@ export const base = (
     'read_files',
     'think_deeply',
     'update_subgoal',
-    'update_report',
   ],
   spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
