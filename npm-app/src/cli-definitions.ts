@@ -87,4 +87,10 @@ export const cliOptions: CliParam[] = [
     menuDescription: 'Set the working directory',
     hidden: false,
   },
+  {
+    flags: '--trace',
+    description: 'Log all subagent messages to .agents/traces/*.log files',
+    menuDescription: 'Log subagent messages to trace files',
+    hidden: false,
+  },
 ]

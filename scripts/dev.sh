@@ -27,4 +27,4 @@ echo "Server is ready! Starting client..."
 rm -f "$READY_FILE"
 
 # Start the client
-bun start-bin -- --cwd "${1:-..}" "${@:2}"
+bun start-bin -- --cwd .. "$@"

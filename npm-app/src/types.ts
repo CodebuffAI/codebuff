@@ -12,6 +12,7 @@ export interface CliOptions {
   params?: Record<string, any>
   print?: boolean
   cwd?: string
+  trace?: boolean
 }
 
 /**

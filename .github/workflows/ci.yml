@@ -120,7 +120,7 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: cd ${{ matrix.package }} && bun test $(find src -name '*.test.ts' ! -name '*.integration.test.ts')
+          command: cd ${{ matrix.package }} && find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
 
       # - name: Open interactive debug shell
       #   if: ${{ failure() }}
@@ -180,7 +180,7 @@ jobs:
         with:
           timeout_minutes: 15
           max_attempts: 3
-          command: cd ${{ matrix.package }} && bun test $(find src -name '*.integration.test.ts')
+          command: cd ${{ matrix.package }} && find src -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
 
       # - name: Open interactive debug shell
       #   if: ${{ failure() }}

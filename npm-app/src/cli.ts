@@ -42,6 +42,24 @@ import {
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
+
+import {
+  enterSubagentBuffer,
+  isInSubagentBufferMode,
+  cleanupSubagentBuffer,
+  displaySubagentList,
+} from './cli-handlers/subagent'
+import {
+  enterSubagentListBuffer,
+  isInSubagentListMode,
+  cleanupSubagentListBuffer,
+  resetSubagentSelectionToLast,
+} from './cli-handlers/subagent-list'
+import {
+  getAllSubagentIds,
+  getRecentSubagents,
+  setTraceEnabled,
+} from './subagent-storage'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
@@ -153,13 +171,18 @@ export class CLI {
 
   private constructor(
     readyPromise: Promise<[ProjectFileContext, void]>,
-    { git, costMode, model, agent, params, print }: CliOptions
+    { git, costMode, model, agent, params, print, trace }: CliOptions
   ) {
     this.git = git
     this.costMode = costMode
     this.agent = agent
     this.initialParams = params
     this.printMode = print || false
+
+    // Initialize trace logging
+    if (trace) {
+      setTraceEnabled(true)
+    }
 
     this.setupSignalHandlers()
     this.initReadlineInterface()
@@ -820,6 +843,58 @@ export class CLI {
       return null
     }
 
+    // Handle subagent command
+    if (cleanInput.startsWith('subagent ')) {
+      const agentId = cleanInput.substring('subagent '.length).trim()
+
+      if (!agentId) {
+        console.log(
+          yellow('Please provide a subagent ID. Usage: subagent <agent-id>')
+        )
+        const recentSubagents = getRecentSubagents(10)
+        displaySubagentList(recentSubagents)
+        if (recentSubagents.length === 0) {
+          // Give control back to user when no subagents exist
+          this.freshPrompt()
+        } else {
+          // Pre-fill the prompt with '/subagent ' for easy completion
+          this.freshPrompt('/subagent ')
+        }
+        return null
+      }
+
+      if (isInSubagentBufferMode()) {
+        console.log(
+          yellow('Already in subagent buffer mode! Press ESC to exit.')
+        )
+        this.freshPrompt()
+        return null
+      }
+
+      enterSubagentBuffer(this.rl, agentId, () => {
+        // Callback when exiting subagent buffer
+        console.log(green('\nExited subagent buffer mode!'))
+        this.freshPrompt()
+      })
+      return null
+    }
+
+    // Handle bare 'subagent' command (without space) - show subagent list
+    if (cleanInput === 'subagent') {
+      if (isInSubagentListMode()) {
+        console.log(yellow('Already in subagent list mode! Press ESC to exit.'))
+        this.freshPrompt()
+        return null
+      }
+
+      // Reset selection to last item when entering from main screen
+      resetSubagentSelectionToLast()
+      enterSubagentListBuffer(this.rl, () => {
+        this.freshPrompt()
+      })
+      return null
+    }
+
     // Checkpoint commands
     if (isCheckpointCommand(cleanInput)) {
       trackEvent(AnalyticsEvent.CHECKPOINT_COMMAND_USED, {
@@ -844,6 +919,8 @@ export class CLI {
         this.freshPrompt()
         return null
       }
+      // Reset selection to last item when entering from main screen
+      resetSubagentSelectionToLast()
       const restoreMatch = isCheckpointCommand(cleanInput, 'restore')
       if (restoreMatch) {
         const id = parseInt((restoreMatch as RegExpMatchArray)[1], 10)
@@ -1068,6 +1145,9 @@ export class CLI {
 
     // Call end() on the exit detector to check if user is exiting quickly after an error
     rageDetectors.exitAfterErrorDetector.end()
+
+    cleanupSubagentBuffer()
+    cleanupSubagentListBuffer()
 
     Spinner.get().restoreCursor()
     process.removeAllListeners('unhandledRejection')

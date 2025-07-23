@@ -54,8 +54,10 @@
     "pino": "9.4.0",
     "posthog-node": "4.17.2",
     "puppeteer-core": "^24.2.0",
+    "string-width": "^7.2.0",
     "systeminformation": "5.23.4",
     "ts-pattern": "5.3.1",
+    "wrap-ansi": "^9.0.0",
     "ws": "8.18.0",
     "zod": "3.25.67"
   }

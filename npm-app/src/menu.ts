@@ -182,6 +182,16 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
     requireSlash: true,
   },
+
+  {
+    baseCommand: 'subagent',
+    description: 'Show subagent list or view specific subagent by ID',
+    isSlashCommand: true,
+    commandText: '',
+    params: '[agent-id]',
+    requireSlash: false,
+  },
+
   {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
@@ -428,7 +438,11 @@ ${cyan('  • "Set up CI/CD pipeline config"')}
     .map((cmd) => formatMenuLine(cmd.commandText, cmd.description))
 
   console.log(
-    `\n${bold(underline('COMMANDS (type these below)'))}${' '.repeat(fixedCommandWidth - 27)}${bold(underline('DESCRIPTION'))}\n\n${menuLines.join(`\n${dividerLine}`)}\n`
+    `\n${bold(underline('COMMANDS (type these below)'))}${' '.repeat(fixedCommandWidth - 27)}${bold(underline('DESCRIPTION'))}\n\n${menuLines.join(`\n${'─'.repeat(terminalWidth)}\n`)}\n`
+  )
+
+  console.log(
+    `\n${bold(underline('KEYBOARD SHORTCUTS'))}\n\n${cyan('ESC')}${' '.repeat(fixedCommandWidth - 3)}Stop AI response or exit special modes\n${cyan('Ctrl+C')}${' '.repeat(fixedCommandWidth - 6)}Exit application (press twice)\n`
   )
 
   console.log(`\n↓ Enter your prompt or command below ↓`)
