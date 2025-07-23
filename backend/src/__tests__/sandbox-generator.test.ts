@@ -33,7 +33,7 @@ describe('QuickJS Sandbox Generator', () => {
       name: 'Test VM Agent',
       purpose: 'Test VM isolation',
       model: 'anthropic/claude-4-sonnet-20250522',
-      outputMode: 'report',
+      outputMode: 'json',
       includeMessageHistory: false,
       toolNames: ['update_report'],
       spawnableAgents: [],

@@ -215,9 +215,30 @@ export class DynamicAgentService {
         return
       }
 
+      // Convert outputSchema if present
+      let outputSchema: AgentTemplate['outputSchema']
+      if (content.outputSchema) {
+        try {
+          outputSchema = convertJsonSchemaToZod(content.outputSchema)
+        } catch (error) {
+          this.validationErrors.push({
+            filePath,
+            message: `Failed to convert outputSchema to Zod: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            details: error instanceof Error ? error.message : 'Unknown error',
+          })
+          return
+        }
+      }
+
+      // Determine outputMode: default to 'json' if outputSchema is present, otherwise 'last_message'
+      const outputMode =
+        content.outputMode ?? (content.outputSchema ? 'json' : 'last_message')
+
       // Convert to internal AgentTemplate format
       const agentTemplate: AgentTemplate = {
         ...content,
+        outputMode,
+        outputSchema,
         promptSchema,
         toolNames: content.toolNames as ToolName[],
         spawnableAgents: validatedSpawnableAgents,

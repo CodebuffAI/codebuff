@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { DynamicAgentConfigSchema } from '../types/dynamic-agent-template'
+import {
+  DynamicAgentConfigSchema,
+  DynamicAgentTemplateSchema,
+} from '../types/dynamic-agent-template'
 import {
   validateParentInstructions,
   formatParentInstructionsError,
@@ -238,6 +241,50 @@ describe('DynamicAgentConfigSchema', () => {
           custom_agent: 'Another instruction',
         })
       }
+    })
+
+    it('should reject template with outputMode json but missing set_output tool', () => {
+      const template = {
+        ...validBaseTemplate,
+        outputMode: 'json' as const,
+        toolNames: ['end_turn', 'read_files'], // Missing set_output
+        // DynamicAgentTemplateSchema requires these to be strings, not PromptFieldSchema
+        initialAssistantMessage: '',
+        initialAssistantPrefix: '',
+        stepAssistantMessage: '',
+        stepAssistantPrefix: '',
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        // Find the specific error about set_output tool
+        const setOutputError = result.error.issues.find((issue) =>
+          issue.message.includes(
+            "outputMode 'json' requires the 'set_output' tool"
+          )
+        )
+        expect(setOutputError).toBeDefined()
+        expect(setOutputError?.message).toContain(
+          "outputMode 'json' requires the 'set_output' tool"
+        )
+      }
+    })
+
+    it('should accept template with outputMode json and set_output tool', () => {
+      const template = {
+        ...validBaseTemplate,
+        outputMode: 'json' as const,
+        toolNames: ['end_turn', 'set_output'],
+        // DynamicAgentTemplateSchema requires these to be strings, not PromptFieldSchema
+        initialAssistantMessage: '',
+        initialAssistantPrefix: '',
+        stepAssistantMessage: '',
+        stepAssistantPrefix: '',
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(true)
     })
   })
 

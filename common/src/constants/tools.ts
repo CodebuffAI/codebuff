@@ -22,6 +22,7 @@ export const toolNames = [
   'run_terminal_command',
   'send_agent_message',
   'set_messages',
+  'set_output',
   'spawn_agents',
   'spawn_agents_async',
   'str_replace',
@@ -58,6 +59,7 @@ export const toolSchema = {
   send_agent_message: ['target_agent_id', 'prompt', 'params'],
   spawn_agents: ['agents'],
   spawn_agents_async: ['agents'],
+  set_output: ['output'],
   update_report: ['json_update'],
 
   // Documentation tool

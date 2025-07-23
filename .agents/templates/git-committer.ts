@@ -16,11 +16,11 @@ export default {
     },
   },
   includeMessageHistory: false,
-  outputMode: 'report',
+  outputMode: 'json',
   toolNames: [
     'read_files',
     'run_terminal_command',
-    'update_report',
+    'set_output',
     'think_deeply',
     'end_turn',
   ],
@@ -30,5 +30,5 @@ export default {
     path: './git-committer-user-prompt.md',
   },
   agentStepPrompt:
-    'Make sure to end your response by using update_report to update the report with a concise summary of what you committed and whether it was successful. Finally, use end_turn to end your turn.',
+    'Make sure to end your response by using set_output to output a structured summary of what you committed and whether it was successful. Finally, use end_turn to end your turn.',
 } satisfies DynamicAgentConfig

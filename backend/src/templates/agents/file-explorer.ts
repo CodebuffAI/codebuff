@@ -15,9 +15,9 @@ export const fileExplorer = {
   purpose:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
   model: 'anthropic/claude-4-sonnet-20250522',
-  outputMode: 'report',
+  outputMode: 'json',
   includeMessageHistory: false,
-  toolNames: ['spawn_agents', 'update_report'],
+  toolNames: ['spawn_agents', 'set_output'],
   spawnableAgents: ['file_picker'],
   promptSchema: {
     prompt: z
@@ -52,11 +52,11 @@ export const fileExplorer = {
       },
     }
 
-    // Update report with aggregated results
+    // Set output with aggregated results
     yield {
-      toolName: 'update_report' as const,
+      toolName: 'set_output' as const,
       args: {
-        json_update: {
+        output: {
           results: spawnResult?.result,
         },
       },

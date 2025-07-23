@@ -16,6 +16,7 @@ import { runFileChangeHooksTool } from './definitions/run-file-change-hooks'
 import { runTerminalCommandTool } from './definitions/run-terminal-command'
 import { sendAgentMessageTool } from './definitions/send-agent-message'
 import { setMessagesTool } from './definitions/set-messages'
+import { setOutputTool } from './definitions/set-output'
 import { spawnAgentsTool } from './definitions/spawn-agents'
 import { spawnAgentsAsyncTool } from './definitions/spawn-agents-async'
 import { strReplaceTool } from './definitions/str-replace'
@@ -37,6 +38,7 @@ import { handleRunFileChangeHooks } from './handlers/run-file-change-hooks'
 import { handleRunTerminalCommand } from './handlers/run-terminal-command'
 import { handleSendAgentMessage } from './handlers/send-agent-message'
 import { handleSetMessages } from './handlers/set-messages'
+import { handleSetOutput } from './handlers/set-output'
 import { handleSpawnAgents } from './handlers/spawn-agents'
 import { handleSpawnAgentsAsync } from './handlers/spawn-agents-async'
 import { handleStrReplace } from './handlers/str-replace'
@@ -74,6 +76,7 @@ export const codebuffToolDefs = {
   run_terminal_command: runTerminalCommandTool,
   send_agent_message: sendAgentMessageTool,
   set_messages: setMessagesTool,
+  set_output: setOutputTool,
   spawn_agents: spawnAgentsTool,
   spawn_agents_async: spawnAgentsAsyncTool,
   str_replace: strReplaceTool,
@@ -164,6 +167,7 @@ export const codebuffToolHandlers = {
   run_terminal_command: handleRunTerminalCommand,
   send_agent_message: handleSendAgentMessage,
   set_messages: handleSetMessages,
+  set_output: handleSetOutput,
   spawn_agents: handleSpawnAgents,
   spawn_agents_async: handleSpawnAgentsAsync,
   str_replace: handleStrReplace,

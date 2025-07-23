@@ -45,8 +45,9 @@ export const DynamicAgentConfigSchema = z.object({
   purpose: z.string(),
   model: z.string(),
   outputMode: z
-    .enum(['last_message', 'report', 'all_messages'])
-    .default('last_message'),
+    .enum(['last_message', 'all_messages', 'json'])
+    .default('last_message'), // Will be overridden to 'json' if outputSchema is present
+  outputSchema: JsonSchemaSchema.optional(), // Optional JSON schema for output validation
   includeMessageHistory: z.boolean().default(true),
   toolNames: z
     .array(z.string())
@@ -84,6 +85,7 @@ export const DynamicAgentConfigSchema = z.object({
   stepAssistantMessage: PromptFieldSchema.optional(),
   stepAssistantPrefix: PromptFieldSchema.optional(),
 })
+
 export type DynamicAgentConfig = z.input<typeof DynamicAgentConfigSchema>
 export type DynamicAgentConfigParsed = z.infer<typeof DynamicAgentConfigSchema>
 
@@ -96,5 +98,35 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
   stepAssistantMessage: z.string(),
   stepAssistantPrefix: z.string(),
 })
-
+  .refine(
+    (data) => {
+      // If outputSchema is provided, outputMode must be 'json' or undefined (will default to 'json')
+      if (data.outputSchema && data.outputMode && data.outputMode !== 'json') {
+        return false
+      }
+      return true
+    },
+    {
+      message:
+        "outputSchema can only be used with outputMode 'json'. Remove outputMode or set it to 'json'.",
+      path: ['outputMode'],
+    }
+  )
+  .refine(
+    (data) => {
+      // If outputMode is 'json', 'set_output' tool must be included
+      if (
+        data.outputMode === 'json' &&
+        !data.toolNames.includes('set_output')
+      ) {
+        return false
+      }
+      return true
+    },
+    {
+      message:
+        "outputMode 'json' requires the 'set_output' tool. Add 'set_output' to toolNames.",
+      path: ['toolNames'],
+    }
+  )
 export type DynamicAgentTemplate = z.infer<typeof DynamicAgentTemplateSchema>
