@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 describe('Usage Calculation System', () => {
   beforeAll(() => {
     // Mock the database module before importing the function
-    mockModule('@codebuff/common/db/index', () => ({
+    mockModule('@codebuff/common/db', () => ({
       default: {
         select: () => ({
           from: () => ({
