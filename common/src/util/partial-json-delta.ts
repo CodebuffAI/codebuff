@@ -1,5 +1,5 @@
 // TODO: optimize this to not be O(n^2)
-export function parsePartialJsonObject(content: string): {
+export function parsePartialJsonObjectSingle(content: string): {
   lastParamComplete: boolean
   params: any
 } {
@@ -14,6 +14,15 @@ export function parsePartialJsonObject(content: string): {
   try {
     return { lastParamComplete: false, params: JSON.parse(content + '"}') }
   } catch (error) {}
+
+  if (content.endsWith('\\')) {
+    try {
+      return {
+        lastParamComplete: false,
+        params: JSON.parse(content.slice(0, -1) + '"}'),
+      }
+    } catch (error) {}
+  }
 
   let lastIndex = content.lastIndexOf(',')
   while (lastIndex > 0) {
@@ -30,26 +39,55 @@ export function parsePartialJsonObject(content: string): {
   return { lastParamComplete: true, params: {} }
 }
 
+export function parsePartialJsonObject(
+  content: string,
+  previous: string
+): {
+  lastParamComplete: boolean
+  params: any
+  prevParams: any
+} {
+  const { lastParamComplete, params } = parsePartialJsonObjectSingle(content)
+  const lastParam = Object.entries(params)[-1]
+
+  const { lastParamComplete: prevLastParamComplete, params: prevParams } =
+    parsePartialJsonObjectSingle(previous)
+  const prevLastParam = Object.entries(prevParams)[-1]
+
+  return {
+    lastParamComplete:
+      lastParam === prevLastParam
+        ? lastParamComplete && !prevLastParamComplete
+        : lastParamComplete,
+    params,
+    prevParams,
+  }
+}
+
 export function getPartialJsonDelta(
   content: string,
-  previous: Record<string, any>
+  previous: string
 ): {
   delta: Record<string, any>
   result: Record<string, any>
   lastParam: { key: string | undefined; complete: boolean }
 } {
-  const { lastParamComplete, params: current } = parsePartialJsonObject(content)
+  const {
+    lastParamComplete,
+    params: current,
+    prevParams,
+  } = parsePartialJsonObject(content, previous)
 
   const entries = Object.entries(current)
   const lastKey = (entries[entries.length - 1] ?? [undefined])[0]
 
   const delta: Record<string, any> = {}
   for (const [key, value] of Object.entries(current)) {
-    if (previous[key] === value) {
+    if (prevParams[key] === value) {
       continue
     }
     if (typeof value === 'string') {
-      delta[key] = value.slice((previous[key] ?? '').length)
+      delta[key] = value.slice((prevParams[key] ?? '').length)
     } else {
       delta[key] = value
     }
