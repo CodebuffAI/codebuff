@@ -1,160 +1,171 @@
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { applyPatch } from '@codebuff/common/util/patch'
-import { describe, expect, it, mock } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import { processFileBlock } from '../process-file-block'
 
-// Mock logger
-mock.module('../util/logger', () => ({
-  logger: {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  },
-  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-}))
+describe('processFileBlockModule', () => {
+  beforeAll(() => {
+    // Mock logger
+    mockModule('@codebuff/backend/util/logger', () => ({
+      logger: {
+        debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
+      },
+      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+    }))
 
-// Mock database interactions
-mock.module('pg-pool', () => ({
-  Pool: class {
-    connect() {
-      return {
-        query: () => ({
-          rows: [{ id: 'test-user-id' }],
-          rowCount: 1,
-        }),
-        release: () => {},
+    // Mock database interactions
+    mockModule('pg-pool', () => ({
+      Pool: class {
+        connect() {
+          return {
+            query: () => ({
+              rows: [{ id: 'test-user-id' }],
+              rowCount: 1,
+            }),
+            release: () => {},
+          }
+        }
+      },
+    }))
+
+    // Mock message saving
+    mockModule('@codebuff/backend/llm-apis/message-cost-tracker', () => ({
+      saveMessage: () => Promise.resolve(),
+    }))
+  })
+
+  afterAll(() => {
+    clearMockedModules()
+  })
+
+  describe('cleanMarkdownCodeBlock', () => {
+    it('should remove markdown code block syntax with language tag', () => {
+      const input = '```typescript\nconst x = 1;\n```'
+      expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
+    })
+
+    it('should remove markdown code block syntax without language tag', () => {
+      const input = '```\nconst x = 1;\n```'
+      expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
+    })
+
+    it('should return original content if not a code block', () => {
+      const input = 'const x = 1;'
+      expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
+    })
+
+    it('should handle multiline code blocks', () => {
+      const input = '```javascript\nconst x = 1;\nconst y = 2;\n```'
+      expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;\nconst y = 2;')
+    })
+  })
+
+  describe('processFileBlock', () => {
+    it('should handle markdown code blocks when creating new files', async () => {
+      const newContent =
+        '```typescript\nfunction test() {\n  return true;\n}\n```'
+      const expectedContent = 'function test() {\n  return true;\n}'
+
+      const result = await processFileBlock(
+        'test.ts',
+        undefined,
+        Promise.resolve(null),
+        newContent,
+        [],
+        '',
+        undefined,
+        'clientSessionId',
+        'fingerprintId',
+        'userInputId',
+        TEST_USER_ID
+      )
+
+      expect(result).not.toBeNull()
+      if ('error' in result) {
+        throw new Error(`Expected success but got error: ${result.error}`)
       }
-    }
-  },
-}))
+      expect(result.path).toBe('test.ts')
+      expect(result.patch).toBeUndefined()
+      expect(result.content).toBe(expectedContent)
+    })
 
-// Mock message saving
-mock.module('backend/llm-apis/message-cost-tracker', () => ({
-  saveMessage: () => Promise.resolve(),
-}))
+    it('should handle Windows line endings with multi-line changes', async () => {
+      const oldContent =
+        'function hello() {\r\n' +
+        '  console.log("Hello, world!");\r\n' +
+        '  return "Goodbye";\r\n' +
+        '}\r\n'
 
-describe('cleanMarkdownCodeBlock', () => {
-  it('should remove markdown code block syntax with language tag', () => {
-    const input = '```typescript\nconst x = 1;\n```'
-    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
-  })
+      const newContent =
+        'function hello() {\r\n' +
+        '  console.log("Hello, Manicode!");\r\n' +
+        '  return "See you later!";\r\n' +
+        '}\r\n'
 
-  it('should remove markdown code block syntax without language tag', () => {
-    const input = '```\nconst x = 1;\n```'
-    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
-  })
+      const result = await processFileBlock(
+        'test.ts',
+        undefined,
+        Promise.resolve(oldContent),
+        newContent,
+        [],
+        '',
+        undefined,
+        'clientSessionId',
+        'fingerprintId',
+        'userInputId',
+        TEST_USER_ID
+      )
 
-  it('should return original content if not a code block', () => {
-    const input = 'const x = 1;'
-    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;')
-  })
+      expect(result).not.toBeNull()
+      if ('error' in result) {
+        throw new Error(`Expected success but got error: ${result.error}`)
+      }
 
-  it('should handle multiline code blocks', () => {
-    const input = '```javascript\nconst x = 1;\nconst y = 2;\n```'
-    expect(cleanMarkdownCodeBlock(input)).toBe('const x = 1;\nconst y = 2;')
-  })
-})
+      expect(result.path).toBe('test.ts')
+      expect(result.content).toBe(newContent)
+      expect(result.patch).toBeDefined()
+      if (result.patch) {
+        const updatedFile = applyPatch(oldContent, result.patch)
+        expect(updatedFile).toBe(newContent)
+      }
+    })
 
-describe('processFileBlock', () => {
-  it('should handle markdown code blocks when creating new files', async () => {
-    const newContent =
-      '```typescript\nfunction test() {\n  return true;\n}\n```'
-    const expectedContent = 'function test() {\n  return true;\n}'
+    it('should handle empty or whitespace-only changes', async () => {
+      const oldContent = 'function test() {\n  return true;\n}\n'
+      const newContent = 'function test() {\n  return true;\n}\n'
 
-    const result = await processFileBlock(
-      'test.ts',
-      undefined,
-      Promise.resolve(null),
-      newContent,
-      [],
-      '',
-      undefined,
-      'clientSessionId',
-      'fingerprintId',
-      'userInputId',
-      TEST_USER_ID
-    )
+      const result = await processFileBlock(
+        'test.ts',
+        undefined,
+        Promise.resolve(oldContent),
+        newContent,
+        [],
+        '',
+        undefined,
+        'clientSessionId',
+        'fingerprintId',
+        'userInputId',
+        TEST_USER_ID
+      )
 
-    expect(result).not.toBeNull()
-    if ('error' in result) {
-      throw new Error(`Expected success but got error: ${result.error}`)
-    }
-    expect(result.path).toBe('test.ts')
-    expect(result.patch).toBeUndefined()
-    expect(result.content).toBe(expectedContent)
-  })
+      expect(result).not.toBeNull()
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('same as the old content')
+      }
+    })
 
-  it('should handle Windows line endings with multi-line changes', async () => {
-    const oldContent =
-      'function hello() {\r\n' +
-      '  console.log("Hello, world!");\r\n' +
-      '  return "Goodbye";\r\n' +
-      '}\r\n'
-
-    const newContent =
-      'function hello() {\r\n' +
-      '  console.log("Hello, Manicode!");\r\n' +
-      '  return "See you later!";\r\n' +
-      '}\r\n'
-
-    const result = await processFileBlock(
-      'test.ts',
-      undefined,
-      Promise.resolve(oldContent),
-      newContent,
-      [],
-      '',
-      undefined,
-      'clientSessionId',
-      'fingerprintId',
-      'userInputId',
-      TEST_USER_ID
-    )
-
-    expect(result).not.toBeNull()
-    if ('error' in result) {
-      throw new Error(`Expected success but got error: ${result.error}`)
-    }
-
-    expect(result.path).toBe('test.ts')
-    expect(result.content).toBe(newContent)
-    expect(result.patch).toBeDefined()
-    if (result.patch) {
-      const updatedFile = applyPatch(oldContent, result.patch)
-      expect(updatedFile).toBe(newContent)
-    }
-  })
-
-  it('should handle empty or whitespace-only changes', async () => {
-    const oldContent = 'function test() {\n  return true;\n}\n'
-    const newContent = 'function test() {\n  return true;\n}\n'
-
-    const result = await processFileBlock(
-      'test.ts',
-      undefined,
-      Promise.resolve(oldContent),
-      newContent,
-      [],
-      '',
-      undefined,
-      'clientSessionId',
-      'fingerprintId',
-      'userInputId',
-      TEST_USER_ID
-    )
-
-    expect(result).not.toBeNull()
-    expect('error' in result).toBe(true)
-    if ('error' in result) {
-      expect(result.error).toContain('same as the old content')
-    }
-  })
-
-  it('should handle multiple diff blocks in a single file', async () => {
-    const oldContent = `
+    it('should handle multiple diff blocks in a single file', async () => {
+      const oldContent = `
 function add(a: number, b: number) {
   return a + b;
 }
@@ -168,8 +179,8 @@ function divide(a: number, b: number) {
 }
 `.trim()
 
-    const newContent =
-      `<<<<<<< SEARCH
+      const newContent =
+        `<<<<<<< SEARCH
 function add(a: number, b: number) {
   return a + b;
 }
@@ -181,10 +192,10 @@ function add(a: number, b: number) {
   return a + b;
 }
 >>>>>>> REPLACE` +
-      `
+        `
  
 ` +
-      `<<<<<<< SEARCH
+        `<<<<<<< SEARCH
 function multiply(a: number, b: number) {
   return a * b;
 }
@@ -201,104 +212,109 @@ function divide(a: number, b: number) {
   return a / b;
 }`
 
-    const result = await processFileBlock(
-      'test.ts',
-      undefined,
-      Promise.resolve(oldContent),
-      newContent,
-      [],
-      '',
-      undefined,
-      'clientSessionId',
-      'fingerprintId',
-      'userInputId',
-      TEST_USER_ID
-    )
-
-    expect(result).not.toBeNull()
-    if ('error' in result) {
-      throw new Error(`Expected success but got error: ${result.error}`)
-    }
-    expect(result.path).toBe('test.ts')
-    expect(result.patch).toBeDefined()
-    if (result.patch) {
-      const updatedContent = applyPatch(oldContent, result.patch)
-      expect(updatedContent).toContain(
-        "if (typeof a !== 'number' || typeof b !== 'number')"
+      const result = await processFileBlock(
+        'test.ts',
+        undefined,
+        Promise.resolve(oldContent),
+        newContent,
+        [],
+        '',
+        undefined,
+        'clientSessionId',
+        'fingerprintId',
+        'userInputId',
+        TEST_USER_ID
       )
-      expect(
-        updatedContent.match(
-          /if \(typeof a !== 'number' \|\| typeof b !== 'number'\)/g
-        )?.length
-      ).toBe(2)
-    }
-  })
 
-  it('should preserve Windows line endings in patch and content', async () => {
-    const oldContent = 'const x = 1;\r\nconst y = 2;\r\n'
-    const newContent = 'const x = 1;\r\nconst z = 3;\r\n'
+      expect(result).not.toBeNull()
+      if ('error' in result) {
+        throw new Error(`Expected success but got error: ${result.error}`)
+      }
+      expect(result.path).toBe('test.ts')
+      expect(result.patch).toBeDefined()
+      if (result.patch) {
+        const updatedContent = applyPatch(oldContent, result.patch)
+        expect(updatedContent).toContain(
+          "if (typeof a !== 'number' || typeof b !== 'number')"
+        )
+        expect(
+          updatedContent.match(
+            /if \(typeof a !== 'number' \|\| typeof b !== 'number'\)/g
+          )?.length
+        ).toBe(2)
+      }
+    })
 
-    const result = await processFileBlock(
-      'test.ts',
-      undefined,
-      Promise.resolve(oldContent),
-      newContent,
-      [],
-      '',
-      undefined,
-      'clientSessionId',
-      'fingerprintId',
-      'userInputId',
-      TEST_USER_ID
-    )
+    it('should preserve Windows line endings in patch and content', async () => {
+      const oldContent = 'const x = 1;\r\nconst y = 2;\r\n'
+      const newContent = 'const x = 1;\r\nconst z = 3;\r\n'
 
-    expect(result).not.toBeNull()
-    if ('error' in result) {
-      throw new Error(`Expected success but got error: ${result.error}`)
-    }
+      const result = await processFileBlock(
+        'test.ts',
+        undefined,
+        Promise.resolve(oldContent),
+        newContent,
+        [],
+        '',
+        undefined,
+        'clientSessionId',
+        'fingerprintId',
+        'userInputId',
+        TEST_USER_ID
+      )
 
-    // Verify content has Windows line endings
-    expect(result.content).toBe(newContent)
-    expect(result.content).toContain('\r\n')
-    expect(result.content.split('\r\n').length).toBe(3) // 2 lines + empty line
+      expect(result).not.toBeNull()
+      if ('error' in result) {
+        throw new Error(`Expected success but got error: ${result.error}`)
+      }
 
-    // Verify patch has Windows line endings
-    expect(result.patch).toBeDefined()
-    if (result.patch) {
-      expect(result.patch).toContain('\r\n')
-      const updatedFile = applyPatch(oldContent, result.patch)
-      expect(updatedFile).toBe(newContent)
+      // Verify content has Windows line endings
+      expect(result.content).toBe(newContent)
+      expect(result.content).toContain('\r\n')
+      expect(result.content.split('\r\n').length).toBe(3) // 2 lines + empty line
 
-      // Verify patch can be applied and preserves line endings
-      const patchLines = result.patch.split('\r\n')
-      expect(patchLines.some((line) => line.startsWith('-const y'))).toBe(true)
-      expect(patchLines.some((line) => line.startsWith('+const z'))).toBe(true)
-    }
-  })
+      // Verify patch has Windows line endings
+      expect(result.patch).toBeDefined()
+      if (result.patch) {
+        expect(result.patch).toContain('\r\n')
+        const updatedFile = applyPatch(oldContent, result.patch)
+        expect(updatedFile).toBe(newContent)
 
-  it('should return error when creating new file with lazy edit', async () => {
-    const newContent =
-      '// ... existing code ...\nconst x = 1;\n// ... existing code ...'
+        // Verify patch can be applied and preserves line endings
+        const patchLines = result.patch.split('\r\n')
+        expect(patchLines.some((line) => line.startsWith('-const y'))).toBe(
+          true
+        )
+        expect(patchLines.some((line) => line.startsWith('+const z'))).toBe(
+          true
+        )
+      }
+    })
 
-    const result = await processFileBlock(
-      'test.ts',
-      undefined,
-      Promise.resolve(null),
-      newContent,
-      [],
-      '',
-      undefined,
-      'clientSessionId',
-      'fingerprintId',
-      'userInputId',
-      TEST_USER_ID
-    )
+    it('should return error when creating new file with lazy edit', async () => {
+      const newContent =
+        '// ... existing code ...\nconst x = 1;\n// ... existing code ...'
 
-    expect(result).not.toBeNull()
-    expect('error' in result).toBe(true)
-    if ('error' in result) {
-      expect(result.error).toContain('placeholder comment')
-      expect(result.error).toContain('meant to modify an existing file')
-    }
+      const result = await processFileBlock(
+        'test.ts',
+        undefined,
+        Promise.resolve(null),
+        newContent,
+        [],
+        '',
+        undefined,
+        'clientSessionId',
+        'fingerprintId',
+        'userInputId',
+        TEST_USER_ID
+      )
+
+      expect(result).not.toBeNull()
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('placeholder comment')
+        expect(result.error).toContain('meant to modify an existing file')
+      }
+    })
   })
 })

@@ -3,7 +3,9 @@ import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
+  afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -25,20 +27,13 @@ import {
   getToolCallString,
   renderToolResults,
 } from '@codebuff/common/constants/tools'
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import * as websocketAction from '../websockets/websocket-action'
-
-// Mock logger
-mock.module('../util/logger', () => ({
-  logger: {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  },
-  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-}))
 
 const mockAgentStream = (streamOutput: string) => {
   spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
@@ -47,6 +42,19 @@ const mockAgentStream = (streamOutput: string) => {
 }
 
 describe('mainPrompt', () => {
+  beforeAll(() => {
+    // Mock logger
+    mockModule('@codebuff/backend/util/logger', () => ({
+      logger: {
+        debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
+      },
+      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+    }))
+  })
+
   beforeEach(() => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
@@ -139,6 +147,10 @@ describe('mainPrompt', () => {
   afterEach(() => {
     // Clear all mocks after each test
     mock.restore()
+  })
+
+  afterAll(() => {
+    clearMockedModules()
   })
 
   class MockWebSocket {

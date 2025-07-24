@@ -1,20 +1,34 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from 'bun:test'
 import fs from 'fs'
 import path from 'path'
 import { handleCodeSearch } from '../tool-handlers'
 
-// Mock getProjectRoot to point to npm-app directory
-const mockGetProjectRoot = mock(() => {
-  const projectRoot = path.resolve(__dirname, '../../')
-  return projectRoot
-})
-
-mock.module('../project-files', () => ({
-  getProjectRoot: mockGetProjectRoot,
-}))
-
 describe('handleCodeSearch', () => {
   const testDataDir = path.resolve(__dirname, 'data')
+  // Mock getProjectRoot to point to npm-app directory
+  const mockGetProjectRoot = mock(() => {
+    const projectRoot = path.resolve(__dirname, '../../')
+    return projectRoot
+  })
+
+  beforeAll(() => {
+    mockModule('@codebuff/npm-app/project-files', () => ({
+      getProjectRoot: mockGetProjectRoot,
+    }))
+  })
 
   beforeEach(async () => {
     const projectRoot = path.resolve(__dirname, '../../')
@@ -55,6 +69,10 @@ export interface TestInterface {
     } catch (error) {
       // Ignore cleanup errors
     }
+  })
+
+  afterAll(() => {
+    clearMockedModules()
   })
 
   test('calls getProjectRoot and handles execution', async () => {

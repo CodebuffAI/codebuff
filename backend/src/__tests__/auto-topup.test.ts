@@ -1,13 +1,17 @@
-import type { CreditBalance } from '@codebuff/billing'
-import { checkAndTriggerAutoTopup } from '@codebuff/billing'
 import * as billing from '@codebuff/billing'
+import { checkAndTriggerAutoTopup } from '@codebuff/billing'
 import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import {
+  afterAll,
+  afterEach,
   beforeEach,
   describe,
   expect,
   it,
   mock,
-  afterEach,
   spyOn,
 } from 'bun:test'
 
@@ -60,7 +64,7 @@ describe('Auto Top-up System', () => {
       grantCreditsMock = mock(() => Promise.resolve())
 
       // Mock the database
-      mock.module('@codebuff/common/db', () => ({
+      mockModule('@codebuff/common/db', () => ({
         default: {
           query: {
             user: {
@@ -84,7 +88,7 @@ describe('Auto Top-up System', () => {
       )
 
       // Mock Stripe payment intent creation
-      mock.module('@codebuff/common/util/stripe', () => ({
+      mockModule('@codebuff/common/util/stripe', () => ({
         stripeServer: {
           paymentIntents: {
             create: mock(() =>
@@ -96,6 +100,10 @@ describe('Auto Top-up System', () => {
           },
         },
       }))
+    })
+
+    afterAll(() => {
+      clearMockedModules()
     })
 
     it('should trigger top-up when balance below threshold', async () => {

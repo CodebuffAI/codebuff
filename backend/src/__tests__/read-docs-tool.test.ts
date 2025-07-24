@@ -2,9 +2,15 @@ import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/constants/tools'
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
+  afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -22,18 +28,20 @@ import { runAgentStep } from '../run-agent-step'
 import * as websocketAction from '../websockets/websocket-action'
 import { MockWebSocket, mockFileContext } from './test-utils'
 
-// Mock logger
-mock.module('../util/logger', () => ({
-  logger: {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  },
-  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-}))
-
 describe('read_docs tool with researcher agent', () => {
+  beforeAll(() => {
+    // Mock logger
+    mockModule('@codebuff/backend/util/logger', () => ({
+      logger: {
+        debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
+      },
+      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+    }))
+  })
+
   beforeEach(() => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
@@ -71,6 +79,10 @@ describe('read_docs tool with researcher agent', () => {
 
   afterEach(() => {
     mock.restore()
+  })
+
+  afterAll(() => {
+    clearMockedModules()
   })
 
   // MockWebSocket and mockFileContext imported from test-utils

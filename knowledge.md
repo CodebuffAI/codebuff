@@ -94,6 +94,10 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 
 **Always use `spyOn()` instead of `mock.module()` for function and method mocking.**
 
+- When mocking modules is required (for the purposes of overriding constants instead of functions), use the wrapper functions found in `@codebuff/common/testing/mock-modules.ts`.
+  - `mockModule` is a drop-in replacement for `mock.module`, but the module should be the absolute module path (e.g., `@codebuff/common/db` instead of `../db`).
+  - Make sure to call `clearMockedModules()` in `afterAll` to restore the original module implementations.
+
 **Preferred approach:**
 
 ```typescript

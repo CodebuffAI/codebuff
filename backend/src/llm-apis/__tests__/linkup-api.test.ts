@@ -1,5 +1,11 @@
 import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import {
+  afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -12,30 +18,32 @@ import { searchWeb } from '../linkup-api'
 // Mock environment variables
 process.env.LINKUP_API_KEY = 'test-api-key'
 
-mock.module('@codebuff/internal', () => ({
-  env: {
-    LINKUP_API_KEY: 'test-api-key',
-  },
-}))
-
-// Mock logger with spy functions to verify logging calls
-const mockLogger = {
-  debug: mock(() => {}),
-  error: mock(() => {}),
-  info: mock(() => {}),
-  warn: mock(() => {}),
-}
-
-mock.module('../../util/logger', () => ({
-  logger: mockLogger,
-}))
-
-// Mock withTimeout utility
-mock.module('@codebuff/common/util/promise', () => ({
-  withTimeout: async (promise: Promise<any>, timeout: number) => promise,
-}))
-
 describe('Linkup API', () => {
+  // Mock logger with spy functions to verify logging calls
+  const mockLogger = {
+    debug: mock(() => {}),
+    error: mock(() => {}),
+    info: mock(() => {}),
+    warn: mock(() => {}),
+  }
+
+  beforeAll(() => {
+    mockModule('@codebuff/internal', () => ({
+      env: {
+        LINKUP_API_KEY: 'test-api-key',
+      },
+    }))
+
+    mockModule('@codebuff/backend/util/logger', () => ({
+      logger: mockLogger,
+    }))
+
+    // Mock withTimeout utility
+    mockModule('@codebuff/common/util/promise', () => ({
+      withTimeout: async (promise: Promise<any>, timeout: number) => promise,
+    }))
+  })
+
   beforeEach(() => {
     // Reset fetch mock before each test
     spyOn(global, 'fetch').mockResolvedValue(new Response())
@@ -48,6 +56,10 @@ describe('Linkup API', () => {
 
   afterEach(() => {
     mock.restore()
+  })
+
+  afterAll(() => {
+    clearMockedModules()
   })
 
   test('should successfully search with basic query', async () => {

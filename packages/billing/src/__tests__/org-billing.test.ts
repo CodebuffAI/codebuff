@@ -1,4 +1,8 @@
-import { describe, it, expect, beforeEach, mock } from 'bun:test'
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import {
   calculateOrganizationUsageAndBalance,
   consumeOrganizationCredits,
@@ -35,47 +39,49 @@ const mockGrants = [
   },
 ]
 
-mock.module('@codebuff/common/db', () => ({
-  default: {
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          orderBy: () => mockGrants,
-        }),
-      }),
-    }),
-    insert: () => ({
-      values: () => Promise.resolve(),
-    }),
-    update: () => ({
-      set: () => ({
-        where: () => Promise.resolve(),
-      }),
-    }),
-  },
-}))
-
-mock.module('@codebuff/common/db/transaction', () => ({
-  withSerializableTransaction: (fn: any) =>
-    fn({
-      select: () => ({
-        from: () => ({
-          where: () => ({
-            orderBy: () => mockGrants,
+describe('Organization Billing', () => {
+  beforeAll(() => {
+    mockModule('@codebuff/common/db', () => ({
+      default: {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => mockGrants,
+            }),
           }),
         }),
-      }),
-      update: () => ({
-        set: () => ({
-          where: () => Promise.resolve(),
+        insert: () => ({
+          values: () => Promise.resolve(),
         }),
-      }),
-    }),
-}))
+        update: () => ({
+          set: () => ({
+            where: () => Promise.resolve(),
+          }),
+        }),
+      },
+    }))
 
-describe('Organization Billing', () => {
-  beforeEach(() => {
-    // Reset mocks
+    mockModule('@codebuff/common/db/transaction', () => ({
+      withSerializableTransaction: (fn: any) =>
+        fn({
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => mockGrants,
+              }),
+            }),
+          }),
+          update: () => ({
+            set: () => ({
+              where: () => Promise.resolve(),
+            }),
+          }),
+        }),
+    }))
+  })
+
+  afterAll(() => {
+    clearMockedModules()
   })
 
   describe('calculateOrganizationUsageAndBalance', () => {
@@ -103,7 +109,7 @@ describe('Organization Billing', () => {
 
     it('should handle organization with no grants', async () => {
       // Mock empty grants
-      mock.module('@codebuff/common/db', () => ({
+      mockModule('@codebuff/common/db', () => ({
         default: {
           select: () => ({
             from: () => ({
@@ -236,7 +242,7 @@ describe('Organization Billing', () => {
 
     it('should handle duplicate operation IDs gracefully', async () => {
       // Mock database constraint error
-      mock.module('@codebuff/common/db', () => ({
+      mockModule('@codebuff/common/db', () => ({
         default: {
           insert: () => ({
             values: () => {

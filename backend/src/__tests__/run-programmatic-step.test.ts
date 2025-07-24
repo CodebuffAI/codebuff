@@ -6,7 +6,9 @@ import {
   ToolResult,
 } from '@codebuff/common/types/session-state'
 import {
+  afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -17,6 +19,10 @@ import {
 import { WebSocket } from 'ws'
 
 import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
@@ -25,23 +31,25 @@ import * as toolExecutor from '../tools/tool-executor'
 import * as requestContext from '../websockets/request-context'
 import { mockFileContext, MockWebSocket } from './test-utils'
 
-// Mock logger
-mock.module('../util/logger', () => ({
-  logger: {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  },
-  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-}))
-
 describe('runProgrammaticStep', () => {
   let mockTemplate: AgentTemplate
   let mockAgentState: AgentState
   let mockParams: any
   let executeToolCallSpy: any
   let getRequestContextSpy: any
+
+  beforeAll(() => {
+    // Mock logger
+    mockModule('@codebuff/backend/util/logger', () => ({
+      logger: {
+        debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
+      },
+      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+    }))
+  })
 
   beforeEach(() => {
     // Mock analytics
@@ -124,6 +132,10 @@ describe('runProgrammaticStep', () => {
     mock.restore()
     // Clear the generator cache between tests
     clearAgentGeneratorCache()
+  })
+
+  afterAll(() => {
+    clearMockedModules()
   })
 
   describe('generator lifecycle', () => {

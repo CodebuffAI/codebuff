@@ -1,34 +1,13 @@
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { describe, expect, it, mock } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import {
   dynamicAgentService,
   DynamicAgentService,
 } from '../templates/dynamic-agent-service'
-
-// Mock backend utility module
-mock.module('../util/file-resolver', () => ({
-  resolvePromptField: (field: string | { path: string }, basePath: string) => {
-    if (typeof field === 'string') {
-      return field
-    }
-    if (field.path?.includes('brainstormer-system.md')) {
-      return 'You are a creative brainstormer.'
-    }
-    if (field.path?.includes('brainstormer-user-input.md')) {
-      return 'Help brainstorm ideas.'
-    }
-    return 'Mock content'
-  },
-  resolveFileContent: (filePath: string, basePath: string) => {
-    if (filePath.includes('brainstormer-system.md')) {
-      return 'You are a creative brainstormer.'
-    }
-    if (filePath.includes('brainstormer-user-input.md')) {
-      return 'Help brainstorm ideas.'
-    }
-    return 'Mock content'
-  },
-}))
 
 describe('Dynamic Agent Loader', () => {
   const mockFileContext: ProjectFileContext = {
@@ -55,6 +34,40 @@ describe('Dynamic Agent Loader', () => {
       cpus: 4,
     },
   }
+
+  beforeAll(() => {
+    // Mock backend utility module
+    mockModule('@codebuff/backend/util/file-resolver', () => ({
+      resolvePromptField: (
+        field: string | { path: string },
+        basePath: string
+      ) => {
+        if (typeof field === 'string') {
+          return field
+        }
+        if (field.path?.includes('brainstormer-system.md')) {
+          return 'You are a creative brainstormer.'
+        }
+        if (field.path?.includes('brainstormer-user-input.md')) {
+          return 'Help brainstorm ideas.'
+        }
+        return 'Mock content'
+      },
+      resolveFileContent: (filePath: string, basePath: string) => {
+        if (filePath.includes('brainstormer-system.md')) {
+          return 'You are a creative brainstormer.'
+        }
+        if (filePath.includes('brainstormer-user-input.md')) {
+          return 'Help brainstorm ideas.'
+        }
+        return 'Mock content'
+      },
+    }))
+  })
+
+  afterAll(() => {
+    clearMockedModules()
+  })
 
   it('should load valid dynamic agent template', async () => {
     const fileContext: ProjectFileContext = {
