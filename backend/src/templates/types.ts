@@ -23,7 +23,8 @@ export type AgentTemplate<
     prompt?: z.ZodSchema<P>
     params?: z.ZodSchema<T>
   }
-  outputMode: 'last_message' | 'report' | 'all_messages'
+  outputMode: 'last_message' | 'all_messages' | 'json'
+  outputSchema?: z.ZodSchema<any>
   includeMessageHistory: boolean
   toolNames: ToolName[]
   spawnableAgents: AgentTemplateType[]

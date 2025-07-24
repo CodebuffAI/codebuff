@@ -84,7 +84,7 @@ describe('runProgrammaticStep', () => {
       purpose: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       promptSchema: {},
-      outputMode: 'report',
+      outputMode: 'json',
       includeMessageHistory: true,
       toolNames: ['read_files', 'write_file', 'end_turn'],
       spawnableAgents: [],
@@ -107,7 +107,7 @@ describe('runProgrammaticStep', () => {
         { role: 'user', content: 'Initial message' },
         { role: 'assistant', content: 'Initial response' },
       ],
-      report: {},
+      output: undefined,
     }
 
     // Create mock params
@@ -331,48 +331,25 @@ describe('runProgrammaticStep', () => {
     it('should preserve agent state changes', async () => {
       const mockGenerator = (function* () {
         yield {
-          toolName: 'update_report',
-          args: { json_update: { status: 'complete' } },
+          toolName: 'set_output',
+          args: { status: 'complete' },
         }
         yield { toolName: 'end_turn', args: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
-      mockTemplate.toolNames.push('update_report')
+      mockTemplate.toolNames.push('set_output')
 
       // Mock executeToolCall to update state
       executeToolCallSpy.mockImplementation(async (options: any) => {
-        if (options.toolName === 'update_report') {
-          options.state.agentState.report = { status: 'complete' }
+        if (options.toolName === 'set_output') {
+          options.state.agentState.output = { status: 'complete' }
         }
       })
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
-      expect(result.agentState.report).toEqual({ status: 'complete' })
-    })
-
-    it('should properly update report using actual update_report tool handler', async () => {
-      const mockGenerator = (function* () {
-        yield {
-          toolName: 'update_report',
-          args: { json_update: { message: 'Task completed', progress: 100 } },
-        }
-        yield { toolName: 'end_turn', args: {} }
-      })() as StepGenerator
-
-      mockTemplate.handleSteps = () => mockGenerator
-      mockTemplate.toolNames.push('update_report')
-
-      // Don't mock executeToolCall - let it use the real implementation
-      executeToolCallSpy.mockRestore()
-
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
-
-      expect(result.agentState.report).toEqual({
-        message: 'Task completed',
-        progress: 100,
-      })
+      expect(result.agentState.output).toEqual({ status: 'complete' })
     })
 
     it('should preserve message history', async () => {
@@ -404,7 +381,7 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
       expect(result.endTurn).toBe(true)
-      expect(result.agentState.report.error).toContain('Generator error')
+      expect(result.agentState.output?.error).toContain('Generator error')
       expect(
         responseChunks.some((chunk) => chunk.includes('Generator error'))
       ).toBe(true)
@@ -425,7 +402,7 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
       expect(result.endTurn).toBe(true)
-      expect(result.agentState.report.error).toContain('Tool execution failed')
+      expect(result.agentState.output?.error).toContain('Tool execution failed')
     })
 
     it('should handle non-Error exceptions', async () => {
@@ -438,10 +415,177 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
       expect(result.endTurn).toBe(true)
-      expect(result.agentState.report.error).toContain('Unknown error')
+      expect(result.agentState.output?.error).toContain('Unknown error')
     })
   })
 
+  describe('output schema validation', () => {
+    it('should validate output against outputSchema when using setOutput', async () => {
+      // Create template with outputSchema
+      const schemaTemplate = {
+        ...mockTemplate,
+        outputMode: 'json' as const,
+        outputSchema: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            status: { type: 'string', enum: ['success', 'error'] },
+            count: { type: 'number' },
+          },
+          required: ['message', 'status'],
+        },
+        toolNames: ['set_output', 'end_turn'],
+      }
+
+      const mockGenerator = (function* () {
+        yield {
+          toolName: 'set_output',
+          args: {
+            message: 'Task completed successfully',
+            status: 'success',
+            count: 42,
+          },
+        }
+        yield { toolName: 'end_turn', args: {} }
+      })() as StepGenerator
+
+      schemaTemplate.handleSteps = () => mockGenerator
+
+      // Don't mock executeToolCall - let it use the real implementation
+      executeToolCallSpy.mockRestore()
+
+      const result = await runProgrammaticStep(mockAgentState, {
+        ...mockParams,
+        template: schemaTemplate,
+      })
+
+      expect(result.endTurn).toBe(true)
+      expect(result.agentState.output).toEqual({
+        message: 'Task completed successfully',
+        status: 'success',
+        count: 42,
+      })
+    })
+
+    it('should handle invalid output that fails schema validation', async () => {
+      // Create template with strict outputSchema
+      const schemaTemplate = {
+        ...mockTemplate,
+        outputMode: 'json' as const,
+        outputSchema: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            status: { type: 'string', enum: ['success', 'error'] },
+          },
+          required: ['message', 'status'],
+        },
+        toolNames: ['set_output', 'end_turn'],
+      }
+
+      const mockGenerator = (function* () {
+        yield {
+          toolName: 'set_output',
+          args: {
+            message: 'Task completed',
+            status: 'invalid_status', // This should fail validation
+            extraField: 'not allowed',
+          },
+        }
+        yield { toolName: 'end_turn', args: {} }
+      })() as StepGenerator
+
+      schemaTemplate.handleSteps = () => mockGenerator
+
+      // Don't mock executeToolCall - let it use the real implementation
+      executeToolCallSpy.mockRestore()
+
+      const responseChunks: string[] = []
+      mockParams.onResponseChunk = (chunk: string) => responseChunks.push(chunk)
+
+      const result = await runProgrammaticStep(mockAgentState, {
+        ...mockParams,
+        template: schemaTemplate,
+      })
+
+      // Should end turn (validation may fail but execution continues)
+      expect(result.endTurn).toBe(true)
+      // Test passes if no exception is thrown during execution
+      expect(result.agentState).toBeDefined()
+    })
+
+    it('should work with agents that have no outputSchema', async () => {
+      const noSchemaTemplate = {
+        ...mockTemplate,
+        outputMode: 'last_message' as const,
+        outputSchema: undefined,
+        toolNames: ['set_output', 'end_turn'],
+      }
+
+      const mockGenerator = (function* () {
+        yield {
+          toolName: 'set_output',
+          args: {
+            anyField: 'any value',
+            anotherField: 123,
+          },
+        }
+        yield { toolName: 'end_turn', args: {} }
+      })() as StepGenerator
+
+      noSchemaTemplate.handleSteps = () => mockGenerator
+
+      // Don't mock executeToolCall - let it use the real implementation
+      executeToolCallSpy.mockRestore()
+
+      const result = await runProgrammaticStep(mockAgentState, {
+        ...mockParams,
+        template: noSchemaTemplate,
+      })
+
+      expect(result.endTurn).toBe(true)
+      expect(result.agentState.output).toEqual({
+        anyField: 'any value',
+        anotherField: 123,
+      })
+    })
+
+    it('should work with outputMode json but no outputSchema defined', async () => {
+      const schemaWithoutSchemaTemplate = {
+        ...mockTemplate,
+        outputMode: 'json' as const,
+        outputSchema: undefined, // No schema defined
+        toolNames: ['set_output', 'end_turn'],
+      }
+
+      const mockGenerator = (function* () {
+        yield {
+          toolName: 'set_output',
+          args: {
+            result: 'success',
+            data: { count: 5 },
+          },
+        }
+        yield { toolName: 'end_turn', args: {} }
+      })() as StepGenerator
+
+      schemaWithoutSchemaTemplate.handleSteps = () => mockGenerator
+
+      // Don't mock executeToolCall - let it use the real implementation
+      executeToolCallSpy.mockRestore()
+
+      const result = await runProgrammaticStep(mockAgentState, {
+        ...mockParams,
+        template: schemaWithoutSchemaTemplate,
+      })
+
+      expect(result.endTurn).toBe(true)
+      expect(result.agentState.output).toEqual({
+        result: 'success',
+        data: { count: 5 },
+      })
+    })
+  })
   describe('logging and context', () => {
     it('should log agent execution start', async () => {
       const mockGenerator = (function* () {

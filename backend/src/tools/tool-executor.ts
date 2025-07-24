@@ -198,8 +198,8 @@ export function executeToolCall<T extends ToolName>(
 
   for (const [key, value] of Object.entries(stateUpdate ?? {})) {
     if (key === 'agentState' && typeof value === 'object' && value !== null) {
-      // Merge agentState updates instead of replacing the reference
-      Object.assign(state.agentState, value)
+      // Replace the agentState reference to ensure all updates are captured
+      state.agentState = value
     } else {
       state[key] = value
     }

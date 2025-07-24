@@ -39,7 +39,6 @@ const KNOWN_TOOL_NAMES = [
   'find_files',
   'think_deeply',
   'end_turn',
-  'update_report',
 ]
 
 /**

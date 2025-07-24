@@ -21,7 +21,7 @@ describe('QuickJS Sandbox Generator', () => {
       agentId: 'test-agent-123',
       agentType: 'test-vm-agent',
       messageHistory: [],
-      report: {},
+      output: undefined,
       agentContext: {},
       subagents: [],
       stepsRemaining: 10,
@@ -33,9 +33,9 @@ describe('QuickJS Sandbox Generator', () => {
       name: 'Test VM Agent',
       purpose: 'Test VM isolation',
       model: 'anthropic/claude-4-sonnet-20250522',
-      outputMode: 'report',
+      outputMode: 'json',
       includeMessageHistory: false,
-      toolNames: ['update_report'],
+      toolNames: ['set_output'],
       spawnableAgents: [],
       promptSchema: {},
       systemPrompt: '',
@@ -75,13 +75,11 @@ describe('QuickJS Sandbox Generator', () => {
     mockTemplate.handleSteps = `
       function* ({ agentState, prompt, params }) {
         yield {
-          toolName: 'update_report',
+          toolName: 'set_output',
           args: {
-            json_update: {
-              message: 'Hello from QuickJS sandbox!',
-              prompt: prompt,
-              agentId: agentState.agentId
-            }
+            message: 'Hello from QuickJS sandbox!',
+            prompt: prompt,
+            agentId: agentState.agentId
           }
         }
       }
@@ -90,7 +88,7 @@ describe('QuickJS Sandbox Generator', () => {
 
     const result = await runProgrammaticStep(mockAgentState, mockParams)
 
-    expect(result.agentState.report).toEqual({
+    expect(result.agentState.output).toEqual({
       message: 'Hello from QuickJS sandbox!',
       prompt: 'Test prompt',
       agentId: 'test-agent-123',
@@ -120,7 +118,7 @@ describe('QuickJS Sandbox Generator', () => {
     const result = await runProgrammaticStep(mockAgentState, mockParams)
 
     expect(result.endTurn).toBe(true)
-    expect(result.agentState.report.error).toContain(
+    expect(result.agentState.output?.error).toContain(
       'Error executing programmatic agent'
     )
   })

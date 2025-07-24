@@ -47,7 +47,7 @@ Every agent template must include these fields:
 - **promptSchema**: Object with:
   - prompt: boolean | 'optional' - Whether agent requires user prompt
   - params: z.ZodSchema | null - Optional Zod schema for parameters
-- **outputMode**: 'last_message' | 'report' | 'all_messages'
+- **outputMode**: 'last_message' | 'all_messages' | 'json'
 - **includeMessageHistory**: boolean - Whether to include conversation history
 - **toolNames**: ToolName[] - Array of available tools
 - **spawnableAgents**: AgentTemplateType[] - Sub-agents this agent can spawn
@@ -90,7 +90,7 @@ Every agent template must include these fields:
 
 **Other:**
 - run_file_change_hooks - Run file change hooks
-- update_report - Update agent reports
+- set_output - Set structured agent output
 
 ## Agent Template Patterns:
 

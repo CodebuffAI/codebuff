@@ -25,6 +25,7 @@ export const base = (
   toolNames: [
     'create_plan',
     'run_terminal_command',
+    'set_output',
     'str_replace',
     'write_file',
     'spawn_agents',

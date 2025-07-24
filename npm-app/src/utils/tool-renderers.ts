@@ -347,17 +347,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       }
     },
   },
-  update_report: {
-    onToolStart: (toolName) => {
-      return '\n\n' + gray(`[${bold('Update Report')}]`) + '\n'
-    },
-    onParamChunk: (content, paramName, toolName) => {
-      if (paramName === 'jsonUpdate') {
-        return gray(content)
-      }
-      return null
-    },
-  },
+
   send_agent_message: {
     onToolStart: (toolName) => {
       return '\n\n' + gray(`[${bold('Send Agent Message')}]`) + '\n'
@@ -374,5 +364,19 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   },
   set_messages: {
     // Don't render anything
+  },
+  set_output: {
+    onToolStart: (toolName) => {
+      return '\n\n' + gray(`[${bold('Set Output')}]`) + '\n...\n'
+    },
+    onParamStart: (paramName) => {
+      Spinner.get().start('Setting output...')
+      return null
+    },
+    onToolEnd: () => {
+      return () => {
+        return '\n'
+      }
+    },
   },
 }
