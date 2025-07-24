@@ -1,0 +1,42 @@
+import type { Subgoal } from '@codebuff/common/types/session-state'
+import type { CodebuffToolCall } from '../../constants'
+import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+
+export const handleUpdateSubgoal = ((params: {
+  previousToolCallFinished: Promise<void>
+  toolCall: CodebuffToolCall<'update_subgoal'>
+  state: { agentContext?: Record<string, Subgoal> }
+}): {
+  result: Promise<string>
+  state: { agentContext: Record<string, Subgoal> }
+} => {
+  const { previousToolCallFinished, toolCall, state } = params
+  const agentContext = state.agentContext ?? {}
+
+  let messages: string[] = []
+  if (!agentContext[toolCall.args.id]) {
+    messages.push(
+      `Subgoal with id ${toolCall.args.id} not found. Creating new subgoal.`
+    )
+    agentContext[toolCall.args.id] = {
+      objective: undefined,
+      status: undefined,
+      plan: undefined,
+      logs: [],
+    }
+  }
+  if (toolCall.args.status) {
+    agentContext[toolCall.args.id].status = toolCall.args.status
+  }
+  if (toolCall.args.plan) {
+    agentContext[toolCall.args.id].plan = toolCall.args.plan
+  }
+  if (toolCall.args.log) {
+    agentContext[toolCall.args.id].logs.push(toolCall.args.log)
+  }
+  messages.push('Successfully updated subgoal.')
+  return {
+    result: previousToolCallFinished.then(() => messages.join('\n\n')),
+    state: { agentContext },
+  }
+}) satisfies CodebuffToolHandlerFunction<'update_subgoal'>

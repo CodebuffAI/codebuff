@@ -1,0 +1,59 @@
+import type { ToolName } from '@codebuff/common/constants/tools'
+import type { CodebuffToolHandlerFunction } from './handler-function-type'
+
+import { handleAddMessage } from './tool/add-message'
+import { handleAddSubgoal } from './tool/add-subgoal'
+import { handleBrowserLogs } from './tool/browser-logs'
+import { handleCodeSearch } from './tool/code-search'
+import { handleCreatePlan } from './tool/create-plan'
+import { handleEndTurn } from './tool/end-turn'
+import { handleFindFiles } from './tool/find-files'
+import { handleReadDocs } from './tool/read-docs'
+import { handleReadFiles } from './tool/read-files'
+import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
+import { handleRunTerminalCommand } from './tool/run-terminal-command'
+import { handleSendAgentMessage } from './tool/send-agent-message'
+import { handleSetMessages } from './tool/set-messages'
+import { handleSetOutput } from './tool/set-output'
+import { handleSpawnAgents } from './tool/spawn-agents'
+import { handleSpawnAgentsAsync } from './tool/spawn-agents-async'
+import { handleStrReplace } from './tool/str-replace'
+import { handleThinkDeeply } from './tool/think-deeply'
+import { handleUpdateSubgoal } from './tool/update-subgoal'
+import { handleWebSearch } from './tool/web-search'
+import { handleWriteFile } from './tool/write-file'
+
+/**
+ * Each value in this record that:
+ * - Will be called immediately once it is parsed out of the stream.
+ * - Takes as argument
+ *   - The previous tool call (to await)
+ *   - The CodebuffToolCall for the current tool
+ *   - Any additional arguments for the tool
+ * - Returns a promise that will be awaited
+ */
+export const codebuffToolHandlers = {
+  add_message: handleAddMessage,
+  add_subgoal: handleAddSubgoal,
+  browser_logs: handleBrowserLogs,
+  code_search: handleCodeSearch,
+  create_plan: handleCreatePlan,
+  end_turn: handleEndTurn,
+  find_files: handleFindFiles,
+  read_docs: handleReadDocs,
+  read_files: handleReadFiles,
+  run_file_change_hooks: handleRunFileChangeHooks,
+  run_terminal_command: handleRunTerminalCommand,
+  send_agent_message: handleSendAgentMessage,
+  set_messages: handleSetMessages,
+  set_output: handleSetOutput,
+  spawn_agents: handleSpawnAgents,
+  spawn_agents_async: handleSpawnAgentsAsync,
+  str_replace: handleStrReplace,
+  think_deeply: handleThinkDeeply,
+  update_subgoal: handleUpdateSubgoal,
+  web_search: handleWebSearch,
+  write_file: handleWriteFile,
+} satisfies {
+  [K in ToolName]: CodebuffToolHandlerFunction<K>
+}

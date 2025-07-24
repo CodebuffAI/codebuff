@@ -1,3 +1,7 @@
+import type { WebSocket } from 'ws'
+import type { AgentTemplate } from '../templates/types'
+import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
+
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -11,15 +15,10 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { WebSocket } from 'ws'
 
 import * as runAgentStep from '../run-agent-step'
 import * as agentRegistryModule from '../templates/agent-registry'
-import { AgentTemplate } from '../templates/types'
-import {
-  handleSpawnAgents,
-  SendSubagentChunk,
-} from '../tools/handlers/spawn-agents'
+import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import * as loggerModule from '../util/logger'
 import { mockFileContext, MockWebSocket } from './test-utils'
 

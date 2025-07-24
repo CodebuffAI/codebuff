@@ -1,25 +1,23 @@
+import type { ToolName } from '@codebuff/common/constants/tools'
+import type { ToolResult } from '@codebuff/common/types/session-state'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { WebSocket } from 'ws'
+import type { AgentTemplate } from '../templates/types'
+import type { ClientToolCall, CodebuffToolCall } from './constants'
+import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
+
 import {
   endsAgentStepParam,
   renderToolResults,
-  ToolName,
 } from '@codebuff/common/constants/tools'
-import { ToolResult } from '@codebuff/common/types/session-state'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { WebSocket } from 'ws'
 import z from 'zod/v4'
 import { checkLiveUserInput } from '../live-user-inputs'
-import { AgentTemplate } from '../templates/types'
 import { logger } from '../util/logger'
 import { asSystemMessage } from '../util/messages'
 import { requestToolCall } from '../websockets/websocket-action'
-import {
-  ClientToolCall,
-  CodebuffToolCall,
-  codebuffToolDefs,
-  CodebuffToolHandlerFunction,
-  codebuffToolHandlers,
-} from './constants'
+import { codebuffToolDefs } from './definitions/list'
+import { codebuffToolHandlers } from './handlers/list'
 
 export type ToolCallError = {
   toolName?: string

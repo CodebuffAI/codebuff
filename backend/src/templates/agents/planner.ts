@@ -26,7 +26,11 @@ export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
-You are an expert software architect. You are good at creating comprehensive plans to tackle the user request.\n\n${PLACEHOLDER.TOOLS_PROMPT}`,
+You are an expert software architect. You are good at creating comprehensive plans to tackle the user request.
+
+${PLACEHOLDER.TOOLS_PROMPT}
+
+${PLACEHOLDER.AGENTS_PROMPT}`,
 
   userInputPrompt: `Steps for your response:
 1. Use the <think_deeply> tool to think through cruxes for the plan, and tricky cases. Consider alternative approaches. Be sure to close the tool call with ${closeXml('think_deeply')}.

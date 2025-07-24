@@ -11,12 +11,11 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { ToolCallPart } from 'ai'
 import { WebSocket } from 'ws'
 import { AgentTemplate } from '../templates/types'
-import { toolParams } from '../tools'
-import { processStreamWithTags } from '../xml-stream-parser'
-import { executeToolCall } from './tool-executor'
-import { CodebuffToolCall } from './constants'
 import { expireMessages } from '../util/messages'
 import { sendAction } from '../websockets/websocket-action'
+import { processStreamWithTags } from '../xml-stream-parser'
+import { CodebuffToolCall } from './constants'
+import { executeToolCall } from './tool-executor'
 
 export type ToolCallError = {
   toolName?: string
@@ -91,7 +90,6 @@ export async function processStreamWithTools<T extends string>(options: {
 
   function toolCallback<T extends ToolName>(toolName: T) {
     return {
-      params: toolParams[toolName],
       onTagStart: () => {},
       onTagEnd: async (_: string, args: Record<string, string>) => {
         // delegated to reusable helper
@@ -127,6 +125,11 @@ export async function processStreamWithTools<T extends string>(options: {
         toolCallId: generateCompactId(),
         result: error,
       })
+    },
+    {
+      userId,
+      model: agentTemplate.model,
+      agentName: agentTemplate.id,
     }
   )
 

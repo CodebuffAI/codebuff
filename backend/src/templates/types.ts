@@ -55,6 +55,7 @@ export type StepHandler<
 
 const placeholderNames = [
   'AGENT_NAME',
+  'AGENTS_PROMPT',
   'CONFIG_SCHEMA',
   'FILE_TREE_PROMPT',
   'GIT_CHANGES_PROMPT',

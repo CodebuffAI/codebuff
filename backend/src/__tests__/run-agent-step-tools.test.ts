@@ -25,7 +25,6 @@ import {
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { getAllAgentTemplates } from '../templates/agent-registry'
-import * as tools from '../tools'
 import * as websocketAction from '../websockets/websocket-action'
 
 describe('runAgentStep - update_report tool', () => {
@@ -66,27 +65,6 @@ describe('runAgentStep - update_report tool', () => {
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
       Promise.resolve(true)
-    )
-
-    // Mock the readFiles function from tools.ts
-    spyOn(tools, 'readFiles').mockImplementation(
-      async (paths: string[], projectRoot: string) => {
-        const results: Record<string, string | null> = {}
-        paths.forEach((p) => {
-          if (p === 'src/auth.ts') {
-            results[p] = 'export function authenticate() { return true; }'
-          } else if (p === 'src/user.ts') {
-            results[p] = 'export interface User { id: string; name: string; }'
-          } else if (p === 'src/components/auth/login.tsx') {
-            results[p] = 'export function Login() { return <div>Login</div>; }'
-          } else if (p === 'src/utils/validation.ts') {
-            results[p] = 'export function validate() { return true; }'
-          } else {
-            results[p] = null
-          }
-        })
-        return results
-      }
     )
 
     spyOn(websocketAction, 'requestFiles').mockImplementation(

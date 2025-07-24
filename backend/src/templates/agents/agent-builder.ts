@@ -103,6 +103,7 @@ Every agent template must include these fields:
 Use these placeholders in prompts:
 - {CODEBUFF_AGENT_NAME} - Agent name
 - {CODEBUFF_TOOLS_PROMPT} - Available tools description
+- {CODEBUFF_AGENTS_PROMPT} - Available agents description
 - {CODEBUFF_FILE_TREE_PROMPT} - File tree information
 - {CODEBUFF_SYSTEM_INFO_PROMPT} - System information
 - {CODEBUFF_PROJECT_ROOT} - Project root directory

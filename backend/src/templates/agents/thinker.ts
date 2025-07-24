@@ -24,7 +24,10 @@ export const thinker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
 You are an expert programmer.
-${PLACEHOLDER.TOOLS_PROMPT}`,
+
+${PLACEHOLDER.TOOLS_PROMPT}
+
+${PLACEHOLDER.AGENTS_PROMPT}`,
 
   userInputPrompt: `
 Think deeply, step by step, about the user request and how best to approach it.

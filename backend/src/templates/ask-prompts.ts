@@ -98,6 +98,8 @@ ${getToolCallString('end_turn', {}, true)}
 
 ${PLACEHOLDER.TOOLS_PROMPT}
 
+${PLACEHOLDER.AGENTS_PROMPT}
+
 # Knowledge files
 
 Knowledge files are your guide to the project. Knowledge files (files ending in "knowledge.md" or "CLAUDE.md") within a directory capture knowledge about that portion of the codebase. They are another way to take notes in this "Memento"-style environment.

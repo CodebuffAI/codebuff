@@ -40,6 +40,8 @@ export const superagent = (
     `You are an expert orchestrator that can solve any problem, including coding tasks.
 
 ${PLACEHOLDER.TOOLS_PROMPT}
+
+${PLACEHOLDER.AGENTS_PROMPT}
 `.trim(),
   userInputPrompt: `
 Answer the user's question or complete the task by spawning copies of the base agent.

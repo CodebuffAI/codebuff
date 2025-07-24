@@ -47,6 +47,7 @@ In your report, provide a thorough analysis that includes:
 Always end your response with the end_turn tool.\\n\\n` +
     [
       PLACEHOLDER.TOOLS_PROMPT,
+      PLACEHOLDER.AGENTS_PROMPT,
       PLACEHOLDER.FILE_TREE_PROMPT,
       PLACEHOLDER.SYSTEM_INFO_PROMPT,
       PLACEHOLDER.GIT_CHANGES_PROMPT,

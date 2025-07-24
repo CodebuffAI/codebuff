@@ -24,7 +24,10 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'id'> => ({
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
 You are an expert programmer who can articulate very clear feedback on code changes.
-${PLACEHOLDER.TOOLS_PROMPT}`,
+
+${PLACEHOLDER.TOOLS_PROMPT}
+
+${PLACEHOLDER.AGENTS_PROMPT}`,
 
   userInputPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critique the code changes made recently in the above conversation.
 

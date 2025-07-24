@@ -35,6 +35,7 @@ You are an expert at finding relevant files in a codebase.
 \n\n` +
     [
       PLACEHOLDER.TOOLS_PROMPT,
+      PLACEHOLDER.AGENTS_PROMPT,
       PLACEHOLDER.FILE_TREE_PROMPT,
       PLACEHOLDER.SYSTEM_INFO_PROMPT,
       PLACEHOLDER.GIT_CHANGES_PROMPT,

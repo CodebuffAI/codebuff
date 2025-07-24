@@ -1,17 +1,20 @@
-import { z } from 'zod/v4'
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
 import {
   AgentState,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
+import { z } from 'zod/v4'
 
 import {
   getGitChangesPrompt,
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from '../system-prompt/prompts'
-import { getShortToolInstructions, getToolsInstructions } from '../tools'
+import {
+  getShortToolInstructions,
+  getToolsInstructions,
+} from '../tools/prompts'
 
 import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
@@ -19,6 +22,7 @@ import { escapeString, generateCompactId } from '@codebuff/common/util/string'
 import { parseUserMessage } from '../util/messages'
 import { agentTemplates } from './agent-list'
 import { type AgentRegistry } from './agent-registry'
+import { buildSpawnableAgentsDescription } from './prompts'
 import {
   AgentTemplate,
   PLACEHOLDER,
@@ -62,8 +66,8 @@ export async function formatPrompt(
     [PLACEHOLDER.REMAINING_STEPS]: `${agentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
-    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(
-      tools,
+    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
+    [PLACEHOLDER.AGENTS_PROMPT]: buildSpawnableAgentsDescription(
       spawnableAgents,
       agentRegistry
     ),
@@ -149,8 +153,9 @@ export async function getAgentPrompt<T extends StringField | RequirePrompt>(
   if (promptType.type === 'userInputPrompt' && agentState.agentType) {
     addendum +=
       '\n\n' +
-      getShortToolInstructions(
-        agentTemplate.toolNames,
+      getShortToolInstructions(agentTemplate.toolNames) +
+      '\n\n' +
+      buildSpawnableAgentsDescription(
         agentTemplate.spawnableAgents,
         agentRegistry
       )

@@ -35,7 +35,6 @@ export async function* processStreamWithTags(
   processors: Record<
     string,
     {
-      params: Array<string | RegExp>
       onTagStart: (tagName: string, attributes: Record<string, string>) => void
       onTagEnd: (tagName: string, params: Record<string, any>) => void
     }
