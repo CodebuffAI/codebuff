@@ -25,11 +25,13 @@ export enum AnalyticsEvent {
   UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',
 
   // Backend
-  USER_INPUT = 'backend.user_input',
   AGENT_STEP = 'backend.agent_step',
   CREDIT_GRANT = 'backend.credit_grant',
   CREDIT_CONSUMED = 'backend.credit_consumed',
+  MALFORMED_TOOL_CALL_JSON = 'backend.malformed_tool_call_json',
   TOOL_USE = 'backend.tool_use',
+  UNKNOWN_TOOL_CALL = 'backend.unknown_tool_call',
+  USER_INPUT = 'backend.user_input',
 
   // Web
   SIGNUP = 'web.signup',

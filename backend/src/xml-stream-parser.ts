@@ -1,3 +1,6 @@
+import { trackEvent } from '@codebuff/common/analytics'
+import { Model } from '@codebuff/common/constants'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   endsAgentStepParam,
   endToolTag,
@@ -37,7 +40,12 @@ export async function* processStreamWithTags(
       onTagEnd: (tagName: string, params: Record<string, any>) => void
     }
   >,
-  onError: (tagName: string, errorMessage: string) => void
+  onError: (tagName: string, errorMessage: string) => void,
+  loggerOptions?: {
+    userId?: string
+    model?: Model
+    agentName?: string
+  }
 ): AsyncGenerator<string> {
   let streamCompleted = false
   let buffer = ''
@@ -62,16 +70,49 @@ export async function* processStreamWithTags(
     try {
       parsedParams = JSON.parse(contents)
     } catch (error: any) {
-      onError('parse_error', error.message)
+      trackEvent(
+        AnalyticsEvent.MALFORMED_TOOL_CALL_JSON,
+        loggerOptions?.userId ?? '',
+        {
+          contents,
+          model: loggerOptions?.model,
+          agent: loggerOptions?.agentName,
+        }
+      )
+      const shortenedContents =
+        contents.length < 50
+          ? contents
+          : contents.slice(0, 20) + '...' + contents.slice(-20)
+      onError(
+        'parse_error',
+        `Invalid JSON: ${JSON.stringify(shortenedContents)}\nError: ${error.message}`
+      )
       return
     }
 
     const toolName = parsedParams[toolNameParam] as keyof typeof processors
     if (!processors[toolName]) {
+      trackEvent(
+        AnalyticsEvent.UNKNOWN_TOOL_CALL,
+        loggerOptions?.userId ?? '',
+        {
+          contents,
+          toolName,
+          model: loggerOptions?.model,
+          agent: loggerOptions?.agentName,
+        }
+      )
       onError(toolName, `Tool not found: ${toolName}`)
       return
     }
 
+    trackEvent(AnalyticsEvent.TOOL_USE, loggerOptions?.userId ?? '', {
+      toolName,
+      contents,
+      parsedParams,
+      model: loggerOptions?.model,
+      agent: loggerOptions?.agentName,
+    })
     delete parsedParams[toolNameParam]
 
     processors[toolName].onTagStart(toolName, {})

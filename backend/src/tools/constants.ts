@@ -46,10 +46,7 @@ import { handleUpdateSubgoal } from './handlers/update-subgoal'
 import { handleWebSearch } from './handlers/web-search'
 import { handleWriteFile } from './handlers/write-file'
 
-export const globalStopSequences = [
-  `${JSON.stringify(endsAgentStepParam)}:true`,
-  `${JSON.stringify(endsAgentStepParam)}: true`,
-]
+export const globalStopSequence = `${JSON.stringify(endsAgentStepParam)}`
 
 type Prettify<T> = { [K in keyof T]: T[K] } & {}
 

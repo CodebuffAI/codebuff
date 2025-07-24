@@ -3,7 +3,7 @@ import { CoreMessage } from 'ai'
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { AgentTemplate } from './templates/types'
-import { globalStopSequences } from './tools/constants'
+import { globalStopSequence } from './tools/constants'
 
 export const getAgentStreamFromTemplate = (params: {
   clientSessionId: string
@@ -26,7 +26,7 @@ export const getAgentStreamFromTemplate = (params: {
     const options: Parameters<typeof promptAiSdkStream>[0] = {
       messages,
       model,
-      stopSequences: globalStopSequences,
+      stopSequences: [globalStopSequence],
       clientSessionId,
       fingerprintId,
       userInputId,

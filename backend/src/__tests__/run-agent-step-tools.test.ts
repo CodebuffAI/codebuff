@@ -176,7 +176,9 @@ describe('runAgentStep - update_report tool', () => {
           message: 'Hi',
         },
         false
-      ) + getToolCallString('end_turn', {}, true)
+      ) +
+      '\n\n' +
+      getToolCallString('end_turn', {}, true)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse

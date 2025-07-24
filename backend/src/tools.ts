@@ -72,9 +72,14 @@ export const toolParams = Object.fromEntries(
 ) as Record<ToolName, string[]>
 
 function paramsSection(schema: z.ZodObject, endsAgentStep: boolean) {
-  const jsonSchema = z.toJSONSchema(
-    schema.extend({ [endsAgentStepParam]: z.literal(endsAgentStep) })
-  )
+  const schemaWithEndsAgentStepParam = endsAgentStep
+    ? schema.extend({
+        [endsAgentStepParam]: z
+          .literal(endsAgentStep)
+          .describe('Easp flag must be set to true'),
+      })
+    : schema
+  const jsonSchema = z.toJSONSchema(schemaWithEndsAgentStepParam)
   delete jsonSchema.description
   delete jsonSchema['$schema']
   const paramsDescription = Object.keys(jsonSchema.properties ?? {}).length

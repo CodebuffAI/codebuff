@@ -2,7 +2,7 @@ import { ToolResultPart } from 'ai'
 import { closeXml } from '../util/xml'
 
 export const toolNameParam = 'codebuff_tool_name'
-export const endsAgentStepParam = 'codebuff_end_step'
+export const endsAgentStepParam = 'codebuff_easp'
 export const toolXmlName = 'codebuff_tool_call'
 export const startToolTag = `<${toolXmlName}>\n`
 export const endToolTag = `\n</${toolXmlName}>`
@@ -81,19 +81,14 @@ export const getToolCallString = (
   params: Record<string, any>,
   endsAgentStep: boolean
 ) => {
-  return [
-    startToolTag,
-    JSON.stringify(
-      {
-        [toolNameParam]: toolName,
-        ...params,
-        [endsAgentStepParam]: endsAgentStep,
-      },
-      null,
-      2
-    ),
-    endToolTag,
-  ].join('')
+  const obj: Record<string, any> = {
+    [toolNameParam]: toolName,
+    ...params,
+  }
+  if (endsAgentStep) {
+    obj[endsAgentStepParam] = true
+  }
+  return [startToolTag, JSON.stringify(obj, null, 2), endToolTag].join('')
 }
 
 export type StringToolResultPart = Omit<ToolResultPart, 'type'> & {
