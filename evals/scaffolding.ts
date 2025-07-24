@@ -7,6 +7,7 @@ import {
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { FileChanges } from '@codebuff/common/actions'
 import { TEST_USER_ID } from '@codebuff/common/constants'
+import { mockModule } from '@codebuff/common/testing/mock-modules'
 import {
   AgentState,
   AgentTemplateType,
@@ -50,7 +51,7 @@ function readMockFile(projectRoot: string, filePath: string): string | null {
 let toolCalls: ClientToolCall[] = []
 let toolResults: ToolResult[] = []
 export function createFileReadingMock(projectRoot: string) {
-  mock.module('@codebuff/backend/websockets/websocket-action', () => ({
+  mockModule('@codebuff/backend/websockets/websocket-action', () => ({
     requestFiles: ((ws: WebSocket, filePaths: string[]) => {
       const files: Record<string, string | null> = {}
       for (const filePath of filePaths) {

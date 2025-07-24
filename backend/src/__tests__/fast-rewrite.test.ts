@@ -1,30 +1,40 @@
-import { describe, expect, it, mock } from 'bun:test'
 import { TEST_USER_ID } from '@codebuff/common/constants'
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { createPatch } from 'diff'
 import path from 'path'
 import { rewriteWithOpenAI } from '../fast-rewrite'
 
-// Mock database interactions
-mock.module('pg-pool', () => ({
-  Pool: class {
-    connect() {
-      return {
-        query: () => ({
-          rows: [{ id: 'test-user-id' }],
-          rowCount: 1,
-        }),
-        release: () => {},
-      }
-    }
-  },
-}))
-
-// Mock message saving
-mock.module('backend/llm-apis/message-cost-tracker', () => ({
-  saveMessage: () => Promise.resolve(),
-}))
-
 describe.skip('rewriteWithOpenAI', () => {
+  beforeAll(() => {
+    // Mock database interactions
+    mockModule('pg-pool', () => ({
+      Pool: class {
+        connect() {
+          return {
+            query: () => ({
+              rows: [{ id: 'test-user-id' }],
+              rowCount: 1,
+            }),
+            release: () => {},
+          }
+        }
+      },
+    }))
+
+    // Mock message saving
+    mockModule('@codebuff/backend/llm-apis/message-cost-tracker', () => ({
+      saveMessage: () => Promise.resolve(),
+    }))
+  })
+
+  afterAll(() => {
+    clearMockedModules()
+  })
+
   it('should correctly integrate edit snippet changes while preserving formatting', async () => {
     const testDataDir = path.join(__dirname, 'test-data', 'dex-go')
     const originalContent = await Bun.file(`${testDataDir}/original.go`).text()

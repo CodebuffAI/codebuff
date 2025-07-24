@@ -5,7 +5,9 @@ import { getToolCallString } from '@codebuff/common/constants/tools'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import {
+  afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -16,23 +18,46 @@ import {
 import { WebSocket } from 'ws'
 
 // Mock imports
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import * as tools from '../tools'
 import * as websocketAction from '../websockets/websocket-action'
 
-// Mock logger
-mock.module('../util/logger', () => ({
-  logger: {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  },
-  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-}))
+describe('runAgentStep - update_report tool', () => {
+  beforeAll(() => {
+    // Mock logger
+    mockModule('@codebuff/backend/util/logger', () => ({
+      logger: {
+        debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
+      },
+      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+    }))
 
-describe('runAgentStep - set_output tool', () => {
+    // Mock agent templates to include update_report in base
+    mockModule('@codebuff/backend/templates/agent-list', () => {
+      const { agentTemplates } = require('../templates/agent-list')
+      return {
+        agentTemplates: {
+          ...agentTemplates,
+          base: {
+            ...agentTemplates.base,
+            toolNames: [
+              ...agentTemplates.base.toolNames,
+              'update_report', // Add this tool
+            ],
+          },
+        },
+      }
+    })
+  })
+
   beforeEach(() => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
@@ -103,6 +128,10 @@ describe('runAgentStep - set_output tool', () => {
 
   afterEach(() => {
     mock.restore()
+  })
+
+  afterAll(() => {
+    clearMockedModules()
   })
 
   class MockWebSocket {

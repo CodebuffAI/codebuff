@@ -1,6 +1,12 @@
-// @ts-ignore
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import {
+  afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -8,25 +14,11 @@ import {
   spyOn,
   test,
 } from 'bun:test'
-
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-
 import {
   createCountDetector,
   createTimeBetweenDetector,
   createTimeoutDetector,
 } from '../rage-detector'
-
-// Mock the analytics module
-const mockTrackEvent = mock(() => {})
-mock.module('../analytics', () => ({
-  trackEvent: mockTrackEvent,
-}))
-
-// Mock the sleep function from common/util/promise
-mock.module('@codebuff/common/util/promise', () => ({
-  sleep: mock(() => Promise.resolve()),
-}))
 
 describe('Rage Detectors', () => {
   let mockDateNow: any
@@ -40,6 +32,19 @@ describe('Rage Detectors', () => {
     scheduledTime: number
   }> = []
   let timeoutId = 1
+  const mockTrackEvent = mock(() => {})
+
+  beforeAll(() => {
+    // Mock the analytics module
+    mockModule('@codebuff/npm-app/utils/analytics', () => ({
+      trackEvent: mockTrackEvent,
+    }))
+
+    // Mock the sleep function from common/util/promise
+    mockModule('@codebuff/common/util/promise', () => ({
+      sleep: mock(() => Promise.resolve()),
+    }))
+  })
 
   beforeEach(() => {
     mock.restore()
@@ -76,6 +81,10 @@ describe('Rage Detectors', () => {
 
   afterEach(() => {
     mock.restore()
+  })
+
+  afterAll(() => {
+    clearMockedModules()
   })
 
   const advanceTime = (ms: number) => {
