@@ -70,38 +70,34 @@ describe('Subagent Streaming', () => {
     })
 
     // Mock agent registry
-    spyOn(agentRegistryModule.agentRegistry, 'initialize').mockImplementation(
-      async () => {}
-    )
-    spyOn(
-      agentRegistryModule.agentRegistry,
-      'getAllTemplates'
-    ).mockImplementation(() => ({
-      thinker: {
-        id: 'thinker',
-        name: 'Thinker',
-        outputMode: 'last_message',
-        promptSchema: {
-          prompt: {
-            safeParse: () => ({ success: true }),
-          } as any,
+    spyOn(agentRegistryModule, 'getAllAgentTemplates').mockImplementation(
+      async () => ({
+        agentRegistry: {
+          thinker: {
+            id: 'thinker',
+            name: 'Thinker',
+            outputMode: 'last_message',
+            promptSchema: {
+              prompt: {
+                safeParse: () => ({ success: true }),
+              } as any,
+            },
+            purpose: '',
+            model: '',
+            includeMessageHistory: true,
+            toolNames: [],
+            spawnableAgents: [],
+            initialAssistantMessage: '',
+            initialAssistantPrefix: '',
+            stepAssistantMessage: '',
+            stepAssistantPrefix: '',
+            systemPrompt: '',
+            userInputPrompt: '',
+            agentStepPrompt: '',
+          },
         },
-        purpose: '',
-        model: '',
-        includeMessageHistory: true,
-        toolNames: [],
-        spawnableAgents: [],
-        initialAssistantMessage: '',
-        initialAssistantPrefix: '',
-        stepAssistantMessage: '',
-        stepAssistantPrefix: '',
-        systemPrompt: '',
-        userInputPrompt: '',
-        agentStepPrompt: '',
-      },
-    }))
-    spyOn(agentRegistryModule.agentRegistry, 'getAgentName').mockImplementation(
-      () => 'Thinker'
+        validationErrors: [],
+      })
     )
   })
 

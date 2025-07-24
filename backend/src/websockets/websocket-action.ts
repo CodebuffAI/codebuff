@@ -28,7 +28,7 @@ import {
   startUserInput,
 } from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
-import { agentRegistry } from '../templates/agent-registry'
+import { getAllAgentTemplates } from '../templates/agent-registry'
 import { logger, withLoggerContext } from '../util/logger'
 import { asSystemMessage } from '../util/messages'
 import { protec } from './middleware'
@@ -287,12 +287,14 @@ const onInit = async (
     const { agentTemplates } = fileContext
     let allValidationErrors: Array<{ filePath: string; message: string }> = []
 
+    const { agentRegistry, validationErrors } = await getAllAgentTemplates({
+      fileContext,
+    })
     if (agentTemplates) {
       // Initialize agent registry (this will load dynamic agents and handle validation)
-      await agentRegistry.initialize(fileContext)
 
       // Get validation errors from the registry
-      allValidationErrors = agentRegistry.getValidationErrors()
+      allValidationErrors = validationErrors
 
       if (allValidationErrors.length > 0) {
         logger.warn(
@@ -302,13 +304,17 @@ const onInit = async (
       }
     } else {
       // Still need to initialize the registry even without agent templates
-      await agentRegistry.initialize(fileContext)
     }
 
     const errorMessage = formatValidationErrorMessage(allValidationErrors)
 
     // Get all agent names (static + dynamic) for frontend
-    const allAgentNames = agentRegistry.getAllAgentNames()
+    const allAgentNames = Object.fromEntries(
+      Object.entries(agentRegistry).map(([id, agentTemplate]) => [
+        id,
+        agentTemplate.name,
+      ])
+    )
 
     // Send combined init and usage response
     const usageResponse = await genUsageResponse(

@@ -1,6 +1,7 @@
 import { AgentState } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { WebSocket } from 'ws'
+import { getAllAgentTemplates } from './templates/agent-registry'
 import { logger } from './util/logger'
 
 export interface AsyncAgentInfo {
@@ -178,6 +179,7 @@ export class AsyncAgentManager {
       } else {
         // Import loopAgentSteps dynamically to avoid circular dependency
         const { loopAgentSteps } = await import('./run-agent-step')
+        const { agentRegistry } = await getAllAgentTemplates(agent)
 
         agentPromise = loopAgentSteps(ws, {
           userInputId,
@@ -187,6 +189,7 @@ export class AsyncAgentManager {
           agentState: agent.agentState,
           fingerprintId: agent.fingerprintId,
           fileContext: agent.fileContext,
+          agentRegistry,
           toolResults: [],
           userId: agent.userId,
           clientSessionId: sessionId,

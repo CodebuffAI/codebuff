@@ -9,7 +9,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { CoreMessage } from 'ai'
 import { WebSocket } from 'ws'
 import { asyncAgentManager } from '../../async-agent-manager'
-import { agentRegistry } from '../../templates/agent-registry'
+import { getAllAgentTemplates } from '../../templates/agent-registry'
 import { AgentTemplate } from '../../templates/types'
 import { logger } from '../../util/logger'
 
@@ -96,11 +96,10 @@ export const handleSpawnAgentsAsync = ((params: {
     )
   }
 
-  // Initialize registry and get all templates
-  agentRegistry.initialize(fileContext)
-  const allTemplates = agentRegistry.getAllTemplates()
-
   const triggerSpawnAgentsAsync = async () => {
+    // Initialize registry and get all templates
+    const { agentRegistry } = await getAllAgentTemplates({ fileContext })
+
     const results: Array<{
       agentType: string
       success: boolean
@@ -120,11 +119,11 @@ export const handleSpawnAgentsAsync = ((params: {
     // Validate and spawn agents asynchronously
     for (const { agent_type: agentTypeStr, prompt, params } of agents) {
       try {
-        if (!(agentTypeStr in allTemplates)) {
+        if (!(agentTypeStr in agentRegistry)) {
           throw new Error(`Agent type ${agentTypeStr} not found.`)
         }
         const agentType = agentTypeStr as AgentTemplateType
-        const agentTemplate = allTemplates[agentType]
+        const agentTemplate = agentRegistry[agentType]
 
         if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
           throw new Error(
@@ -192,6 +191,7 @@ export const handleSpawnAgentsAsync = ((params: {
               agentState,
               fingerprintId: fingerprintId!,
               fileContext,
+              agentRegistry,
               toolResults: [],
               userId,
               clientSessionId,

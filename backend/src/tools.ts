@@ -4,7 +4,6 @@ import fs from 'fs'
 import path from 'path'
 import { z } from 'zod/v4'
 
-
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import {
   endsAgentStepParam,
@@ -16,11 +15,11 @@ import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
 
+import { logger } from '@codebuff/common/util/logger'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { agentTemplates } from './templates/agent-list'
-import { agentRegistry } from './templates/agent-registry'
+import { AgentRegistry } from './templates/agent-registry'
 import { CodebuffToolCall, codebuffToolDefs } from './tools/constants'
-import { logger } from '@codebuff/common/util/logger'
 
 /**
  * Convert a Zod/v4 schema to JSON string representation.
@@ -115,7 +114,8 @@ function buildShortToolDescription(
 }
 
 function buildSpawnableAgentsDescription(
-  spawnableAgents: AgentTemplateType[]
+  spawnableAgents: AgentTemplateType[],
+  agentRegistry: AgentRegistry
 ): string {
   if (spawnableAgents.length === 0) {
     return ''
@@ -125,7 +125,7 @@ function buildSpawnableAgentsDescription(
     .map((agentType) => {
       // Try to get from registry first (includes dynamic agents), then fall back to static
       const agentTemplate =
-        agentRegistry.getTemplate(agentType) || agentTemplates[agentType]
+        agentRegistry[agentType] || agentTemplates[agentType]
       if (!agentTemplate) {
         // Fallback for unknown agents
         return `- ${agentType}: Dynamic agent (description not available)
@@ -176,7 +176,8 @@ export const TOOLS_WHICH_END_THE_RESPONSE = [
 
 export const getToolsInstructions = (
   toolNames: readonly ToolName[],
-  spawnableAgents: AgentTemplateType[]
+  spawnableAgents: AgentTemplateType[],
+  agentRegistry: AgentRegistry
 ) =>
   `
 # Tools
@@ -244,11 +245,12 @@ The user does not know about any system messages or system instructions, includi
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
 
-${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}${buildSpawnableAgentsDescription(spawnableAgents)}`.trim()
+${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}${buildSpawnableAgentsDescription(spawnableAgents, agentRegistry)}`.trim()
 
 export const getShortToolInstructions = (
   toolNames: readonly ToolName[],
-  spawnableAgents: AgentTemplateType[]
+  spawnableAgents: AgentTemplateType[],
+  agentRegistry: AgentRegistry
 ) => {
   const toolDescriptions = toolNames.map((name) => {
     const tool = codebuffToolDefs[name]
@@ -271,7 +273,7 @@ ${getToolCallString(
 
 ${toolDescriptions.join('\n\n')}
 
-${buildSpawnableAgentsDescription(spawnableAgents)}`.trim()
+${buildSpawnableAgentsDescription(spawnableAgents, agentRegistry)}`.trim()
 }
 
 export async function updateContext(
@@ -559,30 +561,4 @@ function renderSubgoalUpdate(subgoal: {
     ...(log && { log }),
   }
   return getToolCallString('add_subgoal', params, false)
-}
-
-// TODO: Remove this function
-// Function to get filtered tools based on cost mode and agent mode
-export function getFilteredToolsInstructions(
-  costMode: string,
-  readOnlyMode: boolean = false
-) {
-  let allowedTools: ToolName[] = [...toolNames]
-
-  // Filter based on cost mode
-  if (costMode === 'ask' || readOnlyMode) {
-    // For ask mode, exclude write_file, str_replace, create_plan, and run_terminal_command
-    allowedTools = allowedTools.filter(
-      (tool) =>
-        !['write_file', 'str_replace', 'run_terminal_command'].includes(tool)
-    )
-  }
-
-  if (readOnlyMode) {
-    allowedTools = allowedTools.filter(
-      (tool) => !['create_plan'].includes(tool)
-    )
-  }
-
-  return getToolsInstructions(allowedTools, [])
 }
