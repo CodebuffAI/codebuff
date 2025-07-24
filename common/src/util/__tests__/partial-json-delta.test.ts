@@ -47,7 +47,7 @@ describe('parsePartialJsonObjectSingle', () => {
       const result = parsePartialJsonObjectSingle(input)
       expect(result).toEqual({
         lastParamComplete: true,
-        params: { name: 'test', value: 42 },
+        params: { name: 'test' },
       })
     })
 
@@ -216,7 +216,7 @@ describe('getPartialJsonDelta', () => {
 
   describe('basic delta detection from streaming JSON', () => {
     it('should detect new properties added to empty object', () => {
-      const content = '{"name": "test", "value": 42}'
+      const content = '{ "name": "test", "value": 42 }'
       const previous = '{'
       const result = getPartialJsonDelta(content, previous)
 
@@ -242,8 +242,10 @@ describe('getPartialJsonDelta', () => {
       const previous = '{"name": "test", "value": 42'
       const result = getPartialJsonDelta(content, previous)
 
-      expect(result.delta).toEqual({})
+      expect(result.delta).toEqual({ value: 42 })
       expect(result.result).toEqual({ name: 'test', value: 42 })
+      expect(result.lastParam.key).toBe('value')
+      expect(result.lastParam.complete).toBe(false)
     })
 
     it('should detect new property being added', () => {
@@ -253,6 +255,8 @@ describe('getPartialJsonDelta', () => {
 
       expect(result.delta).toEqual({ value: 100 })
       expect(result.result).toEqual({ name: 'test', value: 100 })
+      expect(result.lastParam.key).toBe('value')
+      expect(result.lastParam.complete).toBe(false)
     })
   })
 
@@ -356,8 +360,8 @@ describe('getPartialJsonDelta', () => {
       content = '{"status": "processing", "progress": 0.5'
       result = getPartialJsonDelta(content, previous)
 
-      expect(result.delta).toEqual({ progress: 0.5 })
-      expect(result.result).toEqual({ status: 'processing', progress: 0.5 })
+      expect(result.delta).toEqual({})
+      expect(result.result).toEqual({ status: 'processing' })
 
       // Complete the JSON
       previous = content
@@ -365,7 +369,7 @@ describe('getPartialJsonDelta', () => {
         '{"status": "processing", "progress": 0.5, "message": "Almost done"}'
       result = getPartialJsonDelta(content, previous)
 
-      expect(result.delta).toEqual({ message: 'Almost done' })
+      expect(result.delta).toEqual({ message: 'Almost done', progress: 0.5 })
       expect(result.result).toEqual({
         status: 'processing',
         progress: 0.5,

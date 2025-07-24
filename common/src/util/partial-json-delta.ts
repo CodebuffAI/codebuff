@@ -7,9 +7,11 @@ export function parsePartialJsonObjectSingle(content: string): {
     return { lastParamComplete: true, params: JSON.parse(content) }
   } catch (error) {}
 
-  try {
-    return { lastParamComplete: true, params: JSON.parse(content + '}') }
-  } catch (error) {}
+  if (!content.match(/\d$/)) {
+    try {
+      return { lastParamComplete: true, params: JSON.parse(content + '}') }
+    } catch (error) {}
+  }
 
   try {
     return { lastParamComplete: false, params: JSON.parse(content + '"}') }
