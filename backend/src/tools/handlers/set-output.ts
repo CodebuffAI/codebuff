@@ -1,11 +1,13 @@
 import { AgentState } from '@codebuff/common/types/session-state'
 import { logger } from '../../util/logger'
 import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
-import { agentRegistry } from '../../templates/agent-registry'
+import { getAllAgentTemplates } from '../../templates/agent-registry'
+import { ProjectFileContext } from '@codebuff/common/util/file'
 
 export const handleSetOutput = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'set_output'>
+  fileContext: ProjectFileContext
   state: {
     agentState?: AgentState
   }
@@ -13,8 +15,8 @@ export const handleSetOutput = ((params: {
   result: Promise<string>
   state: { agentState: AgentState }
 } => {
-  const { previousToolCallFinished, toolCall, state } = params
-  const output = toolCall.args // The entire args object is the output
+  const { previousToolCallFinished, toolCall, state, fileContext } = params
+  const output = toolCall.args
   const { agentState } = state
 
   if (!agentState) {
@@ -24,9 +26,12 @@ export const handleSetOutput = ((params: {
   }
 
   const triggerSetOutput = async () => {
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext,
+    })
     // Validate output against outputSchema if defined
     const agentTemplate = agentState.agentType
-      ? agentRegistry.getTemplate(agentState.agentType)
+      ? agentRegistry[agentState.agentType]
       : null
     if (agentTemplate?.outputSchema) {
       try {
