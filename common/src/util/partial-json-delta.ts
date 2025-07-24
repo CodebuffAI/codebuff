@@ -41,31 +41,6 @@ export function parsePartialJsonObjectSingle(content: string): {
   return { lastParamComplete: true, params: {} }
 }
 
-export function parsePartialJsonObject(
-  content: string,
-  previous: string
-): {
-  lastParamComplete: boolean
-  params: any
-  prevParams: any
-} {
-  const { lastParamComplete, params } = parsePartialJsonObjectSingle(content)
-  const lastParam = Object.entries(params)[-1]
-
-  const { lastParamComplete: prevLastParamComplete, params: prevParams } =
-    parsePartialJsonObjectSingle(previous)
-  const prevLastParam = Object.entries(prevParams)[-1]
-
-  return {
-    lastParamComplete:
-      lastParam === prevLastParam
-        ? lastParamComplete && !prevLastParamComplete
-        : lastParamComplete,
-    params,
-    prevParams,
-  }
-}
-
 export function getPartialJsonDelta(
   content: string,
   previous: string
@@ -79,18 +54,21 @@ export function getPartialJsonDelta(
       `Content must be previous content plus new content. Content ${JSON.stringify(content)} does not start with previous content ${JSON.stringify(previous)}`
     )
   }
-  const {
-    lastParamComplete,
-    params: current,
-    prevParams,
-  } = parsePartialJsonObject(content, previous)
+  const { lastParamComplete, params } = parsePartialJsonObjectSingle(content)
+  const lastParam = Object.keys(params).pop()
 
-  const entries = Object.entries(current)
-  const lastKey = (entries[entries.length - 1] ?? [undefined])[0]
+  const { lastParamComplete: prevLastParamComplete, params: prevParams } =
+    parsePartialJsonObjectSingle(previous)
+  const prevLastParam = Object.keys(prevParams).pop()
+
+  const entries = Object.entries(params)
 
   const delta: Record<string, any> = {}
-  for (const [key, value] of Object.entries(current)) {
+  for (const [key, value] of entries) {
     if (prevParams[key] === value) {
+      if (prevLastParam === key && !prevLastParamComplete) {
+        delta[key] = ''
+      }
       continue
     }
     if (typeof value === 'string') {
@@ -102,10 +80,13 @@ export function getPartialJsonDelta(
 
   return {
     delta,
-    result: current,
+    result: params,
     lastParam: {
-      key: lastKey,
-      complete: lastParamComplete,
+      key: lastParam,
+      complete:
+        prevLastParam === lastParam
+          ? lastParamComplete && !prevLastParamComplete
+          : lastParamComplete,
     },
   }
 }

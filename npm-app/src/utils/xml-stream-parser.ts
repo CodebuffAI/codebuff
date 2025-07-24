@@ -66,7 +66,11 @@ export function createXMLStreamParser(
       result,
       lastParam: { key: lastKey, complete: lastComplete },
     } = getPartialJsonDelta(paramsContent, prevParamsContent)
-    if (lastKey === toolNameParam && lastComplete) {
+    if (
+      lastKey === toolNameParam &&
+      lastComplete &&
+      delta[lastKey] === undefined
+    ) {
       delta[lastKey] = ''
     }
     for (const [key, value] of Object.entries(delta)) {

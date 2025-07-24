@@ -223,7 +223,7 @@ describe('getPartialJsonDelta', () => {
       expect(result.delta).toEqual({ name: 'test', value: 42 })
       expect(result.result).toEqual({ name: 'test', value: 42 })
       expect(result.lastParam.key).toBe('value')
-      expect(result.lastParam.complete).toBe(false)
+      expect(result.lastParam.complete).toBe(true)
     })
 
     it('should detect completion of partial string value', () => {
@@ -245,7 +245,7 @@ describe('getPartialJsonDelta', () => {
       expect(result.delta).toEqual({ value: 42 })
       expect(result.result).toEqual({ name: 'test', value: 42 })
       expect(result.lastParam.key).toBe('value')
-      expect(result.lastParam.complete).toBe(false)
+      expect(result.lastParam.complete).toBe(true)
     })
 
     it('should detect new property being added', () => {
@@ -256,7 +256,7 @@ describe('getPartialJsonDelta', () => {
       expect(result.delta).toEqual({ value: 100 })
       expect(result.result).toEqual({ name: 'test', value: 100 })
       expect(result.lastParam.key).toBe('value')
-      expect(result.lastParam.complete).toBe(false)
+      expect(result.lastParam.complete).toBe(true)
     })
   })
 
@@ -410,7 +410,7 @@ describe('getPartialJsonDelta', () => {
       const result = getPartialJsonDelta(content, previous)
 
       expect(result.lastParam.key).toBe('value')
-      expect(result.lastParam.complete).toBe(false)
+      expect(result.lastParam.complete).toBe(true)
     })
 
     it('should indicate incomplete last parameter', () => {
