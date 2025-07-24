@@ -72,6 +72,11 @@ export function getPartialJsonDelta(
   result: Record<string, any>
   lastParam: { key: string | undefined; complete: boolean }
 } {
+  if (!content.startsWith(previous)) {
+    throw new Error(
+      `Content must be previous content plus new content. Content ${JSON.stringify(content)} does not start with previous content ${JSON.stringify(previous)}`
+    )
+  }
   const {
     lastParamComplete,
     params: current,
