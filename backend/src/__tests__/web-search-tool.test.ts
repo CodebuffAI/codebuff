@@ -28,6 +28,7 @@ import * as liveUserInputs from '../live-user-inputs'
 import * as linkupApi from '../llm-apis/linkup-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
+import { getAllAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 import { MockWebSocket, mockFileContext } from './test-utils'
 
@@ -115,6 +116,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
@@ -124,6 +128,7 @@ describe('web_search tool with researcher agent', () => {
       onResponseChunk: () => {},
       agentType: 'researcher',
       fileContext: mockFileContext,
+      agentRegistry,
       agentState,
       prompt: 'Search for test',
       params: undefined,
@@ -163,6 +168,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -174,6 +182,7 @@ describe('web_search tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
+        agentRegistry,
         agentState,
         prompt: 'Search for Next.js 15 new features',
         params: undefined,
@@ -229,6 +238,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
@@ -238,6 +250,7 @@ describe('web_search tool with researcher agent', () => {
       onResponseChunk: () => {},
       agentType: 'researcher',
       fileContext: mockFileContext,
+      agentRegistry,
       agentState,
       prompt: 'Search for React Server Components tutorial with deep search',
       params: undefined,
@@ -274,6 +287,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -285,6 +301,7 @@ describe('web_search tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
+        agentRegistry,
         agentState,
         prompt: "Search for something that doesn't exist",
         params: undefined,
@@ -339,6 +356,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -350,6 +370,7 @@ describe('web_search tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
+        agentRegistry,
         agentState,
         prompt: 'Search for something',
         params: undefined,
@@ -400,6 +421,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -411,6 +435,7 @@ describe('web_search tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
+        agentRegistry,
         agentState,
         prompt: 'Search for something',
         params: undefined,
@@ -448,6 +473,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -459,6 +487,7 @@ describe('web_search tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
+        agentRegistry,
         agentState,
         prompt: 'Search for something',
         params: undefined,
@@ -511,6 +540,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -522,6 +554,7 @@ describe('web_search tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
+        agentRegistry,
         agentState,
         prompt: 'Test search result formatting',
         params: undefined,

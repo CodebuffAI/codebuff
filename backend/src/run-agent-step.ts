@@ -27,7 +27,7 @@ import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { agentTemplates } from './templates/agent-list'
-import { agentRegistry } from './templates/agent-registry'
+import { AgentRegistry } from './templates/agent-registry'
 import { formatPrompt, getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { logger } from './util/logger'
@@ -55,6 +55,7 @@ export interface AgentOptions {
   agentType: AgentTemplateType
   fileContext: ProjectFileContext
   agentState: AgentState
+  agentRegistry: AgentRegistry
 
   prompt: string | undefined
   params: Record<string, any> | undefined
@@ -78,6 +79,7 @@ export const runAgentStep = async (
     onResponseChunk,
     fileContext,
     agentType,
+    agentRegistry,
     prompt,
     params,
     assistantMessage,
@@ -93,8 +95,7 @@ export const runAgentStep = async (
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
 
-  await agentRegistry.initialize(fileContext)
-  const agentTemplate = agentRegistry.getTemplate(agentType)
+  const agentTemplate = agentRegistry[agentType]
   if (!agentTemplate) {
     throw new Error(
       `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
@@ -512,6 +513,7 @@ export const loopAgentSteps = async (
     fingerprintId: string
     fileContext: ProjectFileContext
     toolResults: ToolResult[]
+    agentRegistry: AgentRegistry
 
     userId: string | undefined
     clientSessionId: string
@@ -524,14 +526,14 @@ export const loopAgentSteps = async (
     params,
     userId,
     clientSessionId,
+    agentRegistry,
     onResponseChunk,
     userInputId,
     fingerprintId,
     fileContext,
     agentType,
   } = options
-  await agentRegistry.initialize(fileContext)
-  const agentTemplate = agentRegistry.getTemplate(agentType)
+  const agentTemplate = agentRegistry[agentType]
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
@@ -562,6 +564,7 @@ export const loopAgentSteps = async (
       fingerprintId,
       onResponseChunk,
 
+      agentRegistry,
       agentType,
       fileContext,
       agentState: currentAgentState,

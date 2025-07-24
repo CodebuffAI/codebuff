@@ -11,7 +11,7 @@ import { WebSocket } from 'ws'
 import { renderToolResults } from '@codebuff/common/constants/tools'
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
-import { agentRegistry } from './templates/agent-registry'
+import { getAllAgentTemplates } from './templates/agent-registry'
 import { ClientToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
@@ -103,13 +103,13 @@ export const mainPrompt = async (
 
   // Determine agent type - prioritize CLI agent selection over cost mode
   let agentType: AgentTemplateType
+  const { agentRegistry } = await getAllAgentTemplates({ fileContext })
 
   if (agentId) {
     // Initialize agent registry to validate agent ID
-    await agentRegistry.initialize(fileContext)
 
-    if (!agentRegistry.hasAgent(agentId)) {
-      const availableAgents = agentRegistry.getAvailableTypes()
+    if (!(agentId in agentRegistry)) {
+      const availableAgents = Object.keys(agentRegistry)
       throw new Error(
         `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`
       )
@@ -151,6 +151,7 @@ export const mainPrompt = async (
     userId,
     clientSessionId,
     onResponseChunk,
+    agentRegistry,
   })
 
   return {

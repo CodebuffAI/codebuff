@@ -1,4 +1,5 @@
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
+import { getAllAgentTemplates } from '@codebuff/backend/templates/agent-registry'
 import { ClientToolCall } from '@codebuff/backend/tools/constants'
 import {
   requestFiles as originalRequestFiles,
@@ -153,6 +154,7 @@ export async function runAgentStepScaffolding(
   mockWs.close = mock()
 
   let fullResponse = ''
+  const { agentRegistry } = await getAllAgentTemplates({ fileContext })
 
   const result = await runAgentStep(mockWs, {
     userId: TEST_USER_ID,
@@ -167,6 +169,7 @@ export async function runAgentStepScaffolding(
     },
     agentType,
     fileContext,
+    agentRegistry,
     agentState,
     prompt,
     params: undefined,

@@ -16,15 +16,15 @@ import { getShortToolInstructions, getToolsInstructions } from '../tools'
 import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { escapeString, generateCompactId } from '@codebuff/common/util/string'
+import { parseUserMessage } from '../util/messages'
 import { agentTemplates } from './agent-list'
+import { type AgentRegistry } from './agent-registry'
 import {
+  AgentTemplate,
   PLACEHOLDER,
   PlaceholderValue,
   placeholderValues,
-  AgentTemplate,
 } from './types'
-import type { AgentRegistry } from './agent-registry'
-import { parseUserMessage } from '../util/messages'
 
 export async function formatPrompt(
   prompt: string,
@@ -46,12 +46,9 @@ export async function formatPrompt(
     ? parseUserMessage(lastUserMessage.content as string)
     : undefined
 
-  // Initialize agent registry to ensure dynamic agents are available
-  await agentRegistry.initialize(fileContext)
-
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.AGENT_NAME]: agentState.agentType
-      ? agentRegistry.getAgentName(agentState.agentType) ||
+      ? agentRegistry[agentState.agentType]?.name ||
         agentTemplates[agentState.agentType]?.name ||
         'Unknown Agent'
       : 'Buffy',
@@ -65,7 +62,11 @@ export async function formatPrompt(
     [PLACEHOLDER.REMAINING_STEPS]: `${agentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
-    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools, spawnableAgents),
+    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(
+      tools,
+      spawnableAgents,
+      agentRegistry
+    ),
     [PLACEHOLDER.USER_CWD]: fileContext.cwd,
     [PLACEHOLDER.USER_INPUT_PROMPT]: escapeString(lastUserInput ?? ''),
     [PLACEHOLDER.INITIAL_AGENT_PROMPT]: escapeString(intitialAgentPrompt ?? ''),
@@ -108,9 +109,8 @@ export async function collectParentInstructions(
   agentRegistry: AgentRegistry
 ): Promise<string[]> {
   const instructions: string[] = []
-  const allTemplates = agentRegistry.getAllTemplates()
 
-  for (const template of Object.values(allTemplates)) {
+  for (const template of Object.values(agentRegistry)) {
     if (template.parentInstructions) {
       const instruction = template.parentInstructions[agentType]
       if (instruction) {
@@ -151,7 +151,8 @@ export async function getAgentPrompt<T extends StringField | RequirePrompt>(
       '\n\n' +
       getShortToolInstructions(
         agentTemplate.toolNames,
-        agentTemplate.spawnableAgents
+        agentTemplate.spawnableAgents,
+        agentRegistry
       )
 
     const parentInstructions = await collectParentInstructions(

@@ -8,7 +8,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { CoreMessage } from 'ai'
 import { WebSocket } from 'ws'
 
-import { agentRegistry } from '../../templates/agent-registry'
+import { getAllAgentTemplates } from '../../templates/agent-registry'
 import { AgentTemplate } from '../../templates/types'
 import { logger } from '../../util/logger'
 import { CodebuffToolCall, CodebuffToolHandlerFunction } from '../constants'
@@ -102,22 +102,23 @@ export const handleSpawnAgents = ((params: {
       )}`,
     }
     // Initialize registry and get all templates
-    await agentRegistry.initialize(fileContext)
-    const allTemplates = agentRegistry.getAllTemplates()
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext,
+    })
     logger.debug(
       {
-        availableAgentCount: Object.keys(allTemplates).length,
+        availableAgentCount: Object.keys(agentRegistry).length,
         requestedAgents: agents.map((a) => a.agent_type),
       },
       'Agent registry initialized for spawning'
     )
     const results = await Promise.allSettled(
       agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
-        if (!(agentTypeStr in allTemplates)) {
+        if (!(agentTypeStr in agentRegistry)) {
           throw new Error(`Agent type ${agentTypeStr} not found.`)
         }
         const agentType = agentTypeStr as AgentTemplateType
-        const agentTemplate = allTemplates[agentType]
+        const agentTemplate = agentRegistry[agentType]
 
         if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
           throw new Error(
@@ -181,6 +182,7 @@ export const handleSpawnAgents = ((params: {
           agentState,
           fingerprintId,
           fileContext,
+          agentRegistry,
           toolResults: [],
           userId,
           clientSessionId,
@@ -199,8 +201,7 @@ export const handleSpawnAgents = ((params: {
         return {
           ...result,
           agentType,
-          agentName:
-            agentRegistry.getAgentName(agentType) || agentTemplate.name,
+          agentName: agentRegistry[agentType] || agentTemplate.name,
         }
       })
     )
@@ -211,7 +212,7 @@ export const handleSpawnAgents = ((params: {
 
       if (result.status === 'fulfilled') {
         const { agentState, agentName } = result.value
-        const agentTemplate = allTemplates[agentState.agentType!]
+        const agentTemplate = agentRegistry[agentState.agentType!]
         let report = ''
 
         if (agentTemplate.outputMode === 'json') {

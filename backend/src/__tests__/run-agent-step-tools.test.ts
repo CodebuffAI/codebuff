@@ -24,6 +24,7 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
+import { getAllAgentTemplates } from '../templates/agent-registry'
 import * as tools from '../tools'
 import * as websocketAction from '../websockets/websocket-action'
 
@@ -183,6 +184,9 @@ describe('runAgentStep - update_report tool', () => {
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -194,6 +198,7 @@ describe('runAgentStep - update_report tool', () => {
         onResponseChunk: () => {},
         agentType: 'base',
         fileContext: mockFileContext,
+        agentRegistry,
         agentState,
         prompt: 'Analyze the codebase',
         params: undefined,
@@ -227,6 +232,9 @@ describe('runAgentStep - update_report tool', () => {
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -238,6 +246,7 @@ describe('runAgentStep - update_report tool', () => {
         onResponseChunk: () => {},
         agentType: 'base',
         fileContext: mockFileContext,
+        agentRegistry,
         agentState,
         prompt: 'Analyze the codebase',
         params: undefined,
@@ -276,6 +285,9 @@ describe('runAgentStep - update_report tool', () => {
       existingField: 'original value',
       anotherField: 'unchanged',
     }
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -287,6 +299,7 @@ describe('runAgentStep - update_report tool', () => {
         onResponseChunk: () => {},
         agentType: 'base',
         fileContext: mockFileContext,
+        agentRegistry,
         agentState,
         prompt: 'Update the output',
         params: undefined,
@@ -313,6 +326,9 @@ describe('runAgentStep - update_report tool', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
     agentState.output = { existingField: 'value' }
+    const { agentRegistry } = await getAllAgentTemplates({
+      fileContext: mockFileContext,
+    })
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -324,6 +340,7 @@ describe('runAgentStep - update_report tool', () => {
         onResponseChunk: () => {},
         agentType: 'base',
         fileContext: mockFileContext,
+        agentRegistry,
         agentState,
         prompt: 'Update with empty object',
         params: undefined,
