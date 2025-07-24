@@ -11,6 +11,7 @@ import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
 import { SandboxManager } from './util/quickjs-sandbox'
 import { getRequestContext } from './websockets/request-context'
+import { sendAction } from './websockets/websocket-action'
 
 // Global sandbox manager for QuickJS contexts
 const sandboxManager = new SandboxManager()
@@ -119,6 +120,18 @@ export async function runProgrammaticStep(
     userId,
     repoId,
     agentTemplate: template,
+    sendSubagentChunk: (data: {
+      userInputId: string
+      agentId: string
+      agentType: string
+      chunk: string
+      prompt?: string
+    }) => {
+      sendAction(ws, {
+        type: 'subagent-response-chunk',
+        ...data,
+      })
+    },
     agentState: { ...agentState },
     agentContext: agentState.agentContext,
     messages: [...agentState.messageHistory],
