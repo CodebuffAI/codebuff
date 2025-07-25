@@ -106,7 +106,6 @@ export async function formatPrompt(
 }
 
 type StringField = 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt'
-type RequirePrompt = 'initialAssistantMessage' | 'initialAssistantPrefix'
 
 export async function collectParentInstructions(
   agentType: string,
@@ -126,9 +125,9 @@ export async function collectParentInstructions(
   return instructions
 }
 
-export async function getAgentPrompt<T extends StringField | RequirePrompt>(
+export async function getAgentPrompt<T extends StringField>(
   agentTemplate: AgentTemplate,
-  promptType: T extends StringField ? { type: T } : { type: T; prompt: string },
+  promptType: { type: T },
   fileContext: ProjectFileContext,
   agentState: AgentState,
   agentRegistry: AgentRegistry

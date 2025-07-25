@@ -31,10 +31,6 @@ export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
     'think_deeply',
   ],
   spawnableAgents: [AgentTemplateTypes.file_picker],
-  initialAssistantMessage: '',
-  initialAssistantPrefix: '',
-  stepAssistantMessage: '',
-  stepAssistantPrefix: '',
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}

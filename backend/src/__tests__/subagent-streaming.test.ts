@@ -86,10 +86,7 @@ describe('Subagent Streaming', () => {
             includeMessageHistory: true,
             toolNames: [],
             spawnableAgents: [],
-            initialAssistantMessage: '',
-            initialAssistantPrefix: '',
-            stepAssistantMessage: '',
-            stepAssistantPrefix: '',
+
             systemPrompt: '',
             userInputPrompt: '',
             agentStepPrompt: '',

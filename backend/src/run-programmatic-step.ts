@@ -45,8 +45,6 @@ export async function runProgrammaticStep(
     onResponseChunk: (chunk: string) => void
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
-    assistantMessage: string | undefined
-    assistantPrefix: string | undefined
     ws: WebSocket
   }
 ): Promise<{ agentState: AgentState; endTurn: boolean }> {

@@ -80,18 +80,19 @@ export const DynamicAgentConfigSchema = z.object({
   userInputPrompt: PromptFieldSchema,
   agentStepPrompt: PromptFieldSchema,
 
-  // Optional assistant messages (can be strings or path references)
-  initialAssistantMessage: PromptFieldSchema.optional(),
-  initialAssistantPrefix: PromptFieldSchema.optional(),
-  stepAssistantMessage: PromptFieldSchema.optional(),
-  stepAssistantPrefix: PromptFieldSchema.optional(),
-
   // Optional generator function for programmatic agents
-  handleSteps: z.function(z.tuple([z.object({
-    agentState: z.any(),
-    prompt: z.string(),
-    params: z.any(),
-  })]), z.any()).optional(),
+  handleSteps: z
+    .function(
+      z.tuple([
+        z.object({
+          agentState: z.any(),
+          prompt: z.string(),
+          params: z.any(),
+        }),
+      ]),
+      z.any()
+    )
+    .optional(),
 })
 
 export type DynamicAgentConfig = z.input<typeof DynamicAgentConfigSchema>
@@ -101,10 +102,6 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
   systemPrompt: z.string(),
   userInputPrompt: z.string(),
   agentStepPrompt: z.string(),
-  initialAssistantMessage: z.string(),
-  initialAssistantPrefix: z.string(),
-  stepAssistantMessage: z.string(),
-  stepAssistantPrefix: z.string(),
   handleSteps: z.string().optional(), // Converted to string after processing
 })
   .refine(

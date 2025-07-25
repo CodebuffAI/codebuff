@@ -55,10 +55,6 @@ describe('handleSteps Parsing Tests', () => {
       systemPrompt: 'Test system prompt',
       userInputPrompt: 'Test user prompt',
       agentStepPrompt: 'Test agent step prompt',
-      initialAssistantMessage: '',
-      initialAssistantPrefix: '',
-      stepAssistantMessage: '',
-      stepAssistantPrefix: '',
     }
   })
 
@@ -154,10 +150,7 @@ describe('handleSteps Parsing Tests', () => {
       systemPrompt: 'Test',
       userInputPrompt: 'Test',
       agentStepPrompt: 'Test',
-      initialAssistantMessage: '',
-      initialAssistantPrefix: '',
-      stepAssistantMessage: '',
-      stepAssistantPrefix: '',
+
       handleSteps:
         'function* () { yield { toolName: "set_output", args: {} } }',
     }
@@ -229,7 +222,7 @@ describe('handleSteps Parsing Tests', () => {
     // Verify no validation errors
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates['test-agent']).toBeDefined()
-    
+
     // Verify the loaded template's handleSteps field matches the original toString
     expect(result.templates['test-agent'].handleSteps).toBe(expectedStringified)
     expect(typeof result.templates['test-agent'].handleSteps).toBe('string')

@@ -65,10 +65,6 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a test agent.',
         userInputPrompt: 'Process the user request.',
         agentStepPrompt: 'Continue processing.',
-        initialAssistantMessage: '',
-        initialAssistantPrefix: '',
-        stepAssistantMessage: '',
-        stepAssistantPrefix: '',
       },
       researcher: {
         version: '1.0.0',
@@ -84,10 +80,6 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a researcher.',
         userInputPrompt: 'Research the topic.',
         agentStepPrompt: 'Continue research.',
-        initialAssistantMessage: '',
-        initialAssistantPrefix: '',
-        stepAssistantMessage: '',
-        stepAssistantPrefix: '',
       },
     })
 
@@ -139,10 +131,6 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a researcher.',
         userInputPrompt: 'Research the topic.',
         agentStepPrompt: 'Continue research.',
-        initialAssistantMessage: '',
-        initialAssistantPrefix: '',
-        stepAssistantMessage: '',
-        stepAssistantPrefix: '',
       },
     })
 
@@ -183,10 +171,6 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a test agent.',
         userInputPrompt: 'Process the user request.',
         agentStepPrompt: 'Continue processing.',
-        initialAssistantMessage: '',
-        initialAssistantPrefix: '',
-        stepAssistantMessage: '',
-        stepAssistantPrefix: '',
       },
       planner: {
         version: '1.0.0',
@@ -205,10 +189,6 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a planner.',
         userInputPrompt: 'Plan the task.',
         agentStepPrompt: 'Continue planning.',
-        initialAssistantMessage: '',
-        initialAssistantPrefix: '',
-        stepAssistantMessage: '',
-        stepAssistantPrefix: '',
       },
       researcher: {
         version: '1.0.0',
@@ -224,10 +204,6 @@ describe('Parent Instructions Injection', () => {
         systemPrompt: 'You are a researcher.',
         userInputPrompt: 'Research the topic.',
         agentStepPrompt: 'Continue research.',
-        initialAssistantMessage: '',
-        initialAssistantPrefix: '',
-        stepAssistantMessage: '',
-        stepAssistantPrefix: '',
       },
     })
 

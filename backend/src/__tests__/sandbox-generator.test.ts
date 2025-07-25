@@ -41,10 +41,7 @@ describe('QuickJS Sandbox Generator', () => {
       systemPrompt: '',
       userInputPrompt: '',
       agentStepPrompt: '',
-      initialAssistantMessage: '',
-      initialAssistantPrefix: '',
-      stepAssistantMessage: '',
-      stepAssistantPrefix: '',
+
       handleSteps: '', // Will be set per test
     }
 

@@ -59,8 +59,6 @@ export interface AgentOptions {
 
   prompt: string | undefined
   params: Record<string, any> | undefined
-  assistantMessage: string | undefined
-  assistantPrefix: string | undefined
 }
 
 export const runAgentStep = async (
@@ -82,8 +80,6 @@ export const runAgentStep = async (
     agentRegistry,
     prompt,
     params,
-    assistantMessage,
-    assistantPrefix,
   } = options
   let agentState = options.agentState
 
@@ -318,11 +314,6 @@ export const runAgentStep = async (
       role: 'user' as const,
       content: agentStepPrompt,
       timeToLive: 'agentStep' as const,
-    },
-
-    assistantPrefix?.trim() && {
-      role: 'assistant' as const,
-      content: assistantPrefix.trim(),
     }
   )
 
@@ -374,28 +365,9 @@ export const runAgentStep = async (
     `Start agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`
   )
 
-  let fullResponse = `${assistantPrefix?.trim() ?? ''}`
+  let fullResponse = ''
 
-  // Create a simple async generator for assistant message
-  async function* createAssistantMessageStream(message: string) {
-    yield message.trim()
-  }
-
-  const stream = assistantMessage
-    ? createAssistantMessageStream(assistantMessage)
-    : getStream(
-        coreMessagesWithSystem(
-          buildArray(
-            ...agentMessages,
-            // Add prefix of the response from fullResponse if it exists
-            fullResponse && {
-              role: 'assistant' as const,
-              content: fullResponse.trim(),
-            }
-          ),
-          system
-        )
-      )
+  const stream = getStream(coreMessagesWithSystem(agentMessages, system))
 
   const {
     toolCalls,
@@ -539,20 +511,9 @@ export const loopAgentSteps = async (
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
-  const {
-    initialAssistantMessage,
-    initialAssistantPrefix,
-    stepAssistantMessage,
-    stepAssistantPrefix,
-  } = agentTemplate
-  let isFirstStep = true
+
   let currentPrompt = prompt
   let currentParams = params
-  let currentAssistantMessage: string | undefined = initialAssistantMessage
-  // NOTE: If the assistant message is set, we run one step with it, and then the next step will use the assistant prefix.
-  let currentAssistantPrefix = initialAssistantMessage
-    ? undefined
-    : initialAssistantPrefix
   let currentAgentState = agentState
   while (checkLiveUserInput(userId, userInputId, clientSessionId)) {
     const {
@@ -565,36 +526,12 @@ export const loopAgentSteps = async (
       clientSessionId,
       fingerprintId,
       onResponseChunk,
-
       agentRegistry,
       agentType,
       fileContext,
       agentState: currentAgentState,
       prompt: currentPrompt,
       params: currentParams,
-      // TODO: format the prompt in runAgentStep
-      assistantMessage: currentAssistantMessage
-        ? await formatPrompt(
-            currentAssistantMessage,
-            fileContext,
-            currentAgentState,
-            agentTemplate.toolNames,
-            agentTemplate.spawnableAgents,
-            agentRegistry,
-            prompt ?? ''
-          )
-        : undefined,
-      assistantPrefix:
-        currentAssistantPrefix &&
-        (await formatPrompt(
-          currentAssistantPrefix,
-          fileContext,
-          currentAgentState,
-          agentTemplate.toolNames,
-          agentTemplate.spawnableAgents,
-          agentRegistry,
-          prompt ?? ''
-        )),
     })
 
     if (ASYNC_AGENTS_ENABLED) {
@@ -617,21 +554,7 @@ export const loopAgentSteps = async (
 
     currentPrompt = undefined
     currentParams = undefined
-
-    // Toggle assistant message between the injected step message and nothing.
-    currentAssistantMessage = currentAssistantMessage
-      ? undefined
-      : stepAssistantMessage
-
-    // Only set the assistant prefix when no assistant message is injected.
-    if (!currentAssistantMessage) {
-      currentAssistantPrefix = isFirstStep
-        ? initialAssistantPrefix
-        : stepAssistantPrefix
-    }
-
     currentAgentState = newAgentState
-    isFirstStep = false
   }
 
   return { agentState }

@@ -132,8 +132,6 @@ describe('web_search tool with researcher agent', () => {
       agentState,
       prompt: 'Search for test',
       params: undefined,
-      assistantMessage: undefined,
-      assistantPrefix: undefined,
     })
 
     // Just verify that searchWeb was called
@@ -186,8 +184,6 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: 'Search for Next.js 15 new features',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -254,8 +250,6 @@ describe('web_search tool with researcher agent', () => {
       agentState,
       prompt: 'Search for React Server Components tutorial with deep search',
       params: undefined,
-      assistantMessage: undefined,
-      assistantPrefix: undefined,
     })
 
     expect(linkupApi.searchWeb).toHaveBeenCalledWith(
@@ -305,8 +299,6 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: "Search for something that doesn't exist",
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -374,8 +366,6 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: 'Search for something',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -439,8 +429,6 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: 'Search for something',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -491,8 +479,6 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: 'Search for something',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -558,8 +544,6 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: 'Test search result formatting',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 

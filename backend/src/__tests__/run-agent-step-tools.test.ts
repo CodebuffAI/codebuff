@@ -182,8 +182,6 @@ describe('runAgentStep - update_report tool', () => {
         agentState,
         prompt: 'Analyze the codebase',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -230,8 +228,6 @@ describe('runAgentStep - update_report tool', () => {
         agentState,
         prompt: 'Analyze the codebase',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -283,8 +279,6 @@ describe('runAgentStep - update_report tool', () => {
         agentState,
         prompt: 'Update the output',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -324,8 +318,6 @@ describe('runAgentStep - update_report tool', () => {
         agentState,
         prompt: 'Update with empty object',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 

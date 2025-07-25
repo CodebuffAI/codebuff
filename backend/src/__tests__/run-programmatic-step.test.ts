@@ -88,10 +88,7 @@ describe('runProgrammaticStep', () => {
       includeMessageHistory: true,
       toolNames: ['read_files', 'write_file', 'end_turn'],
       spawnableAgents: [],
-      initialAssistantMessage: undefined,
-      initialAssistantPrefix: undefined,
-      stepAssistantMessage: undefined,
-      stepAssistantPrefix: undefined,
+
       systemPrompt: 'Test system prompt',
       userInputPrompt: 'Test user prompt',
       agentStepPrompt: 'Test agent step prompt',
