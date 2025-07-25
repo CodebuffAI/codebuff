@@ -418,3 +418,51 @@ export const gitEvalResults = pgTable('git_eval_results', {
     .notNull()
     .defaultNow(),
 })
+
+// Agent Store tables
+export const publisher = pgTable('publisher', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  slug: text('slug').unique().notNull(), // for store reference
+  username: text('username').unique().notNull(),
+  email: text('email'), // optional, for support
+  verified: boolean('verified').notNull().default(false),
+  bio: text('bio'),
+  created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export const agent = pgTable(
+  'agent',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    publisher_id: text('publisher_id')
+      .notNull()
+      .references(() => publisher.id, { onDelete: 'cascade' }),
+    version: text('version').notNull(), // Semantic version e.g., '1.0.0'
+    major: integer('major').generatedAlwaysAs(
+      (): SQL => sql`CAST(SPLIT_PART(${agent.version}, '.', 1) AS INTEGER)`
+    ),
+    minor: integer('minor').generatedAlwaysAs(
+      (): SQL => sql`CAST(SPLIT_PART(${agent.version}, '.', 2) AS INTEGER)`
+    ),
+    patch: integer('patch').generatedAlwaysAs(
+      (): SQL => sql`CAST(SPLIT_PART(${agent.version}, '.', 3) AS INTEGER)`
+    ),
+    template: jsonb('template').notNull(), // All agent details
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_agent_publisher').on(table.publisher_id),
+    index('idx_agent_version').on(table.version),
+  ]
+)
