@@ -1,39 +1,25 @@
-name: Evals
+name: Nightly Evals
 
 on:
-  push:
-    branches: ['**']
+  schedule:
+    # Run every night at 1:00 AM PT (9:00 AM UTC)
+    - cron: '0 9 * * *'
+  workflow_dispatch: # Allow manual triggering
 
 jobs:
-  run-evals:
+  run-nightly-evals:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Check commit message
-        id: check_commit
-        env:
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-        run: |
-          shopt -s nocasematch
-          if [[ "$COMMIT_MESSAGE" == *"[buffbench]"* ]]; then
-            echo "should_run_evals=true" >> $GITHUB_OUTPUT
-            echo "Commit message contains [buffbench] - will run evals"
-          else
-            echo "should_run_evals=false" >> $GITHUB_OUTPUT
-            echo "Commit message does not contain [buffbench] - skipping evals"
-          fi
-
       - name: Set up Bun
-        if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.2.12'
 
       - name: Cache dependencies
-        if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
         uses: actions/cache@v3
         with:
           path: |
@@ -45,11 +31,9 @@ jobs:
             ${{ runner.os }}-deps-
 
       - name: Install dependencies
-        if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
         run: bun install --frozen-lockfile
 
       - name: Set environment variables
-        if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
         run: |
@@ -62,9 +46,8 @@ jobs:
           echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Run evals
-        if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
-        run: cd evals && bun run-eval-set --concurrency 10 --email --title "Git Eval (${{ github.sha }} ${{ github.event.head_commit.message }}})"
+      - name: Run nightly evals
+        run: cd evals && bun run-eval-set --concurrency 10 --email --title "Nightly Eval Run ($(date '+%Y-%m-%d'))"
 
       - name: Workflow completed
-        run: echo "Evals workflow completed successfully"
+        run: echo "Nightly evals workflow completed successfully"
