@@ -438,8 +438,8 @@ export const publisher = pgTable('publisher', {
     .defaultNow(),
 })
 
-export const agent = pgTable(
-  'agent',
+export const agentTemplate = pgTable(
+  'agent_template',
   {
     id: text('id').$defaultFn(() => crypto.randomUUID()),
     version: text('version').notNull(), // Semantic version e.g., '1.0.0'
@@ -447,21 +447,27 @@ export const agent = pgTable(
       .notNull()
       .references(() => publisher.id),
     major: integer('major').generatedAlwaysAs(
-      (): SQL => sql`CAST(SPLIT_PART(${agent.version}, '.', 1) AS INTEGER)`
+      (): SQL =>
+        sql`CAST(SPLIT_PART(${agentTemplate.version}, '.', 1) AS INTEGER)`
     ),
     minor: integer('minor').generatedAlwaysAs(
-      (): SQL => sql`CAST(SPLIT_PART(${agent.version}, '.', 2) AS INTEGER)`
+      (): SQL =>
+        sql`CAST(SPLIT_PART(${agentTemplate.version}, '.', 2) AS INTEGER)`
     ),
     patch: integer('patch').generatedAlwaysAs(
-      (): SQL => sql`CAST(SPLIT_PART(${agent.version}, '.', 3) AS INTEGER)`
+      (): SQL =>
+        sql`CAST(SPLIT_PART(${agentTemplate.version}, '.', 3) AS INTEGER)`
     ),
-    template: jsonb('template').notNull(), // All agent details
+    template: jsonb('template').notNull(), // All agentTemplate details
     created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (table) => [
     primaryKey({ columns: [table.id, table.version] }),
-    index('idx_agent_publisher').on(table.publisher_id),
+    index('idx_agent_template_publisher').on(table.publisher_id),
   ]
 )
