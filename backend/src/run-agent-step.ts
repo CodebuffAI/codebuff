@@ -402,6 +402,7 @@ export const runAgentStep = async (
     toolResults: newToolResults,
     state,
     fullResponse: fullResponseAfterStream,
+    fullResponseChunks,
   } = await processStreamWithTools({
     stream,
     ws,
@@ -470,6 +471,7 @@ export const runAgentStep = async (
       agentId: agentState.agentId,
       prompt,
       fullResponse,
+      fullResponseChunks,
       toolCalls,
       toolResults,
       agentContext: newAgentContext,

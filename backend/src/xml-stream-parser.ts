@@ -51,15 +51,12 @@ export async function* processStreamWithTags(
 
   function extractToolCalls(): string[] {
     const matches: string[] = []
-    let lastIndex = -1
+    let lastIndex = 0
     for (const match of buffer.matchAll(toolExtractionPattern)) {
       lastIndex = match.index + match[0].length
       matches.push(match[1])
     }
 
-    if (lastIndex === -1) {
-      lastIndex = 0
-    }
     buffer = removeProcessedToolCalls(buffer.slice(lastIndex))
     return matches
   }

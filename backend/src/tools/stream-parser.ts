@@ -55,7 +55,7 @@ export async function processStreamWithTools<T extends string>(options: {
     agentState,
     onResponseChunk,
   } = options
-  let fullResponse = options.fullResponse
+  const fullResponseChunks: string[] = [options.fullResponse]
 
   const messages = [...options.messages]
 
@@ -105,7 +105,7 @@ export async function processStreamWithTools<T extends string>(options: {
           agentStepId,
           clientSessionId,
           userInputId,
-          fullResponse,
+          fullResponse: fullResponseChunks.join(''),
           onResponseChunk,
           state,
           userId,
@@ -135,19 +135,25 @@ export async function processStreamWithTools<T extends string>(options: {
 
   for await (const chunk of streamWithTags) {
     onResponseChunk(chunk)
-    fullResponse += chunk
+    fullResponseChunks.push(chunk)
   }
 
   state.messages = buildArray<CodebuffMessage>([
     ...expireMessages(state.messages, 'agentStep'),
-    fullResponse && {
+    fullResponseChunks.length > 0 && {
       role: 'assistant' as const,
-      content: fullResponse,
+      content: fullResponseChunks.join(''),
     },
   ])
 
   resolveStreamDonePromise()
   await previousToolCallFinished
 
-  return { toolCalls, toolResults, state, fullResponse }
+  return {
+    toolCalls,
+    toolResults,
+    state,
+    fullResponse: fullResponseChunks.join(''),
+    fullResponseChunks,
+  }
 }
