@@ -189,8 +189,9 @@ For all commands and options, run 'codebuff' and then type 'help'.
     }
   }
 
-  // Get initial input
-  const initialInput = args.join(' ')
+  // Remove the first argument if it's the compiled binary path which bun weirdly injects (starts with /$bunfs)
+  const filteredArgs = args[0]?.startsWith('/$bunfs') ? args.slice(1) : args
+  const initialInput = filteredArgs.join(' ')
 
   codebuff({
     initialInput,
