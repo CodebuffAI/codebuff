@@ -7,6 +7,7 @@ const { spawn } = require('child_process')
 const https = require('https')
 const zlib = require('zlib')
 const tar = require('tar')
+const { Command } = require('commander')
 
 const CONFIG = {
   homeDir: os.homedir(),
@@ -29,19 +30,24 @@ const PLATFORM_TARGETS = {
 }
 
 // Terminal utilities
+let isPrintMode = false
 const term = {
   clearLine: () => {
-    if (process.stderr.isTTY) {
+    if (!isPrintMode && process.stderr.isTTY) {
       process.stderr.write('\r\x1b[K')
     }
   },
   write: (text) => {
-    term.clearLine()
-    process.stderr.write(text)
+    if (!isPrintMode) {
+      term.clearLine()
+      process.stderr.write(text)
+    }
   },
   writeLine: (text) => {
-    term.clearLine()
-    process.stderr.write(text + '\n')
+    if (!isPrintMode) {
+      term.clearLine()
+      process.stderr.write(text + '\n')
+    }
   },
 }
 
@@ -271,20 +277,30 @@ async function downloadBinary(version) {
     }
   } catch (error) {
     term.clearLine()
-    console.error(`Extraction failed: ${error.message}`)
+    if (!isPrintMode) {
+      console.error(`Extraction failed: ${error.message}`)
+    }
     process.exit(1)
   }
 
   term.clearLine()
-  console.log('Download complete! Starting Codebuff...')
+  if (isPrintMode) {
+    console.log(JSON.stringify({type: 'download', version, status: 'complete'})) }
+    else {
+    console.log('Download complete! Starting Codebuff...')
+  }
 }
 
 async function ensureBinaryExists() {
   if (!fs.existsSync(CONFIG.binaryPath)) {
     const version = await getLatestVersion()
     if (!version) {
-      console.error('❌ Failed to determine latest version')
-      console.error('Please check your internet connection and try again')
+      if (isPrintMode) {
+        console.error(JSON.stringify({type: 'error', message: 'Failed to determinie latest version.'}))
+      } else {
+        console.error('❌ Failed to determine latest version')
+        console.error('Please check your internet connection and try again')
+      }
       process.exit(1)
     }
 
@@ -292,8 +308,12 @@ async function ensureBinaryExists() {
       await downloadBinary(version)
     } catch (error) {
       term.clearLine()
-      console.error('❌ Failed to download codebuff:', error.message)
-      console.error('Please check your internet connection and try again')
+      if (isPrintMode) {
+        console.error(JSON.stringify({type: 'error', message: `Failed to download codebuff: ${error.message}`}))
+      } else {
+        console.error('❌ Failed to download codebuff:', error.message)
+        console.error('Please check your internet connection and try again')
+      }
       process.exit(1)
     }
   }
@@ -331,18 +351,21 @@ async function checkForUpdates(runningProcess, exitListener, retry) {
         }, 5000)
       })
 
-      console.log(`Update available: ${currentVersion} → ${latestVersion}`)
+      if (!isPrintMode) {
+        console.log(`Update available: ${currentVersion} → ${latestVersion}`)
+      }
 
       await downloadBinary(latestVersion)
 
-      await retry()
+      await retry(isPrintMode)
     }
   } catch (error) {
     // Silently ignore update check errors
   }
 }
 
-async function main(firstRun = false) {
+async function main(firstRun = false, printMode = false) {
+  isPrintMode = printMode
   await ensureBinaryExists()
 
   let error = null
@@ -363,24 +386,40 @@ async function main(firstRun = false) {
       // Check for updates in background
       setTimeout(() => {
         if (!error) {
-          checkForUpdates(child, exitListener, main)
+          checkForUpdates(child, exitListener, () => main(false, isPrintMode))
         }
       }, 100)
     }
   } catch (err) {
     error = err
     if (firstRun) {
-      console.error('❌ Codebuff failed to start:', error.message)
-      console.log('Redownloading Codebuff...')
+      if (!isPrintMode) {
+        console.error('❌ Codebuff failed to start:', error.message)
+        console.log('Redownloading Codebuff...')
+      }
       // Binary could be corrupted (killed before download completed), so delete and retry.
       fs.unlinkSync(CONFIG.binaryPath)
-      await main()
+      await main(false, isPrintMode)
     }
   }
 }
 
+// Setup commander
+const program = new Command()
+program
+  .name('codebuff')
+  .description('AI coding agent')
+  .option('-p, --print', 'print mode - suppress wrapper output')
+  .allowUnknownOption()
+  .parse()
+
+const options = program.opts()
+isPrintMode = options.print
+
 // Run the main function
-main(true).catch((error) => {
-  console.error('❌ Unexpected error:', error.message)
+main(true, isPrintMode).catch((error) => {
+  if (!isPrintMode) {
+    console.error('❌ Unexpected error:', error.message)
+  }
   process.exit(1)
 })
