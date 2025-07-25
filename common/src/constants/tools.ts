@@ -1,8 +1,8 @@
 import { ToolResultPart } from 'ai'
 import { closeXml } from '../util/xml'
 
-export const toolNameParam = 'codebuff_tool_name'
-export const endsAgentStepParam = 'codebuff_easp'
+export const toolNameParam = 'cb_tool_name'
+export const endsAgentStepParam = 'cb_easp'
 export const toolXmlName = 'codebuff_tool_call'
 export const startToolTag = `<${toolXmlName}>\n`
 export const endToolTag = `\n</${toolXmlName}>`
