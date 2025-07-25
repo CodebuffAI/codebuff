@@ -29,6 +29,8 @@ import {
 import { AgentTemplate, StepGenerator } from '../templates/types'
 import * as toolExecutor from '../tools/tool-executor'
 import * as requestContext from '../websockets/request-context'
+import { asSystemMessage } from '../util/messages'
+import { renderToolResults } from '@codebuff/common/constants/tools'
 import { mockFileContext, MockWebSocket } from './test-utils'
 
 describe('runProgrammaticStep', () => {
@@ -216,6 +218,74 @@ describe('runProgrammaticStep', () => {
           fileContext: mockFileContext,
         })
       )
+      expect(result.endTurn).toBe(true)
+    })
+
+    it('should add find_files tool result to messageHistory', async () => {
+      const mockGenerator = (function* () {
+        yield { toolName: 'find_files', args: { query: 'authentication' } }
+      })() as StepGenerator
+
+      mockTemplate.handleSteps = () => mockGenerator
+      mockTemplate.toolNames = ['find_files', 'end_turn']
+
+      // Mock executeToolCall to simulate find_files tool result
+      executeToolCallSpy.mockImplementation(async (options: any) => {
+        if (options.toolName === 'find_files') {
+          const toolResult: ToolResult = {
+            toolName: 'find_files',
+            toolCallId: 'find-files-call-id',
+            result: JSON.stringify({
+              files: [
+                { path: 'src/auth.ts', relevance: 0.9 },
+                { path: 'src/login.ts', relevance: 0.8 },
+              ],
+            }),
+          }
+          options.toolResults.push(toolResult)
+
+          // Add tool result to message history like the real implementation
+          // This mimics what tool-executor.ts does: state.messages.push({ role: 'user', content: asSystemMessage(renderToolResults([toolResult])) })
+          const formattedToolResult = asSystemMessage(
+            renderToolResults([
+              {
+                toolName: toolResult.toolName,
+                toolCallId: toolResult.toolCallId,
+                result: toolResult.result,
+              },
+            ])
+          )
+          options.state.agentState.messageHistory.push({
+            role: 'user',
+            content: formattedToolResult,
+          })
+        }
+        // Return a value to satisfy the call
+        return {}
+      })
+
+      const result = await runProgrammaticStep(mockAgentState, mockParams)
+
+      expect(executeToolCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toolName: 'find_files',
+          args: { query: 'authentication' },
+          agentTemplate: mockTemplate,
+          fileContext: mockFileContext,
+        })
+      )
+
+      // Verify tool result was added to messageHistory
+      const toolMessages = result.agentState.messageHistory.filter(
+        (msg) =>
+          msg.role === 'user' &&
+          typeof msg.content === 'string' &&
+          msg.content.includes('src/auth.ts')
+      )
+      expect(toolMessages).toHaveLength(1)
+      expect(toolMessages[0].content).toContain('src/auth.ts')
+      expect(toolMessages[0].content).toContain('src/login.ts')
+
       expect(result.endTurn).toBe(true)
     })
 
