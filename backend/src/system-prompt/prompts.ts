@@ -1,21 +1,21 @@
 import { STOP_MARKER } from '@codebuff/common/constants'
 import {
-  flattenTree,
-  getLastReadFilePaths,
-} from '@codebuff/common/project-file-tree'
-import {
   codebuffConfigFile,
   CodebuffConfigSchema,
 } from '@codebuff/common/json-config/constants'
 import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
+import {
+  flattenTree,
+  getLastReadFilePaths,
+} from '@codebuff/common/project-file-tree'
 import {
   createMarkdownFileBlock,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
 import { truncateString } from '@codebuff/common/util/string'
 
-import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 import { closeXml } from '@codebuff/common/util/xml'
+import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
 export const configSchemaPrompt = `
 # Codebuff Configuration (${codebuffConfigFile})
@@ -257,7 +257,7 @@ When the user requests a new git commit, please follow these steps closely:
 
 1. **Run two run_terminal_command tool calls:**
    - Run \`git diff\` to review both staged and unstaged modifications.
-   - Run \`git log\` to check recent commit messages, ensuring consistency with this repository’s style.
+   - Run \`git log\` to check recent commit messages, ensuring consistency with this repository's style.
 
 2. **Select relevant files to include in the commit:**
    Use the git context established at the start of this conversation to decide which files are pertinent to the changes. Stage any new untracked files that are relevant, but avoid committing previously modified files (from the beginning of the conversation) unless they directly relate to this commit.

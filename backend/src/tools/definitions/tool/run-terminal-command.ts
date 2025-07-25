@@ -77,5 +77,19 @@ ${getToolCallString(
   },
   endsAgentStep
 )}
+
+${getToolCallString(
+  toolName,
+  {
+    command: `git commit -m "$(cat <<'EOF'
+Your commit message here.
+
+🤖 Generated with Codebuff
+Co-Authored-By: Codebuff <noreply@codebuff.com>
+EOF
+)"`,
+  },
+  endsAgentStep
+)}
     `.trim(),
 } satisfies CodebuffToolDef
