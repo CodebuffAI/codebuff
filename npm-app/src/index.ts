@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { enableSquashNewlines } from './display/squash-newlines'
+
 import { type CostMode } from '@codebuff/common/constants'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'
@@ -9,7 +11,7 @@ import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { npmAppVersion } from './config'
 import { createTemplateProject } from './create-template-project'
-import { enableSquashNewlines, initSquashNewLines } from './display'
+import { printMode, setPrintMode } from './display/print-mode'
 import {
   getStartingDirectory,
   initProjectFileContextWithWorker,
@@ -36,7 +38,6 @@ async function codebuff({
   cwd,
   trace,
 }: CliOptions) {
-  initSquashNewLines()
   enableSquashNewlines()
 
   // Initialize starting directory
@@ -170,10 +171,14 @@ For all commands and options, run 'codebuff' and then type 'help'.
     const hasPrompt = args.length > 0
     const hasParams = options.params
 
+    setPrintMode(true)
+
     if (!hasPrompt && !hasParams) {
-      console.error(
-        red('Error: Print mode requires either a prompt or --params to be set')
-      )
+      printMode.error({
+        type: 'error',
+        message:
+          'Error: Print mode requires either a prompt or --params to be set',
+      })
       process.exit(1)
     }
   }

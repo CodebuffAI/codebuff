@@ -1,17 +1,21 @@
+import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
+import type { CostMode } from '@codebuff/common/constants'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { CliOptions, GitCommand } from './types'
+
 import fs, { readdirSync } from 'fs'
 import * as os from 'os'
 import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
-import { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import { ASYNC_AGENTS_ENABLED, type CostMode } from '@codebuff/common/constants'
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 import {
   AGENT_PERSONAS,
   UNIQUE_AGENT_NAMES,
 } from '@codebuff/common/constants/agents'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { isDir, ProjectFileContext } from '@codebuff/common/util/file'
+import { isDir } from '@codebuff/common/util/file'
 import { pluralize } from '@codebuff/common/util/string'
 import {
   blueBright,
@@ -42,29 +46,27 @@ import {
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
-
 import {
-  enterSubagentBuffer,
-  isInSubagentBufferMode,
   cleanupSubagentBuffer,
   displaySubagentList,
+  enterSubagentBuffer,
+  isInSubagentBufferMode,
 } from './cli-handlers/subagent'
 import {
+  cleanupSubagentListBuffer,
   enterSubagentListBuffer,
   isInSubagentListMode,
-  cleanupSubagentListBuffer,
   resetSubagentSelectionToLast,
 } from './cli-handlers/subagent-list'
-import {
-  getAllSubagentIds,
-  getRecentSubagents,
-  setTraceEnabled,
-} from './subagent-storage'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
 import { DiffManager } from './diff-manager'
-import { disableSquashNewlines, enableSquashNewlines } from './display'
+import { printModeIsEnabled } from './display/print-mode'
+import {
+  disableSquashNewlines,
+  enableSquashNewlines,
+} from './display/squash-newlines'
 import { loadCodebuffConfig } from './json-config/parser'
 import {
   displayGreeting,
@@ -80,6 +82,7 @@ import {
 } from './project-files'
 import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
+import { getRecentSubagents, setTraceEnabled } from './subagent-storage'
 import {
   clearScreen,
   isCommandRunning,
@@ -87,9 +90,7 @@ import {
   persistentProcess,
   resetShell,
 } from './terminal/run-command'
-import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
-
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { withHangDetection } from './utils/with-hang-detection'
@@ -292,7 +293,9 @@ export class CLI {
         process.exit(0)
       })
     }
-    process.on('SIGTSTP', async () => await this.handleExit())
+    process.on('SIGTSTP', async () => {
+      await this.handleExit()
+    })
     // Doesn't catch SIGKILL (e.g. `kill -9`)
   }
 
@@ -361,7 +364,9 @@ export class CLI {
 
     this.rl.on('line', (line) => this.handleLine(line))
     this.rl.on('SIGINT', async () => await this.handleSigint())
-    this.rl.on('close', async () => await this.handleExit())
+    this.rl.on('close', async () => {
+      await this.handleExit()
+    })
 
     process.stdin.on('keypress', (str, key) => this.handleKeyPress(str, key))
   }
@@ -1107,6 +1112,10 @@ export class CLI {
   private async handleSigint() {
     if (isCommandRunning()) {
       await resetShell(getProjectRoot())
+    }
+
+    if (printModeIsEnabled()) {
+      await this.handleExit()
     }
 
     if (this.isReceivingResponse) {

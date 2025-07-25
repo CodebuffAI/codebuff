@@ -6,6 +6,16 @@
  * character between the first two and the last two newline characters.
  */
 import stringWidth from 'string-width'
+import {
+  originalConsoleDebug,
+  originalConsoleError,
+  originalConsoleInfo,
+  originalConsoleLog,
+  originalConsoleWarn,
+  originalStderrWrite,
+  originalStdoutWrite,
+} from './overrides'
+import { printModeIsEnabled } from './print-mode'
 
 const PREFIX = '.\r\n'
 let squashingEnabled = false
@@ -96,13 +106,16 @@ function createSquashingWriteFunction<T extends Function>(
   originalWrite: T,
   isSquashingEnabled: () => boolean
 ): T {
-  return (function (
+  return function (
     chunk: string | Uint8Array,
     encodingOrCallback?:
       | BufferEncoding
       | ((err?: Error | null | undefined) => void),
     callbackMaybe?: (err?: Error | null | undefined) => void
   ): boolean {
+    if (printModeIsEnabled()) {
+      return false
+    }
     let chunkString = typeof chunk === 'string' ? chunk : chunk.toString()
     chunkString = addCarriageReturn(chunkString)
 
@@ -125,56 +138,116 @@ function createSquashingWriteFunction<T extends Function>(
       return originalWrite(processedChunk, encodingOrCallback)
     }
     return originalWrite(processedChunk, encodingOrCallback, callbackMaybe)
-  } as any) as T
+  } as any as T
 }
 
-export const initSquashNewLines = () => {
-  const originalStdoutWrite = process.stdout.write.bind(process.stdout)
-  const originalStderrWrite = process.stderr.write.bind(process.stderr)
+// Override stdout and stderr write functions
+process.stdout.write = createSquashingWriteFunction(
+  originalStdoutWrite,
+  () => squashingEnabled
+)
 
-  // Override stdout and stderr write functions
-  process.stdout.write = createSquashingWriteFunction(
-    originalStdoutWrite,
-    () => squashingEnabled
-  )
+process.stderr.write = createSquashingWriteFunction(
+  originalStderrWrite,
+  () => squashingEnabled
+)
 
-  process.stderr.write = createSquashingWriteFunction(
-    originalStderrWrite,
-    () => squashingEnabled
-  )
-
-  // Override console.log and console.error for Bun compatibility
-  const originalConsoleLog = console.log.bind(console)
-  const originalConsoleError = console.error.bind(console)
-
-  console.log = function (...args: any[]) {
-    if (!squashingEnabled) {
-      return originalConsoleLog(...args)
-    }
-
-    // Convert arguments to string and process through squashing logic
-    const output = args.map(arg => 
-      typeof arg === 'string' ? arg : 
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : 
-      String(arg)
-    ).join(' ') + '\n'
-
-
-    process.stdout.write(output)
+console.log = function (...args: any[]) {
+  if (!squashingEnabled) {
+    return originalConsoleLog(...args)
   }
 
-  console.error = function (...args: any[]) {
-    if (!squashingEnabled) {
-      return originalConsoleError(...args)
-    }
+  // Convert arguments to string and process through squashing logic
+  const output =
+    args
+      .map((arg) =>
+        typeof arg === 'string'
+          ? arg
+          : typeof arg === 'object'
+            ? JSON.stringify(arg, null, 2)
+            : String(arg)
+      )
+      .join(' ') + '\n'
 
-    // Convert arguments to string and process through squashing logic
-    const output = args.map(arg => 
-      typeof arg === 'string' ? arg : 
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : 
-      String(arg)
-    ).join(' ') + '\n'
+  process.stdout.write(output)
+}
 
-    process.stderr.write(output)
+console.error = function (...args: any[]) {
+  if (!squashingEnabled) {
+    return originalConsoleError(...args)
   }
+
+  // Convert arguments to string and process through squashing logic
+  const output =
+    args
+      .map((arg) =>
+        typeof arg === 'string'
+          ? arg
+          : typeof arg === 'object'
+            ? JSON.stringify(arg, null, 2)
+            : String(arg)
+      )
+      .join(' ') + '\n'
+
+  process.stderr.write(output)
+}
+
+console.warn = function (...args: any[]) {
+  if (!squashingEnabled) {
+    return originalConsoleWarn(...args)
+  }
+
+  // Convert arguments to string and process through squashing logic
+  const output =
+    args
+      .map((arg) =>
+        typeof arg === 'string'
+          ? arg
+          : typeof arg === 'object'
+            ? JSON.stringify(arg, null, 2)
+            : String(arg)
+      )
+      .join(' ') + '\n'
+
+  process.stdout.write(output)
+}
+
+console.debug = function (...args: any[]) {
+  if (!squashingEnabled) {
+    return originalConsoleDebug(...args)
+  }
+
+  // Convert arguments to string and process through squashing logic
+  const output =
+    args
+      .map((arg) =>
+        typeof arg === 'string'
+          ? arg
+          : typeof arg === 'object'
+            ? JSON.stringify(arg, null, 2)
+            : String(arg)
+      )
+      .join(' ') + '\n'
+
+  process.stdout.write(output)
+}
+
+console.info = function (...args: any[]) {
+  if (!squashingEnabled) {
+    return originalConsoleInfo(...args)
+  }
+
+  // Convert arguments to string and process through squashing logic
+  const output =
+    args
+      .map((arg) =>
+        typeof arg === 'string'
+          ? arg
+          : typeof arg === 'object'
+            ? JSON.stringify(arg, null, 2)
+            : String(arg)
+      )
+      .join(' ') + '\n'
+
+  process.stdout.write(output)
 }
