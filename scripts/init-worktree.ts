@@ -262,10 +262,10 @@ async function main(): Promise<void> {
     }
 
     // Check if git branch already exists
-    if (await checkGitBranchExists(args.name)) {
-      throw new WorktreeError(
-        `Git branch '${args.name}' already exists\nChoose a different worktree name or delete the existing branch`,
-        'BRANCH_EXISTS'
+    const branchExists = await checkGitBranchExists(args.name)
+    if (branchExists) {
+      console.log(
+        `Git branch '${args.name}' already exists - will create worktree from existing branch`
       )
     }
 
@@ -278,8 +278,14 @@ async function main(): Promise<void> {
     console.log(`Creating git worktree: ${args.name}`)
     console.log(`Location: ${worktreePath}`)
 
-    // Create the git worktree
-    await runCommand('git', ['worktree', 'add', worktreePath, '-b', args.name])
+    // Create the git worktree (with or without creating new branch)
+    const worktreeAddArgs = ['worktree', 'add', worktreePath]
+    if (branchExists) {
+      worktreeAddArgs.push(args.name)
+    } else {
+      worktreeAddArgs.push('-b', args.name)
+    }
+    await runCommand('git', worktreeAddArgs)
 
     console.log('Setting up worktree environment...')
     console.log(`Backend port: ${args.backendPort}`)
