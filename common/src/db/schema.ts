@@ -425,10 +425,11 @@ export const publisher = pgTable('publisher', {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   slug: text('slug').unique().notNull(), // for store reference
-  username: text('username').unique().notNull(),
+  name: text('name').notNull(),
   email: text('email'), // optional, for support
   verified: boolean('verified').notNull().default(false),
   bio: text('bio'),
+  avatar_url: text('avatar_url'),
   created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -440,13 +441,11 @@ export const publisher = pgTable('publisher', {
 export const agent = pgTable(
   'agent',
   {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
+    id: text('id').$defaultFn(() => crypto.randomUUID()),
+    version: text('version').notNull(), // Semantic version e.g., '1.0.0'
     publisher_id: text('publisher_id')
       .notNull()
-      .references(() => publisher.id, { onDelete: 'cascade' }),
-    version: text('version').notNull(), // Semantic version e.g., '1.0.0'
+      .references(() => publisher.id),
     major: integer('major').generatedAlwaysAs(
       (): SQL => sql`CAST(SPLIT_PART(${agent.version}, '.', 1) AS INTEGER)`
     ),
@@ -462,7 +461,7 @@ export const agent = pgTable(
       .defaultNow(),
   },
   (table) => [
+    primaryKey({ columns: [table.id, table.version] }),
     index('idx_agent_publisher').on(table.publisher_id),
-    index('idx_agent_version').on(table.version),
   ]
 )
