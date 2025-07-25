@@ -35,6 +35,7 @@ const PromptFieldSchema = z.union([
 ])
 export type PromptField = z.infer<typeof PromptFieldSchema>
 
+// Validates the Typescript template file.
 export const DynamicAgentConfigSchema = z.object({
   id: z.string(), // The unique identifier for this agent
   version: z.string(),
@@ -84,6 +85,13 @@ export const DynamicAgentConfigSchema = z.object({
   initialAssistantPrefix: PromptFieldSchema.optional(),
   stepAssistantMessage: PromptFieldSchema.optional(),
   stepAssistantPrefix: PromptFieldSchema.optional(),
+
+  // Optional generator function for programmatic agents
+  handleSteps: z.function(z.tuple([z.object({
+    agentState: z.any(),
+    prompt: z.string(),
+    params: z.any(),
+  })]), z.any()).optional(),
 })
 
 export type DynamicAgentConfig = z.input<typeof DynamicAgentConfigSchema>
@@ -97,6 +105,7 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
   initialAssistantPrefix: z.string(),
   stepAssistantMessage: z.string(),
   stepAssistantPrefix: z.string(),
+  handleSteps: z.string().optional(), // Converted to string after processing
 })
   .refine(
     (data) => {

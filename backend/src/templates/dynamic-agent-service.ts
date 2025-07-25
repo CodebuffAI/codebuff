@@ -230,6 +230,18 @@ export class DynamicAgentService {
         }
       }
 
+      // Validate handleSteps if present
+      if (content.handleSteps) {
+        if (!content.handleSteps.includes('function*')) {
+          this.validationErrors.push({
+            filePath,
+            message: `handleSteps must be a generator function: "function* (params) { ... }". Found: ${content.handleSteps.substring(0, 50)}...`,
+            details: 'handleSteps should start with "function*" to be a valid generator function',
+          })
+          return
+        }
+      }
+
       // Determine outputMode: default to 'json' if outputSchema is present, otherwise 'last_message'
       const outputMode =
         content.outputMode ?? (content.outputSchema ? 'json' : 'last_message')

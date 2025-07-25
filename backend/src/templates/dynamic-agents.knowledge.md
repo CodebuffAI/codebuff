@@ -2,16 +2,18 @@
 
 ## Architecture Overview
 
-The dynamic agent system allows users to create custom AI agents by placing JSON configuration files in `.agents/templates/`. The system consists of several key components:
+The dynamic agent system allows users to create custom AI agents by placing TypeScript or JSON configuration files in `.agents/templates/`. The system supports both prompt-based agents and programmatic agents with generator functions. The system consists of several key components:
 
 ### Core Components
 
 1. **DynamicAgentService** (`dynamic-agent-service.ts`)
+
    - Centralized loading and validation of dynamic agents
    - Schema conversion from JSON to Zod
    - Error handling and reporting
 
-2. **AgentRegistry** (`agent-registry.ts`) 
+2. **AgentRegistry** (`agent-registry.ts`)
+
    - Combines static and dynamic agents
    - Provides unified lookup interface
    - Manages agent name mappings
@@ -23,11 +25,12 @@ The dynamic agent system allows users to create custom AI agents by placing JSON
 
 ## Loading Process
 
-1. **Discovery**: Scan `.agents/templates/` for `*.json` files
-2. **Filtering**: Skip files with `override: true` (those modify existing agents)
-3. **Validation**: Parse and validate against `DynamicAgentTemplateSchema`
-4. **Conversion**: Convert JSON schema to internal Zod format
-5. **Integration**: Merge with static agents in registry
+1. **Discovery**: Scan `.agents/templates/` for `*.ts`
+2. **TypeScript Processing**: Import `.ts` files and extract default export, convert `handleSteps` functions to strings
+3. **Filtering**: Skip files with `override: true` (those modify existing agents)
+4. **Validation**: Parse and validate against `DynamicAgentTemplateSchema`
+5. **Conversion**: Convert JSON schema to internal Zod format
+6. **Integration**: Merge with static agents in registry
 
 ## Schema Conversion
 
@@ -63,6 +66,7 @@ Prompt fields (systemPrompt, userInputPrompt, etc.) can now reference external f
 ```
 
 Paths are resolved relative to the project root. This enables:
+
 - Better organization of long prompts
 - Easier editing with syntax highlighting
 - Version control of prompt changes
@@ -82,23 +86,26 @@ Agent overrides use their own resolution logic that works with the pre-populated
 The system provides detailed validation errors:
 
 - **File-level errors**: JSON parsing, missing required fields
-- **Schema errors**: Invalid field types, malformed structure  
+- **Schema errors**: Invalid field types, malformed structure
 - **Reference errors**: Invalid spawnable agents, unknown models
 - **Runtime errors**: File system access, permission issues
 
 ## Integration Points
 
 ### Tool System (`tools.ts`)
+
 - `buildSpawnableAgentsDescription()` includes dynamic agents
 - Schema display uses pre-converted Zod schemas
 - Graceful fallback for unknown agents
 
 ### Agent Spawning (`run-tool.ts`)
+
 - Uses `agentRegistry.getAgentName()` for unified lookups
 - Supports both static and dynamic agents
 - Proper error handling for missing agents
 
 ### Prompt System (`strings.ts`)
+
 - Async initialization to load dynamic agents
 - Agent name resolution includes dynamic agents
 - Template processing supports custom schemas
@@ -140,6 +147,91 @@ The system provides detailed validation errors:
 - **Tool Limitations**: Agents can only use predefined tools
 - **Validation**: All input validated against strict schemas
 
+## Programmatic Agents with handleSteps
+
+### Overview
+
+Programmatic agents use generator functions to define custom execution logic instead of relying solely on LLM prompts. This enables:
+
+- **Complex orchestration**: Multi-step workflows with conditional logic
+- **Tool coordination**: Precise control over tool execution order
+- **State management**: Maintain state across multiple steps
+- **Iterative refinement**: Loop until desired outcomes are achieved
+
+### Generator Function Structure
+
+```typescript
+function* ({ agentState, prompt, params }) {
+  // Yield tool calls to execute them
+  const { toolResult } = yield {
+    toolName: 'spawn_agents',
+    args: { agents: [{ agent_type: 'file_picker', prompt }] }
+  }
+
+  // Process results and yield more tools
+  yield {
+    toolName: 'set_output',
+    args: { result: toolResult?.result }
+  }
+}
+```
+
+### Execution Environment
+
+- **Local Development**: Functions execute natively in Node.js for TypeScript files
+- **Production**: Functions converted to strings and executed in secure QuickJS sandbox
+- **Security**: Sandboxed execution prevents access to file system, network, or other sensitive APIs
+- **Memory Limits**: Configurable memory and stack size limits prevent resource exhaustion
+
+### Tool Integration
+
+Programmatic agents can yield any tool call that matches their `toolNames` configuration:
+
+```typescript
+// Spawn other agents
+yield { toolName: 'spawn_agents', args: { agents: [...] } }
+
+// Read/write files
+yield { toolName: 'read_files', args: { paths: [...] } }
+yield { toolName: 'write_file', args: { path: '...', content: '...' } }
+
+// Search code
+yield { toolName: 'code_search', args: { pattern: '...' } }
+
+// Set final output (required for outputMode: 'json')
+yield { toolName: 'set_output', args: { result: {...} } }
+```
+
+### State Management
+
+The generator receives updated `agentState` and `toolResult` on each iteration:
+
+```typescript
+function* ({ agentState, prompt, params }) {
+  let step = 1
+
+  while (step <= 3) {
+    const { toolResult } = yield {
+      toolName: 'code_search',
+      args: { pattern: `step${step}` }
+    }
+
+    if (toolResult?.result) {
+      break // Found what we need
+    }
+
+    step++
+  }
+}
+```
+
+### Error Handling
+
+- **Syntax Errors**: Caught during loading and reported as validation errors
+- **Runtime Errors**: Caught during execution, agent output includes error details
+- **Timeout Protection**: QuickJS sandbox prevents infinite loops
+- **Memory Protection**: Configurable limits prevent memory exhaustion
+
 ## Future Enhancements
 
 - **Hot Reloading**: Detect file changes and reload agents
@@ -147,17 +239,21 @@ The system provides detailed validation errors:
 - **Advanced Schemas**: Support for complex parameter types
 - **Visual Editor**: GUI for creating agent templates
 - **Analytics**: Track agent usage and performance
+- **Debugging Tools**: Step-through debugging for generator functions
+- **Performance Monitoring**: Track execution time and resource usage
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Agent Not Loading**
+
    - Check `override: false` is set
    - Verify JSON syntax is valid
    - Review validation errors in logs
 
 2. **Schema Errors**
+
    - Ensure all required fields are present
    - Check field types match expected values
    - Validate spawnable agents exist
@@ -173,7 +269,7 @@ The system provides detailed validation errors:
 # Check agent registry status
 grep "Agent registry initialized" debug/backend.log
 
-# View validation errors  
+# View validation errors
 grep "validation errors" debug/backend.log
 
 # Monitor agent loading
@@ -186,7 +282,9 @@ tail -f debug/backend.log | grep "dynamic agent"
 
 ```typescript
 class DynamicAgentService {
-  async loadAgents(fileContext: ProjectFileContext): Promise<DynamicAgentLoadResult>
+  async loadAgents(
+    fileContext: ProjectFileContext
+  ): Promise<DynamicAgentLoadResult>
   getTemplate(agentType: string): AgentTemplate | undefined
   getAllTemplates(): Record<string, AgentTemplate>
   getValidationErrors(): DynamicAgentValidationError[]

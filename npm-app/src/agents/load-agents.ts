@@ -57,6 +57,12 @@ export async function loadLocalAgents({
           continue
         }
 
+        // Convert handleSteps function to string if present
+        let handleStepsString: string | undefined
+        if (agentConfig.handleSteps) {
+          handleStepsString = agentConfig.handleSteps.toString()
+        }
+
         loadedAgents[file.slice(0, -'.ts'.length)] = {
           ...typedAgentConfig,
           systemPrompt: loadFileContents(typedAgentConfig.systemPrompt),
@@ -74,6 +80,7 @@ export async function loadLocalAgents({
           stepAssistantPrefix: loadFileContents(
             typedAgentConfig.stepAssistantPrefix
           ),
+          handleSteps: handleStepsString,
         }
       }
     }

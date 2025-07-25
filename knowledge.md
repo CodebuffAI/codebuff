@@ -44,8 +44,10 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 
 - **LLM-based Agents**: Traditional agents defined in `backend/src/templates/` using prompts and LLM models
 - **Programmatic Agents**: Custom agents using JavaScript/TypeScript generator functions in `.agents/templates/`
+- **Dynamic Agent Templates**: User-defined agents in TypeScript files with `handleSteps` generator functions
 - Agent templates define available tools, spawnable sub-agents, and execution behavior
 - Programmatic agents allow complex orchestration logic, conditional flows, and iterative refinement
+- Generator functions execute in secure QuickJS sandbox for safety
 - Both types integrate seamlessly through the same tool execution system
 
 ## CLI Interface Features
@@ -194,6 +196,54 @@ mock.module('../services/api-client', () => ({
 - Clearer test isolation
 - Doesn't interfere with global state (mock.module carrries over from test file to test file, which is super bad and unintutitve.)
 - Simpler debugging when mocks fail
+
+### Test Setup Patterns
+
+**Extract duplicative mock state to `beforeEach` for cleaner tests:**
+
+```typescript
+// ✅ Good: Extract common mock objects to beforeEach
+describe('My Tests', () => {
+  let mockFileContext: ProjectFileContext
+  let mockAgentTemplate: DynamicAgentTemplate
+
+  beforeEach(() => {
+    // Setup common mock data
+    mockFileContext = {
+      projectRoot: '/test',
+      cwd: '/test',
+      // ... other properties
+    }
+
+    mockAgentTemplate = {
+      id: 'test-agent',
+      version: '1.0.0',
+      // ... other properties
+    }
+  })
+
+  test('should work with mock data', () => {
+    const agentTemplate = {
+      'test-agent': {
+        ...mockAgentTemplate,
+        handleSteps: 'custom function',
+      } as any, // Use type assertion when needed
+    }
+
+    const fileContext = {
+      ...mockFileContext,
+      agentTemplates: agentTemplate,
+    }
+    // ... test logic
+  })
+})
+```
+
+**Benefits:**
+- Reduces code duplication across tests
+- Makes tests more maintainable
+- Ensures consistent mock data structure
+- Easier to update mock data in one place
 
 ## Constants and Configuration
 
