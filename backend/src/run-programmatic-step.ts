@@ -195,6 +195,10 @@ export async function runProgrammaticStep(
         autoInsertEndStepParam: true,
       })
 
+      // TODO: Remove messages from state and always use agentState.messageHistory.
+      // Sync state.messages back to agentState.messageHistory
+      state.agentState.messageHistory = state.messages
+
       // Get the latest tool result
       toolResult = toolResults[toolResults.length - 1]
 

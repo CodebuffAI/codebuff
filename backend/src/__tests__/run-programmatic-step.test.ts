@@ -244,7 +244,7 @@ describe('runProgrammaticStep', () => {
           }
           options.toolResults.push(toolResult)
 
-          // Add tool result to message history like the real implementation
+          // Add tool result to state.messages like the real implementation
           // This mimics what tool-executor.ts does: state.messages.push({ role: 'user', content: asSystemMessage(renderToolResults([toolResult])) })
           const formattedToolResult = asSystemMessage(
             renderToolResults([
@@ -255,7 +255,7 @@ describe('runProgrammaticStep', () => {
               },
             ])
           )
-          options.state.agentState.messageHistory.push({
+          options.state.messages.push({
             role: 'user',
             content: formattedToolResult,
           })
@@ -305,6 +305,266 @@ describe('runProgrammaticStep', () => {
 
       expect(executeToolCallSpy).toHaveBeenCalledTimes(3)
       expect(result.endTurn).toBe(true)
+    })
+
+    it('should comprehensively test STEP_ALL functionality with multiple tools and state management', async () => {
+      // Track all tool results and state changes for verification
+      const toolResultsReceived: (ToolResult | undefined)[] = []
+      const stateSnapshots: AgentState[] = []
+      let stepCount = 0
+
+      const mockGenerator = (function* () {
+        stepCount++
+
+        // Step 1: Read files and capture initial state
+        const step1 = yield {
+          toolName: 'read_files',
+          args: { paths: ['src/auth.ts', 'src/config.ts'] },
+        }
+        toolResultsReceived.push(step1.toolResult)
+        stateSnapshots.push({ ...step1.agentState })
+
+        // Step 2: Search for patterns based on file content
+        const step2 = yield {
+          toolName: 'code_search',
+          args: { pattern: 'authenticate', flags: '-i' },
+        }
+        toolResultsReceived.push(step2.toolResult)
+        stateSnapshots.push({ ...step2.agentState })
+
+        // Step 3: Create a plan based on findings
+        const step3 = yield {
+          toolName: 'create_plan',
+          args: {
+            path: 'analysis-plan.md',
+            plan: 'Comprehensive analysis of authentication system',
+          },
+        }
+        toolResultsReceived.push(step3.toolResult)
+        stateSnapshots.push({ ...step3.agentState })
+
+        // Step 4: Add subgoal for tracking
+        const step4 = yield {
+          toolName: 'add_subgoal',
+          args: {
+            id: 'auth-analysis',
+            objective: 'Analyze authentication patterns',
+            status: 'IN_PROGRESS',
+            plan: 'Review auth files and create recommendations',
+          },
+        }
+        toolResultsReceived.push(step4.toolResult)
+        stateSnapshots.push({ ...step4.agentState })
+
+        // Step 5: Write analysis file
+        const step5 = yield {
+          toolName: 'write_file',
+          args: {
+            path: 'auth-analysis.md',
+            instructions: 'Create authentication analysis document',
+            content: '# Authentication Analysis\n\nBased on code review...',
+          },
+        }
+        toolResultsReceived.push(step5.toolResult)
+        stateSnapshots.push({ ...step5.agentState })
+
+        // Step 6: Update subgoal status
+        const step6 = yield {
+          toolName: 'update_subgoal',
+          args: {
+            id: 'auth-analysis',
+            status: 'COMPLETE',
+            log: 'Analysis completed successfully',
+          },
+        }
+        toolResultsReceived.push(step6.toolResult)
+        stateSnapshots.push({ ...step6.agentState })
+
+        // Step 7: Set final output with comprehensive data
+        const step7 = yield {
+          toolName: 'set_output',
+          args: {
+            status: 'success',
+            filesAnalyzed: ['src/auth.ts', 'src/config.ts'],
+            patternsFound: 3,
+            recommendations: ['Use stronger auth', 'Add 2FA'],
+            completedAt: new Date().toISOString(),
+          },
+        }
+        toolResultsReceived.push(step7.toolResult)
+        stateSnapshots.push({ ...step7.agentState })
+
+        // Step 8: Transition to STEP_ALL to continue processing
+        yield 'STEP_ALL'
+      })() as StepGenerator
+
+      // Set up comprehensive tool names for this test
+      mockTemplate.handleSteps = () => mockGenerator
+      mockTemplate.toolNames = [
+        'read_files',
+        'code_search',
+        'create_plan',
+        'add_subgoal',
+        'write_file',
+        'update_subgoal',
+        'set_output',
+        'end_turn',
+      ]
+
+      // Mock executeToolCall to simulate realistic tool results and state updates
+      executeToolCallSpy.mockImplementation(async (options: any) => {
+        const { toolName, args, toolResults, state } = options
+
+        let result: string
+        switch (toolName) {
+          case 'read_files':
+            result = JSON.stringify({
+              'src/auth.ts':
+                'export function authenticate(user) { return true; }',
+              'src/config.ts': 'export const authConfig = { enabled: true };',
+            })
+            break
+          case 'code_search':
+            result =
+              'src/auth.ts:1:export function authenticate(user) {\nsrc/config.ts:1:authConfig'
+            break
+          case 'create_plan':
+            result = 'Plan created successfully at analysis-plan.md'
+            break
+          case 'add_subgoal':
+            result = 'Subgoal "auth-analysis" added successfully'
+            // Update agent state to include subgoal in agentContext
+            state.agentState.agentContext['auth-analysis'] = {
+              objective: 'Analyze authentication patterns',
+              status: 'IN_PROGRESS',
+              plan: 'Review auth files and create recommendations',
+              logs: [],
+            }
+            break
+          case 'write_file':
+            result = 'File written successfully: auth-analysis.md'
+            break
+          case 'update_subgoal':
+            result = 'Subgoal "auth-analysis" updated successfully'
+            // Update subgoal status in agent state
+            if (state.agentState.agentContext['auth-analysis']) {
+              state.agentState.agentContext['auth-analysis'].status = 'COMPLETE'
+              state.agentState.agentContext['auth-analysis'].logs.push(
+                'Analysis completed successfully'
+              )
+            }
+            break
+          case 'set_output':
+            result = 'Output set successfully'
+            state.agentState.output = args
+            break
+          default:
+            result = `${toolName} executed successfully`
+        }
+
+        const toolResult: ToolResult = {
+          toolName,
+          toolCallId: `${toolName}-call-id`,
+          result,
+        }
+        toolResults.push(toolResult)
+
+        // Add tool result to state.messages like the real implementation
+        const formattedToolResult = asSystemMessage(
+          renderToolResults([toolResult])
+        )
+        state.messages.push({
+          role: 'user',
+          content: formattedToolResult,
+        })
+      })
+
+      // First call - should execute all tools and transition to STEP_ALL
+      const result1 = await runProgrammaticStep(mockAgentState, mockParams)
+
+      // Verify all tools were executed
+      expect(executeToolCallSpy).toHaveBeenCalledTimes(7) // 7 tools before STEP_ALL
+      expect(result1.endTurn).toBe(false) // Should not end turn due to STEP_ALL
+      expect(stepCount).toBe(1) // Generator should have run once
+
+      // Verify tool execution order and arguments
+      const toolCalls = executeToolCallSpy.mock.calls
+      expect(toolCalls[0][0].toolName).toBe('read_files')
+      expect(toolCalls[0][0].args.paths).toEqual([
+        'src/auth.ts',
+        'src/config.ts',
+      ])
+      expect(toolCalls[1][0].toolName).toBe('code_search')
+      expect(toolCalls[1][0].args.pattern).toBe('authenticate')
+      expect(toolCalls[2][0].toolName).toBe('create_plan')
+      expect(toolCalls[3][0].toolName).toBe('add_subgoal')
+      expect(toolCalls[4][0].toolName).toBe('write_file')
+      expect(toolCalls[5][0].toolName).toBe('update_subgoal')
+      expect(toolCalls[6][0].toolName).toBe('set_output')
+
+      // Verify tool results were passed back to generator
+      expect(toolResultsReceived).toHaveLength(7)
+      expect(toolResultsReceived[0]?.toolName).toBe('read_files')
+      expect(toolResultsReceived[0]?.result).toContain('authenticate')
+      expect(toolResultsReceived[3]?.toolName).toBe('add_subgoal')
+      expect(toolResultsReceived[6]?.toolName).toBe('set_output')
+
+      // Verify state management throughout execution
+      expect(stateSnapshots).toHaveLength(7)
+      expect(Object.keys(result1.agentState.agentContext)).toContain(
+        'auth-analysis'
+      )
+      expect(result1.agentState.agentContext['auth-analysis']?.status).toBe(
+        'COMPLETE'
+      )
+      expect(result1.agentState.output).toEqual({
+        status: 'success',
+        filesAnalyzed: ['src/auth.ts', 'src/config.ts'],
+        patternsFound: 3,
+        recommendations: ['Use stronger auth', 'Add 2FA'],
+        completedAt: expect.any(String),
+      })
+
+      // Verify tool results were processed correctly
+      expect(toolResultsReceived).toHaveLength(7)
+      expect(toolResultsReceived.every((result) => result !== undefined)).toBe(
+        true
+      )
+
+      // Verify that executeToolCall was called with state.messages (not agentState.messageHistory)
+      // The real implementation adds tool results to state.messages
+      expect(executeToolCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          state: expect.objectContaining({
+            messages: expect.any(Array),
+          }),
+        })
+      )
+
+      // Reset spy for second call
+      executeToolCallSpy.mockClear()
+
+      // Second call - should return early due to STEP_ALL state
+      const result2 = await runProgrammaticStep(result1.agentState, {
+        ...mockParams,
+        // Use the updated agent state from first call
+      })
+
+      // Verify STEP_ALL behavior
+      expect(executeToolCallSpy).not.toHaveBeenCalled() // No tools should execute
+      expect(result2.endTurn).toBe(false) // Should still not end turn
+      expect(result2.agentState).toEqual(result1.agentState) // State should be unchanged
+      expect(stepCount).toBe(1) // Generator should not have run again
+
+      // Third call - verify STEP_ALL state persists
+      const result3 = await runProgrammaticStep(result2.agentState, {
+        ...mockParams,
+      })
+
+      expect(executeToolCallSpy).not.toHaveBeenCalled()
+      expect(result3.endTurn).toBe(false)
+      expect(result3.agentState).toEqual(result1.agentState)
+      expect(stepCount).toBe(1) // Generator should still not have run again
     })
 
     it('should pass tool results back to generator', async () => {
