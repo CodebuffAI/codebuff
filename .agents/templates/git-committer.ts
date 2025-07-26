@@ -4,7 +4,7 @@ export default {
   id: 'CodebuffAI/git-committer',
   version: '0.0.1',
   model: 'anthropic/claude-sonnet-4',
-  name: 'Git Committer',
+  displayName: 'Git Committer',
   purpose:
     'A git committer agent specialized to commit current changes with an appropriate commit message.',
   promptSchema: {

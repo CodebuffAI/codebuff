@@ -1,7 +1,5 @@
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import { getToolCallString } from '@codebuff/common/constants/tools'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
 import {
   baseAgentAgentStepPrompt,
@@ -19,7 +17,7 @@ export const thinkingBase = (
   allAvailableAgents?: string[]
 ): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['base_lite'].name,
+  displayName: AGENT_PERSONAS['base_lite'].displayName,
   purpose: AGENT_PERSONAS['base_lite'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),

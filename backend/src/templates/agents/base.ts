@@ -15,7 +15,7 @@ export const base = (
   allAvailableAgents?: string[]
 ): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['base'].name,
+  displayName: AGENT_PERSONAS['base'].displayName,
   purpose: AGENT_PERSONAS['base'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),

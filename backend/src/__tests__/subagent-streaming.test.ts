@@ -74,7 +74,7 @@ describe('Subagent Streaming', () => {
         agentRegistry: {
           thinker: {
             id: 'thinker',
-            name: 'Thinker',
+            displayName: 'Thinker',
             outputMode: 'last_message',
             promptSchema: {
               prompt: {

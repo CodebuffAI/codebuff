@@ -208,7 +208,7 @@ export const handleSpawnAgents = ((params: {
         return {
           ...result,
           agentType,
-          agentName: agentRegistry[agentType] || agentTemplate.name,
+          agentName: agentRegistry[agentType] || agentTemplate.displayName,
         }
       })
     )

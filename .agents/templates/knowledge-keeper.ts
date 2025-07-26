@@ -4,7 +4,7 @@ export default {
   id: 'knowledge-keeper',
   version: '1.0.0',
   override: false,
-  name: 'Kendra the Knowledge Keeper',
+  displayName: 'Kendra the Knowledge Keeper',
   purpose:
     'Expert at gathering, organizing, and maintaining project knowledge files and documentation.',
   model: 'anthropic/claude-4-sonnet-20250522',

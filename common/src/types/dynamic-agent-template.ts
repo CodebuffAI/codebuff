@@ -42,7 +42,7 @@ export const DynamicAgentConfigSchema = z.object({
   override: z.literal(false).optional().default(false), // Must be false for new agents, defaults to false if missing
 
   // Required fields for new agents
-  name: z.string(),
+  displayName: z.string(),
   purpose: z.string(),
   model: z.string(),
   outputMode: z

@@ -1,11 +1,11 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import {
   DynamicAgentConfigSchema,
   DynamicAgentTemplate,
 } from '@codebuff/common/types/dynamic-agent-template'
-import { dynamicAgentService } from '../templates/dynamic-agent-service'
 import { AgentState } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { dynamicAgentService } from '../templates/dynamic-agent-service'
 
 describe('handleSteps Parsing Tests', () => {
   let mockFileContext: ProjectFileContext
@@ -44,7 +44,7 @@ describe('handleSteps Parsing Tests', () => {
     mockAgentTemplate = {
       id: 'test-agent',
       version: '1.0.0',
-      name: 'Test Agent',
+      displayName: 'Test Agent',
       purpose: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'json' as const,

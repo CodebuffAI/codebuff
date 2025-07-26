@@ -52,8 +52,8 @@ export async function formatPrompt(
 
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.AGENT_NAME]: agentState.agentType
-      ? agentRegistry[agentState.agentType]?.name ||
-        agentTemplates[agentState.agentType]?.name ||
+      ? agentRegistry[agentState.agentType]?.displayName ||
+        agentTemplates[agentState.agentType]?.displayName ||
         'Unknown Agent'
       : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),

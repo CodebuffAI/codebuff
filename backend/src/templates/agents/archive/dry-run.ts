@@ -6,7 +6,7 @@ import { AgentTemplate, PLACEHOLDER } from '../../types'
 
 export const dryRun = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['dry_run'].name,
+  displayName: AGENT_PERSONAS['dry_run'].displayName,
   purpose: AGENT_PERSONAS['dry_run'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),

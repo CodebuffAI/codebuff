@@ -236,7 +236,8 @@ export class DynamicAgentService {
           this.validationErrors.push({
             filePath,
             message: `handleSteps must be a generator function: "function* (params) { ... }". Found: ${content.handleSteps.substring(0, 50)}...`,
-            details: 'handleSteps should start with "function*" to be a valid generator function',
+            details:
+              'handleSteps should start with "function*" to be a valid generator function',
           })
           return
         }
@@ -249,6 +250,7 @@ export class DynamicAgentService {
       // Convert to internal AgentTemplate format
       const agentTemplate: AgentTemplate = {
         ...content,
+        displayName: content.displayName,
         outputMode,
         outputSchema,
         promptSchema,

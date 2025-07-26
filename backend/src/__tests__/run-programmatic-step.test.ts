@@ -18,6 +18,7 @@ import {
 } from 'bun:test'
 import { WebSocket } from 'ws'
 
+import { renderToolResults } from '@codebuff/common/constants/tools'
 import {
   clearMockedModules,
   mockModule,
@@ -28,9 +29,8 @@ import {
 } from '../run-programmatic-step'
 import { AgentTemplate, StepGenerator } from '../templates/types'
 import * as toolExecutor from '../tools/tool-executor'
-import * as requestContext from '../websockets/request-context'
 import { asSystemMessage } from '../util/messages'
-import { renderToolResults } from '@codebuff/common/constants/tools'
+import * as requestContext from '../websockets/request-context'
 import { mockFileContext, MockWebSocket } from './test-utils'
 
 describe('runProgrammaticStep', () => {
@@ -82,7 +82,7 @@ describe('runProgrammaticStep', () => {
     // Create mock template
     mockTemplate = {
       id: 'test-agent',
-      name: 'Test Agent',
+      displayName: 'Test Agent',
       purpose: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       promptSchema: {},
@@ -692,7 +692,8 @@ describe('runProgrammaticStep', () => {
         ...mockAgentState.messageHistory,
         {
           role: 'user',
-          content: '<user_message><codebuff_tool_call>\n{\n  \"cb_tool_name\": \"end_turn\",\n  \"cb_easp\": true\n}\n</codebuff_tool_call></user_message>',
+          content:
+            '<user_message><codebuff_tool_call>\n{\n  "cb_tool_name": "end_turn",\n  "cb_easp": true\n}\n</codebuff_tool_call></user_message>',
         },
       ])
     })

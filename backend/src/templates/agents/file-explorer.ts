@@ -11,7 +11,7 @@ const paramsSchema = z.object({
 
 export const fileExplorer = {
   id: 'file_explorer',
-  name: 'Dora the File Explorer',
+  displayName: 'Dora the File Explorer',
   purpose:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
   model: 'anthropic/claude-4-sonnet-20250522',

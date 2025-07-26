@@ -49,7 +49,7 @@ describe('Parent Instructions Injection', () => {
       'knowledge-keeper': {
         version: '1.0.0',
         id: 'knowledge-keeper',
-        name: 'Knowledge Keeper',
+        displayName: 'Knowledge Keeper',
         override: false,
         purpose: 'Test agent',
         model: 'anthropic/claude-4-sonnet-20250522',
@@ -69,7 +69,7 @@ describe('Parent Instructions Injection', () => {
       researcher: {
         version: '1.0.0',
         id: 'researcher',
-        name: 'Researcher',
+        displayName: 'Researcher',
         override: false,
         purpose: 'Research agent',
         model: 'anthropic/claude-4-sonnet-20250522',
@@ -121,7 +121,7 @@ describe('Parent Instructions Injection', () => {
         version: '1.0.0',
         id: 'researcher',
         override: false,
-        name: 'Researcher',
+        displayName: 'Researcher',
         purpose: 'Research agent',
         model: 'anthropic/claude-4-sonnet-20250522',
         outputMode: 'last_message',
@@ -157,7 +157,7 @@ describe('Parent Instructions Injection', () => {
       'knowledge-keeper': {
         version: '1.0.0',
         id: 'knowledge-keeper',
-        name: 'Knowledge Keeper',
+        displayName: 'Knowledge Keeper',
         override: false,
         purpose: 'Test agent',
         model: 'anthropic/claude-4-sonnet-20250522',
@@ -175,7 +175,7 @@ describe('Parent Instructions Injection', () => {
       planner: {
         version: '1.0.0',
         id: 'planner',
-        name: 'Planner',
+        displayName: 'Planner',
         override: false,
         purpose: 'Planning agent',
         model: 'anthropic/claude-4-sonnet-20250522',
@@ -193,7 +193,7 @@ describe('Parent Instructions Injection', () => {
       researcher: {
         version: '1.0.0',
         id: 'researcher',
-        name: 'Researcher',
+        displayName: 'Researcher',
         override: false,
         purpose: 'Research agent',
         model: 'anthropic/claude-4-sonnet-20250522',

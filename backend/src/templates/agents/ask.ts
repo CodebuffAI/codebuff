@@ -11,7 +11,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['ask'].name,
+  displayName: AGENT_PERSONAS['ask'].displayName,
   purpose: 'Base ask-mode agent that orchestrates the full response.',
   promptSchema: {
     prompt: z

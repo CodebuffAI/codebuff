@@ -77,7 +77,7 @@ describe('Dynamic Agent Loader', () => {
           id: 'brainstormer',
           version: '1.0.0',
           override: false,
-          name: 'Brainy',
+          displayName: 'Brainy',
           purpose: 'Creative thought partner',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'You are a creative brainstormer.',
@@ -96,7 +96,7 @@ describe('Dynamic Agent Loader', () => {
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('brainstormer')
-    expect(result.templates.brainstormer.name).toBe('Brainy')
+    expect(result.templates.brainstormer.displayName).toBe('Brainy')
     expect(result.templates.brainstormer.id).toBe('brainstormer')
   })
 
@@ -108,7 +108,7 @@ describe('Dynamic Agent Loader', () => {
           id: 'invalid_agent',
           version: '1.0.0',
           override: false,
-          name: 'Invalid',
+          displayName: 'Invalid',
           purpose: 'Invalid agent',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Test',
@@ -138,7 +138,7 @@ describe('Dynamic Agent Loader', () => {
           id: 'custom_agent',
           version: '1.0.0',
           override: false,
-          name: 'Custom',
+          displayName: 'Custom',
           purpose: 'Custom agent',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Custom system prompt',
@@ -169,7 +169,7 @@ describe('Dynamic Agent Loader', () => {
           id: 'schema_agent',
           version: '1.0.0',
           override: false,
-          name: 'Schema Agent',
+          displayName: 'Schema Agent',
           purpose: 'Agent with JSON schemas',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Test system prompt',
@@ -214,7 +214,7 @@ describe('Dynamic Agent Loader', () => {
           id: 'invalid_schema_agent',
           version: '1.0.0',
           override: false,
-          name: 'Invalid Schema Agent',
+          displayName: 'Invalid Schema Agent',
           purpose: 'Agent with invalid schemas',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Test system prompt',
@@ -255,7 +255,7 @@ describe('Dynamic Agent Loader', () => {
           id: 'no_override_agent',
           version: '1.0.0',
           // No override field - should be treated as non-override
-          name: 'No Override Agent',
+          displayName: 'No Override Agent',
           purpose: 'Agent without override field',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Test system prompt',
@@ -286,7 +286,7 @@ describe('Dynamic Agent Loader', () => {
           id: 'CodebuffAI/git-committer',
           version: '0.0.1',
           override: false,
-          name: 'Git Committer',
+          displayName: 'Git Committer',
           purpose: 'A git committer agent',
           model: 'google/gemini-2.5-pro',
           systemPrompt: 'You are an expert software developer.',
@@ -301,7 +301,7 @@ describe('Dynamic Agent Loader', () => {
           id: 'spawner_agent',
           version: '1.0.0',
           override: false,
-          name: 'Spawner Agent',
+          displayName: 'Spawner Agent',
           purpose: 'Agent that can spawn git-committer',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Test system prompt',

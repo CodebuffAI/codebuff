@@ -24,7 +24,7 @@ export interface AgentConfig {
   id: string
 
   /** Human-readable name for the agent */
-  name: string
+  displayName: string
 
   /** Description of what this agent does. Provided to the parent agent so it knows when to spawn this agent. */
   purpose: string

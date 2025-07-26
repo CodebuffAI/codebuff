@@ -3,7 +3,7 @@ import { DynamicAgentConfig } from '@codebuff/common/types/dynamic-agent-templat
 export default {
   id: 'example-handlesteps-agent',
   version: '1.0.0',
-  name: 'Example HandleSteps Agent',
+  displayName: 'Example HandleSteps Agent',
   purpose:
     'Demonstrates how to use handleSteps generator functions for programmatic agent control',
   model: 'claude-3-5-sonnet-20241022',

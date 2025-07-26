@@ -25,8 +25,8 @@ import {
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { getAllAgentTemplates } from '../templates/agent-registry'
-import * as websocketAction from '../websockets/websocket-action'
 import { AgentTemplate } from '../templates/types'
+import * as websocketAction from '../websockets/websocket-action'
 
 describe('runAgentStep - update_report tool', () => {
   beforeAll(() => {
@@ -330,7 +330,7 @@ describe('runAgentStep - update_report tool', () => {
     // Create a mock agent template with handleSteps
     const mockAgentTemplate: AgentTemplate = {
       id: 'test-handlesteps-agent',
-      name: 'Test HandleSteps Agent',
+      displayName: 'Test HandleSteps Agent',
       purpose: 'Testing handleSteps functionality',
       model: 'claude-3-5-sonnet-20241022',
       promptSchema: {},

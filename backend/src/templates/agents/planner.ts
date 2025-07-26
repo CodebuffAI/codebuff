@@ -6,7 +6,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['planner'].name,
+  displayName: AGENT_PERSONAS['planner'].displayName,
   purpose: AGENT_PERSONAS['planner'].purpose,
   promptSchema: {
     prompt: z

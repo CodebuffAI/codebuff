@@ -76,7 +76,7 @@ Error: Cannot resolve prompt file './my-prompt.md'
 {
   "id": "my-agent",
   "override": false,
-  "name": "My Agent"
+  "displayName": "My Agent"
   // ❌ Missing required fields for new agents
 }
 ```
@@ -87,7 +87,7 @@ Error: Cannot resolve prompt file './my-prompt.md'
   "id": "my-agent",
   "version": "1.0.0",
   "override": false,
-  "name": "My Agent",
+  "displayName": "My Agent",
   "purpose": "Brief description of the agent's purpose",
   "model": "anthropic/claude-4-sonnet-20250522",
   "systemPrompt": "You are a helpful assistant...",
@@ -274,7 +274,7 @@ If you're still experiencing issues:
 
 ### Required Fields for New Agents
 - `id`, `version`, `override: false`
-- `name`, `purpose`, `model`
+- `displayName`, `purpose`, `model`
 - `systemPrompt`, `userInputPrompt`, `agentStepPrompt`
 
 ### Common File Paths

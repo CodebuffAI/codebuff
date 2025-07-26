@@ -81,7 +81,7 @@ export async function loadLocalAgents({
 export function getLoadedAgentNames(): Record<string, string> {
   return Object.fromEntries(
     Object.entries(loadedAgents).map(([agentType, agentConfig]) => {
-      return [agentType, agentConfig.name]
+      return [agentType, agentConfig.displayName]
     })
   )
 }

@@ -15,7 +15,7 @@ export type AgentTemplate<
   T = Record<string, any> | undefined,
 > = {
   id: AgentTemplateType
-  name: string
+  displayName: string
   purpose: string
   model: Model
   // Required parameters for spawning this agent.

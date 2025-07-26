@@ -6,7 +6,7 @@ export default {
   version: '1.0.0',
   override: false,
 
-  name: 'Brian the Brainstormer',
+  displayName: 'Brian the Brainstormer',
   purpose:
     'Acts as a creative thought partner, generating ideas and exploring alternative viewpoints to help think through problems.',
   model: 'anthropic/claude-4-sonnet-20250522',

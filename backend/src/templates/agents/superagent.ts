@@ -10,7 +10,7 @@ export const superagent = (
   allAvailableAgents?: string[]
 ): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['superagent'].name,
+  displayName: AGENT_PERSONAS['superagent'].displayName,
   purpose: AGENT_PERSONAS['superagent'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
