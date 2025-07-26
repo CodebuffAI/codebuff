@@ -156,7 +156,7 @@ export const handleSpawnAgents = ((params: {
           subAgentMessages.push(conversationHistoryMessage)
         }
 
-        const subAgentState = {
+        const subAgentState: AgentState = {
           agentId,
           agentType,
           agentContext: {},
@@ -164,12 +164,17 @@ export const handleSpawnAgents = ((params: {
           messageHistory: subAgentMessages,
           stepsRemaining: 20, // MAX_AGENT_STEPS
           output: undefined,
-          // Add parent ID to agent state for communication
           parentId: agentState!.agentId,
         }
 
         logger.debug(
-          { agentTemplate, prompt, params, agentId, parentId: agentState.parentId },
+          {
+            agentTemplate,
+            prompt,
+            params,
+            agentId,
+            parentId: subAgentState.parentId,
+          },
           `Spawning agent — ${agentType} (${agentId})`
         )
 
