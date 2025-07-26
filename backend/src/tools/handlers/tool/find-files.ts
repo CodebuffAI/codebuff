@@ -51,7 +51,7 @@ export const handleFindFiles = ((params: {
     userInputId,
     state,
   } = params
-  const { description } = toolCall.args
+  const { prompt } = toolCall.args
   const { ws, fingerprintId, userId, repoId, messages } = state
 
   if (!ws) {
@@ -79,7 +79,7 @@ export const handleFindFiles = ((params: {
     const requestedFiles = await requestRelevantFiles(
       { messages, system },
       fileContext,
-      description,
+      prompt,
       agentStepId,
       clientSessionId,
       fingerprintId,
@@ -105,7 +105,7 @@ export const handleFindFiles = ((params: {
           ws,
           { messages, system },
           fileContext,
-          description,
+          prompt,
           agentStepId,
           clientSessionId,
           fingerprintId,
@@ -122,8 +122,8 @@ export const handleFindFiles = ((params: {
 
       logger.debug(
         {
-          content: description,
-          description: description,
+          content: prompt,
+          prompt,
           addedFilesPaths: addedFiles.map((f) => f.path),
           updatedFilePaths,
           printedPaths,
@@ -134,9 +134,9 @@ export const handleFindFiles = ((params: {
       if (addedFiles.length > 0) {
         return renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
       }
-      return `No new relevant files found for description: ${description}`
+      return `No new relevant files found for prompt: ${prompt}`
     } else {
-      return `No relevant files found for description: ${description}`
+      return `No relevant files found for prompt: ${prompt}`
     }
   }
 

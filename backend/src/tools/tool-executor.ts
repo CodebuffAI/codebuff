@@ -147,6 +147,10 @@ export function executeToolCall<T extends ToolName>(
       toolCallId: toolCall.toolCallId,
       result: toolCall.error,
     })
+    logger.debug(
+      { toolCall, error: toolCall.error },
+      `${toolName} error: ${toolCall.error}`
+    )
     return previousToolCallFinished
   }
 
