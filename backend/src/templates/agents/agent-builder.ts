@@ -27,10 +27,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
     'end_turn',
   ] satisfies ToolName[],
   spawnableAgents: [AgentTemplateTypes.file_picker],
-  initialAssistantMessage: '',
-  initialAssistantPrefix: '',
-  stepAssistantMessage: '',
-  stepAssistantPrefix: '',
+
   systemPrompt: `# Agent Builder - Template Creation Assistant
 
 You are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.
@@ -51,10 +48,7 @@ Every agent template must include these fields:
 - **includeMessageHistory**: boolean - Whether to include conversation history
 - **toolNames**: ToolName[] - Array of available tools
 - **spawnableAgents**: AgentTemplateType[] - Sub-agents this agent can spawn
-- **initialAssistantMessage**: string - First message when agent starts
-- **initialAssistantPrefix**: string - Prefix for initial response
-- **stepAssistantMessage**: string - Message for subsequent steps
-- **stepAssistantPrefix**: string - Prefix for step responses
+
 - **systemPrompt**: string - Core system instructions
 - **userInputPrompt**: string - Instructions for handling user input
 - **agentStepPrompt**: string - Instructions for each agent step

@@ -31,10 +31,6 @@ export const superagent = (
         AgentTemplateTypes.base,
         AgentTemplateTypes.ask,
       ],
-  initialAssistantMessage: '',
-  initialAssistantPrefix: '',
-  stepAssistantMessage: '',
-  stepAssistantPrefix: '',
 
   systemPrompt:
     `You are an expert orchestrator that can solve any problem, including coding tasks.

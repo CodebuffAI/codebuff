@@ -30,24 +30,28 @@ export const thinkingBase = (
   spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : baseAgentSpawnableAgents,
-  initialAssistantMessage: '',
-  initialAssistantPrefix: '',
-  stepAssistantMessage: getToolCallString(
-    'spawn_agents',
-    {
-      agents: JSON.stringify([
-        {
-          agent_type: AgentTemplateTypes.thinker,
-          prompt: '',
-          include_message_history: true,
-        },
-      ]),
-    },
-    true
-  ),
-  stepAssistantPrefix: '',
 
   systemPrompt: baseAgentSystemPrompt(model),
   userInputPrompt: baseAgentUserInputPrompt(model),
   agentStepPrompt: baseAgentAgentStepPrompt(model),
+
+  handleSteps: function* ({ agentState, prompt, params }) {
+    while (true) {
+      yield {
+        toolName: 'spawn_agents',
+        args: {
+          agents: [
+            {
+              agent_type: 'thinker',
+              prompt: 'Think deeply about the user request',
+            },
+          ],
+        },
+      }
+      const { toolResult: thinkResult } = yield 'STEP'
+      if (thinkResult?.toolName === 'end_turn') {
+        break
+      }
+    }
+  },
 })

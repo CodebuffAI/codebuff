@@ -41,10 +41,7 @@ describe('QuickJS Sandbox Generator', () => {
       systemPrompt: '',
       userInputPrompt: '',
       agentStepPrompt: '',
-      initialAssistantMessage: '',
-      initialAssistantPrefix: '',
-      stepAssistantMessage: '',
-      stepAssistantPrefix: '',
+
       handleSteps: '', // Will be set per test
     }
 
@@ -119,7 +116,7 @@ describe('QuickJS Sandbox Generator', () => {
 
     expect(result.endTurn).toBe(true)
     expect(result.agentState.output?.error).toContain(
-      'Error executing programmatic agent'
+      'Error executing handleSteps for agent test-vm-agent-error'
     )
   })
 })

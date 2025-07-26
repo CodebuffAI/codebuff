@@ -68,18 +68,7 @@ export async function loadLocalAgents({
           systemPrompt: loadFileContents(typedAgentConfig.systemPrompt),
           userInputPrompt: loadFileContents(typedAgentConfig.userInputPrompt),
           agentStepPrompt: loadFileContents(typedAgentConfig.agentStepPrompt),
-          initialAssistantMessage: loadFileContents(
-            typedAgentConfig.initialAssistantMessage
-          ),
-          initialAssistantPrefix: loadFileContents(
-            typedAgentConfig.initialAssistantPrefix
-          ),
-          stepAssistantMessage: loadFileContents(
-            typedAgentConfig.stepAssistantMessage
-          ),
-          stepAssistantPrefix: loadFileContents(
-            typedAgentConfig.stepAssistantPrefix
-          ),
+
           handleSteps: handleStepsString,
         }
       }

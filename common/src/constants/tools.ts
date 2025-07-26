@@ -43,7 +43,7 @@ export const toolSchema = {
   write_file: ['path', 'instructions', 'content'],
   str_replace: ['path', 'replacements'],
   read_files: ['paths'],
-  find_files: ['description'],
+  find_files: ['prompt'],
 
   // Search and terminal
   code_search: ['pattern', 'flags', 'cwd'],

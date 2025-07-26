@@ -16,10 +16,6 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'id'> => ({
   includeMessageHistory: true,
   toolNames: ['end_turn', 'run_file_change_hooks'],
   spawnableAgents: [],
-  initialAssistantMessage: undefined,
-  initialAssistantPrefix: undefined,
-  stepAssistantMessage: undefined,
-  stepAssistantPrefix: undefined,
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
