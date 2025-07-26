@@ -295,8 +295,8 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
         const selectedAgent = agentList[selectedIndex]
         if (selectedAgent.isCreateNew) {
           exitAgentsBuffer(rl)
-          startAgentCreationChat(rl, onExit, (requirements) => {
-            createAgentFromRequirements(requirements)
+          startAgentCreationChat(rl, onExit, async (requirements) => {
+            await createAgentFromRequirements(requirements)
             onExit()
           })
         } else if (selectedAgent.filePath) {
@@ -317,8 +317,8 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
     // Handle 'n' key - create new agent
     if (key && key.name === 'n') {
       exitAgentsBuffer(rl)
-      startAgentCreationChat(rl, onExit, (requirements) => {
-        createAgentFromRequirements(requirements)
+      startAgentCreationChat(rl, onExit, async (requirements) => {
+        await createAgentFromRequirements(requirements)
         onExit()
       })
       return
@@ -389,8 +389,8 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
 }
 
 function startAgentCreationChatHandler(rl: any, onExit: () => void) {
-  startAgentCreationChat(rl, onExit, (requirements) => {
-    createAgentFromRequirements(requirements)
+  startAgentCreationChat(rl, onExit, async (requirements) => {
+    await createAgentFromRequirements(requirements)
     onExit()
   })
 }
@@ -412,5 +412,3 @@ export function cleanupAgentsBuffer() {
   process.on('SIGINT', cleanupAgentsBuffer)
   process.on('SIGTERM', cleanupAgentsBuffer)
 }
-
-
