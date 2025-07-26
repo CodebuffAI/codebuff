@@ -56,6 +56,12 @@ import {
   resetSubagentSelectionToLast,
 } from './cli-handlers/subagent-list'
 import {
+  enterAgentsBuffer,
+  isInAgentsMode,
+  cleanupAgentsBuffer,
+} from './cli-handlers/agents'
+import { cleanupMiniChat } from './cli-handlers/mini-chat'
+import {
   getAllSubagentIds,
   getRecentSubagents,
   setTraceEnabled,
@@ -895,6 +901,20 @@ export class CLI {
       return null
     }
 
+    // Handle 'agents' command - show agent management interface
+    if (cleanInput === 'agents') {
+      if (isInAgentsMode()) {
+        console.log(yellow('Already in agents mode! Press ESC to exit.'))
+        this.freshPrompt()
+        return null
+      }
+
+      await enterAgentsBuffer(this.rl, () => {
+        this.freshPrompt()
+      })
+      return null
+    }
+
     // Checkpoint commands
     if (isCheckpointCommand(cleanInput)) {
       trackEvent(AnalyticsEvent.CHECKPOINT_COMMAND_USED, {
@@ -1148,6 +1168,8 @@ export class CLI {
 
     cleanupSubagentBuffer()
     cleanupSubagentListBuffer()
+    cleanupAgentsBuffer()
+    cleanupMiniChat()
 
     Spinner.get().restoreCursor()
     process.removeAllListeners('unhandledRejection')

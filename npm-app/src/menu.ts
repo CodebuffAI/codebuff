@@ -193,6 +193,14 @@ export const interactiveCommandDetails: CommandInfo[] = [
   },
 
   {
+    baseCommand: 'agents',
+    description: 'Manage custom agent templates in .agents/templates/',
+    isSlashCommand: true,
+    commandText: '"agents"',
+    requireSlash: false,
+  },
+
+  {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
     description: 'Quit Codebuff',
