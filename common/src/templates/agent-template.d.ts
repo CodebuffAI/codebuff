@@ -163,6 +163,8 @@ export type ToolName =
 
 /**
  * AI models available for agents (all models in OpenRouter are supported)
+ *
+ * See available models at https://openrouter.ai/models
  */
 export type ModelName =
   // Verified OpenRouter Models
@@ -178,9 +180,7 @@ export type ModelName =
   | 'google/gemini-2.5-pro'
   | 'google/gemini-2.5-flash'
   | 'x-ai/grok-4-07-09'
-
-  // Or any string for custom models, as long as they are supported by OpenRouter
-  | string
+  | (string & {})
 
 // ============================================================================
 // Spawnable Agents
@@ -195,7 +195,7 @@ export type SpawnableAgentName =
   | 'researcher'
   | 'thinker'
   | 'reviewer'
-  | string // Allow custom agent names
+  | (string & {})
 
 // ============================================================================
 // Utility Types
