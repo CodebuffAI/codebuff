@@ -240,7 +240,7 @@ export async function runProgrammaticStep(
       'Programmatic agent execution failed'
     )
 
-    const errorMessage = `Error executing programmatic agent: ${
+    const errorMessage = `Error executing handleSteps for agent ${template.id}: ${
       error instanceof Error ? error.message : 'Unknown error'
     }`
     onResponseChunk(errorMessage)
