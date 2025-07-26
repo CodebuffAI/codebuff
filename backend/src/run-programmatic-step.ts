@@ -4,11 +4,14 @@ import {
   ToolResult,
 } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
+import { getToolCallString } from '@codebuff/common/constants/tools'
 import { WebSocket } from 'ws'
 import { AgentTemplate, StepGenerator } from './templates/types'
 import { CodebuffToolCall } from './tools/constants'
+import { codebuffToolDefs } from './tools/definitions/list'
 import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
+import { asUserMessage } from './util/messages'
 import { SandboxManager } from './util/quickjs-sandbox'
 import { getRequestContext } from './websockets/request-context'
 import { sendAction } from './websockets/websocket-action'
@@ -132,7 +135,7 @@ export async function runProgrammaticStep(
     },
     agentState: { ...agentState },
     agentContext: agentState.agentContext,
-    messages: [...agentState.messageHistory],
+    messages: agentState.messageHistory.map((msg) => ({ ...msg })),
   }
 
   let toolResult: ToolResult | undefined
@@ -174,6 +177,17 @@ export async function runProgrammaticStep(
         { toolCall },
         `${toolCall.toolName} tool call from programmatic agent`
       )
+
+      // Add user message with the tool call before executing it
+      const toolCallString = getToolCallString(
+        toolCall.toolName,
+        toolCall.args,
+        codebuffToolDefs[toolCall.toolName].endsAgentStep
+      )
+      state.messages.push({
+        role: 'user' as const,
+        content: asUserMessage(toolCallString),
+      })
 
       // Execute the tool synchronously and get the result immediately
       await executeToolCall({

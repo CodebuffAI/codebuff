@@ -86,47 +86,9 @@ export const runAgentStep = async (
   const { agentContext } = agentState
 
   const startTime = Date.now()
-  let messageHistory = agentState.messageHistory
   // Get the extracted repo ID from request context
   const requestContext = getRequestContext()
   const repoId = requestContext?.processedRepoId
-
-  const agentTemplate = agentRegistry[agentType]
-  if (!agentTemplate) {
-    throw new Error(
-      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
-    )
-  }
-
-  const { handleSteps } = agentTemplate
-  if (handleSteps) {
-    const { agentState: newAgentState, endTurn } = await runProgrammaticStep(
-      agentState,
-      {
-        ...options,
-        ws,
-        template: agentTemplate,
-      }
-    )
-    agentState = newAgentState
-    if (endTurn) {
-      return {
-        agentState,
-        fullResponse: '',
-        shouldEndTurn: true,
-      }
-    }
-  }
-
-  const { model } = agentTemplate
-
-  const getStream = getAgentStreamFromTemplate({
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    template: agentTemplate,
-  })
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
   // This is used to link logs within a single agent loop
@@ -140,6 +102,7 @@ export const runAgentStep = async (
     repoName: repoId,
   })
 
+  let messageHistory = agentState.messageHistory
   const messagesWithUserPrompt = buildArray<CodebuffMessage>(
     ...messageHistory,
     prompt && [
@@ -258,6 +221,13 @@ export const runAgentStep = async (
     }
   }
 
+  const agentTemplate = agentRegistry[agentType]
+  if (!agentTemplate) {
+    throw new Error(
+      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
+    )
+  }
+
   const agentStepPrompt = await getAgentPrompt(
     agentTemplate,
     { type: 'agentStepPrompt' },
@@ -317,7 +287,39 @@ export const runAgentStep = async (
     }
   )
 
-  const iterationNum = agentMessagesUntruncated.length
+  agentState.messageHistory = agentMessagesUntruncated
+
+  const { handleSteps } = agentTemplate
+  if (handleSteps) {
+    const { agentState: newAgentState, endTurn } = await runProgrammaticStep(
+      agentState,
+      {
+        ...options,
+        ws,
+        template: agentTemplate,
+      }
+    )
+    agentState = newAgentState
+    if (endTurn) {
+      return {
+        agentState,
+        fullResponse: '',
+        shouldEndTurn: true,
+      }
+    }
+  }
+
+  const { model } = agentTemplate
+
+  const getStream = getAgentStreamFromTemplate({
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    template: agentTemplate,
+  })
+
+  const iterationNum = agentState.messageHistory.length
 
   const system = await getAgentPrompt(
     agentTemplate,
@@ -333,7 +335,7 @@ export const runAgentStep = async (
 
   // Possibly truncated messagesWithUserMessage + cache.
   const agentMessages = getCoreMessagesSubset(
-    agentMessagesUntruncated,
+    agentState.messageHistory,
     systemTokens,
     supportsCacheControl(agentTemplate.model)
   )

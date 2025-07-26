@@ -26,6 +26,7 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { getAllAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
+import { AgentTemplate } from '../templates/types'
 
 describe('runAgentStep - update_report tool', () => {
   beforeAll(() => {
@@ -323,5 +324,129 @@ describe('runAgentStep - update_report tool', () => {
 
     // Should replace with empty object
     expect(result.agentState.output).toEqual({})
+  })
+
+  it('should handle handleSteps with one tool call and STEP_ALL', async () => {
+    // Create a mock agent template with handleSteps
+    const mockAgentTemplate: AgentTemplate = {
+      id: 'test-handlesteps-agent',
+      name: 'Test HandleSteps Agent',
+      purpose: 'Testing handleSteps functionality',
+      model: 'claude-3-5-sonnet-20241022',
+      promptSchema: {},
+      outputMode: 'json' as const,
+      includeMessageHistory: true,
+      toolNames: ['read_files', 'end_turn'],
+      spawnableAgents: [],
+      systemPrompt: 'Test system prompt',
+      userInputPrompt: 'Test user prompt',
+      agentStepPrompt: 'Test agent step prompt',
+      handleSteps: function* ({ agentState, prompt, params }) {
+        // Yield one tool call
+        yield {
+          toolName: 'read_files',
+          args: { paths: ['src/test.ts'] },
+        }
+        // Then yield STEP_ALL to continue processing
+        yield 'STEP_ALL'
+      },
+    }
+
+    // Mock the agent registry to include our test agent
+    const mockAgentRegistry = {
+      'test-handlesteps-agent': mockAgentTemplate,
+    }
+
+    // Mock requestFiles to return test file content
+    spyOn(websocketAction, 'requestFiles').mockImplementation(
+      async (ws: any, paths: string[]) => {
+        const results: Record<string, string | null> = {}
+        paths.forEach((p) => {
+          if (p === 'src/test.ts') {
+            results[p] = 'export function testFunction() { return "test"; }'
+          } else {
+            results[p] = null
+          }
+        })
+        return results
+      }
+    )
+
+    // Mock the LLM stream to return a response that doesn't end the turn
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield 'Continuing with the analysis...' // Non-empty response, no tool calls
+    })
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+    const initialMessageCount = agentState.messageHistory.length
+
+    const result = await runAgentStep(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        userId: TEST_USER_ID,
+        userInputId: 'test-input',
+        clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
+        onResponseChunk: () => {},
+        agentType: 'test-handlesteps-agent' as any,
+        fileContext: mockFileContext,
+        agentRegistry: mockAgentRegistry,
+        agentState,
+        prompt: 'Test the handleSteps functionality',
+        params: undefined,
+      }
+    )
+
+    // Should end turn because toolCalls.length === 0 && toolResults.length === 0 from LLM processing
+    // (The programmatic step tool results don't count toward this calculation)
+    expect(result.shouldEndTurn).toBe(true)
+
+    const messageHistory = result.agentState.messageHistory
+
+    // Verify exactly five messages were added: user prompt, user input prompt, tool call, tool result, and assistant response
+    expect(messageHistory.length).toBe(initialMessageCount + 5)
+
+    // Get the five new messages
+    const newMessages = messageHistory.slice(initialMessageCount)
+
+    // First message: user prompt (user role)
+    const userPromptMessage = newMessages[0]
+    expect(userPromptMessage.role).toBe('user')
+    expect(typeof userPromptMessage.content).toBe('string')
+    expect(userPromptMessage.content).toContain(
+      'Test the handleSteps functionality'
+    )
+
+    // Second message: user input prompt (user role)
+    const userInputPromptMessage = newMessages[1]
+    expect(userInputPromptMessage.role).toBe('user')
+    expect(typeof userInputPromptMessage.content).toBe('string')
+    expect(userInputPromptMessage.content).toContain('Test user prompt')
+
+    // Third message: read_files tool call (user role)
+    const toolCallMessage = newMessages[2]
+    expect(toolCallMessage.role).toBe('user')
+    expect(typeof toolCallMessage.content).toBe('string')
+    expect(toolCallMessage.content).toContain('read_files')
+    expect(toolCallMessage.content).toContain('src/test.ts')
+
+    // Fourth message: read_files tool result (user role)
+    const toolResultMessage = newMessages[3]
+    expect(toolResultMessage.role).toBe('user')
+    expect(typeof toolResultMessage.content).toBe('string')
+    expect(toolResultMessage.content).toContain('testFunction')
+
+    // Fifth message: assistant response (assistant role)
+    const assistantMessage = newMessages[4]
+    expect(assistantMessage.role).toBe('assistant')
+    expect(typeof assistantMessage.content).toBe('string')
+    expect(assistantMessage.content).toBe('Continuing with the analysis...')
+
+    // Verify requestFiles was called with correct parameters
+    expect(websocketAction.requestFiles).toHaveBeenCalledWith(
+      expect.any(Object), // WebSocket
+      ['src/test.ts']
+    )
   })
 })
