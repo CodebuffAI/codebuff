@@ -1,20 +1,23 @@
-import { ToolName, toolNames } from '@codebuff/common/constants/tools'
-import { CodebuffMessage } from '@codebuff/common/types/message'
-import {
+import type { ToolName } from '@codebuff/common/constants/tools'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type {
   AgentState,
   Subgoal,
   ToolResult,
 } from '@codebuff/common/types/session-state'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { ToolCallPart } from 'ai'
+import type { WebSocket } from 'ws'
+import type { AgentTemplate } from '../templates/types'
+import { CodebuffToolCall } from './constants'
+
+import { toolNames } from '@codebuff/common/constants/tools'
 import { buildArray } from '@codebuff/common/util/array'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { ToolCallPart } from 'ai'
-import { WebSocket } from 'ws'
-import { AgentTemplate } from '../templates/types'
 import { expireMessages } from '../util/messages'
 import { sendAction } from '../websockets/websocket-action'
 import { processStreamWithTags } from '../xml-stream-parser'
-import { CodebuffToolCall } from './constants'
 import { executeToolCall } from './tool-executor'
 
 export type ToolCallError = {
@@ -37,7 +40,7 @@ export async function processStreamWithTools<T extends string>(options: {
   messages: CodebuffMessage[]
   agentState: AgentState
   agentContext: Record<string, Subgoal>
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string | PrintModeObject) => void
   fullResponse: string
 }) {
   const {

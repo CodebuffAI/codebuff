@@ -1,4 +1,5 @@
 import type { ToolName } from '@codebuff/common/constants/tools'
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
 import type { ToolResult } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -105,7 +106,7 @@ export interface ExecuteToolCallParams<T extends ToolName = ToolName> {
   clientSessionId: string
   userInputId: string
   fullResponse: string
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string | PrintModeObject) => void
   state: Record<string, any>
   userId: string | undefined
   autoInsertEndStepParam?: boolean
