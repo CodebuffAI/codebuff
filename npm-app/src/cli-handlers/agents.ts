@@ -1,4 +1,4 @@
-import { green, yellow, cyan, magenta, bold, gray, blue } from 'picocolors'
+import { green, yellow, cyan, magenta, bold, gray, blue, red } from 'picocolors'
 import { pluralize } from '@codebuff/common/util/string'
 import { loadLocalAgents, getLoadedAgentNames } from '../agents/load-agents'
 import {
@@ -296,7 +296,14 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
         if (selectedAgent.isCreateNew) {
           exitAgentsBuffer(rl)
           startAgentCreationChat(rl, onExit, async (requirements) => {
-            await createAgentFromRequirements(requirements)
+            try {
+              await createAgentFromRequirements(requirements)
+            } catch (error) {
+              console.error(red('\nError creating agent:'))
+              console.error(
+                error instanceof Error ? error.message : String(error)
+              )
+            }
             onExit()
           })
         } else if (selectedAgent.filePath) {
@@ -318,7 +325,12 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
     if (key && key.name === 'n') {
       exitAgentsBuffer(rl)
       startAgentCreationChat(rl, onExit, async (requirements) => {
-        await createAgentFromRequirements(requirements)
+        try {
+          await createAgentFromRequirements(requirements)
+        } catch (error) {
+          console.error(red('\nError creating agent:'))
+          console.error(error instanceof Error ? error.message : String(error))
+        }
         onExit()
       })
       return

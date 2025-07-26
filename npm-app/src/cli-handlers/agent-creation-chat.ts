@@ -2,7 +2,7 @@ import { enterMiniChat } from './mini-chat'
 import * as fs from 'fs'
 import * as path from 'path'
 import { getProjectRoot } from '../project-files'
-import { green, gray, yellow } from 'picocolors'
+import { green, gray, yellow, red } from 'picocolors'
 import { Client } from '../client'
 
 interface AgentRequirements {
@@ -73,9 +73,9 @@ export async function createAgentFromRequirements(
     fs.mkdirSync(agentsDir, { recursive: true })
   }
 
-  console.log(yellow('\nCreating agent with Agatha Agent Builder...'))
+  console.log(yellow('\nCreating agent with Agent Builder...'))
 
-  // Read the source agent-template.d.ts file to provide full context to Agatha
+  // Read the source agent-template.d.ts file to provide full context
   const sourceTemplatePath = path.join(
     getProjectRoot(),
     'common',
@@ -83,9 +83,16 @@ export async function createAgentFromRequirements(
     'templates',
     'agent-template.d.ts'
   )
-  const templateTypesContent = fs.readFileSync(sourceTemplatePath, 'utf8')
 
-  // Create a detailed prompt for Agatha with the requirements and full template context
+  let templateTypesContent: string
+  try {
+    templateTypesContent = fs.readFileSync(sourceTemplatePath, 'utf8')
+  } catch (error) {
+    console.error('Error reading template file:', error)
+    throw new Error(`Failed to read agent template file: ${error}`)
+  }
+
+  // Create a detailed prompt for the agent builder with the requirements and full template context
   const agathaPrompt = `Create a new agent template with these requirements:
 
 Agent Name: ${requirements.name}
@@ -100,22 +107,35 @@ Please:
 
 The agent should be well-structured and follow best practices.
 
+IMPORTANT: When creating the agent file, make sure to import types from './agent-template' (without the .d.ts extension), not from './agent-template.d.ts'.
+
 Here is the full agent-template.d.ts file for reference:\n\n\`\`\`typescript\n${templateTypesContent}\n\`\`\`
 
 Please create the agent file with proper TypeScript types and a comprehensive system prompt that reflects the agent's specialty and purpose.`
 
-  // Get the client instance and spawn Agatha
+  // Get the client instance and spawn agent-builder
   const client = Client.getInstance()
 
-  // Send the prompt to spawn Agatha agent builder
-  const { responsePromise } = await client.sendUserInput(
-    `@agent-builder ${agathaPrompt}`
-  )
+  try {
+    // Send the prompt to spawn agent-builder
+    const { responsePromise } = await client.sendUserInput(
+      `@agent-builder ${agathaPrompt}`
+    )
 
-  // Wait for Agatha to complete the agent creation
-  await responsePromise
+    // Wait for agent-builder to complete the agent creation
+    await responsePromise
 
-  console.log(green(`\nAgent creation completed by Agatha Agent Builder!`))
-  console.log(gray('Check the .agents/templates directory for your new agent.'))
-  console.log(gray('Restart Codebuff to use your new agent.'))
+    console.log(green(`\nAgent creation completed by Agent Builder!`))
+    console.log(
+      gray('Check the .agents/templates directory for your new agent.')
+    )
+    console.log(gray('Restart Codebuff to use your new agent.'))
+  } catch (error) {
+    console.error(red('\nError during agent creation:'))
+    console.error(
+      'Error message:',
+      error instanceof Error ? error.message : String(error)
+    )
+    throw error
+  }
 }
