@@ -150,17 +150,13 @@ export const handleSpawnAgents = ((params: {
           }
         }
 
-        logger.debug(
-          { agentTemplate, prompt, params },
-          `Spawning agent — ${agentType}`
-        )
+        const agentId = generateCompactId()
         const subAgentMessages: CoreMessage[] = []
         if (agentTemplate.includeMessageHistory) {
           subAgentMessages.push(conversationHistoryMessage)
         }
 
-        const agentId = generateCompactId()
-        agentState = {
+        const subAgentState = {
           agentId,
           agentType,
           agentContext: {},
@@ -172,6 +168,11 @@ export const handleSpawnAgents = ((params: {
           parentId: agentState!.agentId,
         }
 
+        logger.debug(
+          { agentTemplate, prompt, params, agentId, parentId: agentState.parentId },
+          `Spawning agent — ${agentType} (${agentId})`
+        )
+
         // Import loopAgentSteps dynamically to avoid circular dependency
         const { loopAgentSteps } = await import('../../../run-agent-step')
 
@@ -180,7 +181,7 @@ export const handleSpawnAgents = ((params: {
           prompt: prompt || '',
           params,
           agentType: agentTemplate.id,
-          agentState,
+          agentState: subAgentState,
           fingerprintId,
           fileContext,
           agentRegistry,
