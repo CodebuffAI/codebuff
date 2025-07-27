@@ -1,27 +1,36 @@
-import { Model } from '@codebuff/common/constants'
-import { ToolName } from '@codebuff/common/constants/tools'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import z from 'zod/v4'
-import { AgentTemplate } from '../types'
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { Model, openrouterModels } from '@codebuff/common/constants'
+import { ToolName } from '@codebuff/common/constants/tools'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import z from 'zod/v4'
+
+import { AgentTemplate } from '../types'
+
+const TEMPLATE_RELATIVE_PATH =
+  '../../../../common/src/templates/agent-template.d.ts' as const
+
+// Import to validate path exists at compile time - TypeScript will fail if this doesn't resolve
+import(TEMPLATE_RELATIVE_PATH)
+
+const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
+const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
+const TEMPLATE_TYPES_PATH = '.agents/templates/agent-template.d.ts'
+
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
   // Read the agent-template.d.ts file content dynamically
+  // The import above ensures this path exists at compile time
   let agentTemplateContent = ''
   try {
-    const templatePath = path.join(
-      __dirname,
-      '../../../../common/src/templates/agent-template.d.ts'
-    )
-    agentTemplateContent = fs.readFileSync(templatePath, 'utf8')
+    agentTemplateContent = fs.readFileSync(TEMPLATE_PATH, 'utf8')
   } catch (error) {
     console.warn('Could not read agent-template.d.ts:', error)
     agentTemplateContent = '// Agent template types not available'
   }
 
   return {
-    name: 'Agent Builder',
+    name: 'Agatha the Agent Builder',
     purpose: 'Creates new agent templates for the codebuff mult-agent system',
     model,
     promptSchema: {
@@ -98,10 +107,14 @@ Ask clarifying questions if needed, then create the template file in the appropr
 - Ensuring the agent will work effectively for its intended purpose`,
 
     // Generator function that defines the agent's execution flow
-    handleSteps: function* ({ agentState, prompt, params }: {
-      agentState: any;
-      prompt: string | undefined;
-      params: Record<string, any> | undefined;
+    handleSteps: function* ({
+      agentState,
+      prompt,
+      params,
+    }: {
+      agentState: any
+      prompt: string | undefined
+      params: Record<string, any> | undefined
     }) {
       // Parse the prompt to extract agent requirements
       const requirements = {
@@ -109,41 +122,27 @@ Ask clarifying questions if needed, then create the template file in the appropr
         purpose:
           params?.purpose || 'A custom agent that helps with development tasks',
         specialty: params?.specialty || 'general development',
-        model: params?.model || 'anthropic/claude-4-sonnet-20250522',
+        model: params?.model || DEFAULT_MODEL,
       }
 
-      // Step 1: Ensure .agents/templates directory exists
-      yield {
+      // Step 1: Create directory and copy agent-template.d.ts in one command
+      const { toolResult: setupResult } = yield {
         toolName: 'run_terminal_command',
         args: {
-          command: 'mkdir -p .agents/templates',
+          command: `mkdir -p .agents/templates && cp "${TEMPLATE_PATH}" "${TEMPLATE_TYPES_PATH}"`,
           process_type: 'SYNC',
           timeout_seconds: 10,
           cb_easp: true,
         },
       }
 
-      // Step 2: Copy agent-template.d.ts to .agents/templates/
-      const templateTypesPath = '.agents/templates/agent-template.d.ts'
-      const sourceTemplatePath = 'common/src/templates/agent-template.d.ts'
-
-      yield {
-        toolName: 'run_terminal_command',
-        args: {
-          command: `cat "${sourceTemplatePath}" > "${templateTypesPath}"`,
-          process_type: 'SYNC',
-          timeout_seconds: 10,
-          cb_easp: true,
-        },
-      }
-
-      // Step 3: Generate agent ID from name
+      // Step 2: Generate agent ID from name
       const agentId = requirements.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
 
-      // Step 4: Determine appropriate tools based on specialty
+      // Step 3: Determine appropriate tools based on specialty
       let tools = ['read_files', 'write_file', 'str_replace', 'end_turn']
       let spawnableAgents = []
 
@@ -177,7 +176,7 @@ Ask clarifying questions if needed, then create the template file in the appropr
         spawnableAgents.push('reviewer')
       }
 
-      // Step 5: Create the agent template content using AgentConfig interface
+      // Step 4: Create the agent template content using AgentConfig interface
       const agentTemplate = `import { AgentConfig } from './agent-template'
 
 export default {
@@ -210,7 +209,7 @@ Help users achieve their goals efficiently and effectively within your domain of
 } satisfies AgentConfig
 `
 
-      // Step 6: Write the agent template file
+      // Step 5: Write the agent template file
       const agentFilePath = `.agents/templates/${agentId}.ts`
 
       yield {
@@ -222,7 +221,7 @@ Help users achieve their goals efficiently and effectively within your domain of
         },
       }
 
-      // Step 7: End the agent execution
+      // Step 6: End the agent execution
       yield {
         toolName: 'end_turn',
         args: {

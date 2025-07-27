@@ -170,33 +170,28 @@ function processUserInput(input: string) {
 
   // Move to next question or complete
   if (chatConfig && currentStep < chatConfig.steps.length) {
-    setTimeout(() => {
-      if (chatConfig) {
-        addMessage('assistant', chatConfig.steps[currentStep].question)
-      }
-    }, 500)
+    if (chatConfig) {
+      addMessage('assistant', chatConfig.steps[currentStep].question)
+    }
   } else {
     // All questions answered
-    setTimeout(() => {
-      addMessage(
-        'assistant',
-        'Perfect! I have everything I need. Processing your responses...'
-      )
-      setTimeout(() => {
-        // Preserve the callback before exiting mini-chat
-        const onCompleteCallback = chatConfig?.onComplete
+    addMessage(
+      'assistant',
+      'Perfect! I have everything I need. Processing your responses...'
+    )
 
-        exitMiniChat()
+    // Preserve the callback before exiting mini-chat
+    const onCompleteCallback = chatConfig?.onComplete
 
-        if (onCompleteCallback) {
-          try {
-            onCompleteCallback(responses)
-          } catch (error) {
-            console.error(red('Error in onComplete callback:'), error)
-          }
-        }
-      }, 1000)
-    }, 500)
+    exitMiniChat()
+
+    if (onCompleteCallback) {
+      try {
+        onCompleteCallback(responses)
+      } catch (error) {
+        console.error(red('Error in onComplete callback:'), error)
+      }
+    }
   }
 }
 

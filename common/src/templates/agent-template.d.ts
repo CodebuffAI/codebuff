@@ -5,7 +5,7 @@
  * Import these types in your agent files to get full type safety and IntelliSense.
  *
  * Usage:
- *   import { AgentConfig, ToolName, ModelName } from './agent-template.d.ts'
+ *   import { AgentConfig, ToolName, ModelName } from './agent-template'
  *
  *   const config: AgentConfig = {
  *     // Your agent configuration with full type safety
@@ -16,14 +16,15 @@
 // Core Agent Configuration Types
 // ============================================================================
 
-/**
- * Simple configuration interface for defining a custom agent
- */
 export interface AgentConfig {
-  /** Unique identifier for this agent */
+  // ============================================================================
+  // Required Fields (these 4 are all you need to get started!)
+  // ============================================================================
+
+  /** Unique identifier for this agent (e.g., 'code-reviewer', 'test-writer') */
   id: string
 
-  /** Human-readable name for the agent */
+  /** Human-readable name for the agent (e.g., 'Code Reviewer', 'Test Writer') */
   name: string
 
   /** Description of what this agent does. Provided to the parent agent so it knows when to spawn this agent. */
@@ -32,6 +33,10 @@ export interface AgentConfig {
   /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
   model: ModelName
 
+  // ============================================================================
+  // Optional Customization
+  // ============================================================================
+
   /** Background information for the agent. */
   systemPrompt?: string
 
@@ -39,17 +44,17 @@ export interface AgentConfig {
    * Updating this prompt is the best way to shape the agent's behavior. */
   userInputPrompt?: string
 
-  /** Tools this agent can use (defaults to common file editing tools) */
+  /** Tools this agent can use (defaults to ['read_files', 'write_file', 'str_replace', 'end_turn']) */
   tools?: ToolName[]
 
-  /** Other agents this agent can spawn */
+  /** Other agents this agent can spawn (defaults to []) */
   spawnableAgents?: SpawnableAgentName[]
 
   // ============================================================================
   // Advanced fields below!
   // ============================================================================
 
-  /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
+  /** Version string (defaults to '0.0.1' and bumped on each publish) */
   version?: string
 
   /** How the agent should output responses after spawned (defaults to 'last_message') */
@@ -64,11 +69,11 @@ export interface AgentConfig {
   /** Prompt inserted at each agent step. Powerful for changing the agent's behavior. */
   agentStepPrompt?: string
 
-  /** Instructions for spawned sub-agents */
+  /** Instructions for spawned sub-agents (defaults to {}) */
   parentInstructions?: Record<SpawnableAgentName, string>
 
   /** Programmatically step the agent forward and run tools.
-   * 
+   *
    * Example:
    * function* handleSteps({ agentStep, prompt, params}) {
    *   const { toolResult } = yield {
@@ -77,7 +82,7 @@ export interface AgentConfig {
    *   }
    *   yield 'STEP_ALL'
    * }
-  */
+   */
   handleSteps?: (
     context: AgentStepContext
   ) => Generator<
@@ -95,6 +100,24 @@ export interface AgentState {
   agentId: string
   parentId: string
   messageHistory: Message[]
+}
+
+/**
+ * Message in conversation history
+ */
+export interface Message {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  timestamp?: number
+}
+
+/**
+ * Result from executing a tool
+ */
+export interface ToolResult {
+  success: boolean
+  data?: any
+  error?: string
 }
 
 /**
@@ -203,7 +226,7 @@ export type ModelName =
   | 'google/gemini-2.5-pro'
   | 'google/gemini-2.5-flash'
   | 'x-ai/grok-4-07-09'
-  | (string & {})
+  | (string & {}) // Preserves autocomplete while allowing any string
 
 // ============================================================================
 // Spawnable Agents
@@ -218,7 +241,7 @@ export type SpawnableAgentName =
   | 'researcher'
   | 'thinker'
   | 'reviewer'
-  | (string & {})
+  | (string & {}) // Preserves autocomplete while allowing any string
 
 // ============================================================================
 // Utility Types

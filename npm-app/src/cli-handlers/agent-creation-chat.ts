@@ -34,10 +34,10 @@ const AGENT_CREATION_STEPS = [
   },
   {
     question:
-      'Which model should this agent use? (Press Enter for default: claude-3-5-sonnet-20241022)',
+      'Which model should this agent use? (Press Enter for default: anthropic/claude-4-sonnet-20250522)',
     field: 'model',
-    placeholder: 'claude-3-5-sonnet-20241022, gpt-4o, gemini-2.0-flash-exp',
-    defaultValue: 'claude-3-5-sonnet-20241022',
+    placeholder: 'anthropic/claude-4-sonnet-20250522, gpt-4o, gemini-2.0-flash-exp',
+    defaultValue: 'anthropic/claude-4-sonnet-20250522',
   },
 ]
 
@@ -56,7 +56,7 @@ export function startAgentCreationChat(
           responses.purpose ||
           'A custom agent that helps with development tasks',
         specialty: responses.specialty || 'general development',
-        model: responses.model || 'claude-3-5-sonnet-20241022',
+        model: responses.model || 'anthropic/claude-4-sonnet-20250522',
       }
       onComplete(requirements)
     },
