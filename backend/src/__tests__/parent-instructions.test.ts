@@ -43,7 +43,7 @@ const createMockFileContext = (
 })
 
 describe('Parent Instructions Injection', () => {
-  it('should inject parent instructions into userInputPrompt', async () => {
+  it('should inject parent instructions into instructionsPrompt', async () => {
     // Mock file context with agent templates
     const fileContext = createMockFileContext({
       'knowledge-keeper': {
@@ -63,8 +63,8 @@ describe('Parent Instructions Injection', () => {
           file_picker: 'Spawn knowledge-keeper when you discover missing docs.',
         },
         systemPrompt: 'You are a test agent.',
-        userInputPrompt: 'Process the user request.',
-        agentStepPrompt: 'Continue processing.',
+        instructionsPrompt: 'Process the user request.',
+        stepPrompt: 'Continue processing.',
       },
       researcher: {
         version: '1.0.0',
@@ -78,8 +78,8 @@ describe('Parent Instructions Injection', () => {
         toolNames: ['end_turn'],
         spawnableAgents: [],
         systemPrompt: 'You are a researcher.',
-        userInputPrompt: 'Research the topic.',
-        agentStepPrompt: 'Continue research.',
+        instructionsPrompt: 'Research the topic.',
+        stepPrompt: 'Continue research.',
       },
     })
 
@@ -129,8 +129,8 @@ describe('Parent Instructions Injection', () => {
         toolNames: ['end_turn'],
         spawnableAgents: [],
         systemPrompt: 'You are a researcher.',
-        userInputPrompt: 'Research the topic.',
-        agentStepPrompt: 'Continue research.',
+        instructionsPrompt: 'Research the topic.',
+        stepPrompt: 'Continue research.',
       },
     })
 
@@ -169,8 +169,8 @@ describe('Parent Instructions Injection', () => {
           researcher: 'First instruction for researcher.',
         },
         systemPrompt: 'You are a test agent.',
-        userInputPrompt: 'Process the user request.',
-        agentStepPrompt: 'Continue processing.',
+        instructionsPrompt: 'Process the user request.',
+        stepPrompt: 'Continue processing.',
       },
       planner: {
         version: '1.0.0',
@@ -187,8 +187,8 @@ describe('Parent Instructions Injection', () => {
           researcher: 'Second instruction for researcher.',
         },
         systemPrompt: 'You are a planner.',
-        userInputPrompt: 'Plan the task.',
-        agentStepPrompt: 'Continue planning.',
+        instructionsPrompt: 'Plan the task.',
+        stepPrompt: 'Continue planning.',
       },
       researcher: {
         version: '1.0.0',
@@ -202,8 +202,8 @@ describe('Parent Instructions Injection', () => {
         toolNames: ['end_turn'],
         spawnableAgents: [],
         systemPrompt: 'You are a researcher.',
-        userInputPrompt: 'Research the topic.',
-        agentStepPrompt: 'Continue research.',
+        instructionsPrompt: 'Research the topic.',
+        stepPrompt: 'Continue research.',
       },
     })
 

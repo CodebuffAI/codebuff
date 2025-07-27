@@ -46,8 +46,8 @@ describe('Dynamic Agent Schema Validation', () => {
             purpose: 'Test agent without prompt schema',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
 
             outputMode: 'last_message',
             includeMessageHistory: true,
@@ -79,8 +79,8 @@ describe('Dynamic Agent Schema Validation', () => {
             purpose: 'Test agent without params schema',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
 
             outputMode: 'last_message',
             includeMessageHistory: true,
@@ -114,8 +114,8 @@ describe('Dynamic Agent Schema Validation', () => {
             purpose: 'Test agent with both schemas',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
 
             promptSchema: {
               prompt: {
@@ -184,8 +184,8 @@ describe('Dynamic Agent Schema Validation', () => {
             purpose: 'Test agent with complex nested schema',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
 
             promptSchema: {
               params: {
@@ -267,8 +267,8 @@ describe('Dynamic Agent Schema Validation', () => {
             purpose: 'Test agent for error context',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
 
             promptSchema: {
               prompt: {
@@ -305,8 +305,8 @@ describe('Dynamic Agent Schema Validation', () => {
               'A git committer agent specialized to commit current changes with an appropriate commit message.',
             model: 'google/gemini-2.5-pro',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
             promptSchema: {
               prompt: {
                 type: 'string',
@@ -365,8 +365,8 @@ describe('Dynamic Agent Schema Validation', () => {
             purpose: 'Test agent with empty schema',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
             promptSchema: {},
 
             outputMode: 'last_message',

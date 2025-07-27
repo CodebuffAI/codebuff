@@ -30,8 +30,8 @@ export const thinkingBase = (
     : baseAgentSpawnableAgents,
 
   systemPrompt: baseAgentSystemPrompt(model),
-  userInputPrompt: baseAgentUserInputPrompt(model),
-  agentStepPrompt: baseAgentAgentStepPrompt(model),
+  instructionsPrompt: baseAgentUserInputPrompt(model),
+  stepPrompt: baseAgentAgentStepPrompt(model),
 
   handleSteps: function* ({ agentState, prompt, params }) {
     while (true) {

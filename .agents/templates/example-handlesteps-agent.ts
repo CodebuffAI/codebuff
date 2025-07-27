@@ -13,8 +13,8 @@ export default {
 
   systemPrompt:
     'You are an example agent that demonstrates handleSteps functionality.',
-  userInputPrompt: 'User request: {prompt}',
-  agentStepPrompt: 'Continue processing the request.',
+  instructionsPrompt: 'User request: {prompt}',
+  stepPrompt: 'Continue processing the request.',
 
   // Generator function that defines the agent's execution flow
   handleSteps: function* ({ agentState, prompt, params }) {

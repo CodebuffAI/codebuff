@@ -24,9 +24,9 @@ export default {
   ],
   systemPrompt:
     'You are an expert software developer. Your job is to create a git commit with a really good commit message.',
-  userInputPrompt: {
+  instructionsPrompt: {
     path: './git-committer-user-prompt.md',
   },
-  agentStepPrompt:
+  stepPrompt:
     'Make sure to end your response by using set_output to output a structured summary of what you committed and whether it was successful. Finally, use end_turn to end your turn.',
 } satisfies DynamicAgentConfig

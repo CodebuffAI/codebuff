@@ -53,8 +53,8 @@ describe('handleSteps Parsing Tests', () => {
       override: false as const,
       includeMessageHistory: true,
       systemPrompt: 'Test system prompt',
-      userInputPrompt: 'Test user prompt',
-      agentStepPrompt: 'Test agent step prompt',
+      instructionsPrompt: 'Test user prompt',
+      stepPrompt: 'Test agent step prompt',
     }
   })
 
@@ -66,14 +66,14 @@ describe('handleSteps Parsing Tests', () => {
     const agentConfig = {
       id: 'test-agent',
       version: '1.0.0',
-      name: 'Test Agent',
+      displayName: 'Test Agent',
       purpose: 'Testing handleSteps',
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'json' as const,
       toolNames: ['set_output'],
       systemPrompt: 'You are a test agent',
-      userInputPrompt: 'Process: {prompt}',
-      agentStepPrompt: 'Continue processing',
+      instructionsPrompt: 'Process: {prompt}',
+      stepPrompt: 'Continue processing',
       handleSteps: function* ({
         agentState,
         prompt,
@@ -141,15 +141,15 @@ describe('handleSteps Parsing Tests', () => {
     const agentConfig = {
       id: 'test-agent',
       version: '1.0.0',
-      name: 'Test Agent',
+      displayName: 'Test Agent',
       purpose: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'json' as const,
       toolNames: ['end_turn'], // Missing set_output
       spawnableAgents: [],
       systemPrompt: 'Test',
-      userInputPrompt: 'Test',
-      agentStepPrompt: 'Test',
+      instructionsPrompt: 'Test',
+      stepPrompt: 'Test',
 
       handleSteps:
         'function* () { yield { toolName: "set_output", args: {} } }',

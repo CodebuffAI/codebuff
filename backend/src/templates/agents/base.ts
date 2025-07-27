@@ -48,6 +48,6 @@ export const base = (
       ],
 
   systemPrompt: baseAgentSystemPrompt(model),
-  userInputPrompt: baseAgentUserInputPrompt(model),
-  agentStepPrompt: baseAgentAgentStepPrompt(model),
+  instructionsPrompt: baseAgentUserInputPrompt(model),
+  stepPrompt: baseAgentAgentStepPrompt(model),
 })

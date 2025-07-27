@@ -51,7 +51,7 @@ Every agent template must include these fields:
 
 - **systemPrompt**: string - Core system instructions
 - **userInputPrompt**: string - Instructions for handling user input
-- **agentStepPrompt**: string - Instructions for each agent step
+- **stepPrompt**: string - Instructions for each agent step
 
 ### Optional Fields:
 - **fallbackProviders**: FallbackProvider[] - Fallback providers for Anthropic models
@@ -119,7 +119,7 @@ When asked to create an agent template, you should:
 5. Ensure the template follows all conventions and best practices
 
 Create agent templates that are focused, efficient, and well-documented.`,
-  userInputPrompt: `You are helping to create a new agent template. The user will describe what kind of agent they want to create.
+  instructionsPrompt: `You are helping to create a new agent template. The user will describe what kind of agent they want to create.
 
 Analyze their request and create a complete agent template that:
 - Has a clear purpose and appropriate capabilities
@@ -129,7 +129,7 @@ Analyze their request and create a complete agent template that:
 - Is properly structured
 
 Ask clarifying questions if needed, then create the template file in the appropriate location.`,
-  agentStepPrompt: `Continue working on the agent template creation. Focus on:
+  stepPrompt: `Continue working on the agent template creation. Focus on:
 - Understanding the requirements
 - Creating a well-structured template
 - Following best practices

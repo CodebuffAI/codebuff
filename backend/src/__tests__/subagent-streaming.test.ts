@@ -88,8 +88,8 @@ describe('Subagent Streaming', () => {
             spawnableAgents: [],
 
             systemPrompt: '',
-            userInputPrompt: '',
-            agentStepPrompt: '',
+            instructionsPrompt: '',
+            stepPrompt: '',
           },
         },
         validationErrors: [],

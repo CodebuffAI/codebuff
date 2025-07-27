@@ -66,8 +66,8 @@ export async function loadLocalAgents({
         loadedAgents[file.slice(0, -'.ts'.length)] = {
           ...typedAgentConfig,
           systemPrompt: loadFileContents(typedAgentConfig.systemPrompt),
-          userInputPrompt: loadFileContents(typedAgentConfig.userInputPrompt),
-          agentStepPrompt: loadFileContents(typedAgentConfig.agentStepPrompt),
+          instructionsPrompt: loadFileContents(typedAgentConfig.instructionsPrompt),
+          stepPrompt: loadFileContents(typedAgentConfig.stepPrompt),
 
           handleSteps: handleStepsString,
         }

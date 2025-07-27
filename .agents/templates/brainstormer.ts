@@ -37,8 +37,8 @@ export default {
     path: '.agents/templates/brainstormer-system.md',
   },
 
-  userInputPrompt:
+  instructionsPrompt:
     'Act as a creative thought partner. Generate multiple perspectives, challenge assumptions, explore alternatives, and ask probing questions to help think through problems more thoroughly.',
-  agentStepPrompt:
+  stepPrompt:
     "Continue brainstorming and exploring ideas. When you're done, use the end_turn tool: ",
 } satisfies DynamicAgentConfig

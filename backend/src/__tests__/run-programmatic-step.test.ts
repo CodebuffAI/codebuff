@@ -92,8 +92,8 @@ describe('runProgrammaticStep', () => {
       spawnableAgents: [],
 
       systemPrompt: 'Test system prompt',
-      userInputPrompt: 'Test user prompt',
-      agentStepPrompt: 'Test agent step prompt',
+      instructionsPrompt: 'Test user prompt',
+      stepPrompt: 'Test agent step prompt',
       handleSteps: undefined, // Will be set in individual tests
     } as AgentTemplate
 

@@ -49,8 +49,8 @@ Create a specialized agent that provides guidance to other agents when spawning 
   },
 
   "systemPrompt": "You are a security coordinator responsible for ensuring secure development practices.",
-  "userInputPrompt": "Analyze the security implications of the request and coordinate appropriate security-focused agents.",
-  "agentStepPrompt": "Continue security analysis and spawn relevant agents with security-focused instructions."
+  "instructionsPrompt": "Analyze the security implications of the request and coordinate appropriate security-focused agents.",
+  "stepPrompt": "Continue security analysis and spawn relevant agents with security-focused instructions."
 }
 ```
 
@@ -62,7 +62,7 @@ Create a specialized agent that provides guidance to other agents when spawning 
 ## Available Fields
 
 **Core:** `model`, `toolNames`, `spawnableAgents`
-**Prompts:** `systemPrompt`, `userInputPrompt`, `agentStepPrompt`
+**Prompts:** `systemPrompt`, `instructionsPrompt`, `stepPrompt`
 **Parent Instructions:** `parentInstructions` - Guide spawned agents
 
 ## Built-in Agents

@@ -228,19 +228,19 @@ export const runAgentStep = async (
     )
   }
 
-  const agentStepPrompt = await getAgentPrompt(
+  const stepPrompt = await getAgentPrompt(
     agentTemplate,
-    { type: 'agentStepPrompt' },
+    { type: 'stepPrompt' },
     fileContext,
     agentState,
     agentRegistry
   )
 
-  // Extract user input prompt to match hasPrompt && {...} pattern
-  const userInputPrompt = hasPrompt
+  // Extract instructions prompt to match hasPrompt && {...} pattern
+  const instructionsPrompt = hasPrompt
     ? await getAgentPrompt(
         agentTemplate,
-        { type: 'userInputPrompt' },
+        { type: 'instructionsPrompt' },
         fileContext,
         agentState,
         agentRegistry
@@ -274,15 +274,15 @@ export const runAgentStep = async (
         },
     ],
 
-    userInputPrompt && {
+    instructionsPrompt && {
       role: 'user' as const,
-      content: userInputPrompt,
+      content: instructionsPrompt,
       timeToLive: 'userPrompt' as const,
     },
 
-    agentStepPrompt && {
+    stepPrompt && {
       role: 'user' as const,
-      content: agentStepPrompt,
+      content: stepPrompt,
       timeToLive: 'agentStep' as const,
     }
   )

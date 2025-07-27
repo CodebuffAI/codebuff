@@ -91,8 +91,8 @@ Error: Cannot resolve prompt file './my-prompt.md'
   "purpose": "Brief description of the agent's purpose",
   "model": "anthropic/claude-4-sonnet-20250522",
   "systemPrompt": "You are a helpful assistant...",
-  "userInputPrompt": "Process the user's request...",
-  "agentStepPrompt": "Continue working on the task..."
+  "instructionsPrompt": "Process the user's request...",
+  "stepPrompt": "Continue working on the task..."
 }
 ```
 
@@ -275,7 +275,7 @@ If you're still experiencing issues:
 ### Required Fields for New Agents
 - `id`, `version`, `override: false`
 - `displayName`, `purpose`, `model`
-- `systemPrompt`, `userInputPrompt`, `agentStepPrompt`
+- `systemPrompt`, `instructionsPrompt`, `stepPrompt`
 
 ### Common File Paths
 - Agent templates: `.agents/templates/*.json`

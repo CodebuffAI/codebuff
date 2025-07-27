@@ -27,8 +27,8 @@ export const fileExplorer = {
   },
   systemPrompt:
     'You are a file explorer agent that spawns multiple file picker agents in parallel to comprehensively explore the codebase.',
-  userInputPrompt: '',
-  agentStepPrompt: '',
+  instructionsPrompt: '',
+  stepPrompt: '',
 
   handleSteps: function* ({ prompt, params }) {
     const filePickerPrompts = params.prompts.map(

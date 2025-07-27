@@ -39,8 +39,8 @@ describe('QuickJS Sandbox Generator', () => {
       spawnableAgents: [],
       promptSchema: {},
       systemPrompt: '',
-      userInputPrompt: '',
-      agentStepPrompt: '',
+      instructionsPrompt: '',
+      stepPrompt: '',
 
       handleSteps: '', // Will be set per test
     }

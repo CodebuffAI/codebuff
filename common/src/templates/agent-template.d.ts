@@ -37,7 +37,7 @@ export interface AgentConfig {
 
   /** Instructions for the agent. This prompt is inserted after each user input.
    * Updating this prompt is the best way to shape the agent's behavior. */
-  userInputPrompt?: string
+  instructionsPrompt?: string
 
   /** Tools this agent can use (defaults to common file editing tools) */
   tools?: ToolName[]
@@ -62,7 +62,7 @@ export interface AgentConfig {
   includeMessageHistory?: boolean
 
   /** Prompt inserted at each agent step. Powerful for changing the agent's behavior. */
-  agentStepPrompt?: string
+  stepPrompt?: string
 
   /** Instructions for spawned sub-agents */
   parentInstructions?: Record<SpawnableAgentName, string>
@@ -244,7 +244,7 @@ export const FileEditorExample: AgentConfig = {
   purpose: 'Specialized in reading and editing files',
   model: 'anthropic/claude-4-sonnet-20250522',
   tools: ['read_files', 'write_file', 'str_replace', 'end_turn'],
-  userInputPrompt: `
+  instructionsPrompt: `
 1. Read all the files you need first to get as much context as possible.
 2. Make the edits, preferring to use str_replace.
   `.trim(),

@@ -77,8 +77,8 @@ export const DynamicAgentConfigSchema = z.object({
 
   // Required prompts (only strings or path references)
   systemPrompt: PromptFieldSchema,
-  userInputPrompt: PromptFieldSchema,
-  agentStepPrompt: PromptFieldSchema,
+  instructionsPrompt: PromptFieldSchema,
+  stepPrompt: PromptFieldSchema,
 
   // Optional generator function for programmatic agents
   handleSteps: z
@@ -100,8 +100,8 @@ export type DynamicAgentConfigParsed = z.infer<typeof DynamicAgentConfigSchema>
 
 export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
   systemPrompt: z.string(),
-  userInputPrompt: z.string(),
-  agentStepPrompt: z.string(),
+  instructionsPrompt: z.string(),
+  stepPrompt: z.string(),
   handleSteps: z.string().optional(), // Converted to string after processing
 })
   .refine(

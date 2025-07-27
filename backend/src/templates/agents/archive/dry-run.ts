@@ -24,12 +24,11 @@ ${PLACEHOLDER.TOOLS_PROMPT}
 
 ${PLACEHOLDER.AGENTS_PROMPT}`,
 
-  userInputPrompt: `Do a dry run of implementing just the specified portion of the plan. (Do NOT sketch out the full plan!)
+  instructionsPrompt: `Do a dry run of implementing just the specified portion of the plan. (Do NOT sketch out the full plan!)
 
   Sketch out the changes you would make to the codebase and/or what tools you would call. Try not to write out full files, but include only abbreviated changes to all files you would edit.
 
   Finally, use the end_turn tool to end your response.
 `,
-  agentStepPrompt:
-    'Do not forget to use the end_turn tool to end your response.',
+  stepPrompt: 'Do not forget to use the end_turn tool to end your response.',
 })

@@ -69,8 +69,8 @@ export const AgentOverrideConfigSchema = z.object({
   override: z.literal(true), // Flag indicating this is an override
   model: z.enum(filteredModels as [string, ...string[]]).optional(),
   systemPrompt: PromptOverrideSchema.optional(),
-  userInputPrompt: PromptOverrideSchema.optional(),
-  agentStepPrompt: PromptOverrideSchema.optional(),
+  instructionsPrompt: PromptOverrideSchema.optional(),
+  stepPrompt: PromptOverrideSchema.optional(),
   spawnableAgents: ArrayOverrideSchema.optional(),
   toolNames: ToolNamesOverrideSchema.optional(),
 })

@@ -45,8 +45,8 @@ New agents need `"override": false` and these required fields:
   "systemPrompt": {
     "path": "./system.md"
   },
-  "userInputPrompt": "Create comprehensive documentation based on the user's request. Research existing code and patterns first.",
-  "agentStepPrompt": "Continue working on the documentation. Use end_turn when complete."
+  "instructionsPrompt": "Create comprehensive documentation based on the user's request. Research existing code and patterns first."
+  "stepPrompt": "Continue working on the documentation. Use end_turn when complete."
 }
 ```
 
@@ -95,8 +95,8 @@ Specialized for documenting REST APIs and GraphQL schemas:
   },
 
   "systemPrompt": "You are an API documentation specialist. Create clear, comprehensive documentation for REST APIs and GraphQL schemas with examples, request/response formats, and error codes.",
-  "userInputPrompt": "Analyze the specified API endpoints and create detailed documentation including examples, parameters, and response schemas.",
-  "agentStepPrompt": "Continue documenting the API. Include practical examples and edge cases. Use end_turn when complete."
+  "instructionsPrompt": "Analyze the specified API endpoints and create detailed documentation including examples, parameters, and response schemas."
+  "stepPrompt": "Continue documenting the API. Include practical examples and edge cases. Use end_turn when complete."
 }
 ```
 
@@ -128,8 +128,8 @@ Specialized for creating and reviewing database migrations:
   "systemPrompt": {
     "path": "./migration-guidelines.md"
   },
-  "userInputPrompt": "Create a database migration for the requested schema changes. Ensure it's reversible and includes proper indexing.",
-  "agentStepPrompt": "Continue working on the migration. Test it if possible and spawn a reviewer to check for issues."
+  "instructionsPrompt": "Create a database migration for the requested schema changes. Ensure it's reversible and includes proper indexing."
+  "stepPrompt": "Continue working on the migration. Test it if possible and spawn a reviewer to check for issues."
 }
 ```
 
@@ -196,8 +196,8 @@ Parent instructions allow your agent to provide specific guidance to other agent
     "file_picker": "To understand the React codebase structure, spawn frontend-coordinator to find components, hooks, styles, and configuration files."
   },
   "systemPrompt": "You are a frontend development coordinator specializing in React best practices. Guide development workflows and ensure code quality.",
-  "userInputPrompt": "Coordinate the frontend development task, spawning appropriate agents as needed.",
-  "agentStepPrompt": "Continue coordinating the frontend development workflow. Use end_turn when complete."
+  "instructionsPrompt": "Coordinate the frontend development task, spawning appropriate agents as needed."
+  "stepPrompt": "Continue coordinating the frontend development workflow. Use end_turn when complete."
 }
 ```
 
@@ -227,8 +227,8 @@ Parent instructions allow your agent to provide specific guidance to other agent
     "file_picker": "Understanding API structure requires spawning api-specialist to locate route definitions, middleware, controllers, and schema files."
   },
   "systemPrompt": "You are an API development specialist focused on creating robust, well-documented REST APIs following industry standards.",
-  "userInputPrompt": "Handle the API development task, ensuring proper design patterns and documentation.",
-  "agentStepPrompt": "Continue working on the API development task. Use end_turn when complete."
+  "instructionsPrompt": "Handle the API development task, ensuring proper design patterns and documentation."
+  "stepPrompt": "Continue working on the API development task. Use end_turn when complete."
 }
 ```
 
@@ -258,8 +258,8 @@ Parent instructions allow your agent to provide specific guidance to other agent
     "file_picker": "Spawn devops-automator when infrastructure setup understanding is needed - it excels at finding Docker files, CI/CD configs, and deployment scripts."
   },
   "systemPrompt": "You are a DevOps automation specialist focused on secure, scalable infrastructure and deployment pipelines.",
-  "userInputPrompt": "Handle the infrastructure or deployment automation task with security and reliability in mind.",
-  "agentStepPrompt": "Continue working on the DevOps automation task. Use end_turn when complete."
+  "instructionsPrompt": "Handle the infrastructure or deployment automation task with security and reliability in mind."
+  "stepPrompt": "Continue working on the DevOps automation task. Use end_turn when complete."
 }
 ```
 

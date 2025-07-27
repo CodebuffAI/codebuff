@@ -72,8 +72,8 @@ flowchart TD
       path?: string,     // External file path
       content?: string   // Inline content
     },
-    userInputPrompt?: { /* same structure */ },
-    agentStepPrompt?: { /* same structure */ },
+    instructionsPrompt?: { /* same structure */ },
+    stepPrompt?: { /* same structure */ },
     spawnableAgents?: {  // Modify spawnable agents list
       type: 'append' | 'replace',
       content: string | string[]

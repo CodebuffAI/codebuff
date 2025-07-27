@@ -105,7 +105,7 @@ export async function formatPrompt(
   return prompt
 }
 
-type StringField = 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt'
+type StringField = 'systemPrompt' | 'instructionsPrompt' | 'stepPrompt'
 
 export async function collectParentInstructions(
   agentType: string,
@@ -148,8 +148,8 @@ export async function getAgentPrompt<T extends StringField>(
 
   let addendum = ''
 
-  // Add parent instructions for userInputPrompt
-  if (promptType.type === 'userInputPrompt' && agentState.agentType) {
+  // Add parent instructions for instructionsPrompt
+  if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
     addendum +=
       '\n\n' +
       getShortToolInstructions(agentTemplate.toolNames) +

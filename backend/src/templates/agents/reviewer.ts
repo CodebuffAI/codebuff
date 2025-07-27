@@ -25,7 +25,7 @@ ${PLACEHOLDER.TOOLS_PROMPT}
 
 ${PLACEHOLDER.AGENTS_PROMPT}`,
 
-  userInputPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critique the code changes made recently in the above conversation.
+  instructionsPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critique the code changes made recently in the above conversation.
 
 IMPORTANT: After analyzing the file changes, you should:
 1. Run file change hooks to validate the changes using the run_file_change_hooks tool
@@ -48,5 +48,5 @@ Provide specific feedback on the file changes made by the assistant, file-by-fil
 
 Be concise and to the point. After providing all your feedback, use the end_turn tool to end your response.`,
 
-  agentStepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
+  stepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 })

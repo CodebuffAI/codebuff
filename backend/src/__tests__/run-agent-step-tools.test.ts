@@ -339,8 +339,8 @@ describe('runAgentStep - update_report tool', () => {
       toolNames: ['read_files', 'end_turn'],
       spawnableAgents: [],
       systemPrompt: 'Test system prompt',
-      userInputPrompt: 'Test user prompt',
-      agentStepPrompt: 'Test agent step prompt',
+      instructionsPrompt: 'Test user prompt',
+      stepPrompt: 'Test agent step prompt',
       handleSteps: function* ({ agentState, prompt, params }) {
         // Yield one tool call
         yield {
@@ -419,11 +419,12 @@ describe('runAgentStep - update_report tool', () => {
     )
 
     // Second message: user input prompt (user role)
-    const userInputPromptMessage = newMessages[1]
-    expect(userInputPromptMessage.role).toBe('user')
-    expect(typeof userInputPromptMessage.content).toBe('string')
-    expect(userInputPromptMessage.content).toContain('Test user prompt')
+    const instructionsPromptMessage = newMessages[1]
+    expect(instructionsPromptMessage.role).toBe('user')
+    expect(typeof instructionsPromptMessage.content).toBe('string')
+    expect(instructionsPromptMessage.content).toContain('Test user prompt')
 
+    // Second message: instructions prompt (user role)
     // Third message: read_files tool call (user role)
     const toolCallMessage = newMessages[2]
     expect(toolCallMessage.role).toBe('user')

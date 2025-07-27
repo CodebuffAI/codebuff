@@ -39,8 +39,8 @@ Always end your response with the end_turn tool.\\n\\n` +
       PLACEHOLDER.SYSTEM_INFO_PROMPT,
       PLACEHOLDER.GIT_CHANGES_PROMPT,
     ].join('\\n\\n'),
-  userInputPrompt: '',
-  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
+  instructionsPrompt: '',
+  stepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {

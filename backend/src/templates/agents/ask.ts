@@ -36,6 +36,6 @@ export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
     `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
 ` + askAgentSystemPrompt(model),
-  userInputPrompt: askAgentUserInputPrompt(model),
-  agentStepPrompt: askAgentAgentStepPrompt(model),
+  instructionsPrompt: askAgentUserInputPrompt(model),
+  stepPrompt: askAgentAgentStepPrompt(model),
 })

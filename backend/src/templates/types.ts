@@ -31,8 +31,8 @@ export type AgentTemplate<
   parentInstructions?: Record<string, string>
 
   systemPrompt: string
-  userInputPrompt: string
-  agentStepPrompt: string
+  instructionsPrompt: string
+  stepPrompt: string
 
   handleSteps?: StepHandler<P, T> | string // Function or string of the generator code for running in a sandbox
 }

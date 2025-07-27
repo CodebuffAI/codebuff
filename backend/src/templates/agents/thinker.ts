@@ -25,7 +25,7 @@ ${PLACEHOLDER.TOOLS_PROMPT}
 
 ${PLACEHOLDER.AGENTS_PROMPT}`,
 
-  userInputPrompt: `
+  instructionsPrompt: `
 Think deeply, step by step, about the user request and how best to approach it.
 
 Consider edge cases, potential issues, and alternative approaches.
@@ -37,5 +37,5 @@ Try not to be too prescriptive or confident in one solution. Instead, give clear
 You must be extremely concise and to the point.
 `.trim(),
 
-  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
+  stepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 })

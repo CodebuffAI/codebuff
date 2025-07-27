@@ -13,12 +13,12 @@ describe('DynamicAgentConfigSchema', () => {
     id: 'test_agent',
     version: '1.0.0',
     override: false,
-    name: 'Test Agent',
+    displayName: 'Test Agent',
     purpose: 'A test agent',
     model: 'anthropic/claude-4-sonnet-20250522',
     systemPrompt: 'Test system prompt',
-    userInputPrompt: 'Test user prompt',
-    agentStepPrompt: 'Test step prompt',
+    instructionsPrompt: 'Test user prompt',
+    stepPrompt: 'Test step prompt',
   }
 
   describe('Valid Templates', () => {
@@ -119,8 +119,8 @@ describe('DynamicAgentConfigSchema', () => {
       const template = {
         ...validBaseTemplate,
         systemPrompt: { path: './system-prompt.md' },
-        userInputPrompt: { path: './user-input-prompt.md' },
-        agentStepPrompt: { path: './agent-step-prompt.md' },
+        instructionsPrompt: { path: './user-input-prompt.md' },
+        stepPrompt: { path: './agent-step-prompt.md' },
       }
 
       const result = DynamicAgentConfigSchema.safeParse(template)
