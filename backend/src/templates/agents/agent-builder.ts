@@ -30,7 +30,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
   }
 
   return {
-    name: 'Agatha the Agent Builder',
+    name: 'Bob the Agent Builder',
     purpose: 'Creates new agent templates for the codebuff mult-agent system',
     model,
     promptSchema: {

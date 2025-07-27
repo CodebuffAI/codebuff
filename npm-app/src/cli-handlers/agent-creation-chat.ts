@@ -4,6 +4,8 @@ import * as path from 'path'
 import { getProjectRoot } from '../project-files'
 import { green, gray, yellow, red } from 'picocolors'
 import { Client } from '../client'
+import { CLI } from '../cli'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
 interface AgentRequirements {
   name: string
@@ -36,7 +38,8 @@ const AGENT_CREATION_STEPS = [
     question:
       'Which model should this agent use? (Press Enter for default: anthropic/claude-4-sonnet-20250522)',
     field: 'model',
-    placeholder: 'anthropic/claude-4-sonnet-20250522, gpt-4o, gemini-2.0-flash-exp',
+    placeholder:
+      'anthropic/claude-4-sonnet-20250522, gpt-4o, gemini-2.0-flash-exp',
     defaultValue: 'anthropic/claude-4-sonnet-20250522',
   },
 ]
@@ -117,15 +120,16 @@ Please create the agent file with proper TypeScript types and a comprehensive sy
   const client = Client.getInstance()
 
   try {
-    // Send the prompt to spawn agent-builder
-    const { responsePromise } = await client.sendUserInput(
-      `@agent-builder ${agathaPrompt}`
-    )
+    // Use @Bob the Agent Builder syntax to directly invoke the agent-builder
+    const agentBuilderPrompt = `@Bob the Agent Builder ${agathaPrompt}`
+
+    // Send the prompt with agent reference
+    const { responsePromise } = await client.sendUserInput(agentBuilderPrompt)
 
     // Wait for agent-builder to complete the agent creation
     await responsePromise
 
-    console.log(green(`\nAgent creation completed by Agent Builder!`))
+    console.log(green(`\nAgent creation completed by Bob the Agent Builder!`))
     console.log(
       gray('Check the .agents/templates directory for your new agent.')
     )

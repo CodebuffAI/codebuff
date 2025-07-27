@@ -68,9 +68,9 @@ export const AGENT_PERSONAS = {
       'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   },
   sonnet4_agent_builder: {
-    name: 'Agna the Agent Builder',
+    name: 'Bob the Agent Builder',
     purpose: 'Creates new agent templates for the codebuff mult-agent system',
-    hidden: true,
+    hidden: false,
   },
 } as const
 
