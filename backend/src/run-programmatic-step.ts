@@ -143,7 +143,10 @@ export async function runProgrammaticStep(
 
   try {
     // Execute tools synchronously as the generator yields them
+    let stepCount = 0
     do {
+      stepCount++
+
       const result = sandbox
         ? await sandbox.executeStep({
             agentState: { ...state.agentState },

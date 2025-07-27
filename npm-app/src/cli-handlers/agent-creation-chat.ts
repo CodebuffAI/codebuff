@@ -120,11 +120,24 @@ Please create the agent file with proper TypeScript types and a comprehensive sy
   const client = Client.getInstance()
 
   try {
-    // Use @Bob the Agent Builder syntax to directly invoke the agent-builder
-    const agentBuilderPrompt = `@Bob the Agent Builder ${agathaPrompt}`
+    // Set CLI agent to directly invoke agent-builder's handleSteps
+    const cliInstance = CLI.getInstance()
+    const originalAgent = cliInstance.agent
 
-    // Send the prompt with agent reference
-    const { responsePromise } = await client.sendUserInput(agentBuilderPrompt)
+    // Set agent to sonnet4_agent_builder and pass requirements as params
+    cliInstance.agent = AgentTemplateTypes.sonnet4_agent_builder
+    cliInstance.initialParams = {
+      name: requirements.name,
+      purpose: requirements.purpose,
+      specialty: requirements.specialty,
+      model: requirements.model,
+    }
+
+    // Send the prompt directly to agent-builder (it will use handleSteps)
+    const { responsePromise } = await client.sendUserInput(agathaPrompt)
+
+    // Restore original agent setting
+    cliInstance.agent = originalAgent
 
     // Wait for agent-builder to complete the agent creation
     await responsePromise

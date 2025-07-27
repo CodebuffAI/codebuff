@@ -46,6 +46,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
     toolNames: [
       'write_file',
       'str_replace',
+      'run_terminal_command',
       'read_files',
       'code_search',
       'spawn_agents',
@@ -125,24 +126,34 @@ Ask clarifying questions if needed, then create the template file in the appropr
         model: params?.model || DEFAULT_MODEL,
       }
 
-      // Step 1: Create directory and copy agent-template.d.ts in one command
-      const { toolResult: setupResult } = yield {
+      // Step 1: Create directory structure
+      yield {
         toolName: 'run_terminal_command',
         args: {
-          command: `mkdir -p .agents/templates && cp "${TEMPLATE_PATH}" "${TEMPLATE_TYPES_PATH}"`,
+          command: 'mkdir -p .agents/templates',
           process_type: 'SYNC',
           timeout_seconds: 10,
           cb_easp: true,
         },
       }
 
-      // Step 2: Generate agent ID from name
+      // Step 2: Write the agent-template.d.ts file with the template content
+      yield {
+        toolName: 'write_file',
+        args: {
+          path: TEMPLATE_TYPES_PATH,
+          instructions: 'Create agent template type definitions file',
+          content: agentTemplateContent,
+        },
+      }
+
+      // Step 3: Generate agent ID from name
       const agentId = requirements.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
 
-      // Step 3: Determine appropriate tools based on specialty
+      // Step 4: Determine appropriate tools based on specialty
       let tools = ['read_files', 'write_file', 'str_replace', 'end_turn']
       let spawnableAgents = []
 
@@ -176,7 +187,7 @@ Ask clarifying questions if needed, then create the template file in the appropr
         spawnableAgents.push('reviewer')
       }
 
-      // Step 4: Create the agent template content using AgentConfig interface
+      // Step 5: Create the agent template content using AgentConfig interface
       const agentTemplate = `import { AgentConfig } from './agent-template'
 
 export default {
@@ -209,7 +220,7 @@ Help users achieve their goals efficiently and effectively within your domain of
 } satisfies AgentConfig
 `
 
-      // Step 5: Write the agent template file
+      // Step 6: Write the agent template file
       const agentFilePath = `.agents/templates/${agentId}.ts`
 
       yield {
@@ -221,7 +232,7 @@ Help users achieve their goals efficiently and effectively within your domain of
         },
       }
 
-      // Step 6: End the agent execution
+      // Step 7: End the agent execution
       yield {
         toolName: 'end_turn',
         args: {
