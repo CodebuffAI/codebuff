@@ -86,18 +86,18 @@ import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 
 import { getLoadedAgentNames } from './agents/load-agents'
+import { refreshSubagentDisplay } from './cli-handlers/subagent'
+import {
+  clearSubagentStorage,
+  getAllSubagentIds,
+  markSubagentInactive,
+  storeSubagentChunk,
+} from './subagent-storage'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import {
-  storeSubagentChunk,
-  markSubagentInactive,
-  getAllSubagentIds,
-  clearSubagentStorage,
-} from './subagent-storage'
-import { refreshSubagentDisplay } from './cli-handlers/subagent'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -555,7 +555,13 @@ export class Client {
       let shouldRequestLogin = true
       CLI.getInstance().rl.once('line', () => {
         if (shouldRequestLogin) {
-          spawn(process.platform === 'win32' ? 'start' : 'open', [loginUrl])
+          const openCommand =
+            process.platform === 'win32'
+              ? 'start'
+              : process.platform === 'linux'
+                ? 'xdg-open'
+                : 'open'
+          spawn(openCommand, [loginUrl])
           console.log(
             "Opened a browser window to log you in! If it doesn't open automatically, you can click this link:"
           )

@@ -46,10 +46,6 @@ export const base = (
         AgentTemplateTypes.thinker,
         AgentTemplateTypes.reviewer,
       ],
-  initialAssistantMessage: '',
-  initialAssistantPrefix: '',
-  stepAssistantMessage: '',
-  stepAssistantPrefix: '',
 
   systemPrompt: baseAgentSystemPrompt(model),
   userInputPrompt: baseAgentUserInputPrompt(model),

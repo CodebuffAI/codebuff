@@ -1,6 +1,5 @@
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import { getToolCallString } from '@codebuff/common/constants/tools'
 import { closeXml } from '@codebuff/common/util/xml'
 import z from 'zod/v4'
 import { AgentTemplate, PLACEHOLDER } from '../types'
@@ -20,18 +19,6 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   includeMessageHistory: false,
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
   spawnableAgents: [],
-
-  initialAssistantMessage: getToolCallString(
-    'web_search',
-    {
-      query: PLACEHOLDER.INITIAL_AGENT_PROMPT,
-      depth: 'standard',
-    },
-    true
-  ),
-  initialAssistantPrefix: '',
-  stepAssistantMessage: '',
-  stepAssistantPrefix: '',
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}
@@ -54,4 +41,12 @@ Always end your response with the end_turn tool.\\n\\n` +
     ].join('\\n\\n'),
   userInputPrompt: '',
   agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
+
+  handleSteps: function* ({ agentState, prompt, params }) {
+    yield {
+      toolName: 'web_search',
+      args: { prompt },
+    }
+    yield 'STEP_ALL'
+  },
 })

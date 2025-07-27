@@ -15,10 +15,6 @@ export const dryRun = (model: Model): Omit<AgentTemplate, 'id'> => ({
   includeMessageHistory: true,
   toolNames: ['end_turn'],
   spawnableAgents: [],
-  initialAssistantMessage: '',
-  initialAssistantPrefix: '',
-  stepAssistantMessage: '',
-  stepAssistantPrefix: '',
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Dry Run Specialist
 

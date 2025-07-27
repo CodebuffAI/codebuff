@@ -30,11 +30,6 @@ export const fileExplorer = {
   userInputPrompt: '',
   agentStepPrompt: '',
 
-  initialAssistantMessage: '',
-  initialAssistantPrefix: '',
-  stepAssistantMessage: '',
-  stepAssistantPrefix: '',
-
   handleSteps: function* ({ prompt, params }) {
     const filePickerPrompts = params.prompts.map(
       (focusPrompt) =>

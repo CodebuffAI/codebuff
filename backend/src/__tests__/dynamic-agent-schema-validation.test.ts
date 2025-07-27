@@ -48,10 +48,7 @@ describe('Dynamic Agent Schema Validation', () => {
             systemPrompt: 'Test system prompt',
             userInputPrompt: 'Test user prompt',
             agentStepPrompt: 'Test step prompt',
-            initialAssistantMessage: '',
-            initialAssistantPrefix: '',
-            stepAssistantMessage: '',
-            stepAssistantPrefix: '',
+
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
@@ -84,10 +81,7 @@ describe('Dynamic Agent Schema Validation', () => {
             systemPrompt: 'Test system prompt',
             userInputPrompt: 'Test user prompt',
             agentStepPrompt: 'Test step prompt',
-            initialAssistantMessage: '',
-            initialAssistantPrefix: '',
-            stepAssistantMessage: '',
-            stepAssistantPrefix: '',
+
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
@@ -122,10 +116,7 @@ describe('Dynamic Agent Schema Validation', () => {
             systemPrompt: 'Test system prompt',
             userInputPrompt: 'Test user prompt',
             agentStepPrompt: 'Test step prompt',
-            initialAssistantMessage: '',
-            initialAssistantPrefix: '',
-            stepAssistantMessage: '',
-            stepAssistantPrefix: '',
+
             promptSchema: {
               prompt: {
                 type: 'string',
@@ -195,10 +186,7 @@ describe('Dynamic Agent Schema Validation', () => {
             systemPrompt: 'Test system prompt',
             userInputPrompt: 'Test user prompt',
             agentStepPrompt: 'Test step prompt',
-            initialAssistantMessage: '',
-            initialAssistantPrefix: '',
-            stepAssistantMessage: '',
-            stepAssistantPrefix: '',
+
             promptSchema: {
               params: {
                 type: 'object',
@@ -281,10 +269,7 @@ describe('Dynamic Agent Schema Validation', () => {
             systemPrompt: 'Test system prompt',
             userInputPrompt: 'Test user prompt',
             agentStepPrompt: 'Test step prompt',
-            initialAssistantMessage: '',
-            initialAssistantPrefix: '',
-            stepAssistantMessage: '',
-            stepAssistantPrefix: '',
+
             promptSchema: {
               prompt: {
                 type: 'boolean', // Invalid for prompt schema
@@ -337,10 +322,7 @@ describe('Dynamic Agent Schema Validation', () => {
                 required: ['message'],
               },
             },
-            initialAssistantMessage: '',
-            initialAssistantPrefix: '',
-            stepAssistantMessage: '',
-            stepAssistantPrefix: '',
+
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
@@ -386,10 +368,7 @@ describe('Dynamic Agent Schema Validation', () => {
             userInputPrompt: 'Test user prompt',
             agentStepPrompt: 'Test step prompt',
             promptSchema: {},
-            initialAssistantMessage: '',
-            initialAssistantPrefix: '',
-            stepAssistantMessage: '',
-            stepAssistantPrefix: '',
+
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],

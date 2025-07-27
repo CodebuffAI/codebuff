@@ -132,8 +132,6 @@ describe('read_docs tool with researcher agent', () => {
         agentState,
         prompt: 'Get React documentation',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -199,8 +197,6 @@ describe('read_docs tool with researcher agent', () => {
       agentState,
       prompt: 'Get React hooks documentation',
       params: undefined,
-      assistantMessage: undefined,
-      assistantPrefix: undefined,
     })
 
     expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith(
@@ -253,8 +249,6 @@ describe('read_docs tool with researcher agent', () => {
         agentState,
         prompt: 'Get documentation for NonExistentLibrary',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -316,8 +310,6 @@ describe('read_docs tool with researcher agent', () => {
         agentState,
         prompt: 'Get React documentation',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -379,8 +371,6 @@ describe('read_docs tool with researcher agent', () => {
         agentState,
         prompt: 'Get React server components documentation',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 
@@ -440,8 +430,6 @@ describe('read_docs tool with researcher agent', () => {
         agentState,
         prompt: 'Get React documentation',
         params: undefined,
-        assistantMessage: undefined,
-        assistantPrefix: undefined,
       }
     )
 

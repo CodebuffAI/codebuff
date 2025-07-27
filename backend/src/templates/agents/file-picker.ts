@@ -1,6 +1,5 @@
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import { getToolCallString } from '@codebuff/common/constants/tools'
 import z from 'zod/v4'
 
 import { AgentTemplate, PLACEHOLDER } from '../types'
@@ -16,17 +15,6 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   includeMessageHistory: false,
   toolNames: ['find_files'],
   spawnableAgents: [],
-
-  initialAssistantMessage: getToolCallString(
-    'find_files',
-    {
-      description: PLACEHOLDER.INITIAL_AGENT_PROMPT,
-    },
-    true
-  ),
-  initialAssistantPrefix: '',
-  stepAssistantMessage: '',
-  stepAssistantPrefix: '',
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}
@@ -45,4 +33,12 @@ Provide a short analysis of the locations in the codebase that could be helpful.
 In your report, please give an analysis that includes the full paths of files that are relevant and (very briefly) how they could be useful.
   `.trim(),
   agentStepPrompt: `Do not use the find_files tool or any tools again. Just give your response.`,
+
+  handleSteps: function* ({ agentState, prompt, params }) {
+    yield {
+      toolName: 'find_files',
+      args: { prompt },
+    }
+    yield 'STEP_ALL'
+  },
 })

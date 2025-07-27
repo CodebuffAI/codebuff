@@ -248,11 +248,6 @@ describe('DynamicAgentConfigSchema', () => {
         ...validBaseTemplate,
         outputMode: 'json' as const,
         toolNames: ['end_turn', 'read_files'], // Missing set_output
-        // DynamicAgentTemplateSchema requires these to be strings, not PromptFieldSchema
-        initialAssistantMessage: '',
-        initialAssistantPrefix: '',
-        stepAssistantMessage: '',
-        stepAssistantPrefix: '',
       }
 
       const result = DynamicAgentTemplateSchema.safeParse(template)
@@ -276,11 +271,6 @@ describe('DynamicAgentConfigSchema', () => {
         ...validBaseTemplate,
         outputMode: 'json' as const,
         toolNames: ['end_turn', 'set_output'],
-        // DynamicAgentTemplateSchema requires these to be strings, not PromptFieldSchema
-        initialAssistantMessage: '',
-        initialAssistantPrefix: '',
-        stepAssistantMessage: '',
-        stepAssistantPrefix: '',
       }
 
       const result = DynamicAgentTemplateSchema.safeParse(template)

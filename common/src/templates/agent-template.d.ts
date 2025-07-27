@@ -26,32 +26,33 @@ export interface AgentConfig {
   /** Human-readable name for the agent */
   name: string
 
-  /** Description of what this agent does */
+  /** Description of what this agent does. Provided to the parent agent so it knows when to spawn this agent. */
   purpose: string
 
-  /** AI model to use for this agent */
+  /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
   model: ModelName
 
-  /** Main system prompt defining the agent's behavior */
-  systemPrompt: string
+  /** Background information for the agent. */
+  systemPrompt?: string
 
-  /** Optional: Tools this agent can use (defaults to common file editing tools) */
+  /** Instructions for the agent. This prompt is inserted after each user input.
+   * Updating this prompt is the best way to shape the agent's behavior. */
+  userInputPrompt?: string
+
+  /** Tools this agent can use (defaults to common file editing tools) */
   tools?: ToolName[]
 
-  /** Optional: Other agents this agent can spawn */
+  /** Other agents this agent can spawn */
   spawnableAgents?: SpawnableAgentName[]
 
-  /** Optional: Advanced generator function for programmatic control */
-  handleSteps?: (context: AgentStepContext) => AsyncGenerator<any, any, any>
-}
-/**
- * Advanced configuration interface with all options (for power users)
- */
-export interface AdvancedAgentConfig extends AgentConfig {
-  /** Version string (defaults to '1.0.0') */
+  // ============================================================================
+  // Advanced fields below!
+  // ============================================================================
+
+  /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
   version?: string
 
-  /** How the agent should output responses (defaults to 'last_message') */
+  /** How the agent should output responses after spawned (defaults to 'last_message') */
   outputMode?: 'last_message' | 'all_messages' | 'json'
 
   /** JSON schema for structured output (when outputMode is 'json') */
@@ -60,31 +61,53 @@ export interface AdvancedAgentConfig extends AgentConfig {
   /** Whether to include conversation history (defaults to true) */
   includeMessageHistory?: boolean
 
-  /** Prompt template for user input (defaults to standard template) */
-  userInputPrompt?: string
-
-  /** Prompt for continuing agent steps (defaults to standard template) */
+  /** Prompt inserted at each agent step. Powerful for changing the agent's behavior. */
   agentStepPrompt?: string
 
   /** Instructions for spawned sub-agents */
   parentInstructions?: Record<SpawnableAgentName, string>
+
+  /** Programmatically step the agent forward and run tools.
+   * 
+   * Example:
+   * function* handleSteps({ agentStep, prompt, params}) {
+   *   const { toolResult } = yield {
+   *     toolName: 'read_files',
+   *     paths: ['file1.txt', 'file2.txt'],
+   *   }
+   *   yield 'STEP_ALL'
+   * }
+  */
+  handleSteps?: (
+    context: AgentStepContext
+  ) => Generator<
+    ToolName | 'STEP' | 'STEP_ALL',
+    void,
+    { agentState: AgentState; toolResult: ToolResult | undefined }
+  >
 }
 
 // ============================================================================
 // Supporting Types
 // ============================================================================
 
+export interface AgentState {
+  agentId: string
+  parentId: string
+  messageHistory: Message[]
+}
+
 /**
  * Context provided to handleSteps generator function
  */
 export interface AgentStepContext {
-  agentState: any
-  prompt: string
-  params: any
+  agentState: AgentState
+  prompt: string | undefined
+  params: Record<string, any> | undefined
 }
 
 /**
- * JSON Schema definition (for advanced users)
+ * JSON Schema definition (for prompt schema or output schema)
  */
 export interface JsonSchema {
   type: string
@@ -163,6 +186,8 @@ export type ToolName =
 
 /**
  * AI models available for agents (all models in OpenRouter are supported)
+ *
+ * See available models at https://openrouter.ai/models
  */
 export type ModelName =
   // Verified OpenRouter Models
@@ -178,9 +203,7 @@ export type ModelName =
   | 'google/gemini-2.5-pro'
   | 'google/gemini-2.5-flash'
   | 'x-ai/grok-4-07-09'
-
-  // Or any string for custom models, as long as they are supported by OpenRouter
-  | string
+  | (string & {})
 
 // ============================================================================
 // Spawnable Agents
@@ -195,7 +218,7 @@ export type SpawnableAgentName =
   | 'researcher'
   | 'thinker'
   | 'reviewer'
-  | string // Allow custom agent names
+  | (string & {})
 
 // ============================================================================
 // Utility Types

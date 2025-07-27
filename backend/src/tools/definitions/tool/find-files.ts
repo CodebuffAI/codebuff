@@ -10,9 +10,9 @@ export const findFilesTool = {
   endsAgentStep,
   parameters: z
     .object({
-      description: z
+      prompt: z
         .string()
-        .min(1, 'Description cannot be empty')
+        .min(1, 'Prompt cannot be empty')
         .describe(
           `A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.`
         ),

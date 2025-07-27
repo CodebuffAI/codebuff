@@ -44,10 +44,6 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       'end_turn',
     ] satisfies ToolName[],
     spawnableAgents: [AgentTemplateTypes.file_picker],
-    initialAssistantMessage: '',
-    initialAssistantPrefix: '',
-    stepAssistantMessage: '',
-    stepAssistantPrefix: '',
     systemPrompt: `# Agent Builder - Template Creation Assistant
 
 You are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.
@@ -102,7 +98,11 @@ Ask clarifying questions if needed, then create the template file in the appropr
 - Ensuring the agent will work effectively for its intended purpose`,
 
     // Generator function that defines the agent's execution flow
-    handleSteps: function* ({ agentState, prompt, params }) {
+    handleSteps: function* ({ agentState, prompt, params }: {
+      agentState: any;
+      prompt: string | undefined;
+      params: Record<string, any> | undefined;
+    }) {
       // Parse the prompt to extract agent requirements
       const requirements = {
         name: params?.name || 'Custom Agent',
@@ -119,6 +119,7 @@ Ask clarifying questions if needed, then create the template file in the appropr
           command: 'mkdir -p .agents/templates',
           process_type: 'SYNC',
           timeout_seconds: 10,
+          cb_easp: true,
         },
       }
 
@@ -132,6 +133,7 @@ Ask clarifying questions if needed, then create the template file in the appropr
           command: `cat "${sourceTemplatePath}" > "${templateTypesPath}"`,
           process_type: 'SYNC',
           timeout_seconds: 10,
+          cb_easp: true,
         },
       }
 
@@ -223,6 +225,9 @@ Help users achieve their goals efficiently and effectively within your domain of
       // Step 7: End the agent execution
       yield {
         toolName: 'end_turn',
+        args: {
+          cb_easp: true,
+        },
       }
     },
   }

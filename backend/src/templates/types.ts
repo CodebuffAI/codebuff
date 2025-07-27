@@ -30,11 +30,6 @@ export type AgentTemplate<
   spawnableAgents: AgentTemplateType[]
   parentInstructions?: Record<string, string>
 
-  initialAssistantMessage: string | undefined
-  initialAssistantPrefix: string | undefined
-  stepAssistantMessage: string | undefined
-  stepAssistantPrefix: string | undefined
-
   systemPrompt: string
   userInputPrompt: string
   agentStepPrompt: string
