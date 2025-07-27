@@ -113,51 +113,26 @@ Ask clarifying questions if needed, then create the template file in the appropr
       }
 
       // Step 1: Ensure .agents/templates directory exists
-      const agentsDir = '.agents/templates'
-      try {
-        if (!fs.existsSync(agentsDir)) {
-          fs.mkdirSync(agentsDir, { recursive: true })
-        }
-      } catch (error) {
-        yield {
-          toolName: 'set_output',
-          args: {
-            error: `Failed to create directory: ${error}`,
-            success: false,
-          },
-        }
-        return
+      yield {
+        toolName: 'run_terminal_command',
+        args: {
+          command: 'mkdir -p .agents/templates',
+          process_type: 'SYNC',
+          timeout_seconds: 10,
+        },
       }
 
-      // Step 2: Copy agent-template.d.ts if it doesn't exist
-      const templateTypesPath = path.join(agentsDir, 'agent-template.d.ts')
-      if (!fs.existsSync(templateTypesPath)) {
-        try {
-          const sourceTemplatePath = path.join(
-            __dirname,
-            '../../../../common/src/templates/agent-template.d.ts'
-          )
-          const templateContent = fs.readFileSync(sourceTemplatePath, 'utf8')
+      // Step 2: Copy agent-template.d.ts to .agents/templates/
+      const templateTypesPath = '.agents/templates/agent-template.d.ts'
+      const sourceTemplatePath = 'common/src/templates/agent-template.d.ts'
 
-          yield {
-            toolName: 'write_file',
-            args: {
-              path: templateTypesPath,
-              instructions:
-                'Copy agent-template.d.ts to .agents/templates directory',
-              content: templateContent,
-            },
-          }
-        } catch (error) {
-          yield {
-            toolName: 'set_output',
-            args: {
-              error: `Failed to copy agent-template.d.ts: ${error}`,
-              success: false,
-            },
-          }
-          return
-        }
+      yield {
+        toolName: 'run_terminal_command',
+        args: {
+          command: `cat "${sourceTemplatePath}" > "${templateTypesPath}"`,
+          process_type: 'SYNC',
+          timeout_seconds: 10,
+        },
       }
 
       // Step 3: Generate agent ID from name
@@ -201,7 +176,7 @@ Ask clarifying questions if needed, then create the template file in the appropr
       }
 
       // Step 5: Create the agent template content using AgentConfig interface
-      const agentTemplate = `import { AgentConfig } from './agent-template.d.ts'
+      const agentTemplate = `import { AgentConfig } from './agent-template'
 
 export default {
   id: '${agentId}',
@@ -234,7 +209,7 @@ Help users achieve their goals efficiently and effectively within your domain of
 `
 
       // Step 6: Write the agent template file
-      const agentFilePath = path.join(agentsDir, `${agentId}.ts`)
+      const agentFilePath = `.agents/templates/${agentId}.ts`
 
       yield {
         toolName: 'write_file',
@@ -245,18 +220,9 @@ Help users achieve their goals efficiently and effectively within your domain of
         },
       }
 
-      // Step 7: Set the final output
+      // Step 7: End the agent execution
       yield {
-        toolName: 'set_output',
-        args: {
-          success: true,
-          message: `Successfully created ${requirements.name} agent`,
-          agentId,
-          filePath: agentFilePath,
-          requirements,
-          tools,
-          spawnableAgents,
-        },
+        toolName: 'end_turn',
       }
     },
   }
