@@ -230,6 +230,12 @@ export function executeToolCall<T extends ToolName>({
       return
     }
 
+    onResponseChunk({
+      type: 'tool_result',
+      toolCallId: toolResult.toolCallId,
+      result: toolResult.result,
+    })
+
     toolResults.push(toolResult)
 
     state.messages.push({

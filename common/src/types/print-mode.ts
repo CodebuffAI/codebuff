@@ -23,6 +23,13 @@ export const printModeToolCallSchema = z.object({
 })
 export type PrintModeToolCall = z.infer<typeof printModeToolCallSchema>
 
+export const printModeToolResultSchema = z.object({
+  type: z.literal('tool_result'),
+  toolCallId: z.string(),
+  result: z.string(),
+})
+export type PrintModeToolResult = z.infer<typeof printModeToolResultSchema>
+
 export const printModeTextSchema = z.object({
   type: z.literal('text'),
   text: z.string(),
@@ -40,9 +47,10 @@ export type PrintModeFinish = z.infer<typeof printModeFinishSchema>
 export const printModeObjectSchema = z.discriminatedUnion('type', [
   printModeErrorSchema,
   printModeDownloadStatusSchema,
-  printModeToolCallSchema,
-  printModeTextSchema,
   printModeFinishSchema,
+  printModeTextSchema,
+  printModeToolCallSchema,
+  printModeToolResultSchema,
 ])
 
 export type PrintModeObject = z.infer<typeof printModeObjectSchema>
