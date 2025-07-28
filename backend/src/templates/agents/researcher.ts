@@ -6,9 +6,9 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['researcher'].name,
-  purpose: AGENT_PERSONAS['researcher'].purpose,
-  promptSchema: {
+  displayName: AGENT_PERSONAS['researcher'].displayName,
+  parentPrompt: AGENT_PERSONAS['researcher'].purpose,
+  inputSchema: {
     prompt: z
       .string()
       .describe(
@@ -18,7 +18,7 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-  spawnableAgents: [],
+  subagents: [],
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}
@@ -39,8 +39,8 @@ Always end your response with the end_turn tool.\\n\\n` +
       PLACEHOLDER.SYSTEM_INFO_PROMPT,
       PLACEHOLDER.GIT_CHANGES_PROMPT,
     ].join('\\n\\n'),
-  userInputPrompt: '',
-  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
+  instructionsPrompt: '',
+  stepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {

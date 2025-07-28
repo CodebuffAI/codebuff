@@ -11,15 +11,15 @@ const paramsSchema = z.object({
 
 export const fileExplorer = {
   id: 'file_explorer',
-  name: 'Dora the File Explorer',
-  purpose:
+  displayName: 'Dora the File Explorer',
+  parentPrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
   model: 'anthropic/claude-4-sonnet-20250522',
   outputMode: 'json',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  spawnableAgents: ['file_picker'],
-  promptSchema: {
+  subagents: ['file_picker'],
+  inputSchema: {
     prompt: z
       .string()
       .describe('What you need to accomplish by exploring the codebase'),
@@ -27,8 +27,8 @@ export const fileExplorer = {
   },
   systemPrompt:
     'You are a file explorer agent that spawns multiple file picker agents in parallel to comprehensively explore the codebase.',
-  userInputPrompt: '',
-  agentStepPrompt: '',
+  instructionsPrompt: '',
+  stepPrompt: '',
 
   handleSteps: function* ({ prompt, params }) {
     const filePickerPrompts = params.prompts.map(

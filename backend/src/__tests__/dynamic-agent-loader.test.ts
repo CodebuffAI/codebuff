@@ -77,14 +77,14 @@ describe('Dynamic Agent Loader', () => {
           id: 'brainstormer',
           version: '1.0.0',
           override: false,
-          name: 'Brainy',
-          purpose: 'Creative thought partner',
+          displayName: 'Brainy',
+          parentPrompt: 'Creative thought partner',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'You are a creative brainstormer.',
-          userInputPrompt: 'Help brainstorm ideas.',
-          agentStepPrompt: 'Continue brainstorming.',
+          instructionsPrompt: 'Help brainstorm ideas.',
+          stepPrompt: 'Continue brainstorming.',
           toolNames: ['end_turn'],
-          spawnableAgents: ['thinker', 'researcher'],
+          subagents: ['thinker', 'researcher'],
 
           outputMode: 'last_message',
           includeMessageHistory: true,
@@ -96,7 +96,7 @@ describe('Dynamic Agent Loader', () => {
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('brainstormer')
-    expect(result.templates.brainstormer.name).toBe('Brainy')
+    expect(result.templates.brainstormer.displayName).toBe('Brainy')
     expect(result.templates.brainstormer.id).toBe('brainstormer')
   })
 
@@ -108,13 +108,13 @@ describe('Dynamic Agent Loader', () => {
           id: 'invalid_agent',
           version: '1.0.0',
           override: false,
-          name: 'Invalid',
-          purpose: 'Invalid agent',
+          displayName: 'Invalid',
+          parentPrompt: 'Invalid agent',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Test',
-          userInputPrompt: 'Test',
-          agentStepPrompt: 'Test',
-          spawnableAgents: ['nonexistent_agent'],
+          instructionsPrompt: 'Test',
+          stepPrompt: 'Test',
+          subagents: ['nonexistent_agent'],
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
@@ -126,7 +126,7 @@ describe('Dynamic Agent Loader', () => {
 
     expect(result.validationErrors).toHaveLength(1)
     expect(result.validationErrors[0].message).toContain(
-      'Invalid spawnable agents: nonexistent_agent'
+      'Invalid subagents: nonexistent_agent'
     )
   })
 
@@ -138,16 +138,16 @@ describe('Dynamic Agent Loader', () => {
           id: 'custom_agent',
           version: '1.0.0',
           override: false,
-          name: 'Custom',
-          purpose: 'Custom agent',
+          displayName: 'Custom',
+          parentPrompt: 'Custom agent',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Custom system prompt',
-          userInputPrompt: 'Custom user prompt',
-          agentStepPrompt: 'Custom step prompt',
+          instructionsPrompt: 'Custom user prompt',
+          stepPrompt: 'Custom step prompt',
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
-          spawnableAgents: [],
+          subagents: [],
         },
       },
     }
@@ -169,13 +169,13 @@ describe('Dynamic Agent Loader', () => {
           id: 'schema_agent',
           version: '1.0.0',
           override: false,
-          name: 'Schema Agent',
-          purpose: 'Agent with JSON schemas',
+          displayName: 'Schema Agent',
+          parentPrompt: 'Agent with JSON schemas',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Test system prompt',
-          userInputPrompt: 'Test user prompt',
-          agentStepPrompt: 'Test step prompt',
-          promptSchema: {
+          instructionsPrompt: 'Test user prompt',
+          stepPrompt: 'Test step prompt',
+          inputSchema: {
             prompt: {
               type: 'string',
               description: 'A test prompt',
@@ -190,7 +190,7 @@ describe('Dynamic Agent Loader', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
-          spawnableAgents: [],
+          subagents: [],
         },
       },
     }
@@ -199,8 +199,8 @@ describe('Dynamic Agent Loader', () => {
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('schema_agent')
-    expect(result.templates.schema_agent.promptSchema.prompt).toBeDefined()
-    expect(result.templates.schema_agent.promptSchema.params).toBeDefined()
+    expect(result.templates.schema_agent.inputSchema.prompt).toBeDefined()
+    expect(result.templates.schema_agent.inputSchema.params).toBeDefined()
   })
 
   it('should return validation errors for invalid schemas', async () => {
@@ -214,13 +214,13 @@ describe('Dynamic Agent Loader', () => {
           id: 'invalid_schema_agent',
           version: '1.0.0',
           override: false,
-          name: 'Invalid Schema Agent',
-          purpose: 'Agent with invalid schemas',
+          displayName: 'Invalid Schema Agent',
+          parentPrompt: 'Agent with invalid schemas',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Test system prompt',
-          userInputPrompt: 'Test user prompt',
-          agentStepPrompt: 'Test step prompt',
-          promptSchema: {
+          instructionsPrompt: 'Test user prompt',
+          stepPrompt: 'Test step prompt',
+          inputSchema: {
             prompt: {
               type: 'number', // Invalid - should allow strings
             },
@@ -228,7 +228,7 @@ describe('Dynamic Agent Loader', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
-          spawnableAgents: [],
+          subagents: [],
         },
       },
     }
@@ -237,7 +237,7 @@ describe('Dynamic Agent Loader', () => {
 
     expect(result.validationErrors).toHaveLength(1)
     expect(result.validationErrors[0].message).toContain(
-      'Invalid promptSchema.prompt'
+      'Invalid inputSchema.prompt'
     )
     expect(result.validationErrors[0].message).toContain(
       'Schema must allow string or undefined values'
@@ -255,17 +255,17 @@ describe('Dynamic Agent Loader', () => {
           id: 'no_override_agent',
           version: '1.0.0',
           // No override field - should be treated as non-override
-          name: 'No Override Agent',
-          purpose: 'Agent without override field',
+          displayName: 'No Override Agent',
+          parentPrompt: 'Agent without override field',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Test system prompt',
-          userInputPrompt: 'Test user prompt',
-          agentStepPrompt: 'Test step prompt',
+          instructionsPrompt: 'Test user prompt',
+          stepPrompt: 'Test step prompt',
           override: false,
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
-          spawnableAgents: [],
+          subagents: [],
         },
       },
     }
@@ -286,13 +286,13 @@ describe('Dynamic Agent Loader', () => {
           id: 'CodebuffAI/git-committer',
           version: '0.0.1',
           override: false,
-          name: 'Git Committer',
-          purpose: 'A git committer agent',
+          displayName: 'Git Committer',
+          parentPrompt: 'A git committer agent',
           model: 'google/gemini-2.5-pro',
           systemPrompt: 'You are an expert software developer.',
-          userInputPrompt: 'Create a commit message.',
-          agentStepPrompt: 'Make sure to end your response.',
-          spawnableAgents: [], // No spawnable agents
+          instructionsPrompt: 'Create a commit message.',
+          stepPrompt: 'Make sure to end your response.',
+          subagents: [], // No spawnable agents
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
@@ -301,13 +301,13 @@ describe('Dynamic Agent Loader', () => {
           id: 'spawner_agent',
           version: '1.0.0',
           override: false,
-          name: 'Spawner Agent',
-          purpose: 'Agent that can spawn git-committer',
+          displayName: 'Spawner Agent',
+          parentPrompt: 'Agent that can spawn git-committer',
           model: 'anthropic/claude-4-sonnet-20250522',
           systemPrompt: 'Test system prompt',
-          userInputPrompt: 'Test user prompt',
-          agentStepPrompt: 'Test step prompt',
-          spawnableAgents: ['CodebuffAI/git-committer'], // Should be valid after first pass
+          instructionsPrompt: 'Test user prompt',
+          stepPrompt: 'Test step prompt',
+          subagents: ['CodebuffAI/git-committer'], // Should be valid after first pass
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
@@ -320,7 +320,7 @@ describe('Dynamic Agent Loader', () => {
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
     expect(result.templates).toHaveProperty('spawner_agent')
-    expect(result.templates.spawner_agent.spawnableAgents).toContain(
+    expect(result.templates.spawner_agent.subagents).toContain(
       'git-committer' // Normalized without prefix
     )
   })

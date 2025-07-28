@@ -37,7 +37,7 @@ The dynamic agent system allows users to create custom AI agents by placing Type
 Dynamic agents define their parameters using a simple JSON schema:
 
 ```json
-"promptSchema": {
+"inputSchema": {
   "text": { "type": "string", "description": "Input text" },
   "count": { "type": "number", "description": "Number of items" }
 }
@@ -54,14 +54,14 @@ This gets converted to Zod schemas during loading:
 
 ## Path-Based Prompt Loading
 
-Prompt fields (systemPrompt, userInputPrompt, etc.) can now reference external files:
+Prompt fields (systemPrompt, instructionsPrompt, etc.) can now reference external files:
 
 ```json
 {
   "systemPrompt": {
     "path": ".agents/templates/my-agent-system.md"
   },
-  "userInputPrompt": "Direct string content"
+  "instructionsPrompt": "Direct string content"
 }
 ```
 

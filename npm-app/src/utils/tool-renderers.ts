@@ -277,7 +277,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
                 const agentName =
                   (client?.agentNames && client.agentNames[agentType]) ||
                   AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
-                    ?.name ||
+                    ?.displayName ||
                   null
 
                 if (!agentName) {
@@ -324,7 +324,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
                 const agentName =
                   (client?.agentNames && client.agentNames[agentType]) ||
                   AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
-                    ?.name ||
+                    ?.displayName ||
                   null
 
                 if (!agentName) {

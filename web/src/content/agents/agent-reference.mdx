@@ -130,11 +130,11 @@ All prompt fields support two formats:
 
 Core instructions that define the agent's behavior and personality.
 
-#### `userInputPrompt` (string or object, required)
+#### `instructionsPrompt` (string or object, required)
 
 Instructions for how to process user input.
 
-#### `agentStepPrompt` (string or object, required)
+#### `stepPrompt` (string or object, required)
 
 Instructions for each step of the agent's execution.
 
@@ -142,12 +142,12 @@ Instructions for each step of the agent's execution.
 
 ### Schema Validation
 
-#### `promptSchema` (object, optional)
+#### `inputSchema` (object, optional)
 
 JSON Schema definitions for validating prompt and params when spawning the agent.
 
 ```json
-"promptSchema": {
+"inputSchema": {
   "prompt": {
     "type": "string",
     "description": "What documentation to create"
@@ -223,7 +223,7 @@ Defines instructions that this agent provides to other agents when they are spaw
   ],
   "spawnableAgents": ["CodebuffAI/researcher"],
 
-  "promptSchema": {
+  "inputSchema": {
     "prompt": {
       "type": "string",
       "description": "What documentation to create or update"
@@ -233,7 +233,7 @@ Defines instructions that this agent provides to other agents when they are spaw
   "systemPrompt": {
     "path": "./doc-writer-system.md"
   },
-  "userInputPrompt": "Create comprehensive documentation based on the user's request. Research existing code first.",
-  "agentStepPrompt": "Continue working on the documentation. Use end_turn when complete."
+  "instructionsPrompt": "Create comprehensive documentation based on the user's request. Research existing code first.",
+  "stepPrompt": "Continue working on the documentation. Use end_turn when complete."
 }
 ```

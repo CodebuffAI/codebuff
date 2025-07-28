@@ -34,7 +34,7 @@ describe('Dynamic Agent Schema Validation', () => {
   })
 
   describe('Default Schema Behavior', () => {
-    it('should have no prompt schema when no promptSchema provided', async () => {
+    it('should have no prompt schema when no inputSchema provided', async () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
@@ -42,18 +42,18 @@ describe('Dynamic Agent Schema Validation', () => {
             id: 'no_prompt_schema_agent',
             version: '1.0.0',
             override: false,
-            name: 'No Prompt Schema Agent',
-            purpose: 'Test agent without prompt schema',
+            displayName: 'No Prompt Schema Agent',
+            parentPrompt: 'Test agent without prompt schema',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
 
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
-            // No promptSchema or paramsSchema
+            subagents: [],
+            // No inputSchema
           },
         },
       }
@@ -63,7 +63,7 @@ describe('Dynamic Agent Schema Validation', () => {
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('no_prompt_schema_agent')
       expect(
-        result.templates.no_prompt_schema_agent.promptSchema.prompt
+        result.templates.no_prompt_schema_agent.inputSchema.prompt
       ).toBeUndefined()
     })
 
@@ -75,17 +75,17 @@ describe('Dynamic Agent Schema Validation', () => {
             id: 'no_params_schema_agent',
             version: '1.0.0',
             override: false,
-            name: 'No Params Schema Agent',
-            purpose: 'Test agent without params schema',
+            displayName: 'No Params Schema Agent',
+            parentPrompt: 'Test agent without params schema',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
 
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
             // No paramsSchema
           },
         },
@@ -96,13 +96,13 @@ describe('Dynamic Agent Schema Validation', () => {
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('no_params_schema_agent')
       expect(
-        result.templates.no_params_schema_agent.promptSchema.params
+        result.templates.no_params_schema_agent.inputSchema.params
       ).toBeUndefined()
     })
   })
 
   describe('Complex Schema Scenarios', () => {
-    it('should handle both promptSchema and paramsSchema together', async () => {
+    it('should handle both inputSchema prompt and params together', async () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
@@ -110,14 +110,14 @@ describe('Dynamic Agent Schema Validation', () => {
             id: 'both_schemas_agent',
             version: '1.0.0',
             override: false,
-            name: 'Both Schemas Agent',
-            purpose: 'Test agent with both schemas',
+            displayName: 'Both Schemas Agent',
+            parentPrompt: 'Test agent with both schemas',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
 
-            promptSchema: {
+            inputSchema: {
               prompt: {
                 type: 'string',
                 minLength: 1,
@@ -140,7 +140,7 @@ describe('Dynamic Agent Schema Validation', () => {
                 required: ['mode'],
               },
             },
-            spawnableAgents: [],
+            subagents: [],
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
@@ -154,15 +154,15 @@ describe('Dynamic Agent Schema Validation', () => {
       expect(result.templates).toHaveProperty('both_schemas_agent')
 
       const template = result.templates.both_schemas_agent
-      expect(template.promptSchema.prompt).toBeDefined()
-      expect(template.promptSchema.params).toBeDefined()
+      expect(template.inputSchema.prompt).toBeDefined()
+      expect(template.inputSchema.params).toBeDefined()
 
-      const promptSchema = template.promptSchema.prompt!
-      const paramsSchema = template.promptSchema.params!
+      const inputPromptSchema = template.inputSchema.prompt!
+      const paramsSchema = template.inputSchema.params!
 
       // Test prompt schema
-      expect(promptSchema.safeParse('valid prompt').success).toBe(true)
-      expect(promptSchema.safeParse('').success).toBe(false) // Too short
+      expect(inputPromptSchema.safeParse('valid prompt').success).toBe(true)
+      expect(inputPromptSchema.safeParse('').success).toBe(false) // Too short
 
       // Test params schema
       expect(
@@ -180,14 +180,14 @@ describe('Dynamic Agent Schema Validation', () => {
             id: 'complex_schema_agent',
             version: '1.0.0',
             override: false,
-            name: 'Complex Schema Agent',
-            purpose: 'Test agent with complex nested schema',
+            displayName: 'Complex Schema Agent',
+            parentPrompt: 'Test agent with complex nested schema',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
 
-            promptSchema: {
+            inputSchema: {
               params: {
                 type: 'object',
                 properties: {
@@ -216,7 +216,7 @@ describe('Dynamic Agent Schema Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
           },
         },
       }
@@ -227,7 +227,7 @@ describe('Dynamic Agent Schema Validation', () => {
       expect(result.templates).toHaveProperty('complex_schema_agent')
 
       const paramsSchema =
-        result.templates.complex_schema_agent.promptSchema.params!
+        result.templates.complex_schema_agent.inputSchema.params!
 
       // Test valid complex object
       const validParams = {
@@ -263,14 +263,14 @@ describe('Dynamic Agent Schema Validation', () => {
             id: 'error_context_agent',
             version: '1.0.0',
             override: false,
-            name: 'Error Context Agent',
-            purpose: 'Test agent for error context',
+            displayName: 'Error Context Agent',
+            parentPrompt: 'Test agent for error context',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
 
-            promptSchema: {
+            inputSchema: {
               prompt: {
                 type: 'boolean', // Invalid for prompt schema
               },
@@ -278,7 +278,7 @@ describe('Dynamic Agent Schema Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
           },
         },
       }
@@ -300,14 +300,14 @@ describe('Dynamic Agent Schema Validation', () => {
             id: 'CodebuffAI/git-committer',
             version: '0.0.1',
             override: false,
-            name: 'Git Committer',
-            purpose:
+            displayName: 'Git Committer',
+            parentPrompt:
               'A git committer agent specialized to commit current changes with an appropriate commit message.',
             model: 'google/gemini-2.5-pro',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
-            promptSchema: {
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
+            inputSchema: {
               prompt: {
                 type: 'string',
                 description: 'What changes to commit',
@@ -326,7 +326,7 @@ describe('Dynamic Agent Schema Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
           },
         },
       }
@@ -337,11 +337,11 @@ describe('Dynamic Agent Schema Validation', () => {
       expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
 
       const template = result.templates['CodebuffAI/git-committer']
-      expect(template.promptSchema.params).toBeDefined()
+      const paramsSchema = template.inputSchema.params!
 
+      expect(paramsSchema.safeParse('').success).toBe(false) // Too short
+      expect(template.inputSchema.params).toBeDefined()
       // Test that the params schema properly validates the message property
-      const paramsSchema = template.promptSchema.params!
-
       // This should succeed with a message property
       const validResult = paramsSchema.safeParse({
         message: 'test commit message',
@@ -353,7 +353,7 @@ describe('Dynamic Agent Schema Validation', () => {
       expect(invalidResult.success).toBe(false)
     })
 
-    it('should handle empty promptSchema object', async () => {
+    it('should handle empty inputSchema object', async () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
@@ -361,18 +361,18 @@ describe('Dynamic Agent Schema Validation', () => {
             id: 'empty_schema_agent',
             version: '1.0.0',
             override: false,
-            name: 'Empty Schema Agent',
-            purpose: 'Test agent with empty schema',
+            displayName: 'Empty Schema Agent',
+            parentPrompt: 'Test agent with empty schema',
             model: 'anthropic/claude-4-sonnet-20250522',
             systemPrompt: 'Test system prompt',
-            userInputPrompt: 'Test user prompt',
-            agentStepPrompt: 'Test step prompt',
-            promptSchema: {},
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
+            inputSchema: {},
 
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
           },
         },
       }
@@ -384,7 +384,7 @@ describe('Dynamic Agent Schema Validation', () => {
 
       // Empty schemas should have no prompt schema
       expect(
-        result.templates.empty_schema_agent.promptSchema.prompt
+        result.templates.empty_schema_agent.inputSchema.prompt
       ).toBeUndefined()
     })
   })

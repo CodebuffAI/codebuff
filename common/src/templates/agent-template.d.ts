@@ -23,34 +23,57 @@ export interface AgentConfig {
   /** Unique identifier for this agent */
   id: string
 
-  /** Human-readable name for the agent */
-  name: string
+  /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
+  version?: string
 
-  /** Description of what this agent does. Provided to the parent agent so it knows when to spawn this agent. */
-  purpose: string
+  /** Human-readable name for the agent */
+  displayName: string
 
   /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
   model: ModelName
 
-  /** Background information for the agent. */
-  systemPrompt?: string
-
-  /** Instructions for the agent. This prompt is inserted after each user input.
-   * Updating this prompt is the best way to shape the agent's behavior. */
-  userInputPrompt?: string
+  // ============================================================================
+  // Tools and Subagents
+  // ============================================================================
 
   /** Tools this agent can use (defaults to common file editing tools) */
   tools?: ToolName[]
 
   /** Other agents this agent can spawn */
-  spawnableAgents?: SpawnableAgentName[]
+  subagents?: SubagentName[]
 
   // ============================================================================
-  // Advanced fields below!
+  // Prompts
   // ============================================================================
 
-  /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
-  version?: string
+  /** Description of what this agent does. Provided to the parent agent so it knows when to spawn this agent. */
+  parentPrompt?: string
+
+  /** Background information for the agent. Prefer to use instructionsPrompt for agent instructions. */
+  systemPrompt?: string
+
+  /** Instructions for the agent. This prompt is inserted after each user input.
+   * Updating this prompt is the best way to shape the agent's behavior. */
+  instructionsPrompt?: string
+
+  /** Prompt inserted at each agent step. Powerful for changing the agent's behavior. */
+  stepPrompt?: string
+
+  /** Instructions for spawned sub-agents */
+  parentInstructions?: Record<SubagentName, string>
+
+  // ============================================================================
+  // Input and Output
+  // ============================================================================
+
+  /** The input schema required to spawn the agent. Provide a prompt string and/or a params object. */
+  inputSchema?: {
+    prompt?: { type: 'string', description?: string }
+    params?: JsonSchema
+  }
+
+  /** Whether to include conversation history (defaults to true) */
+  includeMessageHistory?: boolean
 
   /** How the agent should output responses after spawned (defaults to 'last_message') */
   outputMode?: 'last_message' | 'all_messages' | 'json'
@@ -58,17 +81,12 @@ export interface AgentConfig {
   /** JSON schema for structured output (when outputMode is 'json') */
   outputSchema?: JsonSchema
 
-  /** Whether to include conversation history (defaults to true) */
-  includeMessageHistory?: boolean
-
-  /** Prompt inserted at each agent step. Powerful for changing the agent's behavior. */
-  agentStepPrompt?: string
-
-  /** Instructions for spawned sub-agents */
-  parentInstructions?: Record<SpawnableAgentName, string>
+  // ============================================================================
+  // Handle Steps
+  // ============================================================================
 
   /** Programmatically step the agent forward and run tools.
-   * 
+   *
    * Example:
    * function* handleSteps({ agentStep, prompt, params}) {
    *   const { toolResult } = yield {
@@ -77,7 +95,7 @@ export interface AgentConfig {
    *   }
    *   yield 'STEP_ALL'
    * }
-  */
+   */
   handleSteps?: (
     context: AgentStepContext
   ) => Generator<
@@ -212,7 +230,7 @@ export type ModelName =
 /**
  * Built-in agents that can be spawned by custom agents
  */
-export type SpawnableAgentName =
+export type SubagentName =
   | 'file_picker'
   | 'file_explorer'
   | 'researcher'
@@ -241,10 +259,10 @@ export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'
 export const FileEditorExample: AgentConfig = {
   id: 'file-editor',
   name: 'File Editor',
-  purpose: 'Specialized in reading and editing files',
+  parentPrompt: 'Specialized in reading and editing files',
   model: 'anthropic/claude-4-sonnet-20250522',
   tools: ['read_files', 'write_file', 'str_replace', 'end_turn'],
-  userInputPrompt: `
+  instructionsPrompt: `
 1. Read all the files you need first to get as much context as possible.
 2. Make the edits, preferring to use str_replace.
   `.trim(),
@@ -256,10 +274,10 @@ export const FileEditorExample: AgentConfig = {
 export const ResearcherExample: AgentConfig = {
   id: 'researcher',
   name: 'Research Assistant',
-  purpose: 'Specialized in gathering information and research',
+  parentPrompt: 'Specialized in gathering information and research',
   model: 'anthropic/claude-3.5-haiku-20241022',
   tools: ['web_search', 'read_docs', 'write_file', 'end_turn'],
-  spawnableAgents: ['researcher', 'knowledge-keeper'],
+  subagents: ['researcher', 'knowledge-keeper'],
   systemPrompt:
     'You are a research specialist. Help users gather information, analyze sources, and document findings.',
 }
@@ -270,7 +288,7 @@ export const ResearcherExample: AgentConfig = {
 export const CodeAnalyzerExample: AgentConfig = {
   id: 'code-analyzer',
   name: 'Code Analyzer',
-  purpose: 'Specialized in understanding codebases and finding patterns',
+  parentPrompt: 'Specialized in understanding codebases and finding patterns',
   model: 'google/gemini-2.5-flash',
   tools: ['read_files', 'code_search', 'find_files', 'end_turn'],
   systemPrompt:
@@ -283,8 +301,14 @@ export const CodeAnalyzerExample: AgentConfig = {
 export const AdvancedExample: AgentConfig = {
   id: 'advanced-agent',
   name: 'Advanced Agent',
-  purpose: 'Demonstrates advanced configuration options',
+  parentPrompt: 'Demonstrates advanced configuration options',
   model: 'anthropic/claude-4-sonnet-20250522',
+  tools: ['read_files', 'code_search', 'set_output'],
+  systemPrompt:
+    'You analyze code and return structured JSON responses with confidence scores.',
+  parentInstructions: {
+    file_picker: 'Focus on finding the most relevant code files for analysis',
+  },
   outputMode: 'json',
   outputSchema: {
     type: 'object',
@@ -293,11 +317,5 @@ export const AdvancedExample: AgentConfig = {
       confidence: { type: 'number' },
     },
     required: ['result'],
-  },
-  tools: ['read_files', 'code_search', 'set_output'],
-  systemPrompt:
-    'You analyze code and return structured JSON responses with confidence scores.',
-  parentInstructions: {
-    file_picker: 'Focus on finding the most relevant code files for analysis',
   },
 }

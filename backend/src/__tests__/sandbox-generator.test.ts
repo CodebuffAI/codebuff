@@ -30,17 +30,17 @@ describe('QuickJS Sandbox Generator', () => {
     // Base template structure - will be customized per test
     mockTemplate = {
       id: 'test-vm-agent',
-      name: 'Test VM Agent',
-      purpose: 'Test VM isolation',
+      displayName: 'Test VM Agent',
+      parentPrompt: 'Test VM isolation',
       model: 'anthropic/claude-4-sonnet-20250522',
       outputMode: 'json',
       includeMessageHistory: false,
       toolNames: ['set_output'],
-      spawnableAgents: [],
-      promptSchema: {},
+      subagents: [],
+      inputSchema: {},
       systemPrompt: '',
-      userInputPrompt: '',
-      agentStepPrompt: '',
+      instructionsPrompt: '',
+      stepPrompt: '',
 
       handleSteps: '', // Will be set per test
     }
@@ -96,8 +96,8 @@ describe('QuickJS Sandbox Generator', () => {
   test('should handle QuickJS sandbox errors gracefully', async () => {
     // Customize for error test
     mockTemplate.id = 'test-vm-agent-error'
-    mockTemplate.name = 'Test VM Agent Error'
-    mockTemplate.purpose = 'Test QuickJS error handling'
+    mockTemplate.displayName = 'Test VM Agent Error'
+    mockTemplate.parentPrompt = 'Test QuickJS error handling'
     mockTemplate.toolNames = []
     mockTemplate.handleSteps = `
       function* ({ agentState, prompt, params }) {

@@ -312,7 +312,7 @@ const onInit = async (
     const allAgentNames = Object.fromEntries(
       Object.entries(agentRegistry).map(([id, agentTemplate]) => [
         id,
-        agentTemplate.name,
+        agentTemplate.displayName,
       ])
     )
 

@@ -20,8 +20,8 @@ const JsonSchemaSchema = z.record(z.any()).refine(
   { message: 'Must be a valid JSON schema object' }
 )
 
-// Schema for the combined promptSchema object
-const PromptSchemaObjectSchema = z
+// Schema for the combined inputSchema object
+const InputSchemaObjectSchema = z
   .object({
     prompt: JsonSchemaSchema.optional(), // Optional JSON schema for prompt validation
     params: JsonSchemaSchema.optional(), // Optional JSON schema for params validation
@@ -42,8 +42,7 @@ export const DynamicAgentConfigSchema = z.object({
   override: z.literal(false).optional().default(false), // Must be false for new agents, defaults to false if missing
 
   // Required fields for new agents
-  name: z.string(),
-  purpose: z.string(),
+  displayName: z.string(),
   model: z.string(),
   outputMode: z
     .enum(['last_message', 'all_messages', 'json'])
@@ -71,14 +70,15 @@ export const DynamicAgentConfigSchema = z.object({
         }
       }
     ),
-  spawnableAgents: z.array(z.string()).default([]),
-  promptSchema: PromptSchemaObjectSchema,
+  subagents: z.array(z.string()).default([]),
+  inputSchema: InputSchemaObjectSchema,
   parentInstructions: z.record(z.string(), z.string()).optional(),
 
-  // Required prompts (only strings or path references)
+  // Prompts
+  parentPrompt: z.string().optional(),
   systemPrompt: PromptFieldSchema,
-  userInputPrompt: PromptFieldSchema,
-  agentStepPrompt: PromptFieldSchema,
+  instructionsPrompt: PromptFieldSchema,
+  stepPrompt: PromptFieldSchema,
 
   // Optional generator function for programmatic agents
   handleSteps: z
@@ -100,8 +100,8 @@ export type DynamicAgentConfigParsed = z.infer<typeof DynamicAgentConfigSchema>
 
 export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
   systemPrompt: z.string(),
-  userInputPrompt: z.string(),
-  agentStepPrompt: z.string(),
+  instructionsPrompt: z.string(),
+  stepPrompt: z.string(),
   handleSteps: z.string().optional(), // Converted to string after processing
 })
   .refine(

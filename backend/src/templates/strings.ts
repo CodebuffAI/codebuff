@@ -22,7 +22,7 @@ import { escapeString, generateCompactId } from '@codebuff/common/util/string'
 import { parseUserMessage } from '../util/messages'
 import { agentTemplates } from './agent-list'
 import { type AgentRegistry } from './agent-registry'
-import { buildSpawnableAgentsDescription } from './prompts'
+import { buildSubagentsDescription } from './prompts'
 import {
   AgentTemplate,
   PLACEHOLDER,
@@ -52,8 +52,8 @@ export async function formatPrompt(
 
   const toInject: Record<PlaceholderValue, string> = {
     [PLACEHOLDER.AGENT_NAME]: agentState.agentType
-      ? agentRegistry[agentState.agentType]?.name ||
-        agentTemplates[agentState.agentType]?.name ||
+      ? agentRegistry[agentState.agentType]?.displayName ||
+        agentTemplates[agentState.agentType]?.displayName ||
         'Unknown Agent'
       : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
@@ -67,7 +67,7 @@ export async function formatPrompt(
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
-    [PLACEHOLDER.AGENTS_PROMPT]: buildSpawnableAgentsDescription(
+    [PLACEHOLDER.AGENTS_PROMPT]: buildSubagentsDescription(
       spawnableAgents,
       agentRegistry
     ),
@@ -105,7 +105,7 @@ export async function formatPrompt(
   return prompt
 }
 
-type StringField = 'systemPrompt' | 'userInputPrompt' | 'agentStepPrompt'
+type StringField = 'systemPrompt' | 'instructionsPrompt' | 'stepPrompt'
 
 export async function collectParentInstructions(
   agentType: string,
@@ -141,23 +141,20 @@ export async function getAgentPrompt<T extends StringField>(
     fileContext,
     agentState,
     agentTemplate.toolNames,
-    agentTemplate.spawnableAgents,
+    agentTemplate.subagents,
     agentRegistry,
     ''
   )
 
   let addendum = ''
 
-  // Add parent instructions for userInputPrompt
-  if (promptType.type === 'userInputPrompt' && agentState.agentType) {
+  // Add parent instructions for instructionsPrompt
+  if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
     addendum +=
       '\n\n' +
       getShortToolInstructions(agentTemplate.toolNames) +
       '\n\n' +
-      buildSpawnableAgentsDescription(
-        agentTemplate.spawnableAgents,
-        agentRegistry
-      )
+      buildSubagentsDescription(agentTemplate.subagents, agentRegistry)
 
     const parentInstructions = await collectParentInstructions(
       agentState.agentType,

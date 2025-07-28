@@ -5,10 +5,11 @@ import z from 'zod/v4'
 import { AgentTemplate } from '../types'
 
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
-  name: 'Agent Builder',
-  purpose: 'Creates new agent templates for the codebuff mult-agent system',
+  displayName: 'Agent Builder',
+  parentPrompt:
+    'Creates new agent templates for the codebuff mult-agent system',
   model,
-  promptSchema: {
+  inputSchema: {
     prompt: z
       .string()
       .optional()
@@ -26,7 +27,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
     'spawn_agents',
     'end_turn',
   ] satisfies ToolName[],
-  spawnableAgents: [AgentTemplateTypes.file_picker],
+  subagents: [AgentTemplateTypes.file_picker],
 
   systemPrompt: `# Agent Builder - Template Creation Assistant
 
@@ -38,10 +39,10 @@ Every agent template must include these fields:
 
 ### Required Fields:
 - **type**: AgentTemplateType - Unique identifier (e.g., 'gemini25flash_my_agent')
-- **name**: string - Display name for the agent
-- **purpose**: string - Brief description of the agent's purpose
+- **displayName**: string - Display name for the agent
+- **parentPrompt**: string - Brief description of the agent's purpose
 - **model**: Model - The LLM model to use (Claude, Gemini, etc.)
-- **promptSchema**: Object with:
+- **inputSchema**: Object with:
   - prompt: boolean | 'optional' - Whether agent requires user prompt
   - params: z.ZodSchema | null - Optional Zod schema for parameters
 - **outputMode**: 'last_message' | 'all_messages' | 'json'
@@ -51,7 +52,7 @@ Every agent template must include these fields:
 
 - **systemPrompt**: string - Core system instructions
 - **userInputPrompt**: string - Instructions for handling user input
-- **agentStepPrompt**: string - Instructions for each agent step
+- **stepPrompt**: string - Instructions for each agent step
 
 ### Optional Fields:
 - **fallbackProviders**: FallbackProvider[] - Fallback providers for Anthropic models
@@ -119,7 +120,7 @@ When asked to create an agent template, you should:
 5. Ensure the template follows all conventions and best practices
 
 Create agent templates that are focused, efficient, and well-documented.`,
-  userInputPrompt: `You are helping to create a new agent template. The user will describe what kind of agent they want to create.
+  instructionsPrompt: `You are helping to create a new agent template. The user will describe what kind of agent they want to create.
 
 Analyze their request and create a complete agent template that:
 - Has a clear purpose and appropriate capabilities
@@ -129,7 +130,7 @@ Analyze their request and create a complete agent template that:
 - Is properly structured
 
 Ask clarifying questions if needed, then create the template file in the appropriate location.`,
-  agentStepPrompt: `Continue working on the agent template creation. Focus on:
+  stepPrompt: `Continue working on the agent template creation. Focus on:
 - Understanding the requirements
 - Creating a well-structured template
 - Following best practices
