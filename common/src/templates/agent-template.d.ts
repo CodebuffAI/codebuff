@@ -20,7 +20,7 @@
  * Simple configuration interface for defining a custom agent
  */
 export interface AgentConfig {
-  /** Unique identifier for this agent */
+  /** Unique identifier for this agent. Use alphanumeric characters and hyphens only. */
   id: string
 
   /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
@@ -36,30 +36,32 @@ export interface AgentConfig {
   // Tools and Subagents
   // ============================================================================
 
-  /** Tools this agent can use (defaults to common file editing tools) */
+  /** Tools this agent can use. */
   tools?: ToolName[]
 
-  /** Other agents this agent can spawn */
+  /** Other agents this agent can spawn. */
   subagents?: SubagentName[]
 
   // ============================================================================
   // Prompts
   // ============================================================================
 
-  /** Description of what this agent does. Provided to the parent agent so it knows when to spawn this agent. */
+  /** Prompt for when to spawn this agent as a subagent. Include the main purpose and use cases. */
   parentPrompt?: string
 
-  /** Background information for the agent. Prefer to use instructionsPrompt for agent instructions. */
+  /** Background information for the agent. Prefer using instructionsPrompt for agent instructions. */
   systemPrompt?: string
 
-  /** Instructions for the agent. This prompt is inserted after each user input.
-   * Updating this prompt is the best way to shape the agent's behavior. */
+  /** Instructions for the agent.
+   * IMPORTANT: Updating this prompt is the best way to shape the agent's behavior.
+   * This prompt is inserted after each user input. */
   instructionsPrompt?: string
 
-  /** Prompt inserted at each agent step. Powerful for changing the agent's behavior. */
+  /** Prompt inserted at each agent step. Powerful for changing the agent's behavior,
+   * but prefer instructionsPrompt for most instructions. */
   stepPrompt?: string
 
-  /** Instructions for spawned sub-agents */
+  /** Instructions for specific parent agents on when to spawn this agent as a subagent. */
   parentInstructions?: Record<SubagentName, string>
 
   // ============================================================================
@@ -68,14 +70,18 @@ export interface AgentConfig {
 
   /** The input schema required to spawn the agent. Provide a prompt string and/or a params object. */
   inputSchema?: {
-    prompt?: { type: 'string', description?: string }
+    prompt?: { type: 'string'; description?: string }
     params?: JsonSchema
   }
 
   /** Whether to include conversation history (defaults to true) */
   includeMessageHistory?: boolean
 
-  /** How the agent should output responses after spawned (defaults to 'last_message') */
+  /** How the agent should output a response to its parent (defaults to 'last_message')
+   * last_message: The last message from the agent, typcically after using tools.
+   * all_messages: All messages from the agent, including tool calls and results.
+   * json: Make the agent output a structured JSON object. Can be used with outputSchema or without if you want freeform json output.
+   */
   outputMode?: 'last_message' | 'all_messages' | 'json'
 
   /** JSON schema for structured output (when outputMode is 'json') */
@@ -86,6 +92,13 @@ export interface AgentConfig {
   // ============================================================================
 
   /** Programmatically step the agent forward and run tools.
+   * 
+   * You can either yield:
+   * - A tool call matching the tools schema.
+   * - 'STEP' to run agent's model and generate one assistant message.
+   * - 'STEP_ALL' to run the agent's model until it uses the end_turn tool or stops includes no tool calls in a message.
+   * 
+   * Or use 'return' to end the turn.
    *
    * Example:
    * function* handleSteps({ agentStep, prompt, params}) {
