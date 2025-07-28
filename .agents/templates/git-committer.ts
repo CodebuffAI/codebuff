@@ -5,7 +5,7 @@ export default {
   version: '0.0.1',
   model: 'anthropic/claude-sonnet-4',
   displayName: 'Git Committer',
-  purpose:
+  parentPrompt:
     'A git committer agent specialized to commit current changes with an appropriate commit message.',
   promptSchema: {
     prompt: {

@@ -81,7 +81,7 @@ describe('Subagent Streaming', () => {
                 safeParse: () => ({ success: true }),
               } as any,
             },
-            purpose: '',
+            parentPrompt: '',
             model: '',
             includeMessageHistory: true,
             toolNames: [],

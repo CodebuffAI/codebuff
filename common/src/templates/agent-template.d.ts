@@ -26,12 +26,10 @@ export interface AgentConfig {
   /** Human-readable name for the agent */
   displayName: string
 
-  /** Description of what this agent does. Provided to the parent agent so it knows when to spawn this agent. */
-  purpose: string
-
   /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
   model: ModelName
 
+  /** Description of what this agent does. Provided to the parent agent so it knows when to spawn this agent. */
   parentPrompt?: string
 
   /** Background information for the agent. Prefer to use instructionsPrompt for agent instructions. */
@@ -70,7 +68,7 @@ export interface AgentConfig {
   parentInstructions?: Record<SpawnableAgentName, string>
 
   /** Programmatically step the agent forward and run tools.
-   * 
+   *
    * Example:
    * function* handleSteps({ agentStep, prompt, params}) {
    *   const { toolResult } = yield {
@@ -79,7 +77,7 @@ export interface AgentConfig {
    *   }
    *   yield 'STEP_ALL'
    * }
-  */
+   */
   handleSteps?: (
     context: AgentStepContext
   ) => Generator<
@@ -243,7 +241,7 @@ export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'
 export const FileEditorExample: AgentConfig = {
   id: 'file-editor',
   name: 'File Editor',
-  purpose: 'Specialized in reading and editing files',
+  parentPrompt: 'Specialized in reading and editing files',
   model: 'anthropic/claude-4-sonnet-20250522',
   tools: ['read_files', 'write_file', 'str_replace', 'end_turn'],
   instructionsPrompt: `
@@ -258,7 +256,7 @@ export const FileEditorExample: AgentConfig = {
 export const ResearcherExample: AgentConfig = {
   id: 'researcher',
   name: 'Research Assistant',
-  purpose: 'Specialized in gathering information and research',
+  parentPrompt: 'Specialized in gathering information and research',
   model: 'anthropic/claude-3.5-haiku-20241022',
   tools: ['web_search', 'read_docs', 'write_file', 'end_turn'],
   spawnableAgents: ['researcher', 'knowledge-keeper'],
@@ -272,7 +270,7 @@ export const ResearcherExample: AgentConfig = {
 export const CodeAnalyzerExample: AgentConfig = {
   id: 'code-analyzer',
   name: 'Code Analyzer',
-  purpose: 'Specialized in understanding codebases and finding patterns',
+  parentPrompt: 'Specialized in understanding codebases and finding patterns',
   model: 'google/gemini-2.5-flash',
   tools: ['read_files', 'code_search', 'find_files', 'end_turn'],
   systemPrompt:
@@ -285,7 +283,7 @@ export const CodeAnalyzerExample: AgentConfig = {
 export const AdvancedExample: AgentConfig = {
   id: 'advanced-agent',
   name: 'Advanced Agent',
-  purpose: 'Demonstrates advanced configuration options',
+  parentPrompt: 'Demonstrates advanced configuration options',
   model: 'anthropic/claude-4-sonnet-20250522',
   tools: ['read_files', 'code_search', 'set_output'],
   systemPrompt:

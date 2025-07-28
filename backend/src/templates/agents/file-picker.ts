@@ -7,7 +7,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 export const filePicker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['file_picker'].displayName,
-  purpose: AGENT_PERSONAS['file_picker'].purpose,
+  parentPrompt: AGENT_PERSONAS['file_picker'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },

@@ -24,12 +24,12 @@ params: None`
       }
       const { promptSchema } = agentTemplate
       if (!promptSchema) {
-        return `- ${agentType}: ${agentTemplate.purpose}
+        return `- ${agentType}: ${agentTemplate.parentPrompt}
 prompt: None
 params: None`
       }
       const { prompt, params } = promptSchema
-      return `- ${agentType}: ${agentTemplate.purpose}
+      return `- ${agentType}: ${agentTemplate.parentPrompt}
 prompt: ${schemaToJsonStr(prompt)}
 params: ${schemaToJsonStr(params)}`
     })

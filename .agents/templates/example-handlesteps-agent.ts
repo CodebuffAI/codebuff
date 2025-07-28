@@ -4,7 +4,7 @@ export default {
   id: 'example-handlesteps-agent',
   version: '1.0.0',
   displayName: 'Example HandleSteps Agent',
-  purpose:
+  parentPrompt:
     'Demonstrates how to use handleSteps generator functions for programmatic agent control',
   model: 'claude-3-5-sonnet-20241022',
   outputMode: 'json',

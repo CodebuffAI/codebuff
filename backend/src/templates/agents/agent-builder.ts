@@ -6,7 +6,8 @@ import { AgentTemplate } from '../types'
 
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
   displayName: 'Agent Builder',
-  purpose: 'Creates new agent templates for the codebuff mult-agent system',
+  parentPrompt:
+    'Creates new agent templates for the codebuff mult-agent system',
   model,
   promptSchema: {
     prompt: z
@@ -39,7 +40,7 @@ Every agent template must include these fields:
 ### Required Fields:
 - **type**: AgentTemplateType - Unique identifier (e.g., 'gemini25flash_my_agent')
 - **displayName**: string - Display name for the agent
-- **purpose**: string - Brief description of the agent's purpose
+- **parentPrompt**: string - Brief description of the agent's purpose
 - **model**: Model - The LLM model to use (Claude, Gemini, etc.)
 - **promptSchema**: Object with:
   - prompt: boolean | 'optional' - Whether agent requires user prompt

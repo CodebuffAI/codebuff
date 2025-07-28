@@ -83,7 +83,7 @@ describe('runProgrammaticStep', () => {
     mockTemplate = {
       id: 'test-agent',
       displayName: 'Test Agent',
-      purpose: 'Testing',
+      parentPrompt: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       promptSchema: {},
       outputMode: 'json',

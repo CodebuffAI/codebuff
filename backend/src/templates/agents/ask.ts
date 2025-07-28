@@ -12,7 +12,7 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['ask'].displayName,
-  purpose: 'Base ask-mode agent that orchestrates the full response.',
+  parentPrompt: 'Base ask-mode agent that orchestrates the full response.',
   promptSchema: {
     prompt: z
       .string()

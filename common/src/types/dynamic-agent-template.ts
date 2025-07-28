@@ -43,7 +43,6 @@ export const DynamicAgentConfigSchema = z.object({
 
   // Required fields for new agents
   displayName: z.string(),
-  purpose: z.string(),
   model: z.string(),
   outputMode: z
     .enum(['last_message', 'all_messages', 'json'])
@@ -75,7 +74,8 @@ export const DynamicAgentConfigSchema = z.object({
   promptSchema: PromptSchemaObjectSchema,
   parentInstructions: z.record(z.string(), z.string()).optional(),
 
-  // Required prompts (only strings or path references)
+  // Prompts
+  parentPrompt: z.string().optional(),
   systemPrompt: PromptFieldSchema,
   instructionsPrompt: PromptFieldSchema,
   stepPrompt: PromptFieldSchema,

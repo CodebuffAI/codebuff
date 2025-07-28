@@ -18,7 +18,7 @@ export const thinkingBase = (
 ): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['base_lite'].displayName,
-  purpose: AGENT_PERSONAS['base_lite'].purpose,
+  parentPrompt: AGENT_PERSONAS['base_lite'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },

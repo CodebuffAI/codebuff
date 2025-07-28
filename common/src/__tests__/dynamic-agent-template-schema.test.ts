@@ -14,7 +14,7 @@ describe('DynamicAgentConfigSchema', () => {
     version: '1.0.0',
     override: false,
     displayName: 'Test Agent',
-    purpose: 'A test agent',
+    parentPrompt: 'A test agent',
     model: 'anthropic/claude-4-sonnet-20250522',
     systemPrompt: 'Test system prompt',
     instructionsPrompt: 'Test user prompt',

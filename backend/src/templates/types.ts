@@ -16,7 +16,7 @@ export type AgentTemplate<
 > = {
   id: AgentTemplateType
   displayName: string
-  purpose: string
+  parentPrompt?: string
   model: Model
   // Required parameters for spawning this agent.
   promptSchema: {

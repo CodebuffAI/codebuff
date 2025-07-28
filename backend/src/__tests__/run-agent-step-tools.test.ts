@@ -24,10 +24,10 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
+import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { getAllAgentTemplates } from '../templates/agent-registry'
 import { AgentTemplate } from '../templates/types'
 import * as websocketAction from '../websockets/websocket-action'
-import { clearAgentGeneratorCache } from '../run-programmatic-step'
 
 describe('runAgentStep - set_output tool', () => {
   beforeAll(() => {
@@ -317,7 +317,7 @@ describe('runAgentStep - set_output tool', () => {
     const mockAgentTemplate: AgentTemplate = {
       id: 'test-handlesteps-agent',
       displayName: 'Test HandleSteps Agent',
-      purpose: 'Testing handleSteps functionality',
+      parentPrompt: 'Testing handleSteps functionality',
       model: 'claude-3-5-sonnet-20241022',
       promptSchema: {},
       outputMode: 'json' as const,

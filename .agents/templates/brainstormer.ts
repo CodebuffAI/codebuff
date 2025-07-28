@@ -7,7 +7,7 @@ export default {
   override: false,
 
   displayName: 'Brian the Brainstormer',
-  purpose:
+  parentPrompt:
     'Acts as a creative thought partner, generating ideas and exploring alternative viewpoints to help think through problems.',
   model: 'anthropic/claude-4-sonnet-20250522',
   outputMode: 'last_message',

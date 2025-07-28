@@ -11,7 +11,7 @@ export const superagent = (
 ): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['superagent'].displayName,
-  purpose: AGENT_PERSONAS['superagent'].purpose,
+  parentPrompt: AGENT_PERSONAS['superagent'].purpose,
   promptSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
