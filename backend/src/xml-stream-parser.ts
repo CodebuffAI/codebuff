@@ -48,6 +48,7 @@ export async function* processStreamWithTags(
 ): AsyncGenerator<string> {
   let streamCompleted = false
   let buffer = ''
+  let autocompleted = false
 
   function extractToolCalls(): string[] {
     const matches: string[] = []
@@ -73,6 +74,7 @@ export async function* processStreamWithTags(
           contents,
           model: loggerOptions?.model,
           agent: loggerOptions?.agentName,
+          autocompleted,
         }
       )
       const shortenedContents =
@@ -96,6 +98,7 @@ export async function* processStreamWithTags(
           toolName,
           model: loggerOptions?.model,
           agent: loggerOptions?.agentName,
+          autocompleted,
         }
       )
       onError(toolName, `Tool not found: ${toolName}`)
@@ -106,6 +109,7 @@ export async function* processStreamWithTags(
       toolName,
       contents,
       parsedParams,
+      autocompleted,
       model: loggerOptions?.model,
       agent: loggerOptions?.agentName,
     })
@@ -131,6 +135,7 @@ export async function* processStreamWithTags(
       if (buffer) {
         buffer += completionSuffix
         chunk = completionSuffix
+        autocompleted = true
       }
       extractToolsFromBufferAndProcess()
     }
