@@ -32,7 +32,9 @@ export interface AgentConfig {
   /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
   model: ModelName
 
-  /** Background information for the agent. */
+  parentPrompt?: string
+
+  /** Background information for the agent. Prefer to use instructionsPrompt for agent instructions. */
   systemPrompt?: string
 
   /** Instructions for the agent. This prompt is inserted after each user input.
@@ -285,6 +287,12 @@ export const AdvancedExample: AgentConfig = {
   name: 'Advanced Agent',
   purpose: 'Demonstrates advanced configuration options',
   model: 'anthropic/claude-4-sonnet-20250522',
+  tools: ['read_files', 'code_search', 'set_output'],
+  systemPrompt:
+    'You analyze code and return structured JSON responses with confidence scores.',
+  parentInstructions: {
+    file_picker: 'Focus on finding the most relevant code files for analysis',
+  },
   outputMode: 'json',
   outputSchema: {
     type: 'object',
@@ -293,11 +301,5 @@ export const AdvancedExample: AgentConfig = {
       confidence: { type: 'number' },
     },
     required: ['result'],
-  },
-  tools: ['read_files', 'code_search', 'set_output'],
-  systemPrompt:
-    'You analyze code and return structured JSON responses with confidence scores.',
-  parentInstructions: {
-    file_picker: 'Focus on finding the most relevant code files for analysis',
   },
 }
