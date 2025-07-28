@@ -27,8 +27,9 @@ import { runAgentStep } from '../run-agent-step'
 import { getAllAgentTemplates } from '../templates/agent-registry'
 import { AgentTemplate } from '../templates/types'
 import * as websocketAction from '../websockets/websocket-action'
+import { clearAgentGeneratorCache } from '../run-programmatic-step'
 
-describe('runAgentStep - update_report tool', () => {
+describe('runAgentStep - set_output tool', () => {
   beforeAll(() => {
     // Mock logger
     mockModule('@codebuff/backend/util/logger', () => ({
@@ -40,26 +41,9 @@ describe('runAgentStep - update_report tool', () => {
       },
       withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
     }))
-
-    // Mock agent templates to include update_report in base
-    mockModule('@codebuff/backend/templates/agent-list', () => {
-      const { agentTemplates } = require('../templates/agent-list')
-      return {
-        agentTemplates: {
-          ...agentTemplates,
-          base: {
-            ...agentTemplates.base,
-            toolNames: [
-              ...agentTemplates.base.toolNames,
-              'update_report', // Add this tool
-            ],
-          },
-        },
-      }
-    })
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
     analytics.initAnalytics()
@@ -104,6 +88,7 @@ describe('runAgentStep - update_report tool', () => {
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
       Promise.resolve('Test response')
     )
+    clearAgentGeneratorCache()
   })
 
   afterEach(() => {
@@ -112,6 +97,7 @@ describe('runAgentStep - update_report tool', () => {
 
   afterAll(() => {
     clearMockedModules()
+    clearAgentGeneratorCache()
   })
 
   class MockWebSocket {
@@ -424,7 +410,6 @@ describe('runAgentStep - update_report tool', () => {
     expect(typeof instructionsPromptMessage.content).toBe('string')
     expect(instructionsPromptMessage.content).toContain('Test user prompt')
 
-    // Second message: instructions prompt (user role)
     // Third message: read_files tool call (user role)
     const toolCallMessage = newMessages[2]
     expect(toolCallMessage.role).toBe('user')
