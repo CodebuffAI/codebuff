@@ -23,11 +23,28 @@ export interface AgentConfig {
   /** Unique identifier for this agent */
   id: string
 
+  /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
+  version?: string
+
   /** Human-readable name for the agent */
   displayName: string
 
   /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
   model: ModelName
+
+  // ============================================================================
+  // Tools and Subagents
+  // ============================================================================
+
+  /** Tools this agent can use (defaults to common file editing tools) */
+  tools?: ToolName[]
+
+  /** Other agents this agent can spawn */
+  spawnableAgents?: SpawnableAgentName[]
+
+  // ============================================================================
+  // Prompts
+  // ============================================================================
 
   /** Description of what this agent does. Provided to the parent agent so it knows when to spawn this agent. */
   parentPrompt?: string
@@ -39,18 +56,24 @@ export interface AgentConfig {
    * Updating this prompt is the best way to shape the agent's behavior. */
   instructionsPrompt?: string
 
-  /** Tools this agent can use (defaults to common file editing tools) */
-  tools?: ToolName[]
+  /** Prompt inserted at each agent step. Powerful for changing the agent's behavior. */
+  stepPrompt?: string
 
-  /** Other agents this agent can spawn */
-  spawnableAgents?: SpawnableAgentName[]
+  /** Instructions for spawned sub-agents */
+  parentInstructions?: Record<SpawnableAgentName, string>
 
   // ============================================================================
-  // Advanced fields below!
+  // Input and Output
   // ============================================================================
 
-  /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
-  version?: string
+  /** Prompt schema for the agent */
+  promptSchema?: {
+    prompt?: JsonSchema
+    params?: JsonSchema
+  }
+
+  /** Whether to include conversation history (defaults to true) */
+  includeMessageHistory?: boolean
 
   /** How the agent should output responses after spawned (defaults to 'last_message') */
   outputMode?: 'last_message' | 'all_messages' | 'json'
@@ -58,14 +81,9 @@ export interface AgentConfig {
   /** JSON schema for structured output (when outputMode is 'json') */
   outputSchema?: JsonSchema
 
-  /** Whether to include conversation history (defaults to true) */
-  includeMessageHistory?: boolean
-
-  /** Prompt inserted at each agent step. Powerful for changing the agent's behavior. */
-  stepPrompt?: string
-
-  /** Instructions for spawned sub-agents */
-  parentInstructions?: Record<SpawnableAgentName, string>
+  // ============================================================================
+  // Handle Steps
+  // ============================================================================
 
   /** Programmatically step the agent forward and run tools.
    *

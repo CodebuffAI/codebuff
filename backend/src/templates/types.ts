@@ -16,23 +16,25 @@ export type AgentTemplate<
 > = {
   id: AgentTemplateType
   displayName: string
-  parentPrompt?: string
   model: Model
+
+  toolNames: ToolName[]
+  spawnableAgents: AgentTemplateType[]
+
+  parentPrompt?: string
+  systemPrompt: string
+  instructionsPrompt: string
+  stepPrompt: string
+  parentInstructions?: Record<string, string>
+
   // Required parameters for spawning this agent.
   promptSchema: {
     prompt?: z.ZodSchema<P>
     params?: z.ZodSchema<T>
   }
+  includeMessageHistory: boolean
   outputMode: 'last_message' | 'all_messages' | 'json'
   outputSchema?: z.ZodSchema<any>
-  includeMessageHistory: boolean
-  toolNames: ToolName[]
-  spawnableAgents: AgentTemplateType[]
-  parentInstructions?: Record<string, string>
-
-  systemPrompt: string
-  instructionsPrompt: string
-  stepPrompt: string
 
   handleSteps?: StepHandler<P, T> | string // Function or string of the generator code for running in a sandbox
 }
