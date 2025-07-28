@@ -10,6 +10,7 @@ import type { AgentTemplate } from '../../../templates/types'
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
+import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { getAllAgentTemplates } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
@@ -193,7 +194,10 @@ export const handleSpawnAgents = ((params: {
           toolResults: [],
           userId,
           clientSessionId,
-          onResponseChunk: (chunk: string) => {
+          onResponseChunk: (chunk: string | PrintModeObject) => {
+            if (typeof chunk !== 'string') {
+              return
+            }
             // Send subagent streaming chunks to client
             sendSubagentChunk({
               userInputId,

@@ -154,6 +154,9 @@ process.stderr.write = createSquashingWriteFunction(
 
 console.log = function (...args: any[]) {
   if (!squashingEnabled) {
+    if (printModeIsEnabled()) {
+      return
+    }
     return originalConsoleLog(...args)
   }
 
@@ -174,6 +177,9 @@ console.log = function (...args: any[]) {
 
 console.error = function (...args: any[]) {
   if (!squashingEnabled) {
+    if (printModeIsEnabled()) {
+      return
+    }
     return originalConsoleError(...args)
   }
 
@@ -194,6 +200,9 @@ console.error = function (...args: any[]) {
 
 console.warn = function (...args: any[]) {
   if (!squashingEnabled) {
+    if (printModeIsEnabled()) {
+      return
+    }
     return originalConsoleWarn(...args)
   }
 
@@ -214,6 +223,9 @@ console.warn = function (...args: any[]) {
 
 console.debug = function (...args: any[]) {
   if (!squashingEnabled) {
+    if (printModeIsEnabled()) {
+      return
+    }
     return originalConsoleDebug(...args)
   }
 
@@ -234,6 +246,9 @@ console.debug = function (...args: any[]) {
 
 console.info = function (...args: any[]) {
   if (!squashingEnabled) {
+    if (printModeIsEnabled()) {
+      return
+    }
     return originalConsoleInfo(...args)
   }
 

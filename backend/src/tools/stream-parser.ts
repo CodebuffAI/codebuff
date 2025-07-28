@@ -10,7 +10,7 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolCallPart } from 'ai'
 import type { WebSocket } from 'ws'
 import type { AgentTemplate } from '../templates/types'
-import { CodebuffToolCall } from './constants'
+import type { CodebuffToolCall } from './constants'
 
 import { toolNames } from '@codebuff/common/constants/tools'
 import { buildArray } from '@codebuff/common/util/array'
@@ -129,6 +129,7 @@ export async function processStreamWithTools<T extends string>(options: {
         result: error,
       })
     },
+    onResponseChunk,
     {
       userId,
       model: agentTemplate.model,

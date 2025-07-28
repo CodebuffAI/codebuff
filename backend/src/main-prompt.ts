@@ -9,6 +9,7 @@ import {
 import { WebSocket } from 'ws'
 
 import { renderToolResults } from '@codebuff/common/constants/tools'
+import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
 import { getAllAgentTemplates } from './templates/agent-registry'
@@ -20,7 +21,7 @@ import { requestToolCall } from './websockets/websocket-action'
 export interface MainPromptOptions {
   userId: string | undefined
   clientSessionId: string
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string | PrintModeObject) => void
 }
 
 export const mainPrompt = async (

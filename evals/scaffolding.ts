@@ -9,6 +9,7 @@ import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { FileChanges } from '@codebuff/common/actions'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { mockModule } from '@codebuff/common/testing/mock-modules'
+import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import {
   AgentState,
   AgentTemplateType,
@@ -161,7 +162,10 @@ export async function runAgentStepScaffolding(
     userInputId: generateCompactId(),
     clientSessionId: sessionId,
     fingerprintId: 'test-fingerprint-id',
-    onResponseChunk: (chunk: string) => {
+    onResponseChunk: (chunk: string | PrintModeObject) => {
+      if (typeof chunk !== 'string') {
+        return
+      }
       if (DEBUG_MODE) {
         process.stdout.write(chunk)
       }

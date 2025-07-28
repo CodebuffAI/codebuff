@@ -1,38 +1,48 @@
-import { Model } from 'src/constants'
+import z from 'zod'
 
-export type PrintModeError = {
-  type: 'error'
-  message: string
-}
+export const printModeErrorSchema = z.object({
+  type: z.literal('error'),
+  message: z.string(),
+})
+export type PrintModeError = z.infer<typeof printModeErrorSchema>
 
-export type PrintModeDownloadStatus = {
-  type: 'download'
-  version: string
-  status: 'complete' | 'failed'
-}
+export const printModeDownloadStatusSchema = z.object({
+  type: z.literal('download'),
+  version: z.string(),
+  status: z.enum(['complete', 'failed']),
+})
+export type PrintModeDownloadStatus = z.infer<
+  typeof printModeDownloadStatusSchema
+>
 
-export type PrintModeToolCall = {
-  type: 'tool_call'
-  toolCallId: string
-  toolName: string
-  args: Record<string, any>
-}
+export const printModeToolCallSchema = z.object({
+  type: z.literal('tool_call'),
+  toolCallId: z.string(),
+  toolName: z.string(),
+  args: z.record(z.string(), z.any()),
+})
+export type PrintModeToolCall = z.infer<typeof printModeToolCallSchema>
 
-export type PrintModeText = {
-  type: 'text'
-  text: string
-}
+export const printModeTextSchema = z.object({
+  type: z.literal('text'),
+  text: z.string(),
+})
+export type PrintModeText = z.infer<typeof printModeTextSchema>
 
-export type PrintModeFinish = {
-  type: 'finish'
-  agent_id: string
-  model: Model
-  total_cost: number
-}
+export const printModeFinishSchema = z.object({
+  type: z.literal('finish'),
+  agentId: z.string(),
+  model: z.string(),
+  totalCost: z.number(),
+})
+export type PrintModeFinish = z.infer<typeof printModeFinishSchema>
 
-export type PrintModeObject =
-  | PrintModeError
-  | PrintModeDownloadStatus
-  | PrintModeToolCall
-  | PrintModeText
-  | PrintModeFinish
+export const printModeObjectSchema = z.discriminatedUnion('type', [
+  printModeErrorSchema,
+  printModeDownloadStatusSchema,
+  printModeToolCallSchema,
+  printModeTextSchema,
+  printModeFinishSchema,
+])
+
+export type PrintModeObject = z.infer<typeof printModeObjectSchema>

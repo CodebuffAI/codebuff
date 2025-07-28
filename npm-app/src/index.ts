@@ -11,7 +11,7 @@ import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { npmAppVersion } from './config'
 import { createTemplateProject } from './create-template-project'
-import { printMode, setPrintMode } from './display/print-mode'
+import { printModeLog, setPrintMode } from './display/print-mode'
 import {
   getStartingDirectory,
   initProjectFileContextWithWorker,
@@ -174,7 +174,7 @@ For all commands and options, run 'codebuff' and then type 'help'.
     setPrintMode(true)
 
     if (!hasPrompt && !hasParams) {
-      printMode.error({
+      printModeLog({
         type: 'error',
         message:
           'Error: Print mode requires either a prompt or --params to be set',

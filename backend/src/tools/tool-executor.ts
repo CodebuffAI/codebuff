@@ -112,28 +112,24 @@ export interface ExecuteToolCallParams<T extends ToolName = ToolName> {
   autoInsertEndStepParam?: boolean
 }
 
-export function executeToolCall<T extends ToolName>(
-  options: ExecuteToolCallParams<T>
-): Promise<void> {
-  const {
-    toolName,
-    args,
-    toolCalls,
-    toolResults,
-    previousToolCallFinished,
-    ws,
-    agentTemplate,
-    fileContext,
-    agentStepId,
-    clientSessionId,
-    userInputId,
-    fullResponse,
-    onResponseChunk,
-    state,
-    userId,
-    autoInsertEndStepParam = false,
-  } = options
-
+export function executeToolCall<T extends ToolName>({
+  toolName,
+  args,
+  toolCalls,
+  toolResults,
+  previousToolCallFinished,
+  ws,
+  agentTemplate,
+  fileContext,
+  agentStepId,
+  clientSessionId,
+  userInputId,
+  fullResponse,
+  onResponseChunk,
+  state,
+  userId,
+  autoInsertEndStepParam = false,
+}: ExecuteToolCallParams<T>): Promise<void> {
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>(
     {
       toolName,
@@ -154,6 +150,13 @@ export function executeToolCall<T extends ToolName>(
     )
     return previousToolCallFinished
   }
+
+  onResponseChunk({
+    type: 'tool_call',
+    toolCallId: toolCall.toolCallId,
+    toolName,
+    args: toolCall.args,
+  })
 
   logger.debug(
     { toolCall },

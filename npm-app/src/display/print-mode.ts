@@ -1,7 +1,4 @@
-import type {
-  PrintModeError,
-  PrintModeObject,
-} from '@codebuff/common/types/print-mode'
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
 
 import { originalConsoleError, originalConsoleLog } from './overrides'
 
@@ -13,15 +10,13 @@ export function printModeIsEnabled(): boolean {
   return printModeEnabled ?? false
 }
 
-export const printMode = {
-  log: (obj: PrintModeObject) => {
-    if (printModeEnabled) {
-      originalConsoleLog(JSON.stringify(obj))
-    }
-  },
-  error: (obj: PrintModeError) => {
-    if (printModeEnabled) {
-      originalConsoleError(JSON.stringify(obj))
-    }
-  },
+export function printModeLog(obj: PrintModeObject) {
+  if (!printModeEnabled) {
+    return
+  }
+  if (obj.type === 'error') {
+    originalConsoleError(JSON.stringify(obj))
+  } else {
+    originalConsoleLog(JSON.stringify(obj))
+  }
 }

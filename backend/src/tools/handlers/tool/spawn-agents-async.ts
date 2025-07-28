@@ -12,6 +12,7 @@ import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { SendSubagentChunk } from './spawn-agents'
 
 import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
+import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { asyncAgentManager } from '../../../async-agent-manager'
 import { getAllAgentTemplates } from '../../../templates/agent-registry'
@@ -197,14 +198,18 @@ export const handleSpawnAgentsAsync = ((params: {
               toolResults: [],
               userId,
               clientSessionId,
-              onResponseChunk: (chunk: string) =>
+              onResponseChunk: (chunk: string | PrintModeObject) => {
+                if (typeof chunk !== 'string') {
+                  return
+                }
                 sendSubagentChunk({
                   userInputId,
                   agentId,
                   agentType,
                   chunk,
                   prompt,
-                }),
+                })
+              },
             })
 
             // Send completion message to parent if agent has appropriate output mode

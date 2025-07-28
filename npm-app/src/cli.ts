@@ -62,7 +62,7 @@ import { Client } from './client'
 import { websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
 import { DiffManager } from './diff-manager'
-import { printModeIsEnabled } from './display/print-mode'
+import { printModeIsEnabled, printModeLog } from './display/print-mode'
 import {
   disableSquashNewlines,
   enableSquashNewlines,
@@ -213,7 +213,14 @@ export class CLI {
     process.on('unhandledRejection', (reason, promise) => {
       rageDetectors.exitAfterErrorDetector.start()
 
-      console.error('\nUnhandled Rejection at:', promise, 'reason:', reason)
+      const errorMessage = `Unhandled Rejection at: ${promise} reason: ${reason}`
+      if (printModeIsEnabled()) {
+        printModeLog({
+          type: 'error',
+          message: errorMessage,
+        })
+      }
+      console.error(`\n${errorMessage}`)
       logger.error(
         {
           errorMessage:
@@ -228,9 +235,14 @@ export class CLI {
     process.on('uncaughtException', (err, origin) => {
       rageDetectors.exitAfterErrorDetector.start()
 
-      console.error(
-        `\nCaught exception: ${err}\n` + `Exception origin: ${origin}`
-      )
+      const errorMessage = `Caught exception: ${err} Exception origin: ${origin}`
+      if (printModeIsEnabled()) {
+        printModeLog({
+          type: 'error',
+          message: errorMessage,
+        })
+      }
+      console.error(`\n${errorMessage}`)
       console.error(err.stack)
       logger.error(
         {
@@ -568,9 +580,11 @@ export class CLI {
     // In print mode, skip greeting and interactive setup
     if (this.printMode) {
       if (!client.user) {
-        console.error(
-          'Error: Print mode requires authentication. Please run "codebuff login" first.'
-        )
+        printModeLog({
+          type: 'error',
+          message:
+            'Print mode requires authentication. Please run "codebuff login" first.',
+        })
         process.exit(1)
       }
     } else {
@@ -1149,6 +1163,7 @@ export class CLI {
   }
 
   private async handleExit() {
+    enableSquashNewlines()
     // Start exit time detector
     rageDetectors.exitTimeDetector.start()
 

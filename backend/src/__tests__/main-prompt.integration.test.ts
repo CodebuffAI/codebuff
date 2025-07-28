@@ -14,6 +14,7 @@ import { mainPrompt } from '../main-prompt'
 
 // Mock imports needed for setup within the test
 import { getToolCallString } from '@codebuff/common/constants/tools'
+import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
@@ -363,7 +364,10 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session-delete-function-integration',
-      onResponseChunk: (chunk: string) => {
+      onResponseChunk: (chunk: string | PrintModeObject) => {
+        if (typeof chunk !== 'string') {
+          return
+        }
         process.stdout.write(chunk)
       },
     })
@@ -444,7 +448,10 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session-delete-function-integration',
-        onResponseChunk: (chunk: string) => {
+        onResponseChunk: (chunk: string | PrintModeObject) => {
+          if (typeof chunk !== 'string') {
+            return
+          }
           process.stdout.write(chunk)
         },
       })
