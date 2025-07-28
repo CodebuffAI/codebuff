@@ -362,7 +362,7 @@ export class CLI {
     process.stdin.on('keypress', (str, key) => this.handleKeyPress(str, key))
   }
 
-  private async inputCompleter(line: string): Promise<[string[], string]> {
+  private inputCompleter(line: string): [string[], string] {
     const lastWord = line.split(' ').pop() || ''
 
     if (line.startsWith('/')) {
@@ -446,7 +446,7 @@ export class CLI {
     })
   }
 
-  private async displayAgentMenu() {
+  private displayAgentMenu() {
     // Get all agents using functional API
     const localAgentInfo = getCachedLocalAgentInfo()
     const allAgents = getAllAgents(localAgentInfo)
