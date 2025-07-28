@@ -31,7 +31,7 @@ New agents need `"override": false` and these required fields:
   "toolNames": ["read_files", "write_file", "end_turn"],
   "spawnableAgents": ["researcher"],
 
-  "promptSchema": {
+  "inputSchema": {
     "prompt": {
       "type": "string",
       "description": "What documentation to create or update"
@@ -87,7 +87,7 @@ Specialized for documenting REST APIs and GraphQL schemas:
   "toolNames": ["read_files", "code_search", "write_file", "spawn_agents", "end_turn"],
   "spawnableAgents": ["researcher"],
 
-  "promptSchema": {
+  "inputSchema": {
     "prompt": {
       "type": "string",
       "description": "What API endpoints or schemas to document"
@@ -184,7 +184,7 @@ Parent instructions allow your agent to provide specific guidance to other agent
   "includeMessageHistory": true,
   "toolNames": ["read_files", "write_file", "code_search", "spawn_agents", "end_turn"],
   "spawnableAgents": ["reviewer", "researcher", "file_picker"],
-  "promptSchema": {
+  "inputSchema": {
     "prompt": {
       "type": "string",
       "description": "Frontend development task to coordinate"
@@ -215,7 +215,7 @@ Parent instructions allow your agent to provide specific guidance to other agent
   "includeMessageHistory": true,
   "toolNames": ["read_files", "write_file", "code_search", "spawn_agents", "run_terminal_command", "end_turn"],
   "spawnableAgents": ["reviewer", "researcher", "file_picker"],
-  "promptSchema": {
+  "inputSchema": {
     "prompt": {
       "type": "string",
       "description": "API development or documentation task"
@@ -246,7 +246,7 @@ Parent instructions allow your agent to provide specific guidance to other agent
   "includeMessageHistory": true,
   "toolNames": ["read_files", "write_file", "code_search", "spawn_agents", "run_terminal_command", "end_turn"],
   "spawnableAgents": ["reviewer", "researcher", "file_picker"],
-  "promptSchema": {
+  "inputSchema": {
     "prompt": {
       "type": "string",
       "description": "Infrastructure or deployment automation task"

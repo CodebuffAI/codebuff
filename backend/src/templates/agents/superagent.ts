@@ -12,7 +12,7 @@ export const superagent = (
   model,
   displayName: AGENT_PERSONAS['superagent'].displayName,
   parentPrompt: AGENT_PERSONAS['superagent'].purpose,
-  promptSchema: {
+  inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',

@@ -7,7 +7,7 @@ export default {
   displayName: 'Git Committer',
   parentPrompt:
     'A git committer agent specialized to commit current changes with an appropriate commit message.',
-  promptSchema: {
+  inputSchema: {
     prompt: {
       type: 'string',
       description: 'What changes to commit',

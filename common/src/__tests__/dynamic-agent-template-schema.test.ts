@@ -27,10 +27,10 @@ describe('DynamicAgentConfigSchema', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should validate template with promptSchema', () => {
+    it('should validate template with inputSchema', () => {
       const template = {
         ...validBaseTemplate,
-        promptSchema: {
+        inputSchema: {
           prompt: {
             type: 'string',
             description: 'A test prompt',
@@ -45,7 +45,7 @@ describe('DynamicAgentConfigSchema', () => {
     it('should validate template with paramsSchema', () => {
       const template = {
         ...validBaseTemplate,
-        promptSchema: {
+        inputSchema: {
           params: {
             type: 'object',
             properties: {
@@ -66,7 +66,7 @@ describe('DynamicAgentConfigSchema', () => {
     it('should validate template with both schemas', () => {
       const template = {
         ...validBaseTemplate,
-        promptSchema: {
+        inputSchema: {
           prompt: {
             type: 'string',
             description: 'A test prompt',
@@ -87,7 +87,7 @@ describe('DynamicAgentConfigSchema', () => {
     it('should validate template with complex nested schemas', () => {
       const template = {
         ...validBaseTemplate,
-        promptSchema: {
+        inputSchema: {
           params: {
             type: 'object',
             properties: {
@@ -184,10 +184,10 @@ describe('DynamicAgentConfigSchema', () => {
       expect(result.success).toBe(false)
     })
 
-    it('should reject template with invalid promptSchema type', () => {
+    it('should reject template with invalid inputSchema type', () => {
       const template = {
         ...validBaseTemplate,
-        promptSchema: 'not an object',
+        inputSchema: 'not an object',
       }
 
       const result = DynamicAgentConfigSchema.safeParse(template)
@@ -197,7 +197,7 @@ describe('DynamicAgentConfigSchema', () => {
     it('should reject template with invalid paramsSchema type', () => {
       const template = {
         ...validBaseTemplate,
-        promptSchema: { params: 'not an object' },
+        inputSchema: { params: 'not an object' },
       }
 
       const result = DynamicAgentConfigSchema.safeParse(template)
@@ -207,7 +207,7 @@ describe('DynamicAgentConfigSchema', () => {
     it('should reject template with null schemas', () => {
       const template = {
         ...validBaseTemplate,
-        promptSchema: null,
+        inputSchema: null,
       }
 
       const result = DynamicAgentConfigSchema.safeParse(template)
@@ -282,7 +282,7 @@ describe('DynamicAgentConfigSchema', () => {
     it('should handle empty schemas', () => {
       const template = {
         ...validBaseTemplate,
-        promptSchema: {},
+        inputSchema: {},
       }
 
       const result = DynamicAgentConfigSchema.safeParse(template)
@@ -292,7 +292,7 @@ describe('DynamicAgentConfigSchema', () => {
     it('should handle schemas with additional properties', () => {
       const template = {
         ...validBaseTemplate,
-        promptSchema: {
+        inputSchema: {
           prompt: {
             type: 'string',
             description: 'A test prompt',
@@ -322,7 +322,7 @@ describe('DynamicAgentConfigSchema', () => {
 
       const template = {
         ...validBaseTemplate,
-        promptSchema: {
+        inputSchema: {
           params: largeSchema,
         },
       }
@@ -340,7 +340,6 @@ describe('DynamicAgentConfigSchema', () => {
         custom_agent: 'Spawn for custom tasks',
       }
       const dynamicAgentIds = ['custom_agent']
-
       const result = validateParentInstructions(
         parentInstructions,
         dynamicAgentIds

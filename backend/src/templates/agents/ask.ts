@@ -13,7 +13,7 @@ export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['ask'].displayName,
   parentPrompt: 'Base ask-mode agent that orchestrates the full response.',
-  promptSchema: {
+  inputSchema: {
     prompt: z
       .string()
       .describe('A question you would like answered about this project.'),

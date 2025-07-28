@@ -15,7 +15,7 @@ export const thinkingBase = (
   model,
   displayName: AGENT_PERSONAS['base_lite'].displayName,
   parentPrompt: AGENT_PERSONAS['base_lite'].purpose,
-  promptSchema: {
+  inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',

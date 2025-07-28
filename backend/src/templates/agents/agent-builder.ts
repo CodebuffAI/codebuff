@@ -9,7 +9,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
   parentPrompt:
     'Creates new agent templates for the codebuff mult-agent system',
   model,
-  promptSchema: {
+  inputSchema: {
     prompt: z
       .string()
       .optional()
@@ -42,7 +42,7 @@ Every agent template must include these fields:
 - **displayName**: string - Display name for the agent
 - **parentPrompt**: string - Brief description of the agent's purpose
 - **model**: Model - The LLM model to use (Claude, Gemini, etc.)
-- **promptSchema**: Object with:
+- **inputSchema**: Object with:
   - prompt: boolean | 'optional' - Whether agent requires user prompt
   - params: z.ZodSchema | null - Optional Zod schema for parameters
 - **outputMode**: 'last_message' | 'all_messages' | 'json'

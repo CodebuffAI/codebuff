@@ -66,9 +66,9 @@ export interface AgentConfig {
   // Input and Output
   // ============================================================================
 
-  /** Prompt schema for the agent */
-  promptSchema?: {
-    prompt?: JsonSchema
+  /** The input schema required to spawn the agent. Provide a prompt string and/or a params object. */
+  inputSchema?: {
+    prompt?: { type: 'string', description?: string }
     params?: JsonSchema
   }
 

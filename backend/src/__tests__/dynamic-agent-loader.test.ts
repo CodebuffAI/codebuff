@@ -175,7 +175,7 @@ describe('Dynamic Agent Loader', () => {
           systemPrompt: 'Test system prompt',
           instructionsPrompt: 'Test user prompt',
           stepPrompt: 'Test step prompt',
-          promptSchema: {
+          inputSchema: {
             prompt: {
               type: 'string',
               description: 'A test prompt',
@@ -199,8 +199,8 @@ describe('Dynamic Agent Loader', () => {
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('schema_agent')
-    expect(result.templates.schema_agent.promptSchema.prompt).toBeDefined()
-    expect(result.templates.schema_agent.promptSchema.params).toBeDefined()
+    expect(result.templates.schema_agent.inputSchema.prompt).toBeDefined()
+    expect(result.templates.schema_agent.inputSchema.params).toBeDefined()
   })
 
   it('should return validation errors for invalid schemas', async () => {
@@ -220,7 +220,7 @@ describe('Dynamic Agent Loader', () => {
           systemPrompt: 'Test system prompt',
           instructionsPrompt: 'Test user prompt',
           stepPrompt: 'Test step prompt',
-          promptSchema: {
+          inputSchema: {
             prompt: {
               type: 'number', // Invalid - should allow strings
             },
@@ -237,7 +237,7 @@ describe('Dynamic Agent Loader', () => {
 
     expect(result.validationErrors).toHaveLength(1)
     expect(result.validationErrors[0].message).toContain(
-      'Invalid promptSchema.prompt'
+      'Invalid inputSchema.prompt'
     )
     expect(result.validationErrors[0].message).toContain(
       'Schema must allow string or undefined values'

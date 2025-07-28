@@ -20,7 +20,7 @@ export default {
     'end_turn',
   ],
   subagents: ['file_picker', 'researcher'],
-  promptSchema: {
+  inputSchema: {
     prompt: {
       type: 'string',
       description: 'A request to gather, organize, or update project knowledge',

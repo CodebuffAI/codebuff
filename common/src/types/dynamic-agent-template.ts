@@ -20,8 +20,8 @@ const JsonSchemaSchema = z.record(z.any()).refine(
   { message: 'Must be a valid JSON schema object' }
 )
 
-// Schema for the combined promptSchema object
-const PromptSchemaObjectSchema = z
+// Schema for the combined inputSchema object
+const InputSchemaObjectSchema = z
   .object({
     prompt: JsonSchemaSchema.optional(), // Optional JSON schema for prompt validation
     params: JsonSchemaSchema.optional(), // Optional JSON schema for params validation
@@ -71,7 +71,7 @@ export const DynamicAgentConfigSchema = z.object({
       }
     ),
   subagents: z.array(z.string()).default([]),
-  promptSchema: PromptSchemaObjectSchema,
+  inputSchema: InputSchemaObjectSchema,
   parentInstructions: z.record(z.string(), z.string()).optional(),
 
   // Prompts

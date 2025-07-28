@@ -28,7 +28,7 @@ export type AgentTemplate<
   parentInstructions?: Record<string, string>
 
   // Required parameters for spawning this agent.
-  promptSchema: {
+  inputSchema: {
     prompt?: z.ZodSchema<P>
     params?: z.ZodSchema<T>
   }

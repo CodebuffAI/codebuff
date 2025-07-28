@@ -85,7 +85,7 @@ describe('runProgrammaticStep', () => {
       displayName: 'Test Agent',
       parentPrompt: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
-      promptSchema: {},
+      inputSchema: {},
       outputMode: 'json',
       includeMessageHistory: true,
       toolNames: ['read_files', 'write_file', 'end_turn'],

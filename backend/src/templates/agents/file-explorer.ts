@@ -19,7 +19,7 @@ export const fileExplorer = {
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
   subagents: ['file_picker'],
-  promptSchema: {
+  inputSchema: {
     prompt: z
       .string()
       .describe('What you need to accomplish by exploring the codebase'),

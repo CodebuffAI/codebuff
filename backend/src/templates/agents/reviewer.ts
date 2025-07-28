@@ -9,7 +9,7 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['reviewer'].displayName,
   parentPrompt: AGENT_PERSONAS['reviewer'].purpose,
-  promptSchema: {
+  inputSchema: {
     prompt: z.string().describe('What should be reviewed. Be brief.'),
   },
   outputMode: 'last_message',

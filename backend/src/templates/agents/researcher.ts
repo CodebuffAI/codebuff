@@ -8,7 +8,7 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['researcher'].displayName,
   parentPrompt: AGENT_PERSONAS['researcher'].purpose,
-  promptSchema: {
+  inputSchema: {
     prompt: z
       .string()
       .describe(

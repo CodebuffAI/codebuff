@@ -27,7 +27,7 @@ export default {
     reviewer:
       'Engage brainstormer for creative problem-solving approaches to code review and innovative improvement suggestions',
   },
-  promptSchema: {
+  inputSchema: {
     prompt: z.toJSONSchema(
       z.string().describe('The problem or topic to brainstorm about.')
     ),

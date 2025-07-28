@@ -37,7 +37,7 @@ The dynamic agent system allows users to create custom AI agents by placing Type
 Dynamic agents define their parameters using a simple JSON schema:
 
 ```json
-"promptSchema": {
+"inputSchema": {
   "text": { "type": "string", "description": "Input text" },
   "count": { "type": "number", "description": "Number of items" }
 }

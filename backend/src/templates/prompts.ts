@@ -22,13 +22,13 @@ export function buildSubagentsDescription(
 prompt: {"description": "A coding task to complete", "type": "string"}
 params: None`
       }
-      const { promptSchema } = agentTemplate
-      if (!promptSchema) {
+      const { inputSchema } = agentTemplate
+      if (!inputSchema) {
         return `- ${agentType}: ${agentTemplate.parentPrompt}
 prompt: None
 params: None`
       }
-      const { prompt, params } = promptSchema
+      const { prompt, params } = inputSchema
       return `- ${agentType}: ${agentTemplate.parentPrompt}
 prompt: ${schemaToJsonStr(prompt)}
 params: ${schemaToJsonStr(params)}`

@@ -76,7 +76,7 @@ describe('Subagent Streaming', () => {
             id: 'thinker',
             displayName: 'Thinker',
             outputMode: 'last_message',
-            promptSchema: {
+            inputSchema: {
               prompt: {
                 safeParse: () => ({ success: true }),
               } as any,

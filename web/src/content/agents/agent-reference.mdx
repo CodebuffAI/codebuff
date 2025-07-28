@@ -142,12 +142,12 @@ Instructions for each step of the agent's execution.
 
 ### Schema Validation
 
-#### `promptSchema` (object, optional)
+#### `inputSchema` (object, optional)
 
 JSON Schema definitions for validating prompt and params when spawning the agent.
 
 ```json
-"promptSchema": {
+"inputSchema": {
   "prompt": {
     "type": "string",
     "description": "What documentation to create"
@@ -223,7 +223,7 @@ Defines instructions that this agent provides to other agents when they are spaw
   ],
   "spawnableAgents": ["CodebuffAI/researcher"],
 
-  "promptSchema": {
+  "inputSchema": {
     "prompt": {
       "type": "string",
       "description": "What documentation to create or update"

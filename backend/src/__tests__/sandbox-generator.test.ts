@@ -37,7 +37,7 @@ describe('QuickJS Sandbox Generator', () => {
       includeMessageHistory: false,
       toolNames: ['set_output'],
       subagents: [],
-      promptSchema: {},
+      inputSchema: {},
       systemPrompt: '',
       instructionsPrompt: '',
       stepPrompt: '',

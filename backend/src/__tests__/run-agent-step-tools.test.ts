@@ -319,7 +319,7 @@ describe('runAgentStep - set_output tool', () => {
       displayName: 'Test HandleSteps Agent',
       parentPrompt: 'Testing handleSteps functionality',
       model: 'claude-3-5-sonnet-20241022',
-      promptSchema: {},
+      inputSchema: {},
       outputMode: 'json' as const,
       includeMessageHistory: true,
       toolNames: ['read_files', 'end_turn'],
