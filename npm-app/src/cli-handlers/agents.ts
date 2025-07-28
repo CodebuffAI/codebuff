@@ -1,5 +1,6 @@
 import { green, yellow, cyan, magenta, bold, gray, blue, red } from 'picocolors'
 import { pluralize } from '@codebuff/common/util/string'
+import { filterCustomAgentFiles, extractAgentIdFromFileName } from '@codebuff/common/util/agent-file-utils'
 import { loadLocalAgents, getLoadedAgentNames } from '../agents/load-agents'
 import {
   ENTER_ALT_BUFFER,
@@ -62,18 +63,18 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
   const agentsDir = path.join(getProjectRoot(), '.agents', 'templates')
   if (fs.existsSync(agentsDir)) {
     const files = fs.readdirSync(agentsDir)
-    for (const file of files) {
-      if (file.endsWith('.ts')) {
-        const agentId = file.replace('.ts', '')
-        const agentName = localAgents[agentId] || agentId
-        agentList.push({
-          id: agentId,
-          name: agentName,
-          description: 'Custom user-defined agent',
-          isBuiltIn: false,
-          filePath: path.join(agentsDir, file),
-        })
-      }
+    const customAgentFiles = filterCustomAgentFiles(files)
+    
+    for (const file of customAgentFiles) {
+      const agentId = extractAgentIdFromFileName(file)
+      const agentName = localAgents[agentId] || agentId
+      agentList.push({
+        id: agentId,
+        name: agentName,
+        description: 'Custom user-defined agent',
+        isBuiltIn: false,
+        filePath: path.join(agentsDir, file),
+      })
     }
   }
 
