@@ -1,5 +1,6 @@
 import { enterMiniChat } from './mini-chat'
 import { green, gray, yellow, red } from 'picocolors'
+import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
 import { CLI } from '../cli'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
@@ -80,7 +81,7 @@ Purpose: ${requirements.purpose}
 Specialty: ${requirements.specialty}
 Model: ${requirements.model}
 
-Please create a complete TypeScript agent template file in the .agents/templates directory with proper types and a comprehensive system prompt.`
+Please create a complete TypeScript agent template file in the ${AGENT_TEMPLATES_DIR} directory with proper types and a comprehensive system prompt.`
 
   try {
     // Use the resetAgent helper to properly switch to agent-builder
@@ -98,7 +99,7 @@ Please create a complete TypeScript agent template file in the .agents/templates
 
     console.log(
       green(
-        `\n✅ Agent created! Check the .agents/templates directory for your new agent.`
+        `\n✅ Agent created! Check the ${AGENT_TEMPLATES_DIR} directory for your new agent.`
       )
     )
     console.log(

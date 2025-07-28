@@ -1,7 +1,12 @@
 import { green, yellow, cyan, magenta, bold, gray, blue, red } from 'picocolors'
 import { pluralize } from '@codebuff/common/util/string'
-import { filterCustomAgentFiles, extractAgentIdFromFileName } from '@codebuff/common/util/agent-file-utils'
+import {
+  filterCustomAgentFiles,
+  extractAgentIdFromFileName,
+} from '@codebuff/common/util/agent-file-utils'
+import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
 import { loadLocalAgents, getLoadedAgentNames } from '../agents/load-agents'
+import { CLI } from '../cli'
 import {
   ENTER_ALT_BUFFER,
   EXIT_ALT_BUFFER,
@@ -60,11 +65,11 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
   ]
 
   // Add local agents from .agents/templates
-  const agentsDir = path.join(getProjectRoot(), '.agents', 'templates')
+  const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
   if (fs.existsSync(agentsDir)) {
     const files = fs.readdirSync(agentsDir)
     const customAgentFiles = filterCustomAgentFiles(files)
-    
+
     for (const file of customAgentFiles) {
       const agentId = extractAgentIdFromFileName(file)
       const agentName = localAgents[agentId] || agentId
@@ -80,7 +85,7 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
 
   if (agentList.length === 1 && agentList[0].isCreateNew) {
     // Only the create new option
-    console.log(yellow('No custom agents found in .agents/templates/'))
+    console.log(yellow(`No custom agents found in ${AGENT_TEMPLATES_DIR}`))
     console.log(gray('Press Enter on "Create New Agent" to get started.'))
     // Don't return - still show the create new option
   }
@@ -156,7 +161,7 @@ function centerSelectedItem() {
 const getHeaderLines = (terminalWidth: number) => [
   bold(cyan('🤖 ')) + bold(magenta('Agent Templates')),
   gray(
-    `${pluralize(Math.max(0, agentList.length - 1), 'custom agent')} in .agents/templates/`
+    `${pluralize(Math.max(0, agentList.length - 1), 'custom agent')} in ${AGENT_TEMPLATES_DIR}`
   ),
   '',
   gray('─'.repeat(terminalWidth)),
@@ -290,23 +295,33 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
       return
     }
 
-    // Handle Enter - edit selected agent or create new
+    // Handle Enter - switch to selected agent or create new
     if (key && key.name === 'return') {
       if (agentList.length > 0 && selectedIndex < agentList.length) {
         const selectedAgent = agentList[selectedIndex]
         if (selectedAgent.isCreateNew) {
           exitAgentsBuffer(rl)
           startAgentCreationChat(rl, onExit, () => {})
-        } else if (selectedAgent.filePath) {
+        } else {
           exitAgentsBuffer(rl)
-          // Open the agent file for editing
+          // Switch to the selected agent
+          console.log(green(`\nSwitching to agent: ${selectedAgent.name}`))
           console.log(
-            green(`\nOpening ${selectedAgent.filePath} for editing...`)
+            gray('You can now chat with this agent. Type your message below.')
           )
-          console.log(
-            gray('You can edit this file to modify the agent template.')
-          )
-          onExit()
+
+          // Use resetAgent to switch to the selected agent
+          const cliInstance = CLI.getInstance()
+          cliInstance
+            .resetAgent(selectedAgent.id)
+            .then(() => {
+              // Agent switch successful - user can now chat with the new agent
+              // Don't call onExit() as that would return to main prompt
+            })
+            .catch((error) => {
+              console.error(red('Error switching to agent:'), error)
+              onExit()
+            })
         }
       }
       return

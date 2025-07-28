@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { Model, openrouterModels } from '@codebuff/common/constants'
+import { Model, openrouterModels, AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
 import { ToolName } from '@codebuff/common/constants/tools'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
@@ -16,7 +16,7 @@ import(TEMPLATE_RELATIVE_PATH)
 
 const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
 const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
-const TEMPLATE_TYPES_PATH = '.agents/templates/agent-template.d.ts'
+const TEMPLATE_TYPES_PATH = path.join(AGENT_TEMPLATES_DIR, 'agent-template.d.ts')
 
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
   // Read the agent-template.d.ts file content dynamically
@@ -87,7 +87,7 @@ When asked to create an agent template, you should:
 1. Understand the requested agent's purpose and capabilities
 2. Choose appropriate tools for the agent's function
 3. Write a comprehensive system prompt
-4. Create the complete agent template file in .agents/templates/
+4. Create the complete agent template file in ${AGENT_TEMPLATES_DIR}
 5. Ensure the template follows all conventions and best practices
 6. Use the AgentConfig interface for the configuration
 
@@ -122,7 +122,7 @@ Ask clarifying questions if needed, then create the template file in the appropr
       yield {
         toolName: 'run_terminal_command',
         args: {
-          command: 'mkdir -p .agents/templates',
+          command: `mkdir -p ${AGENT_TEMPLATES_DIR}`,
           process_type: 'SYNC',
           timeout_seconds: 10,
         },
@@ -163,7 +163,7 @@ Ask clarifying questions if needed, then create the template file in the appropr
             .replace(/^-+|-+$/g, '')}
 
 **Requirements:**
-- Create the agent template file in .agents/templates/
+- Create the agent template file in ${AGENT_TEMPLATES_DIR}
 - Use the AgentConfig interface
 - Include appropriate tools based on the specialty
 - Write a comprehensive system prompt

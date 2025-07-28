@@ -32,6 +32,10 @@ import {
   AGENT_NAME_TO_TYPES,
   UNIQUE_AGENT_NAMES,
 } from '@codebuff/common/constants/agents'
+import {
+  getAllAgents,
+  resolveNameToId,
+} from '@codebuff/common/util/agent-name-resolver'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
 import {
@@ -85,7 +89,7 @@ import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 
-import { getLoadedAgentNames } from './agents/load-agents'
+import { getLoadedAgentNames, loadLocalAgents } from './agents/load-agents'
 import { refreshSubagentDisplay } from './cli-handlers/subagent'
 import {
   clearSubagentStorage,
@@ -1062,10 +1066,14 @@ export class Client {
     let cleanPrompt = prompt
     const preferredAgents: string[] = []
 
-    // Get local agents and combine with built-in agents
+    // Create resolver with local agents (use cached version from getLoadedAgentNames)
     const localAgentNames = getLoadedAgentNames()
-    const localAgentDisplayNames = Object.values(localAgentNames)
-    const allAgentNames = [...UNIQUE_AGENT_NAMES, ...localAgentDisplayNames]
+    const localAgentInfo = Object.fromEntries(
+      Object.entries(localAgentNames).map(([id, name]) => [id, { name }])
+    )
+    const allAgentNames = getAllAgents(localAgentInfo).map(
+      (agent) => agent.name
+    )
 
     // Create a regex pattern that matches any of the known agent names
     const agentNamePattern = allAgentNames
@@ -1083,40 +1091,17 @@ export class Client {
     for (const match of matches) {
       const agentName = match.substring(1).trim() // Remove @ and trim
 
-      // Check if it's a built-in agent first
-      const exactAgentName = UNIQUE_AGENT_NAMES.find(
-        (name) => name.toLowerCase() === agentName.toLowerCase()
-      )
+      // Use functional API to get agent ID
+      const agentId = resolveNameToId(agentName, localAgentInfo)
 
-      if (exactAgentName) {
-        const agentTypes = AGENT_NAME_TO_TYPES[exactAgentName]
-        if (agentTypes && agentTypes.length > 0) {
-          // Use the first matching agent type
-          preferredAgents.push(agentTypes[0])
-          // Remove ALL occurrences of this @ reference from the prompt using global replace
-          const matchRegex = new RegExp(
-            match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-            'g'
-          )
-          cleanPrompt = cleanPrompt.replace(matchRegex, '').trim()
-        }
-      } else {
-        // Check if it's a local agent
-        const localAgentKey = Object.keys(localAgentNames).find(
-          (key) =>
-            localAgentNames[key].toLowerCase() === agentName.toLowerCase()
+      if (agentId) {
+        preferredAgents.push(agentId)
+        // Remove ALL occurrences of this @ reference from the prompt using global replace
+        const matchRegex = new RegExp(
+          match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+          'g'
         )
-
-        if (localAgentKey) {
-          // Use the local agent key as the agent type
-          preferredAgents.push(localAgentKey)
-          // Remove ALL occurrences of this @ reference from the prompt using global replace
-          const matchRegex = new RegExp(
-            match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-            'g'
-          )
-          cleanPrompt = cleanPrompt.replace(matchRegex, '').trim()
-        }
+        cleanPrompt = cleanPrompt.replace(matchRegex, '').trim()
       }
     }
 

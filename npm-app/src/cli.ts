@@ -6,11 +6,11 @@ import * as readline from 'readline'
 
 import { ApiKeyType } from '@codebuff/common/api-keys/constants'
 import { ASYNC_AGENTS_ENABLED, type CostMode } from '@codebuff/common/constants'
-import {
-  AGENT_PERSONAS,
-  UNIQUE_AGENT_NAMES,
-} from '@codebuff/common/constants/agents'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import {
+  getAllAgents,
+  getAgentDisplayName,
+} from '@codebuff/common/util/agent-name-resolver'
 import { isDir, ProjectFileContext } from '@codebuff/common/util/file'
 import { pluralize } from '@codebuff/common/util/string'
 import {
@@ -23,11 +23,17 @@ import {
   yellow,
 } from 'picocolors'
 
+import { loadLocalAgents, loadedAgents } from './agents/load-agents'
 import {
   killAllBackgroundProcesses,
   sendKillSignalToAllBackgroundProcesses,
 } from './background-process-manager'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
+import {
+  enterAgentsBuffer,
+  isInAgentsMode,
+  cleanupAgentsBuffer,
+} from './cli-handlers/agents'
 import { detectApiKey, handleApiKeyInput } from './cli-handlers/api-key'
 import {
   displayCheckpointMenu,
@@ -42,7 +48,7 @@ import {
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
-
+import { cleanupMiniChat } from './cli-handlers/mini-chat'
 import {
   enterSubagentBuffer,
   isInSubagentBufferMode,
@@ -55,17 +61,6 @@ import {
   cleanupSubagentListBuffer,
   resetSubagentSelectionToLast,
 } from './cli-handlers/subagent-list'
-import {
-  enterAgentsBuffer,
-  isInAgentsMode,
-  cleanupAgentsBuffer,
-} from './cli-handlers/agents'
-import { cleanupMiniChat } from './cli-handlers/mini-chat'
-import {
-  getAllSubagentIds,
-  getRecentSubagents,
-  setTraceEnabled,
-} from './subagent-storage'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
@@ -86,6 +81,7 @@ import {
 } from './project-files'
 import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
+import { getRecentSubagents, setTraceEnabled } from './subagent-storage'
 import {
   clearScreen,
   isCommandRunning,
@@ -95,51 +91,44 @@ import {
 } from './terminal/run-command'
 import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
-
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { withHangDetection } from './utils/with-hang-detection'
 
+// Cache for local agent info to avoid async issues in sync methods
+let cachedLocalAgentInfo: Record<string, { name: string; purpose?: string }> =
+  {}
+
 /**
- * Get local agent names from the .agents/templates directory
- * @returns Record of agent type to agent name
+ * Get local agent names using the proper agent loading logic
+ * @returns Record of agent type to agent info
  */
-function getLocalAgentNames(): Record<string, string> {
-  const agentsDir = path.join(getProjectRoot(), '.agents', 'templates')
-
-  if (!fs.existsSync(agentsDir)) {
-    return {}
-  }
-
-  const agentNames: Record<string, string> = {}
-
+async function getLocalAgentInfo(): Promise<
+  Record<string, { name: string; purpose?: string }>
+> {
   try {
-    const files = fs.readdirSync(agentsDir)
-
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        const agentType = file.replace('.json', '')
-        const filePath = path.join(agentsDir, file)
-
-        try {
-          const content = fs.readFileSync(filePath, 'utf8')
-          const agentConfig = JSON.parse(content)
-
-          // Use the name from the config, or fall back to the filename
-          const agentName = agentConfig.name || agentType
-          agentNames[agentType] = agentName
-        } catch (error) {
-          // Skip invalid JSON files
-          continue
-        }
-      }
-    }
+    await loadLocalAgents({ verbose: false })
+    const agentInfo = Object.fromEntries(
+      Object.entries(loadedAgents).map(([agentType, agentConfig]) => [
+        agentType,
+        { name: agentConfig.name, purpose: agentConfig.purpose },
+      ])
+    )
+    cachedLocalAgentInfo = agentInfo // Update cache
+    return agentInfo
   } catch (error) {
-    // Return empty object if directory can't be read
-    return {}
+    return cachedLocalAgentInfo // Return cached version on error
   }
+}
 
-  return agentNames
+/**
+ * Get cached local agent info synchronously
+ */
+function getCachedLocalAgentInfo(): Record<
+  string,
+  { name: string; purpose?: string }
+> {
+  return cachedLocalAgentInfo
 }
 
 const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
@@ -211,6 +200,7 @@ export class CLI {
         return client.warmContextCache()
       }),
       Client.getInstance().connect(),
+      getLocalAgentInfo(), // Initialize agent cache
     ])
 
     this.setPrompt()
@@ -372,7 +362,7 @@ export class CLI {
     process.stdin.on('keypress', (str, key) => this.handleKeyPress(str, key))
   }
 
-  private inputCompleter(line: string): [string[], string] {
+  private async inputCompleter(line: string): Promise<[string[], string]> {
     const lastWord = line.split(' ').pop() || ''
 
     if (line.startsWith('/')) {
@@ -394,10 +384,11 @@ export class CLI {
     if (lastWord.startsWith('@')) {
       const searchTerm = lastWord.substring(1).toLowerCase() // Remove @ prefix
 
-      // Get local agents and combine with built-in agents
-      const localAgentNames = getLocalAgentNames()
-      const localAgentDisplayNames = Object.values(localAgentNames)
-      const allAgentNames = [...UNIQUE_AGENT_NAMES, ...localAgentDisplayNames]
+      // Get all agent names using functional API
+      const localAgentInfo = getCachedLocalAgentInfo()
+      const allAgentNames = [
+        ...new Set(getAllAgents(localAgentInfo).map((agent) => agent.name)),
+      ]
 
       // Filter agent names that match the search term
       const matchingAgents = allAgentNames.filter((name) =>
@@ -455,26 +446,24 @@ export class CLI {
     })
   }
 
-  private displayAgentMenu() {
-    // Get local agents
-    const localAgentNames = getLocalAgentNames()
-    const localAgentDisplayNames = Object.values(localAgentNames)
+  private async displayAgentMenu() {
+    // Get all agents using functional API
+    const localAgentInfo = getCachedLocalAgentInfo()
+    const allAgents = getAllAgents(localAgentInfo)
 
-    // Combine built-in and local agent names
-    const allAgentNames = [...UNIQUE_AGENT_NAMES, ...localAgentDisplayNames]
+    // Deduplicate agents by name
+    const uniqueAgentNames = [
+      ...new Map(allAgents.map((agent) => [agent.name, agent])).values(),
+    ]
 
-    const maxNameLength = Math.max(...allAgentNames.map((name) => name.length))
+    const maxNameLength = Math.max(
+      ...uniqueAgentNames.map((agent) => agent.name.length)
+    )
 
-    const agentLines = allAgentNames.map((name) => {
-      const padding = '.'.repeat(maxNameLength - name.length + 3)
-
-      // Check if it's a built-in agent
-      const builtInDescription = Object.values(AGENT_PERSONAS).find(
-        (metadata) => metadata.name === name
-      )?.purpose
-
-      const description = builtInDescription || 'Custom user-defined agent'
-      return `${cyan(`@${name}`)} ${padding} ${description}`
+    const agentLines = uniqueAgentNames.map((agent) => {
+      const padding = '.'.repeat(maxNameLength - agent.name.length + 3)
+      const description = agent.purpose || 'Custom user-defined agent'
+      return `${cyan(`@${agent.name}`)} ${padding} ${description}`
     })
 
     const tip = gray(
@@ -519,6 +508,14 @@ export class CLI {
     // Set new agent and params
     this.agent = agent
     this.initialParams = initialParams
+
+    // Get agent display name for user feedback
+    const localAgentInfo = await getLocalAgentInfo()
+    const agentDisplayName = getAgentDisplayName(agent, localAgentInfo)
+
+    // Tell user who they're working with now
+    Spinner.get().stop()
+    console.log(green(`\n🤖 Now talking with: ${bold(agentDisplayName)}`))
 
     // If a user prompt is provided, send it immediately
     if (userPrompt) {
