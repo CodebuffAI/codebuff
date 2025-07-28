@@ -6,6 +6,7 @@ import { type CostMode } from '@codebuff/common/constants'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
@@ -22,7 +23,7 @@ import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/run-command'
 import { CliOptions } from './types'
-import { initAnalytics } from './utils/analytics'
+import { initAnalytics, trackEvent } from './utils/analytics'
 import { findGitRoot } from './utils/git'
 import { logger } from './utils/logger'
 
@@ -172,6 +173,10 @@ For all commands and options, run 'codebuff' and then type 'help'.
     const hasParams = options.params
 
     setPrintMode(true)
+    trackEvent(AnalyticsEvent.PRINT_MODE, {
+      args,
+      options,
+    })
 
     if (!hasPrompt && !hasParams) {
       printModeLog({

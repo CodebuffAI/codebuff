@@ -15,6 +15,7 @@ export enum AnalyticsEvent {
   KNOWLEDGE_FILE_UPDATED = 'cli.knowledge_file_updated',
   LOGIN = 'cli.login',
   MALFORMED_PROMPT_RESPONSE = 'cli.malformed_prompt_response',
+  PRINT_MODE = 'cli.print_mode',
   RAGE = 'cli.rage',
   SHELL_RECREATED = 'cli.shell_recreated',
   SLASH_MENU_ACTIVATED = 'cli.slash_menu_activated',
