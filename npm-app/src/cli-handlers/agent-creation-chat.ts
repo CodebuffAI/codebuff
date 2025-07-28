@@ -1,9 +1,5 @@
 import { enterMiniChat } from './mini-chat'
-import * as fs from 'fs'
-import * as path from 'path'
-import { getProjectRoot } from '../project-files'
 import { green, gray, yellow, red } from 'picocolors'
-import { Client } from '../client'
 import { CLI } from '../cli'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
@@ -52,7 +48,7 @@ export function startAgentCreationChat(
   enterMiniChat(rl, onExit, {
     title: '🤖 Agent Creation Assistant',
     steps: AGENT_CREATION_STEPS,
-    onComplete: (responses) => {
+    onComplete: async (responses) => {
       const requirements: AgentRequirements = {
         name: responses.name || 'My Custom Agent',
         purpose:
@@ -61,7 +57,14 @@ export function startAgentCreationChat(
         specialty: responses.specialty || 'general development',
         model: responses.model || 'anthropic/claude-4-sonnet-20250522',
       }
-      onComplete(requirements)
+
+      try {
+        await createAgentFromRequirements(requirements)
+      } catch (error) {
+        console.error(red('\nError creating agent:'))
+        console.error(error instanceof Error ? error.message : String(error))
+        onExit() // Only exit on error
+      }
     },
   })
 }
@@ -69,84 +72,40 @@ export function startAgentCreationChat(
 export async function createAgentFromRequirements(
   requirements: AgentRequirements
 ) {
-  const agentsDir = path.join(getProjectRoot(), '.agents', 'templates')
-
-  // Ensure directory exists
-  if (!fs.existsSync(agentsDir)) {
-    fs.mkdirSync(agentsDir, { recursive: true })
-  }
-
-  console.log(yellow('\nCreating agent with Agent Builder...'))
-
-  // Read the source agent-template.d.ts file to provide full context
-  const sourceTemplatePath = path.join(
-    getProjectRoot(),
-    'common',
-    'src',
-    'templates',
-    'agent-template.d.ts'
-  )
-
-  let templateTypesContent: string
-  try {
-    templateTypesContent = fs.readFileSync(sourceTemplatePath, 'utf8')
-  } catch (error) {
-    console.error('Error reading template file:', error)
-    throw new Error(`Failed to read agent template file: ${error}`)
-  }
-
-  // Create a detailed prompt for the agent builder with the requirements and full template context
-  const agathaPrompt = `Create a new agent template with these requirements:
+  // Create a simple prompt for the agent builder with the requirements
+  const prompt = `Create a new agent template with these requirements:
 
 Agent Name: ${requirements.name}
 Purpose: ${requirements.purpose}
 Specialty: ${requirements.specialty}
 Model: ${requirements.model}
 
-Please:
-1. Create the .agents/templates directory if it doesn't exist
-2. Copy the agent-template.d.ts file to .agents/templates/agent-template.d.ts
-3. Create a complete TypeScript agent template file in the .agents/templates directory
-
-The agent should be well-structured and follow best practices.
-
-IMPORTANT: When creating the agent file, make sure to import types from './agent-template' (without the .d.ts extension), not from './agent-template.d.ts'.
-
-Here is the full agent-template.d.ts file for reference:\n\n\`\`\`typescript\n${templateTypesContent}\n\`\`\`
-
-Please create the agent file with proper TypeScript types and a comprehensive system prompt that reflects the agent's specialty and purpose.`
-
-  // Get the client instance and spawn agent-builder
-  const client = Client.getInstance()
+Please create a complete TypeScript agent template file in the .agents/templates directory with proper types and a comprehensive system prompt.`
 
   try {
-    // Set CLI agent to directly invoke agent-builder's handleSteps
+    // Use the resetAgent helper to properly switch to agent-builder
     const cliInstance = CLI.getInstance()
-    const originalAgent = cliInstance.agent
-
-    // Set agent to sonnet4_agent_builder and pass requirements as params
-    cliInstance.agent = AgentTemplateTypes.sonnet4_agent_builder
-    cliInstance.initialParams = {
-      name: requirements.name,
-      purpose: requirements.purpose,
-      specialty: requirements.specialty,
-      model: requirements.model,
-    }
-
-    // Send the prompt directly to agent-builder (it will use handleSteps)
-    const { responsePromise } = await client.sendUserInput(agathaPrompt)
-
-    // Restore original agent setting
-    cliInstance.agent = originalAgent
-
-    // Wait for agent-builder to complete the agent creation
-    await responsePromise
-
-    console.log(green(`\nAgent creation completed by Bob the Agent Builder!`))
-    console.log(
-      gray('Check the .agents/templates directory for your new agent.')
+    await cliInstance.resetAgent(
+      AgentTemplateTypes.sonnet4_agent_builder,
+      {
+        name: requirements.name,
+        purpose: requirements.purpose,
+        specialty: requirements.specialty,
+        model: requirements.model,
+      },
+      prompt
     )
-    console.log(gray('Restart Codebuff to use your new agent.'))
+
+    console.log(
+      green(
+        `\n✅ Agent created! Check the .agents/templates directory for your new agent.`
+      )
+    )
+    console.log(
+      gray(
+        'Continue adjusting your agent here, or type "/agents" to switch agents and test it out.'
+      )
+    )
   } catch (error) {
     console.error(red('\nError during agent creation:'))
     console.error(

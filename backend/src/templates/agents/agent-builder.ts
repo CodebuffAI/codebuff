@@ -11,7 +11,7 @@ import { AgentTemplate } from '../types'
 const TEMPLATE_RELATIVE_PATH =
   '../../../../common/src/templates/agent-template.d.ts' as const
 
-// Import to validate path exists at compile time - TypeScript will fail if this doesn't resolve
+// Import to validate path exists at compile time
 import(TEMPLATE_RELATIVE_PATH)
 
 const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
@@ -50,11 +50,12 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       'read_files',
       'code_search',
       'spawn_agents',
+      'add_message',
       'set_output',
       'end_turn',
     ] satisfies ToolName[],
     spawnableAgents: [AgentTemplateTypes.file_picker],
-    systemPrompt: `# Agent Builder - Template Creation Assistant
+    systemPrompt: `# Agent Builder
 
 You are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.
 
@@ -117,15 +118,6 @@ Ask clarifying questions if needed, then create the template file in the appropr
       prompt: string | undefined
       params: Record<string, any> | undefined
     }) {
-      // Parse the prompt to extract agent requirements
-      const requirements = {
-        name: params?.name || 'Custom Agent',
-        purpose:
-          params?.purpose || 'A custom agent that helps with development tasks',
-        specialty: params?.specialty || 'general development',
-        model: params?.model || DEFAULT_MODEL,
-      }
-
       // Step 1: Create directory structure
       yield {
         toolName: 'run_terminal_command',
@@ -133,7 +125,6 @@ Ask clarifying questions if needed, then create the template file in the appropr
           command: 'mkdir -p .agents/templates',
           process_type: 'SYNC',
           timeout_seconds: 10,
-          cb_easp: true,
         },
       }
 
@@ -147,98 +138,44 @@ Ask clarifying questions if needed, then create the template file in the appropr
         },
       }
 
-      // Step 3: Generate agent ID from name
-      const agentId = requirements.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-
-      // Step 4: Determine appropriate tools based on specialty
-      let tools = ['read_files', 'write_file', 'str_replace', 'end_turn']
-      let spawnableAgents = []
-
-      if (
-        requirements.specialty.includes('research') ||
-        requirements.specialty.includes('web')
-      ) {
-        tools.push('web_search', 'read_docs')
-        spawnableAgents.push('researcher')
+      // Step 3: Add user message with all requirements for agent creation
+      const requirements = {
+        name: params?.name || 'Custom Agent',
+        purpose:
+          params?.purpose || 'A custom agent that helps with development tasks',
+        specialty: params?.specialty || 'general development',
+        model: params?.model || DEFAULT_MODEL,
       }
-
-      if (
-        requirements.specialty.includes('code') ||
-        requirements.specialty.includes('analysis')
-      ) {
-        tools.push('code_search', 'find_files')
-        spawnableAgents.push('file_picker')
-      }
-
-      if (
-        requirements.specialty.includes('terminal') ||
-        requirements.specialty.includes('command')
-      ) {
-        tools.push('run_terminal_command')
-      }
-
-      if (
-        requirements.specialty.includes('review') ||
-        requirements.specialty.includes('quality')
-      ) {
-        spawnableAgents.push('reviewer')
-      }
-
-      // Step 5: Create the agent template content using AgentConfig interface
-      const agentTemplate = `import { AgentConfig } from './agent-template'
-
-export default {
-  id: '${agentId}',
-  name: '${requirements.name}',
-  purpose: '${requirements.purpose}',
-  model: '${requirements.model}',
-  tools: ${JSON.stringify(tools, null, 2)},
-  spawnableAgents: ${JSON.stringify(spawnableAgents, null, 2)},
-  systemPrompt: \`# ${requirements.name}
-
-You are a specialized agent focused on ${requirements.specialty}.
-
-## Your Purpose
-${requirements.purpose}
-
-## Your Capabilities
-- Expert knowledge in ${requirements.specialty}
-- Access to relevant tools for your domain
-- Ability to provide focused, high-quality assistance
-
-## Guidelines
-1. Stay focused on your specialty area
-2. Provide clear, actionable advice
-3. Use your tools effectively to gather information
-4. Be thorough but concise in your responses
-5. Ask clarifying questions when needed
-
-Help users achieve their goals efficiently and effectively within your domain of expertise.\`,
-} satisfies AgentConfig
-`
-
-      // Step 6: Write the agent template file
-      const agentFilePath = `.agents/templates/${agentId}.ts`
-
       yield {
-        toolName: 'write_file',
+        toolName: 'add_message',
         args: {
-          path: agentFilePath,
-          instructions: `Create ${requirements.name} agent template`,
-          content: agentTemplate,
+          role: 'user',
+          content: `Create a new agent template with the following specifications:
+
+**Agent Details:**
+- Name: ${requirements.name}
+- Purpose: ${requirements.purpose}
+- Specialty: ${requirements.specialty}
+- Model: ${requirements.model}
+- Agent ID: ${requirements.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')}
+
+**Requirements:**
+- Create the agent template file in .agents/templates/
+- Use the AgentConfig interface
+- Include appropriate tools based on the specialty
+- Write a comprehensive system prompt
+- Follow naming conventions and best practices
+- Export a default configuration object
+
+Please create the complete agent template now.`,
         },
       }
 
-      // Step 7: End the agent execution
-      yield {
-        toolName: 'end_turn',
-        args: {
-          cb_easp: true,
-        },
-      }
+      // Step 5: Complete agent creation process
+      yield 'STEP_ALL'
     },
   }
 }

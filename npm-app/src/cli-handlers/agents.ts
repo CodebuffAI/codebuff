@@ -295,17 +295,7 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
         const selectedAgent = agentList[selectedIndex]
         if (selectedAgent.isCreateNew) {
           exitAgentsBuffer(rl)
-          startAgentCreationChat(rl, onExit, async (requirements) => {
-            try {
-              await createAgentFromRequirements(requirements)
-            } catch (error) {
-              console.error(red('\nError creating agent:'))
-              console.error(
-                error instanceof Error ? error.message : String(error)
-              )
-            }
-            onExit()
-          })
+          startAgentCreationChat(rl, onExit, () => {})
         } else if (selectedAgent.filePath) {
           exitAgentsBuffer(rl)
           // Open the agent file for editing
@@ -324,15 +314,7 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
     // Handle 'n' key - create new agent
     if (key && key.name === 'n') {
       exitAgentsBuffer(rl)
-      startAgentCreationChat(rl, onExit, async (requirements) => {
-        try {
-          await createAgentFromRequirements(requirements)
-        } catch (error) {
-          console.error(red('\nError creating agent:'))
-          console.error(error instanceof Error ? error.message : String(error))
-        }
-        onExit()
-      })
+      startAgentCreationChat(rl, onExit, () => {})
       return
     }
 

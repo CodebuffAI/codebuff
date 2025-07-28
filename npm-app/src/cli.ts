@@ -506,6 +506,27 @@ export class CLI {
     this.rl.setPrompt(green(`${ps1Dir}${modeIndicator} > `))
   }
 
+  public async resetAgent(
+    agent: string,
+    initialParams?: Record<string, any>,
+    userPrompt?: string
+  ) {
+    const client = Client.getInstance()
+
+    // Reset context first
+    await client.resetContext()
+
+    // Set new agent and params
+    this.agent = agent
+    this.initialParams = initialParams
+
+    // If a user prompt is provided, send it immediately
+    if (userPrompt) {
+      const { responsePromise } = await client.sendUserInput(userPrompt)
+      await responsePromise
+    }
+  }
+
   /**
    * Prompts the user with a clean prompt state
    */
