@@ -1030,6 +1030,13 @@ export class CLI {
   }
 
   private onWebSocketError() {
+    if (printModeIsEnabled()) {
+      printModeLog({
+        type: 'error',
+        message: 'Could not connect to server.',
+      })
+      process.exit(1)
+    }
     rageDetectors.exitAfterErrorDetector.start()
 
     Spinner.get().stop()
