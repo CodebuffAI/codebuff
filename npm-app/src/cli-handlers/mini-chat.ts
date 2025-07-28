@@ -19,6 +19,7 @@ import {
 } from '../utils/terminal'
 import wrapAnsi from 'wrap-ansi'
 import stringWidth from 'string-width'
+import { Spinner } from '../utils/spinner'
 
 interface ChatMessage {
   role: 'assistant' | 'user'
@@ -48,6 +49,7 @@ let contentLines: string[] = []
 let currentStep = 0
 let responses: Record<string, string> = {}
 let chatConfig: ChatConfig | null = null
+let isProcessing = false
 
 function wrapLine(line: string, terminalWidth: number): string[] {
   if (!line) return ['']
@@ -132,20 +134,20 @@ function renderChat() {
     process.stdout.write('\n'.repeat(remainingLines))
   }
 
-  // Display input area
-  process.stdout.write('\n' + gray('─'.repeat(terminalWidth)))
+  // Display input area only when not processing
+  if (!isProcessing) {
+    process.stdout.write('\n' + gray('─'.repeat(terminalWidth)))
 
-  const currentStepInfo = chatConfig?.steps[currentStep]
-  if (currentStepInfo) {
-    const placeholder = gray(italic(`(${currentStepInfo.placeholder})`))
-    process.stdout.write(
-      `\n${bold('Your response:')} ${currentInput}${currentInput ? '' : placeholder}`
-    )
-  } else {
-    process.stdout.write(`\n${gray('Press Enter to create your agent...')}`)
+    const currentStepInfo = chatConfig?.steps[currentStep]
+    if (currentStepInfo) {
+      const placeholder = gray(italic(`(${currentStepInfo.placeholder})`))
+      process.stdout.write(
+        `\n${bold('Your response:')} ${currentInput}${currentInput ? '' : placeholder}`
+      )
+    }
+
+    process.stdout.write(`\n${gray('ESC to cancel, Ctrl+C to exit')}`)
   }
-
-  process.stdout.write(`\n${gray('ESC to cancel, Ctrl+C to exit')}`)
 }
 
 function processUserInput(input: string) {
@@ -175,10 +177,14 @@ function processUserInput(input: string) {
     }
   } else {
     // All questions answered
+    isProcessing = true
     addMessage(
       'assistant',
       'Perfect! I have everything I need. Processing your responses...'
     )
+
+    // Start spinner to show processing
+    Spinner.get().start('Creating agent...')
 
     // Preserve the callback before exiting mini-chat
     const onCompleteCallback = chatConfig?.onComplete
@@ -271,6 +277,7 @@ export function enterMiniChat(rl: any, onExit: () => void, config: ChatConfig) {
   currentStep = 0
   responses = {}
   chatConfig = config
+  isProcessing = false
 
   // Enter alternate screen
   process.stdout.write(ENTER_ALT_BUFFER)

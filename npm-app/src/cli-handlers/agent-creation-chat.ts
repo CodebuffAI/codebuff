@@ -106,6 +106,8 @@ Please create a complete TypeScript agent template file in the .agents/templates
         'Continue adjusting your agent here, or type "/agents" to switch agents and test it out.'
       )
     )
+
+    cliInstance.freshPrompt()
   } catch (error) {
     console.error(red('\nError during agent creation:'))
     console.error(

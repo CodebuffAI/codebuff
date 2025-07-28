@@ -530,7 +530,7 @@ export class CLI {
   /**
    * Prompts the user with a clean prompt state
    */
-  private freshPrompt(userInput: string = '') {
+  public freshPrompt(userInput: string = '') {
     const client = Client.getInstance()
     Spinner.get().stop()
     this.isReceivingResponse = false
