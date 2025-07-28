@@ -19,7 +19,7 @@ export default {
     'spawn_agents',
     'end_turn',
   ],
-  spawnableAgents: ['file_picker', 'researcher'],
+  subagents: ['file_picker', 'researcher'],
   promptSchema: {
     prompt: {
       type: 'string',

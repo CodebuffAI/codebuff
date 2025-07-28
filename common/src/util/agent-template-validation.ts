@@ -6,7 +6,7 @@ import {
 import { AgentTemplateTypes } from '../types/session-state'
 import { normalizeAgentNames } from './agent-name-normalization'
 
-export interface SpawnableAgentValidationResult {
+export interface SubagentValidationResult {
   valid: boolean
   invalidAgents: string[]
 }
@@ -23,10 +23,10 @@ export interface AgentTemplateValidationResult {
  * Centralized validation for spawnable agents.
  * Validates that all spawnable agents reference valid agent types.
  */
-export function validateSpawnableAgents(
-  spawnableAgents: string[],
+export function validateSubagents(
+  subagents: string[],
   dynamicAgentIds: string[]
-): SpawnableAgentValidationResult & { availableAgents: string[] } {
+): SubagentValidationResult & { availableAgents: string[] } {
   // Normalize dynamic agent IDs to allow users to reference them without org prefixes
   const normalizedDynamicAgentIds = normalizeAgentNames(dynamicAgentIds)
 
@@ -36,13 +36,12 @@ export function validateSpawnableAgents(
     ...normalizedDynamicAgentIds,
   ]
 
-  // Normalize spawnable agents for comparison
-  const normalizedSpawnableAgents = normalizeAgentNames(spawnableAgents)
+  // Normalize subagents for comparison
+  const normalizedSubagents = normalizeAgentNames(subagents)
 
   // Find invalid agents (those not in available types after normalization)
-  const invalidAgents = spawnableAgents.filter(
-    (agent, index) =>
-      !availableAgentTypes.includes(normalizedSpawnableAgents[index])
+  const invalidAgents = subagents.filter(
+    (agent, index) => !availableAgentTypes.includes(normalizedSubagents[index])
   )
 
   return {
@@ -59,7 +58,7 @@ export function validateSpawnableAgents(
 export function validateParentInstructions(
   parentInstructions: Record<string, string>,
   dynamicAgentIds: string[]
-): SpawnableAgentValidationResult & { availableAgents: string[] } {
+): SubagentValidationResult & { availableAgents: string[] } {
   // Normalize dynamic agent IDs to allow users to reference them without org prefixes
   const normalizedDynamicAgentIds = normalizeAgentNames(dynamicAgentIds)
 
@@ -91,13 +90,13 @@ export function validateParentInstructions(
 }
 
 /**
- * Formats a validation error message for spawnable agents
+ * Formats a validation error message for subagents
  */
-export function formatSpawnableAgentError(
+export function formatSubagentError(
   invalidAgents: string[],
   availableAgents: string[]
 ): string {
-  let message = `Invalid spawnable agents: ${invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`
+  let message = `Invalid subagents: ${invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`
 
   message += `\n\nAvailable agents: ${availableAgents.join(', ')}`
 
@@ -153,16 +152,13 @@ export function validateAgentTemplateConfigs(
     try {
       const config = DynamicAgentTemplateSchema.parse(content)
 
-      // Additional validation for spawnable agents
-      if (config.spawnableAgents && config.spawnableAgents.length > 0) {
-        const validation = validateSpawnableAgents(
-          config.spawnableAgents,
-          dynamicAgentIds
-        )
+      // Additional validation for subagents
+      if (config.subagents && config.subagents.length > 0) {
+        const validation = validateSubagents(config.subagents, dynamicAgentIds)
         if (!validation.valid) {
           validationErrors.push({
             filePath: agentId,
-            message: formatSpawnableAgentError(
+            message: formatSubagentError(
               validation.invalidAgents,
               validation.availableAgents
             ),

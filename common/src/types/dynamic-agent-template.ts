@@ -70,7 +70,7 @@ export const DynamicAgentConfigSchema = z.object({
         }
       }
     ),
-  spawnableAgents: z.array(z.string()).default([]),
+  subagents: z.array(z.string()).default([]),
   promptSchema: PromptSchemaObjectSchema,
   parentInstructions: z.record(z.string(), z.string()).optional(),
 

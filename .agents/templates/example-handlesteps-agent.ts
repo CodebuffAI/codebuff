@@ -9,7 +9,7 @@ export default {
   model: 'claude-3-5-sonnet-20241022',
   outputMode: 'json',
   toolNames: ['spawn_agents', 'set_output', 'end_turn'],
-  spawnableAgents: ['file_picker'],
+  subagents: ['file_picker'],
 
   systemPrompt:
     'You are an example agent that demonstrates handleSteps functionality.',

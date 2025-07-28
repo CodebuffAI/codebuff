@@ -36,7 +36,7 @@ describe('QuickJS Sandbox Generator', () => {
       outputMode: 'json',
       includeMessageHistory: false,
       toolNames: ['set_output'],
-      spawnableAgents: [],
+      subagents: [],
       promptSchema: {},
       systemPrompt: '',
       instructionsPrompt: '',

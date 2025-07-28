@@ -18,7 +18,7 @@ export const fileExplorer = {
   outputMode: 'json',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  spawnableAgents: ['file_picker'],
+  subagents: ['file_picker'],
   promptSchema: {
     prompt: z
       .string()

@@ -19,7 +19,7 @@ export type AgentTemplate<
   model: Model
 
   toolNames: ToolName[]
-  spawnableAgents: AgentTemplateType[]
+  subagents: AgentTemplateType[]
 
   parentPrompt?: string
   systemPrompt: string
@@ -92,7 +92,7 @@ export const baseAgentToolNames: ToolName[] = [
   'update_subgoal',
 ] as const
 
-export const baseAgentSpawnableAgents: AgentTemplateType[] = [
+export const baseAgentSubagents: AgentTemplateType[] = [
   AgentTemplateTypes.file_picker,
   AgentTemplateTypes.researcher,
   AgentTemplateTypes.thinker,

@@ -14,7 +14,7 @@ export const filePicker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['find_files'],
-  spawnableAgents: [],
+  subagents: [],
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}

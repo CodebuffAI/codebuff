@@ -30,7 +30,7 @@ export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
     'read_files',
     'think_deeply',
   ],
-  spawnableAgents: [AgentTemplateTypes.file_picker],
+  subagents: [AgentTemplateTypes.file_picker],
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}

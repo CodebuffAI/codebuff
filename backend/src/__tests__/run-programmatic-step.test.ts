@@ -89,7 +89,7 @@ describe('runProgrammaticStep', () => {
       outputMode: 'json',
       includeMessageHistory: true,
       toolNames: ['read_files', 'write_file', 'end_turn'],
-      spawnableAgents: [],
+      subagents: [],
 
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',

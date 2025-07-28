@@ -52,7 +52,7 @@ describe('Dynamic Agent Schema Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
             // No promptSchema or paramsSchema
           },
         },
@@ -85,7 +85,7 @@ describe('Dynamic Agent Schema Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
             // No paramsSchema
           },
         },
@@ -140,7 +140,7 @@ describe('Dynamic Agent Schema Validation', () => {
                 required: ['mode'],
               },
             },
-            spawnableAgents: [],
+            subagents: [],
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
@@ -216,7 +216,7 @@ describe('Dynamic Agent Schema Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
           },
         },
       }
@@ -278,7 +278,7 @@ describe('Dynamic Agent Schema Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
           },
         },
       }
@@ -326,7 +326,7 @@ describe('Dynamic Agent Schema Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
           },
         },
       }
@@ -372,7 +372,7 @@ describe('Dynamic Agent Schema Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            spawnableAgents: [],
+            subagents: [],
           },
         },
       }

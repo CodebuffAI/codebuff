@@ -18,7 +18,7 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-  spawnableAgents: [],
+  subagents: [],
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}

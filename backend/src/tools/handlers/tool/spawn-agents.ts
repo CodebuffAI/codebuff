@@ -121,7 +121,7 @@ export const handleSpawnAgents = ((params: {
         const agentType = agentTypeStr as AgentTemplateType
         const agentTemplate = agentRegistry[agentType]
 
-        if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
+        if (!parentAgentTemplate.subagents.includes(agentType)) {
           throw new Error(
             `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`
           )

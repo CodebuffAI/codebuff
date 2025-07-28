@@ -5,9 +5,9 @@ import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
 import {
   formatParentInstructionsError,
-  formatSpawnableAgentError,
+  formatSubagentError,
   validateParentInstructions,
-  validateSpawnableAgents,
+  validateSubagents,
 } from '@codebuff/common/util/agent-template-validation'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
@@ -156,18 +156,18 @@ export class DynamicAgentService {
         return
       }
 
-      const spawnableValidation = validateSpawnableAgents(
-        content.spawnableAgents,
+      const subagentValidation = validateSubagents(
+        content.subagents,
         dynamicAgentIds
       )
-      if (!spawnableValidation.valid) {
+      if (!subagentValidation.valid) {
         this.validationErrors.push({
           filePath,
-          message: formatSpawnableAgentError(
-            spawnableValidation.invalidAgents,
-            spawnableValidation.availableAgents
+          message: formatSubagentError(
+            subagentValidation.invalidAgents,
+            subagentValidation.availableAgents
           ),
-          details: `Available agents: ${spawnableValidation.availableAgents.join(', ')}`,
+          details: `Available agents: ${subagentValidation.availableAgents.join(', ')}`,
         })
         return
       }
@@ -191,8 +191,8 @@ export class DynamicAgentService {
         }
       }
 
-      const validatedSpawnableAgents = normalizeAgentNames(
-        content.spawnableAgents
+      const validatedSubagents = normalizeAgentNames(
+        content.subagents
       ) as AgentTemplateType[]
 
       const basePaths = [fileDir, fileContext.projectRoot]
@@ -255,7 +255,7 @@ export class DynamicAgentService {
         outputSchema,
         promptSchema,
         toolNames: content.toolNames as ToolName[],
-        spawnableAgents: validatedSpawnableAgents,
+        subagents: validatedSubagents,
       }
 
       this.templates[content.id] = agentTemplate

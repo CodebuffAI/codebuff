@@ -56,7 +56,7 @@ describe('Parent Instructions Injection', () => {
         outputMode: 'last_message',
         includeMessageHistory: false,
         toolNames: ['end_turn'],
-        spawnableAgents: [],
+        subagents: [],
         parentInstructions: {
           researcher:
             'Spawn knowledge-keeper when you find documentation gaps.',
@@ -76,7 +76,7 @@ describe('Parent Instructions Injection', () => {
         outputMode: 'last_message',
         includeMessageHistory: false,
         toolNames: ['end_turn'],
-        spawnableAgents: [],
+        subagents: [],
         systemPrompt: 'You are a researcher.',
         instructionsPrompt: 'Research the topic.',
         stepPrompt: 'Continue research.',
@@ -127,7 +127,7 @@ describe('Parent Instructions Injection', () => {
         outputMode: 'last_message',
         includeMessageHistory: false,
         toolNames: ['end_turn'],
-        spawnableAgents: [],
+        subagents: [],
         systemPrompt: 'You are a researcher.',
         instructionsPrompt: 'Research the topic.',
         stepPrompt: 'Continue research.',
@@ -164,7 +164,7 @@ describe('Parent Instructions Injection', () => {
         outputMode: 'last_message',
         includeMessageHistory: false,
         toolNames: ['end_turn'],
-        spawnableAgents: [],
+        subagents: [],
         parentInstructions: {
           researcher: 'First instruction for researcher.',
         },
@@ -182,7 +182,7 @@ describe('Parent Instructions Injection', () => {
         outputMode: 'last_message',
         includeMessageHistory: false,
         toolNames: ['end_turn'],
-        spawnableAgents: [],
+        subagents: [],
         parentInstructions: {
           researcher: 'Second instruction for researcher.',
         },
@@ -200,7 +200,7 @@ describe('Parent Instructions Injection', () => {
         outputMode: 'last_message',
         includeMessageHistory: false,
         toolNames: ['end_turn'],
-        spawnableAgents: [],
+        subagents: [],
         systemPrompt: 'You are a researcher.',
         instructionsPrompt: 'Research the topic.',
         stepPrompt: 'Continue research.',

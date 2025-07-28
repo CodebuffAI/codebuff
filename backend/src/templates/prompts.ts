@@ -3,15 +3,15 @@ import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { agentTemplates } from './agent-list'
 import { AgentRegistry } from './agent-registry'
 
-export function buildSpawnableAgentsDescription(
-  spawnableAgents: AgentTemplateType[],
+export function buildSubagentsDescription(
+  subagents: AgentTemplateType[],
   agentRegistry: AgentRegistry
 ): string {
-  if (spawnableAgents.length === 0) {
+  if (subagents.length === 0) {
     return ''
   }
 
-  const agentsDescription = spawnableAgents
+  const agentsDescription = subagents
     .map((agentType) => {
       // Try to get from registry first (includes dynamic agents), then fall back to static
       const agentTemplate =

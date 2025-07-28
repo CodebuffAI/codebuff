@@ -15,7 +15,7 @@ export const reviewer = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn', 'run_file_change_hooks'],
-  spawnableAgents: [],
+  subagents: [],
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 

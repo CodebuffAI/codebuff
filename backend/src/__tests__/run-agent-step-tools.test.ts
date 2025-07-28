@@ -323,7 +323,7 @@ describe('runAgentStep - set_output tool', () => {
       outputMode: 'json' as const,
       includeMessageHistory: true,
       toolNames: ['read_files', 'end_turn'],
-      spawnableAgents: [],
+      subagents: [],
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',
       stepPrompt: 'Test agent step prompt',

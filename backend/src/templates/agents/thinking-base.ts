@@ -6,11 +6,7 @@ import {
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
 } from '../base-prompts'
-import {
-  AgentTemplate,
-  baseAgentSpawnableAgents,
-  baseAgentToolNames,
-} from '../types'
+import { AgentTemplate, baseAgentSubagents, baseAgentToolNames } from '../types'
 
 export const thinkingBase = (
   model: Model,
@@ -25,9 +21,9 @@ export const thinkingBase = (
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: baseAgentToolNames,
-  spawnableAgents: allAvailableAgents
+  subagents: allAvailableAgents
     ? (allAvailableAgents as any[])
-    : baseAgentSpawnableAgents,
+    : baseAgentSubagents,
 
   systemPrompt: baseAgentSystemPrompt(model),
   instructionsPrompt: baseAgentUserInputPrompt(model),

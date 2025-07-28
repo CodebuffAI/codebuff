@@ -13,7 +13,7 @@ export default {
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  spawnableAgents: ['thinker', 'researcher'],
+  subagents: ['thinker', 'researcher'],
   parentInstructions: {
     base: 'Spawn brainstormer when you need creative alternatives, want to challenge assumptions, or explore different approaches to implementation problems',
     base_lite:

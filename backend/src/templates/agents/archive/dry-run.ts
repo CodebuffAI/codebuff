@@ -14,7 +14,7 @@ export const dryRun = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  spawnableAgents: [],
+  subagents: [],
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Dry Run Specialist
 

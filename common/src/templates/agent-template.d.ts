@@ -40,7 +40,7 @@ export interface AgentConfig {
   tools?: ToolName[]
 
   /** Other agents this agent can spawn */
-  spawnableAgents?: SpawnableAgentName[]
+  subagents?: SubagentName[]
 
   // ============================================================================
   // Prompts
@@ -60,7 +60,7 @@ export interface AgentConfig {
   stepPrompt?: string
 
   /** Instructions for spawned sub-agents */
-  parentInstructions?: Record<SpawnableAgentName, string>
+  parentInstructions?: Record<SubagentName, string>
 
   // ============================================================================
   // Input and Output
@@ -230,7 +230,7 @@ export type ModelName =
 /**
  * Built-in agents that can be spawned by custom agents
  */
-export type SpawnableAgentName =
+export type SubagentName =
   | 'file_picker'
   | 'file_explorer'
   | 'researcher'
@@ -277,7 +277,7 @@ export const ResearcherExample: AgentConfig = {
   parentPrompt: 'Specialized in gathering information and research',
   model: 'anthropic/claude-3.5-haiku-20241022',
   tools: ['web_search', 'read_docs', 'write_file', 'end_turn'],
-  spawnableAgents: ['researcher', 'knowledge-keeper'],
+  subagents: ['researcher', 'knowledge-keeper'],
   systemPrompt:
     'You are a research specialist. Help users gather information, analyze sources, and document findings.',
 }

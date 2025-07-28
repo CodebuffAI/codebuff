@@ -27,7 +27,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
     'spawn_agents',
     'end_turn',
   ] satisfies ToolName[],
-  spawnableAgents: [AgentTemplateTypes.file_picker],
+  subagents: [AgentTemplateTypes.file_picker],
 
   systemPrompt: `# Agent Builder - Template Creation Assistant
 

@@ -84,7 +84,7 @@ describe('Dynamic Agent Loader', () => {
           instructionsPrompt: 'Help brainstorm ideas.',
           stepPrompt: 'Continue brainstorming.',
           toolNames: ['end_turn'],
-          spawnableAgents: ['thinker', 'researcher'],
+          subagents: ['thinker', 'researcher'],
 
           outputMode: 'last_message',
           includeMessageHistory: true,
@@ -114,7 +114,7 @@ describe('Dynamic Agent Loader', () => {
           systemPrompt: 'Test',
           instructionsPrompt: 'Test',
           stepPrompt: 'Test',
-          spawnableAgents: ['nonexistent_agent'],
+          subagents: ['nonexistent_agent'],
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
@@ -126,7 +126,7 @@ describe('Dynamic Agent Loader', () => {
 
     expect(result.validationErrors).toHaveLength(1)
     expect(result.validationErrors[0].message).toContain(
-      'Invalid spawnable agents: nonexistent_agent'
+      'Invalid subagents: nonexistent_agent'
     )
   })
 
@@ -147,7 +147,7 @@ describe('Dynamic Agent Loader', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
-          spawnableAgents: [],
+          subagents: [],
         },
       },
     }
@@ -190,7 +190,7 @@ describe('Dynamic Agent Loader', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
-          spawnableAgents: [],
+          subagents: [],
         },
       },
     }
@@ -228,7 +228,7 @@ describe('Dynamic Agent Loader', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
-          spawnableAgents: [],
+          subagents: [],
         },
       },
     }
@@ -265,7 +265,7 @@ describe('Dynamic Agent Loader', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
-          spawnableAgents: [],
+          subagents: [],
         },
       },
     }
@@ -292,7 +292,7 @@ describe('Dynamic Agent Loader', () => {
           systemPrompt: 'You are an expert software developer.',
           instructionsPrompt: 'Create a commit message.',
           stepPrompt: 'Make sure to end your response.',
-          spawnableAgents: [], // No spawnable agents
+          subagents: [], // No spawnable agents
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
@@ -307,7 +307,7 @@ describe('Dynamic Agent Loader', () => {
           systemPrompt: 'Test system prompt',
           instructionsPrompt: 'Test user prompt',
           stepPrompt: 'Test step prompt',
-          spawnableAgents: ['CodebuffAI/git-committer'], // Should be valid after first pass
+          subagents: ['CodebuffAI/git-committer'], // Should be valid after first pass
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
@@ -320,7 +320,7 @@ describe('Dynamic Agent Loader', () => {
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
     expect(result.templates).toHaveProperty('spawner_agent')
-    expect(result.templates.spawner_agent.spawnableAgents).toContain(
+    expect(result.templates.spawner_agent.subagents).toContain(
       'git-committer' // Normalized without prefix
     )
   })

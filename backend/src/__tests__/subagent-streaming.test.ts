@@ -85,7 +85,7 @@ describe('Subagent Streaming', () => {
             model: '',
             includeMessageHistory: true,
             toolNames: [],
-            spawnableAgents: [],
+            subagents: [],
 
             systemPrompt: '',
             instructionsPrompt: '',
@@ -114,7 +114,7 @@ describe('Subagent Streaming', () => {
     // Mock parent agent template that can spawn thinker
     const parentTemplate = {
       id: 'base',
-      spawnableAgents: ['thinker'],
+      subagents: ['thinker'],
     } as unknown as AgentTemplate
 
     const toolCall = {
@@ -179,7 +179,7 @@ describe('Subagent Streaming', () => {
 
     const parentTemplate = {
       id: 'base',
-      spawnableAgents: ['thinker'],
+      subagents: ['thinker'],
     } as unknown as AgentTemplate
 
     const toolCall = {

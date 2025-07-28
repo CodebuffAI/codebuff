@@ -4,8 +4,8 @@ import {
   DynamicAgentTemplateSchema,
 } from '../types/dynamic-agent-template'
 import {
-  validateParentInstructions,
   formatParentInstructionsError,
+  validateParentInstructions,
 } from '../util/agent-template-validation'
 
 describe('DynamicAgentConfigSchema', () => {
@@ -134,7 +134,7 @@ describe('DynamicAgentConfigSchema', () => {
         expect(result.data.outputMode).toBe('last_message')
         expect(result.data.includeMessageHistory).toBe(true)
         expect(result.data.toolNames).toEqual(['end_turn'])
-        expect(result.data.spawnableAgents).toEqual([])
+        expect(result.data.subagents).toEqual([])
       }
     })
 

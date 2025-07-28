@@ -24,7 +24,7 @@ export const superagent = (
     'end_turn',
     'think_deeply',
   ],
-  spawnableAgents: allAvailableAgents
+  subagents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [
         AgentTemplateTypes.thinker,

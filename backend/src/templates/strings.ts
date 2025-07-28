@@ -22,7 +22,7 @@ import { escapeString, generateCompactId } from '@codebuff/common/util/string'
 import { parseUserMessage } from '../util/messages'
 import { agentTemplates } from './agent-list'
 import { type AgentRegistry } from './agent-registry'
-import { buildSpawnableAgentsDescription } from './prompts'
+import { buildSubagentsDescription } from './prompts'
 import {
   AgentTemplate,
   PLACEHOLDER,
@@ -67,7 +67,7 @@ export async function formatPrompt(
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
-    [PLACEHOLDER.AGENTS_PROMPT]: buildSpawnableAgentsDescription(
+    [PLACEHOLDER.AGENTS_PROMPT]: buildSubagentsDescription(
       spawnableAgents,
       agentRegistry
     ),
@@ -141,7 +141,7 @@ export async function getAgentPrompt<T extends StringField>(
     fileContext,
     agentState,
     agentTemplate.toolNames,
-    agentTemplate.spawnableAgents,
+    agentTemplate.subagents,
     agentRegistry,
     ''
   )
@@ -154,10 +154,7 @@ export async function getAgentPrompt<T extends StringField>(
       '\n\n' +
       getShortToolInstructions(agentTemplate.toolNames) +
       '\n\n' +
-      buildSpawnableAgentsDescription(
-        agentTemplate.spawnableAgents,
-        agentRegistry
-      )
+      buildSubagentsDescription(agentTemplate.subagents, agentRegistry)
 
     const parentInstructions = await collectParentInstructions(
       agentState.agentType,
