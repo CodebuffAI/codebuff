@@ -184,6 +184,11 @@ const onPrompt = async (
         sendAction(ws, {
           type: 'response-chunk',
           userInputId: promptId,
+          chunk: { type: 'error', message: response },
+        })
+        sendAction(ws, {
+          type: 'response-chunk',
+          userInputId: promptId,
           chunk: response,
         })
         setTimeout(() => {

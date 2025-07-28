@@ -1,17 +1,21 @@
+import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
+import type { CostMode } from '@codebuff/common/constants'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { CliOptions, GitCommand } from './types'
+
 import fs, { readdirSync } from 'fs'
 import * as os from 'os'
 import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
-import { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import { ASYNC_AGENTS_ENABLED, type CostMode } from '@codebuff/common/constants'
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 import {
   AGENT_PERSONAS,
   UNIQUE_AGENT_NAMES,
 } from '@codebuff/common/constants/agents'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { isDir, ProjectFileContext } from '@codebuff/common/util/file'
+import { isDir } from '@codebuff/common/util/file'
 import { pluralize } from '@codebuff/common/util/string'
 import {
   blueBright,
@@ -42,29 +46,27 @@ import {
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
-
 import {
-  enterSubagentBuffer,
-  isInSubagentBufferMode,
   cleanupSubagentBuffer,
   displaySubagentList,
+  enterSubagentBuffer,
+  isInSubagentBufferMode,
 } from './cli-handlers/subagent'
 import {
+  cleanupSubagentListBuffer,
   enterSubagentListBuffer,
   isInSubagentListMode,
-  cleanupSubagentListBuffer,
   resetSubagentSelectionToLast,
 } from './cli-handlers/subagent-list'
-import {
-  getAllSubagentIds,
-  getRecentSubagents,
-  setTraceEnabled,
-} from './subagent-storage'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
 import { DiffManager } from './diff-manager'
-import { disableSquashNewlines, enableSquashNewlines } from './display'
+import { printModeIsEnabled, printModeLog } from './display/print-mode'
+import {
+  disableSquashNewlines,
+  enableSquashNewlines,
+} from './display/squash-newlines'
 import { loadCodebuffConfig } from './json-config/parser'
 import {
   displayGreeting,
@@ -80,6 +82,7 @@ import {
 } from './project-files'
 import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
+import { getRecentSubagents, setTraceEnabled } from './subagent-storage'
 import {
   clearScreen,
   isCommandRunning,
@@ -87,9 +90,7 @@ import {
   persistentProcess,
   resetShell,
 } from './terminal/run-command'
-import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
-
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { withHangDetection } from './utils/with-hang-detection'
@@ -212,7 +213,14 @@ export class CLI {
     process.on('unhandledRejection', (reason, promise) => {
       rageDetectors.exitAfterErrorDetector.start()
 
-      console.error('\nUnhandled Rejection at:', promise, 'reason:', reason)
+      const errorMessage = `Unhandled Rejection at: ${promise} reason: ${reason}`
+      if (printModeIsEnabled()) {
+        printModeLog({
+          type: 'error',
+          message: errorMessage,
+        })
+      }
+      console.error(`\n${errorMessage}`)
       logger.error(
         {
           errorMessage:
@@ -227,9 +235,14 @@ export class CLI {
     process.on('uncaughtException', (err, origin) => {
       rageDetectors.exitAfterErrorDetector.start()
 
-      console.error(
-        `\nCaught exception: ${err}\n` + `Exception origin: ${origin}`
-      )
+      const errorMessage = `Caught exception: ${err} Exception origin: ${origin}`
+      if (printModeIsEnabled()) {
+        printModeLog({
+          type: 'error',
+          message: errorMessage,
+        })
+      }
+      console.error(`\n${errorMessage}`)
       console.error(err.stack)
       logger.error(
         {
@@ -292,7 +305,9 @@ export class CLI {
         process.exit(0)
       })
     }
-    process.on('SIGTSTP', async () => await this.handleExit())
+    process.on('SIGTSTP', async () => {
+      await this.handleExit()
+    })
     // Doesn't catch SIGKILL (e.g. `kill -9`)
   }
 
@@ -361,7 +376,9 @@ export class CLI {
 
     this.rl.on('line', (line) => this.handleLine(line))
     this.rl.on('SIGINT', async () => await this.handleSigint())
-    this.rl.on('close', async () => await this.handleExit())
+    this.rl.on('close', async () => {
+      await this.handleExit()
+    })
 
     process.stdin.on('keypress', (str, key) => this.handleKeyPress(str, key))
   }
@@ -563,9 +580,11 @@ export class CLI {
     // In print mode, skip greeting and interactive setup
     if (this.printMode) {
       if (!client.user) {
-        console.error(
-          'Error: Print mode requires authentication. Please run "codebuff login" first.'
-        )
+        printModeLog({
+          type: 'error',
+          message:
+            'Print mode requires authentication. Please run "codebuff login" first.',
+        })
         process.exit(1)
       }
     } else {
@@ -1011,6 +1030,13 @@ export class CLI {
   }
 
   private onWebSocketError() {
+    if (printModeIsEnabled()) {
+      printModeLog({
+        type: 'error',
+        message: 'Could not connect to server.',
+      })
+      process.exit(1)
+    }
     rageDetectors.exitAfterErrorDetector.start()
 
     Spinner.get().stop()
@@ -1109,6 +1135,10 @@ export class CLI {
       await resetShell(getProjectRoot())
     }
 
+    if (printModeIsEnabled()) {
+      await this.handleExit()
+    }
+
     if (this.isReceivingResponse) {
       this.handleStopResponse()
     } else {
@@ -1140,6 +1170,7 @@ export class CLI {
   }
 
   private async handleExit() {
+    enableSquashNewlines()
     // Start exit time detector
     rageDetectors.exitTimeDetector.start()
 

@@ -85,8 +85,10 @@ import { GitCommand, MakeNullable } from './types'
 import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 
+import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import { getLoadedAgentNames } from './agents/load-agents'
 import { refreshSubagentDisplay } from './cli-handlers/subagent'
+import { printModeLog } from './display/print-mode'
 import {
   clearSubagentStorage,
   getAllSubagentIds,
@@ -987,11 +989,19 @@ export class Client {
         if (this.userInputId !== userInputId) {
           return
         }
-        if (chunk) {
-          Spinner.get().stop()
+        if (typeof chunk === 'string') {
+          if (chunk) {
+            Spinner.get().stop()
+          }
+          DiffManager.receivedResponse()
+          process.stdout.write(chunk)
+        } else {
+          if (chunk.type === 'error') {
+            printModeLog(chunk)
+          } else {
+            printModeLog(chunk)
+          }
         }
-        DiffManager.receivedResponse()
-        process.stdout.write(chunk)
       },
       userInputId,
       () => {
@@ -1167,7 +1177,7 @@ export class Client {
   }
 
   private subscribeToResponse(
-    onChunk: (chunk: string) => void,
+    onChunk: (chunk: string | PrintModeObject) => void,
     userInputId: string,
     onStreamStart: () => void,
     prompt: string,
@@ -1242,44 +1252,51 @@ export class Client {
 
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
-      const { chunk } = a
+      if (typeof a.chunk === 'string') {
+        const { chunk } = a
 
-      rawChunkBuffer.push(chunk)
+        rawChunkBuffer.push(chunk)
 
-      const trimmed = chunk.trim()
-      for (const tag of ONE_TIME_TAGS) {
-        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(closeXml(tag))) {
-          if (this.oneTimeFlags[tag]) {
+        const trimmed = chunk.trim()
+        for (const tag of ONE_TIME_TAGS) {
+          if (
+            trimmed.startsWith(`<${tag}>`) &&
+            trimmed.endsWith(closeXml(tag))
+          ) {
+            if (this.oneTimeFlags[tag]) {
+              return
+            }
+            Spinner.get().stop()
+            const warningMessage = trimmed
+              .replace(`<${tag}>`, '')
+              .replace(closeXml(tag), '')
+            process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
+            this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
             return
           }
-          Spinner.get().stop()
-          const warningMessage = trimmed
-            .replace(`<${tag}>`, '')
-            .replace(closeXml(tag), '')
-          process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
-          this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
-          return
         }
-      }
 
-      if (chunk && chunk.trim()) {
-        if (!streamStarted && chunk.trim()) {
-          streamStarted = true
-          onStreamStart()
+        if (chunk && chunk.trim()) {
+          if (!streamStarted && chunk.trim()) {
+            streamStarted = true
+            onStreamStart()
+          }
         }
-      }
 
-      try {
-        xmlStreamParser.write(chunk, 'utf8')
-      } catch (e) {
-        logger.error(
-          {
-            errorMessage: e instanceof Error ? e.message : String(e),
-            errorStack: e instanceof Error ? e.stack : undefined,
-            chunk,
-          },
-          'Error writing chunk to XML stream parser'
-        )
+        try {
+          xmlStreamParser.write(chunk, 'utf8')
+        } catch (e) {
+          logger.error(
+            {
+              errorMessage: e instanceof Error ? e.message : String(e),
+              errorStack: e instanceof Error ? e.stack : undefined,
+              chunk,
+            },
+            'Error writing chunk to XML stream parser'
+          )
+        }
+      } else {
+        onChunk(a.chunk)
       }
     })
 
