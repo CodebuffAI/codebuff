@@ -423,6 +423,7 @@ export const gitEvalResults = pgTable('git_eval_results', {
 export const publisher = pgTable('publisher', {
   id: text('id')
     .primaryKey()
+    .notNull()
     .$defaultFn(() => crypto.randomUUID()),
   slug: text('slug').unique().notNull(), // for store reference
   name: text('name').notNull(),
@@ -441,7 +442,9 @@ export const publisher = pgTable('publisher', {
 export const agentTemplate = pgTable(
   'agent_template',
   {
-    id: text('id').$defaultFn(() => crypto.randomUUID()),
+    id: text('id')
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
     version: text('version').notNull(), // Semantic version e.g., '1.0.0'
     publisher_id: text('publisher_id')
       .notNull()
