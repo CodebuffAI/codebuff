@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
 import { toolNames } from '../constants/tools'
+import type { AgentConfig } from '../templates/agent-template'
 
 // Filter models to only include those that begin with allowed prefixes
 const filteredModels = Object.values(models).filter((model) =>
@@ -11,19 +12,42 @@ if (filteredModels.length === 0) {
   throw new Error('No valid models found with allowed prefixes')
 }
 
-// JSON Schema for params - supports any valid JSON schema
-const JsonSchemaSchema = z.record(z.any()).refine(
-  (schema) => {
-    // Basic validation that it looks like a JSON schema
-    return typeof schema === 'object' && schema !== null
-  },
-  { message: 'Must be a valid JSON schema object' }
+// Simplified JSON Schema definition - supports object schemas with nested properties
+const JsonSchemaSchema: z.ZodType<any> = z.lazy(() =>
+  z
+    .object({
+      type: z.literal('object'),
+      description: z.string().optional(),
+      properties: z
+        .record(
+          JsonSchemaSchema.or(
+            z
+              .object({
+                type: z.enum([
+                  'string',
+                  'number',
+                  'integer',
+                  'boolean',
+                  'array',
+                ]),
+                description: z.string().optional(),
+                enum: z.array(z.any()).optional(),
+              })
+              .passthrough()
+          )
+        )
+        .optional(),
+      required: z.array(z.string()).optional(),
+    })
+    .passthrough()
 )
 
 // Schema for the combined inputSchema object
 const InputSchemaObjectSchema = z
   .object({
-    prompt: JsonSchemaSchema.optional(), // Optional JSON schema for prompt validation
+    prompt: z
+      .object({ type: z.literal('string'), description: z.string().optional() })
+      .optional(), // Optional JSON schema for prompt validation
     params: JsonSchemaSchema.optional(), // Optional JSON schema for params validation
   })
   .optional()
@@ -38,7 +62,7 @@ export type PromptField = z.infer<typeof PromptFieldSchema>
 // Validates the Typescript template file.
 export const DynamicAgentConfigSchema = z.object({
   id: z.string(), // The unique identifier for this agent
-  version: z.string(),
+  version: z.string().optional(),
   override: z.literal(false).optional().default(false), // Must be false for new agents, defaults to false if missing
 
   // Required fields for new agents
@@ -50,10 +74,12 @@ export const DynamicAgentConfigSchema = z.object({
   outputSchema: JsonSchemaSchema.optional(), // Optional JSON schema for output validation
   includeMessageHistory: z.boolean().default(true),
   toolNames: z
-    .array(z.string())
-    .default(['end_turn'])
+    .array(z.enum(toolNames))
+    .optional()
+    .default([])
     .refine(
       (tools) => {
+        if (!tools) return true
         const validToolNames = toolNames as readonly string[]
         const invalidTools = tools.filter(
           (tool) => !validToolNames.includes(tool)
@@ -61,6 +87,7 @@ export const DynamicAgentConfigSchema = z.object({
         return invalidTools.length === 0
       },
       (tools) => {
+        if (!tools) return { message: 'Tools array is undefined' }
         const validToolNames = toolNames as readonly string[]
         const invalidTools = tools.filter(
           (tool) => !validToolNames.includes(tool)
@@ -70,15 +97,15 @@ export const DynamicAgentConfigSchema = z.object({
         }
       }
     ),
-  subagents: z.array(z.string()).default([]),
+  subagents: z.array(z.string()).optional().default([]),
   inputSchema: InputSchemaObjectSchema,
   parentInstructions: z.record(z.string(), z.string()).optional(),
 
   // Prompts
   parentPrompt: z.string().optional(),
-  systemPrompt: PromptFieldSchema,
-  instructionsPrompt: PromptFieldSchema,
-  stepPrompt: PromptFieldSchema,
+  systemPrompt: z.string().optional(),
+  instructionsPrompt: z.string().optional(),
+  stepPrompt: z.string(),
 
   // Optional generator function for programmatic agents
   handleSteps: z
@@ -86,7 +113,7 @@ export const DynamicAgentConfigSchema = z.object({
       z.tuple([
         z.object({
           agentState: z.any(),
-          prompt: z.string(),
+          prompt: z.string().optional(),
           params: z.any(),
         }),
       ]),
@@ -94,9 +121,12 @@ export const DynamicAgentConfigSchema = z.object({
     )
     .optional(),
 })
-
 export type DynamicAgentConfig = z.input<typeof DynamicAgentConfigSchema>
 export type DynamicAgentConfigParsed = z.infer<typeof DynamicAgentConfigSchema>
+
+// Checks that the AgentConfig and DynamicAgentConfig types are compatible
+// NOTE TO LLM: Don't remove this line!
+const _typecheck: AgentConfig = {} as DynamicAgentConfig
 
 export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
   systemPrompt: z.string(),
