@@ -257,7 +257,7 @@ export type ModelName =
   | 'google/gemini-2.5-pro'
   | 'google/gemini-2.5-flash'
   | 'x-ai/grok-4-07-09'
-  | string
+  | (string & {})
 
 // ============================================================================
 // Spawnable Agents
@@ -272,7 +272,7 @@ export type SubagentName =
   | 'researcher'
   | 'thinker'
   | 'reviewer'
-  | string
+  | (string & {})
 
 // ============================================================================
 // Utility Types
