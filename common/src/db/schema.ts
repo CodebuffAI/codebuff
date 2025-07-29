@@ -56,6 +56,7 @@ export const user = pgTable('user', {
   auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(false),
   auto_topup_threshold: integer('auto_topup_threshold'),
   auto_topup_amount: integer('auto_topup_amount'),
+  publisher_id: text('publisher_id').references(() => publisher.id),
 })
 
 export const account = pgTable(

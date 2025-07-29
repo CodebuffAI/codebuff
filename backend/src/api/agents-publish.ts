@@ -14,9 +14,6 @@ import { logger } from '../util/logger'
 
 // Schema for publishing an agent
 const publishAgentRequestSchema = z.object({
-  publisherId: z.string().min(1),
-  agentId: z.string().min(1),
-  version: z.string().regex(/^\d+\.\d+\.\d+$/, 'Version must be in semver format (e.g., 1.0.0)'),
   template: DynamicAgentTemplateSchema,
 })
 
@@ -30,49 +27,58 @@ export async function publishAgentHandler(
     // Check authentication
     const authHeader = req.headers.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid authorization header' })
+      return res
+        .status(401)
+        .json({ error: 'Missing or invalid authorization header' })
     }
-    
+
     const authToken = authHeader.substring(7)
     const userId = await getUserIdFromAuthToken(authToken)
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'Invalid authentication token' })
     }
 
     // Validate request body
-    const { publisherId, agentId, version, template } = publishAgentRequestSchema.parse(req.body)
-    
-    // Verify the template's id matches the agentId
-    if (template.id !== agentId) {
-      return res.status(400).json({ 
-        error: 'Agent ID mismatch', 
-        details: `Template id '${template.id}' does not match agentId '${agentId}'` 
-      })
-    }
-    
-    // Verify the template's version matches the version
-    if (template.version !== version) {
-      return res.status(400).json({ 
-        error: 'Version mismatch', 
-        details: `Template version '${template.version}' does not match version '${version}'` 
+    const { template } = publishAgentRequestSchema.parse(req.body)
+
+    // Extract agentId and version from template
+    const agentId = template.id
+    const version = template.version
+
+    // Validate semver format
+    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+      return res.status(400).json({
+        error: 'Invalid version format',
+        details: `Version '${version}' must be in semver format (e.g., 1.0.0)`,
       })
     }
 
-    // Check if publisher exists and user has access
+    // Look up the user's publisher ID
+    const user = await db
+      .select({ publisher_id: schema.user.publisher_id })
+      .from(schema.user)
+      .where(eq(schema.user.id, userId))
+      .then((rows) => rows[0])
+
+    if (!user?.publisher_id) {
+      return res.status(403).json({
+        error: 'No publisher associated with user',
+        details: 'User must have a publisher_id to publish agents',
+      })
+    }
+
+    // Get publisher details
     const publisher = await db
       .select()
       .from(schema.publisher)
-      .where(eq(schema.publisher.slug, publisherId))
-      .then(rows => rows[0])
-    
+      .where(eq(schema.publisher.id, user.publisher_id))
+      .then((rows) => rows[0])
+
     if (!publisher) {
       return res.status(404).json({ error: 'Publisher not found' })
     }
-    
-    // For now, we'll allow any authenticated user to publish to any publisher
-    // In the future, we might want to add publisher ownership/permissions
-    
+
     // Check if this version already exists
     const existingAgent = await db
       .select()
@@ -84,12 +90,12 @@ export async function publishAgentHandler(
           eq(schema.agentTemplate.publisher_id, publisher.id)
         )
       )
-      .then(rows => rows[0])
-    
+      .then((rows) => rows[0])
+
     if (existingAgent) {
-      return res.status(409).json({ 
-        error: 'Version already exists', 
-        details: `Agent '${agentId}' version '${version}' already exists for publisher '${publisherId}'` 
+      return res.status(409).json({
+        error: 'Version already exists',
+        details: `Agent '${agentId}' version '${version}' already exists for publisher '${publisher.slug}'`,
       })
     }
 
@@ -103,16 +109,16 @@ export async function publishAgentHandler(
         template: template as any, // Cast to satisfy jsonb type
       })
       .returning()
-      .then(rows => rows[0])
+      .then((rows) => rows[0])
 
     logger.info(
-      { 
-        userId, 
-        publisherId, 
-        agentId, 
-        version, 
-        agentTemplateId: newAgent.id 
-      }, 
+      {
+        userId,
+        publisherId: publisher.slug,
+        agentId,
+        version,
+        agentTemplateId: newAgent.id,
+      },
       'Agent template published successfully'
     )
 
@@ -121,7 +127,7 @@ export async function publishAgentHandler(
       agent: {
         id: newAgent.id,
         version: newAgent.version,
-        publisherId,
+        publisherId: publisher.slug,
         createdAt: newAgent.created_at,
       },
     })
