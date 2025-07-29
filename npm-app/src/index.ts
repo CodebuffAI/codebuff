@@ -12,6 +12,7 @@ import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { npmAppVersion } from './config'
 import { createTemplateProject } from './create-template-project'
+import { handlePublish } from './cli-handlers/publish'
 import { printModeLog, setPrintMode } from './display/print-mode'
 import {
   getStartingDirectory,
@@ -76,7 +77,9 @@ async function codebuff({
     trace,
   })
   const codebuffConfig = loadCodebuffConfig()
-  await loadLocalAgents({ verbose: true }).then(() => displayLoadedAgents(codebuffConfig))
+  await loadLocalAgents({ verbose: true }).then(() =>
+    displayLoadedAgents(codebuffConfig)
+  )
   const cli = CLI.getInstance()
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })
@@ -115,6 +118,7 @@ Examples:
   $ codebuff --cwd my-project           # Start in specific directory
   $ codebuff --trace                    # Enable subagent trace logging to .agents/traces/*.log
   $ codebuff --create nextjs my-app     # Create and scaffold a new Next.js project
+  $ codebuff --publish my-agent         # Publish agent template to store
   $ codebuff --agent file_picker "find relevant files for authentication"
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
 
@@ -132,8 +136,14 @@ For all commands and options, run 'codebuff' and then type 'help'.
     const template = options.create
     const projectDir = args[0] || '.'
     const projectName = args[1] || template
-
     createTemplateProject(template, projectDir, projectName)
+    process.exit(0)
+  }
+
+  // Handle publish command
+  if (options.publish) {
+    const agentName = options.publish
+    await handlePublish(agentName)
     process.exit(0)
   }
 

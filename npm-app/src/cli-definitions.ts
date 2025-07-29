@@ -93,4 +93,10 @@ export const cliOptions: CliParam[] = [
     menuDescription: 'Log subagent messages to trace files',
     hidden: false,
   },
+  {
+    flags: '--publish <agent-name>',
+    description: 'Publish a specific agent template to the agent store',
+    menuDescription: 'Publish agent template to store',
+    hidden: true,
+  },
 ]

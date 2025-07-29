@@ -13,6 +13,7 @@ export interface CliOptions {
   print?: boolean
   cwd?: string
   trace?: boolean
+  publish?: string
 }
 
 /**

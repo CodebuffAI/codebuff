@@ -7,39 +7,14 @@ import {
 import * as fs from 'fs'
 import * as path from 'path'
 import { cyan, green } from 'picocolors'
-import { getProjectRoot } from '../project-files'
 import { CodebuffConfig } from '@codebuff/common/json-config/constants'
+import {
+  getAllTsFiles,
+  loadFileContents,
+  getAgentsDirectory,
+} from './agent-utils'
 
 export let loadedAgents: Record<string, DynamicAgentTemplate> = {}
-
-const agentTemplatesSubdir = ['.agents'] as const
-
-function getAllTsFiles(dir: string): string[] {
-  const files: string[] = []
-
-  try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true })
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name)
-
-      if (entry.isDirectory()) {
-        // Recursively scan subdirectories
-        files.push(...getAllTsFiles(fullPath))
-      } else if (
-        entry.isFile() &&
-        entry.name.endsWith('.ts') &&
-        !entry.name.endsWith('.d.ts')
-      ) {
-        files.push(fullPath)
-      }
-    }
-  } catch (error) {
-    // Ignore errors reading directories
-  }
-
-  return files
-}
 
 export async function loadLocalAgents({
   verbose = false,
@@ -48,7 +23,7 @@ export async function loadLocalAgents({
 }): Promise<typeof loadedAgents> {
   loadedAgents = {}
 
-  const agentsDir = path.join(getProjectRoot(), ...agentTemplatesSubdir)
+  const agentsDir = getAgentsDirectory()
 
   if (!fs.existsSync(agentsDir)) {
     return loadedAgents
@@ -145,38 +120,4 @@ export function displayLoadedAgents(codebuffConfig: CodebuffConfig) {
     // One more new line.
     console.log()
   }
-}
-
-export function loadFileContents(promptField: PromptField | undefined): string {
-  if (promptField === undefined) {
-    return ''
-  }
-
-  if (typeof promptField === 'string') {
-    return promptField
-  }
-
-  const originalPath = promptField.path
-  const projectRoot = getProjectRoot()
-
-  // Try multiple path variations for better compatibility
-  const pathVariations = [
-    path.join(projectRoot, originalPath),
-    path.join(projectRoot, ...agentTemplatesSubdir, originalPath),
-    path.join(
-      projectRoot,
-      ...agentTemplatesSubdir,
-      path.basename(originalPath)
-    ),
-  ]
-
-  for (const path of pathVariations) {
-    try {
-      return fs.readFileSync(path, 'utf8')
-    } catch (error) {
-      // Ignore errors and try the next path variation
-    }
-  }
-
-  return ''
 }
