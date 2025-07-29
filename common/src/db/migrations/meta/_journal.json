@@ -155,6 +155,13 @@
       "when": 1750799814424,
       "tag": "0021_tiny_marauders",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1753410608165,
+      "tag": "0022_whole_juggernaut",
+      "breakpoints": true
     }
   ]
 }
