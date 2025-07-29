@@ -1,3 +1,4 @@
+import { getToolCallString } from '@codebuff/common/constants/tools'
 import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import {
   AgentState,
@@ -5,7 +6,6 @@ import {
   ToolResult,
 } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
-import { getToolCallString } from '@codebuff/common/constants/tools'
 import { WebSocket } from 'ws'
 import { AgentTemplate, StepGenerator } from './templates/types'
 import { CodebuffToolCall } from './tools/constants'
