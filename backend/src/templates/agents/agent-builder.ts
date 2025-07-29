@@ -11,6 +11,7 @@ import {
   AGENT_CONFIG_FILE,
 } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { compileToolDefinitions } from '@codebuff/common/tools/compile-tool-definitions'
 import z from 'zod/v4'
 
 const TEMPLATE_RELATIVE_PATH =
@@ -22,6 +23,11 @@ import(TEMPLATE_RELATIVE_PATH)
 const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
 const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
 const TEMPLATE_TYPES_PATH = path.join(AGENT_TEMPLATES_DIR, AGENT_CONFIG_FILE)
+const TOOL_DEFINITIONS_FILE = 'tools.d.ts'
+const TOOL_DEFINITIONS_PATH = path.join(
+  AGENT_TEMPLATES_DIR,
+  TOOL_DEFINITIONS_FILE
+)
 
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
   // Read the AGENT_CONFIG_FILE content dynamically
@@ -169,7 +175,18 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
         },
       }
 
-      // Step 3: Add user message with requirements for agent creation or editing
+      // Step 3: Write the tool definitions file
+      const toolDefinitionsContent = compileToolDefinitions()
+      yield {
+        toolName: 'write_file',
+        args: {
+          path: TOOL_DEFINITIONS_PATH,
+          instructions: 'Create tools type file',
+          content: toolDefinitionsContent,
+        },
+      }
+
+      // Step 4: Add user message with requirements for agent creation or editing
       const isEditMode = params?.editMode === true
 
       if (isEditMode) {

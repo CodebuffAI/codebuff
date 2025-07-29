@@ -32,7 +32,8 @@
     "typecheck": "bun --filter='*' run typecheck && echo '✅ All type checks passed!'",
     "test": "bun --filter='{@codebuff/backend,@codebuff/common,@codebuff/npm-app}' run test",
     "init-worktree": "bun scripts/init-worktree.ts",
-    "cleanup-worktree": "bash scripts/cleanup-worktree.sh"
+    "cleanup-worktree": "bash scripts/cleanup-worktree.sh",
+    "generate-tool-definitions": "bun scripts/generate-tool-definitions.ts"
   },
   "dependencies": {
     "@t3-oss/env-nextjs": "^0.7.3",

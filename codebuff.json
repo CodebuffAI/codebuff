@@ -59,6 +59,11 @@
       "name": "prettier-format",
       "command": "git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|json|md)$' | xargs -r npx prettier --write",
       "filePattern": "**/*.{ts,tsx,json,md}"
+    },
+    {
+      "name": "regenerate-tool-definitions",
+      "command": "bun run generate-tool-definitions",
+      "filePattern": "common/src/tools/{params/tool/*.ts,list.ts}"
     }
   ],
   "maxAgentSteps": 20
