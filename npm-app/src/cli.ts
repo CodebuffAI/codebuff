@@ -68,7 +68,6 @@ import {
   disableSquashNewlines,
   enableSquashNewlines,
 } from './display/squash-newlines'
-import { loadCodebuffConfig } from './json-config/parser'
 import {
   displayGreeting,
   displayMenu,
@@ -97,11 +96,11 @@ import { Spinner } from './utils/spinner'
 import { withHangDetection } from './utils/with-hang-detection'
 
 /**
- * Get local agent names from the .agents/templates directory
+ * Get local agent names from the .agents directory and all subdirectories
  * @returns Record of agent type to agent name
  */
 function getLocalAgentNames(): Record<string, string> {
-  const agentsDir = path.join(getProjectRoot(), '.agents', 'templates')
+  const agentsDir = path.join(getProjectRoot(), '.agents')
 
   if (!fs.existsSync(agentsDir)) {
     return {}
@@ -109,32 +108,38 @@ function getLocalAgentNames(): Record<string, string> {
 
   const agentNames: Record<string, string> = {}
 
-  try {
-    const files = fs.readdirSync(agentsDir)
+  function scanDirectory(dir: string): void {
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true })
 
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        const agentType = file.replace('.json', '')
-        const filePath = path.join(agentsDir, file)
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
 
-        try {
-          const content = fs.readFileSync(filePath, 'utf8')
-          const agentConfig = JSON.parse(content)
+        if (entry.isDirectory()) {
+          // Recursively scan subdirectories
+          scanDirectory(fullPath)
+        } else if (
+          entry.isFile() &&
+          entry.name.endsWith('.ts') &&
+          !entry.name.endsWith('.d.ts')
+        ) {
+          // Handle TypeScript agent files
+          const relativePath = path.relative(agentsDir, fullPath)
+          const agentType = relativePath
+            .replace(/\.ts$/, '')
+            .replace(/[/\\]/g, '-')
 
-          // Use the name from the config, or fall back to the filename
-          const agentName = agentConfig.name || agentType
-          agentNames[agentType] = agentName
-        } catch (error) {
-          // Skip invalid JSON files
-          continue
+          // For .ts files, use the filename as the display name
+          // The actual agent loading will be handled by loadLocalAgents
+          agentNames[agentType] = agentType
         }
       }
+    } catch (error) {
+      // Ignore errors reading directories
     }
-  } catch (error) {
-    // Return empty object if directory can't be read
-    return {}
   }
 
+  scanDirectory(agentsDir)
   return agentNames
 }
 
