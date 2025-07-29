@@ -148,8 +148,8 @@ export interface ToolResult {
  */
 export interface AgentStepContext {
   agentState: AgentState
-  prompt: string | undefined
-  params: Record<string, any> | undefined
+  prompt?: string
+  params?: Record<string, any>
 }
 
 /**

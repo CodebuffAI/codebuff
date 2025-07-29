@@ -59,20 +59,42 @@ const PromptFieldSchema = z.union([
 ])
 export type PromptField = z.infer<typeof PromptFieldSchema>
 
+// Schema for validating handleSteps function signature
+const HandleStepsSchema = z
+  .function()
+  .args(
+    z.object({
+      agentState: z.object({
+        agentId: z.string(),
+        parentId: z.string(),
+        messageHistory: z.array(z.any()),
+      }),
+      prompt: z.string().optional(),
+      params: z.any().optional(),
+    })
+  )
+  .returns(z.any())
+  .refine(
+    (fn) => {
+      // Check if it's a generator function
+      return fn.constructor.name === 'GeneratorFunction'
+    },
+    {
+      message: 'handleSteps must be a generator function',
+    }
+  )
+  .optional()
+
 // Validates the Typescript template file.
 export const DynamicAgentConfigSchema = z.object({
   id: z.string(), // The unique identifier for this agent
   version: z.string().optional(),
-  override: z.literal(false).optional().default(false), // Must be false for new agents, defaults to false if missing
 
   // Required fields for new agents
   displayName: z.string(),
   model: z.string(),
-  outputMode: z
-    .enum(['last_message', 'all_messages', 'json'])
-    .default('last_message'), // Will be overridden to 'json' if outputSchema is present
-  outputSchema: JsonSchemaSchema.optional(), // Optional JSON schema for output validation
-  includeMessageHistory: z.boolean().default(true),
+
+  // Tools and subagents
   toolNames: z
     .array(z.enum(toolNames))
     .optional()
@@ -98,35 +120,32 @@ export const DynamicAgentConfigSchema = z.object({
       }
     ),
   subagents: z.array(z.string()).optional().default([]),
+
+  // Input and output
   inputSchema: InputSchemaObjectSchema,
-  parentInstructions: z.record(z.string(), z.string()).optional(),
+  includeMessageHistory: z.boolean().default(true),
+  outputMode: z
+    .enum(['last_message', 'all_messages', 'json'])
+    .default('last_message'), // Will be overridden to 'json' if outputSchema is present
+  outputSchema: JsonSchemaSchema.optional(), // Optional JSON schema for output validation
 
   // Prompts
   parentPrompt: z.string().optional(),
   systemPrompt: z.string().optional(),
   instructionsPrompt: z.string().optional(),
   stepPrompt: z.string(),
+  parentInstructions: z.record(z.string(), z.string()).optional(),
 
   // Optional generator function for programmatic agents
-  handleSteps: z
-    .function(
-      z.tuple([
-        z.object({
-          agentState: z.any(),
-          prompt: z.string().optional(),
-          params: z.any(),
-        }),
-      ]),
-      z.any()
-    )
-    .optional(),
+  handleSteps: HandleStepsSchema,
 })
 export type DynamicAgentConfig = z.input<typeof DynamicAgentConfigSchema>
 export type DynamicAgentConfigParsed = z.infer<typeof DynamicAgentConfigSchema>
 
 // Checks that the AgentConfig and DynamicAgentConfig types are compatible
-// NOTE TO LLM: Don't remove this line!
+// NOTE TO LLM: Don't remove these lines!
 const _typecheck: AgentConfig = {} as DynamicAgentConfig
+const _typecheck2: DynamicAgentConfig = {} as AgentConfig
 
 export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
   systemPrompt: z.string(),
