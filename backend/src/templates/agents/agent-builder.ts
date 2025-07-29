@@ -5,6 +5,7 @@ import {
   Model,
   openrouterModels,
   AGENT_TEMPLATES_DIR,
+  AGENT_CONFIG_FILE,
 } from '@codebuff/common/constants'
 import { ToolName } from '@codebuff/common/constants/tools'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
@@ -13,26 +14,23 @@ import z from 'zod/v4'
 import { AgentTemplate } from '../types'
 
 const TEMPLATE_RELATIVE_PATH =
-  '../../../../common/src/templates/agent-template.d.ts' as const
+  `../../../../common/src/util/${AGENT_CONFIG_FILE}` as const
 
 // Import to validate path exists at compile time
 import(TEMPLATE_RELATIVE_PATH)
 
 const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
 const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
-const TEMPLATE_TYPES_PATH = path.join(
-  AGENT_TEMPLATES_DIR,
-  'agent-template.d.ts'
-)
+const TEMPLATE_TYPES_PATH = path.join(AGENT_TEMPLATES_DIR, AGENT_CONFIG_FILE)
 
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
-  // Read the agent-template.d.ts file content dynamically
+  // Read the AGENT_CONFIG_FILE content dynamically
   // The import above ensures this path exists at compile time
   let agentTemplateContent = ''
   try {
     agentTemplateContent = fs.readFileSync(TEMPLATE_PATH, 'utf8')
   } catch (error) {
-    console.warn('Could not read agent-template.d.ts:', error)
+    console.warn(`Could not read ${AGENT_CONFIG_FILE}:`, error)
     agentTemplateContent = '// Agent template types not available'
   }
 
@@ -161,7 +159,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
         },
       }
 
-      // Step 2: Write the agent-template.d.ts file with the template content
+      // Step 2: Write the AGENT_CONFIG_FILE with the template content
       yield {
         toolName: 'write_file',
         args: {

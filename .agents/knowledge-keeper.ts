@@ -1,4 +1,9 @@
-import { AgentConfig, AgentStepContext, ToolResult, ToolCall } from './agent-template'
+import {
+  AgentConfig,
+  AgentStepContext,
+  ToolResult,
+  ToolCall,
+} from './agent-config'
 
 const config: AgentConfig = {
   id: 'knowledge-keeper',

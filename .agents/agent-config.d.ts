@@ -5,7 +5,7 @@
  * Import these types in your agent files to get full type safety and IntelliSense.
  *
  * Usage:
- *   import { AgentConfig, ToolName, ModelName } from './agent-template'
+ *   import { AgentConfig, ToolName, ModelName } from './agent-config'
  *
  *   const config: AgentConfig = {
  *     // Your agent configuration with full type safety
