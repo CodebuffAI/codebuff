@@ -3,7 +3,7 @@ import {
   AgentStepContext,
   ToolResult,
   ToolCall,
-} from './agent-template'
+} from './agent-config'
 
 const config: AgentConfig = {
   id: 'git-committer',

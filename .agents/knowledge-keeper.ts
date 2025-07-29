@@ -1,4 +1,9 @@
-import { AgentConfig, AgentStepContext, ToolResult, ToolCall } from './agent-template'
+import {
+  AgentConfig,
+  AgentStepContext,
+  ToolResult,
+  ToolCall,
+} from './agent-config'
 
 const config: AgentConfig = {
   id: 'knowledge-keeper',
@@ -40,21 +45,21 @@ const config: AgentConfig = {
 
   subagents: ['file_picker', 'researcher'],
 
-  parentInstructions: {
-    researcher:
-      "Spawn knowledge-keeper when you find external documentation, API references, or community best practices that contradict or supplement what's currently documented in the project's knowledge files.",
-    file_picker:
-      'Spawn knowledge-keeper when you discover configuration files, architectural patterns, or code structures that lack corresponding documentation or when existing knowledge.md files are missing from important directories.',
-    reviewer:
-      'Spawn knowledge-keeper when code reviews reveal undocumented design decisions, new patterns being introduced, or when you notice that existing documentation has become outdated due to code changes.',
-    thinker:
-      'Spawn knowledge-keeper when your deep analysis uncovers complex architectural trade-offs, system dependencies, or technical debt that should be documented to prevent future confusion.',
-    brainstormer:
-      'Spawn knowledge-keeper when you generate innovative solutions for knowledge sharing, discover new ways to organize tribal knowledge, or identify creative approaches to making project information more accessible.',
-    base: 'Spawn knowledge-keeper when users explicitly ask about project documentation, request explanations of how things work, or when you encounter knowledge gaps while helping with their requests.',
-    planner:
-      'Spawn knowledge-keeper when creating long-term documentation strategies, planning knowledge migration between systems, or when developing systematic approaches to capturing institutional memory.',
-  },
+  // parentInstructions: {
+  //   researcher:
+  //     "Spawn knowledge-keeper when you find external documentation, API references, or community best practices that contradict or supplement what's currently documented in the project's knowledge files.",
+  //   file_picker:
+  //     'Spawn knowledge-keeper when you discover configuration files, architectural patterns, or code structures that lack corresponding documentation or when existing knowledge.md files are missing from important directories.',
+  //   reviewer:
+  //     'Spawn knowledge-keeper when code reviews reveal undocumented design decisions, new patterns being introduced, or when you notice that existing documentation has become outdated due to code changes.',
+  //   thinker:
+  //     'Spawn knowledge-keeper when your deep analysis uncovers complex architectural trade-offs, system dependencies, or technical debt that should be documented to prevent future confusion.',
+  //   brainstormer:
+  //     'Spawn knowledge-keeper when you generate innovative solutions for knowledge sharing, discover new ways to organize tribal knowledge, or identify creative approaches to making project information more accessible.',
+  //   base: 'Spawn knowledge-keeper when users explicitly ask about project documentation, request explanations of how things work, or when you encounter knowledge gaps while helping with their requests.',
+  //   planner:
+  //     'Spawn knowledge-keeper when creating long-term documentation strategies, planning knowledge migration between systems, or when developing systematic approaches to capturing institutional memory.',
+  // },
 }
 
 export default config

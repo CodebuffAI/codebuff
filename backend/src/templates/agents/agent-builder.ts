@@ -8,31 +8,29 @@ import * as path from 'path'
 import {
   AGENT_TEMPLATES_DIR,
   openrouterModels,
+  AGENT_CONFIG_FILE,
 } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
 
 const TEMPLATE_RELATIVE_PATH =
-  '../../../../common/src/templates/agent-template.d.ts' as const
+  `../../../../common/src/util/${AGENT_CONFIG_FILE}` as const
 
 // Import to validate path exists at compile time
 import(TEMPLATE_RELATIVE_PATH)
 
 const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
 const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
-const TEMPLATE_TYPES_PATH = path.join(
-  AGENT_TEMPLATES_DIR,
-  'agent-template.d.ts'
-)
+const TEMPLATE_TYPES_PATH = path.join(AGENT_TEMPLATES_DIR, AGENT_CONFIG_FILE)
 
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
-  // Read the agent-template.d.ts file content dynamically
+  // Read the AGENT_CONFIG_FILE content dynamically
   // The import above ensures this path exists at compile time
   let agentTemplateContent = ''
   try {
     agentTemplateContent = fs.readFileSync(TEMPLATE_PATH, 'utf8')
   } catch (error) {
-    console.warn('Could not read agent-template.d.ts:', error)
+    console.warn(`Could not read ${AGENT_CONFIG_FILE}:`, error)
     agentTemplateContent = '// Agent template types not available'
   }
 
@@ -111,9 +109,9 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       '',
       '## Best Practices:',
       '',
-      '1. **Purpose-Driven**: Each agent should have a clear, specific purpose',
+      '1. **Use as few fields as possible**: Leave out fields that are not needed to reduce complexity. Use as few fields as possible to accomplish the task.',
       '2. **Minimal Tools**: Only include tools the agent actually needs',
-      '3. **Clear Prompts**: Write clear, specific system prompts',
+      '3. **Clear and Concise Prompts**: Write clear, specific prompts that have no unnecessary words',
       '4. **Consistent Naming**: Follow naming conventions (kebab-case for IDs)',
       '5. **Appropriate Model**: Choose the right model for the task complexity',
       '',
@@ -122,18 +120,9 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       "1. Understand the requested agent's purpose and capabilities",
       "2. Choose appropriate tools for the agent's function",
       '3. Write a comprehensive system prompt',
-      '4. **Generate proper parentInstructions** - these tell parent agents when to spawn this agent',
-      `5. Create the complete agent template file in ${AGENT_TEMPLATES_DIR}`,
-      '6. Ensure the template follows all conventions and best practices',
-      '7. Use the AgentConfig interface for the configuration',
-      '',
-      '## Critical: parentInstructions Field',
-      'The parentInstructions field is crucial - it tells parent agents when to call your custom agent. For example:',
-      '- A file-picker agent should have: { "base": "Spawn when you need to find relevant files in the codebase" }',
-      '- A test-writer agent should have: { "base": "Spawn when you need to write or update unit tests" }',
-      '- A code-reviewer agent should have: { "base": "Spawn when you need to review code changes for quality and best practices" }',
-      '',
-      'Always include parentInstructions that clearly describe when parent agents should spawn this custom agent.',
+      `4. Create the complete agent template file in ${AGENT_TEMPLATES_DIR}`,
+      '5. Ensure the template follows all conventions and best practices',
+      '6. Use the AgentConfig interface for the configuration',
       '',
       'Create agent templates that are focused, efficient, and well-documented. Always import the AgentConfig type and export a default configuration object.',
     ].join('\n'),
@@ -141,8 +130,8 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
 
 For new agents, analyze their request and create a complete agent template that:
 - Has a clear purpose and appropriate capabilities
+- Leaves out fields that are not needed.
 - Uses only the tools it needs
-- Has a well-written system prompt
 - Follows naming conventions
 - Is properly structured
 
@@ -156,25 +145,10 @@ For editing existing agents:
 When editing, always start by reading the current agent file to understand its structure before making changes. Ask clarifying questions if needed, then create or update the template file in the appropriate location.
 
 IMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.`,
-    stepPrompt: `Continue working on the agent template creation or editing. Focus on:
-- Understanding the requirements
-- Creating or updating a well-structured template
-- Following best practices
-- Ensuring the agent will work effectively for its intended purpose
-- For edits: preserving existing functionality while making requested changes
-
-IMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.`,
+    stepPrompt: '',
 
     // Generator function that defines the agent's execution flow
-    handleSteps: function* ({
-      agentState,
-      prompt,
-      params,
-    }: {
-      agentState: any
-      prompt: string | undefined
-      params: Record<string, any> | undefined
-    }) {
+    handleSteps: function* ({ agentState, prompt, params }) {
       // Step 1: Create directory structure
       yield {
         toolName: 'run_terminal_command',
@@ -185,7 +159,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
         },
       }
 
-      // Step 2: Write the agent-template.d.ts file with the template content
+      // Step 2: Write the AGENT_CONFIG_FILE with the template content
       yield {
         toolName: 'write_file',
         args: {
@@ -232,18 +206,8 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
 - Use the AgentConfig interface
 - Include appropriate tools based on the specialty
 - Write a comprehensive system prompt
-- **CRITICAL: Include parentInstructions** - tell parent agents when to spawn this agent
 - Follow naming conventions and best practices
 - Export a default configuration object
-
-**parentInstructions Example:**
-For a ${requirements.specialty} agent, include something like:
-${'```'}typescript
-parentInstructions: {
-  "base": "Spawn when you need help with ${requirements.specialty} tasks",
-  // Add other parent agents as appropriate
-}
-${'```'}
 
 Please create the complete agent template now.`,
           },
@@ -252,12 +216,6 @@ Please create the complete agent template now.`,
 
       // Step 5: Complete agent creation process
       yield 'STEP_ALL'
-
-      // Step 6: End the turn explicitly
-      yield {
-        toolName: 'end_turn',
-        args: {},
-      }
     },
   }
 }
