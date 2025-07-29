@@ -74,15 +74,6 @@ const HandleStepsSchema = z
     })
   )
   .returns(z.any())
-  .refine(
-    (fn) => {
-      // Check if it's a generator function
-      return fn.constructor.name === 'GeneratorFunction'
-    },
-    {
-      message: 'handleSteps must be a generator function',
-    }
-  )
   .optional()
 
 // Validates the Typescript template file.
