@@ -1,7 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { Model, openrouterModels, AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import {
+  Model,
+  openrouterModels,
+  AGENT_TEMPLATES_DIR,
+} from '@codebuff/common/constants'
 import { ToolName } from '@codebuff/common/constants/tools'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
@@ -16,7 +20,10 @@ import(TEMPLATE_RELATIVE_PATH)
 
 const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
 const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
-const TEMPLATE_TYPES_PATH = path.join(AGENT_TEMPLATES_DIR, 'agent-template.d.ts')
+const TEMPLATE_TYPES_PATH = path.join(
+  AGENT_TEMPLATES_DIR,
+  'agent-template.d.ts'
+)
 
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
   // Read the agent-template.d.ts file content dynamically
@@ -54,44 +61,54 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       'end_turn',
     ] satisfies ToolName[],
     subagents: [AgentTemplateTypes.file_picker],
-    parentPrompt: 'Creates new agent templates for the codebuff mult-agent system',
-    systemPrompt: `# Agent Builder
-
-You are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.
-
-## Complete Agent Template Type Definitions
-
-Here are the complete TypeScript type definitions for creating custom Codebuff agents:
-
-\`\`\`typescript
-${agentTemplateContent}
-\`\`\`
-
-## Agent Template Patterns:
-
-1. **Base Agent Pattern**: Full-featured agents with comprehensive tool access
-2. **Specialized Agent Pattern**: Focused agents with limited tool sets
-3. **Thinking Agent Pattern**: Agents that spawn thinker sub-agents
-4. **Research Agent Pattern**: Agents that start with web search
-
-## Best Practices:
-
-1. **Purpose-Driven**: Each agent should have a clear, specific purpose
-2. **Minimal Tools**: Only include tools the agent actually needs
-3. **Clear Prompts**: Write clear, specific system prompts
-4. **Consistent Naming**: Follow naming conventions (kebab-case for IDs)
-5. **Appropriate Model**: Choose the right model for the task complexity
-
-## Your Task:
-When asked to create an agent template, you should:
-1. Understand the requested agent's purpose and capabilities
-2. Choose appropriate tools for the agent's function
-3. Write a comprehensive system prompt
-4. Create the complete agent template file in ${AGENT_TEMPLATES_DIR}
-5. Ensure the template follows all conventions and best practices
-6. Use the AgentConfig interface for the configuration
-
-Create agent templates that are focused, efficient, and well-documented. Always import the AgentConfig type and export a default configuration object.`,
+    systemPrompt: [
+      '# Agent Builder',
+      '',
+      'You are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.',
+      '',
+      '## Complete Agent Template Type Definitions',
+      '',
+      'Here are the complete TypeScript type definitions for creating custom Codebuff agents:',
+      '',
+      '```typescript',
+      agentTemplateContent,
+      '```',
+      '',
+      '## Agent Template Patterns:',
+      '',
+      '1. **Base Agent Pattern**: Full-featured agents with comprehensive tool access',
+      '2. **Specialized Agent Pattern**: Focused agents with limited tool sets',
+      '3. **Thinking Agent Pattern**: Agents that spawn thinker sub-agents',
+      '4. **Research Agent Pattern**: Agents that start with web search',
+      '',
+      '## Best Practices:',
+      '',
+      '1. **Purpose-Driven**: Each agent should have a clear, specific purpose',
+      '2. **Minimal Tools**: Only include tools the agent actually needs',
+      '3. **Clear Prompts**: Write clear, specific system prompts',
+      '4. **Consistent Naming**: Follow naming conventions (kebab-case for IDs)',
+      '5. **Appropriate Model**: Choose the right model for the task complexity',
+      '',
+      '## Your Task:',
+      'When asked to create an agent template, you should:',
+      "1. Understand the requested agent's purpose and capabilities",
+      "2. Choose appropriate tools for the agent's function",
+      '3. Write a comprehensive system prompt',
+      '4. **Generate proper parentInstructions** - these tell parent agents when to spawn this agent',
+      `5. Create the complete agent template file in ${AGENT_TEMPLATES_DIR}`,
+      '6. Ensure the template follows all conventions and best practices',
+      '7. Use the AgentConfig interface for the configuration',
+      '',
+      '## Critical: parentInstructions Field',
+      'The parentInstructions field is crucial - it tells parent agents when to call your custom agent. For example:',
+      '- A file-picker agent should have: { "base": "Spawn when you need to find relevant files in the codebase" }',
+      '- A test-writer agent should have: { "base": "Spawn when you need to write or update unit tests" }',
+      '- A code-reviewer agent should have: { "base": "Spawn when you need to review code changes for quality and best practices" }',
+      '',
+      'Always include parentInstructions that clearly describe when parent agents should spawn this custom agent.',
+      '',
+      'Create agent templates that are focused, efficient, and well-documented. Always import the AgentConfig type and export a default configuration object.',
+    ].join('\n'),
     instructionsPrompt: `You are helping to create a new agent template. The user will describe what kind of agent they want to create.
 
 Analyze their request and create a complete agent template that:
@@ -167,8 +184,18 @@ Ask clarifying questions if needed, then create the template file in the appropr
 - Use the AgentConfig interface
 - Include appropriate tools based on the specialty
 - Write a comprehensive system prompt
+- **CRITICAL: Include parentInstructions** - tell parent agents when to spawn this agent
 - Follow naming conventions and best practices
 - Export a default configuration object
+
+**parentInstructions Example:**
+For a ${requirements.specialty} agent, include something like:
+${'```'}typescript
+parentInstructions: {
+  "base": "Spawn when you need help with ${requirements.specialty} tasks",
+  // Add other parent agents as appropriate
+}
+${'```'}
 
 Please create the complete agent template now.`,
         },
