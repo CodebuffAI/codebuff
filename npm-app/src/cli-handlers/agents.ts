@@ -306,17 +306,13 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
           exitAgentsBuffer(rl)
           // Switch to the selected agent
           console.log(green(`\nSwitching to agent: ${selectedAgent.name}`))
-          console.log(
-            gray('You can now chat with this agent. Type your message below.')
-          )
 
           // Use resetAgent to switch to the selected agent
           const cliInstance = CLI.getInstance()
           cliInstance
             .resetAgent(selectedAgent.id)
             .then(() => {
-              // Agent switch successful - user can now chat with the new agent
-              // Don't call onExit() as that would return to main prompt
+              cliInstance.freshPrompt()
             })
             .catch((error) => {
               console.error(red('Error switching to agent:'), error)
