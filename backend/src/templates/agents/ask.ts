@@ -11,9 +11,9 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['ask'].name,
-  purpose: 'Base ask-mode agent that orchestrates the full response.',
-  promptSchema: {
+  displayName: AGENT_PERSONAS['ask'].displayName,
+  parentPrompt: 'Base ask-mode agent that orchestrates the full response.',
+  inputSchema: {
     prompt: z
       .string()
       .describe('A question you would like answered about this project.'),
@@ -30,12 +30,12 @@ export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
     'read_files',
     'think_deeply',
   ],
-  spawnableAgents: [AgentTemplateTypes.file_picker],
+  subagents: [AgentTemplateTypes.file_picker],
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
 ` + askAgentSystemPrompt(model),
-  userInputPrompt: askAgentUserInputPrompt(model),
-  agentStepPrompt: askAgentAgentStepPrompt(model),
+  instructionsPrompt: askAgentUserInputPrompt(model),
+  stepPrompt: askAgentAgentStepPrompt(model),
 })

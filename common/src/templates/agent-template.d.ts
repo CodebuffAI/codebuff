@@ -17,62 +17,85 @@
 // ============================================================================
 
 export interface AgentConfig {
-  // ============================================================================
-  // Required Fields (these 4 are all you need to get started!)
-  // ============================================================================
-
-  /** Unique identifier for this agent (e.g., 'code-reviewer', 'test-writer') */
+  /** Unique identifier for this agent. Use alphanumeric characters and hyphens only, e.g. 'code-reviewer' */
   id: string
 
-  /** Human-readable name for the agent (e.g., 'Code Reviewer', 'Test Writer') */
-  name: string
+  /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
+  version?: string
 
-  /** Description of what this agent does. Provided to the parent agent so it knows when to spawn this agent. */
-  purpose: string
+  /** Human-readable name for the agent */
+  displayName: string
 
   /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
   model: ModelName
 
   // ============================================================================
-  // Optional Customization
+  // Tools and Subagents
   // ============================================================================
 
-  /** Background information for the agent. */
-  systemPrompt?: string
-
-  /** Instructions for the agent. This prompt is inserted after each user input.
-   * Updating this prompt is the best way to shape the agent's behavior. */
-  userInputPrompt?: string
-
-  /** Tools this agent can use (defaults to ['read_files', 'write_file', 'str_replace', 'end_turn']) */
+  /** Tools this agent can use. */
   tools?: ToolName[]
 
-  /** Other agents this agent can spawn (defaults to []) */
-  spawnableAgents?: SpawnableAgentName[]
+  /** Other agents this agent can spawn. */
+  subagents?: SubagentName[]
 
   // ============================================================================
-  // Advanced fields below!
+  // Prompts
   // ============================================================================
 
-  /** Version string (defaults to '0.0.1' and bumped on each publish) */
-  version?: string
+  /** Prompt for when to spawn this agent as a subagent. Include the main purpose and use cases. */
+  parentPrompt?: string
 
-  /** How the agent should output responses after spawned (defaults to 'last_message') */
+  /** Background information for the agent. Prefer using instructionsPrompt for agent instructions. */
+  systemPrompt?: string
+
+  /** Instructions for the agent.
+   * IMPORTANT: Updating this prompt is the best way to shape the agent's behavior.
+   * This prompt is inserted after each user input. */
+  instructionsPrompt?: string
+
+  /** Prompt inserted at each agent step. Powerful for changing the agent's behavior,
+   * but prefer instructionsPrompt for most instructions. */
+  stepPrompt?: string
+
+  /** Instructions for specific parent agents on when to spawn this agent as a subagent. */
+  parentInstructions?: Record<SubagentName, string>
+
+  // ============================================================================
+  // Input and Output
+  // ============================================================================
+
+  /** The input schema required to spawn the agent. Provide a prompt string and/or a params object. */
+  inputSchema?: {
+    prompt?: { type: 'string'; description?: string }
+    params?: JsonSchema
+  }
+
+  /** Whether to include conversation history (defaults to true) */
+  includeMessageHistory?: boolean
+
+  /** How the agent should output a response to its parent (defaults to 'last_message')
+   * last_message: The last message from the agent, typcically after using tools.
+   * all_messages: All messages from the agent, including tool calls and results.
+   * json: Make the agent output a structured JSON object. Can be used with outputSchema or without if you want freeform json output.
+   */
   outputMode?: 'last_message' | 'all_messages' | 'json'
 
   /** JSON schema for structured output (when outputMode is 'json') */
   outputSchema?: JsonSchema
 
-  /** Whether to include conversation history (defaults to true) */
-  includeMessageHistory?: boolean
-
-  /** Prompt inserted at each agent step. Powerful for changing the agent's behavior. */
-  agentStepPrompt?: string
-
-  /** Instructions for spawned sub-agents (defaults to {}) */
-  parentInstructions?: Record<SpawnableAgentName, string>
+  // ============================================================================
+  // Handle Steps
+  // ============================================================================
 
   /** Programmatically step the agent forward and run tools.
+   * 
+   * You can either yield:
+   * - A tool call matching the tools schema.
+   * - 'STEP' to run agent's model and generate one assistant message.
+   * - 'STEP_ALL' to run the agent's model until it uses the end_turn tool or stops includes no tool calls in a message.
+   * 
+   * Or use 'return' to end the turn.
    *
    * Example:
    * function* handleSteps({ agentStep, prompt, params}) {
@@ -235,7 +258,7 @@ export type ModelName =
 /**
  * Built-in agents that can be spawned by custom agents
  */
-export type SpawnableAgentName =
+export type SubagentName =
   | 'file_picker'
   | 'file_explorer'
   | 'researcher'

@@ -1,3 +1,4 @@
+import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import {
   AgentState,
   AgentTemplateType,
@@ -37,7 +38,19 @@ export function clearAgentGeneratorCache() {
 // Function to handle programmatic agents
 export async function runProgrammaticStep(
   agentState: AgentState,
-  params: {
+  {
+    template,
+    prompt,
+    params,
+    userId,
+    userInputId,
+    clientSessionId,
+    fingerprintId,
+    onResponseChunk,
+    agentType,
+    fileContext,
+    ws,
+  }: {
     template: AgentTemplate
     prompt: string | undefined
     params: Record<string, any> | undefined
@@ -45,22 +58,12 @@ export async function runProgrammaticStep(
     userInputId: string
     clientSessionId: string
     fingerprintId: string
-    onResponseChunk: (chunk: string) => void
+    onResponseChunk: (chunk: string | PrintModeObject) => void
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
     ws: WebSocket
   }
 ): Promise<{ agentState: AgentState; endTurn: boolean }> {
-  const {
-    template,
-    onResponseChunk,
-    ws,
-    userId,
-    userInputId,
-    clientSessionId,
-    fingerprintId,
-    fileContext,
-  } = params
   if (!template.handleSteps) {
     throw new Error('No step handler found for agent template ' + template.id)
   }
@@ -68,9 +71,9 @@ export async function runProgrammaticStep(
   logger.info(
     {
       template: template.id,
-      agentType: params.agentType,
-      prompt: params.prompt,
-      params: params.params,
+      agentType,
+      prompt,
+      params,
     },
     'Running programmatic step'
   )
@@ -88,16 +91,16 @@ export async function runProgrammaticStep(
         template.handleSteps,
         {
           agentState,
-          prompt: params.prompt,
-          params: params.params,
+          prompt,
+          params,
         }
       )
     } else {
       // Initialize native generator
       generator = template.handleSteps({
         agentState,
-        prompt: params.prompt,
-        params: params.params,
+        prompt,
+        params,
       })
       agentIdToGenerator[agentState.agentId] = generator
     }

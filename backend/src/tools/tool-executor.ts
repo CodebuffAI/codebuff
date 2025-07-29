@@ -1,4 +1,5 @@
 import type { ToolName } from '@codebuff/common/constants/tools'
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
 import type { ToolResult } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -105,34 +106,30 @@ export interface ExecuteToolCallParams<T extends ToolName = ToolName> {
   clientSessionId: string
   userInputId: string
   fullResponse: string
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string | PrintModeObject) => void
   state: Record<string, any>
   userId: string | undefined
   autoInsertEndStepParam?: boolean
 }
 
-export function executeToolCall<T extends ToolName>(
-  options: ExecuteToolCallParams<T>
-): Promise<void> {
-  const {
-    toolName,
-    args,
-    toolCalls,
-    toolResults,
-    previousToolCallFinished,
-    ws,
-    agentTemplate,
-    fileContext,
-    agentStepId,
-    clientSessionId,
-    userInputId,
-    fullResponse,
-    onResponseChunk,
-    state,
-    userId,
-    autoInsertEndStepParam = false,
-  } = options
-
+export function executeToolCall<T extends ToolName>({
+  toolName,
+  args,
+  toolCalls,
+  toolResults,
+  previousToolCallFinished,
+  ws,
+  agentTemplate,
+  fileContext,
+  agentStepId,
+  clientSessionId,
+  userInputId,
+  fullResponse,
+  onResponseChunk,
+  state,
+  userId,
+  autoInsertEndStepParam = false,
+}: ExecuteToolCallParams<T>): Promise<void> {
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>(
     {
       toolName,
@@ -153,6 +150,13 @@ export function executeToolCall<T extends ToolName>(
     )
     return previousToolCallFinished
   }
+
+  onResponseChunk({
+    type: 'tool_call',
+    toolCallId: toolCall.toolCallId,
+    toolName,
+    args: toolCall.args,
+  })
 
   logger.debug(
     { toolCall },
@@ -225,6 +229,12 @@ export function executeToolCall<T extends ToolName>(
     if (result === undefined) {
       return
     }
+
+    onResponseChunk({
+      type: 'tool_result',
+      toolCallId: toolResult.toolCallId,
+      result: toolResult.result,
+    })
 
     toolResults.push(toolResult)
 

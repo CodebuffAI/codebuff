@@ -30,10 +30,9 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
   }
 
   return {
-    name: 'Bob the Agent Builder',
-    purpose: 'Creates new agent templates for the codebuff mult-agent system',
+    displayName: 'Bob the Agent Builder',
     model,
-    promptSchema: {
+    inputSchema: {
       prompt: z
         .string()
         .optional()
@@ -54,7 +53,8 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       'set_output',
       'end_turn',
     ] satisfies ToolName[],
-    spawnableAgents: [AgentTemplateTypes.file_picker],
+    subagents: [AgentTemplateTypes.file_picker],
+    parentPrompt: 'Creates new agent templates for the codebuff mult-agent system',
     systemPrompt: `# Agent Builder
 
 You are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.
@@ -92,7 +92,7 @@ When asked to create an agent template, you should:
 6. Use the AgentConfig interface for the configuration
 
 Create agent templates that are focused, efficient, and well-documented. Always import the AgentConfig type and export a default configuration object.`,
-    userInputPrompt: `You are helping to create a new agent template. The user will describe what kind of agent they want to create.
+    instructionsPrompt: `You are helping to create a new agent template. The user will describe what kind of agent they want to create.
 
 Analyze their request and create a complete agent template that:
 - Has a clear purpose and appropriate capabilities
@@ -102,7 +102,7 @@ Analyze their request and create a complete agent template that:
 - Is properly structured
 
 Ask clarifying questions if needed, then create the template file in the appropriate location.`,
-    agentStepPrompt: `Continue working on the agent template creation. Focus on:
+    stepPrompt: `Continue working on the agent template creation. Focus on:
 - Understanding the requirements
 - Creating a well-structured template
 - Following best practices

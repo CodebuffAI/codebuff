@@ -12,6 +12,7 @@ import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { SendSubagentChunk } from './spawn-agents'
 
 import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
+import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { asyncAgentManager } from '../../../async-agent-manager'
 import { getAllAgentTemplates } from '../../../templates/agent-registry'
@@ -127,18 +128,18 @@ export const handleSpawnAgentsAsync = ((params: {
         const agentType = agentTypeStr as AgentTemplateType
         const agentTemplate = agentRegistry[agentType]
 
-        if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
+        if (!parentAgentTemplate.subagents.includes(agentType)) {
           throw new Error(
             `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`
           )
         }
 
         // Validate prompt and params against agent's schema
-        const { promptSchema } = agentTemplate
+        const { inputSchema } = agentTemplate
 
         // Validate prompt requirement
-        if (promptSchema.prompt) {
-          const result = promptSchema.prompt.safeParse(prompt)
+        if (inputSchema.prompt) {
+          const result = inputSchema.prompt.safeParse(prompt)
           if (!result.success) {
             throw new Error(
               `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
@@ -147,8 +148,8 @@ export const handleSpawnAgentsAsync = ((params: {
         }
 
         // Validate params if schema exists
-        if (promptSchema.params) {
-          const result = promptSchema.params.safeParse(params)
+        if (inputSchema.params) {
+          const result = inputSchema.params.safeParse(params)
           if (!result.success) {
             throw new Error(
               `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
@@ -197,14 +198,18 @@ export const handleSpawnAgentsAsync = ((params: {
               toolResults: [],
               userId,
               clientSessionId,
-              onResponseChunk: (chunk: string) =>
+              onResponseChunk: (chunk: string | PrintModeObject) => {
+                if (typeof chunk !== 'string') {
+                  return
+                }
                 sendSubagentChunk({
                   userInputId,
                   agentId,
                   agentType,
                   chunk,
                   prompt,
-                }),
+                })
+              },
             })
 
             // Send completion message to parent if agent has appropriate output mode

@@ -38,7 +38,7 @@ Override files should be JSON files with the following structure:
 - `model`: Override the model used by the agent
 
 ### Prompt Overrides
-Each prompt type (`systemPrompt`, `userInputPrompt`, `agentStepPrompt`) supports:
+Each prompt type (`systemPrompt`, `instructionsPrompt`, `stepPrompt`) supports:
 
 - `type`: How to apply the override
   - `"append"`: Add content after the base prompt

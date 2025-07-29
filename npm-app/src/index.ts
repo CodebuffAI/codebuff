@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 
+import { enableSquashNewlines } from './display/squash-newlines'
+
 import { type CostMode } from '@codebuff/common/constants'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { npmAppVersion } from './config'
 import { createTemplateProject } from './create-template-project'
-import { enableSquashNewlines, initSquashNewLines } from './display'
+import { printModeLog, setPrintMode } from './display/print-mode'
 import {
   getStartingDirectory,
   initProjectFileContextWithWorker,
@@ -20,7 +23,7 @@ import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/run-command'
 import { CliOptions } from './types'
-import { initAnalytics } from './utils/analytics'
+import { initAnalytics, trackEvent } from './utils/analytics'
 import { findGitRoot } from './utils/git'
 import { logger } from './utils/logger'
 
@@ -36,7 +39,6 @@ async function codebuff({
   cwd,
   trace,
 }: CliOptions) {
-  initSquashNewLines()
   enableSquashNewlines()
 
   // Initialize starting directory
@@ -170,10 +172,18 @@ For all commands and options, run 'codebuff' and then type 'help'.
     const hasPrompt = args.length > 0
     const hasParams = options.params
 
+    setPrintMode(true)
+    trackEvent(AnalyticsEvent.PRINT_MODE, {
+      args,
+      options,
+    })
+
     if (!hasPrompt && !hasParams) {
-      console.error(
-        red('Error: Print mode requires either a prompt or --params to be set')
-      )
+      printModeLog({
+        type: 'error',
+        message:
+          'Error: Print mode requires either a prompt or --params to be set',
+      })
       process.exit(1)
     }
   }

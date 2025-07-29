@@ -38,14 +38,14 @@ export async function getAllAgentTemplates({
   for (const baseType of baseAgentTypes) {
     if (agentRegistry[baseType]) {
       const baseTemplate = agentRegistry[baseType]
-      // Add user-defined agents to the base agent's spawnable agents list
-      const updatedSpawnableAgents = [
-        ...baseTemplate.spawnableAgents,
+      // Add user-defined agents to the base agent's subagents list
+      const updatedSubagents = [
+        ...baseTemplate.subagents,
         ...userDefinedAgentTypes,
       ]
       agentRegistry[baseType] = {
         ...baseTemplate,
-        spawnableAgents: updatedSpawnableAgents as any[],
+        subagents: updatedSubagents as any[],
       }
     }
   }

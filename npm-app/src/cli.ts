@@ -1,17 +1,21 @@
+import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
+import type { CostMode } from '@codebuff/common/constants'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { CliOptions, GitCommand } from './types'
+
 import fs, { readdirSync } from 'fs'
 import * as os from 'os'
 import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
-import { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import { ASYNC_AGENTS_ENABLED, type CostMode } from '@codebuff/common/constants'
+import { ASYNC_AGENTS_ENABLED} from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getAllAgents,
   getAgentDisplayName,
 } from '@codebuff/common/util/agent-name-resolver'
-import { isDir, ProjectFileContext } from '@codebuff/common/util/file'
+import { isDir} from '@codebuff/common/util/file'
 import { pluralize } from '@codebuff/common/util/string'
 import {
   blueBright,
@@ -50,22 +54,26 @@ import { showEasterEgg } from './cli-handlers/easter-egg'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
 import { cleanupMiniChat } from './cli-handlers/mini-chat'
 import {
-  enterSubagentBuffer,
-  isInSubagentBufferMode,
   cleanupSubagentBuffer,
   displaySubagentList,
+  enterSubagentBuffer,
+  isInSubagentBufferMode,
 } from './cli-handlers/subagent'
 import {
+  cleanupSubagentListBuffer,
   enterSubagentListBuffer,
   isInSubagentListMode,
-  cleanupSubagentListBuffer,
   resetSubagentSelectionToLast,
 } from './cli-handlers/subagent-list'
 import { Client } from './client'
 import { websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
 import { DiffManager } from './diff-manager'
-import { disableSquashNewlines, enableSquashNewlines } from './display'
+import { printModeIsEnabled, printModeLog } from './display/print-mode'
+import {
+  disableSquashNewlines,
+  enableSquashNewlines,
+} from './display/squash-newlines'
 import { loadCodebuffConfig } from './json-config/parser'
 import {
   displayGreeting,
@@ -89,14 +97,13 @@ import {
   persistentProcess,
   resetShell,
 } from './terminal/run-command'
-import { CliOptions, GitCommand } from './types'
 import { flushAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { withHangDetection } from './utils/with-hang-detection'
 
 // Cache for local agent info to avoid async issues in sync methods
-let cachedLocalAgentInfo: Record<string, { name: string; purpose?: string }> =
+let cachedLocalAgentInfo: Record<string, { displayName: string; purpose?: string }> =
   {}
 
 /**
@@ -104,14 +111,14 @@ let cachedLocalAgentInfo: Record<string, { name: string; purpose?: string }> =
  * @returns Record of agent type to agent info
  */
 async function getLocalAgentInfo(): Promise<
-  Record<string, { name: string; purpose?: string }>
+  Record<string, { displayName: string; purpose?: string }>
 > {
   try {
     await loadLocalAgents({ verbose: false })
     const agentInfo = Object.fromEntries(
       Object.entries(loadedAgents).map(([agentType, agentConfig]) => [
         agentType,
-        { name: agentConfig.name, purpose: agentConfig.purpose },
+        { displayName: agentConfig.displayName, purpose: agentConfig.parentPrompt },
       ])
     )
     cachedLocalAgentInfo = agentInfo // Update cache
@@ -126,7 +133,7 @@ async function getLocalAgentInfo(): Promise<
  */
 function getCachedLocalAgentInfo(): Record<
   string,
-  { name: string; purpose?: string }
+  { displayName: string; purpose?: string }
 > {
   return cachedLocalAgentInfo
 }
@@ -208,7 +215,14 @@ export class CLI {
     process.on('unhandledRejection', (reason, promise) => {
       rageDetectors.exitAfterErrorDetector.start()
 
-      console.error('\nUnhandled Rejection at:', promise, 'reason:', reason)
+      const errorMessage = `Unhandled Rejection at: ${promise} reason: ${reason}`
+      if (printModeIsEnabled()) {
+        printModeLog({
+          type: 'error',
+          message: errorMessage,
+        })
+      }
+      console.error(`\n${errorMessage}`)
       logger.error(
         {
           errorMessage:
@@ -223,9 +237,14 @@ export class CLI {
     process.on('uncaughtException', (err, origin) => {
       rageDetectors.exitAfterErrorDetector.start()
 
-      console.error(
-        `\nCaught exception: ${err}\n` + `Exception origin: ${origin}`
-      )
+      const errorMessage = `Caught exception: ${err} Exception origin: ${origin}`
+      if (printModeIsEnabled()) {
+        printModeLog({
+          type: 'error',
+          message: errorMessage,
+        })
+      }
+      console.error(`\n${errorMessage}`)
       console.error(err.stack)
       logger.error(
         {
@@ -288,7 +307,9 @@ export class CLI {
         process.exit(0)
       })
     }
-    process.on('SIGTSTP', async () => await this.handleExit())
+    process.on('SIGTSTP', async () => {
+      await this.handleExit()
+    })
     // Doesn't catch SIGKILL (e.g. `kill -9`)
   }
 
@@ -357,7 +378,9 @@ export class CLI {
 
     this.rl.on('line', (line) => this.handleLine(line))
     this.rl.on('SIGINT', async () => await this.handleSigint())
-    this.rl.on('close', async () => await this.handleExit())
+    this.rl.on('close', async () => {
+      await this.handleExit()
+    })
 
     process.stdin.on('keypress', (str, key) => this.handleKeyPress(str, key))
   }
@@ -387,7 +410,7 @@ export class CLI {
       // Get all agent names using functional API
       const localAgentInfo = getCachedLocalAgentInfo()
       const allAgentNames = [
-        ...new Set(getAllAgents(localAgentInfo).map((agent) => agent.name)),
+        ...new Set(getAllAgents(localAgentInfo).map((agent) => agent.displayName)),
       ]
 
       // Filter agent names that match the search term
@@ -453,17 +476,17 @@ export class CLI {
 
     // Deduplicate agents by name
     const uniqueAgentNames = [
-      ...new Map(allAgents.map((agent) => [agent.name, agent])).values(),
+      ...new Map(allAgents.map((agent) => [agent.displayName, agent])).values(),
     ]
 
     const maxNameLength = Math.max(
-      ...uniqueAgentNames.map((agent) => agent.name.length)
+      ...uniqueAgentNames.map((agent) => agent.displayName.length)
     )
 
     const agentLines = uniqueAgentNames.map((agent) => {
-      const padding = '.'.repeat(maxNameLength - agent.name.length + 3)
+      const padding = '.'.repeat(maxNameLength - agent.displayName.length + 3)
       const description = agent.purpose || 'Custom user-defined agent'
-      return `${cyan(`@${agent.name}`)} ${padding} ${description}`
+      return `${cyan(`@${agent.displayName}`)} ${padding} ${description}`
     })
 
     const tip = gray(
@@ -587,9 +610,11 @@ export class CLI {
     // In print mode, skip greeting and interactive setup
     if (this.printMode) {
       if (!client.user) {
-        console.error(
-          'Error: Print mode requires authentication. Please run "codebuff login" first.'
-        )
+        printModeLog({
+          type: 'error',
+          message:
+            'Print mode requires authentication. Please run "codebuff login" first.',
+        })
         process.exit(1)
       }
     } else {
@@ -1049,6 +1074,13 @@ export class CLI {
   }
 
   private onWebSocketError() {
+    if (printModeIsEnabled()) {
+      printModeLog({
+        type: 'error',
+        message: 'Could not connect to server.',
+      })
+      process.exit(1)
+    }
     rageDetectors.exitAfterErrorDetector.start()
 
     Spinner.get().stop()
@@ -1147,6 +1179,10 @@ export class CLI {
       await resetShell(getProjectRoot())
     }
 
+    if (printModeIsEnabled()) {
+      await this.handleExit()
+    }
+
     if (this.isReceivingResponse) {
       this.handleStopResponse()
     } else {
@@ -1178,6 +1214,7 @@ export class CLI {
   }
 
   private async handleExit() {
+    enableSquashNewlines()
     // Start exit time detector
     rageDetectors.exitTimeDetector.start()
 

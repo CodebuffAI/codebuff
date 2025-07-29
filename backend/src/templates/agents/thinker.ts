@@ -7,15 +7,15 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const thinker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['thinker'].name,
-  purpose: AGENT_PERSONAS['thinker'].purpose,
-  promptSchema: {
+  displayName: AGENT_PERSONAS['thinker'].displayName,
+  parentPrompt: AGENT_PERSONAS['thinker'].purpose,
+  inputSchema: {
     prompt: z.string().describe('The problem you are trying to solve'),
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  spawnableAgents: [],
+  subagents: [],
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
@@ -25,7 +25,7 @@ ${PLACEHOLDER.TOOLS_PROMPT}
 
 ${PLACEHOLDER.AGENTS_PROMPT}`,
 
-  userInputPrompt: `
+  instructionsPrompt: `
 Think deeply, step by step, about the user request and how best to approach it.
 
 Consider edge cases, potential issues, and alternative approaches.
@@ -37,5 +37,5 @@ Try not to be too prescriptive or confident in one solution. Instead, give clear
 You must be extremely concise and to the point.
 `.trim(),
 
-  agentStepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
+  stepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 })

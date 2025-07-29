@@ -1,39 +1,33 @@
 import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import { getToolCallString } from '@codebuff/common/constants/tools'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
 import {
   baseAgentAgentStepPrompt,
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
 } from '../base-prompts'
-import {
-  AgentTemplate,
-  baseAgentSpawnableAgents,
-  baseAgentToolNames,
-} from '../types'
+import { AgentTemplate, baseAgentSubagents, baseAgentToolNames } from '../types'
 
 export const thinkingBase = (
   model: Model,
   allAvailableAgents?: string[]
 ): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['base_lite'].name,
-  purpose: AGENT_PERSONAS['base_lite'].purpose,
-  promptSchema: {
+  displayName: AGENT_PERSONAS['base_lite'].displayName,
+  parentPrompt: AGENT_PERSONAS['base_lite'].purpose,
+  inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: baseAgentToolNames,
-  spawnableAgents: allAvailableAgents
+  subagents: allAvailableAgents
     ? (allAvailableAgents as any[])
-    : baseAgentSpawnableAgents,
+    : baseAgentSubagents,
 
   systemPrompt: baseAgentSystemPrompt(model),
-  userInputPrompt: baseAgentUserInputPrompt(model),
-  agentStepPrompt: baseAgentAgentStepPrompt(model),
+  instructionsPrompt: baseAgentUserInputPrompt(model),
+  stepPrompt: baseAgentAgentStepPrompt(model),
 
   handleSteps: function* ({ agentState, prompt, params }) {
     while (true) {

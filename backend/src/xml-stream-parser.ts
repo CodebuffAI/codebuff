@@ -7,7 +7,11 @@ import {
   startToolTag,
   toolNameParam,
 } from '@codebuff/common/constants/tools'
-import { suffixPrefixOverlap } from '@codebuff/common/util/string'
+import {
+  PrintModeError,
+  PrintModeText,
+  PrintModeToolCall,
+} from '@codebuff/common/types/print-mode'
 
 const toolExtractionPattern = new RegExp(
   `${startToolTag}(.*?)${endToolTag}`,
@@ -15,20 +19,6 @@ const toolExtractionPattern = new RegExp(
 )
 
 const completionSuffix = `${JSON.stringify(endsAgentStepParam)}: true\n}${endToolTag}`
-
-function removeProcessedToolCalls(buffer: string): string {
-  const suffix = suffixPrefixOverlap(buffer, startToolTag)
-  if (suffix) {
-    return suffix
-  }
-
-  const lastIndex = buffer.lastIndexOf(startToolTag)
-  if (lastIndex === -1) {
-    return ''
-  }
-
-  return buffer.slice(lastIndex)
-}
 
 export async function* processStreamWithTags(
   stream: AsyncGenerator<string> | ReadableStream<string>,
@@ -40,6 +30,9 @@ export async function* processStreamWithTags(
     }
   >,
   onError: (tagName: string, errorMessage: string) => void,
+  onResponseChunk: (
+    chunk: PrintModeText | PrintModeToolCall | PrintModeError
+  ) => void,
   loggerOptions?: {
     userId?: string
     model?: Model
@@ -48,16 +41,23 @@ export async function* processStreamWithTags(
 ): AsyncGenerator<string> {
   let streamCompleted = false
   let buffer = ''
+  let autocompleted = false
 
   function extractToolCalls(): string[] {
     const matches: string[] = []
     let lastIndex = 0
     for (const match of buffer.matchAll(toolExtractionPattern)) {
+      if (match.index > lastIndex) {
+        onResponseChunk({
+          type: 'text',
+          text: buffer.slice(lastIndex, match.index),
+        })
+      }
       lastIndex = match.index + match[0].length
       matches.push(match[1])
     }
 
-    buffer = removeProcessedToolCalls(buffer.slice(lastIndex))
+    buffer = buffer.slice(lastIndex)
     return matches
   }
 
@@ -73,16 +73,19 @@ export async function* processStreamWithTags(
           contents,
           model: loggerOptions?.model,
           agent: loggerOptions?.agentName,
+          autocompleted,
         }
       )
       const shortenedContents =
         contents.length < 50
           ? contents
           : contents.slice(0, 20) + '...' + contents.slice(-20)
-      onError(
-        'parse_error',
-        `Invalid JSON: ${JSON.stringify(shortenedContents)}\nError: ${error.message}`
-      )
+      const errorMessage = `Invalid JSON: ${JSON.stringify(shortenedContents)}\nError: ${error.message}`
+      onResponseChunk({
+        type: 'error',
+        message: errorMessage,
+      })
+      onError('parse_error', errorMessage)
       return
     }
 
@@ -96,6 +99,7 @@ export async function* processStreamWithTags(
           toolName,
           model: loggerOptions?.model,
           agent: loggerOptions?.agentName,
+          autocompleted,
         }
       )
       onError(toolName, `Tool not found: ${toolName}`)
@@ -106,6 +110,7 @@ export async function* processStreamWithTags(
       toolName,
       contents,
       parsedParams,
+      autocompleted,
       model: loggerOptions?.model,
       agent: loggerOptions?.agentName,
     })
@@ -131,6 +136,7 @@ export async function* processStreamWithTags(
       if (buffer) {
         buffer += completionSuffix
         chunk = completionSuffix
+        autocompleted = true
       }
       extractToolsFromBufferAndProcess()
     }

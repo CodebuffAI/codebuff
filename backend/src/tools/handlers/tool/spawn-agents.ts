@@ -10,6 +10,7 @@ import type { AgentTemplate } from '../../../templates/types'
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
+import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { getAllAgentTemplates } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
@@ -121,18 +122,18 @@ export const handleSpawnAgents = ((params: {
         const agentType = agentTypeStr as AgentTemplateType
         const agentTemplate = agentRegistry[agentType]
 
-        if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
+        if (!parentAgentTemplate.subagents.includes(agentType)) {
           throw new Error(
             `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`
           )
         }
 
         // Validate prompt and params against agent's schema
-        const { promptSchema } = agentTemplate
+        const { inputSchema } = agentTemplate
 
         // Validate prompt requirement
-        if (promptSchema.prompt) {
-          const result = promptSchema.prompt.safeParse(prompt)
+        if (inputSchema.prompt) {
+          const result = inputSchema.prompt.safeParse(prompt)
           if (!result.success) {
             throw new Error(
               `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
@@ -141,8 +142,8 @@ export const handleSpawnAgents = ((params: {
         }
 
         // Validate params if schema exists
-        if (promptSchema.params) {
-          const result = promptSchema.params.safeParse(params)
+        if (inputSchema.params) {
+          const result = inputSchema.params.safeParse(params)
           if (!result.success) {
             throw new Error(
               `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
@@ -193,7 +194,10 @@ export const handleSpawnAgents = ((params: {
           toolResults: [],
           userId,
           clientSessionId,
-          onResponseChunk: (chunk: string) => {
+          onResponseChunk: (chunk: string | PrintModeObject) => {
+            if (typeof chunk !== 'string') {
+              return
+            }
             // Send subagent streaming chunks to client
             sendSubagentChunk({
               userInputId,
@@ -208,7 +212,7 @@ export const handleSpawnAgents = ((params: {
         return {
           ...result,
           agentType,
-          agentName: agentRegistry[agentType] || agentTemplate.name,
+          agentName: agentRegistry[agentType] || agentTemplate.displayName,
         }
       })
     )

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { gray } from 'picocolors'
-
-import { onlyWhitespace, squashNewlines } from '../display'
+import { onlyWhitespace, squashNewlines } from '../display/squash-newlines'
 
 const PREFIX = '.\r\n'
 

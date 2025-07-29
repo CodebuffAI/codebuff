@@ -6,9 +6,9 @@ import { AgentTemplate, PLACEHOLDER } from '../types'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['planner'].name,
-  purpose: AGENT_PERSONAS['planner'].purpose,
-  promptSchema: {
+  displayName: AGENT_PERSONAS['planner'].displayName,
+  parentPrompt: AGENT_PERSONAS['planner'].purpose,
+  inputSchema: {
     prompt: z
       .string()
       .describe(
@@ -18,7 +18,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
-  spawnableAgents: [], // ARCHIVED: [AgentTemplateTypes.dry_run],
+  subagents: [], // ARCHIVED: [AgentTemplateTypes.dry_run],
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
@@ -28,12 +28,12 @@ ${PLACEHOLDER.TOOLS_PROMPT}
 
 ${PLACEHOLDER.AGENTS_PROMPT}`,
 
-  userInputPrompt: `Steps for your response:
+  instructionsPrompt: `Steps for your response:
 1. Use the <think_deeply> tool to think through cruxes for the plan, and tricky cases. Consider alternative approaches. Be sure to close the tool call with ${closeXml('think_deeply')}.
 2. Write out your plan in a concise way.
 3. Spawn 1-5 dry run agents to sketch portions of the implementation of the plan. (Important: do not forget to close the tool call with "${closeXml('spawn_agents')}"!)
 4. Synthesize all the information and rewrite the full plan to be the best it can be. Use the end_turn tool.`,
 
-  agentStepPrompt:
+  stepPrompt:
     'Do not forget to use the end_turn tool to end your response. Make sure the final plan is the best it can be.',
 })

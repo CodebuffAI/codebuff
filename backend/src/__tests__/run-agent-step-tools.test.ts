@@ -24,11 +24,12 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
+import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { getAllAgentTemplates } from '../templates/agent-registry'
-import * as websocketAction from '../websockets/websocket-action'
 import { AgentTemplate } from '../templates/types'
+import * as websocketAction from '../websockets/websocket-action'
 
-describe('runAgentStep - update_report tool', () => {
+describe('runAgentStep - set_output tool', () => {
   beforeAll(() => {
     // Mock logger
     mockModule('@codebuff/backend/util/logger', () => ({
@@ -40,26 +41,9 @@ describe('runAgentStep - update_report tool', () => {
       },
       withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
     }))
-
-    // Mock agent templates to include update_report in base
-    mockModule('@codebuff/backend/templates/agent-list', () => {
-      const { agentTemplates } = require('../templates/agent-list')
-      return {
-        agentTemplates: {
-          ...agentTemplates,
-          base: {
-            ...agentTemplates.base,
-            toolNames: [
-              ...agentTemplates.base.toolNames,
-              'update_report', // Add this tool
-            ],
-          },
-        },
-      }
-    })
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
     analytics.initAnalytics()
@@ -104,6 +88,7 @@ describe('runAgentStep - update_report tool', () => {
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
       Promise.resolve('Test response')
     )
+    clearAgentGeneratorCache()
   })
 
   afterEach(() => {
@@ -112,6 +97,7 @@ describe('runAgentStep - update_report tool', () => {
 
   afterAll(() => {
     clearMockedModules()
+    clearAgentGeneratorCache()
   })
 
   class MockWebSocket {
@@ -330,17 +316,17 @@ describe('runAgentStep - update_report tool', () => {
     // Create a mock agent template with handleSteps
     const mockAgentTemplate: AgentTemplate = {
       id: 'test-handlesteps-agent',
-      name: 'Test HandleSteps Agent',
-      purpose: 'Testing handleSteps functionality',
+      displayName: 'Test HandleSteps Agent',
+      parentPrompt: 'Testing handleSteps functionality',
       model: 'claude-3-5-sonnet-20241022',
-      promptSchema: {},
+      inputSchema: {},
       outputMode: 'json' as const,
       includeMessageHistory: true,
       toolNames: ['read_files', 'end_turn'],
-      spawnableAgents: [],
+      subagents: [],
       systemPrompt: 'Test system prompt',
-      userInputPrompt: 'Test user prompt',
-      agentStepPrompt: 'Test agent step prompt',
+      instructionsPrompt: 'Test user prompt',
+      stepPrompt: 'Test agent step prompt',
       handleSteps: function* ({ agentState, prompt, params }) {
         // Yield one tool call
         yield {
@@ -419,10 +405,10 @@ describe('runAgentStep - update_report tool', () => {
     )
 
     // Second message: user input prompt (user role)
-    const userInputPromptMessage = newMessages[1]
-    expect(userInputPromptMessage.role).toBe('user')
-    expect(typeof userInputPromptMessage.content).toBe('string')
-    expect(userInputPromptMessage.content).toContain('Test user prompt')
+    const instructionsPromptMessage = newMessages[1]
+    expect(instructionsPromptMessage.role).toBe('user')
+    expect(typeof instructionsPromptMessage.content).toBe('string')
+    expect(instructionsPromptMessage.content).toContain('Test user prompt')
 
     // Third message: read_files tool call (user role)
     const toolCallMessage = newMessages[2]

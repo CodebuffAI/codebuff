@@ -74,22 +74,22 @@ describe('Subagent Streaming', () => {
         agentRegistry: {
           thinker: {
             id: 'thinker',
-            name: 'Thinker',
+            displayName: 'Thinker',
             outputMode: 'last_message',
-            promptSchema: {
+            inputSchema: {
               prompt: {
                 safeParse: () => ({ success: true }),
               } as any,
             },
-            purpose: '',
+            parentPrompt: '',
             model: '',
             includeMessageHistory: true,
             toolNames: [],
-            spawnableAgents: [],
+            subagents: [],
 
             systemPrompt: '',
-            userInputPrompt: '',
-            agentStepPrompt: '',
+            instructionsPrompt: '',
+            stepPrompt: '',
           },
         },
         validationErrors: [],
@@ -114,7 +114,7 @@ describe('Subagent Streaming', () => {
     // Mock parent agent template that can spawn thinker
     const parentTemplate = {
       id: 'base',
-      spawnableAgents: ['thinker'],
+      subagents: ['thinker'],
     } as unknown as AgentTemplate
 
     const toolCall = {
@@ -179,7 +179,7 @@ describe('Subagent Streaming', () => {
 
     const parentTemplate = {
       id: 'base',
-      spawnableAgents: ['thinker'],
+      subagents: ['thinker'],
     } as unknown as AgentTemplate
 
     const toolCall = {

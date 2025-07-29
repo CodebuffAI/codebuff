@@ -10,6 +10,7 @@ import {
   renderToolResults,
 } from '@codebuff/common/constants/tools'
 import { CodebuffMessage } from '@codebuff/common/types/message'
+import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import {
   AgentState,
   ToolResult,
@@ -50,7 +51,7 @@ export interface AgentOptions {
   userInputId: string
   clientSessionId: string
   fingerprintId: string
-  onResponseChunk: (chunk: string) => void
+  onResponseChunk: (chunk: string | PrintModeObject) => void
 
   agentType: AgentTemplateType
   fileContext: ProjectFileContext
@@ -228,19 +229,19 @@ export const runAgentStep = async (
     )
   }
 
-  const agentStepPrompt = await getAgentPrompt(
+  const stepPrompt = await getAgentPrompt(
     agentTemplate,
-    { type: 'agentStepPrompt' },
+    { type: 'stepPrompt' },
     fileContext,
     agentState,
     agentRegistry
   )
 
-  // Extract user input prompt to match hasPrompt && {...} pattern
-  const userInputPrompt = hasPrompt
+  // Extract instructions prompt to match hasPrompt && {...} pattern
+  const instructionsPrompt = hasPrompt
     ? await getAgentPrompt(
         agentTemplate,
-        { type: 'userInputPrompt' },
+        { type: 'instructionsPrompt' },
         fileContext,
         agentState,
         agentRegistry
@@ -274,15 +275,15 @@ export const runAgentStep = async (
         },
     ],
 
-    userInputPrompt && {
+    instructionsPrompt && {
       role: 'user' as const,
-      content: userInputPrompt,
+      content: instructionsPrompt,
       timeToLive: 'userPrompt' as const,
     },
 
-    agentStepPrompt && {
+    stepPrompt && {
       role: 'user' as const,
-      content: agentStepPrompt,
+      content: stepPrompt,
       timeToLive: 'agentStep' as const,
     }
   )
@@ -480,7 +481,20 @@ export const runAgentStep = async (
 
 export const loopAgentSteps = async (
   ws: WebSocket,
-  options: {
+  {
+    userInputId,
+    agentType,
+    agentState,
+    prompt,
+    params,
+    fingerprintId,
+    fileContext,
+    toolResults,
+    agentRegistry,
+    userId,
+    clientSessionId,
+    onResponseChunk,
+  }: {
     userInputId: string
     agentType: AgentTemplateType
     agentState: AgentState
@@ -493,22 +507,9 @@ export const loopAgentSteps = async (
 
     userId: string | undefined
     clientSessionId: string
-    onResponseChunk: (chunk: string) => void
+    onResponseChunk: (chunk: string | PrintModeObject) => void
   }
 ) => {
-  const {
-    agentState,
-    prompt,
-    params,
-    userId,
-    clientSessionId,
-    agentRegistry,
-    onResponseChunk,
-    userInputId,
-    fingerprintId,
-    fileContext,
-    agentType,
-  } = options
   const agentTemplate = agentRegistry[agentType]
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)

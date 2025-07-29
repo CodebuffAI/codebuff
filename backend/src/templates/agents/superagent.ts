@@ -10,9 +10,9 @@ export const superagent = (
   allAvailableAgents?: string[]
 ): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['superagent'].name,
-  purpose: AGENT_PERSONAS['superagent'].purpose,
-  promptSchema: {
+  displayName: AGENT_PERSONAS['superagent'].displayName,
+  parentPrompt: AGENT_PERSONAS['superagent'].purpose,
+  inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
@@ -24,7 +24,7 @@ export const superagent = (
     'end_turn',
     'think_deeply',
   ],
-  spawnableAgents: allAvailableAgents
+  subagents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [
         AgentTemplateTypes.thinker,
@@ -39,7 +39,7 @@ ${PLACEHOLDER.TOOLS_PROMPT}
 
 ${PLACEHOLDER.AGENTS_PROMPT}
 `.trim(),
-  userInputPrompt: `
+  instructionsPrompt: `
 Answer the user's question or complete the task by spawning copies of the base agent.
 
 If you have all the information you need, just write out the response and do not spawn any agents.
@@ -52,6 +52,6 @@ Prefer sending a message to a previous agent over spawning a new agent, especial
 
 Feel free to ask the user for clarification if you are unsure what to do.
 `.trim(),
-  agentStepPrompt:
+  stepPrompt:
     'Spawn as many agents as you can to help. Use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message or if you are waiting for a response from an agent.',
 })

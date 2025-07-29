@@ -15,9 +15,9 @@ export const base = (
   allAvailableAgents?: string[]
 ): Omit<AgentTemplate, 'id'> => ({
   model,
-  name: AGENT_PERSONAS['base'].name,
-  purpose: AGENT_PERSONAS['base'].purpose,
-  promptSchema: {
+  displayName: AGENT_PERSONAS['base'].displayName,
+  parentPrompt: AGENT_PERSONAS['base'].purpose,
+  inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
@@ -37,7 +37,7 @@ export const base = (
     'think_deeply',
     'update_subgoal',
   ],
-  spawnableAgents: allAvailableAgents
+  subagents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [
         AgentTemplateTypes.file_explorer,
@@ -48,6 +48,6 @@ export const base = (
       ],
 
   systemPrompt: baseAgentSystemPrompt(model),
-  userInputPrompt: baseAgentUserInputPrompt(model),
-  agentStepPrompt: baseAgentAgentStepPrompt(model),
+  instructionsPrompt: baseAgentUserInputPrompt(model),
+  stepPrompt: baseAgentAgentStepPrompt(model),
 })

@@ -6,9 +6,9 @@ import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalizat
 import { filterCustomAgentTemplates } from '@codebuff/common/util/agent-file-utils'
 import {
   formatParentInstructionsError,
-  formatSpawnableAgentError,
+  formatSubagentError,
   validateParentInstructions,
-  validateSpawnableAgents,
+  validateSubagents,
 } from '@codebuff/common/util/agent-template-validation'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
@@ -161,18 +161,18 @@ export class DynamicAgentService {
         return
       }
 
-      const spawnableValidation = validateSpawnableAgents(
-        content.spawnableAgents,
+      const subagentValidation = validateSubagents(
+        content.subagents,
         dynamicAgentIds
       )
-      if (!spawnableValidation.valid) {
+      if (!subagentValidation.valid) {
         this.validationErrors.push({
           filePath,
-          message: formatSpawnableAgentError(
-            spawnableValidation.invalidAgents,
-            spawnableValidation.availableAgents
+          message: formatSubagentError(
+            subagentValidation.invalidAgents,
+            subagentValidation.availableAgents
           ),
-          details: `Available agents: ${spawnableValidation.availableAgents.join(', ')}`,
+          details: `Available agents: ${subagentValidation.availableAgents.join(', ')}`,
         })
         return
       }
@@ -196,18 +196,18 @@ export class DynamicAgentService {
         }
       }
 
-      const validatedSpawnableAgents = normalizeAgentNames(
-        content.spawnableAgents
+      const validatedSubagents = normalizeAgentNames(
+        content.subagents
       ) as AgentTemplateType[]
 
       const basePaths = [fileDir, fileContext.projectRoot]
 
       // Convert schemas and handle validation errors
-      let promptSchema: AgentTemplate['promptSchema']
+      let inputSchema: AgentTemplate['inputSchema']
       try {
-        promptSchema = this.convertPromptSchema(
-          content.promptSchema?.prompt,
-          content.promptSchema?.params,
+        inputSchema = this.convertInputSchema(
+          content.inputSchema?.prompt,
+          content.inputSchema?.params,
           filePath
         )
       } catch (error) {
@@ -255,11 +255,12 @@ export class DynamicAgentService {
       // Convert to internal AgentTemplate format
       const agentTemplate: AgentTemplate = {
         ...content,
+        displayName: content.displayName,
         outputMode,
         outputSchema,
-        promptSchema,
+        inputSchema,
         toolNames: content.toolNames as ToolName[],
-        spawnableAgents: validatedSpawnableAgents,
+        subagents: validatedSubagents,
       }
 
       this.templates[content.id] = agentTemplate
@@ -284,19 +285,19 @@ export class DynamicAgentService {
    * This is done once during loading to avoid repeated conversions.
    * Throws descriptive errors for validation failures.
    */
-  private convertPromptSchema(
-    promptSchema?: Record<string, any>,
+  private convertInputSchema(
+    inputPromptSchema?: Record<string, any>,
     paramsSchema?: Record<string, any>,
     filePath?: string
-  ): AgentTemplate['promptSchema'] {
+  ): AgentTemplate['inputSchema'] {
     const result: any = {}
     const fileContext = filePath ? ` in ${filePath}` : ''
 
     // Handle prompt schema
-    if (promptSchema && Object.keys(promptSchema).length > 0) {
-      try {
-        const promptZodSchema = convertJsonSchemaToZod(promptSchema)
+    if (inputPromptSchema && Object.keys(inputPromptSchema).length > 0) {
 
+      try {
+        const promptZodSchema = convertJsonSchemaToZod(inputPromptSchema)
         // Validate that the schema results in string or undefined
         const testResult = promptZodSchema.safeParse('test')
         const testUndefined = promptZodSchema.safeParse(undefined)
@@ -305,7 +306,7 @@ export class DynamicAgentService {
           const errorDetails =
             testResult.error?.issues?.[0]?.message || 'validation failed'
           throw new Error(
-            `Invalid promptSchema.prompt${fileContext}: Schema must allow string or undefined values. ` +
+            `Invalid inputSchema.prompt${fileContext}: Schema must allow string or undefined values. ` +
               `Current schema validation error: ${errorDetails}. ` +
               `Please ensure your JSON schema accepts string types.`
           )
@@ -313,7 +314,7 @@ export class DynamicAgentService {
 
         result.prompt = promptZodSchema
       } catch (error) {
-        if (error instanceof Error && error.message.includes('promptSchema')) {
+        if (error instanceof Error && error.message.includes('inputSchema')) {
           // Re-throw our custom validation errors
           throw error
         }
@@ -322,8 +323,8 @@ export class DynamicAgentService {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error'
         throw new Error(
-          `Failed to convert promptSchema.prompt to Zod${fileContext}: ${errorMessage}. ` +
-            `Please check that your promptSchema.prompt is a valid JSON schema object.`
+          `Failed to convert inputSchema.prompt to Zod${fileContext}: ${errorMessage}. ` +
+            `Please check that your inputSchema.prompt is a valid JSON schema object.`
         )
       }
     }
@@ -337,8 +338,8 @@ export class DynamicAgentService {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error'
         throw new Error(
-          `Failed to convert promptSchema.params to Zod${fileContext}: ${errorMessage}. ` +
-            `Please check that your promptSchema.params is a valid JSON schema object.`
+          `Failed to convert inputSchema.params to Zod${fileContext}: ${errorMessage}. ` +
+            `Please check that your inputSchema.params is a valid JSON schema object.`
         )
       }
     }
