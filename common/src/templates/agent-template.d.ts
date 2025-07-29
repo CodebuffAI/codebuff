@@ -89,12 +89,12 @@ export interface AgentConfig {
   // ============================================================================
 
   /** Programmatically step the agent forward and run tools.
-   * 
+   *
    * You can either yield:
    * - A tool call matching the tools schema.
    * - 'STEP' to run agent's model and generate one assistant message.
    * - 'STEP_ALL' to run the agent's model until it uses the end_turn tool or stops includes no tool calls in a message.
-   * 
+   *
    * Or use 'return' to end the turn.
    *
    * Example:
@@ -249,7 +249,7 @@ export type ModelName =
   | 'google/gemini-2.5-pro'
   | 'google/gemini-2.5-flash'
   | 'x-ai/grok-4-07-09'
-  | (string & {}) // Preserves autocomplete while allowing any string
+  | string
 
 // ============================================================================
 // Spawnable Agents
@@ -264,7 +264,7 @@ export type SubagentName =
   | 'researcher'
   | 'thinker'
   | 'reviewer'
-  | (string & {}) // Preserves autocomplete while allowing any string
+  | string
 
 // ============================================================================
 // Utility Types
