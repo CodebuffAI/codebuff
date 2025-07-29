@@ -38,8 +38,7 @@ export type PrintModeText = z.infer<typeof printModeTextSchema>
 
 export const printModeFinishSchema = z.object({
   type: z.literal('finish'),
-  agentId: z.string(),
-  model: z.string(),
+  agentId: z.string().optional(),
   totalCost: z.number(),
 })
 export type PrintModeFinish = z.infer<typeof printModeFinishSchema>
