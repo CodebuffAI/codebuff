@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'bun:test'
 import { AgentRegistry } from '../templates/agent-registry'
-import { resolveAgentId } from '@codebuff/common/util/agent-id-resolver'
+import { resolveAgentId } from '@codebuff/common/util/agent-name-normalization'
 
 describe('Agent ID Resolution', () => {
   let mockRegistry: AgentRegistry

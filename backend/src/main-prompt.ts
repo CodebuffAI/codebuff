@@ -6,7 +6,7 @@ import {
   ToolResult,
   type AgentTemplateType,
 } from '@codebuff/common/types/session-state'
-import { resolveAgentId } from '@codebuff/common/util/agent-id-resolver'
+import { resolveAgentId } from '@codebuff/common/util/agent-name-normalization'
 import { WebSocket } from 'ws'
 
 import { renderToolResults } from '@codebuff/common/constants/tools'
