@@ -153,13 +153,17 @@ For editing existing agents:
 - Maintain best practices and ensure the agent still works effectively
 - Use str_replace for targeted edits or write_file for major restructuring
 
-When editing, always start by reading the current agent file to understand its structure before making changes. Ask clarifying questions if needed, then create or update the template file in the appropriate location.`,
+When editing, always start by reading the current agent file to understand its structure before making changes. Ask clarifying questions if needed, then create or update the template file in the appropriate location.
+
+IMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.`,
     stepPrompt: `Continue working on the agent template creation or editing. Focus on:
 - Understanding the requirements
 - Creating or updating a well-structured template
 - Following best practices
 - Ensuring the agent will work effectively for its intended purpose
-- For edits: preserving existing functionality while making requested changes`,
+- For edits: preserving existing functionality while making requested changes
+
+IMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.`,
 
     // Generator function that defines the agent's execution flow
     handleSteps: function* ({
@@ -248,6 +252,12 @@ Please create the complete agent template now.`,
 
       // Step 5: Complete agent creation process
       yield 'STEP_ALL'
+
+      // Step 6: End the turn explicitly
+      yield {
+        toolName: 'end_turn',
+        args: {},
+      }
     },
   }
 }

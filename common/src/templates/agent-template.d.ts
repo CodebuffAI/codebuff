@@ -91,7 +91,7 @@ export interface AgentConfig {
   /** Programmatically step the agent forward and run tools.
    *
    * You can either yield:
-   * - A tool call matching the tools schema.
+   * - A tool call object with toolName and args properties.
    * - 'STEP' to run agent's model and generate one assistant message.
    * - 'STEP_ALL' to run the agent's model until it uses the end_turn tool or stops includes no tool calls in a message.
    *
@@ -101,7 +101,7 @@ export interface AgentConfig {
    * function* handleSteps({ agentStep, prompt, params}) {
    *   const { toolResult } = yield {
    *     toolName: 'read_files',
-   *     paths: ['file1.txt', 'file2.txt'],
+   *     args: { paths: ['file1.txt', 'file2.txt'] }
    *   }
    *   yield 'STEP_ALL'
    * }
@@ -109,7 +109,7 @@ export interface AgentConfig {
   handleSteps?: (
     context: AgentStepContext
   ) => Generator<
-    ToolName | 'STEP' | 'STEP_ALL',
+    ToolCall | 'STEP' | 'STEP_ALL',
     void,
     { agentState: AgentState; toolResult: ToolResult | undefined }
   >
@@ -150,6 +150,14 @@ export interface AgentStepContext {
   agentState: AgentState
   prompt: string | undefined
   params: Record<string, any> | undefined
+}
+
+/**
+ * Tool call object for handleSteps generator
+ */
+export interface ToolCall {
+  toolName: ToolName
+  args?: Record<string, any>
 }
 
 /**
