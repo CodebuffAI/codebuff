@@ -133,7 +133,7 @@ export async function* processStreamWithTags(
 
     if (chunk === undefined) {
       streamCompleted = true
-      if (buffer) {
+      if (buffer.includes(startToolTag)) {
         buffer += completionSuffix
         chunk = completionSuffix
         autocompleted = true

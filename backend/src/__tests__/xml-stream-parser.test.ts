@@ -42,7 +42,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -92,7 +93,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -151,7 +153,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -209,7 +212,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -252,7 +256,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -300,7 +305,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -355,7 +361,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -404,7 +411,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -443,7 +451,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -468,7 +477,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -505,7 +515,8 @@ describe('processStreamWithTags', () => {
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
-      onError
+      onError,
+      () => {}
     )) {
       result.push(chunk)
     }
@@ -561,7 +572,8 @@ describe('processStreamWithTags', () => {
       for await (const chunk of processStreamWithTags(
         stream,
         processors,
-        onError
+        onError,
+        () => {}
       )) {
         result.push(chunk)
       }
