@@ -1,5 +1,6 @@
 import * as path from 'path'
 
+import { ToolName } from '@codebuff/common/constants/tools'
 import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
@@ -9,12 +10,10 @@ import {
   validateParentInstructions,
   validateSubagents,
 } from '@codebuff/common/util/agent-template-validation'
-
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
-import { ToolName } from '@codebuff/common/constants/tools'
-import { logger } from '../util/logger'
 import { AgentTemplate } from './types'
+import { logger } from '../util/logger'
 
 export interface DynamicAgentValidationError {
   filePath: string
@@ -220,7 +219,7 @@ export class DynamicAgentService {
 
       // Validate handleSteps if present
       if (content.handleSteps) {
-        if (!content.handleSteps.includes('function*')) {
+        if (!this.isValidGeneratorFunction(content.handleSteps)) {
           this.validationErrors.push({
             filePath,
             message: `handleSteps must be a generator function: "function* (params) { ... }". Found: ${content.handleSteps.substring(0, 50)}...`,
@@ -256,11 +255,27 @@ export class DynamicAgentService {
         message: `Error in agent template ${filePath}: ${errorMessage}`,
         details: errorMessage,
       })
+
       logger.warn(
         { filePath, error: errorMessage },
         'Failed to load dynamic agent template'
       )
     }
+  }
+
+
+  /**
+   * Validates if a string represents a valid generator function
+   */
+  private isValidGeneratorFunction(code: string): boolean {
+    // More robust validation than just checking for 'function*'
+    const trimmed = code.trim()
+    return (
+      trimmed.startsWith('function*') ||
+      trimmed.startsWith('async function*') ||
+      // Also allow arrow function generators (though less common)
+      /^\s*\*\s*\(/.test(trimmed)
+    )
   }
 
   /**

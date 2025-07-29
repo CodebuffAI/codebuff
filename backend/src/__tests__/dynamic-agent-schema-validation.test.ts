@@ -38,10 +38,9 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'no-prompt-schema': {
+          'no-prompt-schema.ts': {
             id: 'no_prompt_schema_agent',
             version: '1.0.0',
-            override: false,
             displayName: 'No Prompt Schema Agent',
             parentPrompt: 'Test agent without prompt schema',
             model: 'anthropic/claude-4-sonnet-20250522',
@@ -71,10 +70,9 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'no-params-schema': {
+          'no-params-schema.ts': {
             id: 'no_params_schema_agent',
             version: '1.0.0',
-            override: false,
             displayName: 'No Params Schema Agent',
             parentPrompt: 'Test agent without params schema',
             model: 'anthropic/claude-4-sonnet-20250522',
@@ -106,10 +104,9 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'both-schemas': {
+          'both-schemas.ts': {
             id: 'both_schemas_agent',
             version: '1.0.0',
-            override: false,
             displayName: 'Both Schemas Agent',
             parentPrompt: 'Test agent with both schemas',
             model: 'anthropic/claude-4-sonnet-20250522',
@@ -176,10 +173,9 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'complex-schema': {
+          'complex-schema.ts': {
             id: 'complex_schema_agent',
             version: '1.0.0',
-            override: false,
             displayName: 'Complex Schema Agent',
             parentPrompt: 'Test agent with complex nested schema',
             model: 'anthropic/claude-4-sonnet-20250522',
@@ -259,10 +255,9 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'error-context': {
+          'error-context.ts': {
             id: 'error_context_agent',
             version: '1.0.0',
-            override: false,
             displayName: 'Error Context Agent',
             parentPrompt: 'Test agent for error context',
             model: 'anthropic/claude-4-sonnet-20250522',
@@ -272,7 +267,7 @@ describe('Dynamic Agent Schema Validation', () => {
 
             inputSchema: {
               prompt: {
-                type: 'boolean', // Invalid for prompt schema
+                type: 'boolean' as any, // Invalid for prompt schema
               },
             },
             outputMode: 'last_message',
@@ -287,7 +282,7 @@ describe('Dynamic Agent Schema Validation', () => {
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].message).toContain('in error-context')
-      expect(result.validationErrors[0].filePath).toBe('error-context')
+      expect(result.validationErrors[0].filePath).toBe('error-context.ts')
     })
   })
 
@@ -296,10 +291,9 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'git-committer': {
+          'git-committer.ts': {
             id: 'CodebuffAI/git-committer',
             version: '0.0.1',
-            override: false,
             displayName: 'Git Committer',
             parentPrompt:
               'A git committer agent specialized to commit current changes with an appropriate commit message.',
@@ -357,10 +351,10 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'empty-schema': {
+          'empty-schema.ts': {
             id: 'empty_schema_agent',
             version: '1.0.0',
-            override: false,
+
             displayName: 'Empty Schema Agent',
             parentPrompt: 'Test agent with empty schema',
             model: 'anthropic/claude-4-sonnet-20250522',

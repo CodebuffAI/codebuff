@@ -1,138 +1,221 @@
-import { Model } from '@codebuff/common/constants'
+import * as fs from 'fs'
+import * as path from 'path'
+
+import {
+  Model,
+  openrouterModels,
+  AGENT_TEMPLATES_DIR,
+  AGENT_CONFIG_FILE,
+} from '@codebuff/common/constants'
 import { ToolName } from '@codebuff/common/constants/tools'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
+
 import { AgentTemplate } from '../types'
 
-export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => ({
-  displayName: 'Agent Builder',
-  parentPrompt:
-    'Creates new agent templates for the codebuff mult-agent system',
-  model,
-  inputSchema: {
-    prompt: z
-      .string()
-      .optional()
-      .describe(
-        'What agent type you would like to create. Include as many details as possible.'
-      ),
-  },
-  outputMode: 'last_message',
-  includeMessageHistory: false,
-  toolNames: [
-    'write_file',
-    'str_replace',
-    'read_files',
-    'code_search',
-    'spawn_agents',
-    'end_turn',
-  ] satisfies ToolName[],
-  subagents: [AgentTemplateTypes.file_picker],
+const TEMPLATE_RELATIVE_PATH =
+  `../../../../common/src/util/${AGENT_CONFIG_FILE}` as const
 
-  systemPrompt: `# Agent Builder - Template Creation Assistant
+// Import to validate path exists at compile time
+import(TEMPLATE_RELATIVE_PATH)
 
-You are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.
+const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
+const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
+const TEMPLATE_TYPES_PATH = path.join(AGENT_TEMPLATES_DIR, AGENT_CONFIG_FILE)
 
-## Agent Template Structure
+export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
+  // Read the AGENT_CONFIG_FILE content dynamically
+  // The import above ensures this path exists at compile time
+  let agentTemplateContent = ''
+  try {
+    agentTemplateContent = fs.readFileSync(TEMPLATE_PATH, 'utf8')
+  } catch (error) {
+    console.warn(`Could not read ${AGENT_CONFIG_FILE}:`, error)
+    agentTemplateContent = '// Agent template types not available'
+  }
 
-Every agent template must include these fields:
+  return {
+    displayName: 'Bob the Agent Builder',
+    model,
+    inputSchema: {
+      prompt: z
+        .string()
+        .optional()
+        .describe(
+          'What agent type you would like to create or edit. Include as many details as possible.'
+        ),
+      params: z
+        .object({
+          editMode: z
+            .boolean()
+            .optional()
+            .describe('Whether this is editing an existing agent'),
+          agentId: z
+            .string()
+            .optional()
+            .describe('ID of the agent being edited'),
+          filePath: z
+            .string()
+            .optional()
+            .describe('File path of the agent being edited'),
+          originalContent: z
+            .string()
+            .optional()
+            .describe('Original content of the agent file'),
+          // Keep existing params as well
+          name: z.string().optional(),
+          purpose: z.string().optional(),
+          specialty: z.string().optional(),
+          model: z.string().optional(),
+        })
+        .passthrough()
+        .optional(),
+    },
+    outputMode: 'json',
+    includeMessageHistory: false,
+    toolNames: [
+      'write_file',
+      'str_replace',
+      'run_terminal_command',
+      'read_files',
+      'code_search',
+      'spawn_agents',
+      'add_message',
+      'set_output',
+      'end_turn',
+    ] satisfies ToolName[],
+    subagents: [AgentTemplateTypes.file_picker],
+    parentPrompt:
+      'Creates new agent templates for the codebuff mult-agent system',
+    systemPrompt: [
+      '# Agent Builder',
+      '',
+      'You are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.',
+      '',
+      '## Complete Agent Template Type Definitions',
+      '',
+      'Here are the complete TypeScript type definitions for creating custom Codebuff agents:',
+      '',
+      '```typescript',
+      agentTemplateContent,
+      '```',
+      '',
+      '## Agent Template Patterns:',
+      '',
+      '1. **Base Agent Pattern**: Full-featured agents with comprehensive tool access',
+      '2. **Specialized Agent Pattern**: Focused agents with limited tool sets',
+      '3. **Thinking Agent Pattern**: Agents that spawn thinker sub-agents',
+      '4. **Research Agent Pattern**: Agents that start with web search',
+      '',
+      '## Best Practices:',
+      '',
+      '1. **Use as few fields as possible**: Leave out fields that are not needed to reduce complexity. Use as few fields as possible to accomplish the task.',
+      '2. **Minimal Tools**: Only include tools the agent actually needs',
+      '3. **Clear and Concise Prompts**: Write clear, specific prompts that have no unnecessary words',
+      '4. **Consistent Naming**: Follow naming conventions (kebab-case for IDs)',
+      '5. **Appropriate Model**: Choose the right model for the task complexity',
+      '',
+      '## Your Task:',
+      'When asked to create an agent template, you should:',
+      "1. Understand the requested agent's purpose and capabilities",
+      "2. Choose appropriate tools for the agent's function",
+      '3. Write a comprehensive system prompt',
+      `4. Create the complete agent template file in ${AGENT_TEMPLATES_DIR}`,
+      '5. Ensure the template follows all conventions and best practices',
+      '6. Use the AgentConfig interface for the configuration',
+      '',
+      'Create agent templates that are focused, efficient, and well-documented. Always import the AgentConfig type and export a default configuration object.',
+    ].join('\n'),
+    instructionsPrompt: `You are helping to create or edit an agent template. The user will describe what kind of agent they want to create or how they want to modify an existing agent.
 
-### Required Fields:
-- **type**: AgentTemplateType - Unique identifier (e.g., 'gemini25flash_my_agent')
-- **displayName**: string - Display name for the agent
-- **parentPrompt**: string - Brief description of the agent's purpose
-- **model**: Model - The LLM model to use (Claude, Gemini, etc.)
-- **inputSchema**: Object with:
-  - prompt: boolean | 'optional' - Whether agent requires user prompt
-  - params: z.ZodSchema | null - Optional Zod schema for parameters
-- **outputMode**: 'last_message' | 'all_messages' | 'json'
-- **includeMessageHistory**: boolean - Whether to include conversation history
-- **toolNames**: ToolName[] - Array of available tools
-- **spawnableAgents**: AgentTemplateType[] - Sub-agents this agent can spawn
-
-- **systemPrompt**: string - Core system instructions
-- **userInputPrompt**: string - Instructions for handling user input
-- **stepPrompt**: string - Instructions for each agent step
-
-### Optional Fields:
-- **fallbackProviders**: FallbackProvider[] - Fallback providers for Anthropic models
-
-## Available Tools (choose appropriate subset):
-
-**Core Tools:**
-- add_subgoal, update_subgoal - Goal management
-- end_turn - End agent response
-- spawn_agents - Create sub-agents
-
-**File Operations:**
-- write_file - Write/create files
-- str_replace - String replacement in files
-- read_files - Read file contents
-- find_files - Find files by description
-
-**Search & Terminal:**
-- code_search - Search code patterns
-- run_terminal_command - Execute terminal commands
-- browser_logs - Browser log access
-
-**Planning & Thinking:**
-- think_deeply - Deep reasoning
-- create_plan - Generate plans
-
-**Documentation & Web:**
-- read_docs - Read documentation
-- web_search - Web search functionality
-
-**Other:**
-- run_file_change_hooks - Run file change hooks
-- set_output - Set structured agent output
-
-## Agent Template Patterns:
-
-1. **Base Agent Pattern**: Full-featured agents with comprehensive tool access
-2. **Specialized Agent Pattern**: Focused agents with limited tool sets
-3. **Thinking Agent Pattern**: Agents that spawn thinker sub-agents
-4. **Research Agent Pattern**: Agents that start with web search
-
-## Placeholder System:
-Use these placeholders in prompts:
-- {CODEBUFF_AGENT_NAME} - Agent name
-- {CODEBUFF_TOOLS_PROMPT} - Available tools description
-- {CODEBUFF_AGENTS_PROMPT} - Available agents description
-- {CODEBUFF_FILE_TREE_PROMPT} - File tree information
-- {CODEBUFF_SYSTEM_INFO_PROMPT} - System information
-- {CODEBUFF_PROJECT_ROOT} - Project root directory
-
-## Best Practices:
-
-1. **Purpose-Driven**: Each agent should have a clear, specific purpose
-2. **Minimal Tools**: Only include tools the agent actually needs
-3. **Clear Prompts**: Write clear, specific system prompts
-4. **Consistent Naming**: Follow naming conventions (e.g., 'gemini25flash_my_agent')
-5. **Appropriate Model**: Choose the right model for the task complexity
-
-## Your Task:
-When asked to create an agent template, you should:
-1. Understand the requested agent's purpose and capabilities
-2. Choose appropriate tools for the agent's function
-3. Write a comprehensive system prompt
-4. Create the complete agent template file
-5. Ensure the template follows all conventions and best practices
-
-Create agent templates that are focused, efficient, and well-documented.`,
-  instructionsPrompt: `You are helping to create a new agent template. The user will describe what kind of agent they want to create.
-
-Analyze their request and create a complete agent template that:
+For new agents, analyze their request and create a complete agent template that:
 - Has a clear purpose and appropriate capabilities
+- Leaves out fields that are not needed.
 - Uses only the tools it needs
-- Has a well-written system prompt
 - Follows naming conventions
 - Is properly structured
 
-Ask clarifying questions if needed, then create the template file in the appropriate location.`,
-  stepPrompt: `Continue working on the agent template creation. Focus on:
-- Understanding the requirements
-- Creating a well-structured template
-- Following best practices
-- Ensuring the agent will work effectively for its intended purpose`,
-})
+For editing existing agents:
+- First read the existing agent file they want to edit using read_files
+- Understand the current structure and functionality
+- Make the requested changes while preserving what works
+- Maintain best practices and ensure the agent still works effectively
+- Use str_replace for targeted edits or write_file for major restructuring
+
+When editing, always start by reading the current agent file to understand its structure before making changes. Ask clarifying questions if needed, then create or update the template file in the appropriate location.
+
+IMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.`,
+    stepPrompt: '',
+
+    // Generator function that defines the agent's execution flow
+    handleSteps: function* ({ agentState, prompt, params }) {
+      // Step 1: Create directory structure
+      yield {
+        toolName: 'run_terminal_command',
+        args: {
+          command: `mkdir -p ${AGENT_TEMPLATES_DIR}`,
+          process_type: 'SYNC',
+          timeout_seconds: 10,
+        },
+      }
+
+      // Step 2: Write the AGENT_CONFIG_FILE with the template content
+      yield {
+        toolName: 'write_file',
+        args: {
+          path: TEMPLATE_TYPES_PATH,
+          instructions: 'Create agent template type definitions file',
+          content: agentTemplateContent,
+        },
+      }
+
+      // Step 3: Add user message with requirements for agent creation or editing
+      const isEditMode = params?.editMode === true
+
+      if (isEditMode) {
+        // Edit mode - the prompt should already contain the edit request
+        // No need to add additional message, the user prompt contains everything
+      } else {
+        // Creation mode - add structured requirements
+        const requirements = {
+          name: params?.name || 'Custom Agent',
+          purpose:
+            params?.purpose ||
+            'A custom agent that helps with development tasks',
+          specialty: params?.specialty || 'general development',
+          model: params?.model || DEFAULT_MODEL,
+        }
+        yield {
+          toolName: 'add_message',
+          args: {
+            role: 'user',
+            content: `Create a new agent template with the following specifications:
+
+**Agent Details:**
+- Name: ${requirements.name}
+- Purpose: ${requirements.purpose}
+- Specialty: ${requirements.specialty}
+- Model: ${requirements.model}
+- Agent ID: ${requirements.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '')}
+
+**Requirements:**
+- Create the agent template file in ${AGENT_TEMPLATES_DIR}
+- Use the AgentConfig interface
+- Include appropriate tools based on the specialty
+- Write a comprehensive system prompt
+- Follow naming conventions and best practices
+- Export a default configuration object
+
+Please create the complete agent template now.`,
+          },
+        }
+      }
+
+      // Step 5: Complete agent creation process
+      yield 'STEP_ALL'
+    },
+  }
+}

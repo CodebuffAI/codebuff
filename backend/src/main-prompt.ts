@@ -6,6 +6,7 @@ import {
   ToolResult,
   type AgentTemplateType,
 } from '@codebuff/common/types/session-state'
+import { resolveAgentId } from '@codebuff/common/util/agent-name-normalization'
 import { WebSocket } from 'ws'
 
 import { renderToolResults } from '@codebuff/common/constants/tools'
@@ -107,16 +108,17 @@ export const mainPrompt = async (
   const { agentRegistry } = await getAllAgentTemplates({ fileContext })
 
   if (agentId) {
-    // Initialize agent registry to validate agent ID
+    // Resolve agent ID using robust resolution strategy
+    const resolvedAgentId = resolveAgentId(agentId, agentRegistry)
 
-    if (!(agentId in agentRegistry)) {
+    if (!resolvedAgentId) {
       const availableAgents = Object.keys(agentRegistry)
       throw new Error(
         `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`
       )
     }
 
-    agentType = agentId
+    agentType = resolvedAgentId
     logger.info(
       {
         agentId,

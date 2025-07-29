@@ -70,9 +70,14 @@ export async function* processStreamWithTags(
         AnalyticsEvent.MALFORMED_TOOL_CALL_JSON,
         loggerOptions?.userId ?? '',
         {
-          contents,
+          contents: JSON.stringify(contents),
           model: loggerOptions?.model,
           agent: loggerOptions?.agentName,
+          error: {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          },
           autocompleted,
         }
       )

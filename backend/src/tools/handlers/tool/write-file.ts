@@ -188,6 +188,7 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
   if (!fileProcessingState.firstFileProcessed) {
     ;[fileProcessingState.fileChangeErrors, fileProcessingState.fileChanges] =
       partition(allFileProcessingResults, (result) => 'error' in result)
+
     if (
       fileProcessingState.fileChanges.length === 0 &&
       allFileProcessingResults.length > 0
@@ -198,6 +199,20 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
       writeToClient(`\n`)
     }
     fileProcessingState.firstFileProcessed = true
+  } else {
+    // Update the arrays with new results for subsequent tool calls
+    const [newErrors, newChanges] = partition(
+      allFileProcessingResults,
+      (result) => 'error' in result
+    )
+    fileProcessingState.fileChangeErrors = newErrors as Extract<
+      FileProcessing,
+      { error: string }
+    >[]
+    fileProcessingState.fileChanges = newChanges as Exclude<
+      FileProcessing,
+      { error: string }
+    >[]
   }
 
   const toolCallResults: string[] = []

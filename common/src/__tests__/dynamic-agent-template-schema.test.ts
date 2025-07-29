@@ -12,7 +12,6 @@ describe('DynamicAgentConfigSchema', () => {
   const validBaseTemplate = {
     id: 'test_agent',
     version: '1.0.0',
-    override: false,
     displayName: 'Test Agent',
     parentPrompt: 'A test agent',
     model: 'anthropic/claude-4-sonnet-20250522',
@@ -115,25 +114,13 @@ describe('DynamicAgentConfigSchema', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should validate template with path references', () => {
-      const template = {
-        ...validBaseTemplate,
-        systemPrompt: { path: './system-prompt.md' },
-        instructionsPrompt: { path: './user-input-prompt.md' },
-        stepPrompt: { path: './agent-step-prompt.md' },
-      }
-
-      const result = DynamicAgentConfigSchema.safeParse(template)
-      expect(result.success).toBe(true)
-    })
-
     it('should apply default values', () => {
       const result = DynamicAgentConfigSchema.safeParse(validBaseTemplate)
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.outputMode).toBe('last_message')
         expect(result.data.includeMessageHistory).toBe(true)
-        expect(result.data.toolNames).toEqual(['end_turn'])
+        expect(result.data.toolNames).toEqual([])
         expect(result.data.subagents).toEqual([])
       }
     })
@@ -158,16 +145,6 @@ describe('DynamicAgentConfigSchema', () => {
       const template = {
         id: 'test_agent',
         // Missing other required fields
-      }
-
-      const result = DynamicAgentConfigSchema.safeParse(template)
-      expect(result.success).toBe(false)
-    })
-
-    it('should reject template with override: true', () => {
-      const template = {
-        ...validBaseTemplate,
-        override: true,
       }
 
       const result = DynamicAgentConfigSchema.safeParse(template)
@@ -217,7 +194,7 @@ describe('DynamicAgentConfigSchema', () => {
     it('should reject template with invalid prompt field structure', () => {
       const template = {
         ...validBaseTemplate,
-        systemPrompt: { invalidField: 'value' }, // Should be { path: string }
+        systemPrompt: { invalidField: 'value' }, // Should be string only
       }
 
       const result = DynamicAgentConfigSchema.safeParse(template)

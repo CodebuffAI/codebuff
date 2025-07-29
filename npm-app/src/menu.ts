@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { CostMode } from '@codebuff/common/constants'
+import { CostMode, AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
 import {
   blue,
   blueBright,
@@ -189,6 +189,14 @@ export const interactiveCommandDetails: CommandInfo[] = [
     isSlashCommand: true,
     commandText: '',
     params: '[agent-id]',
+    requireSlash: false,
+  },
+
+  {
+    baseCommand: 'agents',
+    description: `Manage custom agent templates in ${AGENT_TEMPLATES_DIR}`,
+    isSlashCommand: true,
+    commandText: '"agents"',
     requireSlash: false,
   },
 

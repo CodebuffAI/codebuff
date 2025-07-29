@@ -65,6 +65,7 @@ Note: Do not use the end_turn tool after this tool! You will want to see the out
 
 Examples:
 ${getToolCallString(toolName, { pattern: 'foo' }, endsAgentStep)}
+${getToolCallString(toolName, { pattern: 'foo\\.bar = 1\\.0' }, endsAgentStep)}
 ${getToolCallString(toolName, { pattern: 'import.*foo', cwd: 'src' }, endsAgentStep)}
 ${getToolCallString(toolName, { pattern: 'function.*authenticate', flags: '-i -t ts' }, endsAgentStep)}
 ${getToolCallString(toolName, { pattern: 'TODO', flags: '-n --type-not test' }, endsAgentStep)}

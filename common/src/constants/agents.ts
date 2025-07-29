@@ -4,75 +4,78 @@ export const AGENT_PERSONAS = {
   base: {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base agent that orchestrates the full response.',
-  },
+  } as const,
   base_lite: {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base agent that orchestrates the full response.',
-  },
+  } as const,
   base_max: {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base agent that orchestrates the full response.',
-  },
+  } as const,
   base_experimental: {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base agent that orchestrates the full response.',
-  },
+  } as const,
   claude4_gemini_thinking: {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base agent that orchestrates the full response.',
-  },
+  } as const,
 
   superagent: {
     displayName: 'Superagent',
     purpose:
       'Superagent that can spawn multiple code editing agents to complete a task.',
-  },
+  } as const,
 
   // Ask mode
   ask: {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base ask-mode agent that orchestrates the full response.',
-  },
+  } as const,
 
   // Specialized agents
   thinker: {
     displayName: 'Theo the Theorizer',
     purpose:
       'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
-  },
+  } as const,
   file_explorer: {
     displayName: 'Dora The File Explorer',
     purpose: 'Expert at exploring a codebase and finding relevant files.',
-  },
+  } as const,
   file_picker: {
     displayName: 'Fletcher the File Fetcher',
     purpose: 'Expert at finding relevant files in a codebase.',
-  },
+  } as const,
   researcher: {
     displayName: 'Reid Searcher the Researcher',
     purpose: 'Expert at researching topics using web search and documentation.',
-  },
+  } as const,
   planner: {
     displayName: 'Peter Plan the Planner',
     purpose: 'Agent that formulates a comprehensive plan to a prompt.',
     hidden: true,
-  },
+  } as const,
   dry_run: {
     displayName: 'Sketch the Dry Runner',
     purpose: 'Agent that takes a plan and try to implement it in a dry run.',
     hidden: true,
-  },
+  } as const,
   reviewer: {
     displayName: 'Nit Pick Nick the Reviewer',
     purpose:
       'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
-  },
+  } as const,
   sonnet4_agent_builder: {
-    displayName: 'Agna the Agent Builder',
+    displayName: 'Bob the Agent Builder',
     purpose: 'Creates new agent templates for the codebuff mult-agent system',
-    hidden: true,
-  },
-} as const
+    hidden: false,
+  } as const,
+} as const satisfies Record<
+  string,
+  { displayName: string; purpose: string; hidden?: boolean }
+>
 
 // Agent IDs list from AGENT_PERSONAS keys
 export const AGENT_IDS = Object.keys(
@@ -97,7 +100,7 @@ export type AgentName =
 export const UNIQUE_AGENT_NAMES = Array.from(
   new Set(
     Object.values(AGENT_PERSONAS)
-      .filter((persona) => !(persona as any).hidden)
+      .filter((persona) => !('hidden' in persona) || !persona.hidden)
       .map((persona) => persona.displayName)
   )
 )

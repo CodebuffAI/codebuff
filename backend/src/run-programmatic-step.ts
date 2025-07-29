@@ -182,21 +182,24 @@ export async function runProgrammaticStep(
       )
 
       // Add user message with the tool call before executing it
-      const toolCallString = getToolCallString(
-        toolCall.toolName,
-        toolCall.args,
-        codebuffToolDefs[toolCall.toolName].endsAgentStep
-      )
-      state.messages.push({
-        role: 'user' as const,
-        content: asUserMessage(toolCallString),
-      })
-      state.sendSubagentChunk({
-        userInputId,
-        agentId: agentState.agentId,
-        agentType: agentState.agentType!,
-        chunk: toolCallString,
-      })
+      // Exception: don't add tool call message for add_message since it adds its own message
+      if (toolCall.toolName !== 'add_message') {
+        const toolCallString = getToolCallString(
+          toolCall.toolName,
+          toolCall.args,
+          codebuffToolDefs[toolCall.toolName].endsAgentStep
+        )
+        state.messages.push({
+          role: 'user' as const,
+          content: asUserMessage(toolCallString),
+        })
+        state.sendSubagentChunk({
+          userInputId,
+          agentId: agentState.agentId,
+          agentType: agentState.agentType!,
+          chunk: toolCallString,
+        })
+      }
 
       // Execute the tool synchronously and get the result immediately
       await executeToolCall({

@@ -50,7 +50,6 @@ describe('handleSteps Parsing Tests', () => {
       outputMode: 'json' as const,
       toolNames: ['set_output'],
       subagents: [],
-      override: false as const,
       includeMessageHistory: true,
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',
@@ -115,7 +114,7 @@ describe('handleSteps Parsing Tests', () => {
     }
 
     const agentTemplates = {
-      'test-agent': {
+      'test-agent.ts': {
         ...mockAgentTemplate,
         handleSteps: handleStepsFunction.toString(),
       },
@@ -167,7 +166,7 @@ describe('handleSteps Parsing Tests', () => {
 
   test('should validate that handleSteps is a generator function', async () => {
     const agentTemplates = {
-      'test-agent': {
+      'test-agent.ts': {
         ...mockAgentTemplate,
         handleSteps: 'function () { return "not a generator" }', // Missing *
       },
@@ -209,7 +208,7 @@ describe('handleSteps Parsing Tests', () => {
 
     // Create agent templates with the function
     const agentTemplates = {
-      'test-agent': {
+      'test-agent.ts': {
         ...mockAgentTemplate,
         handleSteps: expectedStringified,
       },
