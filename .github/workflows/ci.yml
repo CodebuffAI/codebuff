@@ -53,11 +53,12 @@ jobs:
 
       - name: Typecheck and Build web in parallel
         run: |
-          timeout 10m bash -c '
-            bun run typecheck &
-            cd web && bun run build &
-            wait
-          '
+          set -e
+          bun run typecheck &
+          PID1=$!
+          cd web && bun run build &
+          PID2=$!
+          wait $PID1 && wait $PID2
 
       # - name: Build npm-app
       #   run: cd npm-app && bun run build
