@@ -21,15 +21,15 @@ function buildAnalysisPrompt(
     .map((state) => {
       const diff = createPatch(state.path, state.preContent, state.postContent)
       let content = `File: ${state.path}\n\nUnified Diff (Ground Truth):\n${diff}`
-      
+
       if (includeBeforeContent) {
         content += `\n\nPre-commit content:\n${state.preContent}`
       }
-      
+
       if (includeAfterContent) {
         content += `\n\nPost-commit content (Ground Truth):\n${state.postContent}`
       }
-      
+
       return content
     })
     .join('\n\n---\n\n')
@@ -39,25 +39,27 @@ function buildAnalysisPrompt(
     .map((state) => {
       const diff = createPatch(state.path, state.preContent, state.postContent)
       let content = `File: ${state.path}\n\nUnified Diff (Codebuff's Changes):\n${diff}`
-      
+
       if (includeBeforeContent) {
         content += `\n\nPre-commit content:\n${state.preContent}`
       }
-      
+
       if (includeAfterContent) {
         content += `\n\nPost-commit content (Codebuff's Attempt):\n${state.postContent}`
       }
-      
+
       return content
     })
     .join('\n\n---\n\n')
 
   // Build trace section
-  const traceContent = truncatedTrace || evalRun.trace
-    .map(({ prompt, steps }) =>
-      `Prompt: ${prompt}\n\nCodebuff Steps: ${JSON.stringify(steps)}`.trim()
-    )
-    .join('\n\n')
+  const traceContent =
+    truncatedTrace ||
+    evalRun.trace
+      .map(({ prompt, steps }) =>
+        `Prompt: ${prompt}\n\nCodebuff Steps: ${JSON.stringify(steps)}`.trim()
+      )
+      .join('\n\n')
 
   return `You are an expert software engineer tasked with analyzing and scoring the code quality of changes made by an AI coding assistant (Codebuff). Please analyze the following interaction trace and compare both the attempted changes and the ground truth changes.
 
@@ -107,25 +109,26 @@ Provide your response in a structured format with analysis, lists of strengths a
 function truncateTraceFromEnd(trace: any[], maxTokens: number): string {
   // Start with full trace and progressively remove from the end
   let currentTrace = [...trace]
-  
+
   while (currentTrace.length > 0) {
     const traceContent = currentTrace
       .map(({ prompt, steps }) =>
         `Prompt: ${prompt}\n\nCodebuff Steps: ${JSON.stringify(steps)}`.trim()
       )
       .join('\n\n')
-    
+
     if (countTokens(traceContent) <= maxTokens) {
-      const truncationNotice = currentTrace.length < trace.length 
-        ? `\n\n[TRACE TRUNCATED: Showing ${currentTrace.length} of ${trace.length} trace entries to fit within token limit]`
-        : ''
+      const truncationNotice =
+        currentTrace.length < trace.length
+          ? `\n\n[TRACE TRUNCATED: Showing ${currentTrace.length} of ${trace.length} trace entries to fit within token limit]`
+          : ''
       return traceContent + truncationNotice
     }
-    
+
     // Remove the last entry and try again
     currentTrace.pop()
   }
-  
+
   return '[TRACE TRUNCATED: All trace entries removed to fit within token limit]'
 }
 
@@ -134,9 +137,21 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
 
   // Try different levels of content inclusion until we fit within token limit
   const attempts = [
-    { includeBeforeContent: true, includeAfterContent: true, truncatedTrace: undefined },
-    { includeBeforeContent: false, includeAfterContent: true, truncatedTrace: undefined },
-    { includeBeforeContent: false, includeAfterContent: false, truncatedTrace: undefined },
+    {
+      includeBeforeContent: true,
+      includeAfterContent: true,
+      truncatedTrace: undefined,
+    },
+    {
+      includeBeforeContent: false,
+      includeAfterContent: true,
+      truncatedTrace: undefined,
+    },
+    {
+      includeBeforeContent: false,
+      includeAfterContent: false,
+      truncatedTrace: undefined,
+    },
   ]
 
   for (const attempt of attempts) {
@@ -146,11 +161,13 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
       attempt.includeAfterContent,
       attempt.truncatedTrace
     )
-    
+
     const tokenCount = countTokens(prompt)
-    
+
     if (tokenCount <= MAX_TOKENS) {
-      console.log(`Using prompt with ${tokenCount} tokens (before: ${attempt.includeBeforeContent}, after: ${attempt.includeAfterContent})`)
+      console.log(
+        `Using prompt with ${tokenCount} tokens (before: ${attempt.includeBeforeContent}, after: ${attempt.includeAfterContent})`
+      )
       finalPrompt = prompt
       break
     }
@@ -163,28 +180,30 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
       { ...evalRun, trace: [] }, // Empty trace
       false, // includeBeforeContent
       false, // includeAfterContent
-      ''     // empty trace content
+      '' // empty trace content
     )
     const baseTokens = countTokens(basePrompt)
     const maxTraceTokens = MAX_TOKENS - baseTokens - 100 // Reserve 100 tokens for truncation notice
-    
+
     const truncatedTrace = truncateTraceFromEnd(evalRun.trace, maxTraceTokens)
-    
+
     finalPrompt = buildAnalysisPrompt(
       evalRun,
       false, // includeBeforeContent
       false, // includeAfterContent
       truncatedTrace
     )
-    
+
     const finalTokenCount = countTokens(finalPrompt)
-    console.log(`Using truncated prompt with ${finalTokenCount} tokens (trace truncated, base: ${baseTokens}, max trace: ${maxTraceTokens})`)
+    console.log(
+      `Using truncated prompt with ${finalTokenCount} tokens (trace truncated, base: ${baseTokens}, max trace: ${maxTraceTokens})`
+    )
   }
 
   // Run 3 judges in parallel
   console.log('Running 3 judges in parallel for more robust scoring...')
-  
-  const judgePromises = Array.from({ length: 3 }, (_, index) => 
+
+  const judgePromises = Array.from({ length: 3 }, (_, index) =>
     promptAiSdkStructured({
       messages: [{ role: 'user', content: finalPrompt }],
       schema: JudgingAnalysisSchema,
@@ -193,14 +212,15 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
       fingerprintId: generateCompactId(),
       userInputId: generateCompactId(),
       userId: undefined,
-    }).catch(error => {
+      timeout: 10 * 60 * 1000, // 10 minute timeout
+    }).catch((error) => {
       console.warn(`Judge ${index + 1} failed:`, error)
       return null
     })
   )
 
   const judgeResults = await Promise.all(judgePromises)
-  const validResults = judgeResults.filter(result => result !== null)
+  const validResults = judgeResults.filter((result) => result !== null)
 
   if (validResults.length === 0) {
     throw new Error('All judges failed to provide results')
@@ -209,11 +229,15 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
   console.log(`Successfully got results from ${validResults.length}/3 judges`)
 
   // Sort judges by overall score and select the median
-  const sortedResults = validResults.sort((a, b) => a.metrics.overallScore - b.metrics.overallScore)
+  const sortedResults = validResults.sort(
+    (a, b) => a.metrics.overallScore - b.metrics.overallScore
+  )
   const medianIndex = Math.floor(sortedResults.length / 2)
   const medianResult = sortedResults[medianIndex]
 
-  console.log(`Using median judge (${medianIndex + 1} of ${sortedResults.length}) with overall score: ${medianResult.metrics.overallScore}`)
+  console.log(
+    `Using median judge (${medianIndex + 1} of ${sortedResults.length}) with overall score: ${medianResult.metrics.overallScore}`
+  )
 
   return medianResult
 }

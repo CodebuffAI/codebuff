@@ -126,8 +126,9 @@ async function runEvalSet(options: {
     console.log(`Starting ${config.name} evaluation...`)
     const evalStartTime = Date.now()
 
+    let result
     try {
-      const result = mockEval
+      result = mockEval
         ? mockRunGitEvals(MOCK_PATH)
         : await runGitEvals(
             config.evalDataPath,
@@ -136,57 +137,6 @@ async function runEvalSet(options: {
             config.limit,
             options.concurrency === 1
           )
-
-      const evalDuration = Date.now() - evalStartTime
-      console.log(
-        `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`
-      )
-
-      // Run post-eval analysis
-      if (postEvalAnalysis) {
-        console.log(`Running post-eval analysis for ${config.name}...`)
-        try {
-          const analysis = await analyzeEvalResults(result)
-          console.log(`📊 Post-eval analysis completed for ${config.name}`)
-          console.log(`\n=== ${config.name.toUpperCase()} ANALYSIS ===`)
-          console.log(`Summary: ${analysis.summary}`)
-          console.log(`\nTop Problems:`)
-          analysis.problems.forEach((problem, i) => {
-            console.log(
-              `${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}`
-            )
-            console.log(
-              `   Frequency: ${(problem.frequency * 100).toFixed(1)}%`
-            )
-            console.log(`   ${problem.description}`)
-          })
-
-          return {
-            name: config.name,
-            status: 'success' as const,
-            result,
-            analysis,
-            duration: evalDuration,
-          }
-        } catch (analysisError) {
-          console.warn(
-            `⚠️ Post-eval analysis failed for ${config.name}:`,
-            analysisError
-          )
-          return {
-            name: config.name,
-            status: 'success' as const,
-            result,
-            duration: evalDuration,
-          }
-        }
-      }
-      return {
-        name: config.name,
-        status: 'success' as const,
-        result,
-        duration: evalDuration,
-      }
     } catch (error) {
       const evalDuration = Date.now() - evalStartTime
       console.error(
@@ -200,9 +150,51 @@ async function runEvalSet(options: {
         duration: evalDuration,
       }
     }
+
+    const evalDuration = Date.now() - evalStartTime
+    console.log(
+      `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`
+    )
+
+    let analysis
+    // Run post-eval analysis
+    if (postEvalAnalysis) {
+      console.log(`Running post-eval analysis for ${config.name}...`)
+      try {
+        analysis = await analyzeEvalResults(result)
+        console.log(`📊 Post-eval analysis completed for ${config.name}`)
+        console.log(`\n=== ${config.name.toUpperCase()} ANALYSIS ===`)
+        console.log(`Summary: ${analysis.summary}`)
+        console.log(`\nTop Problems:`)
+        analysis.problems.forEach((problem, i) => {
+          console.log(
+            `${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}`
+          )
+          console.log(`   Frequency: ${(problem.frequency * 100).toFixed(1)}%`)
+          console.log(`   ${problem.description}`)
+        })
+      } catch (analysisError) {
+        console.warn(
+          `⚠️ Post-eval analysis failed for ${config.name}:`,
+          analysisError
+        )
+      }
+    }
+
+    console.log('Completed analysis', !!analysis)
+
+    return {
+      name: config.name,
+      status: 'success' as const,
+      result,
+      analysis,
+      duration: evalDuration,
+    }
   })
 
+  console.log('Running evalPromises')
   const settledResults = await Promise.allSettled(evalPromises)
+  console.log('Settled results', settledResults.length)
   settledResults.forEach((res, index) => {
     if (res.status === 'fulfilled') {
       results.push(res.value)
