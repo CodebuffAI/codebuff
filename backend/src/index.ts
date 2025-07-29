@@ -11,6 +11,8 @@ import {
 } from './admin/relabelRuns'
 import usageHandler from './api/usage'
 import { isRepoCoveredHandler } from './api/org'
+import { publishAgentHandler } from './api/agents-publish'
+import { getAgentHandler, getLatestAgentHandler } from './api/agents'
 import { env } from '@codebuff/internal'
 import { checkAdmin } from './util/check-auth'
 import { logger } from './util/logger'
@@ -35,6 +37,11 @@ app.get('/healthz', (req, res) => {
 
 app.post('/api/usage', usageHandler)
 app.post('/api/orgs/is-repo-covered', isRepoCoveredHandler)
+
+// Agent publishing endpoints
+app.post('/api/agents/publish', publishAgentHandler)
+app.get('/api/agents/:publisherId/:agentId/latest', getLatestAgentHandler)
+app.get('/api/agents/:publisherId/:agentId/:version', getAgentHandler)
 
 // Enable CORS for preflight requests to the admin relabel endpoint
 app.options('/api/admin/relabel-for-user', cors())
