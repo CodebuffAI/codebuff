@@ -41,6 +41,9 @@ let agentList: Array<{
   filePath?: string
   isCreateNew?: boolean
   isEditAgent?: boolean
+  isSeparator?: boolean
+  isPlaceholder?: boolean
+  isSectionHeader?: boolean
 }> = []
 
 export function isInAgentsMode(): boolean {
@@ -57,8 +60,15 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
   await loadLocalAgents({ verbose: false })
   const localAgents = getLoadedAgentNames()
 
-  // Build agent list with create new option at top
-  agentList = [
+  // Build management actions section with header
+  const actions: typeof agentList = [
+    {
+      id: '__header__',
+      name: bold(cyan('Actions')),
+      description: '',
+      isBuiltIn: false,
+      isSectionHeader: true,
+    },
     {
       id: '__create_new__',
       name: '+ Create New Agent',
@@ -68,35 +78,22 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
     },
   ]
 
-  // Add local agents from .agents/templates
+  // Add edit option if there are custom agents
   const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
+  let customAgentFiles: string[] = []
   if (fs.existsSync(agentsDir)) {
     const files = fs.readdirSync(agentsDir)
-    const customAgentFiles = filterCustomAgentFiles(files)
-
-    for (const file of customAgentFiles) {
-      const agentId = extractAgentIdFromFileName(file)
-      const agentName = localAgents[agentId] || agentId
-      agentList.push({
-        id: agentId,
-        name: agentName,
-        description: 'Custom user-defined agent',
-        isBuiltIn: false,
-        filePath: path.join(agentsDir, file),
-      })
-    }
+    customAgentFiles = filterCustomAgentFiles(files)
   }
 
-  // Add edit option if there are custom agents
-  const customAgentCount = agentList.length - 1 // Subtract 1 for create new option
-  if (customAgentCount > 0) {
+  if (customAgentFiles.length > 0) {
     const cliInstance = CLI.getInstance()
 
     const editAgentOption =
       cliInstance.agent === AgentTemplateTypes.sonnet4_agent_builder
         ? {
             id: '__edit_agent__',
-            name: 'Back to Base Agent',
+            name: '← Back to Base Agent',
             description: 'Switch back to the default Codebuff assistant',
             isBuiltIn: false,
             isEditAgent: true,
@@ -109,18 +106,64 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
             isEditAgent: true,
           }
 
-    agentList.splice(1, 0, editAgentOption)
+    actions.push(editAgentOption)
   }
 
-  if (agentList.length === 1 && agentList[0].isCreateNew) {
-    // Only the create new option
-    console.log(yellow(`No custom agents found in ${AGENT_TEMPLATES_DIR}`))
-    console.log(gray('Press Enter on "Create New Agent" to get started.'))
-    // Don't return - still show the create new option
+  // Add agents section header
+  actions.push({
+    id: '__agents_header__',
+    name:
+      bold(cyan('Custom Agents')) +
+      gray(` • ${customAgentFiles.length} in ${AGENT_TEMPLATES_DIR}`),
+    description: '',
+    isBuiltIn: false,
+    isSectionHeader: true,
+  })
+
+  // Build agent list starting with management actions
+  agentList = [...actions]
+
+  // Add custom agents from .agents/templates
+  if (customAgentFiles.length > 0) {
+    for (const file of customAgentFiles) {
+      const agentId = extractAgentIdFromFileName(file)
+      const agentName = localAgents[agentId] || agentId
+      agentList.push({
+        id: agentId,
+        name: agentName,
+        description: 'Custom user-defined agent',
+        isBuiltIn: false,
+        filePath: path.join(agentsDir, file),
+      })
+    }
+  } else {
+    // If no custom agents, add a helpful message
+    agentList.push({
+      id: '__no_agents__',
+      name: gray('No custom agents found'),
+      description: 'Use "Create New Agent" above to get started',
+      isBuiltIn: false,
+      isPlaceholder: true,
+    })
   }
 
-  // Initialize selection
+  // No need for special handling here since we now have a proper placeholder
+
+  // Initialize selection to first selectable item
   selectedIndex = 0
+  // Find first selectable item (skip section headers, separators, placeholders)
+  while (
+    selectedIndex < agentList.length &&
+    (agentList[selectedIndex]?.isSectionHeader ||
+      agentList[selectedIndex]?.isSeparator ||
+      agentList[selectedIndex]?.isPlaceholder)
+  ) {
+    selectedIndex++
+  }
+  // If no selectable items found, default to 0
+  if (selectedIndex >= agentList.length) {
+    selectedIndex = 0
+  }
   scrollOffset = 0
 
   // Enter alternate screen buffer
@@ -188,13 +231,7 @@ function centerSelectedItem() {
 }
 
 const getHeaderLines = (terminalWidth: number) => [
-  bold(cyan('🤖 ')) + bold(magenta('Agent Templates')),
-  gray(
-    `${pluralize(Math.max(0, agentList.length - 1), 'custom agent')} in ${AGENT_TEMPLATES_DIR}`
-  ),
-  '',
-  gray('─'.repeat(terminalWidth)),
-  '',
+  // No header - sections will be labeled inline
 ]
 
 function buildAllContentLines() {
@@ -210,9 +247,96 @@ function buildAllContentLines() {
       const agent = agentList[i]
       const isSelected = i === selectedIndex
 
-      const agentInfo = agent.isCreateNew
-        ? `${green(agent.name)}`
-        : `${bold(agent.name)} ${gray(`(${agent.id})`)}`
+      // Handle section headers
+      if (agent.isSectionHeader) {
+        const cleanName = agent.name.replace(/\u001b\[[0-9;]*m/g, '')
+        const cleanDescription = agent.description
+          ? agent.description.replace(/\u001b\[[0-9;]*m/g, '')
+          : ''
+        const availableWidth = terminalWidth - 4 // Account for padding
+
+        if (isSelected) {
+          const headerWidth = Math.min(terminalWidth - 6, 60)
+          lines.push(`  ${cyan('┌' + '─'.repeat(headerWidth + 2) + '┐')}`)
+
+          // Right-aligned title with separator line
+          const titlePadding = Math.max(0, headerWidth - cleanName.length - 4)
+          const separatorLine = '─'.repeat(titlePadding)
+          lines.push(
+            `  ${cyan('│')} ${gray(separatorLine)}  ${agent.name} ${cyan('│')}`
+          )
+
+          if (agent.description) {
+            const descPadding = Math.max(
+              0,
+              headerWidth - cleanDescription.length
+            )
+            lines.push(
+              `  ${cyan('│')} ${agent.description}${' '.repeat(descPadding)} ${cyan('│')}`
+            )
+          }
+          lines.push(`  ${cyan('└' + '─'.repeat(headerWidth + 2) + '┘')}`)
+        } else {
+          // Right-aligned title with separator line for unselected
+          const titlePadding = Math.max(
+            0,
+            availableWidth - cleanName.length - 4
+          )
+          const separatorLine = gray('─'.repeat(titlePadding))
+          lines.push(`  ${separatorLine}  ${agent.name}`)
+
+          if (agent.description) {
+            lines.push(`  ${agent.description}`)
+          }
+        }
+        if (i < agentList.length - 1) {
+          lines.push('') // Empty line after section header
+        }
+        continue
+      }
+
+      // Handle separator (keep for backwards compatibility)
+      if (agent.isSeparator) {
+        if (isSelected) {
+          lines.push(`  ${cyan('┌' + '─'.repeat(52) + '┐')}`)
+          lines.push(`  ${cyan('│')} ${gray(agent.name)} ${cyan('│')}`)
+          lines.push(`  ${cyan('└' + '─'.repeat(52) + '┘')}`)
+        } else {
+          lines.push(`    ${gray(agent.name)}`)
+        }
+        if (i < agentList.length - 1) {
+          lines.push('') // Empty line after separator
+        }
+        continue
+      }
+
+      // Handle placeholder
+      if (agent.isPlaceholder) {
+        if (isSelected) {
+          const boxWidth = Math.min(terminalWidth - 6, 50)
+          lines.push(`  ${cyan('┌' + '─'.repeat(boxWidth + 2) + '┐')}`)
+          lines.push(
+            `  ${cyan('│')} ${agent.name} ${' '.repeat(Math.max(0, boxWidth - agent.name.replace(/\u001b\[[0-9;]*m/g, '').length))} ${cyan('│')}`
+          )
+          lines.push(
+            `  ${cyan('│')} ${gray(agent.description || '')} ${' '.repeat(Math.max(0, boxWidth - (agent.description || '').length))} ${cyan('│')}`
+          )
+          lines.push(`  ${cyan('└' + '─'.repeat(boxWidth + 2) + '┘')}`)
+        } else {
+          lines.push(`    ${agent.name}`)
+          lines.push(`    ${gray(agent.description || '')}`)
+        }
+        if (i < agentList.length - 1) {
+          lines.push('') // Empty line between items
+        }
+        continue
+      }
+
+      // Regular agent items
+      const agentInfo =
+        agent.isCreateNew || agent.isEditAgent
+          ? `${agent.isCreateNew ? green(agent.name) : magenta(agent.name)}`
+          : `${bold(agent.name)} ${gray(`(${agent.id})`)}`
       const description = agent.description || 'No description'
       const filePath = agent.filePath
         ? gray(`File: ${path.relative(getProjectRoot(), agent.filePath)}`)
@@ -328,6 +452,16 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
     if (key && key.name === 'return') {
       if (agentList.length > 0 && selectedIndex < agentList.length) {
         const selectedAgent = agentList[selectedIndex]
+
+        // Skip separators, placeholders, and section headers
+        if (
+          selectedAgent.isSeparator ||
+          selectedAgent.isPlaceholder ||
+          selectedAgent.isSectionHeader
+        ) {
+          return
+        }
+
         if (selectedAgent.isCreateNew) {
           exitAgentsBuffer(rl)
           startAgentCreationChat(rl, onExit, () => {})
@@ -356,26 +490,38 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
       return
     }
 
-    // Handle 'n' key - create new agent
-    if (key && key.name === 'n') {
-      exitAgentsBuffer(rl)
-      startAgentCreationChat(rl, onExit, () => {})
-      return
-    }
-
-    // Handle navigation
+    // Handle navigation - skip separators, placeholders, and section headers
     if (key && (key.name === 'up' || key.name === 'k')) {
-      if (selectedIndex > 0) {
-        selectedIndex--
-        centerSelectedItem()
-        renderAgentsList()
+      let newIndex = selectedIndex - 1
+      while (
+        newIndex >= 0 &&
+        (agentList[newIndex]?.isSeparator ||
+          agentList[newIndex]?.isPlaceholder ||
+          agentList[newIndex]?.isSectionHeader)
+      ) {
+        newIndex--
       }
+      if (newIndex >= 0) {
+        selectedIndex = newIndex
+        centerSelectedItem()
+      }
+
+      const statusLine = `\n${gray(`Use ↑/↓/j/k to navigate, Enter to select, ESC to go back`)}`
+      renderAgentsList()
       return
     }
-
     if (key && (key.name === 'down' || key.name === 'j')) {
-      if (selectedIndex < agentList.length - 1) {
-        selectedIndex++
+      let newIndex = selectedIndex + 1
+      while (
+        newIndex < agentList.length &&
+        (agentList[newIndex]?.isSeparator ||
+          agentList[newIndex]?.isPlaceholder ||
+          agentList[newIndex]?.isSectionHeader)
+      ) {
+        newIndex++
+      }
+      if (newIndex < agentList.length) {
+        selectedIndex = newIndex
         centerSelectedItem()
         renderAgentsList()
       }
