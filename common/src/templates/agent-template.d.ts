@@ -59,9 +59,6 @@ export interface AgentConfig {
    * but usually not necessary for smart models. Prefer instructionsPrompt for most instructions. */
   stepPrompt: string
 
-  /** Instructions for specific parent agents on when to spawn this agent as a subagent. */
-  parentInstructions?: Record<SubagentName, string>
-
   // ============================================================================
   // Input and Output
   // ============================================================================

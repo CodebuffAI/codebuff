@@ -134,6 +134,7 @@ export const DynamicAgentConfigSchema = z.object({
   systemPrompt: z.string().optional(),
   instructionsPrompt: z.string().optional(),
   stepPrompt: z.string(),
+  // NOTE: Removed from AgentConfig. If there's a need, can be added back or else removed entirely.
   parentInstructions: z.record(z.string(), z.string()).optional(),
 
   // Optional generator function for programmatic agents

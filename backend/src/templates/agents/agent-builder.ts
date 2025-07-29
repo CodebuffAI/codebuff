@@ -122,18 +122,9 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       "1. Understand the requested agent's purpose and capabilities",
       "2. Choose appropriate tools for the agent's function",
       '3. Write a comprehensive system prompt',
-      '4. **Generate proper parentInstructions** - these tell parent agents when to spawn this agent',
-      `5. Create the complete agent template file in ${AGENT_TEMPLATES_DIR}`,
-      '6. Ensure the template follows all conventions and best practices',
-      '7. Use the AgentConfig interface for the configuration',
-      '',
-      '## Critical: parentInstructions Field',
-      'The parentInstructions field is crucial - it tells parent agents when to call your custom agent. For example:',
-      '- A file-picker agent should have: { "base": "Spawn when you need to find relevant files in the codebase" }',
-      '- A test-writer agent should have: { "base": "Spawn when you need to write or update unit tests" }',
-      '- A code-reviewer agent should have: { "base": "Spawn when you need to review code changes for quality and best practices" }',
-      '',
-      'Always include parentInstructions that clearly describe when parent agents should spawn this custom agent.',
+      `4. Create the complete agent template file in ${AGENT_TEMPLATES_DIR}`,
+      '5. Ensure the template follows all conventions and best practices',
+      '6. Use the AgentConfig interface for the configuration',
       '',
       'Create agent templates that are focused, efficient, and well-documented. Always import the AgentConfig type and export a default configuration object.',
     ].join('\n'),
@@ -217,18 +208,8 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
 - Use the AgentConfig interface
 - Include appropriate tools based on the specialty
 - Write a comprehensive system prompt
-- **CRITICAL: Include parentInstructions** - tell parent agents when to spawn this agent
 - Follow naming conventions and best practices
 - Export a default configuration object
-
-**parentInstructions Example:**
-For a ${requirements.specialty} agent, include something like:
-${'```'}typescript
-parentInstructions: {
-  "base": "Spawn when you need help with ${requirements.specialty} tasks",
-  // Add other parent agents as appropriate
-}
-${'```'}
 
 Please create the complete agent template now.`,
           },
