@@ -24,6 +24,8 @@ import {
   startAgentCreationChat,
   createAgentFromRequirements,
 } from './agent-creation-chat'
+import { enterMiniChat } from './mini-chat'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
 let isInAgentsBuffer = false
 let originalKeyHandlers: ((str: string, key: any) => void)[] = []
@@ -38,6 +40,7 @@ let agentList: Array<{
   isBuiltIn: boolean
   filePath?: string
   isCreateNew?: boolean
+  isEditAgent?: boolean
 }> = []
 
 export function isInAgentsMode(): boolean {
@@ -82,6 +85,18 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
         filePath: path.join(agentsDir, file),
       })
     }
+  }
+
+  // Add edit option if there are custom agents
+  const customAgentCount = agentList.length - 1 // Subtract 1 for create new option
+  if (customAgentCount > 0) {
+    agentList.splice(1, 0, {
+      id: '__edit_agent__',
+      name: '✏️ Edit Agents',
+      description: 'Edit existing custom agents',
+      isBuiltIn: false,
+      isEditAgent: true,
+    })
   }
 
   if (agentList.length === 1 && agentList[0].isCreateNew) {
@@ -296,13 +311,16 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
       return
     }
 
-    // Handle Enter - switch to selected agent or create new
+    // Handle Enter - switch to selected agent, create new, or edit
     if (key && key.name === 'return') {
       if (agentList.length > 0 && selectedIndex < agentList.length) {
         const selectedAgent = agentList[selectedIndex]
         if (selectedAgent.isCreateNew) {
           exitAgentsBuffer(rl)
           startAgentCreationChat(rl, onExit, () => {})
+        } else if (selectedAgent.isEditAgent) {
+          exitAgentsBuffer(rl)
+          startAgentEditFlow(rl, onExit)
         } else {
           exitAgentsBuffer(rl)
           // Start spinner for agent switching
@@ -401,6 +419,74 @@ function startAgentCreationChatHandler(rl: any, onExit: () => void) {
     await createAgentFromRequirements(requirements)
     onExit()
   })
+}
+
+function startAgentEditFlow(rl: any, onExit: () => void) {
+  // Get list of custom agents to show in the prompt
+  const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
+  if (!fs.existsSync(agentsDir)) {
+    console.log(yellow('No custom agents found to edit.'))
+    onExit()
+    return
+  }
+
+  const files = fs.readdirSync(agentsDir)
+  const customAgentFiles = filterCustomAgentFiles(files)
+
+  if (customAgentFiles.length === 0) {
+    console.log(yellow('No custom agents found to edit.'))
+    onExit()
+    return
+  }
+
+  // Build list of available agents for the prompt
+  const localAgents = getLoadedAgentNames()
+  const agentsList = customAgentFiles
+    .map((file) => {
+      const agentId = extractAgentIdFromFileName(file)
+      const agentName = localAgents[agentId] || agentId
+      const filePath = path.join(agentsDir, file)
+      return `- **${agentName}** (${agentId}) - ${path.relative(getProjectRoot(), filePath)}`
+    })
+    .join('\n')
+
+  // Create edit prompt for agent-builder
+  const editPrompt = `I want to edit one of my existing custom agent templates. Here are the available agents:
+
+${agentsList}
+
+Please help me modify one of these agents. Just tell me which agent you'd like to edit and what changes you want to make. I can:
+- Change the agent's name, purpose, or specialty
+- Update the system prompt
+- Modify the tools and capabilities
+- Adjust the model or other settings
+- Update the parentInstructions
+
+Which agent would you like to edit and what changes do you want to make?`
+
+  // Use the agent-builder to edit agents
+  const cliInstance = CLI.getInstance()
+  cliInstance
+    .resetAgent(
+      AgentTemplateTypes.sonnet4_agent_builder,
+      {
+        editMode: true,
+      },
+      editPrompt
+    )
+    .then(() => {
+      console.log(green(`\n✏️ Ready to edit your agents!`))
+      console.log(
+        gray(
+          'Tell the agent-builder which agent to edit and what changes to make.'
+        )
+      )
+      cliInstance.freshPrompt()
+    })
+    .catch((error) => {
+      console.error(red('Error starting agent edit:'), error)
+      onExit()
+    })
 }
 
 // Cleanup function
