@@ -6,6 +6,7 @@ import {
   ToolResult,
   type AgentTemplateType,
 } from '@codebuff/common/types/session-state'
+import { resolveAgentId } from '@codebuff/common/util/agent-id-resolver'
 import { WebSocket } from 'ws'
 
 import { renderToolResults } from '@codebuff/common/constants/tools'
@@ -107,31 +108,20 @@ export const mainPrompt = async (
   const { agentRegistry } = await getAllAgentTemplates({ fileContext })
 
   if (agentId) {
-    // Find agent by ID in registry (check both registry keys and template IDs)
-    let resolvedAgentKey = agentId
-    
-    // First check if agentId is a direct registry key
-    if (!(agentId in agentRegistry)) {
-      // If not found, search by template ID
-      const foundEntry = Object.entries(agentRegistry).find(
-        ([, template]) => template.id === agentId
+    // Resolve agent ID using robust resolution strategy
+    const resolvedAgentId = resolveAgentId(agentId, agentRegistry)
+
+    if (!resolvedAgentId) {
+      const availableAgents = Object.keys(agentRegistry)
+      throw new Error(
+        `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`
       )
-      
-      if (foundEntry) {
-        resolvedAgentKey = foundEntry[0]
-      } else {
-        const availableAgents = Object.keys(agentRegistry)
-        throw new Error(
-          `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`
-        )
-      }
     }
 
-    agentType = resolvedAgentKey
+    agentType = resolvedAgentId
     logger.info(
       {
         agentId,
-        resolvedAgentKey,
         promptParams,
         prompt: prompt?.slice(0, 50),
       },
