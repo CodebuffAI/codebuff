@@ -1,4 +1,4 @@
-import type { ToolName } from '@codebuff/common/constants/tools'
+import type { ToolName } from '@codebuff/common/tools/constants'
 import type { PrintModeObject } from '@codebuff/common/types/print-mode'
 import type { ToolResult } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -7,10 +7,8 @@ import type { AgentTemplate } from '../templates/types'
 import type { ClientToolCall, CodebuffToolCall } from './constants'
 import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
 
-import {
-  endsAgentStepParam,
-  renderToolResults,
-} from '@codebuff/common/constants/tools'
+import { endsAgentStepParam } from '@codebuff/common/tools/constants'
+import { renderToolResults } from '@codebuff/common/tools/utils'
 import { generateCompactId } from '@codebuff/common/util/string'
 import z from 'zod/v4'
 import { checkLiveUserInput } from '../live-user-inputs'

@@ -1,8 +1,7 @@
-import {
-  endsAgentStepParam,
-  getToolCallString,
-  ToolName,
-} from '@codebuff/common/constants/tools'
+import type { ToolName } from '@codebuff/common/tools/constants'
+
+import { endsAgentStepParam } from '@codebuff/common/tools/constants'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import z from 'zod/v4'
 import { codebuffToolDefs } from './definitions/list'
@@ -96,15 +95,11 @@ However, **DO NOT** narrate the tool or parameter names themselves.
 User: can you update the console logs in example/file.ts?
 Assistant: Sure thing! Let's update that file!
 
-${getToolCallString(
-  'write_file',
-  {
-    path: 'path/to/example/file.ts',
-    instructions: 'Update the console logs',
-    content: "console.log('Hello from Buffy!');",
-  },
-  false
-)}
+${getToolCallString('write_file', {
+  path: 'path/to/example/file.ts',
+  instructions: 'Update the console logs',
+  content: "console.log('Hello from Buffy!');",
+})}
 
 All done with the update!
 User: thanks it worked! :)

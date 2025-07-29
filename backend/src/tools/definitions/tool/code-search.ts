@@ -1,36 +1,10 @@
-import type { CodebuffToolDef } from '../tool-def-type'
+import type { ToolDescription } from '../tool-def-type'
 
-import { getToolCallString } from '@codebuff/common/constants/tools'
-import z from 'zod/v4'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 
 const toolName = 'code_search'
-const endsAgentStep = true
 export const codeSearchTool = {
   toolName,
-  endsAgentStep,
-  parameters: z
-    .object({
-      pattern: z
-        .string()
-        .min(1, 'Pattern cannot be empty')
-        .describe(`The pattern to search for.`),
-      flags: z
-        .string()
-        .optional()
-        .describe(
-          `Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not test" to exclude test files).`
-        ),
-      cwd: z
-        .string()
-        .optional()
-        .describe(
-          `Optional working directory to search within, relative to the project root. Defaults to searching the entire project.`
-        ),
-    })
-    .describe(
-      `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`
-    ),
-
   description: `
 Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
 
@@ -64,10 +38,10 @@ Advanced ripgrep flags (use the flags parameter):
 Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
 
 Examples:
-${getToolCallString(toolName, { pattern: 'foo' }, endsAgentStep)}
-${getToolCallString(toolName, { pattern: 'foo\\.bar = 1\\.0' }, endsAgentStep)}
-${getToolCallString(toolName, { pattern: 'import.*foo', cwd: 'src' }, endsAgentStep)}
-${getToolCallString(toolName, { pattern: 'function.*authenticate', flags: '-i -t ts' }, endsAgentStep)}
-${getToolCallString(toolName, { pattern: 'TODO', flags: '-n --type-not test' }, endsAgentStep)}
+${getToolCallString(toolName, { pattern: 'foo' })}
+${getToolCallString(toolName, { pattern: 'foo\\.bar = 1\\.0' })}
+${getToolCallString(toolName, { pattern: 'import.*foo', cwd: 'src' })}
+${getToolCallString(toolName, { pattern: 'function.*authenticate', flags: '-i -t ts' })}
+${getToolCallString(toolName, { pattern: 'TODO', flags: '-n --type-not test' })}
     `.trim(),
-} satisfies CodebuffToolDef
+} satisfies ToolDescription

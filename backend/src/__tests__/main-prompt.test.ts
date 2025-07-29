@@ -24,13 +24,13 @@ import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
 import {
-  getToolCallString,
-  renderToolResults,
-} from '@codebuff/common/constants/tools'
-import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
+import {
+  getToolCallString,
+  renderToolResults,
+} from '@codebuff/common/tools/utils'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import * as websocketAction from '../websockets/websocket-action'
@@ -303,15 +303,11 @@ describe('mainPrompt', () => {
   it('should handle write_file tool call', async () => {
     // Mock LLM to return a write_file tool call using getToolCallString
     const mockResponse =
-      getToolCallString(
-        'write_file',
-        {
-          path: 'new-file.txt',
-          instructions: 'Added Hello World',
-          content: 'Hello, world!',
-        },
-        false
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('write_file', {
+        path: 'new-file.txt',
+        instructions: 'Added Hello World',
+        content: 'Hello, world!',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
 
@@ -478,14 +474,10 @@ describe('mainPrompt', () => {
     const expectedCommand = 'cd backend && bun test'
 
     const mockResponse =
-      getToolCallString(
-        'run_terminal_command',
-        {
-          command: escapedCommand,
-          process_type: 'SYNC',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('run_terminal_command', {
+        command: escapedCommand,
+        process_type: 'SYNC',
+      }) + getToolCallString('end_turn', {})
 
     mockAgentStream(mockResponse)
 

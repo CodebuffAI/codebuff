@@ -18,11 +18,11 @@ import {
 } from 'bun:test'
 import { WebSocket } from 'ws'
 
-import { renderToolResults } from '@codebuff/common/constants/tools'
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
+import { renderToolResults } from '@codebuff/common/tools/utils'
 import {
   clearAgentGeneratorCache,
   runProgrammaticStep,

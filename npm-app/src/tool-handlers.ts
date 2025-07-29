@@ -1,5 +1,5 @@
-import { spawn } from 'child_process'
 import { closeXml } from '@codebuff/common/util/xml'
+import { spawn } from 'child_process'
 import * as path from 'path'
 
 import { FileChangeSchema } from '@codebuff/common/actions'
@@ -14,7 +14,7 @@ import { getRgPath } from './native/ripgrep'
 import { logger } from './utils/logger'
 
 import { SHOULD_ASK_CONFIG } from '@codebuff/common/constants'
-import { renderToolResults } from '@codebuff/common/constants/tools'
+import { renderToolResults } from '@codebuff/common/tools/utils'
 import { ToolCall } from '@codebuff/common/types/session-state'
 import { handleBrowserInstruction } from './browser-runner'
 import { waitForPreviousCheckpoint } from './cli-handlers/checkpoint'
@@ -84,10 +84,10 @@ export const handleUpdateFile: ToolHandler<{
       `Failed to write to ${file}; file path caused an error or file could not be written`
     )
   }
-  
+
   // Note: File change hooks are now run in batches by the backend via run_file_change_hooks tool
   // This prevents repeated hook execution when multiple files are changed in one invocation
-  
+
   return result.join('\n')
 }
 

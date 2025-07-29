@@ -13,7 +13,7 @@ import { WebSocket } from 'ws'
 import { mainPrompt } from '../main-prompt'
 
 // Mock imports needed for setup within the test
-import { getToolCallString } from '@codebuff/common/constants/tools'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import * as checkTerminalCommandModule from '../check-terminal-command'
@@ -325,13 +325,9 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     sessionState.mainAgentState.messageHistory.push(
       {
         role: 'assistant',
-        content: getToolCallString(
-          'read_files',
-          {
-            paths: 'src/util/messages.ts',
-          },
-          true
-        ),
+        content: getToolCallString('read_files', {
+          paths: 'src/util/messages.ts',
+        }),
       },
       {
         role: 'user',
@@ -413,13 +409,9 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       sessionState.mainAgentState.messageHistory.push(
         {
           role: 'assistant',
-          content: getToolCallString(
-            'read_files',
-            {
-              paths: 'packages/backend/src/index.ts',
-            },
-            true
-          ),
+          content: getToolCallString('read_files', {
+            paths: 'packages/backend/src/index.ts',
+          }),
         },
         {
           role: 'user',

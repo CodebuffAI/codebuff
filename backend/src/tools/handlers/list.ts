@@ -1,4 +1,4 @@
-import type { ToolName } from '@codebuff/common/constants/tools'
+import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolHandlerFunction } from './handler-function-type'
 
 import { handleAddMessage } from './tool/add-message'

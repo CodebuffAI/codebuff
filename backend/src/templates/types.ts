@@ -1,14 +1,14 @@
-import { z } from 'zod/v4'
-
-import { Model } from '@codebuff/common/constants'
-import { ToolName } from '@codebuff/common/constants/tools'
-import {
+import type { Model } from '@codebuff/common/constants'
+import type { ToolName } from '@codebuff/common/tools/constants'
+import type {
   AgentState,
   AgentTemplateType,
-  AgentTemplateTypes,
   ToolResult,
 } from '@codebuff/common/types/session-state'
-import { CodebuffToolCall } from '../tools/constants'
+import type { z } from 'zod/v4'
+import type { CodebuffToolCall } from '../tools/constants'
+
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
 export type AgentTemplate<
   P = string | undefined,

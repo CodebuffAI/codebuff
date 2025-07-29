@@ -1,5 +1,5 @@
 import { Model, models } from '@codebuff/common/constants'
-import { getToolCallString } from '@codebuff/common/constants/tools'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
 import { PLACEHOLDER } from './types'
@@ -64,10 +64,10 @@ Messages from the system are surrounded by <system>${closeXml('system')} or <sys
 
 - **Don't summarize your changes** Omit summaries as much as possible. Be extremely concise when explaining the changes you made. There's no need to write a long explanation of what you did. Keep it to 1-2 two sentences max.
 - **Ending Your Response:** Your aim should be to completely fulfill the user's request before using ending your response. DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before stopping, even if you have done a lot of work so far.
-- **FINALLY, YOU MUST USE THE END TURN TOOL** When you have fully answered the user _or_ you are explicitly waiting for the user's next typed input, always conclude the message with a standalone \`${getToolCallString('end_turn', {}, true)}\` tool call (surrounded by its required blank lines). This should be at the end of your message, e.g.:
+- **FINALLY, YOU MUST USE THE END TURN TOOL** When you have fully answered the user _or_ you are explicitly waiting for the user's next typed input, always conclude the message with a standalone \`${getToolCallString('end_turn', {})}\` tool call (surrounded by its required blank lines). This should be at the end of your message, e.g.:
     <example>
     User: Hi
-    Assisistant: Hello, what can I do for you today?\\n\\n${getToolCallString('end_turn', {}, true)}
+    Assisistant: Hello, what can I do for you today?\\n\\n${getToolCallString('end_turn', {})}
     ${closeXml('example')}
 
 ## Verifying Your Changes at the End of Your Response
@@ -90,11 +90,11 @@ User: Explain what the component Foo does.
 
 Assistant: Certainly! Let's start by reading the file:
 
-${getToolCallString('read_files', { paths: ['src/components/foo.tsx'] }, true)}
+${getToolCallString('read_files', { paths: ['src/components/foo.tsx'] })}
 
 The foo file does {insert explanation here}.
 
-${getToolCallString('end_turn', {}, true)}
+${getToolCallString('end_turn', {})}
 
 ${PLACEHOLDER.TOOLS_PROMPT}
 

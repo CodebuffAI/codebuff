@@ -4,11 +4,11 @@ process.env.LINKUP_API_KEY = 'test-api-key'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/constants'
-import { getToolCallString } from '@codebuff/common/constants/tools'
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterAll,
@@ -99,13 +99,9 @@ describe('web_search tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString(
-        'web_search',
-        {
-          query: 'test query',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('web_search', {
+        query: 'test query',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -149,13 +145,9 @@ describe('web_search tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString(
-        'web_search',
-        {
-          query: 'Next.js 15 new features',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('web_search', {
+        query: 'Next.js 15 new features',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -216,14 +208,10 @@ describe('web_search tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString(
-        'web_search',
-        {
-          query: 'React Server Components tutorial',
-          depth: 'deep',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('web_search', {
+        query: 'React Server Components tutorial',
+        depth: 'deep',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -264,13 +252,9 @@ describe('web_search tool with researcher agent', () => {
     spyOn(linkupApi, 'searchWeb').mockImplementation(async () => null)
 
     const mockResponse =
-      getToolCallString(
-        'web_search',
-        {
-          query: 'very obscure search query that returns nothing',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('web_search', {
+        query: 'very obscure search query that returns nothing',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -331,13 +315,9 @@ describe('web_search tool with researcher agent', () => {
     })
 
     const mockResponse =
-      getToolCallString(
-        'web_search',
-        {
-          query: 'test query',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('web_search', {
+        query: 'test query',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -394,13 +374,9 @@ describe('web_search tool with researcher agent', () => {
     spyOn(linkupApi, 'searchWeb').mockImplementation(async () => null)
 
     const mockResponse =
-      getToolCallString(
-        'web_search',
-        {
-          query: 'test query',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('web_search', {
+        query: 'test query',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -444,13 +420,9 @@ describe('web_search tool with researcher agent', () => {
     })
 
     const mockResponse =
-      getToolCallString(
-        'web_search',
-        {
-          query: 'test query',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('web_search', {
+        query: 'test query',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -509,13 +481,9 @@ describe('web_search tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString(
-        'web_search',
-        {
-          query: 'test formatting',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('web_search', {
+        query: 'test formatting',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse

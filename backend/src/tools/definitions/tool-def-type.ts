@@ -1,9 +1,6 @@
-import { ToolName } from '@codebuff/common/constants/tools'
-import { z } from 'zod/v4'
+import type { ToolName } from '@codebuff/common/tools/constants'
 
-export type CodebuffToolDef = {
-  toolName: ToolName
-  parameters: z.ZodObject<any>
+export type ToolDescription<T extends ToolName = ToolName> = {
+  toolName: T
   description: string
-  endsAgentStep: boolean
 }

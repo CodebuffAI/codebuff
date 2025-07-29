@@ -1,37 +1,10 @@
-import type { CodebuffToolDef } from '../tool-def-type'
+import type { ToolDescription } from '../tool-def-type'
 
-import { getToolCallString } from '@codebuff/common/constants/tools'
-import z from 'zod/v4'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 
 const toolName = 'read_docs'
-const endsAgentStep = true
 export const readDocsTool = {
   toolName,
-  endsAgentStep,
-  parameters: z
-    .object({
-      libraryTitle: z
-        .string()
-        .min(1, 'Library title cannot be empty')
-        .describe(
-          `The exact library or framework name (e.g., "Next.js", "MongoDB", "React"). Use the official name as it appears in documentation, not a search query.`
-        ),
-      topic: z
-        .string()
-        .optional()
-        .describe(
-          `Optional specific topic to focus on (e.g., "routing", "hooks", "authentication")`
-        ),
-      max_tokens: z
-        .number()
-        .optional()
-        .describe(
-          `Optional maximum number of tokens to return. Defaults to 10000. Values less than 10000 are automatically increased to 10000.`
-        ),
-    })
-    .describe(
-      `Fetch up-to-date documentation for libraries and frameworks using Context7 API.`
-    ),
   description: `
 Purpose: Get current, accurate documentation for popular libraries, frameworks, and technologies. This tool searches Context7's database of up-to-date documentation and returns relevant content.
 
@@ -52,22 +25,14 @@ Use cases:
 The tool will search for the library and return the most relevant documentation content. If a topic is specified, it will focus the results on that specific area.
 
 Example:
-${getToolCallString(
-  toolName,
-  {
-    libraryTitle: 'Next.js',
-    topic: 'app router',
-    max_tokens: 15000,
-  },
-  endsAgentStep
-)}
+${getToolCallString(toolName, {
+  libraryTitle: 'Next.js',
+  topic: 'app router',
+  max_tokens: 15000,
+})}
 
-${getToolCallString(
-  toolName,
-  {
-    libraryTitle: 'MongoDB',
-  },
-  endsAgentStep
-)}
+${getToolCallString(toolName, {
+  libraryTitle: 'MongoDB',
+})}
     `.trim(),
-} satisfies CodebuffToolDef
+} satisfies ToolDescription

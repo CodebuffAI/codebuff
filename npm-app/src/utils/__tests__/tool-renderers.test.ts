@@ -5,8 +5,7 @@ import { createXMLStreamParser } from '../xml-stream-parser'
 
 import * as projectFiles from '../../project-files'
 
-// @ts-ignore
-import { getToolCallString } from '@codebuff/common/constants/tools'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import * as projectFileTree from '@codebuff/common/project-file-tree'
 import {
   afterEach,
@@ -53,41 +52,29 @@ describe('Tool renderers with XML parser', () => {
   }
 
   test('formats write_file tool call', async () => {
-    const xml = getToolCallString(
-      'write_file',
-      {
-        path: 'test.ts',
-        content: 'console.log("test");\n',
-      },
-      false
-    )
+    const xml = getToolCallString('write_file', {
+      path: 'test.ts',
+      content: 'console.log("test");\n',
+    })
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
     expect(stripped).toBe('\n\n[Write File]\nEditing file at test.ts...\n\n')
   })
 
   test('formats read_files tool call', async () => {
-    const xml = getToolCallString(
-      'read_files',
-      {
-        paths: ['file1.ts', 'file2.ts'],
-      },
-      false
-    )
+    const xml = getToolCallString('read_files', {
+      paths: ['file1.ts', 'file2.ts'],
+    })
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
     expect(stripped).toBe('\n\n[Read Files]\nfile1.ts\nfile2.ts\n\n')
   })
 
   test('formats set_output tool call', async () => {
-    const xml = getToolCallString(
-      'set_output',
-      {
-        message: 'Task completed successfully',
-        result: { status: 'success', count: 42 },
-      },
-      false
-    )
+    const xml = getToolCallString('set_output', {
+      message: 'Task completed successfully',
+      result: { status: 'success', count: 42 },
+    })
     const output = await processXML(xml)
     const stripped = stripAnsi(output)
     expect(stripped).toContain('[Set Output]')

@@ -2,7 +2,7 @@ import {
   endsAgentStepParam,
   toolNameParam,
   toolXmlName,
-} from '@codebuff/common/constants/tools'
+} from '@codebuff/common/tools/constants'
 import { getPartialJsonDelta } from '@codebuff/common/util/partial-json-delta'
 import { Saxy } from '@codebuff/common/util/saxy'
 import { defaultToolCallRenderer, ToolCallRenderer } from './tool-renderers'

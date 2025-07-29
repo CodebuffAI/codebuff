@@ -1,4 +1,4 @@
-import type { ToolName } from '@codebuff/common/constants/tools'
+import type { ToolName } from '@codebuff/common/tools/constants'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ClientToolCall, CodebuffToolCall } from '../constants'
 

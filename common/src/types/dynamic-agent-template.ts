@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
-import { toolNames } from '../constants/tools'
+import { toolNames } from '../tools/constants'
 import { AgentConfig } from '../util/agent-config'
 
 // Filter models to only include those that begin with allowed prefixes

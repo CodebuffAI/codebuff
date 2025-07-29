@@ -1,25 +1,10 @@
-import type { CodebuffToolDef } from '../tool-def-type'
+import type { ToolDescription } from '../tool-def-type'
 
-import { getToolCallString } from '@codebuff/common/constants/tools'
-import z from 'zod/v4'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 
 const toolName = 'write_file'
-const endsAgentStep = false
 export const writeFileTool = {
   toolName,
-  endsAgentStep,
-  parameters: z
-    .object({
-      path: z
-        .string()
-        .min(1, 'Path cannot be empty')
-        .describe(`Path to the file relative to the **project root**`),
-      instructions: z
-        .string()
-        .describe('What the change is intended to do in only one sentence.'),
-      content: z.string().describe(`Edit snippet to apply to the file.`),
-    })
-    .describe(`Create or edit a file with the given content.`),
   description: `
 #### **IMPORTANT** Edit Snippet
 
@@ -72,34 +57,24 @@ Notes for editing a file:
 - After you have written out a write_file block, the changes will be applied immediately. You can assume that the changes went through as intended. However, note that there are sometimes mistakes in the processs of applying the edits you described in the write_file block, e.g. sometimes large portions of the file are deleted. If you notice that the changes did not go through as intended, based on further updates to the file, you can write out a new write_file block to fix the mistake.
 
 Examples:
-${getToolCallString(
-  toolName,
-  {
-    path: 'path/to/file',
-    instructions: 'How the file is being updated',
-    content: 'Your file content here',
-  },
-  endsAgentStep
-)}
+${getToolCallString(toolName, {
+  path: 'path/to/file',
+  instructions: 'How the file is being updated',
+  content: 'Your file content here',
+})}
 
 Example 1 - Simple file creation:
-${getToolCallString(
-  toolName,
-  {
-    path: 'new-file.ts',
-    instructions: 'Prints Hello, world',
-    content: 'console.log("Hello, world!");',
-  },
-  endsAgentStep
-)}
+${getToolCallString(toolName, {
+  path: 'new-file.ts',
+  instructions: 'Prints Hello, world',
+  content: 'console.log("Hello, world!");',
+})}
 
 Example 2 - Editing with placeholder comments:
-${getToolCallString(
-  toolName,
-  {
-    path: 'foo.ts',
-    instructions: 'Update foo and remove console.log',
-    content: `// ... existing code ...
+${getToolCallString(toolName, {
+  path: 'foo.ts',
+  instructions: 'Update foo and remove console.log',
+  content: `// ... existing code ...
 
 function foo() {
   console.log('foo');
@@ -112,9 +87,7 @@ function foo() {
 }
 
 // ... existing code ...`,
-  },
-  endsAgentStep
-)}
+})}
 
     `.trim(),
-} satisfies CodebuffToolDef
+} satisfies ToolDescription
