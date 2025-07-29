@@ -107,19 +107,31 @@ export const mainPrompt = async (
   const { agentRegistry } = await getAllAgentTemplates({ fileContext })
 
   if (agentId) {
-    // Initialize agent registry to validate agent ID
-
+    // Find agent by ID in registry (check both registry keys and template IDs)
+    let resolvedAgentKey = agentId
+    
+    // First check if agentId is a direct registry key
     if (!(agentId in agentRegistry)) {
-      const availableAgents = Object.keys(agentRegistry)
-      throw new Error(
-        `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`
+      // If not found, search by template ID
+      const foundEntry = Object.entries(agentRegistry).find(
+        ([, template]) => template.id === agentId
       )
+      
+      if (foundEntry) {
+        resolvedAgentKey = foundEntry[0]
+      } else {
+        const availableAgents = Object.keys(agentRegistry)
+        throw new Error(
+          `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`
+        )
+      }
     }
 
-    agentType = agentId
+    agentType = resolvedAgentKey
     logger.info(
       {
         agentId,
+        resolvedAgentKey,
         promptParams,
         prompt: prompt?.slice(0, 50),
       },
