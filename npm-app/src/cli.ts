@@ -9,13 +9,13 @@ import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
-import { ASYNC_AGENTS_ENABLED} from '@codebuff/common/constants'
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getAllAgents,
   getAgentDisplayName,
 } from '@codebuff/common/util/agent-name-resolver'
-import { isDir} from '@codebuff/common/util/file'
+import { isDir } from '@codebuff/common/util/file'
 import { pluralize } from '@codebuff/common/util/string'
 import {
   blueBright,
@@ -103,8 +103,10 @@ import { Spinner } from './utils/spinner'
 import { withHangDetection } from './utils/with-hang-detection'
 
 // Cache for local agent info to avoid async issues in sync methods
-let cachedLocalAgentInfo: Record<string, { displayName: string; purpose?: string }> =
-  {}
+let cachedLocalAgentInfo: Record<
+  string,
+  { displayName: string; purpose?: string }
+> = {}
 
 /**
  * Get local agent names using the proper agent loading logic
@@ -118,7 +120,10 @@ async function getLocalAgentInfo(): Promise<
     const agentInfo = Object.fromEntries(
       Object.entries(loadedAgents).map(([agentType, agentConfig]) => [
         agentType,
-        { displayName: agentConfig.displayName, purpose: agentConfig.parentPrompt },
+        {
+          displayName: agentConfig.displayName,
+          purpose: agentConfig.parentPrompt,
+        },
       ])
     )
     cachedLocalAgentInfo = agentInfo // Update cache
@@ -410,7 +415,9 @@ export class CLI {
       // Get all agent names using functional API
       const localAgentInfo = getCachedLocalAgentInfo()
       const allAgentNames = [
-        ...new Set(getAllAgents(localAgentInfo).map((agent) => agent.displayName)),
+        ...new Set(
+          getAllAgents(localAgentInfo).map((agent) => agent.displayName)
+        ),
       ]
 
       // Filter agent names that match the search term
@@ -519,7 +526,7 @@ export class CLI {
   }
 
   public async resetAgent(
-    agent: string,
+    agent?: string,
     initialParams?: Record<string, any>,
     userPrompt?: string
   ) {
@@ -534,7 +541,10 @@ export class CLI {
 
     // Get agent display name for user feedback
     const localAgentInfo = await getLocalAgentInfo()
-    const agentDisplayName = getAgentDisplayName(agent, localAgentInfo)
+    const agentDisplayName = getAgentDisplayName(
+      agent || 'base',
+      localAgentInfo
+    )
 
     // Tell user who they're working with now
     Spinner.get().stop()

@@ -90,13 +90,26 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
   // Add edit option if there are custom agents
   const customAgentCount = agentList.length - 1 // Subtract 1 for create new option
   if (customAgentCount > 0) {
-    agentList.splice(1, 0, {
-      id: '__edit_agent__',
-      name: '✏️ Edit Agents',
-      description: 'Edit existing custom agents',
-      isBuiltIn: false,
-      isEditAgent: true,
-    })
+    const cliInstance = CLI.getInstance()
+
+    const editAgentOption =
+      cliInstance.agent === AgentTemplateTypes.sonnet4_agent_builder
+        ? {
+            id: '__edit_agent__',
+            name: 'Back to Base Agent',
+            description: 'Switch back to the default Codebuff assistant',
+            isBuiltIn: false,
+            isEditAgent: true,
+          }
+        : {
+            id: '__edit_agent__',
+            name: '✏️ Edit Agents',
+            description: 'Edit existing custom agents',
+            isBuiltIn: false,
+            isEditAgent: true,
+          }
+
+    agentList.splice(1, 0, editAgentOption)
   }
 
   if (agentList.length === 1 && agentList[0].isCreateNew) {
@@ -422,6 +435,21 @@ function startAgentCreationChatHandler(rl: any, onExit: () => void) {
 }
 
 function startAgentEditFlow(rl: any, onExit: () => void) {
+  const cliInstance = CLI.getInstance()
+
+  if (cliInstance.agent === AgentTemplateTypes.sonnet4_agent_builder) {
+    cliInstance
+      .resetAgent(undefined) // Reset to base agent (no specific agent)
+      .then(() => {
+        cliInstance.freshPrompt()
+      })
+      .catch((error) => {
+        console.error(red('Error switching back to base agent:'), error)
+        onExit()
+      })
+    return
+  }
+
   // Get list of custom agents to show in the prompt
   const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
   if (!fs.existsSync(agentsDir)) {
@@ -465,7 +493,6 @@ Please help me modify one of these agents. Just tell me which agent you'd like t
 Which agent would you like to edit and what changes do you want to make?`
 
   // Use the agent-builder to edit agents
-  const cliInstance = CLI.getInstance()
   cliInstance
     .resetAgent(
       AgentTemplateTypes.sonnet4_agent_builder,
