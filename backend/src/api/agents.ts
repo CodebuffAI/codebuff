@@ -17,7 +17,7 @@ export async function getAgentHandler(
 ): Promise<void | ExpressResponse> {
   try {
     const { publisherId, agentId, version } = req.params
-    
+
     if (!publisherId || !agentId || !version) {
       return res.status(400).json({ error: 'Missing required parameters' })
     }
@@ -26,9 +26,9 @@ export async function getAgentHandler(
     const publisher = await db
       .select()
       .from(schema.publisher)
-      .where(eq(schema.publisher.slug, publisherId))
-      .then(rows => rows[0])
-    
+      .where(eq(schema.publisher.id, publisherId))
+      .then((rows) => rows[0])
+
     if (!publisher) {
       return res.status(404).json({ error: 'Publisher not found' })
     }
@@ -44,8 +44,8 @@ export async function getAgentHandler(
           eq(schema.agentTemplate.publisher_id, publisher.id)
         )
       )
-      .then(rows => rows[0])
-    
+      .then((rows) => rows[0])
+
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' })
     }
@@ -73,7 +73,7 @@ export async function getLatestAgentHandler(
 ): Promise<void | ExpressResponse> {
   try {
     const { publisherId, agentId } = req.params
-    
+
     if (!publisherId || !agentId) {
       return res.status(400).json({ error: 'Missing required parameters' })
     }
@@ -82,9 +82,9 @@ export async function getLatestAgentHandler(
     const publisher = await db
       .select()
       .from(schema.publisher)
-      .where(eq(schema.publisher.slug, publisherId))
-      .then(rows => rows[0])
-    
+      .where(eq(schema.publisher.id, publisherId))
+      .then((rows) => rows[0])
+
     if (!publisher) {
       return res.status(404).json({ error: 'Publisher not found' })
     }
@@ -105,8 +105,8 @@ export async function getLatestAgentHandler(
         desc(schema.agentTemplate.patch)
       )
       .limit(1)
-      .then(rows => rows[0])
-    
+      .then((rows) => rows[0])
+
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' })
     }

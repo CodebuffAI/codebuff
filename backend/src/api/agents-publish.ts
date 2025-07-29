@@ -95,7 +95,7 @@ export async function publishAgentHandler(
     if (existingAgent) {
       return res.status(409).json({
         error: 'Version already exists',
-        details: `Agent '${agentId}' version '${version}' already exists for publisher '${publisher.slug}'`,
+        details: `Agent '${agentId}' version '${version}' already exists for publisher '${publisher.id}'`,
       })
     }
 
@@ -114,7 +114,7 @@ export async function publishAgentHandler(
     logger.info(
       {
         userId,
-        publisherId: publisher.slug,
+        publisherId: publisher.id,
         agentId,
         version,
         agentTemplateId: newAgent.id,
@@ -127,7 +127,7 @@ export async function publishAgentHandler(
       agent: {
         id: newAgent.id,
         version: newAgent.version,
-        publisherId: publisher.slug,
+        publisherId: publisher.id,
         createdAt: newAgent.created_at,
       },
     })

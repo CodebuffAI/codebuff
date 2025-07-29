@@ -422,10 +422,7 @@ export const gitEvalResults = pgTable('git_eval_results', {
 
 // Agent Store tables
 export const publisher = pgTable('publisher', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  slug: text('slug').unique().notNull(), // for store reference
+  id: text('id').primaryKey(), // user-selectable id
   name: text('name').notNull(),
   email: text('email'), // optional, for support
   verified: boolean('verified').notNull().default(false),
