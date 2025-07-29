@@ -8,6 +8,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { cyan, green } from 'picocolors'
 import { getProjectRoot } from '../project-files'
+import { CodebuffConfig } from '@codebuff/common/json-config/constants'
 
 export let loadedAgents: Record<string, DynamicAgentTemplate> = {}
 
@@ -66,7 +67,9 @@ export async function loadLocalAgents({
         loadedAgents[file.slice(0, -'.ts'.length)] = {
           ...typedAgentConfig,
           systemPrompt: loadFileContents(typedAgentConfig.systemPrompt),
-          instructionsPrompt: loadFileContents(typedAgentConfig.instructionsPrompt),
+          instructionsPrompt: loadFileContents(
+            typedAgentConfig.instructionsPrompt
+          ),
           stepPrompt: loadFileContents(typedAgentConfig.stepPrompt),
 
           handleSteps: handleStepsString,
@@ -89,15 +92,30 @@ export function getLoadedAgentNames(): Record<string, string> {
 /**
  * Display loaded agents to the user
  */
-export function displayLoadedAgents() {
-  if (Object.keys(loadedAgents).length === 0) {
-    return
+export function displayLoadedAgents(codebuffConfig: CodebuffConfig) {
+  const baseAgent = codebuffConfig.baseAgent
+  if (baseAgent) {
+    console.log(`\n${green('Configured base agent:')} ${cyan(baseAgent)}`)
   }
-  console.log(
-    `\n${green('Found custom agents:')} ${Object.values(getLoadedAgentNames())
-      .map((name) => cyan(name))
-      .join(', ')}\n`
-  )
+
+  const subagents = codebuffConfig.subagents
+  if (subagents) {
+    console.log(
+      `${green('Configured subagents:')} ${subagents
+        .map((name) => cyan(name))
+        .join(', ')}\n`
+    )
+  } else if (Object.keys(loadedAgents).length > 0) {
+    const loadedAgentNames = Object.values(getLoadedAgentNames())
+    console.log(
+      `\n${green('Found custom agents:')} ${loadedAgentNames
+        .map((name) => cyan(name))
+        .join(', ')}\n`
+    )
+  } else if (baseAgent) {
+    // One more new line.
+    console.log()
+  }
 }
 
 export function loadFileContents(promptField: PromptField | undefined): string {

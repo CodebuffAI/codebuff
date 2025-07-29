@@ -832,7 +832,6 @@ export class CLI {
       clearScreen()
 
       // from index.ts
-      const config = loadCodebuffConfig()
       await killAllBackgroundProcesses()
       const processStartPromise = logAndHandleStartup()
       const initFileContextPromise = initProjectFileContextWithWorker(
