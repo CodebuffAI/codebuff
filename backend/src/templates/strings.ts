@@ -1,3 +1,5 @@
+import type { ToolName } from '@codebuff/common/tools/constants'
+
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
 import {
@@ -16,7 +18,7 @@ import {
   getToolsInstructions,
 } from '../tools/prompts'
 
-import { renderToolResults, ToolName } from '@codebuff/common/constants/tools'
+import { renderToolResults } from '@codebuff/common/tools/utils'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { escapeString, generateCompactId } from '@codebuff/common/util/string'
 import { parseUserMessage } from '../util/messages'

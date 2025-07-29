@@ -1,7 +1,7 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/constants'
-import { getToolCallString } from '@codebuff/common/constants/tools'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import {
@@ -135,15 +135,11 @@ describe('runAgentStep - set_output tool', () => {
 
   it('should set output with simple key-value pair', async () => {
     const mockResponse =
-      getToolCallString(
-        'set_output',
-        {
-          message: 'Hi',
-        },
-        false
-      ) +
+      getToolCallString('set_output', {
+        message: 'Hi',
+      }) +
       '\n\n' +
-      getToolCallString('end_turn', {}, true)
+      getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -180,15 +176,11 @@ describe('runAgentStep - set_output tool', () => {
 
   it('should set output with complex data', async () => {
     const mockResponse =
-      getToolCallString(
-        'set_output',
-        {
-          message: 'Analysis complete',
-          status: 'success',
-          findings: ['Bug in auth.ts', 'Missing validation'],
-        },
-        false
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('set_output', {
+        message: 'Analysis complete',
+        status: 'success',
+        findings: ['Bug in auth.ts', 'Missing validation'],
+      }) + getToolCallString('end_turn', {})
     console.log('mockResponse', mockResponse)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
@@ -228,14 +220,10 @@ describe('runAgentStep - set_output tool', () => {
 
   it('should replace existing output data', async () => {
     const mockResponse =
-      getToolCallString(
-        'set_output',
-        {
-          newField: 'new value',
-          existingField: 'updated value',
-        },
-        false
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('set_output', {
+        newField: 'new value',
+        existingField: 'updated value',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -277,8 +265,7 @@ describe('runAgentStep - set_output tool', () => {
 
   it('should handle empty output parameter', async () => {
     const mockResponse =
-      getToolCallString('set_output', {}, false) +
-      getToolCallString('end_turn', {}, true)
+      getToolCallString('set_output', {}) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse

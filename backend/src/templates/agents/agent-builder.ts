@@ -1,16 +1,16 @@
+import type { Model } from '@codebuff/common/constants'
+import type { ToolName } from '@codebuff/common/tools/constants'
+import type { AgentTemplate } from '../types'
+
 import * as fs from 'fs'
 import * as path from 'path'
 
 import {
-  Model,
-  openrouterModels,
   AGENT_TEMPLATES_DIR,
+  openrouterModels,
 } from '@codebuff/common/constants'
-import { ToolName } from '@codebuff/common/constants/tools'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
-
-import { AgentTemplate } from '../types'
 
 const TEMPLATE_RELATIVE_PATH =
   '../../../../common/src/templates/agent-template.d.ts' as const

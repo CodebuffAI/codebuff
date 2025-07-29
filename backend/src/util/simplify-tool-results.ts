@@ -1,6 +1,6 @@
 import { ToolResult } from '@codebuff/common/types/session-state'
 
-import { renderToolResults } from '@codebuff/common/constants/tools'
+import { renderToolResults } from '@codebuff/common/tools/utils'
 import { parseReadFilesResult, parseToolResults } from './parse-tool-call-xml'
 
 /**

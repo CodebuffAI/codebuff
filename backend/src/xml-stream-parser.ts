@@ -6,7 +6,7 @@ import {
   endToolTag,
   startToolTag,
   toolNameParam,
-} from '@codebuff/common/constants/tools'
+} from '@codebuff/common/tools/constants'
 import {
   PrintModeError,
   PrintModeText,

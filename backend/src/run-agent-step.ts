@@ -8,7 +8,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getToolCallString,
   renderToolResults,
-} from '@codebuff/common/constants/tools'
+} from '@codebuff/common/tools/utils'
 import { CodebuffMessage } from '@codebuff/common/types/message'
 import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import {
@@ -29,7 +29,7 @@ import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { agentTemplates } from './templates/agent-list'
 import { AgentRegistry } from './templates/agent-registry'
-import { formatPrompt, getAgentPrompt } from './templates/strings'
+import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { logger } from './util/logger'
 import {
@@ -547,7 +547,7 @@ export const loopAgentSteps = async (
 
     if (shouldEndTurn) {
       const hasEndTurn = fullResponse.includes(
-        getToolCallString('end_turn', {}, true)
+        getToolCallString('end_turn', {})
       )
       return {
         agentState: newAgentState,

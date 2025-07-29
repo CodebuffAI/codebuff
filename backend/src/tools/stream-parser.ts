@@ -1,4 +1,4 @@
-import type { ToolName } from '@codebuff/common/constants/tools'
+import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { PrintModeObject } from '@codebuff/common/types/print-mode'
 import type {
@@ -12,7 +12,7 @@ import type { WebSocket } from 'ws'
 import type { AgentTemplate } from '../templates/types'
 import type { CodebuffToolCall } from './constants'
 
-import { toolNames } from '@codebuff/common/constants/tools'
+import { toolNames } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { expireMessages } from '../util/messages'

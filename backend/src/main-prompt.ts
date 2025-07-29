@@ -9,7 +9,7 @@ import {
 import { resolveAgentId } from '@codebuff/common/util/agent-name-normalization'
 import { WebSocket } from 'ws'
 
-import { renderToolResults } from '@codebuff/common/constants/tools'
+import { renderToolResults } from '@codebuff/common/tools/utils'
 import { PrintModeObject } from '@codebuff/common/types/print-mode'
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'

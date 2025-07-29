@@ -1,8 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { endToolTag } from '@codebuff/common/constants/tools'
-
+import { endToolTag } from '@codebuff/common/tools/constants'
 import { getProjectRoot } from './project-files'
 
 interface SubagentMessage {

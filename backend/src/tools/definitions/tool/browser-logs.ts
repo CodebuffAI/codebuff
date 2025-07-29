@@ -1,33 +1,10 @@
-import type { CodebuffToolDef } from '../tool-def-type'
+import type { ToolDescription } from '../tool-def-type'
 
-import { getToolCallString } from '@codebuff/common/constants/tools'
-import z from 'zod/v4'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 
 const toolName = 'browser_logs'
-const endsAgentStep = true
 export const browserLogsTool = {
   toolName,
-  endsAgentStep,
-  parameters: z
-    .object({
-      type: z
-        .string()
-        .min(1, 'Type cannot be empty')
-        .describe('The type of browser action to perform (e.g., "navigate").'),
-      url: z
-        .string()
-        .min(1, 'URL cannot be empty')
-        .describe('The URL to navigate to.'),
-      waitUntil: z
-        .enum(['load', 'domcontentloaded', 'networkidle0'])
-        .optional()
-        .describe(
-          "When to consider navigation successful. Defaults to 'load'."
-        ),
-    })
-    .describe(
-      `In a headless browser, navigate to a web page and get the console logs after page load.`
-    ),
   description: `
 Purpose: Use this tool to check the output of console.log or errors in order to debug issues, test functionality, or verify expected behavior.
 
@@ -71,14 +48,10 @@ Navigate:
    - \`waitUntil\`: (required) One of 'load', 'domcontentloaded', 'networkidle0'
 
 Example:
-${getToolCallString(
-  toolName,
-  {
-    type: 'navigate',
-    url: 'localhost:3000',
-    waitUntil: 'domcontentloaded',
-  },
-  endsAgentStep
-)}
+${getToolCallString(toolName, {
+  type: 'navigate',
+  url: 'localhost:3000',
+  waitUntil: 'domcontentloaded',
+})}
     `.trim(),
-} satisfies CodebuffToolDef
+} satisfies ToolDescription

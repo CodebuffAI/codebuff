@@ -1,15 +1,15 @@
-import { getToolCallString } from '@codebuff/common/constants/tools'
-import { PrintModeObject } from '@codebuff/common/types/print-mode'
-import {
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type {
   AgentState,
   AgentTemplateType,
   ToolResult,
 } from '@codebuff/common/types/session-state'
-import { ProjectFileContext } from '@codebuff/common/util/file'
-import { WebSocket } from 'ws'
-import { AgentTemplate, StepGenerator } from './templates/types'
-import { CodebuffToolCall } from './tools/constants'
-import { codebuffToolDefs } from './tools/definitions/list'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { WebSocket } from 'ws'
+import type { AgentTemplate, StepGenerator } from './templates/types'
+import type { CodebuffToolCall } from './tools/constants'
+
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
 import { asUserMessage } from './util/messages'
@@ -182,11 +182,7 @@ export async function runProgrammaticStep(
       )
 
       // Add user message with the tool call before executing it
-      const toolCallString = getToolCallString(
-        toolCall.toolName,
-        toolCall.args,
-        codebuffToolDefs[toolCall.toolName].endsAgentStep
-      )
+      const toolCallString = getToolCallString(toolCall.toolName, toolCall.args)
       state.messages.push({
         role: 'user' as const,
         content: asUserMessage(toolCallString),
