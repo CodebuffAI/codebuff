@@ -40,13 +40,14 @@ const createMockFileContext = (
     homedir: '/test',
     cpus: 1,
   },
+  tokenCallers: {},
 })
 
 describe('Parent Instructions Injection', () => {
   it('should inject parent instructions into instructionsPrompt', async () => {
     // Mock file context with agent templates
     const fileContext = createMockFileContext({
-      'knowledge-keeper': {
+      'knowledge-keeper.ts': {
         version: '1.0.0',
         id: 'knowledge-keeper',
         displayName: 'Knowledge Keeper',
@@ -66,7 +67,7 @@ describe('Parent Instructions Injection', () => {
         instructionsPrompt: 'Process the user request.',
         stepPrompt: 'Continue processing.',
       },
-      researcher: {
+      'researcher.ts': {
         version: '1.0.0',
         id: 'researcher',
         displayName: 'Researcher',
@@ -117,7 +118,7 @@ describe('Parent Instructions Injection', () => {
   it('should not inject parent instructions when none exist', async () => {
     // Mock file context with agent templates without parentInstructions
     const fileContext = createMockFileContext({
-      researcher: {
+      'researcher.ts': {
         version: '1.0.0',
         id: 'researcher',
         override: false,
@@ -154,7 +155,7 @@ describe('Parent Instructions Injection', () => {
   it('should handle multiple agents with instructions for the same target', async () => {
     // Mock file context with multiple agents having instructions for researcher
     const fileContext = createMockFileContext({
-      'knowledge-keeper': {
+      'knowledge-keeper.ts': {
         version: '1.0.0',
         id: 'knowledge-keeper',
         displayName: 'Knowledge Keeper',
@@ -172,7 +173,7 @@ describe('Parent Instructions Injection', () => {
         instructionsPrompt: 'Process the user request.',
         stepPrompt: 'Continue processing.',
       },
-      planner: {
+      'planner.ts': {
         version: '1.0.0',
         id: 'planner',
         displayName: 'Planner',
@@ -190,7 +191,7 @@ describe('Parent Instructions Injection', () => {
         instructionsPrompt: 'Plan the task.',
         stepPrompt: 'Continue planning.',
       },
-      researcher: {
+      'researcher.ts': {
         version: '1.0.0',
         id: 'researcher',
         displayName: 'Researcher',

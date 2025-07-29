@@ -73,7 +73,7 @@ describe('Dynamic Agent Loader', () => {
     const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        brainstormer: {
+        'brainstormer.ts': {
           id: 'brainstormer',
           version: '1.0.0',
           override: false,
@@ -104,7 +104,7 @@ describe('Dynamic Agent Loader', () => {
     const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        invalid: {
+        'invalid.ts': {
           id: 'invalid_agent',
           version: '1.0.0',
           override: false,
@@ -134,7 +134,7 @@ describe('Dynamic Agent Loader', () => {
     const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        custom: {
+        'custom.ts': {
           id: 'custom_agent',
           version: '1.0.0',
           override: false,
@@ -165,7 +165,7 @@ describe('Dynamic Agent Loader', () => {
     const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        'schema-agent': {
+        'schema-agent.ts': {
           id: 'schema_agent',
           version: '1.0.0',
           override: false,
@@ -210,7 +210,7 @@ describe('Dynamic Agent Loader', () => {
     const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        'invalid-schema-agent': {
+        'invalid-schema-agent.ts': {
           id: 'invalid_schema_agent',
           version: '1.0.0',
           override: false,
@@ -251,7 +251,7 @@ describe('Dynamic Agent Loader', () => {
     const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        'no-override-field': {
+        'no-override-field.ts': {
           id: 'no_override_agent',
           version: '1.0.0',
           // No override field - should be treated as non-override
@@ -282,7 +282,7 @@ describe('Dynamic Agent Loader', () => {
     const fileContext: ProjectFileContext = {
       ...mockFileContext,
       agentTemplates: {
-        'git-committer': {
+        'git-committer.ts': {
           id: 'CodebuffAI/git-committer',
           version: '0.0.1',
           override: false,
@@ -297,7 +297,7 @@ describe('Dynamic Agent Loader', () => {
           includeMessageHistory: true,
           toolNames: ['end_turn'],
         },
-        spawner: {
+        'spawner.ts': {
           id: 'spawner_agent',
           version: '1.0.0',
           override: false,

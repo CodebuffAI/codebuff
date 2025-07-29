@@ -38,7 +38,7 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'no-prompt-schema': {
+          'no-prompt-schema.ts': {
             id: 'no_prompt_schema_agent',
             version: '1.0.0',
             override: false,
@@ -71,7 +71,7 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'no-params-schema': {
+          'no-params-schema.ts': {
             id: 'no_params_schema_agent',
             version: '1.0.0',
             override: false,
@@ -106,7 +106,7 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'both-schemas': {
+          'both-schemas.ts': {
             id: 'both_schemas_agent',
             version: '1.0.0',
             override: false,
@@ -176,7 +176,7 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'complex-schema': {
+          'complex-schema.ts': {
             id: 'complex_schema_agent',
             version: '1.0.0',
             override: false,
@@ -259,7 +259,7 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'error-context': {
+          'error-context.ts': {
             id: 'error_context_agent',
             version: '1.0.0',
             override: false,
@@ -287,7 +287,7 @@ describe('Dynamic Agent Schema Validation', () => {
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].message).toContain('in error-context')
-      expect(result.validationErrors[0].filePath).toBe('error-context')
+      expect(result.validationErrors[0].filePath).toBe('error-context.ts')
     })
   })
 
@@ -296,7 +296,7 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'git-committer': {
+          'git-committer.ts': {
             id: 'CodebuffAI/git-committer',
             version: '0.0.1',
             override: false,
@@ -357,7 +357,7 @@ describe('Dynamic Agent Schema Validation', () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,
         agentTemplates: {
-          'empty-schema': {
+          'empty-schema.ts': {
             id: 'empty_schema_agent',
             version: '1.0.0',
             override: false,

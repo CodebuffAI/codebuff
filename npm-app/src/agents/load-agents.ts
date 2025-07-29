@@ -4,6 +4,7 @@ import {
   DynamicAgentTemplate,
   PromptField,
 } from '@codebuff/common/types/dynamic-agent-template'
+import { filterCustomAgentFiles } from '@codebuff/common/util/agent-file-utils'
 import * as fs from 'fs'
 import * as path from 'path'
 import { cyan, green } from 'picocolors'
@@ -71,6 +72,7 @@ export async function loadLocalAgents({
         }
         continue
       }
+      
       try {
         agentConfig = agentModule.default
       } catch (error: any) {
@@ -101,7 +103,6 @@ export async function loadLocalAgents({
           typedAgentConfig.instructionsPrompt
         ),
         stepPrompt: loadFileContents(typedAgentConfig.stepPrompt),
-
         handleSteps: handleStepsString,
       }
     }
