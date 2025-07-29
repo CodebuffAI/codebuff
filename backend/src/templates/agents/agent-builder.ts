@@ -111,9 +111,9 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       '',
       '## Best Practices:',
       '',
-      '1. **Purpose-Driven**: Each agent should have a clear, specific purpose',
+      '1. **Use as few fields as possible**: Leave out fields that are not needed to reduce complexity. Use as few fields as possible to accomplish the task.',
       '2. **Minimal Tools**: Only include tools the agent actually needs',
-      '3. **Clear Prompts**: Write clear, specific system prompts',
+      '3. **Clear and Concise Prompts**: Write clear, specific prompts that have no unnecessary words',
       '4. **Consistent Naming**: Follow naming conventions (kebab-case for IDs)',
       '5. **Appropriate Model**: Choose the right model for the task complexity',
       '',
@@ -141,8 +141,8 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
 
 For new agents, analyze their request and create a complete agent template that:
 - Has a clear purpose and appropriate capabilities
+- Leaves out fields that are not needed.
 - Uses only the tools it needs
-- Has a well-written system prompt
 - Follows naming conventions
 - Is properly structured
 
@@ -156,25 +156,10 @@ For editing existing agents:
 When editing, always start by reading the current agent file to understand its structure before making changes. Ask clarifying questions if needed, then create or update the template file in the appropriate location.
 
 IMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.`,
-    stepPrompt: `Continue working on the agent template creation or editing. Focus on:
-- Understanding the requirements
-- Creating or updating a well-structured template
-- Following best practices
-- Ensuring the agent will work effectively for its intended purpose
-- For edits: preserving existing functionality while making requested changes
-
-IMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.`,
+    stepPrompt: '',
 
     // Generator function that defines the agent's execution flow
-    handleSteps: function* ({
-      agentState,
-      prompt,
-      params,
-    }: {
-      agentState: any
-      prompt: string | undefined
-      params: Record<string, any> | undefined
-    }) {
+    handleSteps: function* ({ agentState, prompt, params }) {
       // Step 1: Create directory structure
       yield {
         toolName: 'run_terminal_command',
@@ -252,12 +237,6 @@ Please create the complete agent template now.`,
 
       // Step 5: Complete agent creation process
       yield 'STEP_ALL'
-
-      // Step 6: End the turn explicitly
-      yield {
-        toolName: 'end_turn',
-        args: {},
-      }
     },
   }
 }

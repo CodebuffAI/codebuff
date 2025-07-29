@@ -43,10 +43,11 @@ export interface AgentConfig {
   // Prompts
   // ============================================================================
 
-  /** Prompt for when to spawn this agent as a subagent. Include the main purpose and use cases. */
+  /** Prompt for when to spawn this agent as a subagent. Include the main purpose and use cases.
+   * This field is key if the agent is a subagent and intended to be spawned. */
   parentPrompt?: string
 
-  /** Background information for the agent. Prefer using instructionsPrompt for agent instructions. */
+  /** Background information for the agent. Fairly optional. Prefer using instructionsPrompt for agent instructions. */
   systemPrompt?: string
 
   /** Instructions for the agent.
@@ -55,7 +56,7 @@ export interface AgentConfig {
   instructionsPrompt?: string
 
   /** Prompt inserted at each agent step. Powerful for changing the agent's behavior,
-   * but prefer instructionsPrompt for most instructions. */
+   * but usually not necessary for smart models. Prefer instructionsPrompt for most instructions. */
   stepPrompt: string
 
   /** Instructions for specific parent agents on when to spawn this agent as a subagent. */
@@ -65,19 +66,26 @@ export interface AgentConfig {
   // Input and Output
   // ============================================================================
 
-  /** The input schema required to spawn the agent. Provide a prompt string and/or a params object. */
+  /** The input schema required to spawn the agent. Provide a prompt string and/or a params object or none.
+   * 80% of the time you want just a prompt string with a description:
+   * inputSchema: {
+   *   prompt: { type: 'string', description: 'A description of what info would be helpful to the agent' }
+   * }
+   */
   inputSchema?: {
     prompt?: { type: 'string'; description?: string }
     params?: JsonSchema
   }
 
-  /** Whether to include conversation history (defaults to true) */
+  /** Whether to include conversation history. Defaults to false.
+   * Use this if the agent needs to know all the previous messages in the conversation.
+   */
   includeMessageHistory?: boolean
 
   /** How the agent should output a response to its parent (defaults to 'last_message')
    * last_message: The last message from the agent, typcically after using tools.
    * all_messages: All messages from the agent, including tool calls and results.
-   * json: Make the agent output a structured JSON object. Can be used with outputSchema or without if you want freeform json output.
+   * json: Make the agent output a JSON object. Can be used with outputSchema or without if you want freeform json output.
    */
   outputMode?: 'last_message' | 'all_messages' | 'json'
 
@@ -97,13 +105,34 @@ export interface AgentConfig {
    *
    * Or use 'return' to end the turn.
    *
-   * Example:
+   * Example 1:
    * function* handleSteps({ agentStep, prompt, params}) {
    *   const { toolResult } = yield {
    *     toolName: 'read_files',
    *     args: { paths: ['file1.txt', 'file2.txt'] }
    *   }
    *   yield 'STEP_ALL'
+   * }
+   *
+   * Example 2:
+   * handleSteps: function* ({ agentState, prompt, params }) {
+   *   while (true) {
+   *     yield {
+   *       toolName: 'spawn_agents',
+   *       args: {
+   *         agents: [
+   *         {
+   *           agent_type: 'thinker',
+   *           prompt: 'Think deeply about the user request',
+   *         },
+   *       ],
+   *     },
+   *   }
+   *   const { toolResult: thinkResult } = yield 'STEP'
+   *   if (thinkResult?.toolName === 'end_turn') {
+   *     break
+   *   }
+   * }
    * }
    */
   handleSteps?: (
