@@ -27,6 +27,7 @@ import {
   yellow,
 } from 'picocolors'
 
+import { PrintModeFinish } from '@codebuff/common/types/print-mode'
 import {
   killAllBackgroundProcesses,
   sendKillSignalToAllBackgroundProcesses,
@@ -1201,6 +1202,17 @@ export class CLI {
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
 
+    if (printModeIsEnabled()) {
+      const finishObj: PrintModeFinish = {
+        type: 'finish',
+        totalCost: totalCreditsUsedThisSession,
+      }
+      const agentId = CLI.getInstance().agent
+      if (agentId) {
+        finishObj.agentId = agentId
+      }
+      printModeLog(finishObj)
+    }
     let exitUsageMessage = `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session`
     if (client.usageData.remainingBalance !== null) {
       exitUsageMessage += `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`
