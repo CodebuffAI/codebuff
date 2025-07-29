@@ -53,11 +53,21 @@ jobs:
 
       - name: Typecheck and Build web in parallel
         run: |
-          timeout 10m bash -c '
-            bun run typecheck &
-            cd web && bun run build &
-            wait
-          '
+          bun -e "
+          const { spawn } = require('child_process');
+          function runCommand(command, args, options = {}) {
+            return new Promise((resolve, reject) => {
+              const child = spawn(command, args, { stdio: 'inherit', ...options });
+              child.on('close', (code) => code === 0 ? resolve() : reject(new Error('Command failed with exit code ' + code)));
+              child.on('error', reject);
+            });
+          }
+          Promise.all([
+            runCommand('bun', ['run', 'typecheck']),
+            runCommand('bun', ['run', 'build'], { cwd: 'web' })
+          ]).then(() => console.log('✅ Both typecheck and web build completed successfully!'))
+          .catch(error => { console.error('❌ One or more commands failed:', error.message); process.exit(1); });
+          "
 
       # - name: Build npm-app
       #   run: cd npm-app && bun run build

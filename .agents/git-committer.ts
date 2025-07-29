@@ -1,9 +1,4 @@
-import {
-  AgentConfig,
-  AgentStepContext,
-  ToolResult,
-  ToolCall,
-} from './agent-config'
+import { AgentConfig, AgentStepContext } from './agent-config'
 
 const config: AgentConfig = {
   id: 'git-committer',
@@ -12,7 +7,7 @@ const config: AgentConfig = {
   model: 'anthropic/claude-4-sonnet-20250522',
 
   parentPrompt:
-    'A git committer agent specialized to commit current changes with an appropriate commit message.',
+    'Spawn when you need to commit code changes to git with an appropriate commit message',
 
   systemPrompt:
     'You are an expert software developer. Your job is to create a git commit with a really good commit message.',
@@ -40,10 +35,6 @@ const config: AgentConfig = {
     'add_message',
     'end_turn',
   ],
-
-  parentInstructions: {
-    base: 'Spawn when you need to commit code changes to git with an appropriate commit message',
-  },
 
   outputSchema: {
     type: 'object',

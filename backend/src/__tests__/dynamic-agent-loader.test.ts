@@ -76,7 +76,6 @@ describe('Dynamic Agent Loader', () => {
         'brainstormer.ts': {
           id: 'brainstormer',
           version: '1.0.0',
-          override: false,
           displayName: 'Brainy',
           parentPrompt: 'Creative thought partner',
           model: 'anthropic/claude-4-sonnet-20250522',
@@ -107,7 +106,6 @@ describe('Dynamic Agent Loader', () => {
         'invalid.ts': {
           id: 'invalid_agent',
           version: '1.0.0',
-          override: false,
           displayName: 'Invalid',
           parentPrompt: 'Invalid agent',
           model: 'anthropic/claude-4-sonnet-20250522',
@@ -137,7 +135,6 @@ describe('Dynamic Agent Loader', () => {
         'custom.ts': {
           id: 'custom_agent',
           version: '1.0.0',
-          override: false,
           displayName: 'Custom',
           parentPrompt: 'Custom agent',
           model: 'anthropic/claude-4-sonnet-20250522',
@@ -168,7 +165,6 @@ describe('Dynamic Agent Loader', () => {
         'schema-agent.ts': {
           id: 'schema_agent',
           version: '1.0.0',
-          override: false,
           displayName: 'Schema Agent',
           parentPrompt: 'Agent with JSON schemas',
           model: 'anthropic/claude-4-sonnet-20250522',
@@ -213,7 +209,6 @@ describe('Dynamic Agent Loader', () => {
         'invalid-schema-agent.ts': {
           id: 'invalid_schema_agent',
           version: '1.0.0',
-          override: false,
           displayName: 'Invalid Schema Agent',
           parentPrompt: 'Agent with invalid schemas',
           model: 'anthropic/claude-4-sonnet-20250522',
@@ -222,7 +217,7 @@ describe('Dynamic Agent Loader', () => {
           stepPrompt: 'Test step prompt',
           inputSchema: {
             prompt: {
-              type: 'number', // Invalid - should allow strings
+              type: 'number' as any, // Invalid - should only allow strings
             },
           },
           outputMode: 'last_message',
@@ -261,7 +256,6 @@ describe('Dynamic Agent Loader', () => {
           systemPrompt: 'Test system prompt',
           instructionsPrompt: 'Test user prompt',
           stepPrompt: 'Test step prompt',
-          override: false,
           outputMode: 'last_message',
           includeMessageHistory: true,
           toolNames: ['end_turn'],
@@ -285,7 +279,6 @@ describe('Dynamic Agent Loader', () => {
         'git-committer.ts': {
           id: 'CodebuffAI/git-committer',
           version: '0.0.1',
-          override: false,
           displayName: 'Git Committer',
           parentPrompt: 'A git committer agent',
           model: 'google/gemini-2.5-pro',
@@ -300,7 +293,6 @@ describe('Dynamic Agent Loader', () => {
         'spawner.ts': {
           id: 'spawner_agent',
           version: '1.0.0',
-          override: false,
           displayName: 'Spawner Agent',
           parentPrompt: 'Agent that can spawn git-committer',
           model: 'anthropic/claude-4-sonnet-20250522',

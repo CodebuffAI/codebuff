@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
 import { toolNames } from '../tools/constants'
-import type { AgentConfig } from '../templates/agent-template'
+import { AgentConfig } from '../util/agent-config'
 
 // Filter models to only include those that begin with allowed prefixes
 const filteredModels = Object.values(models).filter((model) =>
@@ -46,7 +46,11 @@ const JsonSchemaSchema: z.ZodType<any> = z.lazy(() =>
 const InputSchemaObjectSchema = z
   .object({
     prompt: z
-      .object({ type: z.literal('string'), description: z.string().optional() })
+      .object({ 
+        type: z.literal('string'), 
+        description: z.string().optional(),
+      })
+      .passthrough()
       .optional(), // Optional JSON schema for prompt validation
     params: JsonSchemaSchema.optional(), // Optional JSON schema for params validation
   })

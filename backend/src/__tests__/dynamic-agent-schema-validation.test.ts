@@ -41,7 +41,6 @@ describe('Dynamic Agent Schema Validation', () => {
           'no-prompt-schema.ts': {
             id: 'no_prompt_schema_agent',
             version: '1.0.0',
-            override: false,
             displayName: 'No Prompt Schema Agent',
             parentPrompt: 'Test agent without prompt schema',
             model: 'anthropic/claude-4-sonnet-20250522',
@@ -74,7 +73,6 @@ describe('Dynamic Agent Schema Validation', () => {
           'no-params-schema.ts': {
             id: 'no_params_schema_agent',
             version: '1.0.0',
-            override: false,
             displayName: 'No Params Schema Agent',
             parentPrompt: 'Test agent without params schema',
             model: 'anthropic/claude-4-sonnet-20250522',
@@ -109,7 +107,6 @@ describe('Dynamic Agent Schema Validation', () => {
           'both-schemas.ts': {
             id: 'both_schemas_agent',
             version: '1.0.0',
-            override: false,
             displayName: 'Both Schemas Agent',
             parentPrompt: 'Test agent with both schemas',
             model: 'anthropic/claude-4-sonnet-20250522',
@@ -179,7 +176,6 @@ describe('Dynamic Agent Schema Validation', () => {
           'complex-schema.ts': {
             id: 'complex_schema_agent',
             version: '1.0.0',
-            override: false,
             displayName: 'Complex Schema Agent',
             parentPrompt: 'Test agent with complex nested schema',
             model: 'anthropic/claude-4-sonnet-20250522',
@@ -262,7 +258,6 @@ describe('Dynamic Agent Schema Validation', () => {
           'error-context.ts': {
             id: 'error_context_agent',
             version: '1.0.0',
-            override: false,
             displayName: 'Error Context Agent',
             parentPrompt: 'Test agent for error context',
             model: 'anthropic/claude-4-sonnet-20250522',
@@ -272,7 +267,7 @@ describe('Dynamic Agent Schema Validation', () => {
 
             inputSchema: {
               prompt: {
-                type: 'boolean', // Invalid for prompt schema
+                type: 'boolean' as any, // Invalid for prompt schema
               },
             },
             outputMode: 'last_message',
@@ -299,7 +294,6 @@ describe('Dynamic Agent Schema Validation', () => {
           'git-committer.ts': {
             id: 'CodebuffAI/git-committer',
             version: '0.0.1',
-            override: false,
             displayName: 'Git Committer',
             parentPrompt:
               'A git committer agent specialized to commit current changes with an appropriate commit message.',
@@ -360,7 +354,7 @@ describe('Dynamic Agent Schema Validation', () => {
           'empty-schema.ts': {
             id: 'empty_schema_agent',
             version: '1.0.0',
-            override: false,
+
             displayName: 'Empty Schema Agent',
             parentPrompt: 'Test agent with empty schema',
             model: 'anthropic/claude-4-sonnet-20250522',

@@ -50,7 +50,6 @@ describe('handleSteps Parsing Tests', () => {
       outputMode: 'json' as const,
       toolNames: ['set_output'],
       subagents: [],
-      override: false as const,
       includeMessageHistory: true,
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',
