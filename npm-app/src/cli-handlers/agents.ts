@@ -7,6 +7,7 @@ import {
 import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
 import { loadLocalAgents, getLoadedAgentNames } from '../agents/load-agents'
 import { CLI } from '../cli'
+import { Spinner } from '../utils/spinner'
 import {
   ENTER_ALT_BUFFER,
   EXIT_ALT_BUFFER,
@@ -304,8 +305,8 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
           startAgentCreationChat(rl, onExit, () => {})
         } else {
           exitAgentsBuffer(rl)
-          // Switch to the selected agent
-          console.log(green(`\nSwitching to agent: ${selectedAgent.name}`))
+          // Start spinner for agent switching
+          Spinner.get().start(`Switching to agent: ${selectedAgent.name}...`)
 
           // Use resetAgent to switch to the selected agent
           const cliInstance = CLI.getInstance()
@@ -315,6 +316,7 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
               cliInstance.freshPrompt()
             })
             .catch((error) => {
+              Spinner.get().stop()
               console.error(red('Error switching to agent:'), error)
               onExit()
             })
