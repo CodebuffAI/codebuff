@@ -61,6 +61,8 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       'end_turn',
     ] satisfies ToolName[],
     subagents: [AgentTemplateTypes.file_picker],
+    parentPrompt:
+      'Creates new agent templates for the codebuff mult-agent system',
     systemPrompt: [
       '# Agent Builder',
       '',
