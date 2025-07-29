@@ -199,6 +199,74 @@ describe('runProgrammaticStep', () => {
   })
 
   describe('tool execution', () => {
+    it('should not add tool call message for add_message tool', async () => {
+      const mockGenerator = (function* () {
+        yield {
+          toolName: 'add_message',
+          args: { role: 'user', content: 'Hello world' },
+        }
+        yield { toolName: 'read_files', args: { paths: ['test.txt'] } }
+        yield { toolName: 'end_turn', args: {} }
+      })() as StepGenerator
+
+      mockTemplate.handleSteps = () => mockGenerator
+      mockTemplate.toolNames = ['add_message', 'read_files', 'end_turn']
+
+      // Track chunks sent via sendSubagentChunk
+      const sentChunks: string[] = []
+      const originalSendAction =
+        require('../websockets/websocket-action').sendAction
+      const sendActionSpy = spyOn(
+        require('../websockets/websocket-action'),
+        'sendAction'
+      ).mockImplementation((ws: any, action: any) => {
+        if (action.type === 'subagent-response-chunk') {
+          sentChunks.push(action.chunk)
+        }
+      })
+
+      const result = await runProgrammaticStep(mockAgentState, mockParams)
+
+      // Verify add_message tool was executed
+      expect(executeToolCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toolName: 'add_message',
+          args: { role: 'user', content: 'Hello world' },
+        })
+      )
+
+      // Verify read_files tool was executed
+      expect(executeToolCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toolName: 'read_files',
+          args: { paths: ['test.txt'] },
+        })
+      )
+
+      // Check that no tool call chunk was sent for add_message
+      const addMessageToolCallChunk = sentChunks.find(
+        (chunk) =>
+          chunk.includes('add_message') && chunk.includes('Hello world')
+      )
+      expect(addMessageToolCallChunk).toBeUndefined()
+
+      // Check that tool call chunk WAS sent for read_files (normal behavior)
+      const readFilesToolCallChunk = sentChunks.find(
+        (chunk) => chunk.includes('read_files') && chunk.includes('test.txt')
+      )
+      expect(readFilesToolCallChunk).toBeDefined()
+
+      // Verify final message history doesn't contain add_message tool call
+      const addMessageToolCallInHistory = result.agentState.messageHistory.find(
+        (msg) =>
+          typeof msg.content === 'string' &&
+          msg.content.includes('add_message') &&
+          msg.content.includes('Hello world')
+      )
+      expect(addMessageToolCallInHistory).toBeUndefined()
+
+      expect(result.endTurn).toBe(true)
+    })
     it('should execute single tool call', async () => {
       const mockGenerator = (function* () {
         yield { toolName: 'read_files', args: { paths: ['test.txt'] } }
