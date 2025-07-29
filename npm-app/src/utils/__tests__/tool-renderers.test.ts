@@ -92,6 +92,8 @@ describe('Tool renderers with XML parser', () => {
     const stripped = stripAnsi(output)
     expect(stripped).toContain('[Set Output]')
     expect(stripped).toContain('Task completed successfully')
-    expect(stripped).toContain('{"status":"success","count":42}')
+    // Should NOT contain the result parameter - only message should be shown
+    expect(stripped).not.toContain('{"status":"success","count":42}')
+    expect(stripped).not.toContain('result')
   })
 })

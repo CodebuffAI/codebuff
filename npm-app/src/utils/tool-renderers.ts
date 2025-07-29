@@ -371,5 +371,11 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       toolStart = true
       return '\n\n' + gray(`[${bold('Set Output')}]`) + '\n'
     },
+    onParamChunk: (content, paramName, toolName) => {
+      if (paramName === 'message') {
+        return gray(content)
+      }
+      return null
+    },
   },
 }
