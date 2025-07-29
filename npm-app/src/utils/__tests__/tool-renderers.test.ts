@@ -78,4 +78,20 @@ describe('Tool renderers with XML parser', () => {
     const stripped = stripAnsi(output)
     expect(stripped).toBe('\n\n[Read Files]\nfile1.ts\nfile2.ts\n\n')
   })
+
+  test('formats set_output tool call', async () => {
+    const xml = getToolCallString(
+      'set_output',
+      {
+        message: 'Task completed successfully',
+        result: { status: 'success', count: 42 },
+      },
+      false
+    )
+    const output = await processXML(xml)
+    const stripped = stripAnsi(output)
+    expect(stripped).toContain('[Set Output]')
+    expect(stripped).toContain('Task completed successfully')
+    expect(stripped).toContain('{"status":"success","count":42}')
+  })
 })

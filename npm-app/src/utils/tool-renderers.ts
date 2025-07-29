@@ -366,17 +366,10 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     // Don't render anything
   },
   set_output: {
+    ...defaultToolCallRenderer,
     onToolStart: (toolName) => {
-      return '\n\n' + gray(`[${bold('Set Output')}]`) + '\n...\n'
-    },
-    onParamStart: (paramName) => {
-      Spinner.get().start('Setting output...')
-      return null
-    },
-    onToolEnd: () => {
-      return () => {
-        return '\n'
-      }
+      toolStart = true
+      return '\n\n' + gray(`[${bold('Set Output')}]`) + '\n'
     },
   },
 }
