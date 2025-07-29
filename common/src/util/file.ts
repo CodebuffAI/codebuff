@@ -3,6 +3,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { z } from 'zod'
 import { DynamicAgentTemplateSchema } from '../types/dynamic-agent-template'
+import { CodebuffConfigSchema } from '../json-config/constants'
 
 export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
   name: z.string(),
@@ -47,6 +48,7 @@ export const ProjectFileContextSchema = z.object({
   knowledgeFiles: z.record(z.string(), z.string()),
   userKnowledgeFiles: z.record(z.string(), z.string()).optional(),
   agentTemplates: z.record(z.string(), DynamicAgentTemplateSchema).default({}),
+  codebuffConfig: CodebuffConfigSchema.optional(),
   gitChanges: z.object({
     status: z.string(),
     diff: z.string(),
@@ -92,6 +94,7 @@ export const getStubProjectFileContext = (): ProjectFileContext => ({
   knowledgeFiles: {},
   userKnowledgeFiles: {},
   agentTemplates: {},
+  codebuffConfig: undefined,
   gitChanges: {
     status: '',
     diff: '',

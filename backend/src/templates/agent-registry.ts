@@ -35,14 +35,20 @@ export async function getAllAgentTemplates({
     'claude4_gemini_thinking',
     'ask',
   ]
+
+  const configuredBaseAgent = fileContext.codebuffConfig?.baseAgent
+  const configuredSubagents = fileContext.codebuffConfig?.subagents
+
   for (const baseType of baseAgentTypes) {
-    if (agentRegistry[baseType]) {
+    if (agentRegistry[baseType] || baseType === configuredBaseAgent) {
       const baseTemplate = agentRegistry[baseType]
-      // Add user-defined agents to the base agent's subagents list
-      const updatedSubagents = [
+
+      // Use configured subagents list if present, otherwise use the base agent's subagents list plus user-defined agents
+      const updatedSubagents = configuredSubagents ?? [
         ...baseTemplate.subagents,
         ...userDefinedAgentTypes,
       ]
+
       agentRegistry[baseType] = {
         ...baseTemplate,
         subagents: updatedSubagents as any[],

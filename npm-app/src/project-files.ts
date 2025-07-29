@@ -29,6 +29,7 @@ import {
   codebuffConfigFile,
   codebuffConfigFileBackup,
 } from '@codebuff/common/json-config/constants'
+import { loadCodebuffConfig } from './json-config/parser'
 import { loadedAgents, loadLocalAgents } from './agents/load-agents'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
@@ -298,6 +299,9 @@ export const getProjectFileContext = async (
     )
     await loadLocalAgents({ verbose: false })
 
+    // Load codebuff configuration
+    const codebuffConfig = loadCodebuffConfig()
+
     cachedProjectFileContext = {
       projectRoot,
       cwd: projectRoot,
@@ -306,6 +310,7 @@ export const getProjectFileContext = async (
       tokenCallers,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
       agentTemplates: loadedAgents,
+      codebuffConfig,
       shellConfigFiles,
       systemInfo: getSystemInfo(),
       userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,

@@ -103,7 +103,7 @@ export const mainPrompt = async (
     }
   }
 
-  // Determine agent type - prioritize CLI agent selection over cost mode
+  // Determine agent type - prioritize CLI agent selection, then config base agent, then cost mode
   let agentType: AgentTemplateType
   const { agentRegistry } = await getAllAgentTemplates({ fileContext })
 
@@ -128,16 +128,36 @@ export const mainPrompt = async (
       `Using CLI-specified agent: ${agentId}`
     )
   } else {
-    // Fall back to cost mode mapping
-    agentType = (
-      {
-        ask: AgentTemplateTypes.ask,
-        lite: AgentTemplateTypes.base_lite,
-        normal: AgentTemplateTypes.base,
-        max: AgentTemplateTypes.base_max,
-        experimental: AgentTemplateTypes.base_experimental,
-      } satisfies Record<CostMode, AgentTemplateType>
-    )[costMode]
+    // Check for base agent in config
+    const configBaseAgent = fileContext.codebuffConfig?.baseAgent
+    if (configBaseAgent) {
+      if (!(configBaseAgent in agentRegistry)) {
+        const availableAgents = Object.keys(agentRegistry)
+        throw new Error(
+          `Invalid base agent in config: "${configBaseAgent}". Available agents: ${availableAgents.join(', ')}`
+        )
+      }
+      agentType = configBaseAgent
+      logger.info(
+        {
+          configBaseAgent,
+          promptParams,
+          prompt: prompt?.slice(0, 50),
+        },
+        `Using config-specified base agent: ${configBaseAgent}`
+      )
+    } else {
+      // Fall back to cost mode mapping
+      agentType = (
+        {
+          ask: AgentTemplateTypes.ask,
+          lite: AgentTemplateTypes.base_lite,
+          normal: AgentTemplateTypes.base,
+          max: AgentTemplateTypes.base_max,
+          experimental: AgentTemplateTypes.base_experimental,
+        } satisfies Record<CostMode, AgentTemplateType>
+      )[costMode]
+    }
   }
 
   mainAgentState.agentType = agentType

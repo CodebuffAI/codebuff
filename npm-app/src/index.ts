@@ -26,6 +26,7 @@ import { CliOptions } from './types'
 import { initAnalytics, trackEvent } from './utils/analytics'
 import { findGitRoot } from './utils/git'
 import { logger } from './utils/logger'
+import { loadCodebuffConfig } from './json-config/parser'
 
 async function codebuff({
   initialInput,
@@ -74,7 +75,8 @@ async function codebuff({
     print,
     trace,
   })
-  await loadLocalAgents({ verbose: true }).then(() => displayLoadedAgents())
+  const codebuffConfig = loadCodebuffConfig()
+  await loadLocalAgents({ verbose: true }).then(() => displayLoadedAgents(codebuffConfig))
   const cli = CLI.getInstance()
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })

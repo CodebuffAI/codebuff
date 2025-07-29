@@ -77,7 +77,16 @@ exports[`stringifySchema should correctly stringify CodebuffConfigSchema 1`] = `
   ] | undefined,
 
   // (optional): Maximum number of turns agent will take before being forced to end, default: 12
-  "maxAgentSteps": number
+  "maxAgentSteps": number,
+
+  // (optional): Specify default base agent
+  "baseAgent": string | undefined,
+
+  // (optional): Specify complete list of subagents for the base agent
+  "subagents": [
+
+  string
+  ] | undefined
 }"
 `;
 

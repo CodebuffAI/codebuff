@@ -6,5 +6,7 @@ export function getDefaultConfig(): CodebuffConfig {
     startupProcesses: [],
     fileChangeHooks: [],
     maxAgentSteps: 12,
+    baseAgent: undefined,
+    subagents: undefined,
   }
 }
