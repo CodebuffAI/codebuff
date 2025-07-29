@@ -117,6 +117,7 @@ describe('Dynamic Agent Schema Validation', () => {
             inputSchema: {
               prompt: {
                 type: 'string',
+                minLength: 1,
                 description: 'A required prompt',
               },
               params: {

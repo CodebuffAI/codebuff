@@ -217,7 +217,7 @@ describe('Dynamic Agent Loader', () => {
           stepPrompt: 'Test step prompt',
           inputSchema: {
             prompt: {
-              type: 'string', // Fixed - should allow strings
+              type: 'number' as any, // Invalid - should only allow strings
             },
           },
           outputMode: 'last_message',
