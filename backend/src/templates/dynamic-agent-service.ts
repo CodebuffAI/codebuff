@@ -9,7 +9,7 @@ import {
   validateParentInstructions,
   validateSubagents,
 } from '@codebuff/common/util/agent-template-validation'
-import { ProjectFileContext } from '@codebuff/common/util/file'
+
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { ToolName } from '@codebuff/common/constants/tools'
@@ -40,13 +40,11 @@ export class DynamicAgentService {
    * Load and validate dynamic agent templates from user-provided agentTemplates
    */
   async loadAgents(
-    fileContext: ProjectFileContext
+    agentTemplates: Record<string, DynamicAgentTemplate> = {}
   ): Promise<DynamicAgentLoadResult> {
     this.templates = {}
     this.validationErrors = []
 
-    // Check if we have agentTemplates in fileContext
-    const agentTemplates = fileContext.agentTemplates || {}
     const hasAgentTemplates = Object.keys(agentTemplates).length > 0
 
     if (!hasAgentTemplates) {
@@ -67,12 +65,7 @@ export class DynamicAgentService {
 
       // Pass 2: Load and validate each agent template
       for (const agentKey of agentKeys) {
-        await this.loadSingleAgent(
-          agentKey,
-          dynamicAgentIds,
-          fileContext,
-          agentTemplates
-        )
+        await this.loadSingleAgent(agentKey, dynamicAgentIds, agentTemplates)
       }
     } catch (error) {
       // Re-throw override errors to surface them properly
@@ -145,11 +138,8 @@ export class DynamicAgentService {
   private async loadSingleAgent(
     filePath: string,
     dynamicAgentIds: string[],
-    fileContext: ProjectFileContext,
     agentTemplates: Record<string, DynamicAgentTemplate> = {}
   ): Promise<void> {
-    const fileDir = path.join(fileContext.projectRoot, path.dirname(filePath))
-
     try {
       const content = agentTemplates[filePath]
       if (!content) {
@@ -194,8 +184,6 @@ export class DynamicAgentService {
       const validatedSubagents = normalizeAgentNames(
         content.subagents
       ) as AgentTemplateType[]
-
-      const basePaths = [fileDir, fileContext.projectRoot]
 
       // Convert schemas and handle validation errors
       let inputSchema: AgentTemplate['inputSchema']
@@ -290,7 +278,6 @@ export class DynamicAgentService {
 
     // Handle prompt schema
     if (inputPromptSchema && Object.keys(inputPromptSchema).length > 0) {
-
       try {
         const promptZodSchema = convertJsonSchemaToZod(inputPromptSchema)
         // Validate that the schema results in string or undefined

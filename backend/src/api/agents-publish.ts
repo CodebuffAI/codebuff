@@ -11,6 +11,7 @@ import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent
 
 import { getUserIdFromAuthToken } from '../websockets/auth'
 import { logger } from '../util/logger'
+import { dynamicAgentService } from '../templates/dynamic-agent-service'
 
 // Schema for publishing an agent
 const publishAgentRequestSchema = z.object({
@@ -40,7 +41,21 @@ export async function publishAgentHandler(
     }
 
     // Validate request body
-    const { template } = publishAgentRequestSchema.parse(req.body)
+    const parseResult = publishAgentRequestSchema.safeParse(req.body)
+    if (!parseResult.success) {
+      const errorMessages = parseResult.error.issues.map((issue) => {
+        const path = issue.path.length > 0 ? `${issue.path.join('.')}: ` : ''
+        return `${path}${issue.message}`
+      })
+
+      return res.status(400).json({
+        error: 'Invalid request body',
+        details: errorMessages.join('; '),
+        validationErrors: parseResult.error.issues,
+      })
+    }
+
+    const { template } = parseResult.data
 
     // Extract agentId and version from template
     const agentId = template.id
@@ -51,6 +66,23 @@ export async function publishAgentHandler(
       return res.status(400).json({
         error: 'Invalid version format',
         details: `Version '${version}' must be in semver format (e.g., 1.0.0)`,
+      })
+    }
+
+    // Use dynamic agent service to validate the template
+    const validationResult = await dynamicAgentService.loadAgents({
+      [agentId]: template,
+    })
+
+    if (validationResult.validationErrors.length > 0) {
+      const errorDetails = validationResult.validationErrors
+        .map((err) => `${err.message}${err.details ? ` (${err.details})` : ''}`)
+        .join('\n')
+
+      return res.status(400).json({
+        error: 'Agent template validation failed',
+        details: errorDetails,
+        validationErrors: validationResult.validationErrors,
       })
     }
 
@@ -133,11 +165,6 @@ export async function publishAgentHandler(
     })
   } catch (error) {
     logger.error({ error }, 'Error handling /api/agents/publish request')
-    if (error instanceof z.ZodError) {
-      return res
-        .status(400)
-        .json({ error: 'Invalid request body', issues: error.errors })
-    }
     next(error)
     return
   }
