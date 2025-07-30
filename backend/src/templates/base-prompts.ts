@@ -227,6 +227,8 @@ export const baseAgentUserInputPrompt = (model: Model) => {
       'It is a good idea to spawn a file explorer agent first to explore the codebase from different perspectives. Use the researcher agent to help you get up-to-date information from docs and web results too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the file picker, only spawn it *after* you have the file picker results. Finally, you must spawn the reviewer agent to review your code changes.',
       "Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read 20 files. The more files you read, the better context you have on the codebase and the better your response will be.",
 
+      'If the users uses "@AgentName" in their message, you must spawn the agent with the name "@AgentName". Spawn all the agents that the user mentions.',
+
       'Be extremely concise in your replies. Example: If asked what 2+2 equals, respond simply: "4". No need to even write a full sentence.',
 
       'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..." or "/* ... existing code ... */", whichever is appropriate for the language) around the changed area.',
