@@ -1,11 +1,10 @@
 import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import * as fs from 'fs'
-import { green, red, yellow, cyan } from 'picocolors'
-import { websiteUrl } from '../config'
-import { loadLocalAgents } from '../agents/load-agents'
+import { cyan, green, red, yellow } from 'picocolors'
 import { getAgentsDirectory } from '../agents/agent-utils'
+import { loadLocalAgents } from '../agents/load-agents'
+import { websiteUrl } from '../config'
 import { getUserCredentials } from '../credentials'
-import { initializeProjectRoot } from '../project-files'
 
 interface PublishResponse {
   success: boolean
@@ -25,7 +24,6 @@ interface PublishResponse {
  * Handle the publish command to upload agent templates to the backend
  * @param agentId The id of the agent to publish (required)
  */ export async function handlePublish(agentId?: string): Promise<void> {
-  initializeProjectRoot()
   const user = getUserCredentials()
 
   if (!user) {

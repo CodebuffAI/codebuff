@@ -29,11 +29,11 @@ import {
   codebuffConfigFile,
   codebuffConfigFileBackup,
 } from '@codebuff/common/json-config/constants'
-import { loadCodebuffConfig } from './json-config/parser'
 import { loadedAgents, loadLocalAgents } from './agents/load-agents'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
-import { gitCommandIsAvailable, findGitRoot } from './utils/git'
+import { loadCodebuffConfig } from './json-config/parser'
+import { findGitRoot, gitCommandIsAvailable } from './utils/git'
 import { logger } from './utils/logger'
 import { getSystemInfo } from './utils/system-info'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
@@ -161,7 +161,7 @@ export function getStartingDirectory(dir: string | undefined = undefined): {
  * @param cwd Optional working directory override
  * @returns Object with projectRoot and workingDir paths
  */
-export function initializeProjectRoot(cwd?: string): {
+export function initializeProjectRootAndWorkingDir(cwd?: string): {
   projectRoot: string
   workingDir: string
 } {
@@ -170,6 +170,7 @@ export function initializeProjectRoot(cwd?: string): {
     ? findGitRoot(workingDir) ?? workingDir
     : workingDir
   const projectRoot = setProjectRoot(gitRoot)
+  setWorkingDirectory(workingDir)
   return { projectRoot, workingDir }
 }
 
