@@ -1,4 +1,4 @@
-import { AgentResponseTrace, insertTrace } from '@codebuff/bigquery'
+import { insertTrace } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
 import {
   ASYNC_AGENTS_ENABLED,
@@ -9,17 +9,9 @@ import {
   getToolCallString,
   renderToolResults,
 } from '@codebuff/common/tools/utils'
-import { CodebuffMessage } from '@codebuff/common/types/message'
-import { PrintModeObject } from '@codebuff/common/types/print-mode'
-import {
-  AgentState,
-  ToolResult,
-  type AgentTemplateType,
-} from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { WebSocket } from 'ws'
+
 import { asyncAgentManager } from './async-agent-manager'
 import { getFileReadingUpdates } from './get-file-reading-updates'
 import { checkLiveUserInput } from './live-user-inputs'
@@ -28,7 +20,6 @@ import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { agentTemplates } from './templates/agent-list'
-import { AgentRegistry } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { logger } from './util/logger'
@@ -45,6 +36,18 @@ import { isToolResult, renderReadFilesResult } from './util/parse-tool-call-xml'
 import { simplifyReadFileResults } from './util/simplify-tool-results'
 import { countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
+
+import type { AgentRegistry } from './templates/agent-registry'
+import type { AgentResponseTrace } from '@codebuff/bigquery'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type {
+  AgentTemplateType,
+  AgentState,
+  ToolResult,
+} from '@codebuff/common/types/session-state'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { WebSocket } from 'ws'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -64,7 +67,7 @@ export interface AgentOptions {
 
 export const runAgentStep = async (
   ws: WebSocket,
-  options: AgentOptions
+  options: AgentOptions,
 ): Promise<{
   agentState: AgentState
   fullResponse: string
@@ -111,13 +114,13 @@ export const runAgentStep = async (
         role: 'user' as const,
         content: asUserMessage(prompt),
       },
-    ]
+    ],
   )
 
   // Check number of assistant messages since last user message with prompt
   if (agentState.stepsRemaining <= 0) {
     logger.warn(
-      `Detected too many consecutive assistant messages without user prompt`
+      `Detected too many consecutive assistant messages without user prompt`,
     )
 
     const warningString = [
@@ -136,7 +139,7 @@ export const runAgentStep = async (
           {
             role: 'user',
             content: asSystemMessage(
-              `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json.`
+              `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json.`,
             ),
           },
         ],
@@ -174,7 +177,7 @@ export const runAgentStep = async (
   const toolResults: ToolResult[] = []
 
   const updatedFiles = addedFiles.filter((f) =>
-    updatedFilePaths.includes(f.path)
+    updatedFilePaths.includes(f.path),
   )
 
   if (updatedFiles.length > 0) {
@@ -211,7 +214,7 @@ export const runAgentStep = async (
 
     // Check for pending messages from other agents
     const pendingMessages = asyncAgentManager.getAndClearMessages(
-      agentState.agentId
+      agentState.agentId,
     )
     for (const message of pendingMessages) {
       toolResults.push({
@@ -225,7 +228,7 @@ export const runAgentStep = async (
   const agentTemplate = agentRegistry[agentType]
   if (!agentTemplate) {
     throw new Error(
-      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`
+      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`,
     )
   }
 
@@ -234,7 +237,7 @@ export const runAgentStep = async (
     { type: 'stepPrompt' },
     fileContext,
     agentState,
-    agentRegistry
+    agentRegistry,
   )
 
   // Extract instructions prompt to match hasPrompt && {...} pattern
@@ -244,7 +247,7 @@ export const runAgentStep = async (
         { type: 'instructionsPrompt' },
         fileContext,
         agentState,
-        agentRegistry
+        agentRegistry,
       )
     : undefined
 
@@ -261,7 +264,7 @@ export const runAgentStep = async (
         // Actual user prompt!
         role: 'user' as const,
         content: asUserMessage(
-          `${prompt ?? ''}${params ? `\n\n${JSON.stringify(params, null, 2)}` : ''}`
+          `${prompt ?? ''}${params ? `\n\n${JSON.stringify(params, null, 2)}` : ''}`,
         ),
       },
       prompt &&
@@ -270,7 +273,7 @@ export const runAgentStep = async (
           content: asSystemInstruction(
             additionalSystemPrompts[
               prompt as keyof typeof additionalSystemPrompts
-            ]
+            ],
           ),
         },
     ],
@@ -285,7 +288,7 @@ export const runAgentStep = async (
       role: 'user' as const,
       content: stepPrompt,
       timeToLive: 'agentStep' as const,
-    }
+    },
   )
 
   agentState.messageHistory = agentMessagesUntruncated
@@ -298,7 +301,7 @@ export const runAgentStep = async (
         ...options,
         ws,
         template: agentTemplate,
-      }
+      },
     )
     agentState = newAgentState
     if (endTurn) {
@@ -328,7 +331,7 @@ export const runAgentStep = async (
       { type: 'systemPrompt' },
       fileContext,
       agentState,
-      agentRegistry
+      agentRegistry,
     )) ?? ''
   const systemTokens = countTokensJson(system)
 
@@ -336,7 +339,7 @@ export const runAgentStep = async (
   const agentMessages = getCoreMessagesSubset(
     agentState.messageHistory,
     systemTokens,
-    supportsCacheControl(agentTemplate.model)
+    supportsCacheControl(agentTemplate.model),
   )
 
   const debugPromptCaching = false
@@ -344,7 +347,7 @@ export const runAgentStep = async (
     // Store the agent request to a file for debugging
     await saveAgentRequest(
       coreMessagesWithSystem(agentMessages, system),
-      userInputId
+      userInputId,
     )
   }
 
@@ -363,10 +366,11 @@ export const runAgentStep = async (
       agentTemplate,
       duration: Date.now() - startTime,
     },
-    `Start agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`
+    `Start agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )
 
   let fullResponse = ''
+  toolResults.length = 0
 
   const stream = getStream(coreMessagesWithSystem(agentMessages, system))
 
@@ -419,7 +423,7 @@ export const runAgentStep = async (
 
   let finalMessageHistoryWithToolResults = expireMessages(
     state.messages,
-    'agentStep'
+    'agentStep',
   )
 
   // Handle /compact command: replace message history with the summary
@@ -431,7 +435,7 @@ export const runAgentStep = async (
       {
         role: 'user',
         content: asSystemMessage(
-          `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`
+          `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`,
         ),
       },
     ]
@@ -453,7 +457,7 @@ export const runAgentStep = async (
       agentTemplate,
       duration: Date.now() - startTime,
     },
-    `End agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`
+    `End agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )
   const shouldEndTurn =
     toolCalls.some((call) => call.toolName === 'end_turn') ||
@@ -506,7 +510,7 @@ export const loopAgentSteps = async (
     userId: string | undefined
     clientSessionId: string
     onResponseChunk: (chunk: string | PrintModeObject) => void
-  }
+  },
 ) => {
   const agentTemplate = agentRegistry[agentType]
   if (!agentTemplate) {
@@ -545,7 +549,7 @@ export const loopAgentSteps = async (
 
     if (shouldEndTurn) {
       const hasEndTurn = fullResponse.includes(
-        getToolCallString('end_turn', {})
+        getToolCallString('end_turn', {}),
       )
       return {
         agentState: newAgentState,
