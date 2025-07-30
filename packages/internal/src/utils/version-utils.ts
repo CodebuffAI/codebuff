@@ -81,7 +81,6 @@ export async function getLatestAgentVersion(
   }
 }
 
-const versionRegex = /^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$/
 /**
  * Determine the next version for an agent
  * - If no version is provided and agent exists, increment patch of latest version
