@@ -48,3 +48,6 @@ sitemap-*.xml
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# uploads
+/public/uploads/

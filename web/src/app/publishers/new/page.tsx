@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AvatarUpload } from '@/components/ui/avatar-upload'
 import { ArrowLeft, User, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
@@ -22,8 +23,21 @@ const CreatePublisherPage = () => {
     bio: '',
     avatar_url: '',
   })
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isIdManuallyEdited, setIsIdManuallyEdited] = useState(false)
+  const [hasRemovedAvatar, setHasRemovedAvatar] = useState(false)
+
+  // Default to user's existing avatar
+  useEffect(() => {
+    if (session?.user?.image && !formData.avatar_url && !hasRemovedAvatar) {
+      setFormData((prev) => ({
+        ...prev,
+        avatar_url: session.user?.image || '',
+      }))
+    }
+  }, [session?.user?.image, formData.avatar_url, hasRemovedAvatar])
 
   const validateName = (name: string) => {
     if (!name.trim()) {
@@ -69,7 +83,7 @@ const CreatePublisherPage = () => {
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value
     setFormData({ ...formData, name: newName })
-    
+
     // Auto-generate ID from name if ID hasn't been manually edited
     if (!isIdManuallyEdited) {
       const autoId = newName
@@ -78,22 +92,66 @@ const CreatePublisherPage = () => {
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '')
-      setFormData(prev => ({ ...prev, name: newName, id: autoId }))
+      setFormData((prev) => ({ ...prev, name: newName, id: autoId }))
     } else {
-      setFormData(prev => ({ ...prev, name: newName }))
+      setFormData((prev) => ({ ...prev, name: newName }))
     }
-    
+
     const nameError = validateName(newName)
-    setErrors(prev => ({ ...prev, name: nameError }))
+    setErrors((prev) => ({ ...prev, name: nameError }))
   }
 
   const handleIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newId = e.target.value.toLowerCase()
     setFormData({ ...formData, id: newId })
     setIsIdManuallyEdited(true)
-    
     const idError = validateId(newId)
-    setErrors(prev => ({ ...prev, id: idError }))
+    setErrors((prev) => ({ ...prev, id: idError }))
+  }
+
+  const handleAvatarChange = async (file: File | null, url: string) => {
+    setAvatarFile(file)
+    setFormData((prev) => ({ ...prev, avatar_url: url }))
+    
+    // Track if user explicitly removed the avatar
+    if (!file && !url) {
+      setHasRemovedAvatar(true)
+    } else {
+      setHasRemovedAvatar(false)
+    }
+  }
+
+  const uploadAvatar = async (): Promise<string | null> => {
+    if (!avatarFile) return formData.avatar_url || null
+
+    setIsUploadingAvatar(true)
+    try {
+      const formData = new FormData()
+      formData.append('avatar', avatarFile)
+
+      const response = await fetch('/api/upload/avatar', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to upload avatar')
+      }
+
+      const { avatar_url } = await response.json()
+      return avatar_url
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to upload avatar',
+        variant: 'destructive',
+      })
+      return null
+    } finally {
+      setIsUploadingAvatar(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,7 +159,7 @@ const CreatePublisherPage = () => {
 
     const nameError = validateName(formData.name)
     const idError = validateId(formData.id)
-    
+
     if (nameError || idError) {
       setErrors({ name: nameError, id: idError })
       toast({
@@ -114,6 +172,9 @@ const CreatePublisherPage = () => {
 
     setIsLoading(true)
     try {
+      // Upload avatar first if there's a new file
+      const avatarUrl = await uploadAvatar()
+
       const response = await fetch('/api/publishers', {
         method: 'POST',
         headers: {
@@ -124,7 +185,7 @@ const CreatePublisherPage = () => {
           name: formData.name,
           email: formData.email || undefined,
           bio: formData.bio || undefined,
-          avatar_url: formData.avatar_url || undefined,
+          avatar_url: avatarUrl || undefined,
         }),
       })
 
@@ -134,12 +195,12 @@ const CreatePublisherPage = () => {
       }
 
       const publisher = await response.json()
-      
+
       toast({
         title: 'Success',
         description: 'Publisher profile created successfully!',
       })
-      
+
       // Redirect to publisher profile
       router.push(`/publishers/${publisher.id}`)
     } catch (error) {
@@ -178,7 +239,9 @@ const CreatePublisherPage = () => {
               <CardTitle>Sign in Required</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">Please sign in to create a publisher profile.</p>
+              <p className="mb-4">
+                Please sign in to create a publisher profile.
+              </p>
               <Link href="/login">
                 <Button>Sign In</Button>
               </Link>
@@ -208,7 +271,8 @@ const CreatePublisherPage = () => {
               Create Publisher Profile
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Create your public publisher profile to publish agents on the Codebuff store.
+              Create your public publisher profile to publish agents on the
+              Codebuff store.
             </p>
           </CardHeader>
           <CardContent>
@@ -253,7 +317,8 @@ const CreatePublisherPage = () => {
                   <p className="text-sm text-red-600">{errors.id}</p>
                 )}
                 <p className="text-sm text-muted-foreground">
-                  This will be your unique URL: codebuff.com/publishers/{formData.id || 'your-id'}
+                  This will be your unique URL: codebuff.com/publishers/
+                  {formData.id || 'your-id'}
                 </p>
               </div>
 
@@ -263,7 +328,9 @@ const CreatePublisherPage = () => {
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   placeholder="contact@example.com"
                   disabled={isLoading}
                 />
@@ -277,7 +344,9 @@ const CreatePublisherPage = () => {
                 <textarea
                   id="bio"
                   value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bio: e.target.value })
+                  }
                   placeholder="Tell users about yourself and your agents..."
                   rows={4}
                   disabled={isLoading}
@@ -286,18 +355,12 @@ const CreatePublisherPage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="avatar_url">Avatar URL</Label>
-                <Input
-                  id="avatar_url"
-                  type="url"
+                <Label>Avatar</Label>
+                <AvatarUpload
                   value={formData.avatar_url}
-                  onChange={(e) => setFormData({ ...formData, avatar_url: e.target.value })}
-                  placeholder="https://example.com/avatar.jpg"
-                  disabled={isLoading}
+                  onChange={handleAvatarChange}
+                  disabled={isLoading || isUploadingAvatar}
                 />
-                <p className="text-sm text-muted-foreground">
-                  Optional. URL to your profile picture or logo.
-                </p>
               </div>
 
               <div className="border-t pt-6">
@@ -311,11 +374,21 @@ const CreatePublisherPage = () => {
                       Cancel
                     </Button>
                   </Link>
-                  <Button type="submit" disabled={isLoading || !!errors.name || !!errors.id}>
-                    {isLoading && (
+                  <Button
+                    type="submit"
+                    disabled={
+                      isLoading ||
+                      isUploadingAvatar ||
+                      !!errors.name ||
+                      !!errors.id
+                    }
+                  >
+                    {(isLoading || isUploadingAvatar) && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
-                    Create Publisher Profile
+                    {isUploadingAvatar
+                      ? 'Uploading...'
+                      : 'Create Publisher Profile'}
                   </Button>
                 </div>
               </div>
