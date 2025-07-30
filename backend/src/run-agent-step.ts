@@ -322,16 +322,14 @@ export const runAgentStep = async (
 
   const iterationNum = agentState.messageHistory.length
 
-  const system = await getAgentPrompt(
-    agentTemplate,
-    { type: 'systemPrompt' },
-    fileContext,
-    agentState,
-    agentRegistry
-  )
-  if (!system) {
-    throw new Error(`System prompt is required for agent type: ${agentType}`)
-  }
+  const system =
+    (await getAgentPrompt(
+      agentTemplate,
+      { type: 'systemPrompt' },
+      fileContext,
+      agentState,
+      agentRegistry
+    )) ?? ''
   const systemTokens = countTokensJson(system)
 
   // Possibly truncated messagesWithUserMessage + cache.
