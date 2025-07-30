@@ -1,4 +1,4 @@
-import { AgentConfig, AgentStepContext } from './agent-config'
+import { AgentConfig, AgentStepContext } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'git-committer',

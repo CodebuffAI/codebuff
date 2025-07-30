@@ -1,9 +1,4 @@
-import {
-  AgentConfig,
-  AgentStepContext,
-  ToolResult,
-  ToolCall,
-} from './agent-config'
+import { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'brainstormer',
@@ -66,19 +61,19 @@ Remember: Your goal is to expand thinking, not to provide definitive answers. He
 
   subagents: ['thinker', 'researcher'],
 
-  parentInstructions: {
-    base: 'Spawn brainstormer when you need creative alternatives, want to challenge assumptions, or explore different approaches to implementation problems',
-    base_lite:
-      "Use brainstormer for quick creative insights when you're stuck or need fresh perspectives on simple problems",
-    base_max:
-      'Leverage brainstormer for deep creative exploration of complex problems with multiple potential solution paths',
-    thinker:
-      'Collaborate with brainstormer when analytical thinking needs creative angles or assumption challenging',
-    researcher:
-      'Use brainstormer to suggest creative search angles and alternative information sources for research',
-    reviewer:
-      'Engage brainstormer for creative problem-solving approaches to code review and innovative improvement suggestions',
-  },
+  // parentInstructions: {
+  //   base: 'Spawn brainstormer when you need creative alternatives, want to challenge assumptions, or explore different approaches to implementation problems',
+  //   base_lite:
+  //     "Use brainstormer for quick creative insights when you're stuck or need fresh perspectives on simple problems",
+  //   base_max:
+  //     'Leverage brainstormer for deep creative exploration of complex problems with multiple potential solution paths',
+  //   thinker:
+  //     'Collaborate with brainstormer when analytical thinking needs creative angles or assumption challenging',
+  //   researcher:
+  //     'Use brainstormer to suggest creative search angles and alternative information sources for research',
+  //   reviewer:
+  //     'Engage brainstormer for creative problem-solving approaches to code review and innovative improvement suggestions',
+  // },
 }
 
 export default config

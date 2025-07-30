@@ -1,4 +1,4 @@
-import { AgentConfig } from './agent-config'
+import { AgentConfig } from './types/agent-config'
 
 /**
  * Charles - Deep Sea Sardine Research Specialist
