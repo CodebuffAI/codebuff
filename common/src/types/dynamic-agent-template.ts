@@ -5,7 +5,7 @@ import { AgentConfig } from '../util/agent-config'
 
 // Filter models to only include those that begin with allowed prefixes
 const filteredModels = Object.values(models).filter((model) =>
-  ALLOWED_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix))
+  ALLOWED_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix)),
 )
 
 if (filteredModels.length === 0) {
@@ -33,13 +33,13 @@ const JsonSchemaSchema: z.ZodType<any> = z.lazy(() =>
                 description: z.string().optional(),
                 enum: z.array(z.any()).optional(),
               })
-              .passthrough()
-          )
+              .passthrough(),
+          ),
         )
         .optional(),
       required: z.array(z.string()).optional(),
     })
-    .passthrough()
+    .passthrough(),
 )
 
 // Schema for the combined inputSchema object
@@ -75,7 +75,7 @@ const HandleStepsSchema = z
       }),
       prompt: z.string().optional(),
       params: z.any().optional(),
-    })
+    }),
   )
   .returns(z.any())
   .optional()
@@ -86,7 +86,7 @@ export const DynamicAgentConfigSchema = z.object({
     .string()
     .regex(
       /^[a-z0-9-]+$/,
-      'Agent ID must contain only lowercase letters, numbers, and hyphens'
+      'Agent ID must contain only lowercase letters, numbers, and hyphens',
     ), // The unique identifier for this agent
   version: z.string().optional(),
 
@@ -104,7 +104,7 @@ export const DynamicAgentConfigSchema = z.object({
         if (!tools) return true
         const validToolNames = toolNames as readonly string[]
         const invalidTools = tools.filter(
-          (tool) => !validToolNames.includes(tool)
+          (tool) => !validToolNames.includes(tool),
         )
         return invalidTools.length === 0
       },
@@ -112,12 +112,12 @@ export const DynamicAgentConfigSchema = z.object({
         if (!tools) return { message: 'Tools array is undefined' }
         const validToolNames = toolNames as readonly string[]
         const invalidTools = tools.filter(
-          (tool) => !validToolNames.includes(tool)
+          (tool) => !validToolNames.includes(tool),
         )
         return {
           message: `Invalid tool names: ${invalidTools.join(', ')}. Available tools: ${toolNames.join(', ')}`,
         }
-      }
+      },
     ),
   subagents: z.array(z.string()).optional().default([]),
 
@@ -133,7 +133,7 @@ export const DynamicAgentConfigSchema = z.object({
   parentPrompt: z.string().optional(),
   systemPrompt: z.string().optional(),
   instructionsPrompt: z.string().optional(),
-  stepPrompt: z.string(),
+  stepPrompt: z.string().optional(),
   // NOTE: Removed from AgentConfig. If there's a need, can be added back or else removed entirely.
   parentInstructions: z.record(z.string(), z.string()).optional(),
 
@@ -166,7 +166,7 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
       message:
         "outputSchema can only be used with outputMode 'json'. Remove outputMode or set it to 'json'.",
       path: ['outputMode'],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -183,6 +183,6 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
       message:
         "outputMode 'json' requires the 'set_output' tool. Add 'set_output' to toolNames.",
       path: ['toolNames'],
-    }
+    },
   )
 export type DynamicAgentTemplate = z.infer<typeof DynamicAgentTemplateSchema>

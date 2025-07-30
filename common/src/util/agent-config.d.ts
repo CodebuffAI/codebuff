@@ -61,7 +61,7 @@ export interface AgentConfig {
 
   /** Prompt inserted at each agent step. Powerful for changing the agent's behavior,
    * but usually not necessary for smart models. Prefer instructionsPrompt for most instructions. */
-  stepPrompt: string
+  stepPrompt?: string
 
   // ============================================================================
   // Input and Output
