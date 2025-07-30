@@ -13,6 +13,12 @@ interface PublishResponse {
   version?: string
   message?: string
   error?: string
+  details?: string
+  validationErrors?: Array<{
+    code: string
+    message: string
+    path: (string | number)[]
+  }>
 }
 
 /**
@@ -106,13 +112,8 @@ interface PublishResponse {
           `❌ Error publishing ${template.displayName}: ${error instanceof Error ? error.message : String(error)}`
         )
       )
-      logger.error(
-        {
-          error: error instanceof Error ? error.message : String(error),
-          agentId: template.id,
-        },
-        'Error publishing agent template'
-      )
+      // Avoid logger.error here as it can cause sonic boom errors that mask the real error
+      // The error is already displayed to the user via console.log above
     }
   } catch (error) {
     console.log(
@@ -120,12 +121,8 @@ interface PublishResponse {
         `Error during publish: ${error instanceof Error ? error.message : String(error)}`
       )
     )
-    logger.error(
-      {
-        error: error instanceof Error ? error.message : String(error),
-      },
-      'Error during publish command'
-    )
+    // Avoid logger.error here as it can cause sonic boom errors that mask the real error
+    // The error is already displayed to the user via console.log above
   }
 }
 
@@ -133,7 +130,7 @@ interface PublishResponse {
  * Publish an agent template to the backend
  */
 async function publishAgentTemplate(
-  template: DynamicAgentTemplate,
+  data: DynamicAgentTemplate,
   authToken: string
 ): Promise<PublishResponse> {
   try {
@@ -144,17 +141,47 @@ async function publishAgentTemplate(
         Cookie: `next-auth.session-token=${authToken}`,
       },
       body: JSON.stringify({
-        template,
+        data,
       }),
     })
 
-    const result = await response.json()
-
-    if (!response.ok) {
+    let result: any
+    try {
+      result = await response.json()
+    } catch (jsonError) {
       return {
         success: false,
-        error:
-          result.error || `HTTP ${response.status}: ${response.statusText}`,
+        error: `Failed to parse server response: ${response.status} ${response.statusText}`,
+      }
+    }
+
+    if (!response.ok) {
+      // Extract detailed error information from the response
+      let errorMessage =
+        result.error || `HTTP ${response.status}: ${response.statusText}`
+
+      // If there are validation details, include them
+      if (result.details) {
+        errorMessage += `\n\nDetails: ${result.details}`
+      }
+
+      // If there are specific validation errors, format them nicely
+      if (result.validationErrors && Array.isArray(result.validationErrors)) {
+        const formattedErrors = result.validationErrors
+          .map((err: any) => {
+            const path =
+              err.path && err.path.length > 0 ? `${err.path.join('.')}: ` : ''
+            return `  • ${path}${err.message}`
+          })
+          .join('\n')
+        errorMessage += `\n\nValidation errors:\n${formattedErrors}`
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+        details: result.details,
+        validationErrors: result.validationErrors,
       }
     }
 
@@ -165,9 +192,17 @@ async function publishAgentTemplate(
       message: result.message,
     }
   } catch (error) {
+    // Handle network errors, timeouts, etc.
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      return {
+        success: false,
+        error: `Network error: Unable to connect to ${websiteUrl}. Please check your internet connection and try again.`,
+      }
+    }
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
