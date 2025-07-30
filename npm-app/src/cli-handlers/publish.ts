@@ -2,7 +2,7 @@ import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-templ
 import * as fs from 'fs'
 import { green, red, yellow, cyan } from 'picocolors'
 import { Client } from '../client'
-import { backendUrl } from '../config'
+import { websiteUrl } from '../config'
 import { logger } from '../utils/logger'
 import { loadLocalAgents } from '../agents/load-agents'
 import { getAgentsDirectory } from '../agents/agent-utils'
@@ -141,11 +141,11 @@ async function publishAgentTemplate(
   authToken: string
 ): Promise<PublishResponse> {
   try {
-    const response = await fetch(`${backendUrl}/api/agents/publish`, {
+    const response = await fetch(`${websiteUrl}/api/agents/publish`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
+        Cookie: `next-auth.session-token=${authToken}`,
       },
       body: JSON.stringify({
         template,
