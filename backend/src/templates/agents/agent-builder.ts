@@ -26,7 +26,7 @@ const TEMPLATE_TYPES_PATH = path.join(AGENT_TEMPLATES_DIR, AGENT_CONFIG_FILE)
 const TOOL_DEFINITIONS_FILE = 'tools.d.ts'
 const TOOL_DEFINITIONS_PATH = path.join(
   AGENT_TEMPLATES_DIR,
-  TOOL_DEFINITIONS_FILE
+  TOOL_DEFINITIONS_FILE,
 )
 
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
@@ -39,6 +39,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
     console.warn(`Could not read ${AGENT_CONFIG_FILE}:`, error)
     agentTemplateContent = '// Agent template types not available'
   }
+  const toolDefinitionsContent = compileToolDefinitions()
 
   return {
     displayName: 'Bob the Agent Builder',
@@ -48,7 +49,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
         .string()
         .optional()
         .describe(
-          'What agent type you would like to create or edit. Include as many details as possible.'
+          'What agent type you would like to create or edit. Include as many details as possible.',
         ),
       params: z
         .object({
@@ -101,9 +102,16 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       '## Complete Agent Template Type Definitions',
       '',
       'Here are the complete TypeScript type definitions for creating custom Codebuff agents:',
-      '',
       '```typescript',
       agentTemplateContent,
+      '```',
+      '',
+      '## Available Tools Type Definitions',
+      '',
+      'Here are the complete TypeScript type definitions for all available tools:',
+      '',
+      '```typescript',
+      toolDefinitionsContent,
       '```',
       '',
       '## Agent Template Patterns:',
@@ -176,7 +184,6 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
       }
 
       // Step 3: Write the tool definitions file
-      const toolDefinitionsContent = compileToolDefinitions()
       yield {
         toolName: 'write_file',
         args: {
