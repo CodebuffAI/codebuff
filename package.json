@@ -52,6 +52,7 @@
     "bun-types": "^1.2.2",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-unused-imports": "^4.1.4",
     "ignore": "^6.0.2",
     "lodash": "4.17.21",
     "prettier": "3.3.2",
