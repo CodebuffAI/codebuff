@@ -118,7 +118,7 @@ Examples:
   $ codebuff --cwd my-project           # Start in specific directory
   $ codebuff --trace                    # Enable subagent trace logging to .agents/traces/*.log
   $ codebuff --create nextjs my-app     # Create and scaffold a new Next.js project
-  $ codebuff --publish my-agent         # Publish agent template to store
+  $ codebuff publish my-agent           # Publish agent template to store
   $ codebuff --agent file_picker "find relevant files for authentication"
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
 
@@ -129,9 +129,7 @@ For all commands and options, run 'codebuff' and then type 'help'.
   program.parse()
 
   const options = program.opts()
-  const args = program.args
-
-  // Handle template creation
+  const args = program.args // Handle template creation
   if (options.create) {
     const template = options.create
     const projectDir = args[0] || '.'
@@ -141,8 +139,8 @@ For all commands and options, run 'codebuff' and then type 'help'.
   }
 
   // Handle publish command
-  if (options.publish) {
-    const agentName = options.publish
+  if (args[0] === 'publish') {
+    const agentName = args[1]
     await handlePublish(agentName)
     process.exit(0)
   }
@@ -213,7 +211,10 @@ For all commands and options, run 'codebuff' and then type 'help'.
 
   // Remove the first argument if it's the compiled binary path which bun weirdly injects (starts with /$bunfs)
   const filteredArgs = args[0]?.startsWith('/$bunfs') ? args.slice(1) : args
-  const initialInput = filteredArgs.join(' ')
+
+  // If first arg is a command like 'publish', don't treat it as initial input
+  const isCommand = filteredArgs[0] === 'publish'
+  const initialInput = isCommand ? '' : filteredArgs.join(' ')
 
   codebuff({
     initialInput,
