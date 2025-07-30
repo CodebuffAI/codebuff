@@ -1,11 +1,11 @@
 import {
   clearMockedModules,
   mockModule,
-} from '@codebuff/common/testing/mock-modules'
+} from '../testing/mock-modules'
 import {
   getStubProjectFileContext,
   ProjectFileContext,
-} from '@codebuff/common/util/file'
+} from '../util/file'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { DynamicAgentService } from '../templates/dynamic-agent-service'
 
@@ -15,7 +15,7 @@ describe('Dynamic Agent Schema Validation', () => {
 
   beforeAll(() => {
     // Mock logger to avoid console output during tests
-    mockModule('@codebuff/backend/util/logger', () => ({
+    mockModule('../util/logger', () => ({
       logger: {
         debug: () => {},
         warn: () => {},

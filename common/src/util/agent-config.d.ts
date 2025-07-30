@@ -12,6 +12,10 @@
  *   }
  */
 
+import type * as Tools from './tools'
+export type { Tools }
+type ToolName = Tools.ToolName
+
 // ============================================================================
 // Core Agent Configuration Types
 // ============================================================================
@@ -181,9 +185,9 @@ export interface AgentStepContext {
 /**
  * Tool call object for handleSteps generator
  */
-export interface ToolCall {
-  toolName: ToolName
-  args?: Record<string, any>
+export interface ToolCall<T extends ToolName = ToolName> {
+  toolName: T
+  args?: Tools.GetToolParams<T>
 }
 
 /**
@@ -249,16 +253,12 @@ export type PlanningTools =
 export type OutputTools = 'set_output' | 'end_turn'
 
 /**
- * All available tools that agents can use
+ * Common tool combinations for convenience
  */
-export type ToolName =
-  | FileTools
-  | CodeAnalysisTools
-  | TerminalTools
-  | WebTools
-  | AgentTools
-  | PlanningTools
-  | OutputTools
+export type FileEditingTools = FileTools | 'end_turn'
+export type ResearchTools = WebTools | 'write_file' | 'end_turn'
+export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'
+
 
 // ============================================================================
 // Available Models (see: https://openrouter.ai/models)
@@ -299,14 +299,3 @@ export type SubagentName =
   | 'thinker'
   | 'reviewer'
   | (string & {})
-
-// ============================================================================
-// Utility Types
-// ============================================================================
-
-/**
- * Common tool combinations for convenience
- */
-export type FileEditingTools = FileTools | 'end_turn'
-export type ResearchTools = WebTools | 'write_file' | 'end_turn'
-export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'

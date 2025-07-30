@@ -421,7 +421,7 @@ export const gitEvalResults = pgTable('git_eval_results', {
 
 // Agent Store tables
 export const publisher = pgTable('publisher', {
-  id: text('id').primaryKey(), // user-selectable id
+  id: text('id').primaryKey().notNull(), // user-selectable id
   name: text('name').notNull(),
   email: text('email'), // optional, for support
   verified: boolean('verified').notNull().default(false),
@@ -441,7 +441,9 @@ export const publisher = pgTable('publisher', {
 export const agentTemplate = pgTable(
   'agent_template',
   {
-    id: text('id').$defaultFn(() => crypto.randomUUID()),
+    id: text('id')
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
     version: text('version').notNull(), // Semantic version e.g., '1.0.0'
     publisher_id: text('publisher_id')
       .notNull()

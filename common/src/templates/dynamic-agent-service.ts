@@ -1,18 +1,16 @@
-import * as path from 'path'
+import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
-import { ToolName } from '@codebuff/common/constants/tools'
-import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
-import { AgentTemplateType } from '@codebuff/common/types/session-state'
-import { normalizeAgentNames } from '@codebuff/common/util/agent-name-normalization'
+import { ToolName } from '../tools/constants'
+import { AgentTemplate } from '../types/agent-template'
+import { DynamicAgentTemplate } from '../types/dynamic-agent-template'
+import { AgentTemplateType } from '../types/session-state'
+import { normalizeAgentNames } from '../util/agent-name-normalization'
 import {
   formatParentInstructionsError,
   formatSubagentError,
   validateParentInstructions,
   validateSubagents,
 } from '@codebuff/common/util/agent-template-validation'
-import { convertJsonSchemaToZod } from 'zod-from-json-schema'
-
-import { AgentTemplate } from './types'
 import { logger } from '../util/logger'
 
 export interface DynamicAgentValidationError {
@@ -262,7 +260,6 @@ export class DynamicAgentService {
       )
     }
   }
-
 
   /**
    * Validates if a string represents a valid generator function

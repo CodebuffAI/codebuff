@@ -1,54 +1,15 @@
-import { z } from 'zod/v4'
+import type {
+  AgentTemplate,
+  StepGenerator,
+  StepHandler,
+} from '@codebuff/common/types/agent-template'
+import type { AgentTemplateType } from '@codebuff/common/types/session-state'
+import type { ToolName } from '@codebuff/common/tools/constants'
 
-import { Model } from '@codebuff/common/constants'
-import { ToolName } from '@codebuff/common/constants/tools'
-import {
-  AgentState,
-  AgentTemplateType,
-  AgentTemplateTypes,
-  ToolResult,
-} from '@codebuff/common/types/session-state'
-import { CodebuffToolCall } from '../tools/constants'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
-export type AgentTemplate<
-  P = string | undefined,
-  T = Record<string, any> | undefined,
-> = {
-  id: AgentTemplateType
-  displayName: string
-  model: Model
-
-  toolNames: ToolName[]
-  subagents: AgentTemplateType[]
-
-  parentPrompt?: string
-  systemPrompt: string
-  instructionsPrompt: string
-  stepPrompt: string
-  parentInstructions?: Record<string, string>
-
-  // Required parameters for spawning this agent.
-  inputSchema: {
-    prompt?: z.ZodSchema<P>
-    params?: z.ZodSchema<T>
-  }
-  includeMessageHistory: boolean
-  outputMode: 'last_message' | 'all_messages' | 'json'
-  outputSchema?: z.ZodSchema<any>
-
-  handleSteps?: StepHandler<P, T> | string // Function or string of the generator code for running in a sandbox
-}
-
-export type StepGenerator = Generator<
-  Omit<CodebuffToolCall, 'toolCallId'> | 'STEP' | 'STEP_ALL',
-  void,
-  { agentState: AgentState; toolResult: ToolResult | undefined }
->
-
-export type StepHandler<
-  P = string | undefined,
-  T = Record<string, any> | undefined,
-> = (params: { agentState: AgentState; prompt: P; params: T }) => StepGenerator
+// Re-export for backward compatibility
+export type { AgentTemplate, StepGenerator, StepHandler }
 
 const placeholderNames = [
   'AGENT_NAME',

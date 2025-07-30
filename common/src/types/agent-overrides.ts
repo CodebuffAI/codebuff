@@ -1,10 +1,9 @@
 import { z } from 'zod'
-
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
 import { AGENT_ID_PREFIX } from '../constants/agents'
-import { toolNames } from '../constants/tools'
-import { AgentTemplateTypes } from './session-state'
+import { toolNames } from '../tools/constants'
 import { normalizeAgentName } from '../util/agent-name-normalization'
+import { AgentTemplateTypes } from './session-state'
 
 // Filter models to only include those that begin with 'anthropic', 'openai', or 'google'
 const filteredModels = Object.values(models).filter((model) =>

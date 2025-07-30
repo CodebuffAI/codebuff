@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS "agent_template" (
-	"id" text,
+	"id" text NOT NULL,
 	"version" text NOT NULL,
 	"publisher_id" text NOT NULL,
 	"major" integer GENERATED ALWAYS AS (CAST(SPLIT_PART("agent_template"."version", '.', 1) AS INTEGER)) STORED,

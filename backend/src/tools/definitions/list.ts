@@ -1,7 +1,8 @@
-import type { ToolName } from '@codebuff/common/constants/tools'
+import type { ToolName } from '@codebuff/common/tools/constants'
 import type { ToolSet } from 'ai'
-import type { CodebuffToolDef } from './tool-def-type'
+import type { ToolDescription } from './tool-def-type'
 
+import { llmToolCallSchema } from '@codebuff/common/tools/list'
 import { addMessageTool } from './tool/add-message'
 import { addSubgoalTool } from './tool/add-subgoal'
 import { browserLogsTool } from './tool/browser-logs'
@@ -24,7 +25,7 @@ import { updateSubgoalTool } from './tool/update-subgoal'
 import { webSearchTool } from './tool/web-search'
 import { writeFileTool } from './tool/write-file'
 
-export const codebuffToolDefs = {
+const toolDescriptions = {
   add_message: addMessageTool,
   add_subgoal: addSubgoalTool,
   browser_logs: browserLogsTool,
@@ -47,8 +48,19 @@ export const codebuffToolDefs = {
   web_search: webSearchTool,
   write_file: writeFileTool,
 } satisfies {
-  [K in ToolName]: {
-    toolName: K
-  }
-} & Record<ToolName, CodebuffToolDef> &
-  ToolSet
+  [K in ToolName]: ToolDescription<K>
+}
+
+export type ToolDefinition<T extends ToolName = ToolName> = {
+  [K in ToolName]: (typeof toolDescriptions)[K] & (typeof llmToolCallSchema)[K]
+}[T]
+
+export const codebuffToolDefs = Object.fromEntries(
+  Object.entries(toolDescriptions).map(([toolName, toolDescription]) => [
+    toolName,
+    {
+      ...toolDescriptions[toolName as ToolName],
+      ...llmToolCallSchema[toolName as ToolName],
+    } satisfies ToolDefinition,
+  ])
+) as { [K in ToolName]: ToolDefinition<K> } satisfies ToolSet

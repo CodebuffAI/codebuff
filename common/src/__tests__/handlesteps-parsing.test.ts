@@ -1,9 +1,9 @@
 import {
   DynamicAgentConfigSchema,
   DynamicAgentTemplate,
-} from '@codebuff/common/types/dynamic-agent-template'
-import { AgentState } from '@codebuff/common/types/session-state'
-import { ProjectFileContext } from '@codebuff/common/util/file'
+} from '../types/dynamic-agent-template'
+import { AgentState } from '../types/session-state'
+import { ProjectFileContext } from '../util/file'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { dynamicAgentService } from '../templates/dynamic-agent-service'
 
@@ -137,7 +137,7 @@ describe('handleSteps Parsing Tests', () => {
   test('should require set_output tool for handleSteps with json output mode', () => {
     const {
       DynamicAgentTemplateSchema,
-    } = require('@codebuff/common/types/dynamic-agent-template')
+    } = require('../types/dynamic-agent-template')
 
     const agentConfig = {
       id: 'test-agent',

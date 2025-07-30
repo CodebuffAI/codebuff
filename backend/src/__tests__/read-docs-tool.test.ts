@@ -1,11 +1,11 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/constants'
-import { getToolCallString } from '@codebuff/common/constants/tools'
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterAll,
@@ -97,13 +97,9 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString(
-        'read_docs',
-        {
-          libraryTitle: 'React',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('read_docs', {
+        libraryTitle: 'React',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -162,15 +158,11 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString(
-        'read_docs',
-        {
-          libraryTitle: 'React',
-          topic: 'hooks',
-          max_tokens: 5000,
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('read_docs', {
+        libraryTitle: 'React',
+        topic: 'hooks',
+        max_tokens: 5000,
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -214,13 +206,9 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString(
-        'read_docs',
-        {
-          libraryTitle: 'NonExistentLibrary',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('read_docs', {
+        libraryTitle: 'NonExistentLibrary',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -275,13 +263,9 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString(
-        'read_docs',
-        {
-          libraryTitle: 'React',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('read_docs', {
+        libraryTitle: 'React',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -335,14 +319,10 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString(
-        'read_docs',
-        {
-          libraryTitle: 'React',
-          topic: 'server-components',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('read_docs', {
+        libraryTitle: 'React',
+        topic: 'server-components',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -395,13 +375,9 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     const mockResponse =
-      getToolCallString(
-        'read_docs',
-        {
-          libraryTitle: 'React',
-        },
-        true
-      ) + getToolCallString('end_turn', {}, true)
+      getToolCallString('read_docs', {
+        libraryTitle: 'React',
+      }) + getToolCallString('end_turn', {})
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
