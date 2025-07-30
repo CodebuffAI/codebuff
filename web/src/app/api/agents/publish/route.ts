@@ -1,14 +1,23 @@
-import { logger } from '@/util/logger'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { dynamicAgentService } from '@codebuff/common/templates/dynamic-agent-service'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
-import { determineNextVersion, versionExists } from '@codebuff/internal'
+import {
+  determineNextVersion,
+  stringifyVersion,
+  versionExists,
+} from '@codebuff/internal'
 import { desc, eq } from 'drizzle-orm'
+import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
+
+import type { Version } from '@codebuff/internal'
+import type { NextRequest } from 'next/server'
+
+import { logger } from '@/util/logger'
 
 // Schema for publishing an agent
 const publishAgentRequestSchema = z.object({
@@ -87,7 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine the version to use (auto-increment if not provided)
-    let version: string
+    let version: Version
     try {
       version = await determineNextVersion(agentId, publisher.id, data.version)
     } catch (error) {
@@ -122,7 +131,7 @@ export async function POST(request: NextRequest) {
       .insert(schema.agentConfig)
       .values({
         id: agentId,
-        version,
+        version: stringifyVersion(version),
         publisher_id: publisher.id,
         data: dataWithVersion,
       })

@@ -2,14 +2,16 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 
+export type Version = { major: number; minor: number; patch: number }
+
+export function versionOne(): Version {
+  return { major: 0, minor: 0, patch: 1 }
+}
+
 /**
  * Parse a semantic version string into its components
  */
-export function parseVersion(version: string): {
-  major: number
-  minor: number
-  patch: number
-} {
+export function parseVersion(version: string): Version {
   const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/)
   if (!match) {
     throw new Error(`Invalid semantic version format: ${version}`)
@@ -21,12 +23,27 @@ export function parseVersion(version: string): {
   }
 }
 
+export function stringifyVersion(version: Version): string {
+  return `${version.major}.${version.minor}.${version.patch}`
+}
+
 /**
  * Increment the patch version of a semantic version string
  */
-export function incrementPatchVersion(version: string): string {
-  const { major, minor, patch } = parseVersion(version)
-  return `${major}.${minor}.${patch + 1}`
+export function incrementPatchVersion(version: Version): Version {
+  return { ...version, patch: version.patch + 1 }
+}
+
+export function getMaximumVersion(v1: Version, v2: Version): Version {
+  if (v1.major !== v2.major) {
+    return v1.major > v2.major ? v1 : v2
+  }
+
+  if (v1.minor !== v2.minor) {
+    return v1.minor > v2.minor ? v1 : v2
+  }
+
+  return v1.patch > v2.patch ? v1 : v2
 }
 
 /**
@@ -34,30 +51,37 @@ export function incrementPatchVersion(version: string): string {
  */
 export async function getLatestAgentVersion(
   agentId: string,
-  publisherId: string
-): Promise<string | null> {
+  publisherId: string,
+): Promise<Version> {
   const latestAgent = await db
     .select({
-      version: schema.agentConfig.version,
+      major: schema.agentConfig.major,
+      minor: schema.agentConfig.minor,
+      patch: schema.agentConfig.patch,
     })
     .from(schema.agentConfig)
     .where(
       and(
         eq(schema.agentConfig.id, agentId),
-        eq(schema.agentConfig.publisher_id, publisherId)
-      )
+        eq(schema.agentConfig.publisher_id, publisherId),
+      ),
     )
     .orderBy(
       desc(schema.agentConfig.major),
       desc(schema.agentConfig.minor),
-      desc(schema.agentConfig.patch)
+      desc(schema.agentConfig.patch),
     )
     .limit(1)
     .then((rows) => rows[0])
 
-  return latestAgent?.version || null
+  return {
+    major: latestAgent?.major ?? 0,
+    minor: latestAgent?.minor ?? 0,
+    patch: latestAgent?.patch ?? 0,
+  }
 }
 
+const versionRegex = /^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$/
 /**
  * Determine the next version for an agent
  * - If no version is provided and agent exists, increment patch of latest version
@@ -67,28 +91,22 @@ export async function getLatestAgentVersion(
 export async function determineNextVersion(
   agentId: string,
   publisherId: string,
-  providedVersion?: string
-): Promise<string> {
-  if (providedVersion) {
-    // Validate the provided version format
-    if (!/^\d+\.\d+\.\d+$/.test(providedVersion)) {
-      throw new Error(
-        `Invalid version format: ${providedVersion}. Must be in semver format (e.g., 1.0.0)`
-      )
-    }
-    return providedVersion
-  }
-
-  // No version provided, determine automatically
+  providedVersion?: string,
+): Promise<Version> {
   const latestVersion = await getLatestAgentVersion(agentId, publisherId)
 
-  if (latestVersion) {
-    // Agent exists, increment patch version
-    return incrementPatchVersion(latestVersion)
-  } else {
-    // New agent, start with 0.0.1
-    return '0.0.1'
+  let version: Version = versionOne()
+  if (providedVersion) {
+    try {
+      version = parseVersion(providedVersion)
+    } catch (error) {
+      throw new Error(
+        `Invalid version format: ${providedVersion}. Must be in semver format (e.g., 1.0.0)`,
+      )
+    }
   }
+
+  return getMaximumVersion(incrementPatchVersion(latestVersion), version)
 }
 
 /**
@@ -96,8 +114,8 @@ export async function determineNextVersion(
  */
 export async function versionExists(
   agentId: string,
-  version: string,
-  publisherId: string
+  version: Version,
+  publisherId: string,
 ): Promise<boolean> {
   const existingAgent = await db
     .select()
@@ -105,9 +123,9 @@ export async function versionExists(
     .where(
       and(
         eq(schema.agentConfig.id, agentId),
-        eq(schema.agentConfig.version, version),
-        eq(schema.agentConfig.publisher_id, publisherId)
-      )
+        eq(schema.agentConfig.version, stringifyVersion(version)),
+        eq(schema.agentConfig.publisher_id, publisherId),
+      ),
     )
     .then((rows) => rows[0])
 
