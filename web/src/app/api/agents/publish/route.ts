@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, desc } from 'drizzle-orm'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
 import { dynamicAgentService } from '@codebuff/common/templates/dynamic-agent-service'
 import { logger } from '@/util/logger'
+import { determineNextVersion, versionExists } from '@codebuff/internal'
 
 // Schema for publishing an agent
 const publishAgentRequestSchema = z.object({
@@ -19,10 +20,7 @@ export async function POST(request: NextRequest) {
     // Check authentication
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userId = session.user.id
@@ -47,31 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { template } = parseResult.data
-
-    // Extract agentId and version from template
     const agentId = template.id
-    const version = template.version
-
-    if (!version) {
-      return NextResponse.json(
-        {
-          error: 'Invalid template',
-          details: 'Template must have an id and version.',
-        },
-        { status: 400 }
-      )
-    }
-
-    // Validate semver format
-    if (!/^\d+\.\d+\.\d+$/.test(version)) {
-      return NextResponse.json(
-        {
-          error: 'Invalid version format',
-          details: `Version '${version}' must be in semver format (e.g., 1.0.0)`,
-        },
-        { status: 400 }
-      )
-    }
 
     // Use dynamic agent service to validate the template
     const validationResult = await dynamicAgentService.loadAgents({
@@ -112,20 +86,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if this version already exists
-    const existingAgent = await db
-      .select()
-      .from(schema.agentTemplate)
-      .where(
-        and(
-          eq(schema.agentTemplate.id, agentId),
-          eq(schema.agentTemplate.version, version),
-          eq(schema.agentTemplate.publisher_id, publisher.id)
-        )
+    // Determine the version to use (auto-increment if not provided)
+    let version: string
+    try {
+      version = await determineNextVersion(
+        agentId,
+        publisher.id,
+        template.version
       )
-      .then((rows) => rows[0])
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: 'Version determination failed',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        },
+        { status: 400 }
+      )
+    }
 
-    if (existingAgent) {
+    // Check if this version already exists
+    const versionAlreadyExists = await versionExists(
+      agentId,
+      version,
+      publisher.id
+    )
+    if (versionAlreadyExists) {
       return NextResponse.json(
         {
           error: 'Version already exists',
@@ -135,14 +120,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Insert the new agent template
+    // Insert the new agent template with the determined version
+    const templateWithVersion = { ...template, version }
     const newAgent = await db
       .insert(schema.agentTemplate)
       .values({
         id: agentId,
         version,
         publisher_id: publisher.id,
-        template: template as any, // Cast to satisfy jsonb type
+        template: templateWithVersion,
       })
       .returning()
       .then((rows) => rows[0])
