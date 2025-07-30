@@ -2,10 +2,10 @@ import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-templ
 import * as fs from 'fs'
 import { green, red, yellow, cyan } from 'picocolors'
 import { websiteUrl } from '../config'
-import { logger } from '../utils/logger'
 import { loadLocalAgents } from '../agents/load-agents'
 import { getAgentsDirectory } from '../agents/agent-utils'
 import { getUserCredentials } from '../credentials'
+import { initializeProjectRoot } from '../project-files'
 
 interface PublishResponse {
   success: boolean
@@ -25,6 +25,7 @@ interface PublishResponse {
  * Handle the publish command to upload agent templates to the backend
  * @param agentId The id of the agent to publish (required)
  */ export async function handlePublish(agentId?: string): Promise<void> {
+  initializeProjectRoot()
   const user = getUserCredentials()
 
   if (!user) {
@@ -118,7 +119,7 @@ interface PublishResponse {
   } catch (error) {
     console.log(
       red(
-        `Error during publish: ${error instanceof Error ? error.message : String(error)}`
+        `Error during publish: ${error instanceof Error ? error.message + '\n' + error.stack : String(error)}`
       )
     )
     // Avoid logger.error here as it can cause sonic boom errors that mask the real error

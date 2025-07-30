@@ -15,9 +15,8 @@ import { createTemplateProject } from './create-template-project'
 import { handlePublish } from './cli-handlers/publish'
 import { printModeLog, setPrintMode } from './display/print-mode'
 import {
-  getStartingDirectory,
+  initializeProjectRoot,
   initProjectFileContextWithWorker,
-  setProjectRoot,
   setWorkingDirectory,
 } from './project-files'
 import { rageDetectors } from './rage-detectors'
@@ -25,7 +24,6 @@ import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/run-command'
 import { CliOptions } from './types'
 import { initAnalytics, trackEvent } from './utils/analytics'
-import { findGitRoot } from './utils/git'
 import { logger } from './utils/logger'
 import { loadCodebuffConfig } from './json-config/parser'
 
@@ -43,12 +41,8 @@ async function codebuff({
 }: CliOptions) {
   enableSquashNewlines()
 
-  // Initialize starting directory
-  const { cwd: workingDir, shouldSearch } = getStartingDirectory(cwd)
-  const gitRoot = shouldSearch
-    ? findGitRoot(workingDir) ?? workingDir
-    : workingDir
-  const projectRoot = setProjectRoot(gitRoot)
+  // Initialize project root and working directory
+  const { projectRoot, workingDir } = initializeProjectRoot(cwd)
   setWorkingDirectory(workingDir)
 
   await recreateShell(workingDir)

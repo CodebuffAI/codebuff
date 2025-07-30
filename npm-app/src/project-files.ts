@@ -33,7 +33,7 @@ import { loadCodebuffConfig } from './json-config/parser'
 import { loadedAgents, loadLocalAgents } from './agents/load-agents'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
-import { gitCommandIsAvailable } from './utils/git'
+import { gitCommandIsAvailable, findGitRoot } from './utils/git'
 import { logger } from './utils/logger'
 import { getSystemInfo } from './utils/system-info'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
@@ -154,6 +154,23 @@ export function getStartingDirectory(dir: string | undefined = undefined): {
     return { cwd: base, shouldSearch: true }
   }
   return { cwd: dirAbsolute, shouldSearch: false }
+}
+
+/**
+ * Initialize project root for standalone commands that don't go through normal CLI setup
+ * @param cwd Optional working directory override
+ * @returns Object with projectRoot and workingDir paths
+ */
+export function initializeProjectRoot(cwd?: string): {
+  projectRoot: string
+  workingDir: string
+} {
+  const { cwd: workingDir, shouldSearch } = getStartingDirectory(cwd)
+  const gitRoot = shouldSearch
+    ? findGitRoot(workingDir) ?? workingDir
+    : workingDir
+  const projectRoot = setProjectRoot(gitRoot)
+  return { projectRoot, workingDir }
 }
 
 /**
