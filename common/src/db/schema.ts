@@ -438,8 +438,8 @@ export const publisher = pgTable('publisher', {
     .defaultNow(),
 })
 
-export const agentTemplate = pgTable(
-  'agent_template',
+export const agentConfig = pgTable(
+  'agent_config',
   {
     id: text('id')
       .notNull()
@@ -450,17 +450,17 @@ export const agentTemplate = pgTable(
       .references(() => publisher.id),
     major: integer('major').generatedAlwaysAs(
       (): SQL =>
-        sql`CAST(SPLIT_PART(${agentTemplate.version}, '.', 1) AS INTEGER)`
+        sql`CAST(SPLIT_PART(${agentConfig.version}, '.', 1) AS INTEGER)`
     ),
     minor: integer('minor').generatedAlwaysAs(
       (): SQL =>
-        sql`CAST(SPLIT_PART(${agentTemplate.version}, '.', 2) AS INTEGER)`
+        sql`CAST(SPLIT_PART(${agentConfig.version}, '.', 2) AS INTEGER)`
     ),
     patch: integer('patch').generatedAlwaysAs(
       (): SQL =>
-        sql`CAST(SPLIT_PART(${agentTemplate.version}, '.', 3) AS INTEGER)`
+        sql`CAST(SPLIT_PART(${agentConfig.version}, '.', 3) AS INTEGER)`
     ),
-    template: jsonb('template').notNull(), // All agentTemplate details
+    data: jsonb('data').notNull(), // All agentConfig details
     created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -470,6 +470,6 @@ export const agentTemplate = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.id, table.version] }),
-    index('idx_agent_template_publisher').on(table.publisher_id),
+    index('idx_agent_config_publisher').on(table.publisher_id),
   ]
 )

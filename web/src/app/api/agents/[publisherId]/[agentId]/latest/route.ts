@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/util/logger'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq, and, desc } from 'drizzle-orm'
-import { logger } from '@/util/logger'
+import { and, desc, eq } from 'drizzle-orm'
+import { NextRequest, NextResponse } from 'next/server'
 
 interface RouteParams {
   params: {
@@ -11,10 +11,7 @@ interface RouteParams {
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { publisherId, agentId } = params
 
@@ -42,33 +39,30 @@ export async function GET(
     // Find the latest version of the agent template
     const agent = await db
       .select()
-      .from(schema.agentTemplate)
+      .from(schema.agentConfig)
       .where(
         and(
-          eq(schema.agentTemplate.id, agentId),
-          eq(schema.agentTemplate.publisher_id, publisher.id)
+          eq(schema.agentConfig.id, agentId),
+          eq(schema.agentConfig.publisher_id, publisher.id)
         )
       )
       .orderBy(
-        desc(schema.agentTemplate.major),
-        desc(schema.agentTemplate.minor),
-        desc(schema.agentTemplate.patch)
+        desc(schema.agentConfig.major),
+        desc(schema.agentConfig.minor),
+        desc(schema.agentConfig.patch)
       )
       .limit(1)
       .then((rows) => rows[0])
 
     if (!agent) {
-      return NextResponse.json(
-        { error: 'Agent not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
     }
 
     return NextResponse.json({
       id: agent.id,
       version: agent.version,
       publisherId,
-      template: agent.template,
+      data: agent.data,
       createdAt: agent.created_at,
       updatedAt: agent.updated_at,
     })

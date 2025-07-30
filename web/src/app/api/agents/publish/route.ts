@@ -1,18 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
+import { logger } from '@/util/logger'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq, desc } from 'drizzle-orm'
-import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../auth/[...nextauth]/auth-options'
 import { dynamicAgentService } from '@codebuff/common/templates/dynamic-agent-service'
-import { logger } from '@/util/logger'
+import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 import { determineNextVersion, versionExists } from '@codebuff/internal'
+import { desc, eq } from 'drizzle-orm'
+import { getServerSession } from 'next-auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { authOptions } from '../../auth/[...nextauth]/auth-options'
 
 // Schema for publishing an agent
 const publishAgentRequestSchema = z.object({
-  template: DynamicAgentTemplateSchema,
+  data: DynamicAgentTemplateSchema,
 })
 
 export async function POST(request: NextRequest) {
@@ -44,12 +44,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { template } = parseResult.data
-    const agentId = template.id
+    const { data } = parseResult.data
+    const agentId = data.id
 
-    // Use dynamic agent service to validate the template
+    // Use dynamic agent service to validate the agent config
     const validationResult = await dynamicAgentService.loadAgents({
-      [agentId]: template,
+      [agentId]: data,
     })
 
     if (validationResult.validationErrors.length > 0) {
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         {
-          error: 'Agent template validation failed',
+          error: 'Agent config validation failed',
           details: errorDetails,
           validationErrors: validationResult.validationErrors,
         },
@@ -89,11 +89,7 @@ export async function POST(request: NextRequest) {
     // Determine the version to use (auto-increment if not provided)
     let version: string
     try {
-      version = await determineNextVersion(
-        agentId,
-        publisher.id,
-        template.version
-      )
+      version = await determineNextVersion(agentId, publisher.id, data.version)
     } catch (error) {
       return NextResponse.json(
         {
@@ -120,15 +116,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Insert the new agent template with the determined version
-    const templateWithVersion = { ...template, version }
+    // Insert the new agent config with the determined version
+    const dataWithVersion = { ...data, version }
     const newAgent = await db
-      .insert(schema.agentTemplate)
+      .insert(schema.agentConfig)
       .values({
         id: agentId,
         version,
         publisher_id: publisher.id,
-        template: templateWithVersion,
+        data: dataWithVersion,
       })
       .returning()
       .then((rows) => rows[0])
@@ -141,7 +137,7 @@ export async function POST(request: NextRequest) {
         version,
         agentTemplateId: newAgent.id,
       },
-      'Agent template published successfully'
+      'Agent published successfully'
     )
 
     return NextResponse.json(
