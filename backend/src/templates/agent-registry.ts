@@ -1,10 +1,10 @@
-import type { DynamicAgentValidationError } from './dynamic-agent-service'
-import type { AgentTemplate } from './types'
+import type { DynamicAgentValidationError } from '@codebuff/common/templates/dynamic-agent-service'
+import { dynamicAgentService } from '@codebuff/common/templates/dynamic-agent-service'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { logger } from '../util/logger'
 import { agentTemplates as staticTemplates } from './agent-list'
-import { dynamicAgentService } from './dynamic-agent-service'
 
 export type AgentRegistry = Record<string, AgentTemplate>
 

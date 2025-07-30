@@ -1,8 +1,8 @@
 import {
   clearMockedModules,
   mockModule,
-} from '@codebuff/common/testing/mock-modules'
-import { ProjectFileContext } from '@codebuff/common/util/file'
+} from '../testing/mock-modules'
+import { ProjectFileContext } from '../util/file'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import {
   dynamicAgentService,
