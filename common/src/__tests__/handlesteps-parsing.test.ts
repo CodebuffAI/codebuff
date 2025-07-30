@@ -125,7 +125,9 @@ describe('handleSteps Parsing Tests', () => {
       agentTemplates,
     }
 
-    const result = await dynamicAgentService.loadAgents(fileContext)
+    const result = await dynamicAgentService.loadAgents(
+      fileContext.agentTemplates || {}
+    )
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates['test-agent']).toBeDefined()
@@ -175,7 +177,9 @@ describe('handleSteps Parsing Tests', () => {
       agentTemplates,
     }
 
-    const result = await dynamicAgentService.loadAgents(fileContext)
+    const result = await dynamicAgentService.loadAgents(
+      fileContext.agentTemplates || {}
+    )
 
     expect(result.validationErrors.length).toBeGreaterThan(0)
     expect(result.validationErrors[0].message).toContain('generator function')
@@ -216,7 +220,9 @@ describe('handleSteps Parsing Tests', () => {
     }
 
     // Load agents through the service
-    const result = await dynamicAgentService.loadAgents(fileContext)
+    const result = await dynamicAgentService.loadAgents(
+      fileContext.agentTemplates || {}
+    )
 
     // Verify no validation errors
     expect(result.validationErrors).toHaveLength(0)

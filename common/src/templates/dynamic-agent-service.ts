@@ -1,20 +1,17 @@
-import * as path from 'path'
+import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { ToolName } from '../tools/constants'
 import { AgentTemplate } from '../types/agent-template'
 import { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 import { AgentTemplateType } from '../types/session-state'
-import { filterValidAgentTemplates } from '../util/agent-file-utils'
 import { normalizeAgentNames } from '../util/agent-name-normalization'
 import {
   formatParentInstructionsError,
   formatSubagentError,
   validateParentInstructions,
   validateSubagents,
-} from '../util/agent-template-validation'
-import { ProjectFileContext } from '../util/file'
+} from '@codebuff/common/util/agent-template-validation'
 import { logger } from '../util/logger'
-import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 export interface DynamicAgentValidationError {
   filePath: string
@@ -40,15 +37,10 @@ export class DynamicAgentService {
    * Load and validate dynamic agent templates from user-provided agentTemplates
    */
   async loadAgents(
-    fileContext: ProjectFileContext
+    agentTemplates: Record<string, DynamicAgentTemplate> = {}
   ): Promise<DynamicAgentLoadResult> {
     this.templates = {}
     this.validationErrors = []
-    // Check if we have agentTemplates in fileContext
-    const allAgentTemplates = fileContext.agentTemplates || {}
-
-    // Filter agent templates using the robust common function
-    const agentTemplates = filterValidAgentTemplates(allAgentTemplates)
 
     const hasAgentTemplates = Object.keys(agentTemplates).length > 0
 
@@ -70,12 +62,7 @@ export class DynamicAgentService {
 
       // Pass 2: Load and validate each agent template
       for (const agentKey of agentKeys) {
-        await this.loadSingleAgent(
-          agentKey,
-          dynamicAgentIds,
-          fileContext,
-          agentTemplates
-        )
+        await this.loadSingleAgent(agentKey, dynamicAgentIds, agentTemplates)
       }
     } catch (error) {
       // Re-throw override errors to surface them properly
@@ -148,11 +135,8 @@ export class DynamicAgentService {
   private async loadSingleAgent(
     filePath: string,
     dynamicAgentIds: string[],
-    fileContext: ProjectFileContext,
     agentTemplates: Record<string, DynamicAgentTemplate> = {}
   ): Promise<void> {
-    const fileDir = path.join(fileContext.projectRoot, path.dirname(filePath))
-
     try {
       const content = agentTemplates[filePath]
       if (!content) {
@@ -197,8 +181,6 @@ export class DynamicAgentService {
       const validatedSubagents = normalizeAgentNames(
         content.subagents
       ) as AgentTemplateType[]
-
-      const basePaths = [fileDir, fileContext.projectRoot]
 
       // Convert schemas and handle validation errors
       let inputSchema: AgentTemplate['inputSchema']

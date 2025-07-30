@@ -57,7 +57,7 @@ describe('Dynamic Agent Schema Validation', () => {
         },
       }
 
-      const result = await service.loadAgents(fileContext)
+      const result = await service.loadAgents(fileContext.agentTemplates || {})
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('no_prompt_schema_agent')
@@ -89,7 +89,7 @@ describe('Dynamic Agent Schema Validation', () => {
         },
       }
 
-      const result = await service.loadAgents(fileContext)
+      const result = await service.loadAgents(fileContext.agentTemplates || {})
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('no_params_schema_agent')
@@ -145,7 +145,7 @@ describe('Dynamic Agent Schema Validation', () => {
         },
       }
 
-      const result = await service.loadAgents(fileContext)
+      const result = await service.loadAgents(fileContext.agentTemplates || {})
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('both_schemas_agent')
@@ -217,7 +217,7 @@ describe('Dynamic Agent Schema Validation', () => {
         },
       }
 
-      const result = await service.loadAgents(fileContext)
+      const result = await service.loadAgents(fileContext.agentTemplates || {})
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('complex_schema_agent')
@@ -278,7 +278,7 @@ describe('Dynamic Agent Schema Validation', () => {
         },
       }
 
-      const result = await service.loadAgents(fileContext)
+      const result = await service.loadAgents(fileContext.agentTemplates || {})
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].message).toContain('in error-context')
@@ -325,7 +325,7 @@ describe('Dynamic Agent Schema Validation', () => {
         },
       }
 
-      const result = await service.loadAgents(fileContext)
+      const result = await service.loadAgents(fileContext.agentTemplates || {})
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
@@ -371,7 +371,7 @@ describe('Dynamic Agent Schema Validation', () => {
         },
       }
 
-      const result = await service.loadAgents(fileContext)
+      const result = await service.loadAgents(fileContext.agentTemplates || {})
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('empty_schema_agent')

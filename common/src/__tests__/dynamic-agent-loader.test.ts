@@ -91,7 +91,9 @@ describe('Dynamic Agent Loader', () => {
       },
     }
 
-    const result = await dynamicAgentService.loadAgents(fileContext)
+    const result = await dynamicAgentService.loadAgents(
+      fileContext.agentTemplates || {}
+    )
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('brainstormer')
@@ -120,7 +122,9 @@ describe('Dynamic Agent Loader', () => {
       },
     }
 
-    const result = await dynamicAgentService.loadAgents(fileContext)
+    const result = await dynamicAgentService.loadAgents(
+      fileContext.agentTemplates || {}
+    )
 
     expect(result.validationErrors).toHaveLength(1)
     expect(result.validationErrors[0].message).toContain(
@@ -149,7 +153,9 @@ describe('Dynamic Agent Loader', () => {
       },
     }
 
-    const result = await dynamicAgentService.loadAgents(fileContext)
+    const result = await dynamicAgentService.loadAgents(
+      fileContext.agentTemplates || {}
+    )
 
     // Should have dynamic templates
     expect(result.templates).toHaveProperty('custom_agent') // Dynamic
@@ -191,7 +197,9 @@ describe('Dynamic Agent Loader', () => {
       },
     }
 
-    const result = await testService.loadAgents(fileContext)
+    const result = await testService.loadAgents(
+      fileContext.agentTemplates || {}
+    )
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('schema_agent')
@@ -228,7 +236,9 @@ describe('Dynamic Agent Loader', () => {
       },
     }
 
-    const result = await testService.loadAgents(fileContext)
+    const result = await testService.loadAgents(
+      fileContext.agentTemplates || {}
+    )
 
     expect(result.validationErrors).toHaveLength(1)
     expect(result.validationErrors[0].message).toContain(
@@ -264,7 +274,9 @@ describe('Dynamic Agent Loader', () => {
       },
     }
 
-    const result = await testService.loadAgents(fileContext)
+    const result = await testService.loadAgents(
+      fileContext.agentTemplates || {}
+    )
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('no_override_agent')
@@ -307,7 +319,9 @@ describe('Dynamic Agent Loader', () => {
       },
     }
 
-    const result = await testService.loadAgents(fileContext)
+    const result = await testService.loadAgents(
+      fileContext.agentTemplates || {}
+    )
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('CodebuffAI/git-committer')

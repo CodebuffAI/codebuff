@@ -18,7 +18,7 @@ export async function getAllAgentTemplates({
 }> {
   // Load dynamic agents using the service
   const { templates: dynamicTemplates, validationErrors } =
-    await dynamicAgentService.loadAgents(fileContext)
+    await dynamicAgentService.loadAgents(fileContext.agentTemplates || {})
 
   // Combine static and dynamic templates
   const agentRegistry = { ...staticTemplates, ...dynamicTemplates }

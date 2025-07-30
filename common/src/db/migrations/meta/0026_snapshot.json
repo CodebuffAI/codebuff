@@ -1,5 +1,5 @@
 {
-  "id": "4f20a67c-89c7-4a7c-abff-8907b1db6682",
+  "id": "0271bbf2-42ab-47d1-abbd-d798995e10d1",
   "prevId": "6b134fd1-0feb-4e1a-9dfe-57d36b605348",
   "version": "7",
   "dialect": "postgresql",
@@ -105,8 +105,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.agent_template": {
-      "name": "agent_template",
+    "public.agent_config": {
+      "name": "agent_config",
       "schema": "",
       "columns": {
         "id": {
@@ -133,7 +133,7 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "as": "CAST(SPLIT_PART(\"agent_template\".\"version\", '.', 1) AS INTEGER)",
+            "as": "CAST(SPLIT_PART(\"agent_config\".\"version\", '.', 1) AS INTEGER)",
             "type": "stored"
           }
         },
@@ -143,7 +143,7 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "as": "CAST(SPLIT_PART(\"agent_template\".\"version\", '.', 2) AS INTEGER)",
+            "as": "CAST(SPLIT_PART(\"agent_config\".\"version\", '.', 2) AS INTEGER)",
             "type": "stored"
           }
         },
@@ -153,12 +153,12 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "as": "CAST(SPLIT_PART(\"agent_template\".\"version\", '.', 3) AS INTEGER)",
+            "as": "CAST(SPLIT_PART(\"agent_config\".\"version\", '.', 3) AS INTEGER)",
             "type": "stored"
           }
         },
-        "template": {
-          "name": "template",
+        "data": {
+          "name": "data",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
@@ -179,8 +179,8 @@
         }
       },
       "indexes": {
-        "idx_agent_template_publisher": {
-          "name": "idx_agent_template_publisher",
+        "idx_agent_config_publisher": {
+          "name": "idx_agent_config_publisher",
           "columns": [
             {
               "expression": "publisher_id",
@@ -196,9 +196,9 @@
         }
       },
       "foreignKeys": {
-        "agent_template_publisher_id_publisher_id_fk": {
-          "name": "agent_template_publisher_id_publisher_id_fk",
-          "tableFrom": "agent_template",
+        "agent_config_publisher_id_publisher_id_fk": {
+          "name": "agent_config_publisher_id_publisher_id_fk",
+          "tableFrom": "agent_config",
           "tableTo": "publisher",
           "columnsFrom": [
             "publisher_id"
@@ -211,8 +211,8 @@
         }
       },
       "compositePrimaryKeys": {
-        "agent_template_id_version_pk": {
-          "name": "agent_template_id_version_pk",
+        "agent_config_id_version_pk": {
+          "name": "agent_config_id_version_pk",
           "columns": [
             "id",
             "version"
@@ -1438,12 +1438,6 @@
           "primaryKey": true,
           "notNull": true
         },
-        "slug": {
-          "name": "slug",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "name": {
           "name": "name",
           "type": "text",
@@ -1475,6 +1469,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1491,17 +1491,23 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "publisher_slug_unique": {
-          "name": "publisher_slug_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+      "foreignKeys": {
+        "publisher_user_id_user_id_fk": {
+          "name": "publisher_user_id_user_id_fk",
+          "tableFrom": "publisher",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
