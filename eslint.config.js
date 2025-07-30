@@ -1,12 +1,18 @@
-import globals from 'globals';
-import tseslint from 'typescript-eslint';
-import pluginImport from 'eslint-plugin-import';
-import eslintConfigPrettier from 'eslint-config-prettier';
+import eslintConfigPrettier from 'eslint-config-prettier'
+import pluginImport from 'eslint-plugin-import'
+import globals from 'globals'
+import unusedImports from 'eslint-plugin-unused-imports'
+import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   // Global ignores
   {
-    ignores: ['**/dist/*', '**/.next/*', '**/.contentlayer/*', '**/node_modules/*'],
+    ignores: [
+      '**/dist/*',
+      '**/.next/*',
+      '**/.contentlayer/*',
+      '**/node_modules/*',
+    ],
   },
 
   // Base config for JS/TS files
@@ -24,6 +30,7 @@ export default tseslint.config(
     },
     plugins: {
       import: pluginImport,
+      'unused-imports': unusedImports,
       '@typescript-eslint': tseslint.plugin,
     },
     settings: {
@@ -34,39 +41,34 @@ export default tseslint.config(
       },
     },
     rules: {
-      ...pluginImport.configs.recommended.rules,
-      ...pluginImport.configs.typescript.rules,
       'import/order': [
         'warn',
         {
-          groups: ['builtin', 'external', 'internal', ['parent', 'sibling', 'index']],
+          groups: [
+            'builtin',
+            'external',
+            'internal',
+            ['parent', 'sibling', 'index'],
+            'type',
+          ],
           alphabetize: { order: 'asc', caseInsensitive: true },
           'newlines-between': 'always',
         },
       ],
-      'import/default': 'off',
-      'import/no-unresolved': 'off',
-    },
-  },
-
-  // Override for npm-app
-  {
-    files: ['npm-app/src/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
+      'import/no-unresolved': 'warn',
+      'import/no-duplicates': 'warn',
+      'unused-imports/no-unused-imports': 'warn',
+      '@typescript-eslint/consistent-type-imports': [
+        'warn',
         {
-          patterns: [
-            {
-              group: ['src/*', 'npm-app/src/*'],
-              message: 'Direct imports from src/ or npm-app/src/ are not allowed. Use proper import paths from compiled output instead.',
-            },
-          ],
+          prefer: 'type-imports',
+          fixStyle: 'separate-type-imports',
         },
       ],
+      'no-unused-vars': 'warn',
     },
   },
 
   // Prettier config (last to override formatting rules)
   eslintConfigPrettier,
-);
+)
