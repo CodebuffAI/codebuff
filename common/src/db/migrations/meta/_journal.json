@@ -183,6 +183,13 @@
       "when": 1753840650915,
       "tag": "0025_sour_starfox",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1753849528630,
+      "tag": "0026_chilly_mockingbird",
+      "breakpoints": true
     }
   ]
 }
