@@ -10,7 +10,7 @@ import {
 
 describe('DynamicAgentConfigSchema', () => {
   const validBaseTemplate = {
-    id: 'test_agent',
+    id: 'test-agent',
     version: '1.0.0',
     displayName: 'Test Agent',
     parentPrompt: 'A test agent',
@@ -143,7 +143,7 @@ describe('DynamicAgentConfigSchema', () => {
   describe('Invalid Templates', () => {
     it('should reject template with missing required fields', () => {
       const template = {
-        id: 'test_agent',
+        id: 'test-agent',
         // Missing other required fields
       }
 
@@ -199,6 +199,55 @@ describe('DynamicAgentConfigSchema', () => {
 
       const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(false)
+    })
+
+    it('should reject template with invalid agent ID format', () => {
+      const invalidIds = [
+        'Test_Agent', // uppercase and underscore
+        'test agent', // space
+        'test.agent', // dot
+        'test@agent', // special character
+        'Test-Agent', // uppercase
+        '123_test', // underscore
+        'test/agent', // slash
+      ]
+
+      invalidIds.forEach((id) => {
+        const template = {
+          ...validBaseTemplate,
+          id,
+        }
+
+        const result = DynamicAgentConfigSchema.safeParse(template)
+        expect(result.success).toBe(false)
+        if (!result.success) {
+          expect(result.error.issues[0].message).toContain(
+            'lowercase letters, numbers, and hyphens'
+          )
+        }
+      })
+    })
+
+    it('should accept template with valid agent ID format', () => {
+      const validIds = [
+        'test-agent',
+        'test123',
+        'agent-v2',
+        'my-custom-agent-123',
+        'a',
+        '123',
+        'test-agent-with-many-hyphens',
+      ]
+
+      validIds.forEach((id) => {
+        const template = {
+          ...validBaseTemplate,
+          id,
+        }
+
+        const result = DynamicAgentConfigSchema.safeParse(template)
+        expect(result.success).toBe(true)
+      })
     })
 
     it('should accept template with any parentInstructions agent ID at schema level', () => {
