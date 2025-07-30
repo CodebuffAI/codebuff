@@ -1,8 +1,7 @@
-import { defineConfig } from 'drizzle-kit'
+import path from 'path'
 
 import { env } from '@codebuff/internal'
-
-import path from 'path'
+import { defineConfig } from 'drizzle-kit'
 
 export default defineConfig({
   dialect: 'postgresql',
@@ -11,4 +10,5 @@ export default defineConfig({
   dbCredentials: {
     url: env.DATABASE_URL,
   },
+  tablesFilter: ['*', '!pg_stat_statements', '!pg_stat_statements_info'],
 })

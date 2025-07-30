@@ -3,6 +3,7 @@ import path from 'node:path'
 import os from 'os'
 import { z } from 'zod'
 import { logger } from './utils/logger'
+import { existsSync, readFileSync } from 'fs'
 
 const credentialsSchema = z
   .object({
@@ -48,3 +49,28 @@ export const CONFIG_DIR = path.join(
 // Ensure config directory exists
 ensureDirectoryExists(CONFIG_DIR)
 export const CREDENTIALS_PATH = path.join(CONFIG_DIR, 'credentials.json')
+
+/**
+ * Get user credentials from file system
+ * @returns User object or null if not found/authenticated
+ */
+export const getUserCredentials = (): User | null => {
+  // Read user credentials directly from file
+  if (!existsSync(CREDENTIALS_PATH)) {
+    return null
+  }
+
+  try {
+    const credentialsFile = readFileSync(CREDENTIALS_PATH, 'utf8')
+    const user = userFromJson(credentialsFile)
+    return user || null
+  } catch (error) {
+    logger.error(
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'Error reading credentials'
+    )
+    return null
+  }
+}

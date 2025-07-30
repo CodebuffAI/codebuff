@@ -1,11 +1,11 @@
 import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import * as fs from 'fs'
 import { green, red, yellow, cyan } from 'picocolors'
-import { Client } from '../client'
 import { websiteUrl } from '../config'
 import { logger } from '../utils/logger'
 import { loadLocalAgents } from '../agents/load-agents'
 import { getAgentsDirectory } from '../agents/agent-utils'
+import { getUserCredentials } from '../credentials'
 
 interface PublishResponse {
   success: boolean
@@ -17,18 +17,17 @@ interface PublishResponse {
 
 /**
  * Handle the publish command to upload agent templates to the backend
- * @param agentName The name of the agent to publish (required)
- */
-export async function handlePublish(agentName?: string): Promise<void> {
-  const client = Client.getInstance()
+ * @param agentId The id of the agent to publish (required)
+ */ export async function handlePublish(agentId?: string): Promise<void> {
+  const user = getUserCredentials()
 
-  if (!client.user) {
+  if (!user) {
     console.log(red('Please log in first using "login".'))
     return
   }
 
-  if (!agentName) {
-    console.log(red('Agent name is required. Usage: publish <agent-name>'))
+  if (!agentId) {
+    console.log(red('Agent id is required. Usage: publish <agent-id>'))
     console.log(
       yellow('This prevents accidentally publishing all agents at once.')
     )
@@ -69,13 +68,13 @@ export async function handlePublish(agentName?: string): Promise<void> {
     // Find the specific agent
     const matchingTemplate = Object.entries(agentTemplates).find(
       ([key, template]) =>
-        key === agentName ||
-        template.id === agentName ||
-        template.displayName === agentName
+        key === agentId ||
+        template.id === agentId ||
+        template.displayName === agentId
     )
 
     if (!matchingTemplate) {
-      console.log(red(`Agent "${agentName}" not found. Available agents:`))
+      console.log(red(`Agent "${agentId}" not found. Available agents:`))
       Object.values(agentTemplates).forEach((template) => {
         console.log(`  - ${template.displayName} (${template.id})`)
       })
@@ -87,10 +86,7 @@ export async function handlePublish(agentName?: string): Promise<void> {
     )
 
     try {
-      const result = await publishAgentTemplate(
-        template,
-        client.user.authToken!
-      )
+      const result = await publishAgentTemplate(template, user.authToken!)
 
       if (result.success) {
         console.log(

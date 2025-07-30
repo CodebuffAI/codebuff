@@ -14,7 +14,6 @@
 
 import type * as Tools from './tools'
 export type { Tools }
-
 type ToolName = Tools.ToolName
 
 // ============================================================================
@@ -22,7 +21,7 @@ type ToolName = Tools.ToolName
 // ============================================================================
 
 export interface AgentConfig {
-  /** Unique identifier for this agent. Use alphanumeric characters and hyphens only, e.g. 'code-reviewer' */
+  /** Unique identifier for this agent. Must contain only lowercase letters, numbers, and hyphens, e.g. 'code-reviewer' */
   id: string
 
   /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
