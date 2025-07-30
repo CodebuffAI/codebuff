@@ -1,6 +1,5 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { PromptField } from '@codebuff/common/types/dynamic-agent-template'
 import { getProjectRoot } from '../project-files'
 
 const agentTemplatesSubdir = ['.agents'] as const
@@ -33,43 +32,6 @@ export function getAllTsFiles(dir: string): string[] {
   }
 
   return files
-}
-
-/**
- * Load file contents for prompt fields
- */
-export function loadFileContents(promptField: PromptField | undefined): string {
-  if (promptField === undefined) {
-    return ''
-  }
-
-  if (typeof promptField === 'string') {
-    return promptField
-  }
-
-  const originalPath = promptField.path
-  const projectRoot = getProjectRoot()
-
-  // Try multiple path variations for better compatibility
-  const pathVariations = [
-    path.join(projectRoot, originalPath),
-    path.join(projectRoot, ...agentTemplatesSubdir, originalPath),
-    path.join(
-      projectRoot,
-      ...agentTemplatesSubdir,
-      path.basename(originalPath)
-    ),
-  ]
-
-  for (const filePath of pathVariations) {
-    try {
-      return fs.readFileSync(filePath, 'utf8')
-    } catch (error) {
-      // Ignore errors and try the next path variation
-    }
-  }
-
-  return ''
 }
 
 /**

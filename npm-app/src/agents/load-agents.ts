@@ -2,18 +2,12 @@ import {
   DynamicAgentConfigParsed,
   DynamicAgentConfigSchema,
   DynamicAgentTemplate,
-  PromptField,
 } from '@codebuff/common/types/dynamic-agent-template'
-import { filterCustomAgentFiles } from '@codebuff/common/util/agent-file-utils'
 import * as fs from 'fs'
 import * as path from 'path'
 import { cyan, green } from 'picocolors'
 import { CodebuffConfig } from '@codebuff/common/json-config/constants'
-import {
-  getAllTsFiles,
-  loadFileContents,
-  getAgentsDirectory,
-} from './agent-utils'
+import { getAllTsFiles, getAgentsDirectory } from './agent-utils'
 
 export let loadedAgents: Record<string, DynamicAgentTemplate> = {}
 
@@ -47,7 +41,7 @@ export async function loadLocalAgents({
         }
         continue
       }
-      
+
       try {
         agentConfig = agentModule.default
       } catch (error: any) {
@@ -73,11 +67,9 @@ export async function loadLocalAgents({
 
       loadedAgents[fileName] = {
         ...typedAgentConfig,
-        systemPrompt: loadFileContents(typedAgentConfig.systemPrompt),
-        instructionsPrompt: loadFileContents(
-          typedAgentConfig.instructionsPrompt
-        ),
-        stepPrompt: loadFileContents(typedAgentConfig.stepPrompt),
+        systemPrompt: typedAgentConfig.systemPrompt || '',
+        instructionsPrompt: typedAgentConfig.instructionsPrompt || '',
+        stepPrompt: typedAgentConfig.stepPrompt || '',
         handleSteps: handleStepsString,
       }
     }
