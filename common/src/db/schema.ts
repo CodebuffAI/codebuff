@@ -421,7 +421,7 @@ export const gitEvalResults = pgTable('git_eval_results', {
 
 // Agent Store tables
 export const publisher = pgTable('publisher', {
-  id: text('id').primaryKey().notNull(), // user-selectable id
+  id: text('id').primaryKey().notNull(), // user-selectable id (must match /^[a-z0-9-]+$/)
   name: text('name').notNull(),
   email: text('email'), // optional, for support
   verified: boolean('verified').notNull().default(false),
