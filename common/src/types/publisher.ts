@@ -18,3 +18,43 @@ export const PublisherSchema = z.object({
 })
 
 export type PublisherInput = z.infer<typeof PublisherSchema>
+
+export interface Publisher {
+  id: string
+  user_id: string
+  name: string
+  email: string | null
+  verified: boolean
+  bio: string | null
+  avatar_url: string | null
+  created_at: Date
+  updated_at: Date
+}
+
+export interface CreatePublisherRequest {
+  id: string
+  name: string
+  email?: string
+  bio?: string
+  avatar_url?: string
+}
+
+export interface UpdatePublisherRequest {
+  name?: string
+  email?: string
+  bio?: string
+  avatar_url?: string
+}
+
+export interface PublisherProfileResponse {
+  id: string
+  user_id: string
+  name: string
+  email: string | null
+  verified: boolean
+  bio: string | null
+  avatar_url: string | null
+  created_at: Date
+  updated_at: Date
+  agentCount?: number
+}

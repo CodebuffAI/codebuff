@@ -10,24 +10,23 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
+import { handlePublish } from './cli-handlers/publish'
 import { npmAppVersion } from './config'
 import { createTemplateProject } from './create-template-project'
-import { handlePublish } from './cli-handlers/publish'
 import { printModeLog, setPrintMode } from './display/print-mode'
+import { loadCodebuffConfig } from './json-config/parser'
 import {
-  getStartingDirectory,
+  getProjectRoot,
+  getWorkingDirectory,
+  initializeProjectRootAndWorkingDir,
   initProjectFileContextWithWorker,
-  setProjectRoot,
-  setWorkingDirectory,
 } from './project-files'
 import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/run-command'
 import { CliOptions } from './types'
 import { initAnalytics, trackEvent } from './utils/analytics'
-import { findGitRoot } from './utils/git'
 import { logger } from './utils/logger'
-import { loadCodebuffConfig } from './json-config/parser'
 
 async function codebuff({
   initialInput,
@@ -42,15 +41,8 @@ async function codebuff({
   trace,
 }: CliOptions) {
   enableSquashNewlines()
-
-  // Initialize starting directory
-  const { cwd: workingDir, shouldSearch } = getStartingDirectory(cwd)
-  const gitRoot = shouldSearch
-    ? findGitRoot(workingDir) ?? workingDir
-    : workingDir
-  const projectRoot = setProjectRoot(gitRoot)
-  setWorkingDirectory(workingDir)
-
+  const workingDir = getWorkingDirectory()
+  const projectRoot = getProjectRoot()
   await recreateShell(workingDir)
 
   // Kill all processes we failed to kill before
@@ -130,6 +122,10 @@ For all commands and options, run 'codebuff' and then type 'help'.
 
   const options = program.opts()
   const args = program.args // Handle template creation
+
+  // Initialize project root and working directory
+  initializeProjectRootAndWorkingDir(options.cwd)
+
   if (options.create) {
     const template = options.create
     const projectDir = args[0] || '.'
