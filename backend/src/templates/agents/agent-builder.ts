@@ -22,12 +22,10 @@ import(TEMPLATE_RELATIVE_PATH)
 
 const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
 const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
-const TEMPLATE_TYPES_PATH = path.join(AGENT_TEMPLATES_DIR, AGENT_CONFIG_FILE)
+const TYPES_DIR = path.join(AGENT_TEMPLATES_DIR, 'types')
+const TEMPLATE_TYPES_PATH = path.join(TYPES_DIR, AGENT_CONFIG_FILE)
 const TOOL_DEFINITIONS_FILE = 'tools.d.ts'
-const TOOL_DEFINITIONS_PATH = path.join(
-  AGENT_TEMPLATES_DIR,
-  TOOL_DEFINITIONS_FILE,
-)
+const TOOL_DEFINITIONS_PATH = path.join(TYPES_DIR, TOOL_DEFINITIONS_FILE)
 
 export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
   // Read the AGENT_CONFIG_FILE content dynamically
@@ -137,6 +135,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       `4. Create the complete agent template file in ${AGENT_TEMPLATES_DIR}`,
       '5. Ensure the template follows all conventions and best practices',
       '6. Use the AgentConfig interface for the configuration',
+      '7. Start the file with: import type { AgentConfig } from "./types/agent-config"',
       '',
       'Create agent templates that are focused, efficient, and well-documented. Always import the AgentConfig type and export a default configuration object.',
     ].join('\n'),
@@ -167,7 +166,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
       yield {
         toolName: 'run_terminal_command',
         args: {
-          command: `mkdir -p ${AGENT_TEMPLATES_DIR}`,
+          command: `mkdir -p ${TYPES_DIR}`,
           process_type: 'SYNC',
           timeout_seconds: 10,
         },
@@ -227,6 +226,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
 
 **Requirements:**
 - Create the agent template file in ${AGENT_TEMPLATES_DIR}
+- Always start the file with: import type { AgentConfig } from './types/agent-config'
 - Use the AgentConfig interface
 - Include appropriate tools based on the specialty
 - Write a comprehensive system prompt
