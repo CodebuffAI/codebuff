@@ -21,7 +21,7 @@ type ToolName = Tools.ToolName
 // ============================================================================
 
 export interface AgentConfig {
-  /** Unique identifier for this agent. Use alphanumeric characters and hyphens only, e.g. 'code-reviewer' */
+  /** Unique identifier for this agent. Must contain only lowercase letters, numbers, and hyphens, e.g. 'code-reviewer' */
   id: string
 
   /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
@@ -258,7 +258,6 @@ export type OutputTools = 'set_output' | 'end_turn'
 export type FileEditingTools = FileTools | 'end_turn'
 export type ResearchTools = WebTools | 'write_file' | 'end_turn'
 export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'
-
 
 // ============================================================================
 // Available Models (see: https://openrouter.ai/models)

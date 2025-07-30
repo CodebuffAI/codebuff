@@ -46,8 +46,8 @@ const JsonSchemaSchema: z.ZodType<any> = z.lazy(() =>
 const InputSchemaObjectSchema = z
   .object({
     prompt: z
-      .object({ 
-        type: z.literal('string'), 
+      .object({
+        type: z.literal('string'),
         description: z.string().optional(),
       })
       .passthrough()
@@ -82,7 +82,12 @@ const HandleStepsSchema = z
 
 // Validates the Typescript template file.
 export const DynamicAgentConfigSchema = z.object({
-  id: z.string(), // The unique identifier for this agent
+  id: z
+    .string()
+    .regex(
+      /^[a-z0-9-]+$/,
+      'Agent ID must contain only lowercase letters, numbers, and hyphens'
+    ), // The unique identifier for this agent
   version: z.string().optional(),
 
   // Required fields for new agents
