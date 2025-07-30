@@ -6,7 +6,7 @@ import {
 import { z } from 'zod'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 
 import { getUserIdFromAuthToken } from '../websockets/auth'
@@ -61,6 +61,13 @@ export async function publishAgentHandler(
     const agentId = template.id
     const version = template.version
 
+    if (!version) {
+      return res.status(400).json({
+        error: 'Invalid template',
+        details: 'Template must have an id and version.',
+      })
+    }
+
     // Validate semver format
     if (!/^\d+\.\d+\.\d+$/.test(version)) {
       return res.status(400).json({
@@ -86,29 +93,20 @@ export async function publishAgentHandler(
       })
     }
 
-    // Look up the user's publisher ID
-    const user = await db
-      .select({ publisher_id: schema.user.publisher_id })
-      .from(schema.user)
-      .where(eq(schema.user.id, userId))
-      .then((rows) => rows[0])
-
-    if (!user?.publisher_id) {
-      return res.status(403).json({
-        error: 'No publisher associated with user',
-        details: 'User must have a publisher_id to publish agents',
-      })
-    }
-
-    // Get publisher details
+    // Look up the user's latest publisher (by updated_at)
     const publisher = await db
       .select()
       .from(schema.publisher)
-      .where(eq(schema.publisher.id, user.publisher_id))
+      .where(eq(schema.publisher.user_id, userId))
+      .orderBy(desc(schema.publisher.updated_at))
+      .limit(1)
       .then((rows) => rows[0])
 
     if (!publisher) {
-      return res.status(404).json({ error: 'Publisher not found' })
+      return res.status(403).json({
+        error: 'No publisher associated with user',
+        details: 'User must have a publisher to publish agents',
+      })
     }
 
     // Check if this version already exists

@@ -56,7 +56,6 @@ export const user = pgTable('user', {
   auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(false),
   auto_topup_threshold: integer('auto_topup_threshold'),
   auto_topup_amount: integer('auto_topup_amount'),
-  publisher_id: text('publisher_id').references(() => publisher.id),
 })
 
 export const account = pgTable(
@@ -428,6 +427,9 @@ export const publisher = pgTable('publisher', {
   verified: boolean('verified').notNull().default(false),
   bio: text('bio'),
   avatar_url: text('avatar_url'),
+  user_id: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
     .notNull()
     .defaultNow(),
