@@ -34,16 +34,16 @@ export function incrementPatchVersion(version: Version): Version {
   return { ...version, patch: version.patch + 1 }
 }
 
-export function getMaximumVersion(v1: Version, v2: Version): Version {
+export function isGreater(v1: Version, v2: Version): boolean {
   if (v1.major !== v2.major) {
-    return v1.major > v2.major ? v1 : v2
+    return v1.major > v2.major
   }
 
   if (v1.minor !== v2.minor) {
-    return v1.minor > v2.minor ? v1 : v2
+    return v1.minor > v2.minor
   }
 
-  return v1.patch > v2.patch ? v1 : v2
+  return v1.patch > v2.patch
 }
 
 /**
@@ -94,18 +94,28 @@ export async function determineNextVersion(
 ): Promise<Version> {
   const latestVersion = await getLatestAgentVersion(agentId, publisherId)
 
-  let version: Version = versionOne()
-  if (providedVersion) {
-    try {
-      version = parseVersion(providedVersion)
-    } catch (error) {
-      throw new Error(
-        `Invalid version format: ${providedVersion}. Must be in semver format (e.g., 1.0.0)`,
-      )
-    }
+  if (!providedVersion) {
+    return incrementPatchVersion(latestVersion)
   }
 
-  return getMaximumVersion(incrementPatchVersion(latestVersion), version)
+  let version: Version
+  try {
+    version = parseVersion(providedVersion)
+  } catch (error) {
+    throw new Error(
+      `Invalid version format: ${providedVersion}. Must be in semver format (e.g., 1.0.0)`,
+    )
+  }
+
+  if (!isGreater(version, latestVersion)) {
+    throw new Error(
+      `Provided version ${providedVersion} must be greater than the latest version (${stringifyVersion(
+        latestVersion,
+      )})`,
+    )
+  }
+
+  return version
 }
 
 /**

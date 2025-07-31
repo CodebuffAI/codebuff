@@ -7,7 +7,7 @@ const {
   parseVersion,
   stringifyVersion,
   incrementPatchVersion,
-  getMaximumVersion,
+  isGreater,
   getLatestAgentVersion,
   determineNextVersion,
   versionExists,
@@ -90,32 +90,33 @@ describe('version-utils', () => {
     })
   })
 
-  describe('getMaximumVersion', () => {
-    it('should return version with higher major version', () => {
+  describe('isGreater', () => {
+    it('should return true when first version has higher major version', () => {
       const v1 = { major: 2, minor: 0, patch: 0 }
       const v2 = { major: 1, minor: 9, patch: 9 }
-      expect(getMaximumVersion(v1, v2)).toEqual(v1)
-      expect(getMaximumVersion(v2, v1)).toEqual(v1)
+      expect(isGreater(v1, v2)).toBe(true)
+      expect(isGreater(v2, v1)).toBe(false)
     })
 
-    it('should return version with higher minor version when major is same', () => {
+    it('should return true when first version has higher minor version and same major', () => {
       const v1 = { major: 1, minor: 2, patch: 0 }
       const v2 = { major: 1, minor: 1, patch: 9 }
-      expect(getMaximumVersion(v1, v2)).toEqual(v1)
-      expect(getMaximumVersion(v2, v1)).toEqual(v1)
+      expect(isGreater(v1, v2)).toBe(true)
+      expect(isGreater(v2, v1)).toBe(false)
     })
 
-    it('should return version with higher patch version when major and minor are same', () => {
+    it('should return true when first version has higher patch version and same major/minor', () => {
       const v1 = { major: 1, minor: 2, patch: 4 }
       const v2 = { major: 1, minor: 2, patch: 3 }
-      expect(getMaximumVersion(v1, v2)).toEqual(v1)
-      expect(getMaximumVersion(v2, v1)).toEqual(v1)
+      expect(isGreater(v1, v2)).toBe(true)
+      expect(isGreater(v2, v1)).toBe(false)
     })
 
-    it('should return first version when versions are equal', () => {
+    it('should return false when versions are equal', () => {
       const v1 = { major: 1, minor: 2, patch: 3 }
       const v2 = { major: 1, minor: 2, patch: 3 }
-      expect(getMaximumVersion(v1, v2)).toEqual(v1)
+      expect(isGreater(v1, v2)).toBe(false)
+      expect(isGreater(v2, v1)).toBe(false)
     })
   })
 
@@ -201,7 +202,7 @@ describe('version-utils', () => {
       expect(result).toEqual({ major: 1, minor: 2, patch: 4 })
     })
 
-    it('should use provided version when higher than incremented latest', async () => {
+    it('should use provided version when higher than latest', async () => {
       spyOn(versionUtils, 'getLatestAgentVersion').mockResolvedValue({
         major: 0,
         minor: 0,
@@ -216,19 +217,32 @@ describe('version-utils', () => {
       expect(result).toEqual({ major: 2, minor: 0, patch: 0 })
     })
 
-    it('should use maximum of latest and provided version', async () => {
+    it('should throw error when provided version is not greater than latest', async () => {
       spyOn(versionUtils, 'getLatestAgentVersion').mockResolvedValue({
         major: 2,
         minor: 0,
         patch: 0,
       })
 
-      const result = await determineNextVersion(
-        'test-agent',
-        'test-publisher',
-        '1.5.0',
+      await expect(
+        determineNextVersion('test-agent', 'test-publisher', '1.5.0'),
+      ).rejects.toThrow(
+        'Provided version 1.5.0 must be greater than the latest version (2.0.0)',
       )
-      expect(result).toEqual({ major: 2, minor: 0, patch: 1 })
+    })
+
+    it('should throw error when provided version equals latest', async () => {
+      spyOn(versionUtils, 'getLatestAgentVersion').mockResolvedValue({
+        major: 1,
+        minor: 5,
+        patch: 0,
+      })
+
+      await expect(
+        determineNextVersion('test-agent', 'test-publisher', '1.5.0'),
+      ).rejects.toThrow(
+        'Provided version 1.5.0 must be greater than the latest version (1.5.0)',
+      )
     })
 
     it('should throw error for invalid provided version', async () => {
@@ -297,19 +311,21 @@ describe('version-utils', () => {
       // Test the complete flow of version operations
       const version1 = parseVersion('1.2.3')
       const version2 = parseVersion('1.2.4')
-      const maxVersion = getMaximumVersion(version1, version2)
-      const nextVersion = incrementPatchVersion(maxVersion)
+      const isV2Greater = isGreater(version2, version1)
+      const nextVersion = incrementPatchVersion(version2)
       const versionString = stringifyVersion(nextVersion)
 
+      expect(isV2Greater).toBe(true)
       expect(versionString).toBe('1.2.5')
     })
 
     it('should handle edge cases with versionOne', () => {
       const one = versionOne()
       const incremented = incrementPatchVersion(one)
-      const max = getMaximumVersion(one, incremented)
+      const isIncrementedGreater = isGreater(incremented, one)
 
-      expect(max).toEqual({ major: 0, minor: 0, patch: 2 })
+      expect(isIncrementedGreater).toBe(true)
+      expect(incremented).toEqual({ major: 0, minor: 0, patch: 2 })
     })
   })
 })
