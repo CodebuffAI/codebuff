@@ -113,7 +113,6 @@ export const runAgentStep = async (
       {
         role: 'user' as const,
         content: asUserMessage(prompt),
-        keepDuringTruncation: true,
       },
     ],
   )
