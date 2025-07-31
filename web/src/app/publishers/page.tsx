@@ -59,15 +59,14 @@ const buildSubmitPayload = (
     bio: string
     avatar_url: string
   },
-  selectedOrgId: string | null | undefined,
-  avatarUrl: string | null
+  selectedOrgId: string | null | undefined
 ) => {
   return {
     id: formData.id,
     name: formData.name,
     email: formData.email || undefined,
     bio: formData.bio || undefined,
-    avatar_url: avatarUrl || undefined,
+    avatar_url: formData.avatar_url || undefined,
     org_id: selectedOrgId && selectedOrgId !== '' ? selectedOrgId : undefined,
   }
 }
@@ -92,8 +91,7 @@ const CreatePublisherPage = () => {
     bio: '',
     avatar_url: '',
   })
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isIdManuallyEdited, setIsIdManuallyEdited] = useState(false)
   const [hasRemovedAvatar, setHasRemovedAvatar] = useState(false)
@@ -188,47 +186,13 @@ const CreatePublisherPage = () => {
   }
 
   const handleAvatarChange = async (file: File | null, url: string) => {
-    setAvatarFile(file)
     setFormData((prev) => ({ ...prev, avatar_url: url }))
 
     // Track if user explicitly removed the avatar
-    if (!file && !url) {
+    if (!url) {
       setHasRemovedAvatar(true)
     } else {
       setHasRemovedAvatar(false)
-    }
-  }
-
-  const uploadAvatar = async (): Promise<string | null> => {
-    if (!avatarFile) return formData.avatar_url || null
-
-    setIsUploadingAvatar(true)
-    try {
-      const formData = new FormData()
-      formData.append('avatar', avatarFile)
-
-      const response = await fetch('/api/upload/avatar', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to upload avatar')
-      }
-
-      const { avatar_url } = await response.json()
-      return avatar_url
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to upload avatar',
-        variant: 'destructive',
-      })
-      return null
-    } finally {
-      setIsUploadingAvatar(false)
     }
   }
 
@@ -255,17 +219,12 @@ const CreatePublisherPage = () => {
 
     setIsLoading(true)
     try {
-      // Upload avatar first if there's a new file
-      const avatarUrl = await uploadAvatar()
-
       const response = await fetch('/api/publishers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(
-          buildSubmitPayload(formData, selectedOrgId, avatarUrl)
-        ),
+        body: JSON.stringify(buildSubmitPayload(formData, selectedOrgId)),
       })
 
       if (!response.ok) {
@@ -450,7 +409,7 @@ const CreatePublisherPage = () => {
           onBioChange={(e) => setFormData({ ...formData, bio: e.target.value })}
           onAvatarChange={handleAvatarChange}
           isLoading={isLoading}
-          isUploadingAvatar={isUploadingAvatar}
+          isUploadingAvatar={false}
         />
       ),
       isValid: () => {
@@ -462,7 +421,6 @@ const CreatePublisherPage = () => {
 
         return (
           !isLoading &&
-          !isUploadingAvatar &&
           !hasValidationErrors &&
           !hasInvalidId &&
           !hasOrgError &&
@@ -542,12 +500,10 @@ const CreatePublisherPage = () => {
                       onClick={handleSubmit}
                       disabled={!currentStepData.isValid()}
                     >
-                      {(isLoading || isUploadingAvatar) && (
+                      {isLoading && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      {isUploadingAvatar
-                        ? 'Uploading...'
-                        : 'Create Publisher Profile'}
+                      Create Publisher Profile
                     </Button>
                   )}
                 </div>

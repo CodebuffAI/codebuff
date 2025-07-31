@@ -35,9 +35,14 @@ export function AvatarUpload({
         return
       }
 
-      const url = URL.createObjectURL(file)
-      setPreviewUrl(url)
-      onChange(file, url)
+      // Convert file to data URL
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string
+        setPreviewUrl(dataUrl)
+        onChange(null, dataUrl) // Pass null for file since we're using data URL
+      }
+      reader.readAsDataURL(file)
     },
     [onChange]
   )
