@@ -137,7 +137,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                   </Badge>
                 </div>
                 <p className="text-muted-foreground mb-2">
-                  by @{publisherData.name}
+                  by @{publisherData.id}
                 </p>
                 {agentData.description && (
                   <p className="text-sm mb-4">{agentData.description}</p>
