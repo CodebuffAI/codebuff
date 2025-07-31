@@ -61,6 +61,7 @@ export const CodebuffMessageSchema = z.intersection(
     timeToLive: z
       .union([z.literal('agentStep'), z.literal('userPrompt')])
       .optional(),
+    keepDuringTruncation: z.boolean().optional(),
   }),
 )
 

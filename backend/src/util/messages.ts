@@ -113,6 +113,10 @@ function simplifyTerminalHelper(
 
 // Factor to reduce token count target by, to leave room for new messages
 const shortenedMessageTokenFactor = 0.5
+const replacementMessage = {
+  role: 'user',
+  content: asSystemMessage('Previous message(s) omitted due to length'),
+} satisfies CodebuffMessage
 
 /**
  * Trims messages from the beginning to fit within token limits while preserving
@@ -133,18 +137,16 @@ export function trimMessagesToFitTokenLimit(
   systemTokens: number,
   maxTotalTokens: number = 190_000,
 ): CodebuffMessage[] {
-  const MAX_MESSAGE_TOKENS = maxTotalTokens - systemTokens
+  const maxMessageTokens = maxTotalTokens - systemTokens
 
   // Check if we're already under the limit
   const initialTokens = countTokensJson(messages)
 
-  if (initialTokens < MAX_MESSAGE_TOKENS) {
+  if (initialTokens < maxMessageTokens) {
     return messages
   }
 
-  let totalTokens = 0
-  const targetTokens = MAX_MESSAGE_TOKENS * shortenedMessageTokenFactor
-  const results: CodebuffMessage[] = []
+  const shortenedMessages: CodebuffMessage[] = []
   let numKept = 0
 
   // Process messages from newest to oldest
@@ -208,22 +210,41 @@ export function trimMessagesToFitTokenLimit(
         message = { ...m, content: newContent }
       }
     } else {
+      m satisfies never
       throw new AssertionError({ message: 'Not a valid role' })
     }
 
-    // Check if adding this message would exceed our token target
-    const messageTokens = countTokensJson(message)
+    shortenedMessages.push(message)
+  }
+  shortenedMessages.reverse()
 
-    if (totalTokens + messageTokens <= targetTokens) {
-      results.push(message)
-      totalTokens += messageTokens
-    } else {
-      break
+  const requiredTokens = countTokensJson(
+    shortenedMessages.filter((m) => m.keepDuringTruncation),
+  )
+  let removedTokens = 0
+  const tokensToRemove =
+    (maxMessageTokens - requiredTokens) * (1 - shortenedMessageTokenFactor)
+
+  const placeholder = 'deleted'
+  const filteredMessages: (CodebuffMessage | typeof placeholder)[] = []
+  for (const message of shortenedMessages) {
+    if (removedTokens >= tokensToRemove || message.keepDuringTruncation) {
+      filteredMessages.push(message)
+      continue
+    }
+    removedTokens += countTokensJson(message)
+    if (
+      filteredMessages.length === 0 ||
+      filteredMessages[filteredMessages.length - 1] !== placeholder
+    ) {
+      filteredMessages.push(placeholder)
+      removedTokens -= countTokensJson(replacementMessage)
     }
   }
 
-  results.reverse()
-  return results
+  return filteredMessages.map((m) =>
+    m === placeholder ? replacementMessage : m,
+  )
 }
 
 export function getMessagesSubset(

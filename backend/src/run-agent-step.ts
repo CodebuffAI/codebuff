@@ -107,15 +107,16 @@ export const runAgentStep = async (
   })
 
   let messageHistory = agentState.messageHistory
-  const messagesWithUserPrompt = buildArray<CodebuffMessage>(
-    ...messageHistory,
-    prompt && [
-      {
-        role: 'user' as const,
-        content: asUserMessage(prompt),
-      },
-    ],
-  )
+  const messagesWithUserPrompt = prompt
+    ? [
+        ...messageHistory.map((m) => ({ ...m, keepDuringTruncation: false })),
+        {
+          role: 'user' as const,
+          content: asUserMessage(prompt),
+          keepDuringTruncation: true,
+        },
+      ]
+    : messageHistory
 
   // Check number of assistant messages since last user message with prompt
   if (agentState.stepsRemaining <= 0) {
@@ -252,7 +253,9 @@ export const runAgentStep = async (
     : undefined
 
   const agentMessagesUntruncated = buildArray<CodebuffMessage>(
-    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep'),
+    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep').map(
+      (m) => (prompt ? { ...m, keepDuringTruncation: false } : m),
+    ),
 
     toolResults.length > 0 && {
       role: 'user' as const,
@@ -282,12 +285,14 @@ export const runAgentStep = async (
       role: 'user' as const,
       content: instructionsPrompt,
       timeToLive: 'userPrompt' as const,
+      keepDuringTruncation: true,
     },
 
     stepPrompt && {
       role: 'user' as const,
       content: stepPrompt,
       timeToLive: 'agentStep' as const,
+      keepDuringTruncation: true,
     },
   )
 

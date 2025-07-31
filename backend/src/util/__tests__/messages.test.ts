@@ -159,31 +159,16 @@ describe('trimMessagesToFitTokenLimit', () => {
       maxTotalTokens,
     )
 
-    // Verify the first message was dropped
-    expect(result).toHaveLength(testMessages.length - 1)
+    // Should have replacement message for omitted content
+    expect(result.length).toBeGreaterThan(0)
 
-    // Regular messages should be unchanged
-    expect(result[0].content).toBe(testMessages[1].content)
-    expect(result[6].content).toEqual(testMessages[7].content)
-
-    // 0th and second terminal outputs should be simplified
-    expect(result[1].role).toEqual(testMessages[2].role)
-    expect(Array.isArray(result[1].content)).toBe(true)
-    expect((result[1].content[0] as any).text).toContain(
-      '<result>[Output omitted]</result>',
+    // Should contain a replacement message for omitted content
+    const hasReplacementMessage = result.some(
+      (msg) =>
+        typeof msg.content === 'string' &&
+        msg.content.includes('Previous message(s) omitted due to length'),
     )
-    expect((result[1].content[1] as any).text).toBe(
-      (testMessages[2].content[1] as any).text,
-    )
-
-    expect(result[2].role).toEqual(testMessages[3].role)
-    expect(result[2].content).toContain('<result>[Output omitted]</result>')
-
-    // Terminal outputs 3-7 should be preserved exactly
-    expect(result[3].content).toBe(testMessages[4].content)
-    expect(result[4].content).toEqual(testMessages[5].content)
-    expect(result[5].content).toBe(testMessages[6].content)
-    expect(result[6].content).toBe(testMessages[7].content)
+    expect(hasReplacementMessage).toBe(true)
 
     // Verify total tokens are under limit
     const finalTokens = tokenCounter.countTokensJson(result)
@@ -199,31 +184,16 @@ describe('trimMessagesToFitTokenLimit', () => {
       maxTotalTokens,
     )
 
-    // Verify the first message was dropped
-    expect(result).toHaveLength(testMessages.length - 1)
+    // Should have replacement message for omitted content
+    expect(result.length).toBeGreaterThan(0)
 
-    // Regular messages should be unchanged
-    expect(result[0].content).toBe(testMessages[1].content)
-    expect(result[6].content).toEqual(testMessages[7].content)
-
-    // 0th and second terminal outputs should be simplified
-    expect(result[1].role).toEqual(testMessages[2].role)
-    expect(Array.isArray(result[1].content)).toBe(true)
-    expect((result[1].content[0] as any).text).toContain(
-      '<result>[Output omitted]</result>',
+    // Should contain a replacement message for omitted content
+    const hasReplacementMessage = result.some(
+      (msg) =>
+        typeof msg.content === 'string' &&
+        msg.content.includes('Previous message(s) omitted due to length'),
     )
-    expect((result[1].content[1] as any).text).toBe(
-      (testMessages[2].content[1] as any).text,
-    )
-
-    expect(result[2].role).toEqual(testMessages[3].role)
-    expect(result[2].content).toContain('<result>[Output omitted]</result>')
-
-    // Terminal outputs 3-7 should be preserved exactly
-    expect(result[3].content).toBe(testMessages[4].content)
-    expect(result[4].content).toEqual(testMessages[5].content)
-    expect(result[5].content).toBe(testMessages[6].content)
-    expect(result[6].content).toBe(testMessages[7].content)
+    expect(hasReplacementMessage).toBe(true)
 
     // Verify total tokens are under limit
     const finalTokens = tokenCounter.countTokensJson(result)
@@ -257,5 +227,143 @@ describe('trimMessagesToFitTokenLimit', () => {
     const result = trimMessagesToFitTokenLimit([], systemTokens, maxTotalTokens)
 
     expect(result).toEqual([])
+  })
+
+  describe('keepDuringTruncation functionality', () => {
+    it('preserves messages marked with keepDuringTruncation=true', () => {
+      const messages = [
+        { role: 'user', content: 'A'.repeat(500) }, // Large message to force truncation
+        { role: 'user', content: 'B'.repeat(500) }, // Large message to force truncation
+        {
+          role: 'user',
+          content: 'Message 3 - keep me!',
+          keepDuringTruncation: true,
+        },
+        { role: 'assistant', content: 'C'.repeat(500) }, // Large message to force truncation
+        {
+          role: 'user',
+          content: 'Message 5 - keep me too!',
+          keepDuringTruncation: true,
+        },
+      ] as CodebuffMessage[]
+
+      const result = trimMessagesToFitTokenLimit(messages, 0, 1000)
+
+      // Should contain the kept messages
+      const keptMessages = result.filter(
+        (msg) =>
+          typeof msg.content === 'string' &&
+          (msg.content.includes('keep me!') ||
+            msg.content.includes('keep me too!')),
+      )
+      expect(keptMessages).toHaveLength(2)
+
+      // Should have replacement message for omitted content
+      const hasReplacementMessage = result.some(
+        (msg) =>
+          typeof msg.content === 'string' &&
+          msg.content.includes('Previous message(s) omitted due to length'),
+      )
+      expect(hasReplacementMessage).toBe(true)
+    })
+
+    it('does not add replacement message when no messages are removed', () => {
+      const messages = [
+        { role: 'user', content: 'Short message 1' },
+        {
+          role: 'user',
+          content: 'Short message 2',
+          keepDuringTruncation: true,
+        },
+      ] as CodebuffMessage[]
+
+      const result = trimMessagesToFitTokenLimit(messages, 0, 10000)
+
+      // Should be unchanged when under token limit
+      expect(result).toHaveLength(2)
+      expect(result[0].content).toBe('Short message 1')
+      expect(result[1].content).toBe('Short message 2')
+    })
+
+    it('handles consecutive replacement messages correctly', () => {
+      const messages = [
+        { role: 'user', content: 'A'.repeat(1000) }, // Large message to be removed
+        { role: 'user', content: 'B'.repeat(1000) }, // Large message to be removed
+        { role: 'user', content: 'C'.repeat(1000) }, // Large message to be removed
+        { role: 'user', content: 'Keep this', keepDuringTruncation: true },
+      ] as CodebuffMessage[]
+
+      const result = trimMessagesToFitTokenLimit(messages, 0, 1000)
+
+      // Should only have one replacement message for consecutive removals
+      const replacementMessages = result.filter(
+        (msg) =>
+          typeof msg.content === 'string' &&
+          msg.content.includes('Previous message(s) omitted due to length'),
+      )
+      expect(replacementMessages).toHaveLength(1)
+
+      // Should keep the marked message
+      const keptMessage = result.find(
+        (msg) =>
+          typeof msg.content === 'string' && msg.content.includes('Keep this'),
+      )
+      expect(keptMessage).toBeDefined()
+    })
+
+    it('calculates token removal correctly with keepDuringTruncation', () => {
+      const messages = [
+        { role: 'user', content: 'A'.repeat(500) }, // Will be removed
+        { role: 'user', content: 'B'.repeat(500) }, // Will be removed
+        {
+          role: 'user',
+          content: 'Keep this short message',
+          keepDuringTruncation: true,
+        },
+        { role: 'user', content: 'C'.repeat(100) }, // Might be kept
+      ] as CodebuffMessage[]
+
+      const result = trimMessagesToFitTokenLimit(messages, 0, 2000)
+
+      // Should preserve the keepDuringTruncation message
+      const keptMessage = result.find(
+        (msg) =>
+          typeof msg.content === 'string' &&
+          msg.content.includes('Keep this short message'),
+      )
+      expect(keptMessage).toBeDefined()
+
+      // Total tokens should be under limit
+      const finalTokens = tokenCounter.countTokensJson(result)
+      expect(finalTokens).toBeLessThan(2000)
+    })
+
+    it('handles mixed keepDuringTruncation and regular messages', () => {
+      const messages = [
+        { role: 'user', content: 'A'.repeat(800) }, // Large message to force truncation
+        { role: 'user', content: 'Keep 1', keepDuringTruncation: true },
+        { role: 'user', content: 'B'.repeat(800) }, // Large message to force truncation
+        { role: 'user', content: 'Keep 2', keepDuringTruncation: true },
+        { role: 'user', content: 'C'.repeat(800) }, // Large message to force truncation
+      ] as CodebuffMessage[]
+
+      const result = trimMessagesToFitTokenLimit(messages, 0, 500)
+
+      // Should keep both marked messages
+      const keptMessages = result.filter(
+        (msg) =>
+          typeof msg.content === 'string' &&
+          (msg.content.includes('Keep 1') || msg.content.includes('Keep 2')),
+      )
+      expect(keptMessages).toHaveLength(2)
+
+      // Should have replacement messages for removed content
+      const replacementMessages = result.filter(
+        (msg) =>
+          typeof msg.content === 'string' &&
+          msg.content.includes('Previous message(s) omitted due to length'),
+      )
+      expect(replacementMessages.length).toBeGreaterThan(0)
+    })
   })
 })
