@@ -1,4 +1,4 @@
-import { AgentConfig } from './types/agent-config'
+import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'knowledge-keeper',
@@ -38,7 +38,7 @@ const config: AgentConfig = {
     'end_turn',
   ],
 
-  subagents: ['file_picker', 'researcher'],
+  subagents: ['file-picker', 'researcher'],
 
   // parentInstructions: {
   //   researcher:

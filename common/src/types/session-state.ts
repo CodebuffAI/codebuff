@@ -78,9 +78,12 @@ export const AgentTemplateTypeList = [
   'sonnet4_agent_builder',
   'example_programmatic',
 ] as const
+type UnderscoreToDash<S extends string> = S extends `${infer L}_${infer R}`
+  ? `${L}-${UnderscoreToDash<R>}` // recurse on the remainder
+  : S
 export const AgentTemplateTypes = Object.fromEntries(
-  AgentTemplateTypeList.map((name) => [name, name]),
-) as { [K in (typeof AgentTemplateTypeList)[number]]: K }
+  AgentTemplateTypeList.map((name) => [name, name.replaceAll('_', '-')]),
+) as { [K in (typeof AgentTemplateTypeList)[number]]: UnderscoreToDash<K> }
 const agentTemplateTypeSchema = z.enum(AgentTemplateTypeList)
 // Allow dynamic agent types by extending the base enum with string
 export type AgentTemplateType = z.infer<typeof agentTemplateTypeSchema> | string

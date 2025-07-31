@@ -19,62 +19,62 @@ import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
 export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
   {
-    base: {
+    [AgentTemplateTypes.base]: {
       id: AgentTemplateTypes.base,
       ...base(models.openrouter_claude_sonnet_4),
     },
-    base_lite: {
+    [AgentTemplateTypes.base_lite]: {
       id: AgentTemplateTypes.base_lite,
       ...base(models.gemini2_5_flash),
     },
-    base_max: {
+    [AgentTemplateTypes.base_max]: {
       id: AgentTemplateTypes.base_max,
       ...base(models.openrouter_claude_opus_4),
     },
-    base_experimental: {
+    [AgentTemplateTypes.base_experimental]: {
       id: AgentTemplateTypes.base_experimental,
       ...base(models.gemini2_5_pro_preview),
     },
-    ask: {
+    [AgentTemplateTypes.ask]: {
       id: AgentTemplateTypes.ask,
       ...ask(models.gemini2_5_pro_preview),
     },
-    superagent: {
+    [AgentTemplateTypes.superagent]: {
       id: AgentTemplateTypes.superagent,
       ...superagent(models.openrouter_claude_sonnet_4),
     },
-    claude4_gemini_thinking: {
+    [AgentTemplateTypes.claude4_gemini_thinking]: {
       id: AgentTemplateTypes.claude4_gemini_thinking,
       ...thinkingBase(models.openrouter_claude_sonnet_4),
     },
 
-    thinker: {
+    [AgentTemplateTypes.thinker]: {
       id: AgentTemplateTypes.thinker,
       ...thinker(models.openrouter_grok_4),
     },
-    file_picker: {
+    [AgentTemplateTypes.file_picker]: {
       id: AgentTemplateTypes.file_picker,
       ...filePicker(models.gemini2_5_flash),
     },
-    researcher: {
+    [AgentTemplateTypes.researcher]: {
       id: AgentTemplateTypes.researcher,
       ...researcher(models.gemini2_5_flash),
     },
-    planner: {
+    [AgentTemplateTypes.planner]: {
       id: AgentTemplateTypes.planner,
       ...planner(models.openrouter_grok_4),
     },
-    dry_run: {
+    [AgentTemplateTypes.dry_run]: {
       id: AgentTemplateTypes.dry_run,
       ...dryRun(models.gemini2_5_flash),
     },
-    reviewer: {
+    [AgentTemplateTypes.reviewer]: {
       id: AgentTemplateTypes.reviewer,
       ...reviewer(models.gemini2_5_pro_preview),
     },
-    sonnet4_agent_builder: {
+    [AgentTemplateTypes.sonnet4_agent_builder]: {
       id: AgentTemplateTypes.sonnet4_agent_builder,
       ...agentBuilder(models.openrouter_claude_sonnet_4),
     },
-    file_explorer: fileExplorer as any as AgentTemplate,
+    [AgentTemplateTypes.file_explorer]: fileExplorer as any as AgentTemplate,
   }
