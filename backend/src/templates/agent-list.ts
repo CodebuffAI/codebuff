@@ -21,7 +21,7 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
   {
     base: {
       id: AgentTemplateTypes.base,
-      ...base(models.openrouter_claude_sonnet_4),
+      ...base(models.gemini2_5_flash),
     },
     base_lite: {
       id: AgentTemplateTypes.base_lite,
