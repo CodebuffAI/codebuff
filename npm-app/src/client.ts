@@ -29,10 +29,6 @@ import {
   UserState,
 } from '@codebuff/common/constants'
 import {
-  AGENT_NAME_TO_TYPES,
-  UNIQUE_AGENT_NAMES,
-} from '@codebuff/common/constants/agents'
-import {
   getAllAgents,
   resolveNameToId,
 } from '@codebuff/common/util/agent-name-resolver'
@@ -132,7 +128,7 @@ const WARNING_CONFIG = {
     message: (credits: number) =>
       [
         yellow(
-          `\n⚠️ ${bold(pluralize(credits, 'credit'))} remaining. Consider topping up soon.`
+          `\n⚠️ ${bold(pluralize(credits, 'credit'))} remaining. Consider topping up soon.`,
         ),
       ].join('\n'),
     threshold: 75,
@@ -205,7 +201,7 @@ export class Client {
     this.webSocket = new APIRealtimeClient(
       websocketUrl,
       onWebSocketError,
-      onWebSocketReconnect
+      onWebSocketReconnect,
     )
     loggerContext.costMode = this.costMode
     loggerContext.model = this.model
@@ -223,15 +219,15 @@ export class Client {
           costMode: this.costMode,
           model: this.model,
         },
-        'App launched'
-      )
+        'App launched',
+      ),
     )
   }
 
   public static createInstance(options: ClientOptions): Client {
     if (Client.instance) {
       throw new Error(
-        'Client instance already created. Use getInstance() to retrieve it.'
+        'Client instance already created. Use getInstance() to retrieve it.',
       )
     }
     Client.instance = new Client(options)
@@ -245,7 +241,7 @@ export class Client {
     if (!Client.instance) {
       if (shouldThrow) {
         throw new Error(
-          'Client instance has not been created yet. Call createInstance() first.'
+          'Client instance has not been created yet. Call createInstance() first.',
         )
       }
       return null
@@ -368,7 +364,7 @@ export class Client {
             apiKey,
             authToken: this.user.authToken,
           }),
-        }
+        },
       )
 
       Spinner.get().stop()
@@ -391,7 +387,7 @@ export class Client {
           errorStack: error.stack,
           keyType,
         },
-        'Error adding API key'
+        'Error adding API key',
       )
       console.error(red('Error adding API key: ' + error.message))
     } finally {
@@ -414,17 +410,17 @@ export class Client {
               referralCode,
               authToken: this.user.authToken,
             }),
-          }
+          },
         )
         const respJson = await redeemReferralResp.json()
         if (redeemReferralResp.ok) {
           console.log(
             [
               green(
-                `Noice, you've earned an extra ${(respJson as any).credits_redeemed} credits!`
+                `Noice, you've earned an extra ${(respJson as any).credits_redeemed} credits!`,
               ),
               `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
-            ].join('\n')
+            ].join('\n'),
           )
           this.getUsage()
         } else {
@@ -438,7 +434,7 @@ export class Client {
             errorStack: error.stack,
             referralCode,
           },
-          'Error redeeming referral code'
+          'Error redeeming referral code',
         )
         console.error(red('Error: ' + error.message))
         this.freshPrompt()
@@ -469,7 +465,7 @@ export class Client {
             {
               errorMessage: 'Failed to log out: ' + error,
             },
-            'Failed to log out'
+            'Failed to log out',
           )
         }
 
@@ -485,7 +481,7 @@ export class Client {
             next_quota_reset: null,
           }
           this.oneTimeFlags = Object.fromEntries(
-            ONE_TIME_LABELS.map((tag) => [tag, false])
+            ONE_TIME_LABELS.map((tag) => [tag, false]),
           ) as Record<(typeof ONE_TIME_LABELS)[number], boolean>
         } catch (error) {
           logger.error(
@@ -494,7 +490,7 @@ export class Client {
                 error instanceof Error ? error.message : String(error),
               errorStack: error instanceof Error ? error.stack : undefined,
             },
-            'Error removing credentials file'
+            'Error removing credentials file',
           )
           console.error('Error removing credentials file:', error)
         }
@@ -506,7 +502,7 @@ export class Client {
             errorStack: error instanceof Error ? error.stack : undefined,
             msg: 'Error during logout',
           },
-          'Error during logout'
+          'Error during logout',
         )
         console.error('Error during logout:', error)
       }
@@ -516,7 +512,7 @@ export class Client {
   async login(referralCode?: string) {
     if (this.user) {
       console.log(
-        `You are currently logged in as ${this.user.name}. Please enter "logout" first if you want to login as a different user.`
+        `You are currently logged in as ${this.user.name}. Please enter "logout" first if you want to login as a different user.`,
       )
       this.freshPrompt()
       return
@@ -539,7 +535,7 @@ export class Client {
           {
             errorMessage: 'Login code request failed: ' + error,
           },
-          'Login code request failed'
+          'Login code request failed',
         )
         this.freshPrompt()
         return
@@ -569,7 +565,7 @@ export class Client {
                 : 'open'
           spawn(openCommand, [loginUrl])
           console.log(
-            "Opened a browser window to log you in! If it doesn't open automatically, you can click this link:"
+            "Opened a browser window to log you in! If it doesn't open automatically, you can click this link:",
           )
           console.log()
           console.log(blue(bold(underline(loginUrl))))
@@ -581,7 +577,7 @@ export class Client {
         if (Date.now() - initialTime > 5 * 60 * 1000 && shouldRequestLogin) {
           shouldRequestLogin = false
           console.log(
-            'Unable to login. Please try again by typing "login" in the terminal.'
+            'Unable to login. Please try again by typing "login" in the terminal.',
           )
           this.freshPrompt()
           clearInterval(pollInterval)
@@ -596,7 +592,7 @@ export class Client {
         try {
           const fingerprintId = await this.fingerprintId
           const statusResponse = await fetch(
-            `${websiteUrl}/api/auth/cli/status?fingerprintId=${fingerprintId}&fingerprintHash=${fingerprintHash}&expiresAt=${expiresAt}`
+            `${websiteUrl}/api/auth/cli/status?fingerprintId=${fingerprintId}&fingerprintHash=${fingerprintHash}&expiresAt=${expiresAt}`,
           )
 
           if (!statusResponse.ok) {
@@ -611,7 +607,7 @@ export class Client {
                   errorStatusText: statusResponse.statusText,
                   msg: 'Error checking login status',
                 },
-                'Error checking login status'
+                'Error checking login status',
               )
             }
             return
@@ -640,7 +636,7 @@ export class Client {
               {
                 eventId: AnalyticsEvent.LOGIN,
               },
-              'login'
+              'login',
             )
 
             const credentialsPathDir = path.dirname(CREDENTIALS_PATH)
@@ -656,7 +652,7 @@ export class Client {
             console.log('\n' + responseToUser.join('\n'))
             this.lastWarnedPct = 0
             this.oneTimeFlags = Object.fromEntries(
-              ONE_TIME_LABELS.map((tag) => [tag, false])
+              ONE_TIME_LABELS.map((tag) => [tag, false]),
             ) as Record<(typeof ONE_TIME_LABELS)[number], boolean>
 
             displayGreeting(this.costMode, null)
@@ -672,7 +668,7 @@ export class Client {
               errorStack: error instanceof Error ? error.stack : undefined,
               msg: 'Error checking login status',
             },
-            'Error checking login status'
+            'Error checking login status',
           )
         }
       }, 5000)
@@ -684,7 +680,7 @@ export class Client {
           errorStack: error instanceof Error ? error.stack : undefined,
           msg: 'Error during login',
         },
-        'Error during login'
+        'Error during login',
       )
       this.freshPrompt()
     }
@@ -715,10 +711,10 @@ export class Client {
           {
             errorMessage: action.message,
           },
-          'Action error insufficient credits'
+          'Action error insufficient credits',
         )
         console.error(
-          `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`
+          `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`,
         )
       } else if (action.error === 'Auto top-up disabled') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
@@ -726,12 +722,12 @@ export class Client {
           {
             errorMessage: action.message,
           },
-          'Auto top-up disabled error'
+          'Auto top-up disabled error',
         )
         console.error(
           yellow(
-            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to update your payment settings.`
-          )
+            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to update your payment settings.`,
+          ),
         )
       } else {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
@@ -739,7 +735,7 @@ export class Client {
           {
             errorMessage: action.message,
           },
-          'Unknown action error'
+          'Unknown action error',
         )
       }
       this.freshPrompt()
@@ -775,7 +771,7 @@ export class Client {
             nonCancelledUserInputIds: this.nonCancelledUserInputIds,
             receivedUserInputId: userInputId,
           },
-          'User input ID mismatch - rejecting tool call request'
+          'User input ID mismatch - rejecting tool call request',
         )
 
         this.webSocket.sendAction({
@@ -818,7 +814,7 @@ export class Client {
             error: error instanceof Error ? error.message : String(error),
             errorStack: error instanceof Error ? error.stack : undefined,
           },
-          'Tool call execution failed - sending error response to backend'
+          'Tool call execution failed - sending error response to backend',
         )
 
         // Send error response back to backend
@@ -837,8 +833,8 @@ export class Client {
       if (!isUpToDate) {
         console.warn(
           yellow(
-            `\nThere's a new version of Codebuff! Please update to ensure proper functionality.\nUpdate now by running: npm install -g codebuff`
-          )
+            `\nThere's a new version of Codebuff! Please update to ensure proper functionality.\nUpdate now by running: npm install -g codebuff`,
+          ),
         )
       }
     })
@@ -860,14 +856,14 @@ export class Client {
       if (!parsedAction.success) {
         console.error(
           red('Received invalid usage data from server:'),
-          parsedAction.error.errors
+          parsedAction.error.errors,
         )
         logger.error(
           {
             errorMessage: 'Received invalid usage data from server',
             errors: parsedAction.error.errors,
           },
-          'Invalid usage data from server'
+          'Invalid usage data from server',
         )
         return
       }
@@ -941,7 +937,7 @@ export class Client {
         (action) => {
           unsubscribe()
           resolve(action.commitMessage)
-        }
+        },
       )
 
       this.webSocket.sendAction({
@@ -1016,11 +1012,11 @@ export class Client {
         process.stdout.write('\n' + green(underline('Codebuff') + ': '))
       },
       prompt,
-      startTime
+      startTime,
     )
 
     // Parse agent references from the prompt
-    const { cleanPrompt, preferredAgents } = this.parseAgentReferences(prompt)
+    const cleanPrompt = this.parseAgentReferences(prompt)
 
     const urls = parseUrlsFromContent(cleanPrompt)
     const scrapedBlocks = await getScrapedContentBlocks(urls)
@@ -1035,7 +1031,7 @@ export class Client {
         toolName: 'web-scraper',
         toolCallId: generateCompactId(),
         result: scrapedContent,
-      }
+      },
     )
 
     Spinner.get().start('Thinking...')
@@ -1069,53 +1065,45 @@ export class Client {
     }
   }
 
-  private parseAgentReferences(prompt: string): {
-    cleanPrompt: string
-    preferredAgents: string[]
-  } {
+  private parseAgentReferences(prompt: string): string {
     let cleanPrompt = prompt
-    const preferredAgents: string[] = []
 
     // Create resolver with local agents (use cached version from getLoadedAgentNames)
     const localAgentNames = getLoadedAgentNames()
     const localAgentInfo = Object.fromEntries(
-      Object.entries(localAgentNames).map(([id, displayName]) => [id, { displayName }])
+      Object.entries(localAgentNames).map(([id, displayName]) => [
+        id,
+        { displayName },
+      ]),
     )
     const allAgentNames = getAllAgents(localAgentInfo).map(
-      (agent) => agent.displayName
+      (agent) => agent.displayName,
     )
 
     // Create a regex pattern that matches any of the known agent names
     const agentNamePattern = allAgentNames
       .map(
-        (name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
+        (name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), // Escape special regex chars
       )
       .join('|')
 
     const agentRegex = new RegExp(
       `@(${agentNamePattern})(?=\\s|$|[,.!?])`,
-      'gi'
+      'gi',
     )
-    const matches = prompt.match(agentRegex) || []
 
-    for (const match of matches) {
+    // Replace each @agentName with @agentName (agentId)
+    cleanPrompt = cleanPrompt.replace(agentRegex, (match) => {
       const agentName = match.substring(1).trim() // Remove @ and trim
-
-      // Use functional API to get agent ID
       const agentId = resolveNameToId(agentName, localAgentInfo)
 
       if (agentId) {
-        preferredAgents.push(agentId)
-        // Remove ALL occurrences of this @ reference from the prompt using global replace
-        const matchRegex = new RegExp(
-          match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-          'g'
-        )
-        cleanPrompt = cleanPrompt.replace(matchRegex, '').trim()
+        return `@${agentName} (agent type: ${agentId})`
       }
-    }
+      return match // Return original if no agent ID found
+    })
 
-    return { cleanPrompt, preferredAgents }
+    return cleanPrompt
   }
 
   private handleInitializationComplete() {
@@ -1123,13 +1111,13 @@ export class Client {
     console.log(
       cyan(
         `\n📋 What codebuff.json does:\n• ${bold(
-          'startupProcesses'
+          'startupProcesses',
         )}: Automatically runs development servers, databases, etc. when you start Codebuff\n• ${bold(
-          'fileChangeHooks'
+          'fileChangeHooks',
         )}: Runs tests, linting, and type checking when you modify files\n• ${bold(
-          'maxAgentSteps'
-        )}: Controls how many steps the AI can take before stopping\n\n💡 Tips:\n• Add your dev server command to startupProcesses to auto-start it\n• Configure fileChangeHooks to catch errors early\n• The AI will use these hooks to verify changes work correctly\n`
-      )
+          'maxAgentSteps',
+        )}: Controls how many steps the AI can take before stopping\n\n💡 Tips:\n• Add your dev server command to startupProcesses to auto-start it\n• Configure fileChangeHooks to catch errors early\n• The AI will use these hooks to verify changes work correctly\n`,
+      ),
     )
 
     // Start background processes if they were configured
@@ -1150,7 +1138,7 @@ export class Client {
 
     // Remove the cancelled input ID from the non-cancelled list
     this.nonCancelledUserInputIds = this.nonCancelledUserInputIds.filter(
-      (id) => id !== this.userInputId
+      (id) => id !== this.userInputId,
     )
 
     this.webSocket.sendAction({
@@ -1166,7 +1154,7 @@ export class Client {
     userInputId: string,
     onStreamStart: () => void,
     prompt: string,
-    startTime: number
+    startTime: number,
   ) {
     const rawChunkBuffer: string[] = []
     let streamStarted = false
@@ -1174,7 +1162,7 @@ export class Client {
     let resolveResponse: (
       value: ServerAction & { type: 'prompt-response' } & {
         wasStoppedByUser: boolean
-      }
+      },
     ) => void
     let rejectResponse: (reason?: any) => void
     let unsubscribeChunks: () => void
@@ -1277,7 +1265,7 @@ export class Client {
               errorStack: e instanceof Error ? e.stack : undefined,
               chunk,
             },
-            'Error writing chunk to XML stream parser'
+            'Error writing chunk to XML stream parser',
           )
         }
       } else {
@@ -1304,7 +1292,7 @@ export class Client {
               action,
               eventId: AnalyticsEvent.MALFORMED_PROMPT_RESPONSE,
             },
-            'Malformed prompt response'
+            'Malformed prompt response',
           )
           return
         }
@@ -1351,7 +1339,7 @@ export class Client {
 
 If you would like background processes (like this one) to run automatically whenever Codebuff starts, creating a ${CONFIG_FILE_NAME} config file can improve your workflow.
 Go to https://www.codebuff.com/config for more information.`) +
-              '\n'
+              '\n',
           )
         }
 
@@ -1371,7 +1359,7 @@ Go to https://www.codebuff.com/config for more information.`) +
           this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
         if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
           console.log(
-            `\n\n${pluralize(credits, 'credit')} used for this request.`
+            `\n\n${pluralize(credits, 'credit')} used for this request.`,
           )
         }
 
@@ -1387,11 +1375,11 @@ Go to https://www.codebuff.com/config for more information.`) +
                   error instanceof Error ? error.message : String(error),
                 errorStack: error instanceof Error ? error.stack : undefined,
               },
-              'No latest checkpoint for addendum'
+              'No latest checkpoint for addendum',
             )
           }
           console.log(
-            `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n`
+            `\n\nComplete! Type "diff" to review changes${checkpointAddendum}.\n`,
           )
 
           if (this.isInitializing) {
@@ -1409,7 +1397,7 @@ Go to https://www.codebuff.com/config for more information.`) +
           unsubscribeComplete()
         }
         resolveResponse({ ...a, wasStoppedByUser: false })
-      }
+      },
     )
 
     // Reset flags at the start of each response
@@ -1450,7 +1438,7 @@ Go to https://www.codebuff.com/config for more information.`) +
           {
             errorMessage: (data as any).message,
           },
-          'Action error'
+          'Action error',
         )
         return
       }
@@ -1482,14 +1470,14 @@ Go to https://www.codebuff.com/config for more information.`) +
         // When covered by an organization, show organization information
         console.log(
           green(
-            `🏢 Your usage in this repository is covered by ${bold(coverage.organizationName)}.`
-          )
+            `🏢 Your usage in this repository is covered by ${bold(coverage.organizationName)}.`,
+          ),
         )
         // Try to use organizationSlug from the coverage response
         if (coverage.organizationSlug) {
           const orgUsageLink = `${websiteUrl}/orgs/${coverage.organizationSlug}`
           console.log(
-            `View your organization's usage details: ${underline(blue(orgUsageLink))}`
+            `View your organization's usage details: ${underline(blue(orgUsageLink))}`,
           )
         }
       } else {
@@ -1507,7 +1495,7 @@ Go to https://www.codebuff.com/config for more information.`) +
             : resetDate.toLocaleDateString() // Just show date otherwise
 
           console.log(
-            `Free credits will renew on ${dateDisplay}. Details: ${underline(blue(usageLink))}`
+            `Free credits will renew on ${dateDisplay}. Details: ${underline(blue(usageLink))}`,
           )
         }
 
@@ -1519,12 +1507,12 @@ Go to https://www.codebuff.com/config for more information.`) +
           errorMessage: error instanceof Error ? error.message : String(error),
           errorStack: error instanceof Error ? error.stack : undefined,
         },
-        'Error checking usage'
+        'Error checking usage',
       )
       console.error(
         red(
-          `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`
-        )
+          `Error checking usage: Please reach out to ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`,
+        ),
       )
       // Check if it's a ZodError for more specific feedback
       if (error instanceof z.ZodError) {
@@ -1534,7 +1522,7 @@ Go to https://www.codebuff.com/config for more information.`) +
             errorMessage: 'Data validation failed',
             errors: error.errors,
           },
-          'Data validation failed'
+          'Data validation failed',
         )
       } else {
         console.error(error)
@@ -1544,7 +1532,7 @@ Go to https://www.codebuff.com/config for more information.`) +
               error instanceof Error ? error.message : String(error),
             errorStack: error instanceof Error ? error.stack : undefined,
           },
-          'Error checking usage'
+          'Error checking usage',
         )
       }
     } finally {
@@ -1673,7 +1661,7 @@ Go to https://www.codebuff.com/config for more information.`) +
           errorStack: error instanceof Error ? error.stack : undefined,
           remoteUrl,
         },
-        'Error checking repository coverage'
+        'Error checking repository coverage',
       )
       return {
         isCovered: false,
