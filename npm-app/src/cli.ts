@@ -552,8 +552,7 @@ export class CLI {
 
     // If a user prompt is provided, send it immediately
     if (userPrompt) {
-      const { responsePromise } = await client.sendUserInput(userPrompt)
-      await responsePromise
+      await this.forwardUserInput(userPrompt)
     }
   }
 

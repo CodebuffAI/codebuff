@@ -50,7 +50,7 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
-import { getLoadedAgentNames } from './agents/load-agents'
+import { getLoadedAgentNames, loadLocalAgents } from './agents/load-agents'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -976,6 +976,7 @@ export class Client {
       loadCodebuffConfig().maxAgentSteps
 
     this.sessionState.fileContext.cwd = getWorkingDirectory()
+    this.sessionState.fileContext.agentTemplates = await loadLocalAgents({})
 
     const userInputId =
       `mc-input-` + Math.random().toString(36).substring(2, 15)

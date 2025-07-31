@@ -37,13 +37,14 @@ export async function loadLocalAgents({
       let agentConfig: any
       let agentModule: any
       try {
-        agentModule = await import(fullPath)
+        agentModule = await require(fullPath)
       } catch (error: any) {
         if (verbose) {
           console.error('Error importing agent:', error)
         }
         continue
       }
+      delete require.cache[fullPath]
 
       try {
         agentConfig = agentModule.default

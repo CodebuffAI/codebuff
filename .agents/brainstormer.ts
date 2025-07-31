@@ -1,4 +1,4 @@
-import { AgentConfig } from './types/agent-config'
+import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'brainstormer',
