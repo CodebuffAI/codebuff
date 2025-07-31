@@ -1,52 +1,339 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useDebounce } from 'use-debounce'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
-import { User, Plus, ChevronRight } from 'lucide-react'
+
+import {
+  ArrowLeft,
+  User,
+  Loader2,
+  ChevronRight,
+  ChevronLeft,
+} from 'lucide-react'
 import Link from 'next/link'
-import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
+import { toast } from '@/components/ui/use-toast'
+import { OwnershipStep } from '@/components/publisher/ownership-step'
+import { BasicInfoStep } from '@/components/publisher/basic-info-step'
+import { ProfileDetailsStep } from '@/components/publisher/profile-details-step'
+import {
+  validatePublisherName,
+  validatePublisherId,
+} from '@/lib/validators/publisher'
 
-const PublishersPage = () => {
+interface Organization {
+  id: string
+  name: string
+  slug: string
+  role: 'owner' | 'admin' | 'member'
+}
+
+// Pure utility functions
+const generateIdFromName = (name: string): string => {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+const filterAdminOrganizations = (
+  organizations: Organization[]
+): Organization[] => {
+  return organizations.filter(
+    (org) => org.role === 'owner' || org.role === 'admin'
+  )
+}
+
+const buildSubmitPayload = (
+  formData: {
+    id: string
+    name: string
+    email: string
+    bio: string
+    avatar_url: string
+  },
+  selectedOrgId: string | null | undefined
+) => {
+  return {
+    id: formData.id,
+    name: formData.name,
+    email: formData.email || undefined,
+    bio: formData.bio || undefined,
+    avatar_url: formData.avatar_url || undefined,
+    org_id: selectedOrgId && selectedOrgId !== '' ? selectedOrgId : undefined,
+  }
+}
+
+const CreatePublisherPage = () => {
   const { data: session, status } = useSession()
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
-  // Query for user's publishers
+  // Step management
+  const [currentStep, setCurrentStep] = useState(1)
+  const totalSteps = 3
+
+  // Initialize state from URL parameters
+  const orgParam = searchParams.get('org')
+
+  const [isLoading, setIsLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    id: '',
+    name: '',
+    email: '',
+    bio: '',
+    avatar_url: '',
+  })
+
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isIdManuallyEdited, setIsIdManuallyEdited] = useState(false)
+  const [hasRemovedAvatar, setHasRemovedAvatar] = useState(false)
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null | undefined>(
+    orgParam || undefined
+  )
+
+  // Clean up URL parameters after initialization
+  useEffect(() => {
+    if (orgParam) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('org')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [])
+
+  // Query for user's organizations
   const {
-    data: publishers = [],
-    isLoading,
-    error,
-  } = useQuery<PublisherProfileResponse[]>({
-    queryKey: ['user-publishers'],
-    queryFn: async (): Promise<PublisherProfileResponse[]> => {
-      const response = await fetch('/api/publishers')
+    data: organizations = [],
+    isLoading: isLoadingOrgs,
+    error: orgsError,
+  } = useQuery<Organization[]>({
+    queryKey: ['user-organizations'],
+    queryFn: async (): Promise<Organization[]> => {
+      const response = await fetch('/api/orgs')
       if (!response.ok) {
-        throw new Error('Failed to load publishers')
+        throw new Error('Failed to load organizations')
       }
-      return response.json()
+      const data: { organizations: Organization[] } = await response.json()
+      if (data.organizations) {
+        return filterAdminOrganizations(data.organizations)
+      }
+      return []
     },
     enabled: !!session?.user?.id,
   })
 
-  const personalPublishers = publishers.filter(
-    (p) => p.ownershipType === 'user'
-  )
-  const orgPublishers = publishers.filter(
-    (p) => p.ownershipType === 'organization'
-  )
+  // Default to user's existing avatar
+  useEffect(() => {
+    if (session?.user?.image && !formData.avatar_url && !hasRemovedAvatar) {
+      setFormData((prev) => ({
+        ...prev,
+        avatar_url: session.user?.image || '',
+      }))
+    }
+  }, [session?.user?.image, formData.avatar_url, hasRemovedAvatar])
+
+  // Debounced ID for validation
+  const [debouncedId] = useDebounce(formData.id, 500)
+
+  // ID validation query
+  const { data: idValidationResult, isLoading: isValidatingId } = useQuery({
+    queryKey: ['validate-publisher-id', debouncedId],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/publishers/validate?id=${encodeURIComponent(debouncedId)}`
+      )
+      if (!response.ok) {
+        throw new Error('Failed to validate ID')
+      }
+      return response.json() as Promise<{
+        valid: boolean
+        error: string | null
+      }>
+    },
+    enabled: !!(debouncedId && !validatePublisherId(debouncedId)),
+    retry: false,
+  })
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newName = e.target.value
+    setFormData({ ...formData, name: newName })
+
+    // Auto-generate ID from name if ID hasn't been manually edited
+    if (!isIdManuallyEdited) {
+      const autoId = generateIdFromName(newName)
+      setFormData((prev) => ({ ...prev, name: newName, id: autoId }))
+    } else {
+      setFormData((prev) => ({ ...prev, name: newName }))
+    }
+
+    const nameError = validatePublisherName(newName) || ''
+    setErrors((prev) => ({ ...prev, name: nameError }))
+  }
+
+  const handleIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newId = e.target.value.toLowerCase()
+    setFormData({ ...formData, id: newId })
+    setIsIdManuallyEdited(true)
+    const idError = validatePublisherId(newId) || ''
+    setErrors((prev) => ({ ...prev, id: idError }))
+  }
+
+  const handleAvatarChange = async (file: File | null, url: string) => {
+    setFormData((prev) => ({ ...prev, avatar_url: url }))
+
+    // Track if user explicitly removed the avatar
+    if (!url) {
+      setHasRemovedAvatar(true)
+    } else {
+      setHasRemovedAvatar(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    const nameError = validatePublisherName(formData.name) || ''
+    const idError = validatePublisherId(formData.id) || ''
+    let orgError = ''
+
+    if (selectedOrgId === undefined) {
+      orgError = 'Please choose personal or organization'
+    } else if (selectedOrgId === '') {
+      orgError = 'Please select an organization'
+    }
+
+    if (nameError || idError || orgError) {
+      setErrors({ name: nameError, id: idError, organization: orgError })
+      toast({
+        title: 'Error',
+        description: 'Please fix the validation errors',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/publishers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(buildSubmitPayload(formData, selectedOrgId)),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create publisher profile')
+      }
+
+      const publisher = await response.json()
+
+      toast({
+        title: 'Success',
+        description: 'Publisher profile created successfully!',
+      })
+
+      // Redirect to publisher profile
+      router.push(`/publishers/${publisher.id}`)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to create publisher profile',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const nextStep = () => {
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1)
+    }
+  }
+
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
+
+  const handleNext = () => {
+    if (currentStepData.isValid()) {
+      nextStep()
+    } else {
+      // Set errors based on current step
+      const errors: Record<string, string> = {}
+
+      if (currentStep === 1) {
+        if (selectedOrgId === undefined) {
+          errors.organization = 'Please choose personal or organization'
+        } else if (selectedOrgId === '') {
+          errors.organization = 'Please select an organization'
+        }
+      } else if (currentStep === 2) {
+        // Organization validation (carried from step 1)
+        if (selectedOrgId === undefined) {
+          errors.organization = 'Please choose personal or organization'
+        } else if (selectedOrgId === '') {
+          errors.organization = 'Please select an organization'
+        }
+
+        // Name and ID validation
+        const nameError = validatePublisherName(formData.name)
+        const idError = validatePublisherId(formData.id)
+        if (nameError) errors.name = nameError
+        if (idError) errors.id = idError
+      }
+
+      setErrors(errors)
+      toast({
+        title: 'Please fix the errors',
+        description: 'Complete all required fields before continuing.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   if (status === 'loading') {
     return (
       <div className="container mx-auto py-6 px-4">
-        <div className="max-w-4xl mx-auto">
-          <Skeleton className="h-8 w-64 mb-6" />
-          <div className="space-y-6">
-            <Skeleton className="h-48" />
-            <Skeleton className="h-32" />
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center mb-8">
+            <Skeleton className="h-8 w-20 mr-4" />
           </div>
+          <div className="flex items-center mb-8">
+            <Skeleton className="h-8 w-8 rounded-full mr-3" />
+            <div>
+              <Skeleton className="h-8 w-64 mb-2" />
+              <Skeleton className="h-4 w-96" />
+            </div>
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <div className="flex justify-between pt-6">
+                  <Skeleton className="h-10 w-20" />
+                  <Skeleton className="h-10 w-24" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     )
@@ -62,7 +349,7 @@ const PublishersPage = () => {
             </CardHeader>
             <CardContent>
               <p className="mb-4">
-                Please sign in to view your publisher profiles.
+                Please sign in to create a publisher profile.
               </p>
               <Link href="/login">
                 <Button>Sign In</Button>
@@ -74,214 +361,159 @@ const PublishersPage = () => {
     )
   }
 
-  if (error) {
-    return (
-      <div className="container mx-auto py-6 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-red-500">
-            Failed to load publishers. Please try again later.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  const steps = [
+    {
+      title: 'Choose Ownership Type',
+      component: (
+        <OwnershipStep
+          selectedOrgId={selectedOrgId}
+          onSelectedOrgIdChange={setSelectedOrgId}
+          organizations={organizations}
+          isLoadingOrgs={isLoadingOrgs}
+          errors={errors}
+        />
+      ),
+      isValid: () => selectedOrgId !== undefined && selectedOrgId !== '',
+    },
+    {
+      title: 'Basic Information',
+      component: (
+        <BasicInfoStep
+          formData={formData}
+          onNameChange={handleNameChange}
+          onIdChange={handleIdChange}
+          onEmailChange={(e) =>
+            setFormData({ ...formData, email: e.target.value })
+          }
+          errors={errors}
+          isLoading={isLoading}
+          isValidatingId={isValidatingId}
+          idValidationResult={idValidationResult || null}
+        />
+      ),
+      isValid: () => {
+        const nameError = validatePublisherName(formData.name)
+        const idError = validatePublisherId(formData.id)
+        const hasValidationErrors = !!nameError || !!idError
+        const hasInvalidId = idValidationResult && !idValidationResult.valid
+        const hasOrgError = selectedOrgId === undefined || selectedOrgId === ''
+
+        return !hasValidationErrors && !hasInvalidId && !hasOrgError
+      },
+    },
+    {
+      title: 'Profile Details',
+      component: (
+        <ProfileDetailsStep
+          formData={formData}
+          onBioChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+          onAvatarChange={handleAvatarChange}
+          isLoading={isLoading}
+          isUploadingAvatar={false}
+        />
+      ),
+      isValid: () => {
+        const nameError = validatePublisherName(formData.name)
+        const idError = validatePublisherId(formData.id)
+        const hasValidationErrors = !!nameError || !!idError
+        const hasInvalidId = idValidationResult && !idValidationResult.valid
+        const hasOrgError = selectedOrgId === undefined || selectedOrgId === ''
+
+        return (
+          !isLoading &&
+          !hasValidationErrors &&
+          !hasInvalidId &&
+          !hasOrgError &&
+          !errors.name &&
+          !errors.id &&
+          !errors.organization
+        )
+      },
+    },
+  ]
+
+  const currentStepData = steps[currentStep - 1]
 
   return (
     <div className="container mx-auto py-6 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center">
-            <User className="h-8 w-8 text-blue-600 mr-3" />
-            <div>
-              <h1 className="text-3xl font-bold">My Publishers</h1>
-              <p className="text-muted-foreground">
-                Manage your publisher profiles and published agents
-              </p>
-            </div>
-          </div>
-          <Link href="/publishers/new">
-            <Button className="flex items-center">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Publisher
-            </Button>
-          </Link>
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center mb-8">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mr-4"
+            onClick={() => router.back()}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Cancel
+          </Button>{' '}
         </div>
 
-        {/* Organization Guidance Banner */}
-        {publishers.length === 0 && (
-          <Card className="mb-6 border-blue-200 bg-blue-50">
-            <CardContent className="py-4">
-              <div className="flex items-start">
-                <User className="mr-3 h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="flex items-center mb-8">
+          <User className="h-8 w-8 text-blue-600 mr-3" />
+          <div>
+            <h1 className="text-3xl font-bold">Create Publisher Profile</h1>
+            <p className="text-muted-foreground">
+              Create your public publisher profile to publish agents on the
+              Codebuff store.
+            </p>
+          </div>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              {currentStepData.title}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div>
+              {currentStepData.component}
+
+              <div className="flex justify-between pt-6 mt-6 border-t">
                 <div>
-                  <h3 className="font-medium text-blue-800 mb-1">
-                    New to Publishers?
-                  </h3>
-                  <p className="text-sm text-blue-700 mb-3">
-                    Most users create publishers through their organizations for
-                    better team collaboration and credit management.
-                  </p>
-                  <Link href="/orgs">
-                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                      <User className="mr-2 h-4 w-4" />
-                      View Organizations
+                  {currentStep > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={prevStep}
+                      disabled={isLoading}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-2" />
+                      Previous
                     </Button>
-                  </Link>
+                  )}
+                </div>
+
+                <div className="flex space-x-3">
+                  {currentStep < totalSteps ? (
+                    <Button
+                      type="button"
+                      onClick={handleNext}
+                      disabled={isLoading || !currentStepData.isValid()}
+                    >
+                      Continue
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={!currentStepData.isValid()}
+                    >
+                      {isLoading && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Create Publisher Profile
+                    </Button>
+                  )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="space-y-6">
-          {/* Personal Publishers */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Personal Publishers ({personalPublishers.length})</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-16 w-full" />
-                </div>
-              ) : personalPublishers.length === 0 ? (
-                <div className="text-center py-8 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    No personal publisher profiles yet.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                    <Link href="/publishers/new">
-                      <Button variant="outline">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Personal Publisher
-                      </Button>
-                    </Link>
-                    <Link href="/orgs">
-                      <Button variant="outline">
-                        <User className="mr-2 h-4 w-4" />
-                        Manage via Organizations
-                      </Button>
-                    </Link>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Tip: Create publishers through organizations for team
-                    collaboration
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {personalPublishers.map((publisher) => (
-                    <Link
-                      key={publisher.id}
-                      href={`/publishers/${publisher.id}`}
-                      className="block border rounded-lg p-4 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h3 className="font-semibold">{publisher.name}</h3>
-                            {publisher.verified && (
-                              <Badge
-                                variant="secondary"
-                                className="text-green-600"
-                              >
-                                ✓ Verified
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            @{publisher.id}
-                          </p>
-                          {publisher.bio && (
-                            <p className="text-sm mb-2">{publisher.bio}</p>
-                          )}
-                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                            <span>
-                              {publisher.agentCount || 0} agents published
-                            </span>
-                            <span>
-                              Created{' '}
-                              {new Date(
-                                publisher.created_at
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Organization Publishers */}
-          {orgPublishers.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  Organization Publishers ({orgPublishers.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {orgPublishers.map((publisher) => (
-                    <Link
-                      key={publisher.id}
-                      href={`/publishers/${publisher.id}`}
-                      className="block border rounded-lg p-4 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h3 className="font-semibold">{publisher.name}</h3>
-                            {publisher.verified && (
-                              <Badge
-                                variant="secondary"
-                                className="text-green-600"
-                              >
-                                ✓ Verified
-                              </Badge>
-                            )}
-                            <Badge variant="outline">
-                              {publisher.organizationName}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            @{publisher.id}
-                          </p>
-                          {publisher.bio && (
-                            <p className="text-sm mb-2">{publisher.bio}</p>
-                          )}
-                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                            <span>
-                              {publisher.agentCount || 0} agents published
-                            </span>
-                            <span>
-                              Created{' '}
-                              {new Date(
-                                publisher.created_at
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
 }
 
-export default PublishersPage
+export default CreatePublisherPage
