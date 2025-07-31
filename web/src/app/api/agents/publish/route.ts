@@ -3,6 +3,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { validateAgents } from '@codebuff/common/templates/agent-validation'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 import {
+  checkAuthToken,
   determineNextVersion,
   stringifyVersion,
   versionExists,
@@ -12,29 +13,22 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 
+import { logger } from '@/util/logger'
+
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
 
 import type { Version } from '@codebuff/internal'
 import type { NextRequest } from 'next/server'
 
-import { logger } from '@/util/logger'
-
 // Schema for publishing an agent
 const publishAgentRequestSchema = z.object({
   data: DynamicAgentTemplateSchema,
   publisherId: z.string().optional(),
+  authToken: z.string(),
 })
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const userId = session.user.id
-
     // Parse request body
     const body = await request.json()
     const parseResult = publishAgentRequestSchema.safeParse(body)
@@ -54,8 +48,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data, publisherId } = parseResult.data
+    const { data, publisherId, authToken } = parseResult.data
     const agentId = data.id
+
+    // Try cookie-based auth first, then fall back to authToken validation using proper function
+    let userId: string | undefined
+    const session = await getServerSession(authOptions)
+
+    if (session?.user?.id) {
+      userId = session.user.id
+    } else if (authToken) {
+      const authResult = await checkAuthToken({ authToken })
+      if (authResult.success && authResult.user) {
+        userId = authResult.user.id
+      }
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const validationResult = validateAgents({
       [agentId]: data,
