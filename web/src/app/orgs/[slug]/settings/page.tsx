@@ -294,7 +294,12 @@ export default function OrganizationSettingsPage() {
         </div>
 
         <div className="space-y-6">
-          {/* Publisher Management - Move to top for prominence */}
+          {/* Billing & Seats */}
+          {canManageOrg && organization && (
+            <BillingStatus organizationId={organization.id} />
+          )}
+
+          {/* Publisher Management */}
           {canManageOrg && (
             <Card>
               <CardHeader>
@@ -320,7 +325,9 @@ export default function OrganizationSettingsPage() {
                       <h4 className="font-medium">
                         Organization Publishers ({publishers.length})
                       </h4>
-                      <Link href={`/publishers?org=${organization.id}`}>
+                      <Link
+                        href={`/publishers/new?org=${organization.id}&type=organization`}
+                      >
                         <Button className="flex items-center">
                           <User className="mr-2 h-4 w-4" />
                           Create Publisher Profile

@@ -1,6 +1,6 @@
 'use client'
 
-import { Gift, CreditCard, Users, User } from 'lucide-react'
+import { Gift, CreditCard, Users } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
@@ -39,9 +39,6 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>{user?.name}</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => router.push('/publishers')}>
-          <User className="mr-2 size-4" /> <span>Publishers</span>
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push('/orgs')}>
           <Users className="mr-2 size-4" /> <span>Organizations</span>
         </DropdownMenuItem>
