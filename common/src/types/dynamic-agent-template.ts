@@ -158,15 +158,15 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
 })
   .refine(
     (data) => {
-      // If outputSchema is provided, outputMode must be 'json' or undefined (will default to 'json')
-      if (data.outputSchema && data.outputMode && data.outputMode !== 'json') {
+      // If outputSchema is provided, outputMode must be explicitly set to 'json'
+      if (data.outputSchema && data.outputMode !== 'json') {
         return false
       }
       return true
     },
     {
       message:
-        "outputSchema can only be used with outputMode 'json'. Remove outputMode or set it to 'json'.",
+        "outputSchema requires outputMode to be explicitly set to 'json'.",
       path: ['outputMode'],
     },
   )

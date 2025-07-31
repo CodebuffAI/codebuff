@@ -226,15 +226,10 @@ export function validateSingleAgent(
         }
       }
     }
-    // Determine outputMode: default to 'json' if outputSchema is present, otherwise 'last_message'
-    const outputMode =
-      template.outputMode ?? (template.outputSchema ? 'json' : 'last_message')
 
     // Convert to internal AgentTemplate format
     const agentTemplate: AgentTemplate = {
       ...template,
-      displayName: template.displayName,
-      outputMode,
       outputSchema,
       inputSchema,
       toolNames: template.toolNames as ToolName[],
