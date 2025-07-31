@@ -1,0 +1,2 @@
+ALTER TABLE "agent_config" DROP CONSTRAINT "agent_config_id_version_pk";--> statement-breakpoint
+ALTER TABLE "agent_config" ADD CONSTRAINT "agent_config_publisher_id_id_version_pk" PRIMARY KEY("publisher_id","id","version");

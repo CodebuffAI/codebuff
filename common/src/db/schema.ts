@@ -472,7 +472,7 @@ export const agentConfig = pgTable(
       .defaultNow(),
   },
   (table) => [
-    primaryKey({ columns: [table.id, table.version] }),
+    primaryKey({ columns: [table.publisher_id, table.id, table.version] }),
     index('idx_agent_config_publisher').on(table.publisher_id),
   ],
 )
