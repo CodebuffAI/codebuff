@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     if (validationResult.validationErrors.length > 0) {
       const errorDetails = validationResult.validationErrors
-        .map((err) => `${err.message}${err.details ? ` (${err.details})` : ''}`)
+        .map((err) => err.message)
         .join('\n')
 
       return NextResponse.json(

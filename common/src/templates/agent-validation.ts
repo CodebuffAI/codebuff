@@ -18,7 +18,6 @@ import type { AgentTemplateType } from '../types/session-state'
 export interface DynamicAgentValidationError {
   filePath: string
   message: string
-  details?: string
 }
 
 export interface DynamicAgentLoadResult {
@@ -100,7 +99,6 @@ export function validateAgents(
           validationErrors.push({
             filePath: agentKey,
             message: validationResult.error!,
-            details: validationResult.error!,
           })
           continue
         }
@@ -113,7 +111,6 @@ export function validateAgents(
         validationErrors.push({
           filePath: agentKey,
           message: `Error in agent template ${agentKey}: ${errorMessage}`,
-          details: errorMessage,
         })
 
         logger.warn(
@@ -127,7 +124,6 @@ export function validateAgents(
     validationErrors.push({
       filePath: 'agentTemplates',
       message: 'Failed to process agent templates',
-      details: error instanceof Error ? error.message : 'Unknown error',
     })
   }
 
