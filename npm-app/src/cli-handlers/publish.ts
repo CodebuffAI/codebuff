@@ -233,10 +233,10 @@ async function publishAgentTemplate(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Cookie: `next-auth.session-token=${authToken}`,
       },
       body: JSON.stringify({
         data,
+        authToken,
         ...(publisherId && { publisherId }),
       }),
     })
