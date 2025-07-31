@@ -9,7 +9,10 @@ import {
   getToolCallString,
   renderToolResults,
 } from '@codebuff/common/tools/utils'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import {
+  AgentTemplateTypes,
+  getInitialSessionState,
+} from '@codebuff/common/types/session-state'
 import {
   afterAll,
   afterEach,
@@ -47,8 +50,8 @@ describe('mainPrompt', () => {
   beforeEach(() => {
     // Setup common mock agent templates
     mockLocalAgentTemplates = {
-      base: {
-        id: 'base',
+      [AgentTemplateTypes.base]: {
+        id: AgentTemplateTypes.base,
         displayName: 'Base Agent',
         outputMode: 'last_message',
         inputSchema: {},
@@ -61,8 +64,8 @@ describe('mainPrompt', () => {
         instructionsPrompt: '',
         stepPrompt: '',
       },
-      base_max: {
-        id: 'base_max',
+      [AgentTemplateTypes.base_max]: {
+        id: AgentTemplateTypes.base_max,
         displayName: 'Base Max Agent',
         outputMode: 'last_message',
         inputSchema: {},
@@ -256,7 +259,7 @@ describe('mainPrompt', () => {
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         localAgentTemplates: {
-          base: {
+          [AgentTemplateTypes.base]: {
             id: 'base',
             displayName: 'Base Agent',
             outputMode: 'last_message',
@@ -270,7 +273,7 @@ describe('mainPrompt', () => {
             instructionsPrompt: '',
             stepPrompt: '',
           },
-          base_max: {
+          [AgentTemplateTypes.base_max]: {
             id: 'base_max',
             displayName: 'Base Max Agent',
             outputMode: 'last_message',
@@ -397,7 +400,7 @@ describe('mainPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: {
-        base: {
+        [AgentTemplateTypes.base]: {
           id: 'base',
           displayName: 'Base Agent',
           outputMode: 'last_message',
@@ -411,8 +414,8 @@ describe('mainPrompt', () => {
           instructionsPrompt: '',
           stepPrompt: '',
         },
-        base_max: {
-          id: 'base_max',
+        [AgentTemplateTypes.base_max]: {
+          id: 'base-max',
           displayName: 'Base Max Agent',
           outputMode: 'last_message',
           inputSchema: {},

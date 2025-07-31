@@ -1,10 +1,13 @@
+import {
+  AgentTemplateTypes,
+  type AgentState,
+} from '@codebuff/common/types/session-state'
 import { describe, expect, it } from 'bun:test'
 
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { collectParentInstructions } from '../templates/strings'
 
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
-import type { AgentState } from '@codebuff/common/types/session-state'
 import type {
   FileTreeNode,
   ProjectFileContext,
@@ -64,7 +67,8 @@ describe('Parent Instructions Injection', () => {
         parentInstructions: {
           researcher:
             'Spawn knowledge-keeper when you find documentation gaps.',
-          file_picker: 'Spawn knowledge-keeper when you discover missing docs.',
+          [AgentTemplateTypes.file_picker]:
+            'Spawn knowledge-keeper when you discover missing docs.',
         },
         systemPrompt: 'You are a test agent.',
         instructionsPrompt: 'Process the user request.',

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { AgentTemplateTypes } from 'src/types/session-state'
 
 import {
   DynamicAgentConfigSchema,
@@ -362,11 +363,11 @@ describe('DynamicAgentConfigSchema', () => {
   describe('Parent Instructions Runtime Validation', () => {
     it('should validate parent instructions with valid agent IDs', () => {
       const parentInstructions = {
-        researcher: 'Spawn when you need research',
-        file_picker: 'Spawn when you need files',
-        custom_agent: 'Spawn for custom tasks',
+        [AgentTemplateTypes.researcher]: 'Spawn when you need research',
+        [AgentTemplateTypes.file_picker]: 'Spawn when you need files',
+        'custom-agent': 'Spawn for custom tasks',
       }
-      const dynamicAgentIds = ['custom_agent']
+      const dynamicAgentIds = ['custom-agent']
       const result = validateParentInstructions(
         parentInstructions,
         dynamicAgentIds,
