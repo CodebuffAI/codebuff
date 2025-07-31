@@ -1,4 +1,57 @@
 /**
+ * Union type of all available tool names
+ */
+export type ToolName =
+  | 'add_message'
+  | 'add_subgoal'
+  | 'browser_logs'
+  | 'code_search'
+  | 'create_plan'
+  | 'end_turn'
+  | 'find_files'
+  | 'read_docs'
+  | 'read_files'
+  | 'run_file_change_hooks'
+  | 'run_terminal_command'
+  | 'send_agent_message'
+  | 'set_messages'
+  | 'set_output'
+  | 'spawn_agents'
+  | 'spawn_agents_async'
+  | 'str_replace'
+  | 'think_deeply'
+  | 'update_subgoal'
+  | 'web_search'
+  | 'write_file'
+
+/**
+ * Map of tool names to their parameter types
+ */
+export interface ToolParamsMap {
+  add_message: AddMessageParams
+  add_subgoal: AddSubgoalParams
+  browser_logs: BrowserLogsParams
+  code_search: CodeSearchParams
+  create_plan: CreatePlanParams
+  end_turn: EndTurnParams
+  find_files: FindFilesParams
+  read_docs: ReadDocsParams
+  read_files: ReadFilesParams
+  run_file_change_hooks: RunFileChangeHooksParams
+  run_terminal_command: RunTerminalCommandParams
+  send_agent_message: SendAgentMessageParams
+  set_messages: SetMessagesParams
+  set_output: SetOutputParams
+  spawn_agents: SpawnAgentsParams
+  spawn_agents_async: SpawnAgentsAsyncParams
+  str_replace: StrReplaceParams
+  think_deeply: ThinkDeeplyParams
+  update_subgoal: UpdateSubgoalParams
+  web_search: WebSearchParams
+  write_file: WriteFileParams
+}
+
+/**
  * Add a new message to the conversation history. To be used for complex requests that can't be solved in a single step, as you may forget what happened!
  */
 export interface AddMessageParams {
@@ -223,59 +276,6 @@ export interface WriteFileParams {
   instructions: string
   // Edit snippet to apply to the file.
   content: string
-}
-
-/**
- * Union type of all available tool names
- */
-export type ToolName =
-  | 'add_message'
-  | 'add_subgoal'
-  | 'browser_logs'
-  | 'code_search'
-  | 'create_plan'
-  | 'end_turn'
-  | 'find_files'
-  | 'read_docs'
-  | 'read_files'
-  | 'run_file_change_hooks'
-  | 'run_terminal_command'
-  | 'send_agent_message'
-  | 'set_messages'
-  | 'set_output'
-  | 'spawn_agents'
-  | 'spawn_agents_async'
-  | 'str_replace'
-  | 'think_deeply'
-  | 'update_subgoal'
-  | 'web_search'
-  | 'write_file'
-
-/**
- * Map of tool names to their parameter types
- */
-export interface ToolParamsMap {
-  add_message: AddMessageParams
-  add_subgoal: AddSubgoalParams
-  browser_logs: BrowserLogsParams
-  code_search: CodeSearchParams
-  create_plan: CreatePlanParams
-  end_turn: EndTurnParams
-  find_files: FindFilesParams
-  read_docs: ReadDocsParams
-  read_files: ReadFilesParams
-  run_file_change_hooks: RunFileChangeHooksParams
-  run_terminal_command: RunTerminalCommandParams
-  send_agent_message: SendAgentMessageParams
-  set_messages: SetMessagesParams
-  set_output: SetOutputParams
-  spawn_agents: SpawnAgentsParams
-  spawn_agents_async: SpawnAgentsAsyncParams
-  str_replace: StrReplaceParams
-  think_deeply: ThinkDeeplyParams
-  update_subgoal: UpdateSubgoalParams
-  web_search: WebSearchParams
-  write_file: WriteFileParams
 }
 
 /**
