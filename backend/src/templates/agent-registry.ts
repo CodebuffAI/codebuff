@@ -9,7 +9,9 @@ import { agentTemplates as staticTemplates } from './agent-list'
 import {
   DynamicAgentValidationError,
   validateAgents,
+  validateSingleAgent,
 } from '@codebuff/common/templates/agent-validation'
+import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 
 export type AgentRegistry = Record<string, AgentTemplate>
 
@@ -45,20 +47,17 @@ function parseAgentId(fullAgentId: string): {
 /**
  * Fetch an agent from the database by publisher/agent-id[@version] format
  */
-async function fetchAgentFromDatabase(
-  fullAgentId: string,
-): Promise<AgentTemplate | null> {
-  const parsed = parseAgentId(fullAgentId)
-  if (!parsed) {
-    return null
-  }
-
-  const { publisherId, agentId, version } = parsed
+async function fetchAgentFromDatabase(parsedAgentId: {
+  publisherId: string
+  agentId: string
+  version?: string
+}): Promise<AgentTemplate | null> {
+  const { publisherId, agentId, version } = parsedAgentId
 
   try {
     let agentConfig
 
-    if (version) {
+    if (version && version !== 'latest') {
       // Query for specific version
       agentConfig = await db
         .select()
@@ -94,30 +93,55 @@ async function fetchAgentFromDatabase(
     if (!agentConfig) {
       logger.debug(
         { publisherId, agentId, version },
-        'Agent not found in database',
+        'fetchAgentFromDatabase: Agent not found in database',
       )
       return null
     }
 
-    // Convert database agent config to AgentTemplate format
-    const agentTemplate = agentConfig.data as AgentTemplate
+    const rawAgentData = agentConfig.data as DynamicAgentTemplate
 
-    // Ensure the agent has the full publisher/agent-id as its ID (without version)
-    const fullAgentTemplate: AgentTemplate = {
-      ...agentTemplate,
-      id: `${publisherId}/${agentId}`,
+    // Ensure the agent has the full publisher/agent-id@version as its ID
+    const agentDataWithId = {
+      ...rawAgentData,
+      id: `${publisherId}/${agentId}@${agentConfig.version}`,
+    }
+
+    // Use validateSingleAgent to convert to AgentTemplate type
+    const validationResult = validateSingleAgent(agentDataWithId, {
+      filePath: `${publisherId}/${agentId}@${agentConfig.version}`,
+      skipSubagentValidation: true,
+    })
+
+    if (!validationResult.success) {
+      logger.error(
+        {
+          publisherId,
+          agentId,
+          version: agentConfig.version,
+          fullAgentId: agentDataWithId.id,
+          error: validationResult.error,
+        },
+        'fetchAgentFromDatabase: Agent validation failed',
+      )
+      return null
     }
 
     logger.debug(
-      { publisherId, agentId, version: agentConfig.version },
-      'Successfully loaded agent from database',
+      {
+        publisherId,
+        agentId,
+        version: agentConfig.version,
+        fullAgentId: agentDataWithId.id,
+        agentConfig,
+      },
+      'fetchAgentFromDatabase: Successfully loaded and validated agent from database',
     )
 
-    return fullAgentTemplate
+    return validationResult.agentTemplate!
   } catch (error) {
     logger.error(
       { publisherId, agentId, version, error },
-      'Error fetching agent from database',
+      'fetchAgentFromDatabase: Error fetching agent from database',
     )
     return null
   }
@@ -143,15 +167,19 @@ export async function getAgentTemplate(
     return databaseAgentCache.get(cacheKey) || null
   }
 
-  // 3. Query database (only for publisher/agent-id format)
-  if (agentId.includes('/')) {
-    const dbAgent = await fetchAgentFromDatabase(agentId)
-    // Cache the result (including null for non-existent agents)
-    databaseAgentCache.set(cacheKey, dbAgent)
-    return dbAgent
+  const parsed = parseAgentId(agentId)
+  if (!parsed) {
+    logger.debug({ agentId }, 'getAgentTemplate: Failed to parse agent ID')
+    return null
   }
 
-  return null
+  // 3. Query database (only for publisher/agent-id format)
+  const dbAgent = await fetchAgentFromDatabase(parsed)
+  if (dbAgent && parsed.version && parsed.version !== 'latest') {
+    // Cache only specific versions to avoid stale 'latest' results
+    databaseAgentCache.set(cacheKey, dbAgent)
+  }
+  return dbAgent
 }
 
 /**

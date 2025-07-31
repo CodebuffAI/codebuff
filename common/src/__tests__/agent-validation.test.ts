@@ -216,9 +216,7 @@ describe('Agent Validation', () => {
             instructionsPrompt: 'Test user prompt',
             stepPrompt: 'Test step prompt',
             inputSchema: {
-              prompt: {
-                type: 'number' as any, // Invalid - should only allow strings
-              },
+              prompt: null as any, // Invalid - null schema
             },
             outputMode: 'last_message',
             includeMessageHistory: true,
@@ -232,10 +230,7 @@ describe('Agent Validation', () => {
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].message).toContain(
-        'Invalid inputSchema.prompt',
-      )
-      expect(result.validationErrors[0].message).toContain(
-        'Schema must allow string or undefined values',
+        'Failed to convert inputSchema.prompt to Zod',
       )
       expect(result.templates).not.toHaveProperty('invalid_schema_agent')
     })
@@ -543,9 +538,7 @@ describe('Agent Validation', () => {
               instructionsPrompt: 'Test user prompt',
               stepPrompt: 'Test step prompt',
               inputSchema: {
-                prompt: {
-                  type: 'boolean' as any, // Invalid for prompt schema
-                },
+                prompt: null as any, // Invalid - null schema
               },
               outputMode: 'last_message',
               includeMessageHistory: true,

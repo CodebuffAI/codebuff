@@ -73,56 +73,54 @@ export function validateAgents(
     }
   }
 
-  try {
-    const agentKeys = Object.keys(agentTemplates)
+  const agentKeys = Object.keys(agentTemplates)
 
-    // Pass 1: Collect all agent IDs from template files
-    const dynamicAgentIds = collectAgentIds(agentTemplates)
+  // Pass 1: Collect all agent IDs from template files
+  const dynamicAgentIds = collectAgentIds(agentTemplates)
 
-    // Pass 2: Load and validate each agent template
-    for (const agentKey of agentKeys) {
-      try {
-        const content = agentTemplates[agentKey]
-        if (!content) {
-          continue
-        }
+  // Pass 2: Load and validate each agent template
+  for (const agentKey of agentKeys) {
+    try {
+      const content = agentTemplates[agentKey]
+      if (!content) {
+        continue
+      }
 
-        const validationResult = validateSingleAgent(
-          dynamicAgentIds,
-          content,
-          agentKey,
-        )
+      const validationResult = validateSingleAgent(content, {
+        filePath: agentKey,
+        dynamicAgentIds,
+      })
 
-        if (!validationResult.success) {
-          validationErrors.push({
-            filePath: agentKey,
-            message: validationResult.error!,
-          })
-          continue
-        }
-
-        templates[content.id] = validationResult.agentTemplate!
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown error'
-
+      if (!validationResult.success) {
         validationErrors.push({
           filePath: agentKey,
-          message: `Error in agent template ${agentKey}: ${errorMessage}`,
+          message: validationResult.error!,
         })
-
-        logger.warn(
-          { filePath: agentKey, error: errorMessage },
-          'Failed to load dynamic agent template',
-        )
+        continue
       }
+
+      if (templates[content.id]) {
+        validationErrors.push({
+          filePath: agentKey,
+          message: `Duplicate agent ID: ${content.id}`,
+        })
+        continue
+      }
+      templates[content.id] = validationResult.agentTemplate!
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
+
+      validationErrors.push({
+        filePath: agentKey,
+        message: `Error in agent template ${agentKey}: ${errorMessage}`,
+      })
+
+      logger.warn(
+        { filePath: agentKey, error: errorMessage },
+        'Failed to load dynamic agent template',
+      )
     }
-  } catch (error) {
-    logger.error({ error }, 'Failed to process agent templates')
-    validationErrors.push({
-      filePath: 'agentTemplates',
-      message: 'Failed to process agent templates',
-    })
   }
 
   return {
@@ -137,31 +135,44 @@ export function validateAgents(
  *
  * @param dynamicAgentIds - Array of all available dynamic agent IDs for validation
  * @param template - The dynamic agent template to validate
- * @param filePath - Optional file path for error context
+ * @param options - Optional configuration object
+ * @param options.filePath - Optional file path for error context
+ * @param options.skipSubagentValidation - Skip subagent validation when loading from database
  * @returns Validation result with either the converted AgentTemplate or an error
  */
 export function validateSingleAgent(
-  dynamicAgentIds: string[],
   template: DynamicAgentTemplate,
-  filePath?: string,
+  options?: {
+    dynamicAgentIds?: string[]
+    filePath?: string
+    skipSubagentValidation?: boolean
+  },
 ): {
   success: boolean
   agentTemplate?: AgentTemplate
   error?: string
 } {
+  const {
+    filePath,
+    skipSubagentValidation = false,
+    dynamicAgentIds = [],
+  } = options || {}
+
   try {
-    // Validate subagents
-    const subagentValidation = validateSubagents(
-      template.subagents,
-      dynamicAgentIds,
-    )
-    if (!subagentValidation.valid) {
-      return {
-        success: false,
-        error: formatSubagentError(
-          subagentValidation.invalidAgents,
-          subagentValidation.availableAgents,
-        ),
+    // Validate subagents (skip if requested, e.g., for database agents)
+    if (!skipSubagentValidation) {
+      const subagentValidation = validateSubagents(
+        template.subagents,
+        dynamicAgentIds,
+      )
+      if (!subagentValidation.valid) {
+        return {
+          success: false,
+          error: formatSubagentError(
+            subagentValidation.invalidAgents,
+            subagentValidation.availableAgents,
+          ),
+        }
       }
     }
 
@@ -254,11 +265,8 @@ export function validateSingleAgent(
  */
 function isValidGeneratorFunction(code: string): boolean {
   const trimmed = code.trim()
-  return (
-    trimmed.startsWith('function*') ||
-    // Also allow arrow function generators
-    /^\s*\*\s*\(/.test(trimmed)
-  )
+  // Check if it's a generator function (must start with function*)
+  return trimmed.startsWith('function*')
 }
 
 /**
