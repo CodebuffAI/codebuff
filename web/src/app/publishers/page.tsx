@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { User, Plus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { pluralize } from '@codebuff/common/util/string'
 import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
 
 const PublishersPage = () => {
@@ -139,7 +140,7 @@ const PublishersPage = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>Personal Publishers ({personalPublishers.length})</span>
+                <span>Personal Publishers</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -201,7 +202,8 @@ const PublishersPage = () => {
                           )}
                           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                             <span>
-                              {publisher.agentCount || 0} agents published
+                              {pluralize(publisher.agentCount || 0, 'agent')}{' '}
+                              published
                             </span>
                             <span>
                               Created{' '}
@@ -224,9 +226,7 @@ const PublishersPage = () => {
           {orgPublishers.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>
-                  Organization Publishers ({orgPublishers.length})
-                </CardTitle>
+                <CardTitle>Organization Publishers</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -260,7 +260,8 @@ const PublishersPage = () => {
                           )}
                           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                             <span>
-                              {publisher.agentCount || 0} agents published
+                              {pluralize(publisher.agentCount || 0, 'agent')}{' '}
+                              published
                             </span>
                             <span>
                               Created{' '}

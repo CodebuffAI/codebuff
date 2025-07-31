@@ -60,9 +60,9 @@ export async function GET(): Promise<
 
     const response: PublisherProfileResponse[] = await Promise.all(
       publishers.map(async ({ publisher, organization }) => {
-        // Get agent count for this publisher
+        // Get distinct agent count for this publisher (not including versions)
         const agentCount = await db
-          .select({ count: schema.agentConfig.id })
+          .selectDistinct({ id: schema.agentConfig.id })
           .from(schema.agentConfig)
           .where(eq(schema.agentConfig.publisher_id, publisher.id))
           .then((result) => result.length)
