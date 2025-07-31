@@ -12,14 +12,14 @@ import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
 
-import type { CoreMessage } from 'ai'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 
 export async function processFileBlock(
   path: string,
   instructions: string | undefined,
   initialContentPromise: Promise<string | null>,
   newContent: string,
-  messages: CoreMessage[],
+  messages: CodebuffMessage[],
   fullResponse: string,
   lastUserPrompt: string | undefined,
   clientSessionId: string,

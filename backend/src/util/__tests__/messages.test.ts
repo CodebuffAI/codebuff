@@ -8,21 +8,17 @@ import {
   spyOn,
 } from 'bun:test'
 
-import {
-  trimMessagesToFitTokenLimit,
-  getMessageText,
-  messagesWithSystem,
-} from '../messages'
+import { trimMessagesToFitTokenLimit, messagesWithSystem } from '../messages'
 import * as tokenCounter from '../token-counter'
 
-import type { Message } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 
 describe('messagesWithSystem', () => {
   it('prepends system message to array', () => {
     const messages = [
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'hi' },
-    ] as Message[]
+    ] as CodebuffMessage[]
     const system = 'Be helpful'
 
     const result = messagesWithSystem(messages, system)
@@ -32,39 +28,6 @@ describe('messagesWithSystem', () => {
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'hi' },
     ])
-  })
-})
-
-describe('getMessageText', () => {
-  it('returns string content directly', () => {
-    const message = { role: 'user', content: 'hello' } as Message
-    expect(getMessageText(message)).toBe('hello')
-  })
-
-  it('combines text content from array', () => {
-    const message = {
-      role: 'assistant',
-      content: [
-        { type: 'text', text: 'hello' },
-        { type: 'text', text: 'world' },
-      ],
-    } as Message
-    expect(getMessageText(message)).toBe('hello\nworld')
-  })
-
-  it('skips non-text content', () => {
-    const message = {
-      role: 'assistant',
-      content: [
-        { type: 'text', text: 'hello' },
-        {
-          type: 'image',
-          source: { type: 'base64', media_type: 'image/jpeg', data: 'xyz' },
-        },
-        { type: 'text', text: 'world' },
-      ],
-    } as Message
-    expect(getMessageText(message)).toBe('hello\n\nworld')
   })
 })
 
@@ -185,7 +148,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         text: 'Another long message that should never be shortened because it has no tool calls in it at all',
       },
     },
-  ] as Message[]
+  ] as CodebuffMessage[]
 
   it('handles all features working together correctly', () => {
     const maxTotalTokens = 3000

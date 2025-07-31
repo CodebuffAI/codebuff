@@ -30,14 +30,9 @@ import type {
   Model,
   OpenAIModel,
 } from '@codebuff/common/constants'
-import type { Message } from '@codebuff/common/types/message'
+import type { CodebuffMessage, Message } from '@codebuff/common/types/message'
 import type { OpenRouterUsageAccounting } from '@codebuff/internal/openrouter-ai-sdk'
-import type {
-  CoreAssistantMessage,
-  CoreMessage,
-  CoreUserMessage,
-  LanguageModelV1,
-} from 'ai'
+import type { CoreAssistantMessage, CoreUserMessage, LanguageModelV1 } from 'ai'
 import type { z } from 'zod'
 
 // TODO: We'll want to add all our models here!
@@ -67,7 +62,7 @@ const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
 export const promptAiSdkStream = async function* (
   options: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     clientSessionId: string
     fingerprintId: string
     model: Model
@@ -218,7 +213,7 @@ export const promptAiSdkStream = async function* (
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
 export const promptAiSdk = async function (
   options: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     clientSessionId: string
     fingerprintId: string
     userInputId: string
@@ -278,7 +273,7 @@ export const promptAiSdk = async function (
 
 // Copied over exactly from promptAiSdk but with a schema
 export const promptAiSdkStructured = async function <T>(options: {
-  messages: CoreMessage[]
+  messages: CodebuffMessage[]
   schema: z.ZodType<T, z.ZodTypeDef, any>
   clientSessionId: string
   fingerprintId: string
@@ -343,16 +338,16 @@ export const promptAiSdkStructured = async function <T>(options: {
   return content
 }
 
-// TODO: temporary - ideally we move to using CoreMessage[] directly
+// TODO: temporary - ideally we move to using CodebuffMessage[] directly
 // and don't need this transform!!
 export function transformMessages(
-  messages: (Message | CoreMessage)[],
+  messages: (Message | CodebuffMessage)[],
   system?: System,
-): CoreMessage[] {
-  const coreMessages: CoreMessage[] = []
+): CodebuffMessage[] {
+  const codebuffMessages: CodebuffMessage[] = []
 
   if (system) {
-    coreMessages.push({
+    codebuffMessages.push({
       role: 'system',
       content:
         typeof system === 'string'
@@ -364,7 +359,7 @@ export function transformMessages(
   for (const message of messages) {
     if (message.role === 'system') {
       if (typeof message.content === 'string') {
-        coreMessages.push({ role: 'system', content: message.content })
+        codebuffMessages.push({ role: 'system', content: message.content })
         continue
       } else {
         throw new Error(
@@ -375,7 +370,7 @@ export function transformMessages(
 
     if (message.role === 'user') {
       if (typeof message.content === 'string') {
-        coreMessages.push({
+        codebuffMessages.push({
           ...message,
           role: 'user',
           content: message.content,
@@ -415,7 +410,7 @@ export function transformMessages(
             continue
           }
         }
-        coreMessages.push(coreMessage)
+        codebuffMessages.push(coreMessage)
         continue
       }
     }
@@ -425,7 +420,7 @@ export function transformMessages(
         continue
       }
       if (typeof message.content === 'string') {
-        coreMessages.push({
+        codebuffMessages.push({
           ...message,
           role: 'assistant',
           content: message.content,
@@ -458,18 +453,18 @@ export function transformMessages(
             })
           }
         }
-        coreMessages.push(coreMessage)
+        codebuffMessages.push(coreMessage)
         continue
       }
     }
 
     if (message.role === 'tool') {
-      coreMessages.push(message)
+      codebuffMessages.push(message)
       continue
     }
 
     throw new Error('Unknown message role received: ' + message)
   }
 
-  return coreMessages
+  return codebuffMessages
 }

@@ -21,10 +21,8 @@ import { stripNullCharsFromObject } from '../util/object'
 import { SWITCHBOARD } from '../websockets/server'
 import { sendAction } from '../websockets/websocket-action'
 
-import type { OpenAIMessage } from './openai-api'
 import type { ClientState } from '../websockets/switchboard'
-import type { Message } from '@codebuff/common/types/message'
-import type { CoreMessage } from 'ai'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 
 export const PROFIT_MARGIN = 0.3
 
@@ -332,7 +330,7 @@ type InsertMessageParams = {
   fingerprintId: string
   userInputId: string
   model: string
-  request: Message[] | OpenAIMessage[] | CoreMessage[]
+  request: CodebuffMessage[]
   response: string
   inputTokens: number
   outputTokens: number
@@ -532,7 +530,7 @@ export const saveMessage = async (value: {
   fingerprintId: string
   userInputId: string
   model: string
-  request: Message[] | OpenAIMessage[] | CoreMessage[]
+  request: CodebuffMessage[]
   response: string
   inputTokens: number
   outputTokens: number

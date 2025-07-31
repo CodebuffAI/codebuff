@@ -51,6 +51,7 @@ export const MessageSchema = z.object({
   role: z.union([z.literal('user'), z.literal('assistant')]),
   content: z.union([z.string(), z.array(MessageContentObjectSchema)]),
 })
+/** @deprecated - use CodebuffMessage instead*/
 export type Message = z.infer<typeof MessageSchema>
 export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
 

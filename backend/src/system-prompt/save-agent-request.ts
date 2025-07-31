@@ -5,10 +5,10 @@ import { withCacheControlCore } from '@codebuff/common/util/messages'
 
 import { logger } from '../util/logger'
 
-import type { CoreMessage } from 'ai'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 
 export async function saveAgentRequest(
-  messages: CoreMessage[],
+  messages: CodebuffMessage[],
   userInputId: string,
 ) {
   try {

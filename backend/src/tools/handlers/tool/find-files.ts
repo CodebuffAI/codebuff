@@ -17,7 +17,6 @@ import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { CoreMessage } from 'ai'
 import type { WebSocket } from 'ws'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
@@ -151,7 +150,7 @@ async function uploadExpandedFileContextForTraining(
     messages,
     system,
   }: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,

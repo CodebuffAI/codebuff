@@ -14,8 +14,8 @@ import * as OriginalRequestFilesPromptModule from '../find-files/request-files-p
 import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
 
 import type { CostMode } from '@codebuff/common/constants'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { CoreMessage } from 'ai'
 import type { Mock } from 'bun:test'
 
 // Restore module-level mocks using bunMockFn for the mock implementations
@@ -65,7 +65,9 @@ bunMockFn.module('@codebuff/bigquery', () => ({
 }))
 
 describe('requestRelevantFiles', () => {
-  const mockMessages: CoreMessage[] = [{ role: 'user', content: 'test prompt' }]
+  const mockMessages: CodebuffMessage[] = [
+    { role: 'user', content: 'test prompt' },
+  ]
   const mockSystem = 'test system'
   const mockFileContext: ProjectFileContext = {
     projectRoot: '/test/project',

@@ -13,8 +13,8 @@ import {
 import { countTokensJson } from './util/token-counter'
 import { requestFiles } from './websockets/websocket-action'
 
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { CoreMessage } from 'ai'
 import type { WebSocket } from 'ws'
 
 const getInitialFiles = (fileContext: ProjectFileContext) => {
@@ -39,7 +39,7 @@ const getInitialFiles = (fileContext: ProjectFileContext) => {
 
 export async function getFileReadingUpdates(
   ws: WebSocket,
-  messages: CoreMessage[],
+  messages: CodebuffMessage[],
   fileContext: ProjectFileContext,
   options: {
     requestedFiles?: string[]

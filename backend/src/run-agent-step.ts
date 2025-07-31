@@ -27,9 +27,9 @@ import {
   asSystemInstruction,
   asSystemMessage,
   asUserMessage,
-  coreMessagesWithSystem,
+  messagesWithSystem,
   expireMessages,
-  getCoreMessagesSubset,
+  getMessagesSubset,
   isSystemInstruction,
 } from './util/messages'
 import { isToolResult, renderReadFilesResult } from './util/parse-tool-call-xml'
@@ -113,6 +113,7 @@ export const runAgentStep = async (
       {
         role: 'user' as const,
         content: asUserMessage(prompt),
+        keepDuringTruncation: true,
       },
     ],
   )
@@ -336,7 +337,7 @@ export const runAgentStep = async (
   const systemTokens = countTokensJson(system)
 
   // Possibly truncated messagesWithUserMessage + cache.
-  const agentMessages = getCoreMessagesSubset(
+  const agentMessages = getMessagesSubset(
     agentState.messageHistory,
     systemTokens,
     supportsCacheControl(agentTemplate.model),
@@ -346,7 +347,7 @@ export const runAgentStep = async (
   if (debugPromptCaching) {
     // Store the agent request to a file for debugging
     await saveAgentRequest(
-      coreMessagesWithSystem(agentMessages, system),
+      messagesWithSystem(agentMessages, system),
       userInputId,
     )
   }
@@ -372,7 +373,7 @@ export const runAgentStep = async (
   let fullResponse = ''
   toolResults.length = 0
 
-  const stream = getStream(coreMessagesWithSystem(agentMessages, system))
+  const stream = getStream(messagesWithSystem(agentMessages, system))
 
   const {
     toolCalls,

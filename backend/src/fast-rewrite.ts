@@ -11,7 +11,7 @@ import { promptRelaceAI } from './llm-apis/relace-api'
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 
-import type { CoreMessage } from 'ai'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 
 export async function fastRewrite(
   initialContent: string,
@@ -135,7 +135,7 @@ export const shouldAddFilePlaceholders = async (
   filePath: string,
   oldContent: string,
   rewrittenNewContent: string,
-  messageHistory: CoreMessage[],
+  messageHistory: CodebuffMessage[],
   fullResponse: string,
   userId: string | undefined,
   clientSessionId: string,

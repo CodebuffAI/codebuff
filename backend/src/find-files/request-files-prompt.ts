@@ -19,8 +19,8 @@ import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from '../util/logger'
 import {
   castAssistantMessage,
-  coreMessagesWithSystem,
-  getCoreMessagesSubset,
+  messagesWithSystem,
+  getMessagesSubset,
 } from '../util/messages'
 import { getRequestContext } from '../websockets/request-context'
 
@@ -30,8 +30,8 @@ import type {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesTrace,
 } from '@codebuff/bigquery'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { CoreMessage } from 'ai'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
@@ -124,7 +124,7 @@ export async function requestRelevantFiles(
     messages,
     system,
   }: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
@@ -260,7 +260,7 @@ export async function requestRelevantFilesForTraining(
     messages,
     system,
   }: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
@@ -341,7 +341,7 @@ async function getRelevantFiles(
     messages,
     system,
   }: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     system: string | Array<TextBlock>
   },
   userPrompt: string,
@@ -355,7 +355,7 @@ async function getRelevantFiles(
   modelId?: FinetunedVertexModel,
 ) {
   const bufferTokens = 100_000
-  const messagesWithPrompt = getCoreMessagesSubset(
+  const messagesWithPrompt = getMessagesSubset(
     [
       ...messages,
       {
@@ -366,12 +366,12 @@ async function getRelevantFiles(
     bufferTokens,
   )
   const start = performance.now()
-  let coreMessages = coreMessagesWithSystem(messagesWithPrompt, system)
+  let codebuffMessages = messagesWithSystem(messagesWithPrompt, system)
 
   // Converts assistant messages to user messages for finetuned model
-  coreMessages = coreMessages
+  codebuffMessages = codebuffMessages
     .map((msg, i) => {
-      if (msg.role === 'assistant' && i !== coreMessages.length - 1) {
+      if (msg.role === 'assistant' && i !== codebuffMessages.length - 1) {
         return castAssistantMessage(msg)
       } else {
         return msg
@@ -380,7 +380,7 @@ async function getRelevantFiles(
     .filter((msg) => msg !== null)
   const finetunedModel = modelId ?? finetunedVertexModels.ft_filepicker_010
 
-  let response = await promptFlashWithFallbacks(coreMessages, {
+  let response = await promptFlashWithFallbacks(codebuffMessages, {
     clientSessionId,
     userInputId,
     model: models.gemini2flash,
@@ -424,7 +424,7 @@ async function getRelevantFilesForTraining(
     messages,
     system,
   }: {
-    messages: CoreMessage[]
+    messages: CodebuffMessage[]
     system: string | Array<TextBlock>
   },
   userPrompt: string,
@@ -437,7 +437,7 @@ async function getRelevantFilesForTraining(
   repoId: string | undefined,
 ) {
   const bufferTokens = 100_000
-  const messagesWithPrompt = getCoreMessagesSubset(
+  const messagesWithPrompt = getMessagesSubset(
     [
       ...messages,
       {
@@ -449,7 +449,7 @@ async function getRelevantFilesForTraining(
   )
   const start = performance.now()
   let response = await promptAiSdk({
-    messages: coreMessagesWithSystem(messagesWithPrompt, system),
+    messages: messagesWithSystem(messagesWithPrompt, system),
     clientSessionId,
     fingerprintId,
     userInputId,

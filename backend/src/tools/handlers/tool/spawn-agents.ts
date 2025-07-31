@@ -13,7 +13,6 @@ import type {
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { CoreMessage } from 'ai'
 import type { WebSocket } from 'ws'
 
 export type SendSubagentChunk = (data: {
@@ -96,7 +95,7 @@ export const handleSpawnAgents = ((params: {
   }
 
   const triggerSpawnAgents = async () => {
-    const conversationHistoryMessage: CoreMessage = {
+    const conversationHistoryMessage: CodebuffMessage = {
       role: 'user',
       content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
         getLatestState().messages,
@@ -153,7 +152,7 @@ export const handleSpawnAgents = ((params: {
         }
 
         const agentId = generateCompactId()
-        const subAgentMessages: CoreMessage[] = []
+        const subAgentMessages: CodebuffMessage[] = []
         if (agentTemplate.includeMessageHistory) {
           subAgentMessages.push(conversationHistoryMessage)
         }

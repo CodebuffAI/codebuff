@@ -4,7 +4,7 @@ import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { globalStopSequence } from './tools/constants'
 
 import type { AgentTemplate } from './templates/types'
-import type { CoreMessage } from 'ai'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 
 export const getAgentStreamFromTemplate = (params: {
   clientSessionId: string
@@ -23,7 +23,7 @@ export const getAgentStreamFromTemplate = (params: {
 
   const { model } = template
 
-  const getStream = (messages: CoreMessage[]) => {
+  const getStream = (messages: CodebuffMessage[]) => {
     const options: Parameters<typeof promptAiSdkStream>[0] = {
       messages,
       model,

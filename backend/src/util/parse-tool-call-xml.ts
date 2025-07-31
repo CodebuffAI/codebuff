@@ -3,7 +3,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import type { StringToolResultPart } from '@codebuff/common/tools/constants'
-import type { CoreMessage } from 'ai'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 
 /**
  * Parses XML content for a tool call into a structured object with only string values.
@@ -96,6 +96,6 @@ export function parseReadFilesResult(
   return files
 }
 
-export function isToolResult(message: CoreMessage): boolean {
+export function isToolResult(message: CodebuffMessage): boolean {
   return toContentString(message).includes('<tool_result')
 }

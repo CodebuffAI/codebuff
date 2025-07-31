@@ -2,17 +2,17 @@ import { models } from '@codebuff/common/constants'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
-import { getCoreMessagesSubset } from '../util/messages'
+import { getMessagesSubset } from '../util/messages'
 
 import type { System } from '../llm-apis/claude'
-import type { CoreMessage } from 'ai'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 
 const systemIntro = `
 You are assisting the user with their software project, in the application Codebuff. Codebuff is a coding agent that helps developers write code or perform utility tasks.
 `.trim()
 
 export const checkNewFilesNecessary = async (
-  messages: CoreMessage[],
+  messages: CodebuffMessage[],
   system: System,
   clientSessionId: string,
   fingerprintId: string,
@@ -56,7 +56,7 @@ Answer with just 'YES' if reading new files is helpful, or 'NO' if the current f
   const response = await promptFlashWithFallbacks(
     [
       { role: 'system', content: systemWithCodebuffInfo },
-      ...getCoreMessagesSubset(
+      ...getMessagesSubset(
         [...messages, { role: 'user', content: prompt }],
         bufferTokens,
       ),

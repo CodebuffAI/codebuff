@@ -8,7 +8,7 @@ import type {
   FinetunedVertexModel,
   GeminiModel,
 } from '@codebuff/common/constants'
-import type { CoreMessage } from 'ai'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
 
 /**
  * Prompts a Gemini model with fallback logic.
@@ -36,7 +36,7 @@ import type { CoreMessage } from 'ai'
  * @throws If all API calls (primary and fallbacks) fail.
  */
 export async function promptFlashWithFallbacks(
-  messages: CoreMessage[],
+  messages: CodebuffMessage[],
   options: {
     clientSessionId: string
     fingerprintId: string
