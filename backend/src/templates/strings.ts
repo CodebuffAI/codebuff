@@ -122,6 +122,11 @@ export async function collectParentInstructions(
   return instructions
 }
 
+const additionalPlaceholders = {
+  systemPrompt: [PLACEHOLDER.TOOLS_PROMPT, PLACEHOLDER.AGENTS_PROMPT],
+  instructionsPrompt: [],
+  stepPrompt: [],
+} satisfies Record<StringField, string[]>
 export async function getAgentPrompt<T extends StringField>(
   agentTemplate: AgentTemplate,
   promptType: { type: T },
@@ -130,13 +135,9 @@ export async function getAgentPrompt<T extends StringField>(
   agentRegistry: AgentRegistry,
 ): Promise<string | undefined> {
   let promptValue = agentTemplate[promptType.type]
-  addToolsPromptToSystemPrompt: if (promptType.type === 'systemPrompt') {
-    if (promptValue === undefined) {
-      promptValue = PLACEHOLDER.TOOLS_PROMPT
-      break addToolsPromptToSystemPrompt
-    }
-    if (!promptValue.includes(PLACEHOLDER.TOOLS_PROMPT)) {
-      promptValue += `\n\n${PLACEHOLDER.TOOLS_PROMPT}`
+  for (const placeholder of additionalPlaceholders[promptType.type]) {
+    if (!promptValue.includes(placeholder)) {
+      promptValue += `\n\n${placeholder}`
     }
   }
 
