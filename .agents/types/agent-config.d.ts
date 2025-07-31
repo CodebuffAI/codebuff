@@ -165,15 +165,6 @@ export interface Message {
 }
 
 /**
- * Result from executing a tool
- */
-export interface ToolResult {
-  success: boolean
-  data?: any
-  error?: string
-}
-
-/**
  * Context provided to handleSteps generator function
  */
 export interface AgentStepContext {
@@ -188,6 +179,15 @@ export interface AgentStepContext {
 export interface ToolCall<T extends ToolName = ToolName> {
   toolName: T
   args?: Tools.GetToolParams<T>
+}
+
+/**
+ * Result from executing a tool
+ */
+export interface ToolResult {
+  toolName: string
+  toolCallId: string
+  result: string
 }
 
 /**
