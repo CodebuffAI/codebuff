@@ -7,6 +7,10 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { checkOrgPublisherAccess } from '@/lib/publisher-permissions'
+import {
+  validatePublisherName,
+  validatePublisherId,
+} from '@/lib/validators/publisher'
 import { logger } from '@/util/logger'
 
 import type {
@@ -14,44 +18,6 @@ import type {
   PublisherProfileResponse,
 } from '@codebuff/common/types/publisher'
 import type { NextRequest } from 'next/server'
-
-function validatePublisherName(name: string): string | null {
-  if (!name || !name.trim()) {
-    return 'Publisher name is required'
-  }
-
-  const trimmedName = name.trim()
-
-  if (trimmedName.length < 2) {
-    return 'Publisher name must be at least 2 characters long'
-  }
-
-  if (trimmedName.length > 50) {
-    return 'Publisher name must be no more than 50 characters long'
-  }
-
-  return null
-}
-function validatePublisherId(id: string): string | null {
-  const result = PublisherIdSchema.safeParse(id)
-  if (!result.success) {
-    return result.error.errors[0]?.message || 'Invalid publisher ID'
-  }
-
-  if (id.length < 3) {
-    return 'Publisher ID must be at least 3 characters long'
-  }
-
-  if (id.length > 30) {
-    return 'Publisher ID must be no more than 30 characters long'
-  }
-
-  if (id.startsWith('-') || id.endsWith('-')) {
-    return 'Publisher ID cannot start or end with a hyphen'
-  }
-
-  return null
-}
 
 export async function GET(): Promise<
   NextResponse<PublisherProfileResponse[] | { error: string }>

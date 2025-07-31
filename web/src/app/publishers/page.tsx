@@ -2,37 +2,74 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useDebounce } from 'use-debounce'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { AvatarUpload } from '@/components/ui/avatar-upload'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+
 import {
   ArrowLeft,
   User,
   Loader2,
-  Building2,
   ChevronRight,
   ChevronLeft,
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/use-toast'
+import { OwnershipStep } from '@/components/publisher/ownership-step'
+import { BasicInfoStep } from '@/components/publisher/basic-info-step'
+import { ProfileDetailsStep } from '@/components/publisher/profile-details-step'
+import {
+  validatePublisherName,
+  validatePublisherId,
+} from '@/lib/validators/publisher'
 
 interface Organization {
   id: string
   name: string
   slug: string
   role: 'owner' | 'admin' | 'member'
+}
+
+// Pure utility functions
+const generateIdFromName = (name: string): string => {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+const filterAdminOrganizations = (
+  organizations: Organization[]
+): Organization[] => {
+  return organizations.filter(
+    (org) => org.role === 'owner' || org.role === 'admin'
+  )
+}
+
+const buildSubmitPayload = (
+  formData: {
+    id: string
+    name: string
+    email: string
+    bio: string
+    avatar_url: string
+  },
+  selectedOrgId: string | null | undefined,
+  avatarUrl: string | null
+) => {
+  return {
+    id: formData.id,
+    name: formData.name,
+    email: formData.email || undefined,
+    bio: formData.bio || undefined,
+    avatar_url: avatarUrl || undefined,
+    org_id: selectedOrgId && selectedOrgId !== '' ? selectedOrgId : undefined,
+  }
 }
 
 const CreatePublisherPage = () => {
@@ -46,8 +83,6 @@ const CreatePublisherPage = () => {
 
   // Initialize state from URL parameters
   const orgParam = searchParams.get('org')
-  const typeParam = searchParams.get('type')
-  const isOrgMode = typeParam === 'organization' && orgParam
 
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -62,20 +97,19 @@ const CreatePublisherPage = () => {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isIdManuallyEdited, setIsIdManuallyEdited] = useState(false)
   const [hasRemovedAvatar, setHasRemovedAvatar] = useState(false)
-  const [ownershipType, setOwnershipType] = useState<
-    'personal' | 'organization'
-  >(isOrgMode ? 'organization' : 'personal')
-  const [selectedOrgId, setSelectedOrgId] = useState<string>(orgParam || '')
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null | undefined>(
+    orgParam || undefined
+  )
 
   // Clean up URL parameters after initialization
   useEffect(() => {
-    if (isOrgMode) {
+    if (orgParam) {
       const url = new URL(window.location.href)
       url.searchParams.delete('org')
-      url.searchParams.delete('type')
       window.history.replaceState({}, '', url.toString())
     }
   }, [])
+
   // Query for user's organizations
   const {
     data: organizations = [],
@@ -90,10 +124,7 @@ const CreatePublisherPage = () => {
       }
       const data: { organizations: Organization[] } = await response.json()
       if (data.organizations) {
-        // Filter to only show orgs where user is owner or admin
-        return data.organizations.filter(
-          (org) => org.role === 'owner' || org.role === 'admin'
-        )
+        return filterAdminOrganizations(data.organizations)
       }
       return []
     },
@@ -110,46 +141,27 @@ const CreatePublisherPage = () => {
     }
   }, [session?.user?.image, formData.avatar_url, hasRemovedAvatar])
 
-  const validateName = (name: string) => {
-    if (!name.trim()) {
-      return 'Publisher name is required'
-    }
+  // Debounced ID for validation
+  const [debouncedId] = useDebounce(formData.id, 500)
 
-    if (name.length < 2) {
-      return 'Publisher name must be at least 2 characters long'
-    }
-
-    if (name.length > 50) {
-      return 'Publisher name must be no more than 50 characters long'
-    }
-
-    return ''
-  }
-
-  const validateId = (id: string) => {
-    if (!id.trim()) {
-      return 'Publisher ID is required'
-    }
-
-    if (id.length < 3) {
-      return 'Publisher ID must be at least 3 characters long'
-    }
-
-    if (id.length > 30) {
-      return 'Publisher ID must be no more than 30 characters long'
-    }
-
-    const validIdRegex = /^[a-z0-9-]+$/
-    if (!validIdRegex.test(id)) {
-      return 'Publisher ID can only contain lowercase letters, numbers, and hyphens'
-    }
-
-    if (id.startsWith('-') || id.endsWith('-')) {
-      return 'Publisher ID cannot start or end with a hyphen'
-    }
-
-    return ''
-  }
+  // ID validation query
+  const { data: idValidationResult, isLoading: isValidatingId } = useQuery({
+    queryKey: ['validate-publisher-id', debouncedId],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/publishers/validate?id=${encodeURIComponent(debouncedId)}`
+      )
+      if (!response.ok) {
+        throw new Error('Failed to validate ID')
+      }
+      return response.json() as Promise<{
+        valid: boolean
+        error: string | null
+      }>
+    },
+    enabled: !!(debouncedId && !validatePublisherId(debouncedId)),
+    retry: false,
+  })
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value
@@ -157,18 +169,13 @@ const CreatePublisherPage = () => {
 
     // Auto-generate ID from name if ID hasn't been manually edited
     if (!isIdManuallyEdited) {
-      const autoId = newName
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '')
+      const autoId = generateIdFromName(newName)
       setFormData((prev) => ({ ...prev, name: newName, id: autoId }))
     } else {
       setFormData((prev) => ({ ...prev, name: newName }))
     }
 
-    const nameError = validateName(newName)
+    const nameError = validatePublisherName(newName) || ''
     setErrors((prev) => ({ ...prev, name: nameError }))
   }
 
@@ -176,7 +183,7 @@ const CreatePublisherPage = () => {
     const newId = e.target.value.toLowerCase()
     setFormData({ ...formData, id: newId })
     setIsIdManuallyEdited(true)
-    const idError = validateId(newId)
+    const idError = validatePublisherId(newId) || ''
     setErrors((prev) => ({ ...prev, id: idError }))
   }
 
@@ -226,11 +233,13 @@ const CreatePublisherPage = () => {
   }
 
   const handleSubmit = async () => {
-    const nameError = validateName(formData.name)
-    const idError = validateId(formData.id)
+    const nameError = validatePublisherName(formData.name) || ''
+    const idError = validatePublisherId(formData.id) || ''
     let orgError = ''
 
-    if (ownershipType === 'organization' && !selectedOrgId) {
+    if (selectedOrgId === undefined) {
+      orgError = 'Please choose personal or organization'
+    } else if (selectedOrgId === '') {
       orgError = 'Please select an organization'
     }
 
@@ -254,14 +263,9 @@ const CreatePublisherPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          id: formData.id,
-          name: formData.name,
-          email: formData.email || undefined,
-          bio: formData.bio || undefined,
-          avatar_url: avatarUrl || undefined,
-          org_id: ownershipType === 'organization' ? selectedOrgId : undefined,
-        }),
+        body: JSON.stringify(
+          buildSubmitPayload(formData, selectedOrgId, avatarUrl)
+        ),
       })
 
       if (!response.ok) {
@@ -304,28 +308,35 @@ const CreatePublisherPage = () => {
     }
   }
 
-  const validateStep = (step: number): boolean => {
-    const newErrors: Record<string, string> = {}
-
-    if (step === 1) {
-      if (ownershipType === 'organization' && !selectedOrgId) {
-        newErrors.organization = 'Please select an organization'
-      }
-    } else if (step === 2) {
-      const nameError = validateName(formData.name)
-      const idError = validateId(formData.id)
-      if (nameError) newErrors.name = nameError
-      if (idError) newErrors.id = idError
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
   const handleNext = () => {
-    if (validateStep(currentStep)) {
+    if (currentStepData.isValid()) {
       nextStep()
     } else {
+      // Set errors based on current step
+      const errors: Record<string, string> = {}
+
+      if (currentStep === 1) {
+        if (selectedOrgId === undefined) {
+          errors.organization = 'Please choose personal or organization'
+        } else if (selectedOrgId === '') {
+          errors.organization = 'Please select an organization'
+        }
+      } else if (currentStep === 2) {
+        // Organization validation (carried from step 1)
+        if (selectedOrgId === undefined) {
+          errors.organization = 'Please choose personal or organization'
+        } else if (selectedOrgId === '') {
+          errors.organization = 'Please select an organization'
+        }
+
+        // Name and ID validation
+        const nameError = validatePublisherName(formData.name)
+        const idError = validatePublisherId(formData.id)
+        if (nameError) errors.name = nameError
+        if (idError) errors.id = idError
+      }
+
+      setErrors(errors)
       toast({
         title: 'Please fix the errors',
         description: 'Complete all required fields before continuing.',
@@ -338,10 +349,32 @@ const CreatePublisherPage = () => {
     return (
       <div className="container mx-auto py-6 px-4">
         <div className="max-w-2xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
-            <div className="h-96 bg-gray-200 rounded"></div>
+          <div className="flex items-center mb-8">
+            <Skeleton className="h-8 w-20 mr-4" />
           </div>
+          <div className="flex items-center mb-8">
+            <Skeleton className="h-8 w-8 rounded-full mr-3" />
+            <div>
+              <Skeleton className="h-8 w-64 mb-2" />
+              <Skeleton className="h-4 w-96" />
+            </div>
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <div className="flex justify-between pt-6">
+                  <Skeleton className="h-10 w-20" />
+                  <Skeleton className="h-10 w-24" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     )
@@ -369,177 +402,79 @@ const CreatePublisherPage = () => {
     )
   }
 
-  const renderStep1 = () => (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <RadioGroup
-          value={ownershipType}
-          onValueChange={(value: 'personal' | 'organization') => {
-            setOwnershipType(value)
-            if (value === 'personal') {
-              setSelectedOrgId('')
-            }
-          }}
-          className="space-y-4"
-        >
-          <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-muted/50 cursor-pointer">
-            <RadioGroupItem value="personal" id="personal" />
-            <Label
-              htmlFor="personal"
-              className="flex items-center cursor-pointer flex-1"
-            >
-              <User className="mr-3 h-5 w-5" />
-              <div>
-                <div className="font-medium">Personal</div>
-                <div className="text-sm text-muted-foreground">
-                  Create a personal publisher profile
-                </div>
-              </div>
-            </Label>
-          </div>
-          {organizations.length > 0 && (
-            <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-muted/50 cursor-pointer">
-              <RadioGroupItem value="organization" id="organization" />
-              <Label
-                htmlFor="organization"
-                className="flex items-center cursor-pointer flex-1"
-              >
-                <Building2 className="mr-3 h-5 w-5" />
-                <div>
-                  <div className="font-medium">Organization</div>
-                  <div className="text-sm text-muted-foreground">
-                    Create a publisher profile for your organization
-                  </div>
-                </div>
-              </Label>
-            </div>
-          )}
-        </RadioGroup>
+  const steps = [
+    {
+      title: 'Choose Ownership Type',
+      component: (
+        <OwnershipStep
+          selectedOrgId={selectedOrgId}
+          onSelectedOrgIdChange={setSelectedOrgId}
+          organizations={organizations}
+          isLoadingOrgs={isLoadingOrgs}
+          errors={errors}
+        />
+      ),
+      isValid: () => selectedOrgId !== undefined && selectedOrgId !== '',
+    },
+    {
+      title: 'Basic Information',
+      component: (
+        <BasicInfoStep
+          formData={formData}
+          onNameChange={handleNameChange}
+          onIdChange={handleIdChange}
+          onEmailChange={(e) =>
+            setFormData({ ...formData, email: e.target.value })
+          }
+          errors={errors}
+          isLoading={isLoading}
+          isValidatingId={isValidatingId}
+          idValidationResult={idValidationResult || null}
+        />
+      ),
+      isValid: () => {
+        const nameError = validatePublisherName(formData.name)
+        const idError = validatePublisherId(formData.id)
+        const hasValidationErrors = !!nameError || !!idError
+        const hasInvalidId = idValidationResult && !idValidationResult.valid
+        const hasOrgError = selectedOrgId === undefined || selectedOrgId === ''
 
-        {ownershipType === 'organization' && (
-          <div className="ml-6 space-y-3">
-            <Label htmlFor="org-select">Select Organization</Label>
-            <Select
-              value={selectedOrgId}
-              onValueChange={setSelectedOrgId}
-              disabled={isLoadingOrgs}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Choose an organization" />
-              </SelectTrigger>
-              <SelectContent>
-                {organizations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    {org.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {organizations.length === 0 && !isLoadingOrgs && (
-              <p className="text-sm text-muted-foreground">
-                You don't have admin access to any organizations.
-              </p>
-            )}
-            {errors.organization && (
-              <p className="text-sm text-red-600">{errors.organization}</p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
+        return !hasValidationErrors && !hasInvalidId && !hasOrgError
+      },
+    },
+    {
+      title: 'Profile Details',
+      component: (
+        <ProfileDetailsStep
+          formData={formData}
+          onBioChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+          onAvatarChange={handleAvatarChange}
+          isLoading={isLoading}
+          isUploadingAvatar={isUploadingAvatar}
+        />
+      ),
+      isValid: () => {
+        const nameError = validatePublisherName(formData.name)
+        const idError = validatePublisherId(formData.id)
+        const hasValidationErrors = !!nameError || !!idError
+        const hasInvalidId = idValidationResult && !idValidationResult.valid
+        const hasOrgError = selectedOrgId === undefined || selectedOrgId === ''
 
-  const renderStep2 = () => (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">
-            Publisher Name <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="name"
-            type="text"
-            value={formData.name}
-            onChange={handleNameChange}
-            placeholder="Enter your publisher name"
-            required
-            disabled={isLoading}
-            className={errors.name ? 'border-red-500' : ''}
-          />
-          {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
-          <p className="text-sm text-muted-foreground">
-            This will be displayed publicly on your published agents.
-          </p>
-        </div>
+        return (
+          !isLoading &&
+          !isUploadingAvatar &&
+          !hasValidationErrors &&
+          !hasInvalidId &&
+          !hasOrgError &&
+          !errors.name &&
+          !errors.id &&
+          !errors.organization
+        )
+      },
+    },
+  ]
 
-        <div className="space-y-2">
-          <Label htmlFor="id">
-            Publisher ID <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="id"
-            type="text"
-            value={formData.id}
-            onChange={handleIdChange}
-            placeholder="your-publisher-id"
-            required
-            disabled={isLoading}
-            className={errors.id ? 'border-red-500' : ''}
-          />
-          {errors.id && <p className="text-sm text-red-600">{errors.id}</p>}
-          <p className="text-sm text-muted-foreground">
-            This will be your unique URL: codebuff.com/publishers/
-            {formData.id || 'your-publisher-id'}
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="email">Contact Email</Label>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
-            placeholder="contact@example.com"
-            disabled={isLoading}
-          />
-          <p className="text-sm text-muted-foreground">
-            Optional. For users to contact you about your agents.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="bio">Bio</Label>
-          <textarea
-            id="bio"
-            value={formData.bio}
-            onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-            placeholder="Tell users about yourself and your agents..."
-            rows={4}
-            disabled={isLoading}
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Avatar</Label>
-          <AvatarUpload
-            value={formData.avatar_url}
-            onChange={handleAvatarChange}
-            disabled={isLoading || isUploadingAvatar}
-          />
-        </div>
-      </div>
-    </div>
-  )
+  const currentStepData = steps[currentStep - 1]
 
   return (
     <div className="container mx-auto py-6 px-4">
@@ -569,16 +504,12 @@ const CreatePublisherPage = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              {currentStep === 1 && 'Choose Ownership Type'}
-              {currentStep === 2 && 'Basic Information'}
-              {currentStep === 3 && 'Profile Details'}{' '}
+              {currentStepData.title}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div>
-              {currentStep === 1 && renderStep1()}
-              {currentStep === 2 && renderStep2()}
-              {currentStep === 3 && renderStep3()}
+              {currentStepData.component}
 
               <div className="flex justify-between pt-6 mt-6 border-t">
                 <div>
@@ -600,7 +531,7 @@ const CreatePublisherPage = () => {
                     <Button
                       type="button"
                       onClick={handleNext}
-                      disabled={isLoading}
+                      disabled={isLoading || !currentStepData.isValid()}
                     >
                       Continue
                       <ChevronRight className="h-4 w-4 ml-2" />
@@ -609,14 +540,7 @@ const CreatePublisherPage = () => {
                     <Button
                       type="button"
                       onClick={handleSubmit}
-                      disabled={
-                        isLoading ||
-                        isUploadingAvatar ||
-                        !!errors.name ||
-                        !!errors.id ||
-                        !!errors.organization ||
-                        (ownershipType === 'organization' && !selectedOrgId)
-                      }
+                      disabled={!currentStepData.isValid()}
                     >
                       {(isLoading || isUploadingAvatar) && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
