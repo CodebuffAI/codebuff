@@ -1,12 +1,15 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
-import { User, Mail, Calendar, CheckCircle } from 'lucide-react'
+import { User, Mail, Calendar, CheckCircle, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { VersionButton } from '@/components/agent/version-button'
 
 interface PublisherPageProps {
   params: {
@@ -33,6 +36,19 @@ export async function generateMetadata({ params }: PublisherPageProps) {
       publisher[0].bio ||
       `View ${publisher[0].name}'s published agents on Codebuff`,
   }
+}
+
+type GroupedAgent = {
+  name: string
+  description?: string
+  versions: Array<{
+    id: string
+    version: string
+    data: any
+    created_at: Date
+  }>
+  latestVersion: string
+  totalVersions: number
 }
 
 const PublisherPage = async ({ params }: PublisherPageProps) => {
@@ -66,7 +82,49 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
     .from(schema.agentConfig)
     .where(eq(schema.agentConfig.publisher_id, publisherData.id))
     .orderBy(schema.agentConfig.created_at)
-    .limit(10) // Show latest 10 agents
+    .limit(50) // Show more agents for grouping
+
+  // Group agents by name
+  const groupedAgents: Record<string, GroupedAgent> = {}
+
+  publishedAgents.forEach((agent) => {
+    const agentData =
+      typeof agent.data === 'string' ? JSON.parse(agent.data) : agent.data
+    const agentName = agentData.name || agent.id
+
+    if (!groupedAgents[agentName]) {
+      groupedAgents[agentName] = {
+        name: agentName,
+        description: agentData.description,
+        versions: [],
+        latestVersion: agent.version,
+        totalVersions: 0,
+      }
+    }
+
+    groupedAgents[agentName].versions.push({
+      id: agent.id,
+      version: agent.version,
+      data: agentData,
+      created_at: agent.created_at,
+    })
+
+    // Update latest version (assuming versions are sorted)
+    if (
+      agent.created_at >
+      new Date(groupedAgents[agentName].versions[0]?.created_at || 0)
+    ) {
+      groupedAgents[agentName].latestVersion = agent.version
+      groupedAgents[agentName].description = agentData.description
+    }
+
+    groupedAgents[agentName].totalVersions =
+      groupedAgents[agentName].versions.length
+  })
+
+  const groupedAgentsList = Object.values(groupedAgents).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  )
 
   return (
     <div className="container mx-auto py-6 px-4">
@@ -120,7 +178,14 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
                     <Calendar className="h-4 w-4" />
                     <span>
                       Joined{' '}
-                      {new Date(publisherData.created_at).toLocaleDateString()}
+                      {new Date(publisherData.created_at).toLocaleDateString(
+                        'en-US',
+                        {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        }
+                      )}
                     </span>
                   </div>
                 </div>
@@ -133,8 +198,16 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card>
             <CardContent className="p-6">
+              <div className="text-2xl font-bold">
+                {groupedAgentsList.length}
+              </div>
+              <p className="text-sm text-muted-foreground">Unique Agents</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
               <div className="text-2xl font-bold">{agentCount}</div>
-              <p className="text-sm text-muted-foreground">Published Agents</p>
+              <p className="text-sm text-muted-foreground">Total Versions</p>
             </CardContent>
           </Card>
           <Card>
@@ -145,23 +218,15 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
               <p className="text-sm text-muted-foreground">Publisher Status</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold">
-                {new Date(publisherData.created_at).getFullYear()}
-              </div>
-              <p className="text-sm text-muted-foreground">Member Since</p>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Published Agents */}
+        {/* Published Agents - Grouped */}
         <Card>
           <CardHeader>
             <CardTitle>Published Agents</CardTitle>
           </CardHeader>
           <CardContent>
-            {publishedAgents.length === 0 ? (
+            {groupedAgentsList.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
                   No agents published yet.
@@ -169,35 +234,64 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
               </div>
             ) : (
               <div className="space-y-4">
-                {publishedAgents.map((agent) => {
-                  // Parse the data JSON to get agent details
-                  const agentData =
-                    typeof agent.data === 'string'
-                      ? JSON.parse(agent.data)
-                      : agent.data
+                {groupedAgentsList.map((groupedAgent) => {
+                  const sortedVersions = groupedAgent.versions.sort(
+                    (a, b) =>
+                      new Date(b.created_at).getTime() -
+                      new Date(a.created_at).getTime()
+                  )
+                  const latestVersionData = sortedVersions[0]
 
                   return (
-                    <div
-                      key={`${agent.id}-${agent.version}`}
-                      className="border rounded-lg p-4"
+                    <Link
+                      key={groupedAgent.name}
+                      href={`/publishers/${publisherData.id}/agents/${latestVersionData.id}/${latestVersionData.version}`}
+                      className="block border rounded-lg p-4 hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold">
-                            {agentData.name || agent.id}
-                          </h3>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            Version {agent.version}
-                          </p>
-                          {agentData.description && (
-                            <p className="text-sm">{agentData.description}</p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <h3 className="font-semibold text-lg">
+                              {groupedAgent.name}
+                            </h3>
+                            {groupedAgent.totalVersions > 1 && (
+                              <Badge variant="secondary">
+                                {groupedAgent.totalVersions} versions
+                              </Badge>
+                            )}
+                          </div>
+                          {groupedAgent.description && (
+                            <p className="text-sm text-muted-foreground mb-3">
+                              {groupedAgent.description}
+                            </p>
+                          )}
+                          {groupedAgent.totalVersions > 1 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {sortedVersions
+                                .slice(0, 6)
+                                .map((version, index) => (
+                                  <VersionButton
+                                    key={`${version.id}-${version.version}`}
+                                    href={`/publishers/${publisherData.id}/agents/${version.id}/${version.version}`}
+                                    version={version.version}
+                                    className="h-6 px-2 text-xs"
+                                    isLatest={index === 0}
+                                  />
+                                ))}
+                              {groupedAgent.totalVersions > 6 && (
+                                <Badge
+                                  variant="outline"
+                                  className="h-6 px-2 text-xs"
+                                >
+                                  +{groupedAgent.totalVersions - 6}
+                                </Badge>
+                              )}
+                            </div>
                           )}
                         </div>
-                        <Badge variant="outline">
-                          {new Date(agent.created_at).toLocaleDateString()}
-                        </Badge>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
                       </div>
-                    </div>
+                    </Link>
                   )
                 })}
               </div>

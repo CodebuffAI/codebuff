@@ -4,6 +4,9 @@ import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { validatePublisherId } from '@/lib/validators/publisher'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -39,10 +42,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json(
-      { valid: true, error: null },
-      { status: 200 }
-    )
+    return NextResponse.json({ valid: true, error: null }, { status: 200 })
   } catch (error) {
     console.error('Error validating publisher ID:', error)
     return NextResponse.json(

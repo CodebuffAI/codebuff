@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
+import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
 
 export default function OrganizationSettingsPage() {
   const { data: session, status } = useSession()
@@ -38,9 +39,33 @@ export default function OrganizationSettingsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteConfirmSlug, setDeleteConfirmSlug] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [publishers, setPublishers] = useState<PublisherProfileResponse[]>([])
+  const [publishersLoading, setPublishersLoading] = useState(true)
 
   // Use the custom hook for organization data
   const { organization, isLoading, error } = useOrganizationData(orgSlug)
+
+  // Fetch publishers data for this organization
+  useEffect(() => {
+    const fetchPublishers = async () => {
+      if (!organization?.id) return
+
+      setPublishersLoading(true)
+      try {
+        const response = await fetch(`/api/orgs/${organization.id}/publishers`)
+        if (response.ok) {
+          const data = await response.json()
+          setPublishers(data.publishers || [])
+        }
+      } catch (error) {
+        console.error('Error fetching publishers:', error)
+      } finally {
+        setPublishersLoading(false)
+      }
+    }
+
+    fetchPublishers()
+  }, [organization?.id])
 
   // Initialize form when organization data loads
   useEffect(() => {
@@ -278,26 +303,104 @@ export default function OrganizationSettingsPage() {
           {canManageOrg && (
             <Card>
               <CardHeader>
-                <CardTitle>Publisher Profile</CardTitle>
+                <CardTitle className="flex items-center">
+                  <User className="mr-2 h-5 w-5" />
+                  Publisher Profiles
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Manage publisher profiles for this organization to publish and
+                  distribute agents
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <h4 className="font-medium mb-2">
-                    Create Organization Publisher
-                  </h4>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Create a publisher profile for this organization to publish
-                    agents.
-                  </p>
-                  <Link
-                    href={`/publishers?org=${organization.id}&type=organization`}
-                  >
-                    <Button className="flex items-center">
-                      <User className="mr-2 h-4 w-4" />
-                      Create Publisher Profile
-                    </Button>
-                  </Link>
-                </div>
+                {publishersLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-4 w-64" />
+                    <Skeleton className="h-10 w-40" />
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-medium">
+                        Organization Publishers ({publishers.length})
+                      </h4>
+                      <Link
+                        href={`/publishers/new?org=${organization.id}&type=organization`}
+                      >
+                        <Button className="flex items-center">
+                          <User className="mr-2 h-4 w-4" />
+                          Create Publisher Profile
+                        </Button>
+                      </Link>
+                    </div>
+
+                    {publishers.length === 0 ? (
+                      <div className="text-center py-8 bg-muted/50 rounded-lg">
+                        <p className="text-sm text-muted-foreground mb-4">
+                          No publisher profiles created yet.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Create a publisher profile to start publishing agents
+                          for this organization.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {publishers.map((publisher) => (
+                          <div
+                            key={publisher.id}
+                            className="bg-muted/50 rounded-lg p-4"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <h5 className="font-medium">
+                                    {publisher.name}
+                                  </h5>
+                                  {publisher.verified && (
+                                    <span className="text-green-600 text-sm">
+                                      ✓ Verified
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  @{publisher.id}
+                                </p>
+                                {publisher.bio && (
+                                  <p className="text-sm mb-2">
+                                    {publisher.bio}
+                                  </p>
+                                )}
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                  <span>
+                                    {publisher.agentCount || 0} agents published
+                                  </span>
+                                  <span>
+                                    Created{' '}
+                                    {new Date(
+                                      publisher.created_at
+                                    ).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                              <Link href={`/publishers/${publisher.id}`}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex items-center"
+                                >
+                                  <User className="mr-2 h-4 w-4" />
+                                  View Profile
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
