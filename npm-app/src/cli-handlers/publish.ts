@@ -17,6 +17,12 @@ interface PublishResponse {
   error?: string
   details?: string
   statusCode?: number
+  availablePublishers?: Array<{
+    id: string
+    name: string
+    ownershipType: 'user' | 'organization'
+    organizationName?: string
+  }>
   validationErrors?: Array<{
     code: string
     message: string
@@ -27,7 +33,11 @@ interface PublishResponse {
 /**
  * Handle the publish command to upload agent templates to the backend
  * @param agentId The id of the agent to publish (required)
- */ export async function handlePublish(agentId?: string): Promise<void> {
+ * @param publisherId The id of the publisher to use (optional)
+ */ export async function handlePublish(
+  agentId?: string,
+  publisherId?: string,
+): Promise<void> {
   const user = getUserCredentials()
 
   if (!user) {
@@ -95,7 +105,11 @@ interface PublishResponse {
     )
 
     try {
-      const result = await publishAgentTemplate(template, user.authToken!)
+      const result = await publishAgentTemplate(
+        template,
+        user.authToken!,
+        publisherId,
+      )
 
       if (result.success) {
         console.log(
@@ -111,16 +125,73 @@ interface PublishResponse {
         // Check if the error is about missing publisher (403 status)
         if (result.statusCode === 403) {
           console.log()
-          console.log(
-            cyan('Please visit the website to create your publisher profile:'),
-          )
-          console.log(yellow(`${websiteUrl}/publishers`))
-          console.log()
-          console.log('A publisher profile allows you to:')
-          console.log('  • Publish and manage your agents')
-          console.log('  • Build your reputation in the community')
-          console.log('  • Organize agents under your name or organization')
-          console.log()
+
+          // Check if this is a "no publisher" error vs "multiple publishers" error
+          if (result.error?.includes('No publisher associated with user')) {
+            console.log(
+              cyan(
+                'Please visit the website to create your publisher profile:',
+              ),
+            )
+            console.log(yellow(`${websiteUrl}/publishers`))
+            console.log()
+            console.log('A publisher profile allows you to:')
+            console.log('  • Publish and manage your agents')
+            console.log('  • Build your reputation in the community')
+            console.log('  • Organize agents under your name or organization')
+            console.log()
+          } else if (
+            result.availablePublishers &&
+            result.availablePublishers.length > 0
+          ) {
+            // Show available publishers
+            console.log(
+              cyan(
+                'You have access to multiple publishers. Please specify which one to use:',
+              ),
+            )
+            console.log()
+            console.log(cyan('Available publishers:'))
+            result.availablePublishers.forEach((publisher) => {
+              const orgInfo = publisher.organizationName
+                ? ` (${publisher.organizationName})`
+                : ''
+              const typeInfo =
+                publisher.ownershipType === 'organization'
+                  ? ' [Organization]'
+                  : ' [Personal]'
+              console.log(
+                `  • ${yellow(publisher.id)} - ${publisher.name}${orgInfo}${typeInfo}`,
+              )
+            })
+            console.log()
+            console.log('Run one of these commands:')
+            result.availablePublishers.forEach((publisher) => {
+              console.log(
+                yellow(
+                  `  codebuff publish ${agentId} --publisher ${publisher.id}`,
+                ),
+              )
+            })
+            console.log()
+            console.log(cyan('Or visit the website to manage your publishers:'))
+            console.log(yellow(`${websiteUrl}/publishers`))
+            console.log()
+          } else {
+            // Generic 403 error
+            console.log(cyan('You may need to specify which publisher to use.'))
+            console.log()
+            console.log('Try running:')
+            console.log(
+              yellow(`  publish ${agentId} --publisher <publisher-id>`),
+            )
+            console.log()
+            console.log(
+              cyan('Visit the website to see your available publishers:'),
+            )
+            console.log(yellow(`${websiteUrl}/publishers`))
+            console.log()
+          }
         } else {
           console.log(
             red(
@@ -155,6 +226,7 @@ interface PublishResponse {
 async function publishAgentTemplate(
   data: DynamicAgentTemplate,
   authToken: string,
+  publisherId?: string,
 ): Promise<PublishResponse> {
   try {
     const response = await fetch(`${websiteUrl}/api/agents/publish`, {
@@ -165,6 +237,7 @@ async function publishAgentTemplate(
       },
       body: JSON.stringify({
         data,
+        ...(publisherId && { publisherId }),
       }),
     })
 
@@ -205,6 +278,7 @@ async function publishAgentTemplate(
         error: errorMessage,
         details: result.details,
         statusCode: response.status,
+        availablePublishers: result.availablePublishers,
         validationErrors: result.validationErrors,
       }
     }

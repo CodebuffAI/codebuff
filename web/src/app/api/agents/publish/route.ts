@@ -7,7 +7,7 @@ import {
   stringifyVersion,
   versionExists,
 } from '@codebuff/internal'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, and, or } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
@@ -22,6 +22,7 @@ import { logger } from '@/util/logger'
 // Schema for publishing an agent
 const publishAgentRequestSchema = z.object({
   data: DynamicAgentTemplateSchema,
+  publisherId: z.string().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data } = parseResult.data
+    const { data, publisherId } = parseResult.data
     const agentId = data.id
 
     const validationResult = validateAgents({
@@ -75,16 +76,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Look up the user's latest publisher (by updated_at)
-    const publisher = await db
-      .select()
+    // Look up publishers the user has access to (owned by user or their organizations)
+    const publishers = await db
+      .select({
+        publisher: schema.publisher,
+        organization: schema.org,
+      })
       .from(schema.publisher)
-      .where(eq(schema.publisher.user_id, userId))
+      .leftJoin(schema.org, eq(schema.publisher.org_id, schema.org.id))
+      .leftJoin(
+        schema.orgMember,
+        and(
+          eq(schema.orgMember.org_id, schema.publisher.org_id),
+          eq(schema.orgMember.user_id, userId)
+        )
+      )
+      .where(
+        or(
+          eq(schema.publisher.user_id, userId),
+          and(
+            eq(schema.orgMember.user_id, userId),
+            or(
+              eq(schema.orgMember.role, 'owner'),
+              eq(schema.orgMember.role, 'admin')
+            )
+          )
+        )
+      )
       .orderBy(desc(schema.publisher.updated_at))
-      .limit(1)
-      .then((rows) => rows[0])
-
-    if (!publisher) {
+    if (publishers.length === 0) {
       return NextResponse.json(
         {
           error: 'No publisher associated with user',
@@ -93,6 +113,65 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       )
     }
+
+    // If a specific publisher is requested, find it
+    let selectedPublisher
+    if (publisherId) {
+      const matchingPublisher = publishers.find(
+        ({ publisher }) => publisher.id === publisherId
+      )
+      if (!matchingPublisher) {
+        // Format available publishers for error message
+        const availablePublishers = publishers.map(
+          ({ publisher, organization }) => ({
+            id: publisher.id,
+            name: publisher.name,
+            ownershipType: publisher.user_id ? 'user' : 'organization',
+            organizationName: organization?.name,
+          })
+        )
+
+        return NextResponse.json(
+          {
+            error: 'Specified publisher not found or not accessible',
+            details: `Publisher '${publisherId}' not found. You have access to: ${availablePublishers
+              .map(
+                (p) =>
+                  `${p.id} (${p.name}${p.organizationName ? ` - ${p.organizationName}` : ''})`
+              )
+              .join(', ')}`,
+            availablePublishers,
+          },
+          { status: 403 }
+        )
+      }
+      selectedPublisher = matchingPublisher.publisher
+    } else if (publishers.length > 1) {
+      // Multiple publishers available, need to specify which one
+      const availablePublishers = publishers.map(
+        ({ publisher, organization }) => ({
+          id: publisher.id,
+          name: publisher.name,
+          ownershipType: publisher.user_id ? 'user' : 'organization',
+          organizationName: organization?.name,
+        })
+      )
+
+      return NextResponse.json(
+        {
+          error: 'Multiple publishers available',
+          details:
+            'You have access to multiple publishers. Please specify which one to use with the --publisher flag.',
+          availablePublishers,
+        },
+        { status: 403 }
+      )
+    } else {
+      // Use the only available publisher
+      selectedPublisher = publishers[0].publisher
+    }
+
+    const publisher = selectedPublisher
 
     // Determine the version to use (auto-increment if not provided)
     let version: Version
