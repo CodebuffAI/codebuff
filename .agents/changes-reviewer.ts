@@ -99,3 +99,5 @@ Use the following guidelines to review the changes and suggest improvements:
     yield 'STEP_ALL'
   },
 }
+
+export default config
