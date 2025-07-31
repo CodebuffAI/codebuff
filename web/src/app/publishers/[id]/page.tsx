@@ -9,7 +9,6 @@ import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { VersionButton } from '@/components/agent/version-button'
 
 interface PublisherPageProps {
   params: {
@@ -266,27 +265,9 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
                             </p>
                           )}
                           {groupedAgent.totalVersions > 1 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {sortedVersions
-                                .slice(0, 6)
-                                .map((version, index) => (
-                                  <VersionButton
-                                    key={`${version.id}-${version.version}`}
-                                    href={`/publishers/${publisherData.id}/agents/${version.id}/${version.version}`}
-                                    version={version.version}
-                                    className="h-6 px-2 text-xs"
-                                    isLatest={index === 0}
-                                  />
-                                ))}
-                              {groupedAgent.totalVersions > 6 && (
-                                <Badge
-                                  variant="outline"
-                                  className="h-6 px-2 text-xs"
-                                >
-                                  +{groupedAgent.totalVersions - 6}
-                                </Badge>
-                              )}
-                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Latest: v{latestVersionData.version}
+                            </p>
                           )}
                         </div>
                         <ChevronRight className="h-5 w-5 text-muted-foreground" />
