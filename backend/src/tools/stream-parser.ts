@@ -37,6 +37,7 @@ export async function processStreamWithTools<T extends string>(options: {
   userId: string | undefined
   repoId: string | undefined
   agentTemplate: AgentTemplate
+  localAgentTemplates: Record<string, AgentTemplate>
   fileContext: ProjectFileContext
   messages: CodebuffMessage[]
   agentState: AgentState
@@ -54,6 +55,7 @@ export async function processStreamWithTools<T extends string>(options: {
     userId,
     repoId,
     agentTemplate,
+    localAgentTemplates,
     fileContext,
     agentContext,
     agentState,
@@ -74,6 +76,7 @@ export async function processStreamWithTools<T extends string>(options: {
     userId,
     repoId,
     agentTemplate,
+    localAgentTemplates,
     sendSubagentChunk: (data: {
       userInputId: string
       agentId: string

@@ -26,7 +26,7 @@ import { MockWebSocket, mockFileContext } from './test-utils'
 import * as context7Api from '../llm-apis/context7-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
-import { getAllAgentTemplates } from '../templates/agent-registry'
+import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { WebSocket } from 'ws'
@@ -112,9 +112,7 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext: mockFileContext,
-    })
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -126,7 +124,7 @@ describe('read_docs tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
-        agentRegistry,
+        localAgentTemplates: agentTemplates,
         agentState,
         prompt: 'Get React documentation',
         params: undefined,
@@ -175,9 +173,7 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext: mockFileContext,
-    })
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
@@ -187,7 +183,7 @@ describe('read_docs tool with researcher agent', () => {
       onResponseChunk: () => {},
       agentType: 'researcher',
       fileContext: mockFileContext,
-      agentRegistry,
+      localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React hooks documentation',
       params: undefined,
@@ -221,9 +217,7 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext: mockFileContext,
-    })
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -235,7 +229,7 @@ describe('read_docs tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
-        agentRegistry,
+        localAgentTemplates: agentTemplates,
         agentState,
         prompt: 'Get documentation for NonExistentLibrary',
         params: undefined,
@@ -278,9 +272,7 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext: mockFileContext,
-    })
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -292,7 +284,7 @@ describe('read_docs tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
-        agentRegistry,
+        localAgentTemplates: agentTemplates,
         agentState,
         prompt: 'Get React documentation',
         params: undefined,
@@ -335,9 +327,7 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext: mockFileContext,
-    })
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -349,7 +339,7 @@ describe('read_docs tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
-        agentRegistry,
+        localAgentTemplates: agentTemplates,
         agentState,
         prompt: 'Get React server components documentation',
         params: undefined,
@@ -390,9 +380,7 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext: mockFileContext,
-    })
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -404,7 +392,7 @@ describe('read_docs tool with researcher agent', () => {
         onResponseChunk: () => {},
         agentType: 'researcher',
         fileContext: mockFileContext,
-        agentRegistry,
+        localAgentTemplates: agentTemplates,
         agentState,
         prompt: 'Get React documentation',
         params: undefined,

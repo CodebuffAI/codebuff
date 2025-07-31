@@ -4,7 +4,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
-import { getAllAgentTemplates } from '@codebuff/backend/templates/agent-registry'
+import { assembleLocalAgentTemplates } from '@codebuff/backend/templates/agent-registry'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { mockModule } from '@codebuff/common/testing/mock-modules'
@@ -158,7 +158,7 @@ export async function runAgentStepScaffolding(
   mockWs.close = mock()
 
   let fullResponse = ''
-  const { agentRegistry } = await getAllAgentTemplates({ fileContext })
+  const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(fileContext)
 
   const result = await runAgentStep(mockWs, {
     userId: TEST_USER_ID,
@@ -176,7 +176,7 @@ export async function runAgentStepScaffolding(
     },
     agentType,
     fileContext,
-    agentRegistry,
+    localAgentTemplates,
     agentState,
     prompt,
     params: undefined,

@@ -858,6 +858,7 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, {
         ...mockParams,
         template: schemaTemplate,
+        localAgentTemplates: { 'test-agent': schemaTemplate },
       })
 
       expect(result.endTurn).toBe(true)
@@ -907,6 +908,7 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, {
         ...mockParams,
         template: schemaTemplate,
+        localAgentTemplates: { 'test-agent': schemaTemplate },
       })
 
       // Should end turn (validation may fail but execution continues)
@@ -942,6 +944,7 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, {
         ...mockParams,
         template: noSchemaTemplate,
+        localAgentTemplates: { 'test-agent': noSchemaTemplate },
       })
 
       expect(result.endTurn).toBe(true)
@@ -978,6 +981,7 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockAgentState, {
         ...mockParams,
         template: schemaWithoutSchemaTemplate,
+        localAgentTemplates: { 'test-agent': schemaWithoutSchemaTemplate },
       })
 
       expect(result.endTurn).toBe(true)

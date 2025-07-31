@@ -7,7 +7,10 @@ import { SandboxManager } from './util/quickjs-sandbox'
 import { getRequestContext } from './websockets/request-context'
 import { sendAction } from './websockets/websocket-action'
 
-import type { AgentTemplate, StepGenerator } from './templates/types'
+import type {
+  AgentTemplate,
+  StepGenerator,
+} from '@codebuff/common/types/agent-template'
 import type { CodebuffToolCall } from './tools/constants'
 import type { PrintModeObject } from '@codebuff/common/types/print-mode'
 import type {
@@ -51,6 +54,7 @@ export async function runProgrammaticStep(
     agentType,
     fileContext,
     ws,
+    localAgentTemplates,
   }: {
     template: AgentTemplate
     prompt: string | undefined
@@ -63,6 +67,7 @@ export async function runProgrammaticStep(
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
     ws: WebSocket
+    localAgentTemplates: Record<string, AgentTemplate>
   },
 ): Promise<{ agentState: AgentState; endTurn: boolean }> {
   if (!template.handleSteps) {
@@ -125,6 +130,7 @@ export async function runProgrammaticStep(
     userId,
     repoId,
     agentTemplate: template,
+    localAgentTemplates,
     sendSubagentChunk: (data: {
       userInputId: string
       agentId: string

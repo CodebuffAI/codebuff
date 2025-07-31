@@ -1,23 +1,27 @@
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
-
-import { agentTemplates } from './agent-list'
-
-import type { AgentRegistry } from './agent-registry'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
+import { getAgentTemplate } from './agent-registry'
 
-export function buildSubagentsDescription(
+export async function buildSubagentsDescription(
   subagents: AgentTemplateType[],
-  agentRegistry: AgentRegistry,
-): string {
+  agentTemplates: Record<string, AgentTemplate>,
+): Promise<string> {
   if (subagents.length === 0) {
     return ''
   }
 
-  const agentsDescription = subagents
-    .map((agentType) => {
-      // Try to get from registry first (includes dynamic agents), then fall back to static
-      const agentTemplate =
-        agentRegistry[agentType] || agentTemplates[agentType]
+  const subAgentTypesAndTemplates = await Promise.all(
+    subagents.map(async (agentType) => {
+      return [
+        agentType,
+        await getAgentTemplate(agentType, agentTemplates),
+      ] as const
+    }),
+  )
+
+  const agentsDescription = subAgentTypesAndTemplates
+    .map(([agentType, agentTemplate]) => {
       if (!agentTemplate) {
         // Fallback for unknown agents
         return `- ${agentType}: Dynamic agent (description not available)

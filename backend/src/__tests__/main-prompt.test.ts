@@ -42,6 +42,42 @@ const mockAgentStream = (streamOutput: string) => {
 }
 
 describe('mainPrompt', () => {
+  let mockLocalAgentTemplates: Record<string, any>
+
+  beforeEach(() => {
+    // Setup common mock agent templates
+    mockLocalAgentTemplates = {
+      base: {
+        id: 'base',
+        displayName: 'Base Agent',
+        outputMode: 'last_message',
+        inputSchema: {},
+        parentPrompt: '',
+        model: 'gpt-4o-mini',
+        includeMessageHistory: true,
+        toolNames: ['write_file', 'run_terminal_command'],
+        subagents: [],
+        systemPrompt: '',
+        instructionsPrompt: '',
+        stepPrompt: '',
+      },
+      base_max: {
+        id: 'base_max',
+        displayName: 'Base Max Agent',
+        outputMode: 'last_message',
+        inputSchema: {},
+        parentPrompt: '',
+        model: 'gpt-4o',
+        includeMessageHistory: true,
+        toolNames: ['write_file', 'run_terminal_command'],
+        subagents: [],
+        systemPrompt: '',
+        instructionsPrompt: '',
+        stepPrompt: '',
+      },
+    }
+  })
+
   beforeAll(() => {
     // Mock logger
     mockModule('@codebuff/backend/util/logger', () => ({
@@ -219,6 +255,36 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
+        localAgentTemplates: {
+          base: {
+            id: 'base',
+            displayName: 'Base Agent',
+            outputMode: 'last_message',
+            inputSchema: {},
+            parentPrompt: '',
+            model: 'gpt-4o-mini',
+            includeMessageHistory: true,
+            toolNames: ['write_file', 'run_terminal_command'],
+            subagents: [],
+            systemPrompt: '',
+            instructionsPrompt: '',
+            stepPrompt: '',
+          },
+          base_max: {
+            id: 'base_max',
+            displayName: 'Base Max Agent',
+            outputMode: 'last_message',
+            inputSchema: {},
+            parentPrompt: '',
+            model: 'gpt-4o',
+            includeMessageHistory: true,
+            toolNames: ['write_file', 'run_terminal_command'],
+            subagents: [],
+            systemPrompt: '',
+            instructionsPrompt: '',
+            stepPrompt: '',
+          },
+        },
       },
     )
 
@@ -271,6 +337,7 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
+        localAgentTemplates: mockLocalAgentTemplates,
       },
     )
 
@@ -329,6 +396,36 @@ describe('mainPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
+      localAgentTemplates: {
+        base: {
+          id: 'base',
+          displayName: 'Base Agent',
+          outputMode: 'last_message',
+          inputSchema: {},
+          parentPrompt: '',
+          model: 'gpt-4o-mini',
+          includeMessageHistory: true,
+          toolNames: ['write_file', 'run_terminal_command'],
+          subagents: [],
+          systemPrompt: '',
+          instructionsPrompt: '',
+          stepPrompt: '',
+        },
+        base_max: {
+          id: 'base_max',
+          displayName: 'Base Max Agent',
+          outputMode: 'last_message',
+          inputSchema: {},
+          parentPrompt: '',
+          model: 'gpt-4o',
+          includeMessageHistory: true,
+          toolNames: ['write_file', 'run_terminal_command'],
+          subagents: [],
+          systemPrompt: '',
+          instructionsPrompt: '',
+          stepPrompt: '',
+        },
+      },
     })
 
     // Assert that requestToolCall was called exactly once
@@ -374,6 +471,7 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
+        localAgentTemplates: mockLocalAgentTemplates,
       },
     )
 
@@ -401,6 +499,7 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
+        localAgentTemplates: mockLocalAgentTemplates,
       },
     )
 
@@ -432,6 +531,7 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
+        localAgentTemplates: mockLocalAgentTemplates,
       },
     )
 
@@ -461,6 +561,7 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
+        localAgentTemplates: mockLocalAgentTemplates,
       },
     )
 
@@ -498,6 +599,7 @@ describe('mainPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
+      localAgentTemplates: mockLocalAgentTemplates,
     })
 
     // Assert that requestToolCall was called exactly once

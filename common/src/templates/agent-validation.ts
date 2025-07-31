@@ -20,11 +20,6 @@ export interface DynamicAgentValidationError {
   message: string
 }
 
-export interface DynamicAgentLoadResult {
-  templates: Record<string, AgentTemplate>
-  validationErrors: DynamicAgentValidationError[]
-}
-
 /**
  * Collect all agent IDs from template files without full validation
  */
@@ -62,7 +57,10 @@ export function collectAgentIds(
  */
 export function validateAgents(
   agentTemplates: Record<string, DynamicAgentTemplate> = {},
-): DynamicAgentLoadResult {
+): {
+  templates: Record<string, AgentTemplate>
+  validationErrors: DynamicAgentValidationError[]
+} {
   const templates: Record<string, AgentTemplate> = {}
   const validationErrors: DynamicAgentValidationError[] = []
 
@@ -255,12 +253,10 @@ export function validateSingleAgent(
  * Validates if a string represents a valid generator function
  */
 function isValidGeneratorFunction(code: string): boolean {
-  // More robust validation than just checking for 'function*'
   const trimmed = code.trim()
   return (
     trimmed.startsWith('function*') ||
-    trimmed.startsWith('async function*') ||
-    // Also allow arrow function generators (though less common)
+    // Also allow arrow function generators
     /^\s*\*\s*\(/.test(trimmed)
   )
 }

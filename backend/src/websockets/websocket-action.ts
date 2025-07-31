@@ -23,7 +23,7 @@ import {
 import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
 import { sendMessage } from './server'
-import { getAllAgentTemplates } from '../templates/agent-registry'
+import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { logger, withLoggerContext } from '../util/logger'
 import { asSystemMessage } from '../util/messages'
 
@@ -231,9 +231,15 @@ export const callMainPrompt = async (
   },
 ) => {
   const { userId, promptId, clientSessionId } = options
+  const { fileContext } = action.sessionState
+
+  // Assemble local agent templates from fileContext
+  const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(fileContext)
+
   const result = await mainPrompt(ws, action, {
     userId,
     clientSessionId,
+    localAgentTemplates,
     onResponseChunk: (chunk) => {
       if (checkLiveUserInput(userId, promptId, clientSessionId)) {
         sendAction(ws, {
@@ -289,38 +295,24 @@ const onInit = async (
       return
     }
 
-    // Validate agent templates (both overrides and dynamic agents)
-    const { agentTemplates } = fileContext
-    let allValidationErrors: Array<{ filePath: string; message: string }> = []
+    // Assemble local agent templates from fileContext
+    const { agentTemplates, validationErrors } =
+      assembleLocalAgentTemplates(fileContext)
 
-    const { agentRegistry, validationErrors } = await getAllAgentTemplates({
-      fileContext,
-    })
-    if (agentTemplates) {
-      // Initialize agent registry (this will load dynamic agents and handle validation)
-
-      // Get validation errors from the registry
-      allValidationErrors = validationErrors
-
-      if (allValidationErrors.length > 0) {
-        logger.warn(
-          { errorCount: allValidationErrors.length },
-          'Agent template validation errors found',
-        )
-      }
-    } else {
-      // Still need to initialize the registry even without agent templates
+    if (validationErrors.length > 0) {
+      logger.warn(
+        { errorCount: validationErrors.length },
+        'Agent template validation errors found',
+      )
     }
 
-    const errorMessage = formatValidationErrorMessage(allValidationErrors)
+    const errorMessage = formatValidationErrorMessage(validationErrors)
 
-    // Get all agent names (static + dynamic) for frontend
-    const allAgentNames = Object.fromEntries(
-      Object.entries(agentRegistry).map(([id, agentTemplate]) => [
-        id,
-        agentTemplate.displayName,
-      ]),
-    )
+    // Get all agent names for frontend
+    const allAgentNames: Record<string, string> = {}
+    for (const [id, template] of Object.entries(agentTemplates)) {
+      allAgentNames[id] = template.displayName
+    }
 
     // Send combined init and usage response
     const usageResponse = await genUsageResponse(

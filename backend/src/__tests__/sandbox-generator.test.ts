@@ -62,6 +62,7 @@ describe('QuickJS Sandbox Generator', () => {
       assistantMessage: undefined,
       assistantPrefix: undefined,
       ws: new MockWebSocket() as unknown as WebSocket,
+      localAgentTemplates: {},
     }
   })
 
@@ -84,6 +85,7 @@ describe('QuickJS Sandbox Generator', () => {
       }
     `
     mockParams.template = mockTemplate
+    mockParams.localAgentTemplates = { 'test-vm-agent': mockTemplate }
 
     const result = await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -113,6 +115,7 @@ describe('QuickJS Sandbox Generator', () => {
     mockParams.template = mockTemplate
     mockParams.agentType = 'test-vm-agent-error'
     mockParams.params = {}
+    mockParams.localAgentTemplates = { 'test-vm-agent-error': mockTemplate }
 
     const result = await runProgrammaticStep(mockAgentState, mockParams)
 

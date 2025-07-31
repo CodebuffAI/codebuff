@@ -23,7 +23,7 @@ import {
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
-import { getAllAgentTemplates } from '../templates/agent-registry'
+import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
@@ -148,9 +148,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext: mockFileContext,
-    })
+    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -162,7 +160,7 @@ describe('runAgentStep - set_output tool', () => {
         onResponseChunk: () => {},
         agentType: 'base',
         fileContext: mockFileContext,
-        agentRegistry,
+        localAgentTemplates,
         agentState,
         prompt: 'Analyze the codebase',
         params: undefined,
@@ -190,9 +188,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext: mockFileContext,
-    })
+    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -204,7 +200,7 @@ describe('runAgentStep - set_output tool', () => {
         onResponseChunk: () => {},
         agentType: 'base',
         fileContext: mockFileContext,
-        agentRegistry,
+        localAgentTemplates,
         agentState,
         prompt: 'Analyze the codebase',
         params: undefined,
@@ -237,9 +233,7 @@ describe('runAgentStep - set_output tool', () => {
       existingField: 'original value',
       anotherField: 'unchanged',
     }
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext: mockFileContext,
-    })
+    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -251,7 +245,7 @@ describe('runAgentStep - set_output tool', () => {
         onResponseChunk: () => {},
         agentType: 'base',
         fileContext: mockFileContext,
-        agentRegistry,
+        localAgentTemplates,
         agentState,
         prompt: 'Update the output',
         params: undefined,
@@ -275,9 +269,7 @@ describe('runAgentStep - set_output tool', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
     agentState.output = { existingField: 'value' }
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext: mockFileContext,
-    })
+    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -289,7 +281,7 @@ describe('runAgentStep - set_output tool', () => {
         onResponseChunk: () => {},
         agentType: 'base',
         fileContext: mockFileContext,
-        agentRegistry,
+        localAgentTemplates,
         agentState,
         prompt: 'Update with empty object',
         params: undefined,
@@ -365,7 +357,7 @@ describe('runAgentStep - set_output tool', () => {
         onResponseChunk: () => {},
         agentType: 'test-handlesteps-agent' as any,
         fileContext: mockFileContext,
-        agentRegistry: mockAgentRegistry,
+        localAgentTemplates: mockAgentRegistry,
         agentState,
         prompt: 'Test the handleSteps functionality',
         params: undefined,

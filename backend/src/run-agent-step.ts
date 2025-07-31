@@ -19,7 +19,7 @@ import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { saveAgentRequest } from './system-prompt/save-agent-request'
-import { agentTemplates } from './templates/agent-list'
+import { getAgentTemplate } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { logger } from './util/logger'
@@ -37,7 +37,7 @@ import { simplifyReadFileResults } from './util/simplify-tool-results'
 import { countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 
-import type { AgentRegistry } from './templates/agent-registry'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { PrintModeObject } from '@codebuff/common/types/print-mode'
@@ -59,7 +59,7 @@ export interface AgentOptions {
   agentType: AgentTemplateType
   fileContext: ProjectFileContext
   agentState: AgentState
-  agentRegistry: AgentRegistry
+  localAgentTemplates: Record<string, AgentTemplate>
 
   prompt: string | undefined
   params: Record<string, any> | undefined
@@ -81,7 +81,7 @@ export const runAgentStep = async (
     onResponseChunk,
     fileContext,
     agentType,
-    agentRegistry,
+    localAgentTemplates,
     prompt,
     params,
   } = options
@@ -226,10 +226,10 @@ export const runAgentStep = async (
     }
   }
 
-  const agentTemplate = agentRegistry[agentType]
+  const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
   if (!agentTemplate) {
     throw new Error(
-      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(agentTemplates).join(', ')}`,
+      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(localAgentTemplates).join(', ')}`,
     )
   }
 
@@ -238,7 +238,7 @@ export const runAgentStep = async (
     { type: 'stepPrompt' },
     fileContext,
     agentState,
-    agentRegistry,
+    localAgentTemplates,
   )
 
   // Extract instructions prompt to match hasPrompt && {...} pattern
@@ -248,7 +248,7 @@ export const runAgentStep = async (
         { type: 'instructionsPrompt' },
         fileContext,
         agentState,
-        agentRegistry,
+        localAgentTemplates,
       )
     : undefined
 
@@ -306,6 +306,7 @@ export const runAgentStep = async (
         ...options,
         ws,
         template: agentTemplate,
+        localAgentTemplates,
       },
     )
     agentState = newAgentState
@@ -336,7 +337,7 @@ export const runAgentStep = async (
       { type: 'systemPrompt' },
       fileContext,
       agentState,
-      agentRegistry,
+      localAgentTemplates,
     )) ?? ''
   const systemTokens = countTokensJson(system)
 
@@ -397,6 +398,7 @@ export const runAgentStep = async (
     repoId,
     messages: agentMessages,
     agentTemplate,
+    localAgentTemplates,
     fileContext,
     agentContext,
     onResponseChunk,
@@ -497,7 +499,7 @@ export const loopAgentSteps = async (
     fingerprintId,
     fileContext,
     toolResults,
-    agentRegistry,
+    localAgentTemplates,
     userId,
     clientSessionId,
     onResponseChunk,
@@ -510,14 +512,14 @@ export const loopAgentSteps = async (
     fingerprintId: string
     fileContext: ProjectFileContext
     toolResults: ToolResult[]
-    agentRegistry: AgentRegistry
+    localAgentTemplates: Record<string, AgentTemplate>
 
     userId: string | undefined
     clientSessionId: string
     onResponseChunk: (chunk: string | PrintModeObject) => void
   },
 ) => {
-  const agentTemplate = agentRegistry[agentType]
+  const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
@@ -536,7 +538,7 @@ export const loopAgentSteps = async (
       clientSessionId,
       fingerprintId,
       onResponseChunk,
-      agentRegistry,
+      localAgentTemplates,
       agentType,
       fileContext,
       agentState: currentAgentState,

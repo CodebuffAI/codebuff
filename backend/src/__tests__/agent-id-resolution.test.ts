@@ -1,11 +1,10 @@
 import { resolveAgentId } from '@codebuff/common/util/agent-name-normalization'
 import { describe, expect, it, beforeEach } from 'bun:test'
 
-import type { AgentRegistry } from '../templates/agent-registry'
+import type { AgentTemplate } from '../templates/types'
 
 describe('Agent ID Resolution', () => {
-  let mockRegistry: AgentRegistry
-
+  let mockRegistry: Record<string, AgentTemplate>
   beforeEach(() => {
     mockRegistry = {
       // Built-in agents

@@ -4,8 +4,7 @@ import { renderToolResults } from '@codebuff/common/tools/utils'
 import { escapeString, generateCompactId } from '@codebuff/common/util/string'
 import { z } from 'zod/v4'
 
-import { agentTemplates } from './agent-list'
-import { type AgentRegistry } from './agent-registry'
+import { getAgentTemplate } from './agent-registry'
 import { buildSubagentsDescription } from './prompts'
 import { PLACEHOLDER, placeholderValues } from './types'
 import {
@@ -33,7 +32,7 @@ export async function formatPrompt(
   agentState: AgentState,
   tools: ToolName[],
   spawnableAgents: AgentTemplateType[],
-  agentRegistry: AgentRegistry,
+  agentTemplates: Record<string, AgentTemplate>,
   intitialAgentPrompt?: string,
 ): Promise<string> {
   const { messageHistory } = agentState
@@ -47,11 +46,13 @@ export async function formatPrompt(
     ? parseUserMessage(lastUserMessage.content as string)
     : undefined
 
+  const agentTemplate = agentState.agentType
+    ? await getAgentTemplate(agentState.agentType, agentTemplates)
+    : null
+
   const toInject: Record<PlaceholderValue, string> = {
-    [PLACEHOLDER.AGENT_NAME]: agentState.agentType
-      ? agentRegistry[agentState.agentType]?.displayName ||
-        agentTemplates[agentState.agentType]?.displayName ||
-        'Unknown Agent'
+    [PLACEHOLDER.AGENT_NAME]: agentTemplate
+      ? agentTemplate.displayName || 'Unknown Agent'
       : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
@@ -64,9 +65,9 @@ export async function formatPrompt(
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
-    [PLACEHOLDER.AGENTS_PROMPT]: buildSubagentsDescription(
+    [PLACEHOLDER.AGENTS_PROMPT]: await buildSubagentsDescription(
       spawnableAgents,
-      agentRegistry,
+      agentTemplates,
     ),
     [PLACEHOLDER.USER_CWD]: fileContext.cwd,
     [PLACEHOLDER.USER_INPUT_PROMPT]: escapeString(lastUserInput ?? ''),
@@ -101,16 +102,15 @@ export async function formatPrompt(
   }
   return prompt
 }
-
 type StringField = 'systemPrompt' | 'instructionsPrompt' | 'stepPrompt'
 
 export async function collectParentInstructions(
   agentType: string,
-  agentRegistry: AgentRegistry,
+  agentTemplates: Record<string, AgentTemplate>,
 ): Promise<string[]> {
   const instructions: string[] = []
 
-  for (const template of Object.values(agentRegistry)) {
+  for (const template of Object.values(agentTemplates)) {
     if (template.parentInstructions) {
       const instruction = template.parentInstructions[agentType]
       if (instruction) {
@@ -132,7 +132,7 @@ export async function getAgentPrompt<T extends StringField>(
   promptType: { type: T },
   fileContext: ProjectFileContext,
   agentState: AgentState,
-  agentRegistry: AgentRegistry,
+  agentTemplates: Record<string, AgentTemplate>,
 ): Promise<string | undefined> {
   let promptValue = agentTemplate[promptType.type]
   for (const placeholder of additionalPlaceholders[promptType.type]) {
@@ -151,7 +151,7 @@ export async function getAgentPrompt<T extends StringField>(
     agentState,
     agentTemplate.toolNames,
     agentTemplate.subagents,
-    agentRegistry,
+    agentTemplates,
     '',
   )
 
@@ -163,11 +163,11 @@ export async function getAgentPrompt<T extends StringField>(
       '\n\n' +
       getShortToolInstructions(agentTemplate.toolNames) +
       '\n\n' +
-      buildSubagentsDescription(agentTemplate.subagents, agentRegistry)
+      (await buildSubagentsDescription(agentTemplate.subagents, agentTemplates))
 
     const parentInstructions = await collectParentInstructions(
       agentState.agentType,
-      agentRegistry,
+      agentTemplates,
     )
 
     if (parentInstructions.length > 0) {

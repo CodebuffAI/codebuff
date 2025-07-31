@@ -3,10 +3,10 @@ import { generateCompactId } from '@codebuff/common/util/string'
 
 import { handleSpawnAgents } from './spawn-agents'
 import { asyncAgentManager } from '../../../async-agent-manager'
-import { getAllAgentTemplates } from '../../../templates/agent-registry'
+import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
-import type { AgentTemplate } from '../../../templates/types'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { SendSubagentChunk } from './spawn-agents'
@@ -33,6 +33,7 @@ export const handleSpawnAgentsAsync = ((params: {
     fingerprintId?: string
     userId?: string
     agentTemplate?: AgentTemplate
+    localAgentTemplates?: Record<string, AgentTemplate>
     sendSubagentChunk?: SendSubagentChunk
     messages?: CodebuffMessage[]
     agentState?: AgentState
@@ -64,6 +65,7 @@ export const handleSpawnAgentsAsync = ((params: {
     fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
+    localAgentTemplates,
     sendSubagentChunk,
     messages,
   } = state
@@ -100,10 +102,13 @@ export const handleSpawnAgentsAsync = ((params: {
     )
   }
 
-  const triggerSpawnAgentsAsync = async () => {
-    // Initialize registry and get all templates
-    const { agentRegistry } = await getAllAgentTemplates({ fileContext })
+  if (!localAgentTemplates) {
+    throw new Error(
+      'Internal error for spawn_agents_async: Missing localAgentTemplates in state',
+    )
+  }
 
+  const triggerSpawnAgentsAsync = async () => {
     const results: Array<{
       agentType: string
       success: boolean
@@ -123,11 +128,12 @@ export const handleSpawnAgentsAsync = ((params: {
     // Validate and spawn agents asynchronously
     for (const { agent_type: agentTypeStr, prompt, params } of agents) {
       try {
-        if (!(agentTypeStr in agentRegistry)) {
+        const agentType = agentTypeStr as AgentTemplateType
+        const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
+
+        if (!agentTemplate) {
           throw new Error(`Agent type ${agentTypeStr} not found.`)
         }
-        const agentType = agentTypeStr as AgentTemplateType
-        const agentTemplate = agentRegistry[agentType]
 
         if (!parentAgentTemplate.subagents.includes(agentType)) {
           throw new Error(
@@ -195,7 +201,7 @@ export const handleSpawnAgentsAsync = ((params: {
               agentState,
               fingerprintId: fingerprintId!,
               fileContext,
-              agentRegistry,
+              localAgentTemplates: localAgentTemplates,
               toolResults: [],
               userId,
               clientSessionId,

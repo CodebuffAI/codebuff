@@ -62,7 +62,28 @@ const mockFileContext: ProjectFileContext = {
 
 // --- Integration Test with Real LLM Call ---
 describe.skip('mainPrompt (Integration)', () => {
+  let mockLocalAgentTemplates: Record<string, any>
+
   beforeEach(() => {
+    // Setup common mock agent templates
+    mockLocalAgentTemplates = {
+      base: {
+        id: 'base',
+        displayName: 'Base Agent',
+        outputMode: 'last_message',
+        inputSchema: {},
+        parentPrompt: '',
+        model: 'gpt-4o-mini',
+        includeMessageHistory: true,
+        toolNames: ['write_file', 'run_terminal_command'],
+        subagents: [],
+        systemPrompt: '',
+        instructionsPrompt: '',
+        stepPrompt: '',
+      },
+    }
+
+
     spyOn(websocketAction, 'requestToolCall').mockImplementation(
       async (
         ws: WebSocket,
@@ -362,6 +383,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session-delete-function-integration',
+      localAgentTemplates: mockLocalAgentTemplates,
       onResponseChunk: (chunk: string | PrintModeObject) => {
         if (typeof chunk !== 'string') {
           return
@@ -442,6 +464,22 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session-delete-function-integration',
+        localAgentTemplates: {
+          base: {
+            id: 'base',
+            displayName: 'Base Agent',
+            outputMode: 'last_message',
+            inputSchema: {},
+            parentPrompt: '',
+            model: 'gpt-4o-mini',
+            includeMessageHistory: true,
+            toolNames: ['write_file', 'run_terminal_command'],
+            subagents: [],
+            systemPrompt: '',
+            instructionsPrompt: '',
+            stepPrompt: '',
+          },
+        },
         onResponseChunk: (chunk: string | PrintModeObject) => {
           if (typeof chunk !== 'string') {
             return

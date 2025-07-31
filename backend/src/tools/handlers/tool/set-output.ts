@@ -1,6 +1,7 @@
-import { getAllAgentTemplates } from '../../../templates/agent-registry'
+import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { AgentState } from '@codebuff/common/types/session-state'
@@ -12,14 +13,15 @@ export const handleSetOutput = ((params: {
   fileContext: ProjectFileContext
   state: {
     agentState?: AgentState
+    localAgentTemplates?: Record<string, AgentTemplate>
   }
 }): {
   result: Promise<string>
   state: { agentState: AgentState }
 } => {
-  const { previousToolCallFinished, toolCall, state, fileContext } = params
+  const { previousToolCallFinished, toolCall, state } = params
   const output = toolCall.args
-  const { agentState } = state
+  const { agentState, localAgentTemplates } = state
 
   if (!agentState) {
     throw new Error(
@@ -27,14 +29,21 @@ export const handleSetOutput = ((params: {
     )
   }
 
+  if (!localAgentTemplates) {
+    throw new Error(
+      'Internal error for set_output: Missing localAgentTemplates in state',
+    )
+  }
+
   const triggerSetOutput = async () => {
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext,
-    })
     // Validate output against outputSchema if defined
-    const agentTemplate = agentState.agentType
-      ? agentRegistry[agentState.agentType]
-      : null
+    let agentTemplate = null
+    if (agentState.agentType) {
+      agentTemplate = await getAgentTemplate(
+        agentState.agentType,
+        localAgentTemplates,
+      )
+    }
     if (agentTemplate?.outputSchema) {
       try {
         agentTemplate.outputSchema.parse(output)

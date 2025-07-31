@@ -1,9 +1,9 @@
 import { generateCompactId } from '@codebuff/common/util/string'
 
-import { getAllAgentTemplates } from '../../../templates/agent-registry'
-import { logger } from '../../../util/logger'
+import { getAgentTemplate } from '../../../templates/agent-registry'
 
-import type { AgentTemplate } from '../../../templates/types'
+import { logger } from '../../../util/logger'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
@@ -37,6 +37,7 @@ export const handleSpawnAgents = ((params: {
     fingerprintId?: string
     userId?: string
     agentTemplate?: AgentTemplate
+    localAgentTemplates?: Record<string, AgentTemplate>
     sendSubagentChunk?: SendSubagentChunk
     messages?: CodebuffMessage[]
     agentState?: AgentState
@@ -58,6 +59,7 @@ export const handleSpawnAgents = ((params: {
     fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
+    localAgentTemplates,
     sendSubagentChunk,
     messages,
   } = state
@@ -93,6 +95,11 @@ export const handleSpawnAgents = ((params: {
       'Internal error for spawn_agents: Missing agentState in state',
     )
   }
+  if (!localAgentTemplates) {
+    throw new Error(
+      'Internal error for spawn_agents: Missing localAgentTemplates in state',
+    )
+  }
 
   const triggerSpawnAgents = async () => {
     const conversationHistoryMessage: CodebuffMessage = {
@@ -103,24 +110,14 @@ export const handleSpawnAgents = ((params: {
         2,
       )}`,
     }
-    // Initialize registry and get all templates
-    const { agentRegistry } = await getAllAgentTemplates({
-      fileContext,
-    })
-    logger.debug(
-      {
-        availableAgentCount: Object.keys(agentRegistry).length,
-        requestedAgents: agents.map((a) => a.agent_type),
-      },
-      'Agent registry initialized for spawning',
-    )
     const results = await Promise.allSettled(
       agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
-        if (!(agentTypeStr in agentRegistry)) {
+        const agentType = agentTypeStr as AgentTemplateType
+        const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
+
+        if (!agentTemplate) {
           throw new Error(`Agent type ${agentTypeStr} not found.`)
         }
-        const agentType = agentTypeStr as AgentTemplateType
-        const agentTemplate = agentRegistry[agentType]
 
         if (!parentAgentTemplate.subagents.includes(agentType)) {
           throw new Error(
@@ -190,7 +187,7 @@ export const handleSpawnAgents = ((params: {
           agentState: subAgentState,
           fingerprintId,
           fileContext,
-          agentRegistry,
+          localAgentTemplates,
           toolResults: [],
           userId,
           clientSessionId,
@@ -212,52 +209,60 @@ export const handleSpawnAgents = ((params: {
         return {
           ...result,
           agentType,
-          agentName: agentRegistry[agentType] || agentTemplate.displayName,
+          agentName: agentTemplate.displayName,
         }
       }),
     )
 
-    const reports = results.map((result, index) => {
-      const agentInfo = agents[index]
-      const agentTypeStr = agentInfo.agent_type
+    const reports = await Promise.all(
+      results.map(async (result, index) => {
+        const agentInfo = agents[index]
+        const agentTypeStr = agentInfo.agent_type
 
-      if (result.status === 'fulfilled') {
-        const { agentState, agentName } = result.value
-        const agentTemplate = agentRegistry[agentState.agentType!]
-        let report = ''
-
-        if (agentTemplate.outputMode === 'json') {
-          report = JSON.stringify(result.value.agentState.output, null, 2)
-        } else if (agentTemplate.outputMode === 'last_message') {
-          const { agentState } = result.value
-          const assistantMessages = agentState.messageHistory.filter(
-            (message) => message.role === 'assistant',
+        if (result.status === 'fulfilled') {
+          const { agentState, agentName } = result.value
+          const agentTemplate = await getAgentTemplate(
+            agentState.agentType!,
+            localAgentTemplates,
           )
-          const lastAssistantMessage =
-            assistantMessages[assistantMessages.length - 1]
-          if (!lastAssistantMessage) {
-            report = 'No response from agent'
-          } else if (typeof lastAssistantMessage.content === 'string') {
-            report = lastAssistantMessage.content
-          } else {
-            report = JSON.stringify(lastAssistantMessage.content, null, 2)
+          if (!agentTemplate) {
+            return `**Agent (${agentTypeStr}):**\nError: Could not find agent template for ${agentState.agentType!}`
           }
-        } else if (agentTemplate.outputMode === 'all_messages') {
-          const { agentState } = result.value
-          // Remove the first message, which includes the previous conversation history.
-          const agentMessages = agentState.messageHistory.slice(1)
-          report = `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
-        } else {
-          throw new Error(
-            `Unknown output mode: ${'outputMode' in agentTemplate ? agentTemplate.outputMode : 'undefined'}`,
-          )
-        }
+          let report = ''
 
-        return `**${agentName}:**\n${report}`
-      } else {
-        return `**Agent (${agentTypeStr}):**\nError spawning agent: ${result.reason}`
-      }
-    })
+          if (agentTemplate.outputMode === 'json') {
+            report = JSON.stringify(result.value.agentState.output, null, 2)
+          } else if (agentTemplate.outputMode === 'last_message') {
+            const { agentState } = result.value
+            const assistantMessages = agentState.messageHistory.filter(
+              (message) => message.role === 'assistant',
+            )
+            const lastAssistantMessage =
+              assistantMessages[assistantMessages.length - 1]
+            if (!lastAssistantMessage) {
+              report = 'No response from agent'
+            } else if (typeof lastAssistantMessage.content === 'string') {
+              report = lastAssistantMessage.content
+            } else {
+              report = JSON.stringify(lastAssistantMessage.content, null, 2)
+            }
+          } else if (agentTemplate.outputMode === 'all_messages') {
+            const { agentState } = result.value
+            // Remove the first message, which includes the previous conversation history.
+            const agentMessages = agentState.messageHistory.slice(1)
+            report = `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
+          } else {
+            throw new Error(
+              `Unknown output mode: ${'outputMode' in agentTemplate ? agentTemplate.outputMode : 'undefined'}`,
+            )
+          }
+
+          return `**${agentName}:**\n${report}`
+        } else {
+          return `**Agent (${agentTypeStr}):**\nError spawning agent: ${result.reason}`
+        }
+      }),
+    )
     return reports
       .map((report: string) => `<agent_report>${report}</agent_report>`)
       .join('\n')

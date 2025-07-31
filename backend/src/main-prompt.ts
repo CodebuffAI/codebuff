@@ -1,10 +1,12 @@
+import { uniq } from 'lodash'
+import type { WebSocket } from 'ws'
+
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { resolveAgentId } from '@codebuff/common/util/agent-name-normalization'
 
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
-import { getAllAgentTemplates } from './templates/agent-registry'
+import { getAgentTemplate } from './templates/agent-registry'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
 import { requestToolCall } from './websockets/websocket-action'
@@ -18,12 +20,13 @@ import type {
   ToolResult,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
-import type { WebSocket } from 'ws'
+import { AgentTemplate } from './templates/types'
 
 export interface MainPromptOptions {
   userId: string | undefined
   clientSessionId: string
   onResponseChunk: (chunk: string | PrintModeObject) => void
+  localAgentTemplates: Record<string, AgentTemplate>
 }
 
 export const mainPrompt = async (
@@ -35,7 +38,8 @@ export const mainPrompt = async (
   toolCalls: Array<ClientToolCall>
   toolResults: Array<ToolResult>
 }> => {
-  const { userId, clientSessionId, onResponseChunk } = options
+  const { userId, clientSessionId, onResponseChunk, localAgentTemplates } =
+    options
 
   const {
     prompt,
@@ -104,22 +108,19 @@ export const mainPrompt = async (
     }
   }
 
+  const availableAgents = Object.keys(localAgentTemplates)
+
   // Determine agent type - prioritize CLI agent selection, then config base agent, then cost mode
   let agentType: AgentTemplateType
-  const { agentRegistry } = await getAllAgentTemplates({ fileContext })
 
   if (agentId) {
-    // Resolve agent ID using robust resolution strategy
-    const resolvedAgentId = resolveAgentId(agentId, agentRegistry)
-
-    if (!resolvedAgentId) {
-      const availableAgents = Object.keys(agentRegistry)
+    if (!(await getAgentTemplate(agentId, localAgentTemplates))) {
       throw new Error(
         `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`,
       )
     }
 
-    agentType = resolvedAgentId
+    agentType = agentId
     logger.info(
       {
         agentId,
@@ -132,8 +133,7 @@ export const mainPrompt = async (
     // Check for base agent in config
     const configBaseAgent = fileContext.codebuffConfig?.baseAgent
     if (configBaseAgent) {
-      if (!(configBaseAgent in agentRegistry)) {
-        const availableAgents = Object.keys(agentRegistry)
+      if (!(await getAgentTemplate(configBaseAgent, localAgentTemplates))) {
         throw new Error(
           `Invalid base agent in config: "${configBaseAgent}". Available agents: ${availableAgents.join(', ')}`,
         )
@@ -163,6 +163,18 @@ export const mainPrompt = async (
 
   mainAgentState.agentType = agentType
 
+  let mainAgentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
+  if (!mainAgentTemplate) {
+    throw new Error(`Agent template not found for type: ${agentType}`)
+  }
+
+  // Update the main agent template with subagents from codebuff config or add all dynamic agents
+  const updatedSubagents =
+    fileContext.codebuffConfig?.subagents ??
+    uniq([...mainAgentTemplate.subagents, ...availableAgents])
+  mainAgentTemplate.subagents = updatedSubagents
+  localAgentTemplates[agentType] = mainAgentTemplate
+
   const { agentState } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,
@@ -175,7 +187,7 @@ export const mainPrompt = async (
     userId,
     clientSessionId,
     onResponseChunk,
-    agentRegistry,
+    localAgentTemplates,
   })
 
   return {

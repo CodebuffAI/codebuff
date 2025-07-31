@@ -1,4 +1,4 @@
-import { getAllAgentTemplates } from './templates/agent-registry'
+import { assembleLocalAgentTemplates } from './templates/agent-registry'
 import { logger } from './util/logger'
 
 import type { AgentState } from '@codebuff/common/types/session-state'
@@ -180,7 +180,8 @@ export class AsyncAgentManager {
       } else {
         // Import loopAgentSteps dynamically to avoid circular dependency
         const { loopAgentSteps } = await import('./run-agent-step')
-        const { agentRegistry } = await getAllAgentTemplates(agent)
+        const { agentTemplates: localAgentTemplates } =
+          assembleLocalAgentTemplates(agent.fileContext)
 
         agentPromise = loopAgentSteps(ws, {
           userInputId,
@@ -190,7 +191,7 @@ export class AsyncAgentManager {
           agentState: agent.agentState,
           fingerprintId: agent.fingerprintId,
           fileContext: agent.fileContext,
-          agentRegistry,
+          localAgentTemplates,
           toolResults: [],
           userId: agent.userId,
           clientSessionId: sessionId,

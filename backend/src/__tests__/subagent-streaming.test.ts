@@ -13,7 +13,7 @@ import {
 
 import * as runAgentStep from '../run-agent-step'
 import { mockFileContext, MockWebSocket } from './test-utils'
-import * as agentRegistryModule from '../templates/agent-registry'
+import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import * as loggerModule from '../util/logger'
 
@@ -25,6 +25,29 @@ import type { WebSocket } from 'ws'
 describe('Subagent Streaming', () => {
   let mockSendSubagentChunk: Mock<SendSubagentChunk>
   let mockLoopAgentSteps: Mock<(typeof runAgentStep)['loopAgentSteps']>
+  let mockAgentTemplate: any
+
+  beforeEach(() => {
+    // Setup common mock agent template
+    mockAgentTemplate = {
+      id: 'thinker',
+      displayName: 'Thinker',
+      outputMode: 'last_message',
+      inputSchema: {
+        prompt: {
+          safeParse: () => ({ success: true }),
+        } as any,
+      },
+      parentPrompt: '',
+      model: '',
+      includeMessageHistory: true,
+      toolNames: [],
+      subagents: [],
+      systemPrompt: '',
+      instructionsPrompt: '',
+      stepPrompt: '',
+    }
+  })
 
   beforeAll(() => {
     // Mock dependencies
@@ -68,33 +91,16 @@ describe('Subagent Streaming', () => {
       }
     })
 
-    // Mock agent registry
-    spyOn(agentRegistryModule, 'getAllAgentTemplates').mockImplementation(
-      async () => ({
-        agentRegistry: {
-          thinker: {
-            id: 'thinker',
-            displayName: 'Thinker',
-            outputMode: 'last_message',
-            inputSchema: {
-              prompt: {
-                safeParse: () => ({ success: true }),
-              } as any,
-            },
-            parentPrompt: '',
-            model: '',
-            includeMessageHistory: true,
-            toolNames: [],
-            subagents: [],
-
-            systemPrompt: '',
-            instructionsPrompt: '',
-            stepPrompt: '',
-          },
-        },
-        validationErrors: [],
-      }),
-    )
+    // Mock assembleLocalAgentTemplates
+    spyOn(
+      { assembleLocalAgentTemplates },
+      'assembleLocalAgentTemplates',
+    ).mockImplementation(() => ({
+      agentTemplates: {
+        [mockAgentTemplate.id]: mockAgentTemplate,
+      },
+      validationErrors: [],
+    }))
   })
 
   beforeEach(() => {
@@ -142,6 +148,9 @@ describe('Subagent Streaming', () => {
         fingerprintId: 'test-fingerprint',
         userId: TEST_USER_ID,
         agentTemplate: parentTemplate,
+        localAgentTemplates: {
+          [mockAgentTemplate.id]: mockAgentTemplate,
+        },
         sendSubagentChunk: mockSendSubagentChunk,
         messages: [],
         agentState,
@@ -207,6 +216,9 @@ describe('Subagent Streaming', () => {
         fingerprintId: 'test-fingerprint',
         userId: TEST_USER_ID,
         agentTemplate: parentTemplate,
+        localAgentTemplates: {
+          [mockAgentTemplate.id]: mockAgentTemplate,
+        },
         sendSubagentChunk: mockSendSubagentChunk,
         messages: [],
         agentState,

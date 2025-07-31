@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { getAllAgentTemplates } from '../templates/agent-registry'
+import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { collectParentInstructions } from '../templates/strings'
 
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
@@ -87,10 +87,10 @@ describe('Parent Instructions Injection', () => {
     })
 
     // Initialize the registry
-    const { agentRegistry } = await getAllAgentTemplates({ fileContext })
+    const { agentTemplates } = assembleLocalAgentTemplates(fileContext)
 
     // Get the researcher template
-    const researcherTemplate = agentRegistry['researcher']
+    const researcherTemplate = agentTemplates['researcher']
     expect(researcherTemplate).toBeDefined()
 
     // Create mock agent state
@@ -107,7 +107,7 @@ describe('Parent Instructions Injection', () => {
     // Test parent instructions collection directly
     const parentInstructions = await collectParentInstructions(
       'researcher',
-      agentRegistry,
+      agentTemplates,
     )
 
     // Verify that parent instructions are collected
@@ -137,16 +137,16 @@ describe('Parent Instructions Injection', () => {
     })
 
     // Initialize the registry
-    const { agentRegistry } = await getAllAgentTemplates({ fileContext })
+    const { agentTemplates } = assembleLocalAgentTemplates(fileContext)
 
     // Get the researcher template
-    const researcherTemplate = agentRegistry['researcher']
+    const researcherTemplate = agentTemplates['researcher']
     expect(researcherTemplate).toBeDefined()
 
     // Test parent instructions collection directly
     const parentInstructions = await collectParentInstructions(
       'researcher',
-      agentRegistry,
+      agentTemplates,
     )
 
     // Verify that no parent instructions are collected
@@ -207,16 +207,16 @@ describe('Parent Instructions Injection', () => {
     })
 
     // Initialize the registry
-    const { agentRegistry } = await getAllAgentTemplates({ fileContext })
+    const { agentTemplates } = assembleLocalAgentTemplates(fileContext)
 
     // Get the researcher template
-    const researcherTemplate = agentRegistry['researcher']
+    const researcherTemplate = agentTemplates['researcher']
     expect(researcherTemplate).toBeDefined()
 
     // Test parent instructions collection directly
     const parentInstructions = await collectParentInstructions(
       'researcher',
-      agentRegistry,
+      agentTemplates,
     )
 
     // Verify that both parent instructions are collected
