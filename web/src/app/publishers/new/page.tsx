@@ -1,6 +1,7 @@
 'use client'
 
-import { ArrowLeft, User, Loader2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { ArrowLeft, User, Loader2, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -11,7 +12,22 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+
+interface Organization {
+  id: string
+  name: string
+  slug: string
+  role: 'owner' | 'admin' | 'member'
+}
 
 const CreatePublisherPage = () => {
   const { data: session, status } = useSession()
@@ -29,6 +45,33 @@ const CreatePublisherPage = () => {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isIdManuallyEdited, setIsIdManuallyEdited] = useState(false)
   const [hasRemovedAvatar, setHasRemovedAvatar] = useState(false)
+  const [ownershipType, setOwnershipType] = useState<
+    'personal' | 'organization'
+  >('personal')
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('')
+  // Query for user's organizations
+  const {
+    data: organizations = [],
+    isLoading: isLoadingOrgs,
+    error: orgsError,
+  } = useQuery<Organization[]>({
+    queryKey: ['user-organizations'],
+    queryFn: async (): Promise<Organization[]> => {
+      const response = await fetch('/api/orgs')
+      if (!response.ok) {
+        throw new Error('Failed to load organizations')
+      }
+      const data: { organizations: Organization[] } = await response.json()
+      if (data.organizations) {
+        // Filter to only show orgs where user is owner or admin
+        return data.organizations.filter(
+          (org) => org.role === 'owner' || org.role === 'admin'
+        )
+      }
+      return []
+    },
+    enabled: !!session?.user?.id,
+  })
 
   // Default to user's existing avatar
   useEffect(() => {
@@ -160,9 +203,14 @@ const CreatePublisherPage = () => {
 
     const nameError = validateName(formData.name)
     const idError = validateId(formData.id)
+    let orgError = ''
 
-    if (nameError || idError) {
-      setErrors({ name: nameError, id: idError })
+    if (ownershipType === 'organization' && !selectedOrgId) {
+      orgError = 'Please select an organization'
+    }
+
+    if (nameError || idError || orgError) {
+      setErrors({ name: nameError, id: idError, organization: orgError })
       toast({
         title: 'Error',
         description: 'Please fix the validation errors',
@@ -187,6 +235,7 @@ const CreatePublisherPage = () => {
           email: formData.email || undefined,
           bio: formData.bio || undefined,
           avatar_url: avatarUrl || undefined,
+          org_id: ownershipType === 'organization' ? selectedOrgId : undefined,
         }),
       })
 
@@ -278,6 +327,73 @@ const CreatePublisherPage = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Ownership Selection */}
+              <div className="space-y-4">
+                <Label className="text-base font-medium">
+                  Choose who this publisher belongs to
+                </Label>
+                <RadioGroup
+                  value={ownershipType}
+                  onValueChange={(value: 'personal' | 'organization') => {
+                    setOwnershipType(value)
+                    if (value === 'personal') {
+                      setSelectedOrgId('')
+                    }
+                  }}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="personal" id="personal" />
+                    <Label
+                      htmlFor="personal"
+                      className="flex items-center cursor-pointer"
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      Personal
+                    </Label>
+                  </div>
+                  {organizations.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="organization" id="organization" />
+                      <Label
+                        htmlFor="organization"
+                        className="flex items-center cursor-pointer"
+                      >
+                        <Building2 className="mr-2 h-4 w-4" />
+                        Organization
+                      </Label>
+                    </div>
+                  )}
+                </RadioGroup>
+
+                {ownershipType === 'organization' && (
+                  <div className="ml-6 space-y-2">
+                    <Label htmlFor="org-select">Select Organization</Label>
+                    <Select
+                      value={selectedOrgId}
+                      onValueChange={setSelectedOrgId}
+                      disabled={isLoadingOrgs}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose an organization" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {organizations.map((org) => (
+                          <SelectItem key={org.id} value={org.id}>
+                            {org.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {organizations.length === 0 && !isLoadingOrgs && (
+                      <p className="text-sm text-muted-foreground">
+                        You don't have admin access to any organizations.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name">
                   Publisher Name <span className="text-red-500">*</span>
@@ -381,7 +497,9 @@ const CreatePublisherPage = () => {
                       isLoading ||
                       isUploadingAvatar ||
                       !!errors.name ||
-                      !!errors.id
+                      !!errors.id ||
+                      !!errors.organization ||
+                      (ownershipType === 'organization' && !selectedOrgId)
                     }
                   >
                     {(isLoading || isUploadingAvatar) && (

@@ -21,7 +21,9 @@ export type PublisherInput = z.infer<typeof PublisherSchema>
 
 export interface Publisher {
   id: string
-  user_id: string
+  user_id: string | null
+  org_id: string | null
+  created_by: string
   name: string
   email: string | null
   verified: boolean
@@ -37,6 +39,7 @@ export interface CreatePublisherRequest {
   email?: string
   bio?: string
   avatar_url?: string
+  org_id?: string // Optional: if creating for an organization
 }
 
 export interface UpdatePublisherRequest {
@@ -48,7 +51,9 @@ export interface UpdatePublisherRequest {
 
 export interface PublisherProfileResponse {
   id: string
-  user_id: string
+  user_id: string | null
+  org_id: string | null
+  created_by: string
   name: string
   email: string | null
   verified: boolean
@@ -57,4 +62,6 @@ export interface PublisherProfileResponse {
   created_at: Date
   updated_at: Date
   agentCount?: number
+  ownershipType: 'user' | 'organization'
+  organizationName?: string // If owned by org
 }

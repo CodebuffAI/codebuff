@@ -423,23 +423,40 @@ export const gitEvalResults = pgTable('git_eval_results', {
 })
 
 // Agent Store tables
-export const publisher = pgTable('publisher', {
-  id: text('id').primaryKey().notNull(), // user-selectable id (must match /^[a-z0-9-]+$/)
-  name: text('name').notNull(),
-  email: text('email'), // optional, for support
-  verified: boolean('verified').notNull().default(false),
-  bio: text('bio'),
-  avatar_url: text('avatar_url'),
-  user_id: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
-    .notNull()
-    .defaultNow(),
-})
+export const publisher = pgTable(
+  'publisher',
+  {
+    id: text('id').primaryKey().notNull(), // user-selectable id (must match /^[a-z0-9-]+$/)
+    name: text('name').notNull(),
+    email: text('email'), // optional, for support
+    verified: boolean('verified').notNull().default(false),
+    bio: text('bio'),
+    avatar_url: text('avatar_url'),
+
+    // Ownership - exactly one must be set
+    user_id: text('user_id').references(() => user.id, {
+      onDelete: 'no action',
+    }),
+    org_id: text('org_id').references(() => org.id, { onDelete: 'no action' }),
+
+    created_by: text('created_by')
+      .notNull()
+      .references(() => user.id),
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    // Constraint to ensure exactly one owner type
+    publisherSingleOwner: sql`CONSTRAINT publisher_single_owner CHECK (
+    (${table.user_id} IS NOT NULL AND ${table.org_id} IS NULL) OR
+    (${table.user_id} IS NULL AND ${table.org_id} IS NOT NULL)
+  )`,
+  }),
+)
 
 export const agentConfig = pgTable(
   'agent_config',

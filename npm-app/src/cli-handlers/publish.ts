@@ -16,6 +16,7 @@ interface PublishResponse {
   message?: string
   error?: string
   details?: string
+  statusCode?: number
   validationErrors?: Array<{
     code: string
     message: string
@@ -107,6 +108,26 @@ interface PublishResponse {
         console.log(
           red(`❌ Failed to publish ${template.displayName}: ${result.error}`),
         )
+        // Check if the error is about missing publisher (403 status)
+        if (result.statusCode === 403) {
+          console.log()
+          console.log(
+            cyan('Please visit the website to create your publisher profile:'),
+          )
+          console.log(yellow(`${websiteUrl}/publishers`))
+          console.log()
+          console.log('A publisher profile allows you to:')
+          console.log('  • Publish and manage your agents')
+          console.log('  • Build your reputation in the community')
+          console.log('  • Organize agents under your name or organization')
+          console.log()
+        } else {
+          console.log(
+            red(
+              `❌ Failed to publish ${template.displayName}: ${result.error}`,
+            ),
+          )
+        }
       }
     } catch (error) {
       console.log(
@@ -183,6 +204,7 @@ async function publishAgentTemplate(
         success: false,
         error: errorMessage,
         details: result.details,
+        statusCode: response.status,
         validationErrors: result.validationErrors,
       }
     }

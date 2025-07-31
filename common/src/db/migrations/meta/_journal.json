@@ -197,6 +197,13 @@
       "when": 1753922148760,
       "tag": "0027_sloppy_quasar",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1753931708164,
+      "tag": "0028_lush_johnny_blaze",
+      "breakpoints": true
     }
   ]
 }
