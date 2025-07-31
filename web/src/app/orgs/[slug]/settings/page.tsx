@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Settings, Trash2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Settings, Trash2, AlertTriangle, User } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -272,6 +272,34 @@ export default function OrganizationSettingsPage() {
           {/* Billing & Seats */}
           {canManageOrg && organization && (
             <BillingStatus organizationId={organization.id} />
+          )}
+
+          {/* Publisher Management */}
+          {canManageOrg && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Publisher Profile</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h4 className="font-medium mb-2">
+                    Create Organization Publisher
+                  </h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Create a publisher profile for this organization to publish
+                    agents.
+                  </p>
+                  <Link
+                    href={`/publishers?org=${organization.id}&type=organization`}
+                  >
+                    <Button className="flex items-center">
+                      <User className="mr-2 h-4 w-4" />
+                      Create Publisher Profile
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* General Settings */}
