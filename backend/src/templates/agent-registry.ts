@@ -1,9 +1,9 @@
-import { dynamicAgentService } from '@codebuff/common/templates/dynamic-agent-service'
+import { validateAgents } from '@codebuff/common/templates/agent-validation'
 
 import { agentTemplates as staticTemplates } from './agent-list'
 import { logger } from '../util/logger'
 
-import type { DynamicAgentValidationError } from '@codebuff/common/templates/dynamic-agent-service'
+import type { DynamicAgentValidationError } from '@codebuff/common/templates/agent-validation'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
@@ -17,9 +17,9 @@ export async function getAllAgentTemplates({
   agentRegistry: AgentRegistry
   validationErrors: DynamicAgentValidationError[]
 }> {
-  // Load dynamic agents using the service
-  const { templates: dynamicTemplates, validationErrors } =
-    await dynamicAgentService.loadAgents(fileContext.agentTemplates || {})
+  const { templates: dynamicTemplates, validationErrors } = validateAgents(
+    fileContext.agentTemplates || {},
+  )
 
   // Combine static and dynamic templates
   const agentRegistry = { ...staticTemplates, ...dynamicTemplates }

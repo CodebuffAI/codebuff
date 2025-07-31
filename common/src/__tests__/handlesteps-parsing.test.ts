@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-import { dynamicAgentService } from '../templates/dynamic-agent-service'
+import { validateAgents } from '../templates/agent-validation'
 import { DynamicAgentConfigSchema } from '../types/dynamic-agent-template'
 
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
@@ -12,8 +12,6 @@ describe('handleSteps Parsing Tests', () => {
   let mockAgentTemplate: DynamicAgentTemplate
 
   beforeEach(() => {
-    dynamicAgentService.reset()
-
     // Setup common mock data
     mockFileContext = {
       projectRoot: '/test',
@@ -58,7 +56,7 @@ describe('handleSteps Parsing Tests', () => {
   })
 
   afterEach(() => {
-    dynamicAgentService.reset()
+    // No cleanup needed for stateless functions
   })
 
   test('should validate agent config with handleSteps function', () => {
@@ -125,9 +123,7 @@ describe('handleSteps Parsing Tests', () => {
       agentTemplates,
     }
 
-    const result = await dynamicAgentService.loadAgents(
-      fileContext.agentTemplates || {},
-    )
+    const result = validateAgents(fileContext.agentTemplates || {})
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates['test-agent']).toBeDefined()
@@ -177,9 +173,7 @@ describe('handleSteps Parsing Tests', () => {
       agentTemplates,
     }
 
-    const result = await dynamicAgentService.loadAgents(
-      fileContext.agentTemplates || {},
-    )
+    const result = validateAgents(fileContext.agentTemplates || {})
 
     expect(result.validationErrors.length).toBeGreaterThan(0)
     expect(result.validationErrors[0].message).toContain('generator function')
@@ -220,9 +214,7 @@ describe('handleSteps Parsing Tests', () => {
     }
 
     // Load agents through the service
-    const result = await dynamicAgentService.loadAgents(
-      fileContext.agentTemplates || {},
-    )
+    const result = validateAgents(fileContext.agentTemplates || {})
 
     // Verify no validation errors
     expect(result.validationErrors).toHaveLength(0)

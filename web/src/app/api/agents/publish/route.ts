@@ -1,6 +1,6 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { dynamicAgentService } from '@codebuff/common/templates/dynamic-agent-service'
+import { validateAgents } from '@codebuff/common/templates/agent-validation'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 import {
   determineNextVersion,
@@ -56,8 +56,7 @@ export async function POST(request: NextRequest) {
     const { data } = parseResult.data
     const agentId = data.id
 
-    // Use dynamic agent service to validate the agent config
-    const validationResult = await dynamicAgentService.loadAgents({
+    const validationResult = validateAgents({
       [agentId]: data,
     })
 

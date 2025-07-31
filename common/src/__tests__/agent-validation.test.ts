@@ -1,0 +1,827 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it, test } from 'bun:test'
+
+import { validateAgents } from '../templates/agent-validation'
+import { DynamicAgentConfigSchema } from '../types/dynamic-agent-template'
+import { clearMockedModules, mockModule } from '../testing/mock-modules'
+import { getStubProjectFileContext } from '../util/file'
+
+import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
+import type { AgentState } from '../types/session-state'
+import type { ProjectFileContext } from '../util/file'
+
+describe('Agent Validation', () => {
+  let mockFileContext: ProjectFileContext
+  let mockAgentTemplate: DynamicAgentTemplate
+
+  beforeAll(() => {
+    // Mock logger to avoid console output during tests
+    mockModule('../util/logger', () => ({
+      logger: {
+        debug: () => {},
+        warn: () => {},
+        error: () => {},
+      },
+    }))
+
+    // Mock backend utility module
+    mockModule('@codebuff/backend/util/file-resolver', () => ({
+      resolvePromptField: (
+        field: string | { path: string },
+        basePath: string,
+      ) => {
+        if (typeof field === 'string') {
+          return field
+        }
+        if (field.path?.includes('brainstormer-system.md')) {
+          return 'You are a creative brainstormer.'
+        }
+        if (field.path?.includes('brainstormer-user-input.md')) {
+          return 'Help brainstorm ideas.'
+        }
+        return 'Mock content'
+      },
+      resolveFileContent: (filePath: string, basePath: string) => {
+        if (filePath.includes('brainstormer-system.md')) {
+          return 'You are a creative brainstormer.'
+        }
+        if (filePath.includes('brainstormer-user-input.md')) {
+          return 'Help brainstorm ideas.'
+        }
+        return 'Mock content'
+      },
+    }))
+  })
+
+  beforeEach(() => {
+    mockFileContext = getStubProjectFileContext()
+
+    mockAgentTemplate = {
+      id: 'test-agent',
+      version: '1.0.0',
+      displayName: 'Test Agent',
+      parentPrompt: 'Testing',
+      model: 'claude-3-5-sonnet-20241022',
+      outputMode: 'json' as const,
+      toolNames: ['set_output'],
+      subagents: [],
+      includeMessageHistory: true,
+      systemPrompt: 'Test system prompt',
+      instructionsPrompt: 'Test user prompt',
+      stepPrompt: 'Test agent step prompt',
+    }
+  })
+
+  afterAll(() => {
+    clearMockedModules()
+  })
+
+  describe('Dynamic Agent Loading', () => {
+    it('should load valid dynamic agent template', async () => {
+      const fileContext: ProjectFileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          'brainstormer.ts': {
+            id: 'brainstormer',
+            version: '1.0.0',
+            displayName: 'Brainy',
+            parentPrompt: 'Creative thought partner',
+            model: 'anthropic/claude-4-sonnet-20250522',
+            systemPrompt: 'You are a creative brainstormer.',
+            instructionsPrompt: 'Help brainstorm ideas.',
+            stepPrompt: 'Continue brainstorming.',
+            toolNames: ['end_turn'],
+            subagents: ['thinker', 'researcher'],
+            outputMode: 'last_message',
+            includeMessageHistory: true,
+          },
+        },
+      }
+
+      const result = validateAgents(fileContext.agentTemplates || {})
+
+      expect(result.validationErrors).toHaveLength(0)
+      expect(result.templates).toHaveProperty('brainstormer')
+      expect(result.templates.brainstormer.displayName).toBe('Brainy')
+      expect(result.templates.brainstormer.id).toBe('brainstormer')
+    })
+
+    it('should validate spawnable agents', async () => {
+      const fileContext: ProjectFileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          'invalid.ts': {
+            id: 'invalid_agent',
+            version: '1.0.0',
+            displayName: 'Invalid',
+            parentPrompt: 'Invalid agent',
+            model: 'anthropic/claude-4-sonnet-20250522',
+            systemPrompt: 'Test',
+            instructionsPrompt: 'Test',
+            stepPrompt: 'Test',
+            subagents: ['nonexistent_agent'],
+            outputMode: 'last_message',
+            includeMessageHistory: true,
+            toolNames: ['end_turn'],
+          },
+        },
+      }
+
+      const result = validateAgents(fileContext.agentTemplates || {})
+
+      expect(result.validationErrors).toHaveLength(1)
+      expect(result.validationErrors[0].message).toContain(
+        'Invalid subagents: nonexistent_agent',
+      )
+    })
+
+    it('should merge static and dynamic templates', async () => {
+      const fileContext: ProjectFileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          'custom.ts': {
+            id: 'custom_agent',
+            version: '1.0.0',
+            displayName: 'Custom',
+            parentPrompt: 'Custom agent',
+            model: 'anthropic/claude-4-sonnet-20250522',
+            systemPrompt: 'Custom system prompt',
+            instructionsPrompt: 'Custom user prompt',
+            stepPrompt: 'Custom step prompt',
+            outputMode: 'last_message',
+            includeMessageHistory: true,
+            toolNames: ['end_turn'],
+            subagents: [],
+          },
+        },
+      }
+
+      const result = validateAgents(fileContext.agentTemplates || {})
+
+      // Should have dynamic templates
+      expect(result.templates).toHaveProperty('custom_agent') // Dynamic
+    })
+
+    it('should handle agents with JSON schemas', async () => {
+      const fileContext: ProjectFileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          'schema-agent.ts': {
+            id: 'schema_agent',
+            version: '1.0.0',
+            displayName: 'Schema Agent',
+            parentPrompt: 'Agent with JSON schemas',
+            model: 'anthropic/claude-4-sonnet-20250522',
+            systemPrompt: 'Test system prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
+            inputSchema: {
+              prompt: {
+                type: 'string',
+                description: 'A test prompt',
+              },
+              params: {
+                type: 'object',
+                properties: {
+                  temperature: { type: 'number', minimum: 0, maximum: 1 },
+                },
+              },
+            },
+            outputMode: 'last_message',
+            includeMessageHistory: true,
+            toolNames: ['end_turn'],
+            subagents: [],
+          },
+        },
+      }
+
+      const result = validateAgents(fileContext.agentTemplates || {})
+
+      expect(result.validationErrors).toHaveLength(0)
+      expect(result.templates).toHaveProperty('schema_agent')
+      expect(result.templates.schema_agent.inputSchema.prompt).toBeDefined()
+      expect(result.templates.schema_agent.inputSchema.params).toBeDefined()
+    })
+
+    it('should return validation errors for invalid schemas', async () => {
+      const fileContext: ProjectFileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          'invalid-schema-agent.ts': {
+            id: 'invalid_schema_agent',
+            version: '1.0.0',
+            displayName: 'Invalid Schema Agent',
+            parentPrompt: 'Agent with invalid schemas',
+            model: 'anthropic/claude-4-sonnet-20250522',
+            systemPrompt: 'Test system prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
+            inputSchema: {
+              prompt: {
+                type: 'number' as any, // Invalid - should only allow strings
+              },
+            },
+            outputMode: 'last_message',
+            includeMessageHistory: true,
+            toolNames: ['end_turn'],
+            subagents: [],
+          },
+        },
+      }
+
+      const result = validateAgents(fileContext.agentTemplates || {})
+
+      expect(result.validationErrors).toHaveLength(1)
+      expect(result.validationErrors[0].message).toContain(
+        'Invalid inputSchema.prompt',
+      )
+      expect(result.validationErrors[0].message).toContain(
+        'Schema must allow string or undefined values',
+      )
+      expect(result.templates).not.toHaveProperty('invalid_schema_agent')
+    })
+
+    it('should handle missing override field as non-override template', async () => {
+      const fileContext: ProjectFileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          'no-override-field.ts': {
+            id: 'no_override_agent',
+            version: '1.0.0',
+            // No override field - should be treated as non-override
+            displayName: 'No Override Agent',
+            parentPrompt: 'Agent without override field',
+            model: 'anthropic/claude-4-sonnet-20250522',
+            systemPrompt: 'Test system prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
+            outputMode: 'last_message',
+            includeMessageHistory: true,
+            toolNames: ['end_turn'],
+            subagents: [],
+          },
+        },
+      }
+
+      const result = validateAgents(fileContext.agentTemplates || {})
+
+      expect(result.validationErrors).toHaveLength(0)
+      expect(result.templates).toHaveProperty('no_override_agent')
+    })
+
+    it('should validate spawnable agents including dynamic agents from first pass', async () => {
+      const fileContext: ProjectFileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          'git-committer.ts': {
+            id: 'CodebuffAI/git-committer',
+            version: '0.0.1',
+            displayName: 'Git Committer',
+            parentPrompt: 'A git committer agent',
+            model: 'google/gemini-2.5-pro',
+            systemPrompt: 'You are an expert software developer.',
+            instructionsPrompt: 'Create a commit message.',
+            stepPrompt: 'Make sure to end your response.',
+            subagents: [], // No spawnable agents
+            outputMode: 'last_message',
+            includeMessageHistory: true,
+            toolNames: ['end_turn'],
+          },
+          'spawner.ts': {
+            id: 'spawner_agent',
+            version: '1.0.0',
+            displayName: 'Spawner Agent',
+            parentPrompt: 'Agent that can spawn git-committer',
+            model: 'anthropic/claude-4-sonnet-20250522',
+            systemPrompt: 'Test system prompt',
+            instructionsPrompt: 'Test user prompt',
+            stepPrompt: 'Test step prompt',
+            subagents: ['CodebuffAI/git-committer'], // Should be valid after first pass
+            outputMode: 'last_message',
+            includeMessageHistory: true,
+            toolNames: ['end_turn'],
+          },
+        },
+      }
+
+      const result = validateAgents(fileContext.agentTemplates || {})
+
+      expect(result.validationErrors).toHaveLength(0)
+      expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
+      expect(result.templates).toHaveProperty('spawner_agent')
+      expect(result.templates.spawner_agent.subagents).toContain(
+        'git-committer', // Normalized without prefix
+      )
+    })
+  })
+
+  describe('Schema Validation', () => {
+    describe('Default Schema Behavior', () => {
+      it('should have no prompt schema when no inputSchema provided', async () => {
+        const fileContext: ProjectFileContext = {
+          ...mockFileContext,
+          agentTemplates: {
+            'no-prompt-schema.ts': {
+              id: 'no_prompt_schema_agent',
+              version: '1.0.0',
+              displayName: 'No Prompt Schema Agent',
+              parentPrompt: 'Test agent without prompt schema',
+              model: 'anthropic/claude-4-sonnet-20250522',
+              systemPrompt: 'Test system prompt',
+              instructionsPrompt: 'Test user prompt',
+              stepPrompt: 'Test step prompt',
+              outputMode: 'last_message',
+              includeMessageHistory: true,
+              toolNames: ['end_turn'],
+              subagents: [],
+              // No inputSchema
+            },
+          },
+        }
+
+        const result = validateAgents(fileContext.agentTemplates || {})
+
+        expect(result.validationErrors).toHaveLength(0)
+        expect(result.templates).toHaveProperty('no_prompt_schema_agent')
+        expect(
+          result.templates.no_prompt_schema_agent.inputSchema.prompt,
+        ).toBeUndefined()
+      })
+
+      it('should not have params schema when no paramsSchema provided', async () => {
+        const fileContext: ProjectFileContext = {
+          ...mockFileContext,
+          agentTemplates: {
+            'no-params-schema.ts': {
+              id: 'no_params_schema_agent',
+              version: '1.0.0',
+              displayName: 'No Params Schema Agent',
+              parentPrompt: 'Test agent without params schema',
+              model: 'anthropic/claude-4-sonnet-20250522',
+              systemPrompt: 'Test system prompt',
+              instructionsPrompt: 'Test user prompt',
+              stepPrompt: 'Test step prompt',
+              outputMode: 'last_message',
+              includeMessageHistory: true,
+              toolNames: ['end_turn'],
+              subagents: [],
+              // No paramsSchema
+            },
+          },
+        }
+
+        const result = validateAgents(fileContext.agentTemplates || {})
+
+        expect(result.validationErrors).toHaveLength(0)
+        expect(result.templates).toHaveProperty('no_params_schema_agent')
+        expect(
+          result.templates.no_params_schema_agent.inputSchema.params,
+        ).toBeUndefined()
+      })
+    })
+
+    describe('Complex Schema Scenarios', () => {
+      it('should handle both inputSchema prompt and params together', async () => {
+        const fileContext: ProjectFileContext = {
+          ...mockFileContext,
+          agentTemplates: {
+            'both-schemas.ts': {
+              id: 'both_schemas_agent',
+              version: '1.0.0',
+              displayName: 'Both Schemas Agent',
+              parentPrompt: 'Test agent with both schemas',
+              model: 'anthropic/claude-4-sonnet-20250522',
+              systemPrompt: 'Test system prompt',
+              instructionsPrompt: 'Test user prompt',
+              stepPrompt: 'Test step prompt',
+              inputSchema: {
+                prompt: {
+                  type: 'string',
+                  minLength: 1,
+                  description: 'A required prompt',
+                },
+                params: {
+                  type: 'object',
+                  properties: {
+                    mode: {
+                      type: 'string',
+                      enum: ['fast', 'thorough'],
+                    },
+                    iterations: {
+                      type: 'integer',
+                      minimum: 1,
+                      maximum: 10,
+                      default: 3,
+                    },
+                  },
+                  required: ['mode'],
+                },
+              },
+              subagents: [],
+              outputMode: 'last_message',
+              includeMessageHistory: true,
+              toolNames: ['end_turn'],
+            },
+          },
+        }
+
+        const result = validateAgents(fileContext.agentTemplates || {})
+
+        expect(result.validationErrors).toHaveLength(0)
+        expect(result.templates).toHaveProperty('both_schemas_agent')
+
+        const template = result.templates.both_schemas_agent
+        expect(template.inputSchema.prompt).toBeDefined()
+        expect(template.inputSchema.params).toBeDefined()
+
+        const inputPromptSchema = template.inputSchema.prompt!
+        const paramsSchema = template.inputSchema.params!
+
+        // Test prompt schema
+        expect(inputPromptSchema.safeParse('valid prompt').success).toBe(true)
+        expect(inputPromptSchema.safeParse('').success).toBe(false) // Too short
+
+        // Test params schema
+        expect(
+          paramsSchema.safeParse({ mode: 'fast', iterations: 5 }).success,
+        ).toBe(true)
+        expect(paramsSchema.safeParse({ mode: 'invalid' }).success).toBe(false) // Invalid enum
+        expect(paramsSchema.safeParse({ iterations: 5 }).success).toBe(false) // Missing required field
+      })
+
+      it('should handle schema with nested objects and arrays', async () => {
+        const fileContext: ProjectFileContext = {
+          ...mockFileContext,
+          agentTemplates: {
+            'complex-schema.ts': {
+              id: 'complex_schema_agent',
+              version: '1.0.0',
+              displayName: 'Complex Schema Agent',
+              parentPrompt: 'Test agent with complex nested schema',
+              model: 'anthropic/claude-4-sonnet-20250522',
+              systemPrompt: 'Test system prompt',
+              instructionsPrompt: 'Test user prompt',
+              stepPrompt: 'Test step prompt',
+              inputSchema: {
+                params: {
+                  type: 'object',
+                  properties: {
+                    config: {
+                      type: 'object',
+                      properties: {
+                        name: { type: 'string' },
+                        settings: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              key: { type: 'string' },
+                              value: { type: 'string' },
+                            },
+                            required: ['key', 'value'],
+                          },
+                        },
+                      },
+                      required: ['name'],
+                    },
+                  },
+                  required: ['config'],
+                },
+              },
+              outputMode: 'last_message',
+              includeMessageHistory: true,
+              toolNames: ['end_turn'],
+              subagents: [],
+            },
+          },
+        }
+
+        const result = validateAgents(fileContext.agentTemplates || {})
+
+        expect(result.validationErrors).toHaveLength(0)
+        expect(result.templates).toHaveProperty('complex_schema_agent')
+
+        const paramsSchema =
+          result.templates.complex_schema_agent.inputSchema.params!
+
+        // Test valid complex object
+        const validParams = {
+          config: {
+            name: 'test config',
+            settings: [
+              { key: 'setting1', value: 'value1' },
+              { key: 'setting2', value: 'value2' },
+            ],
+          },
+        }
+        expect(paramsSchema.safeParse(validParams).success).toBe(true)
+
+        // Test invalid nested structure
+        const invalidParams = {
+          config: {
+            name: 'test config',
+            settings: [
+              { key: 'setting1' }, // Missing required 'value' field
+            ],
+          },
+        }
+        expect(paramsSchema.safeParse(invalidParams).success).toBe(false)
+      })
+    })
+
+    describe('Error Message Quality', () => {
+      it('should include file path in error messages', async () => {
+        const fileContext: ProjectFileContext = {
+          ...mockFileContext,
+          agentTemplates: {
+            'error-context.ts': {
+              id: 'error_context_agent',
+              version: '1.0.0',
+              displayName: 'Error Context Agent',
+              parentPrompt: 'Test agent for error context',
+              model: 'anthropic/claude-4-sonnet-20250522',
+              systemPrompt: 'Test system prompt',
+              instructionsPrompt: 'Test user prompt',
+              stepPrompt: 'Test step prompt',
+              inputSchema: {
+                prompt: {
+                  type: 'boolean' as any, // Invalid for prompt schema
+                },
+              },
+              outputMode: 'last_message',
+              includeMessageHistory: true,
+              toolNames: ['end_turn'],
+              subagents: [],
+            },
+          },
+        }
+
+        const result = validateAgents(fileContext.agentTemplates || {})
+
+        expect(result.validationErrors).toHaveLength(1)
+        expect(result.validationErrors[0].message).toContain('in error-context')
+        expect(result.validationErrors[0].filePath).toBe('error-context.ts')
+      })
+    })
+
+    describe('Edge Cases', () => {
+      it('should handle git-committer agent schema correctly', async () => {
+        const fileContext: ProjectFileContext = {
+          ...mockFileContext,
+          agentTemplates: {
+            'git-committer.ts': {
+              id: 'CodebuffAI/git-committer',
+              version: '0.0.1',
+              displayName: 'Git Committer',
+              parentPrompt:
+                'A git committer agent specialized to commit current changes with an appropriate commit message.',
+              model: 'google/gemini-2.5-pro',
+              systemPrompt: 'Test system prompt',
+              instructionsPrompt: 'Test user prompt',
+              stepPrompt: 'Test step prompt',
+              inputSchema: {
+                prompt: {
+                  type: 'string',
+                  description: 'What changes to commit',
+                },
+                params: {
+                  type: 'object',
+                  properties: {
+                    message: {
+                      type: 'string',
+                    },
+                  },
+                  required: ['message'],
+                },
+              },
+              outputMode: 'last_message',
+              includeMessageHistory: true,
+              toolNames: ['end_turn'],
+              subagents: [],
+            },
+          },
+        }
+
+        const result = validateAgents(fileContext.agentTemplates || {})
+
+        expect(result.validationErrors).toHaveLength(0)
+        expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
+
+        const template = result.templates['CodebuffAI/git-committer']
+        const paramsSchema = template.inputSchema.params!
+
+        expect(paramsSchema.safeParse('').success).toBe(false) // Too short
+        expect(template.inputSchema.params).toBeDefined()
+        // Test that the params schema properly validates the message property
+        // This should succeed with a message property
+        const validResult = paramsSchema.safeParse({
+          message: 'test commit message',
+        })
+        expect(validResult.success).toBe(true)
+
+        // This should fail without the required message property
+        const invalidResult = paramsSchema.safeParse({})
+        expect(invalidResult.success).toBe(false)
+      })
+
+      it('should handle empty inputSchema object', async () => {
+        const fileContext: ProjectFileContext = {
+          ...mockFileContext,
+          agentTemplates: {
+            'empty-schema.ts': {
+              id: 'empty_schema_agent',
+              version: '1.0.0',
+              displayName: 'Empty Schema Agent',
+              parentPrompt: 'Test agent with empty schema',
+              model: 'anthropic/claude-4-sonnet-20250522',
+              systemPrompt: 'Test system prompt',
+              instructionsPrompt: 'Test user prompt',
+              stepPrompt: 'Test step prompt',
+              inputSchema: {},
+              outputMode: 'last_message',
+              includeMessageHistory: true,
+              toolNames: ['end_turn'],
+              subagents: [],
+            },
+          },
+        }
+
+        const result = validateAgents(fileContext.agentTemplates || {})
+
+        expect(result.validationErrors).toHaveLength(0)
+        expect(result.templates).toHaveProperty('empty_schema_agent')
+
+        // Empty schemas should have no prompt schema
+        expect(
+          result.templates.empty_schema_agent.inputSchema.prompt,
+        ).toBeUndefined()
+      })
+    })
+  })
+
+  describe('HandleSteps Parsing', () => {
+    test('should validate agent config with handleSteps function', () => {
+      const agentConfig = {
+        id: 'test-agent',
+        version: '1.0.0',
+        displayName: 'Test Agent',
+        parentPrompt: 'Testing handleSteps',
+        model: 'claude-3-5-sonnet-20241022',
+        outputMode: 'json' as const,
+        toolNames: ['set_output'],
+        systemPrompt: 'You are a test agent',
+        instructionsPrompt: 'Process: {prompt}',
+        stepPrompt: 'Continue processing',
+        handleSteps: function* ({
+          agentState,
+          prompt,
+          params,
+        }: {
+          agentState: AgentState
+          prompt?: string
+          params?: any
+        }) {
+          yield {
+            toolName: 'set_output',
+            args: { message: 'Test completed' },
+          }
+        },
+      }
+
+      const result = DynamicAgentConfigSchema.safeParse(agentConfig)
+      expect(result.success).toBe(true)
+
+      if (result.success) {
+        expect(typeof result.data.handleSteps).toBe('function')
+      }
+    })
+
+    test('should convert handleSteps function to string', async () => {
+      const handleStepsFunction = function* ({
+        agentState,
+        prompt,
+        params,
+      }: {
+        agentState: AgentState
+        prompt?: string
+        params?: any
+      }) {
+        yield {
+          toolName: 'set_output',
+          args: { message: 'Hello from generator' },
+        }
+      }
+
+      const agentTemplates = {
+        'test-agent.ts': {
+          ...mockAgentTemplate,
+          handleSteps: handleStepsFunction.toString(),
+        },
+      }
+
+      const fileContext: ProjectFileContext = {
+        ...mockFileContext,
+        agentTemplates,
+      }
+
+      const result = validateAgents(fileContext.agentTemplates || {})
+
+      expect(result.validationErrors).toHaveLength(0)
+      expect(result.templates['test-agent']).toBeDefined()
+      expect(typeof result.templates['test-agent'].handleSteps).toBe('string')
+    })
+
+    test('should require set_output tool for handleSteps with json output mode', () => {
+      const {
+        DynamicAgentTemplateSchema,
+      } = require('../types/dynamic-agent-template')
+
+      const agentConfig = {
+        id: 'test-agent',
+        version: '1.0.0',
+        displayName: 'Test Agent',
+        parentPrompt: 'Testing',
+        model: 'claude-3-5-sonnet-20241022',
+        outputMode: 'json' as const,
+        toolNames: ['end_turn'], // Missing set_output
+        subagents: [],
+        systemPrompt: 'Test',
+        instructionsPrompt: 'Test',
+        stepPrompt: 'Test',
+        handleSteps:
+          'function* () { yield { toolName: "set_output", args: {} } }',
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(agentConfig)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        const errorMessage = result.error.issues[0]?.message || ''
+        expect(errorMessage).toContain('set_output')
+      }
+    })
+
+    test('should validate that handleSteps is a generator function', async () => {
+      const agentTemplates = {
+        'test-agent.ts': {
+          ...mockAgentTemplate,
+          handleSteps: 'function () { return "not a generator" }', // Missing *
+        },
+      }
+
+      const fileContext: ProjectFileContext = {
+        ...mockFileContext,
+        agentTemplates,
+      }
+
+      const result = validateAgents(fileContext.agentTemplates || {})
+
+      expect(result.validationErrors.length).toBeGreaterThan(0)
+      expect(result.validationErrors[0].message).toContain('generator function')
+      expect(result.validationErrors[0].message).toContain('function*')
+    })
+
+    test('should verify loaded template handleSteps matches original function toString', async () => {
+      // Create a generator function
+      const originalFunction = function* ({
+        agentState,
+        prompt,
+        params,
+      }: {
+        agentState: AgentState
+        prompt?: string
+        params?: any
+      }) {
+        yield {
+          toolName: 'set_output',
+          args: { message: 'Test output', data: params },
+        }
+      }
+
+      // Get the string representation
+      const expectedStringified = originalFunction.toString()
+
+      // Create agent templates with the function
+      const agentTemplates = {
+        'test-agent.ts': {
+          ...mockAgentTemplate,
+          handleSteps: expectedStringified,
+        },
+      }
+
+      const fileContext: ProjectFileContext = {
+        ...mockFileContext,
+        agentTemplates,
+      }
+
+      // Load agents through the service
+      const result = validateAgents(fileContext.agentTemplates || {})
+
+      // Verify no validation errors
+      expect(result.validationErrors).toHaveLength(0)
+      expect(result.templates['test-agent']).toBeDefined()
+
+      // Verify the loaded template's handleSteps field matches the original toString
+      expect(result.templates['test-agent'].handleSteps).toBe(expectedStringified)
+      expect(typeof result.templates['test-agent'].handleSteps).toBe('string')
+    })
+  })
+})
