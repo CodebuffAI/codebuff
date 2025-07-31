@@ -36,9 +36,7 @@ export interface ${toPascalCase(toolName)}Params ${typeDefinition}`
     .map(([toolName]) => `  '${toolName}': ${toPascalCase(toolName)}Params`)
     .join('\n')
 
-  return `${toolInterfaces}
-
-/**
+  return `/**
  * Union type of all available tool names
  */
 export type ToolName = ${toolUnion}
@@ -49,6 +47,8 @@ export type ToolName = ${toolUnion}
 export interface ToolParamsMap {
 ${toolParamsMap}
 }
+
+${toolInterfaces}
 
 /**
  * Get parameters type for a specific tool

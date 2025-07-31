@@ -6,7 +6,7 @@ import {
   openrouterModels,
   AGENT_CONFIG_FILE,
 } from '@codebuff/common/constants'
-import { compileToolDefinitions } from '@codebuff/common/tools/compile-tool-definitions'
+
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
 
@@ -16,7 +16,6 @@ import type { ToolName } from '@codebuff/common/tools/constants'
 
 const TEMPLATE_RELATIVE_PATH =
   `../../../../common/src/util/${AGENT_CONFIG_FILE}` as const
-
 // Import to validate path exists at compile time
 import(TEMPLATE_RELATIVE_PATH)
 
@@ -37,7 +36,18 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
     console.warn(`Could not read ${AGENT_CONFIG_FILE}:`, error)
     agentTemplateContent = '// Agent template types not available'
   }
-  const toolDefinitionsContent = compileToolDefinitions()
+  // Read the tools.d.ts content from common package
+  let toolDefinitionsContent = ''
+  try {
+    const toolsPath = path.join(
+      __dirname,
+      '../../../../common/src/util/tools.d.ts',
+    )
+    toolDefinitionsContent = fs.readFileSync(toolsPath, 'utf8')
+  } catch (error) {
+    console.warn(`Could not read tools.d.ts from common:`, error)
+    toolDefinitionsContent = '// Tool definitions not available'
+  }
 
   return {
     displayName: 'Bob the Agent Builder',
@@ -182,7 +192,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
         },
       }
 
-      // Step 3: Write the tool definitions file
+      // Step 3: Write the tool definitions file (copy from existing tools.d.ts)
       yield {
         toolName: 'write_file',
         args: {
