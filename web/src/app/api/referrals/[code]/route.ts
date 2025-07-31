@@ -1,10 +1,14 @@
 import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
-import * as schema from '@codebuff/common/db/schema'
 import { getServerSession } from 'next-auth'
+
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
-import { hasMaxedReferrals, ReferralStatus } from '@/lib/server/referral'
+
+import type { ReferralStatus } from '@/lib/server/referral';
+
+import { hasMaxedReferrals } from '@/lib/server/referral'
 
 export type ReferralCodeResponse = {
   referrerName: string | null

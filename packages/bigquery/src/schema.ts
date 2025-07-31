@@ -1,4 +1,4 @@
-import { TableSchema } from '@google-cloud/bigquery'
+import type { TableSchema } from '@google-cloud/bigquery'
 
 interface BaseEvent {
   id: string // primary key, ID for this specific event

@@ -1,11 +1,13 @@
 'use client'
 
-import { Separator } from '@/components/ui/separator'
-import Link from 'next/link'
 import Image from 'next/image'
-import { siteConfig } from '@/lib/constant'
-import { LinkedInInsightTag } from 'nextjs-linkedin-insight-tag'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { LinkedInInsightTag } from 'nextjs-linkedin-insight-tag'
+
+import { Separator } from '@/components/ui/separator'
+import { siteConfig } from '@/lib/constant'
+
 
 export const Footer = () => {
   const pathname = usePathname()

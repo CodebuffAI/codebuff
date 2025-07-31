@@ -1,6 +1,3 @@
-import type { WebSocket } from 'ws'
-import type { AgentTemplate } from '../templates/types'
-import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
 
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
@@ -11,16 +8,21 @@ import {
   describe,
   expect,
   it,
-  Mock,
   mock,
   spyOn,
 } from 'bun:test'
 
 import * as runAgentStep from '../run-agent-step'
+import { mockFileContext, MockWebSocket } from './test-utils'
 import * as agentRegistryModule from '../templates/agent-registry'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import * as loggerModule from '../util/logger'
-import { mockFileContext, MockWebSocket } from './test-utils'
+
+import type { AgentTemplate } from '../templates/types'
+import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
+import type {
+  Mock} from 'bun:test';
+import type { WebSocket } from 'ws'
 
 describe('Subagent Streaming', () => {
   let mockSendSubagentChunk: Mock<SendSubagentChunk>

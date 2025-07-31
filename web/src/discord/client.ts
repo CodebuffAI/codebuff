@@ -1,16 +1,20 @@
+import db from '@codebuff/common/db'
+import { user } from '@codebuff/common/db/schema'
+import { env } from '@codebuff/internal'
 import {
   Client,
   Events,
-  GatewayIntentBits,
-  Interaction,
-  ChatInputCommandInteraction,
+  GatewayIntentBits
 } from 'discord.js'
-import { env } from '@codebuff/internal'
-import db from '@codebuff/common/db'
-import { user } from '@codebuff/common/db/schema'
 import { eq, or } from 'drizzle-orm'
-import { logger } from '@/util/logger'
+
 import { isRateLimited } from './rate-limiter'
+
+import type {
+  Interaction,
+  ChatInputCommandInteraction} from 'discord.js';
+
+import { logger } from '@/util/logger'
 
 const VERIFIED_ROLE_ID = '1354877460583415929'
 const WELCOME_CHANNEL_ID = '1272621334580429053'

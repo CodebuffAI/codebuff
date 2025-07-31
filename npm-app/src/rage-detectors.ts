@@ -1,12 +1,13 @@
-import type { ReadyState } from '@codebuff/common/websockets/websocket-client'
-import { WebSocket } from 'ws'
 import { sleep } from '@codebuff/common/util/promise'
+import { WebSocket } from 'ws'
 
 import {
   createCountDetector,
   createTimeBetweenDetector,
   createTimeoutDetector,
 } from './utils/rage-detector'
+
+import type { ReadyState } from '@codebuff/common/websockets/websocket-client'
 
 export interface RageDetectors {
   keyMashingDetector: ReturnType<typeof createCountDetector>

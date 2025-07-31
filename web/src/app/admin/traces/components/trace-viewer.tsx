@@ -1,29 +1,29 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { X, Clock, Cpu, MessageSquare, GitBranch } from 'lucide-react'
-import { toast } from '@/components/ui/use-toast'
+import { useEffect, useState, useMemo } from 'react'
+
 import { ChatMessage } from './chat-message'
 import { TimelineChart } from './timeline-chart'
-import { ErrorBoundary } from './error-boundary'
-import { EmptyState } from './empty-state'
-import {
-  ChatMessageSkeleton,
-  TimelineChartSkeleton,
-  TraceViewerSkeleton,
-} from './loading-skeletons'
-import type { TraceMessage } from '@/app/api/admin/traces/[clientRequestId]/messages/route'
-import type { TimelineEvent } from '@/app/api/admin/traces/[clientRequestId]/timeline/route'
 import {
   calculateTraceStatistics,
   extractActualUserMessage,
   extractActualAssistantResponse,
 } from '../utils/trace-processing'
+
+import type { TraceMessage } from '@/app/api/admin/traces/[clientRequestId]/messages/route'
+import type { TimelineEvent } from '@/app/api/admin/traces/[clientRequestId]/timeline/route'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { toast } from '@/components/ui/use-toast'
+
+
+
+
+
 
 interface ConversationPair {
   userMessage: string | undefined

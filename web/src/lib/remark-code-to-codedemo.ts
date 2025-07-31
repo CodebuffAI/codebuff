@@ -1,6 +1,7 @@
+import { visit } from 'unist-util-visit'
+
 import type { Root, Code } from 'mdast'
 import type { Plugin } from 'unified'
-import { visit } from 'unist-util-visit'
 
 /**
  * This plugin finds code blocks in Markdown (```lang ... ```)

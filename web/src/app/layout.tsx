@@ -2,7 +2,8 @@ import '@/lib/server-init'
 import '@/styles/globals.css'
 
 import type { Metadata } from 'next'
-import { PropsWithChildren } from 'react'
+import type { PropsWithChildren } from 'react'
+
 
 import { CookieConsentCard } from '@/components/CookieConsentCard'
 import { Footer } from '@/components/footer'

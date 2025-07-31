@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+
 import { processStrReplace } from '../process-str-replace'
 
 describe('processStrReplace', () => {

@@ -11,24 +11,22 @@ import {
   FILE_READ_STATUS,
   toOptionalFile,
 } from '@codebuff/common/constants'
-
+import {
+  codebuffConfigFile,
+  codebuffConfigFileBackup,
+} from '@codebuff/common/json-config/constants'
 import {
   flattenTree,
   getProjectFileTree,
   parseGitignore,
 } from '@codebuff/common/project-file-tree'
 import {
-  ensureDirectoryExists,
-  ProjectFileContext,
+  ensureDirectoryExists
 } from '@codebuff/common/util/file'
 import { filterObject } from '@codebuff/common/util/object'
 import { createPatch } from 'diff'
 import { green } from 'picocolors'
 
-import {
-  codebuffConfigFile,
-  codebuffConfigFileBackup,
-} from '@codebuff/common/json-config/constants'
 import { loadedAgents, loadLocalAgents } from './agents/load-agents'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
@@ -37,6 +35,9 @@ import { findGitRoot, gitCommandIsAvailable } from './utils/git'
 import { logger } from './utils/logger'
 import { getSystemInfo } from './utils/system-info'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
+
+import type {
+  ProjectFileContext} from '@codebuff/common/util/file';
 
 // Global variables for chat management
 // Initialize chat ID on first import with singleton pattern

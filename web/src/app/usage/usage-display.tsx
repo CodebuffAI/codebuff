@@ -1,16 +1,5 @@
 'use client'
 
-import React from 'react'
-import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
-import { CreditBalance } from '@codebuff/billing'
-import { GrantType } from '@codebuff/common/db/schema'
 import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 import { pluralize } from '@codebuff/common/util/string'
 import {
@@ -21,6 +10,20 @@ import {
   CreditCard,
   Star,
 } from 'lucide-react'
+import React from 'react'
+
+import type { CreditBalance } from '@codebuff/billing'
+import type { GrantType } from '@codebuff/common/db/schema'
+
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
+
 
 interface UsageDisplayProps {
   usageThisCycle: number

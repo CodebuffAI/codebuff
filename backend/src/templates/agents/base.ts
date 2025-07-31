@@ -1,4 +1,3 @@
-import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
@@ -8,7 +7,9 @@ import {
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
 } from '../base-prompts'
-import { AgentTemplate } from '../types'
+
+import type { AgentTemplate } from '../types'
+import type { Model } from '@codebuff/common/constants'
 
 export const base = (
   model: Model,

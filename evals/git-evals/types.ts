@@ -1,7 +1,8 @@
-import { Model } from '@codebuff/common/constants'
 import { z } from 'zod'
-import { AgentStep } from '../scaffolding'
-import { PostEvalAnalysis } from './post-eval-analysis'
+
+import type { AgentStep } from '../scaffolding'
+import type { PostEvalAnalysis } from './post-eval-analysis'
+import type { Model } from '@codebuff/common/constants'
 
 // Base commit types
 export interface CommitInfo {

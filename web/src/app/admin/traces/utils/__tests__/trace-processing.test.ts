@@ -1,9 +1,11 @@
 import { describe, it, expect } from '@jest/globals'
+
 import { 
   parseToolCallsFromContent, 
   parseSpawnedAgentsFromToolCalls,
   buildTimelineFromMessages 
 } from '../trace-processing'
+
 import type { TraceMessage } from '@/app/api/admin/traces/[clientRequestId]/messages/route'
 
 describe('parseToolCallsFromContent', () => {

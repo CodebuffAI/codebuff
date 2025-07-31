@@ -137,7 +137,7 @@ export interface AgentConfig {
    * }
    */
   handleSteps?: (
-    context: AgentStepContext
+    context: AgentStepContext,
   ) => Generator<
     ToolCall | 'STEP' | 'STEP_ALL',
     void,

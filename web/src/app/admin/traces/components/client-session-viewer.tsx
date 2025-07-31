@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { X, ExternalLink, Clock, Coins, MessageSquare } from 'lucide-react'
-import { toast } from '@/components/ui/use-toast'
+import { useEffect, useState } from 'react'
+
 import type { ClientSession, ClientMessage } from '@/app/api/admin/traces/client/[clientId]/sessions/route'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from '@/components/ui/use-toast'
+
 
 interface ClientSessionViewerProps {
   clientId: string

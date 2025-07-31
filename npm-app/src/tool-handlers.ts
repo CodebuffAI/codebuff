@@ -1,30 +1,32 @@
-import { closeXml } from '@codebuff/common/util/xml'
 import { spawn } from 'child_process'
 import * as path from 'path'
 
 import { FileChangeSchema } from '@codebuff/common/actions'
 import {
-  BrowserActionSchema,
-  BrowserResponse,
+  BrowserActionSchema
 } from '@codebuff/common/browser-actions'
-import { applyChanges } from '@codebuff/common/util/changes'
-import { truncateStringWithMessage } from '@codebuff/common/util/string'
-import { cyan, green, red, yellow } from 'picocolors'
-import { getRgPath } from './native/ripgrep'
-import { logger } from './utils/logger'
-
 import { SHOULD_ASK_CONFIG } from '@codebuff/common/constants'
 import { renderToolResults } from '@codebuff/common/tools/utils'
-import { ToolCall } from '@codebuff/common/types/session-state'
+import { applyChanges } from '@codebuff/common/util/changes'
+import { truncateStringWithMessage } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
+import { cyan, green, red, yellow } from 'picocolors'
+
 import { handleBrowserInstruction } from './browser-runner'
 import { waitForPreviousCheckpoint } from './cli-handlers/checkpoint'
 import { Client } from './client'
 import { DiffManager } from './diff-manager'
 import { runFileChangeHooks } from './json-config/hooks'
+import { getRgPath } from './native/ripgrep'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/run-command'
+import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { scrapeWebPage } from './web-scraper'
+
+import type {
+  BrowserResponse} from '@codebuff/common/browser-actions';
+import type { ToolCall } from '@codebuff/common/types/session-state'
 
 export type ToolHandler<T extends Record<string, any>> = (
   parameters: T,

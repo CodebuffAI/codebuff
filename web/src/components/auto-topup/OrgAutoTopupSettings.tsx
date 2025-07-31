@@ -1,6 +1,7 @@
-import { useOrgAutoTopup } from '@/hooks/use-org-auto-topup'
-import { OrgAutoTopupSwitch } from './OrgAutoTopupSwitch'
 import { OrgAutoTopupSettingsForm } from './OrgAutoTopupSettingsForm'
+import { OrgAutoTopupSwitch } from './OrgAutoTopupSwitch'
+
+import { useOrgAutoTopup } from '@/hooks/use-org-auto-topup'
 
 interface OrgAutoTopupSettingsProps {
   organizationId: string

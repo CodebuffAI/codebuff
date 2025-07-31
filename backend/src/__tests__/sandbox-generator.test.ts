@@ -1,12 +1,15 @@
-import { AgentState } from '@codebuff/common/types/session-state'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { WebSocket } from 'ws'
+
+
 import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
-import { AgentTemplate } from '../templates/types'
 import { mockFileContext, MockWebSocket } from './test-utils'
+
+import type { AgentTemplate } from '../templates/types'
+import type { AgentState } from '@codebuff/common/types/session-state'
+import type { WebSocket } from 'ws'
 
 describe('QuickJS Sandbox Generator', () => {
   let mockAgentState: AgentState

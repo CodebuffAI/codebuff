@@ -2,13 +2,16 @@ import { createHash } from 'crypto'
 import { existsSync, readdirSync, writeFileSync } from 'fs'
 
 import {
-  GetRelevantFilesTrace,
   getTracesWithRelabels,
-  Relabel,
   setupBigQuery,
 } from '@codebuff/bigquery'
-import { Message } from '@codebuff/common/types/message'
 import { closeXml } from '@codebuff/common/util/xml'
+
+import type {
+  GetRelevantFilesTrace,
+  Relabel} from '@codebuff/bigquery';
+import type { Message } from '@codebuff/common/types/message'
+
 
 // Get model from command line args
 const model = process.argv[2]

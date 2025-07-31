@@ -1,20 +1,19 @@
 'use client'
 
-import React, { useEffect, Suspense, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
-import { toast } from '@/components/ui/use-toast'
-import { trackUpgrade } from '@/lib/trackConversions'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 import Image from 'next/image'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import React, { useEffect, Suspense } from 'react'
+
 import { AutoTopupSettings } from '@/components/auto-topup/AutoTopupSettings'
-import { Sparkles } from 'lucide-react'
-import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
-import { useAutoTopup } from '@/hooks/use-auto-topup'
 import { AUTO_TOPUP_CONSTANTS } from '@/components/auto-topup/constants'
+import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
+import { toast } from '@/components/ui/use-toast'
+import { useAutoTopup } from '@/hooks/use-auto-topup'
+import { trackUpgrade } from '@/lib/trackConversions'
+
+
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams()

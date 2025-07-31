@@ -1,7 +1,9 @@
 'use client'
 
-import React, { useState, useEffect, HTMLAttributes } from 'react'
 import { Check, Link } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+
+import type { HTMLAttributes } from 'react';
 
 export function CopyHeading({
   children,

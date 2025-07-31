@@ -1,6 +1,6 @@
+import type { ClientToolCall, CodebuffToolCall } from '../constants'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { ClientToolCall, CodebuffToolCall } from '../constants'
 
 type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }

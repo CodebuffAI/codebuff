@@ -1,8 +1,11 @@
-import { logger } from '@/util/logger'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+
+import type { NextRequest} from 'next/server';
+
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: {

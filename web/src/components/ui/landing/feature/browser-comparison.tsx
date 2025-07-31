@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { GitCompare } from 'lucide-react'
-import Terminal, { ColorMode } from '@/components/ui/terminal'
-import TerminalOutput from '@/components/ui/terminal/terminal-output'
+
 import BrowserPreview from '@/components/BrowserPreview'
 
 interface BrowserComparisonProps {

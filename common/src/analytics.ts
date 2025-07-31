@@ -1,9 +1,9 @@
-import { PostHog } from 'posthog-node'
 import { env } from '@codebuff/internal'
-
-import { AnalyticsEvent } from './constants/analytics-events'
+import { PostHog } from 'posthog-node'
 
 import { logger } from './util/logger'
+
+import type { AnalyticsEvent } from './constants/analytics-events'
 
 let client: PostHog | undefined
 

@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react'
-import { useMDXComponent } from 'next-contentlayer/hooks'
-import { cn } from '@/lib/utils'
+import { Check, Link } from 'lucide-react'
 import Image from 'next/image'
+import { useMDXComponent } from 'next-contentlayer/hooks'
+import React, { useState, useEffect } from 'react'
+
+
+
 import { CodeDemo } from './code-demo'
 import { MarkdownTable } from './markdown-table'
 import {
@@ -9,10 +12,12 @@ import {
   AgentTemplateSchemaDisplay,
   SchemaDisplay,
 } from './schema-display'
-import { Check, Link } from 'lucide-react'
-import { useIsMobile } from '@/hooks/use-mobile'
 
-import { HTMLAttributes, AnchorHTMLAttributes, ImgHTMLAttributes } from 'react'
+
+import type { HTMLAttributes, AnchorHTMLAttributes, ImgHTMLAttributes } from 'react'
+
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 
 interface MdxProps {
   code: string

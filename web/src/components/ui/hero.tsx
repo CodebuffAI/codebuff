@@ -1,11 +1,11 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import { BlockColor } from './decorative-blocks'
+
 import { HeroButtons } from './hero-buttons'
 import { Section } from './section'
-import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
+
 
 // Typing effect component for hero headline
 function TypingEffect({ words }: { words: string[] }) {

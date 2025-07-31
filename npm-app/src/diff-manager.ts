@@ -1,4 +1,4 @@
-import { FileChange, FileChanges } from '@codebuff/common/actions'
+import type { FileChange, FileChanges } from '@codebuff/common/actions'
 
 /**
  * Singleton class for managing file changes and diffs throughout the application.

@@ -1,14 +1,20 @@
 'use client'
 
-import { ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
+import posthog from 'posthog-js'
+
+import { HighlightText } from './highlight-text'
 import { DecorativeBlocks, BlockColor } from '../../decorative-blocks'
 import { Section } from '../../section'
-import { useIsMobile } from '@/hooks/use-mobile'
-import { HighlightText } from './highlight-text'
+
 import type { KeyPoint } from '../types'
-import posthog from 'posthog-js'
+import type { ReactNode } from 'react'
+
+
+
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
+
 
 // Helper component for the Learn More link
 function LearnMoreLink({

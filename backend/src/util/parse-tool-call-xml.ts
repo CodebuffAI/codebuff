@@ -1,9 +1,10 @@
-import type { StringToolResultPart } from '@codebuff/common/tools/constants'
-import type { CoreMessage } from 'ai'
 
 import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
+
+import type { StringToolResultPart } from '@codebuff/common/tools/constants'
+import type { CoreMessage } from 'ai'
 
 /**
  * Parses XML content for a tool call into a structured object with only string values.

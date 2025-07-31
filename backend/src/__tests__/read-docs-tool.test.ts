@@ -18,16 +18,19 @@ import {
   spyOn,
   test,
 } from 'bun:test'
-import { WebSocket } from 'ws'
+
+
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
+import { MockWebSocket, mockFileContext } from './test-utils'
 import * as context7Api from '../llm-apis/context7-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { getAllAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
-import { MockWebSocket, mockFileContext } from './test-utils'
+
+import type { WebSocket } from 'ws'
 
 describe('read_docs tool with researcher agent', () => {
   beforeAll(() => {

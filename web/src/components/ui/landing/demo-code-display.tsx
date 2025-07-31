@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion'
+
+import { ANIMATION } from './constants'
+
 import Terminal, { ColorMode } from '@/components/ui/terminal'
 import TerminalOutput from '@/components/ui/terminal/terminal-output'
-import { ANIMATION } from './constants'
 
 interface DemoCodeDisplayProps {
   lines: string[]

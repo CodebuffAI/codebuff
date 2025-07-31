@@ -1,7 +1,9 @@
-import * as path from 'path'
-import * as fs from 'fs'
-import { describe, it, expect } from 'bun:test'
 import { execSync } from 'child_process'
+import * as fs from 'fs'
+import * as path from 'path'
+
+import { describe, it, expect } from 'bun:test'
+
 
 // Test data
 const tsFile = `

@@ -1,6 +1,4 @@
-import type { StringToolResultPart, ToolName } from './constants'
 
-import { closeXml } from '../util/xml'
 import {
   endsAgentStepParam,
   endToolTag,
@@ -8,6 +6,9 @@ import {
   toolNameParam,
 } from './constants'
 import { llmToolCallSchema } from './list'
+import { closeXml } from '../util/xml'
+
+import type { StringToolResultPart, ToolName } from './constants'
 
 export function getToolCallString<T extends ToolName | (string & {})>(
   toolName: T,

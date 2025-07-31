@@ -1,7 +1,7 @@
 import eslintConfigPrettier from 'eslint-config-prettier'
 import pluginImport from 'eslint-plugin-import'
-import globals from 'globals'
 import unusedImports from 'eslint-plugin-unused-imports'
+import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(

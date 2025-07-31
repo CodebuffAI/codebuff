@@ -1,6 +1,8 @@
-import { Model, models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/constants'
 import { env } from '@codebuff/internal/env'
 import { createOpenRouter } from '@codebuff/internal/openrouter-ai-sdk'
+
+import type { Model} from '@codebuff/common/constants';
 
 // Provider routing documentation: https://openrouter.ai/docs/features/provider-routing
 const providerOrder = {

@@ -1,4 +1,5 @@
 import { bold, cyan, green, red, yellow } from 'picocolors'
+
 import { DiffManager } from '../diff-manager'
 
 export function handleDiff() {

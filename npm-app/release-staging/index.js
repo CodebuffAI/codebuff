@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-const fs = require('fs')
-const path = require('path')
-const os = require('os')
 const { spawn } = require('child_process')
+const fs = require('fs')
 const https = require('https')
+const os = require('os')
+const path = require('path')
 const zlib = require('zlib')
+
 const tar = require('tar')
 
 // Hardcoded package name for codecane

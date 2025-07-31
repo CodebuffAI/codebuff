@@ -3,7 +3,6 @@ import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { hasLazyEdit } from '@codebuff/common/util/string'
 import { createPatch } from 'diff'
 
-import { CoreMessage } from 'ai'
 import { fastRewrite, shouldAddFilePlaceholders } from './fast-rewrite'
 import {
   parseAndGetDiffBlocksSingleFile,
@@ -12,6 +11,8 @@ import {
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
+
+import type { CoreMessage } from 'ai'
 
 export async function processFileBlock(
   path: string,

@@ -1,7 +1,9 @@
-import { ToolResult } from '@codebuff/common/types/session-state'
-
 import { renderToolResults } from '@codebuff/common/tools/utils'
+
 import { parseReadFilesResult, parseToolResults } from './parse-tool-call-xml'
+
+import type { ToolResult } from '@codebuff/common/types/session-state'
+
 
 /**
  * Helper function to simplify tool results of a specific type while preserving others.

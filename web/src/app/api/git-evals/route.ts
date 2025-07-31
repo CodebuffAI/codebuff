@@ -1,12 +1,15 @@
-import { logger } from '@/util/logger'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { GitEvalResultRequest } from '@codebuff/common/db/schema'
-import { desc, eq } from 'drizzle-orm'
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { utils } from '@codebuff/internal'
+import { desc, eq } from 'drizzle-orm'
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+
+import type { GitEvalResultRequest } from '@codebuff/common/db/schema'
+import type { NextRequest} from 'next/server';
+
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { logger } from '@/util/logger'
 
 export async function POST(request: NextRequest) {
   try {

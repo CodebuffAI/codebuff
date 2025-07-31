@@ -1,18 +1,21 @@
-import { Server as HttpServer } from 'node:http'
-
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 import {
-  CLIENT_MESSAGE_SCHEMA,
-  ServerMessage,
+  CLIENT_MESSAGE_SCHEMA
 } from '@codebuff/common/websockets/websocket-schema'
 import { isError } from 'lodash'
-import { RawData, WebSocket, WebSocketServer } from 'ws'
+import { WebSocketServer } from 'ws'
 
 import { asyncAgentManager } from '../async-agent-manager'
 import { setSessionConnected } from '../live-user-inputs'
-import { logger } from '../util/logger'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
-import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
+import { logger } from '../util/logger'
+
+import type {
+  ServerMessage} from '@codebuff/common/websockets/websocket-schema';
+import type { Server as HttpServer } from 'node:http'
+import type { RawData, WebSocket} from 'ws';
+
 
 export const SWITCHBOARD = new Switchboard()
 

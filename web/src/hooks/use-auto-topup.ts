@@ -1,12 +1,17 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from '@/components/ui/use-toast'
-import { UserProfile } from '@/types/user'
-import { clamp } from '@/lib/utils'
-import debounce from 'lodash/debounce'
-import { AUTO_TOPUP_CONSTANTS } from '@/components/auto-topup/constants'
 import { convertStripeGrantAmountToCredits } from '@codebuff/common/util/currency'
-import { AutoTopupState } from '@/components/auto-topup/types'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import debounce from 'lodash/debounce'
+import { useState, useCallback, useRef, useEffect } from 'react'
+
+import type { AutoTopupState } from '@/components/auto-topup/types'
+import type { UserProfile } from '@/types/user'
+
+import { AUTO_TOPUP_CONSTANTS } from '@/components/auto-topup/constants'
+import { toast } from '@/components/ui/use-toast'
+import { clamp } from '@/lib/utils'
+
+
+
 
 const {
   MIN_THRESHOLD_CREDITS,

@@ -1,8 +1,10 @@
-import { Model } from '@codebuff/common/constants'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import z from 'zod/v4'
 
-import { AgentTemplate, PLACEHOLDER } from '../../types'
+import { PLACEHOLDER } from '../../types'
+
+import type { AgentTemplate} from '../../types';
+import type { Model } from '@codebuff/common/constants'
 
 export const dryRun = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,

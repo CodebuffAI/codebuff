@@ -1,14 +1,16 @@
-import type {
-  LanguageModelV1Prompt,
-  LanguageModelV1ProviderMetadata,
-} from '@ai-sdk/provider'
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils'
-import type { ReasoningDetailUnion } from './schemas/reasoning-details'
+
 import { ReasoningDetailType } from './schemas/reasoning-details'
+
+import type { ReasoningDetailUnion } from './schemas/reasoning-details'
 import type {
   ChatCompletionContentPart,
   OpenRouterChatCompletionsInput,
 } from './types/openrouter-chat-completions-input'
+import type {
+  LanguageModelV1Prompt,
+  LanguageModelV1ProviderMetadata,
+} from '@ai-sdk/provider'
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
 export type OpenRouterCacheControl = { type: 'ephemeral' }

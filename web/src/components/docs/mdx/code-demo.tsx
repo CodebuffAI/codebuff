@@ -1,9 +1,11 @@
 'use client'
 
-import { Separator } from '@/components/ui/separator'
 import { Check, Copy } from 'lucide-react'
 import { useMemo, useState } from 'react'
+
 import { MermaidDiagram } from './mermaid-diagram'
+
+import { Separator } from '@/components/ui/separator'
 
 type CodeDemoChildren = string | JSX.Element | JSX.Element[]
 

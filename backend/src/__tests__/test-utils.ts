@@ -1,4 +1,4 @@
-import { ProjectFileContext } from '@codebuff/common/util/file'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 export class MockWebSocket {
   send(msg: string) {}

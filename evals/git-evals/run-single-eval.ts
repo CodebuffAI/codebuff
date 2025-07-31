@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 
+import fs from 'fs'
+
 import { generateCompactId } from '@codebuff/common/util/string'
 import {
   setProjectRoot,
@@ -7,11 +9,12 @@ import {
 } from '@codebuff/npm-app/project-files'
 import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
 import { Command, Flags } from '@oclif/core'
-import fs from 'fs'
+
 import { createFileReadingMock } from '../scaffolding'
 import { setupTestEnvironmentVariables } from '../test-setup'
 import { runSingleEval } from './run-git-evals'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
+
 import type { EvalCommit, GitRepoEvalData, ModelConfig } from './types'
 
 class RunSingleEvalCommand extends Command {

@@ -1,31 +1,26 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Progress } from '@/components/ui/progress'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   RefreshCw,
   CreditCard,
-  TrendingUp,
   Users,
   AlertTriangle,
-  Settings,
   Power,
   Loader2,
   BarChart3,
 } from 'lucide-react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
+import { useState } from 'react'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { useOrgAutoTopup } from '@/hooks/use-org-auto-topup'
 import { cn } from '@/lib/utils'
-import { useIsMobile } from '@/hooks/use-mobile'
-import { toast } from '@/components/ui/use-toast'
-import { useState } from 'react'
+
 
 interface CreditStatus {
   currentBalance: number

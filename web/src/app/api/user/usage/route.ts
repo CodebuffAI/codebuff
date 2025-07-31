@@ -1,7 +1,8 @@
+import { getUserUsageData } from '@codebuff/billing'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { getUserUsageData } from '@codebuff/billing'
 
 export async function GET() {
   const session = await getServerSession(authOptions)

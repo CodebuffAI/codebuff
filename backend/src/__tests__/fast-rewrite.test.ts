@@ -1,3 +1,5 @@
+import path from 'path'
+
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import {
   clearMockedModules,
@@ -5,7 +7,7 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { createPatch } from 'diff'
-import path from 'path'
+
 import { rewriteWithOpenAI } from '../fast-rewrite'
 
 describe.skip('rewriteWithOpenAI', () => {

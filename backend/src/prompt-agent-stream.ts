@@ -1,9 +1,11 @@
 import { providerModelNames } from '@codebuff/common/constants'
-import { CoreMessage } from 'ai'
+
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
-import { AgentTemplate } from './templates/types'
 import { globalStopSequence } from './tools/constants'
+
+import type { AgentTemplate } from './templates/types'
+import type { CoreMessage } from 'ai'
 
 export const getAgentStreamFromTemplate = (params: {
   clientSessionId: string

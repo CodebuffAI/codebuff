@@ -1,10 +1,14 @@
 'use client'
 
-import { ReactNode, CSSProperties } from 'react'
 import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
-import { BlockColor } from './decorative-blocks'
+
+import type { BlockColor } from './decorative-blocks'
+import type { ReactNode, CSSProperties } from 'react'
+
+
+
 import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 
 export interface SectionProps {
   children: ReactNode

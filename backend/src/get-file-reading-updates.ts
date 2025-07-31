@@ -1,10 +1,9 @@
-import { CoreMessage } from 'ai'
+import { HIDDEN_FILE_READ_STATUS } from '@codebuff/common/constants'
+import { parseFileBlocks } from '@codebuff/common/util/file'
+import { toContentString } from '@codebuff/common/util/messages'
 import { countTokens } from 'gpt-tokenizer'
 import { uniq, difference } from 'lodash'
 
-import { HIDDEN_FILE_READ_STATUS } from '@codebuff/common/constants'
-import { ProjectFileContext, parseFileBlocks } from '@codebuff/common/util/file'
-import { toContentString } from '@codebuff/common/util/messages'
 
 import { logger } from './util/logger'
 import {
@@ -14,7 +13,10 @@ import {
 } from './util/parse-tool-call-xml'
 import { countTokensJson } from './util/token-counter'
 import { requestFiles } from './websockets/websocket-action'
-import { WebSocket } from 'ws'
+
+import type { ProjectFileContext} from '@codebuff/common/util/file';
+import type { CoreMessage } from 'ai'
+import type { WebSocket } from 'ws'
 
 const getInitialFiles = (fileContext: ProjectFileContext) => {
   const { userKnowledgeFiles, knowledgeFiles } = fileContext

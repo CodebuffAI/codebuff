@@ -1,4 +1,3 @@
-import type { ToolName, ToolParams } from './constants'
 
 import { addMessageParams } from './params/tool/add-message'
 import { addSubgoalParams } from './params/tool/add-subgoal'
@@ -21,6 +20,8 @@ import { thinkDeeplyParams } from './params/tool/think-deeply'
 import { updateSubgoalParams } from './params/tool/update-subgoal'
 import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
+
+import type { ToolName, ToolParams } from './constants'
 
 export const llmToolCallSchema = {
   add_message: addMessageParams,

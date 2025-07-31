@@ -1,15 +1,16 @@
-import { Interface as ReadlineInterface } from 'readline'
 
-import { SessionState } from '@codebuff/common/types/session-state'
 import { bold, cyan, green, red, underline } from 'picocolors'
 
 import {
   CheckpointsDisabledError,
   checkpointManager,
 } from '../checkpoints/checkpoint-manager'
-import type { Client } from '../client'
 import { logger } from '../utils/logger'
 import { Spinner } from '../utils/spinner'
+
+import type { Client } from '../client'
+import type { SessionState } from '@codebuff/common/types/session-state'
+import type { Interface as ReadlineInterface } from 'readline'
 
 export const checkpointCommands = {
   save: [['checkpoint'], 'Save current state as a new checkpoint'],

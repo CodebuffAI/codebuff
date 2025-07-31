@@ -1,8 +1,9 @@
-import type { Subgoal } from '@codebuff/common/types/session-state'
+import { buildArray } from '@codebuff/common/util/array'
+
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { Subgoal } from '@codebuff/common/types/session-state'
 
-import { buildArray } from '@codebuff/common/util/array'
 
 export const handleAddSubgoal = ((params: {
   previousToolCallFinished: Promise<void>

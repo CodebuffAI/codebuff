@@ -1,9 +1,11 @@
-import type { CodebuffToolCall } from '../../constants'
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
-import { AgentState } from '@codebuff/common/types/session-state'
+
 import { asyncAgentManager } from '../../../async-agent-manager'
 import { logger } from '../../../util/logger'
+
+import type { CodebuffToolCall } from '../../constants'
+import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { AgentState } from '@codebuff/common/types/session-state'
 
 export const handleSendAgentMessage = ((params: {
   previousToolCallFinished: Promise<void>

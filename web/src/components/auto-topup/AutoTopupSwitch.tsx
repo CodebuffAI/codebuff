@@ -1,5 +1,6 @@
 import { BaseAutoTopupSwitch } from './BaseAutoTopupSwitch'
-import { AutoTopupSwitchProps } from './types'
+
+import type { AutoTopupSwitchProps } from './types'
 
 export function AutoTopupSwitch({
   isEnabled,

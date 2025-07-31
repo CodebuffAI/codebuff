@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { CheckCircle, XCircle, Clock, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import { useEffect, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -12,7 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CheckCircle, XCircle, Clock, Users } from 'lucide-react'
+
 
 interface InvitationData {
   organization_name: string

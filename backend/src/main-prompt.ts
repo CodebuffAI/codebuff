@@ -1,23 +1,24 @@
-import { ClientAction } from '@codebuff/common/actions'
-import { type CostMode } from '@codebuff/common/constants'
-import {
-  AgentTemplateTypes,
-  SessionState,
-  ToolResult,
-  type AgentTemplateType,
-} from '@codebuff/common/types/session-state'
-import { resolveAgentId } from '@codebuff/common/util/agent-name-normalization'
-import { WebSocket } from 'ws'
-
 import { renderToolResults } from '@codebuff/common/tools/utils'
-import { PrintModeObject } from '@codebuff/common/types/print-mode'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { resolveAgentId } from '@codebuff/common/util/agent-name-normalization'
+
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
 import { getAllAgentTemplates } from './templates/agent-registry'
-import { ClientToolCall } from './tools/constants'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
 import { requestToolCall } from './websockets/websocket-action'
+
+import type { ClientToolCall } from './tools/constants'
+import type { ClientAction } from '@codebuff/common/actions'
+import type { CostMode } from '@codebuff/common/constants'
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type {
+  SessionState,
+  ToolResult,
+  AgentTemplateType,
+} from '@codebuff/common/types/session-state'
+import type { WebSocket } from 'ws'
 
 export interface MainPromptOptions {
   userId: string | undefined
@@ -28,7 +29,7 @@ export interface MainPromptOptions {
 export const mainPrompt = async (
   ws: WebSocket,
   action: Extract<ClientAction, { type: 'prompt' }>,
-  options: MainPromptOptions
+  options: MainPromptOptions,
 ): Promise<{
   sessionState: SessionState
   toolCalls: Array<ClientToolCall>
@@ -64,7 +65,7 @@ export const mainPrompt = async (
           duration,
           prompt,
         },
-        `Detected terminal command in ${duration}ms, executing directly: ${prompt}`
+        `Detected terminal command in ${duration}ms, executing directly: ${prompt}`,
       )
 
       const response = await requestToolCall(
@@ -76,7 +77,7 @@ export const mainPrompt = async (
           mode: 'user',
           process_type: 'SYNC',
           timeout_seconds: -1,
-        }
+        },
       )
 
       const toolResult = response.success ? response.result : response.error
@@ -91,7 +92,7 @@ export const mainPrompt = async (
         ...sessionState,
         messageHistory: expireMessages(
           mainAgentState.messageHistory,
-          'userPrompt'
+          'userPrompt',
         ),
       }
 
@@ -114,7 +115,7 @@ export const mainPrompt = async (
     if (!resolvedAgentId) {
       const availableAgents = Object.keys(agentRegistry)
       throw new Error(
-        `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`
+        `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`,
       )
     }
 
@@ -125,7 +126,7 @@ export const mainPrompt = async (
         promptParams,
         prompt: prompt?.slice(0, 50),
       },
-      `Using CLI-specified agent: ${agentId}`
+      `Using CLI-specified agent: ${agentId}`,
     )
   } else {
     // Check for base agent in config
@@ -134,7 +135,7 @@ export const mainPrompt = async (
       if (!(configBaseAgent in agentRegistry)) {
         const availableAgents = Object.keys(agentRegistry)
         throw new Error(
-          `Invalid base agent in config: "${configBaseAgent}". Available agents: ${availableAgents.join(', ')}`
+          `Invalid base agent in config: "${configBaseAgent}". Available agents: ${availableAgents.join(', ')}`,
         )
       }
       agentType = configBaseAgent
@@ -144,7 +145,7 @@ export const mainPrompt = async (
           promptParams,
           prompt: prompt?.slice(0, 50),
         },
-        `Using config-specified base agent: ${configBaseAgent}`
+        `Using config-specified base agent: ${configBaseAgent}`,
       )
     } else {
       // Fall back to cost mode mapping

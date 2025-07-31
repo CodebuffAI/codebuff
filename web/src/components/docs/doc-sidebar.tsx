@@ -2,9 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
-import { getDocsByCategory, getNewsArticles, NewsArticle } from '@/lib/docs'
 import { useEffect, useMemo, useState } from 'react'
+
+import type { NewsArticle } from '@/lib/docs';
+
+import { getDocsByCategory, getNewsArticles } from '@/lib/docs'
+import { cn } from '@/lib/utils'
+
 
 export const sections = [
   {

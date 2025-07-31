@@ -2,6 +2,7 @@
 
 import { createHash, randomBytes } from 'node:crypto'
 import { EOL, endianness } from 'node:os'
+
 import {
   system,
   bios,

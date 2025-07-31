@@ -1,9 +1,10 @@
-import type { OpenRouterChatSettings } from './types/openrouter-chat-settings'
 
 import { JsonTestServer } from '@ai-sdk/provider-utils/test'
 import { describe, expect, it } from 'bun:test'
 
 import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model'
+
+import type { OpenRouterChatSettings } from './types/openrouter-chat-settings'
 
 describe('OpenRouter Usage Accounting', () => {
   const server = new JsonTestServer(

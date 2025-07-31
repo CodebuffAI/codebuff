@@ -1,9 +1,10 @@
-import { toast } from '@/components/ui/use-toast'
-import { clamp } from '@/lib/utils'
 import { CREDIT_PRICING } from '@codebuff/common/constants'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import debounce from 'lodash/debounce'
 import { useCallback, useEffect, useRef, useState } from 'react'
+
+import { toast } from '@/components/ui/use-toast'
+import { clamp } from '@/lib/utils'
 
 // Organization-specific constants based on the plan
 const ORG_AUTO_TOPUP_CONSTANTS = {

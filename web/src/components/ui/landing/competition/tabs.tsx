@@ -1,12 +1,14 @@
-import { useIsMobile } from '@/hooks/use-mobile'
-import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
+
 import { ClaudeCodeVisualization } from './claude-code'
 import { ClineVisualization } from './cline'
 import { CursorMazeVisualization } from './cursor'
 import { GithubCopilotVisualization } from './github-copilot'
+
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 
 export const competitors = [
   'github-copilot',

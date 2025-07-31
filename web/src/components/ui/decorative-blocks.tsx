@@ -1,7 +1,10 @@
 'use client'
 
+import { useEffect, useState, useRef, useMemo } from 'react'
+
+import type { ReactNode} from 'react';
+
 import { cn } from '@/lib/utils'
-import { useEffect, useState, useRef, ReactNode, useMemo } from 'react'
 
 interface Block {
   color: BlockColor

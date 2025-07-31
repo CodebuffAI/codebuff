@@ -1,9 +1,12 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import {
-  AgentState,
-  getInitialSessionState,
-  ToolResult,
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import { renderToolResults } from '@codebuff/common/tools/utils'
+import {
+  getInitialSessionState
 } from '@codebuff/common/types/session-state'
 import {
   afterAll,
@@ -16,22 +19,21 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { WebSocket } from 'ws'
 
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
-import { renderToolResults } from '@codebuff/common/tools/utils'
 import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
-import { AgentTemplate, StepGenerator } from '../templates/types'
+import { mockFileContext, MockWebSocket } from './test-utils'
 import * as toolExecutor from '../tools/tool-executor'
 import { asSystemMessage } from '../util/messages'
 import * as requestContext from '../websockets/request-context'
-import { mockFileContext, MockWebSocket } from './test-utils'
+
+import type { AgentTemplate, StepGenerator } from '../templates/types'
+import type {
+  AgentState,
+  ToolResult} from '@codebuff/common/types/session-state';
+import type { WebSocket } from 'ws'
 
 describe('runProgrammaticStep', () => {
   let mockTemplate: AgentTemplate

@@ -1,7 +1,8 @@
-import type { ToolDescription } from '../tool-def-type'
 
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { closeXml } from '@codebuff/common/util/xml'
+
+import type { ToolDescription } from '../tool-def-type'
 
 const toolName = 'str_replace'
 const endsAgentStep = false

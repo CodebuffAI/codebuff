@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
-import { WebSocket } from 'ws'
+
 import { logger } from '../util/logger'
+
+import type { WebSocket } from 'ws'
+
 
 describe('Backend Tool Call Schema', () => {
   let mockWs: any

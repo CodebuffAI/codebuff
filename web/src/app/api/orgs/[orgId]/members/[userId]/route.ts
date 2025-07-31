@@ -1,11 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { updateStripeSubscriptionQuantity } from '@codebuff/billing'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq, and, isNull, sql } from 'drizzle-orm'
-import { UpdateMemberRoleRequest } from '@codebuff/common/types/organization'
-import { updateStripeSubscriptionQuantity } from '@codebuff/billing'
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+
+import type { UpdateMemberRoleRequest } from '@codebuff/common/types/organization'
+import type { NextRequest} from 'next/server';
+
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+
+
+
 
 interface RouteParams {
   params: { orgId: string; userId: string }

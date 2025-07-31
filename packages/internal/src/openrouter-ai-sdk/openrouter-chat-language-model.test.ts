@@ -1,4 +1,3 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider'
 
 import {
   convertReadableStreamToArray,
@@ -6,8 +5,11 @@ import {
   StreamingTestServer,
 } from '@ai-sdk/provider-utils/test'
 import { describe, expect, it } from 'bun:test'
+
 import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs'
 import { createOpenRouter } from './openrouter-provider'
+
+import type { LanguageModelV1Prompt } from '@ai-sdk/provider'
 
 const TEST_PROMPT: LanguageModelV1Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },

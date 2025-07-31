@@ -1,7 +1,9 @@
-import type { ToolDescription } from '../tool-def-type'
 
 import { getToolCallString } from '@codebuff/common/tools/utils'
+
 import { gitCommitGuidePrompt } from '../../../system-prompt/prompts'
+
+import type { ToolDescription } from '../tool-def-type'
 
 const toolName = 'run_terminal_command'
 export const runTerminalCommandTool = {

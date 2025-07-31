@@ -1,23 +1,20 @@
+import { pluralize } from '@codebuff/common/util/string'
 import {
   green,
   yellow,
   cyan,
-  magenta,
   bold,
   gray,
-  blue,
-  italic,
 } from 'picocolors'
-import { pluralize } from '@codebuff/common/util/string'
+import stringWidth from 'string-width'
+import wrapAnsi from 'wrap-ansi'
+
 import {
   getSubagentData,
-  getSubagentFullContent,
   getSubagentFormattedContent,
-  getAllSubagentIds,
-  getRecentSubagents,
-  SubagentData,
+  getRecentSubagents
 } from '../subagent-storage'
-import { logger } from '../utils/logger'
+import { enterSubagentListBuffer } from './subagent-list'
 import {
   ENTER_ALT_BUFFER,
   EXIT_ALT_BUFFER,
@@ -26,9 +23,10 @@ import {
   SHOW_CURSOR,
   MOVE_CURSOR,
 } from '../utils/terminal'
-import { enterSubagentListBuffer } from './subagent-list'
-import wrapAnsi from 'wrap-ansi'
-import stringWidth from 'string-width'
+
+import type {
+  SubagentData} from '../subagent-storage';
+
 
 /**
  * Wrap a line to fit within terminal width using robust npm packages

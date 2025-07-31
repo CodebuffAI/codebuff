@@ -1,5 +1,6 @@
 import { logger } from '@codebuff/common/util/logger'
 import { createPatch } from 'diff'
+
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 
 export async function processStrReplace(

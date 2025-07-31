@@ -1,7 +1,3 @@
-import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import type { CostMode } from '@codebuff/common/constants'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { CliOptions, GitCommand } from './types'
 
 import fs, { readdirSync } from 'fs'
 import * as os from 'os'
@@ -28,7 +24,6 @@ import {
 } from 'picocolors'
 
 import { loadLocalAgents, loadedAgents } from './agents/load-agents'
-import { PrintModeFinish } from '@codebuff/common/types/print-mode'
 import {
   killAllBackgroundProcesses,
   sendKillSignalToAllBackgroundProcesses,
@@ -101,6 +96,12 @@ import { flushAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { withHangDetection } from './utils/with-hang-detection'
+
+import type { CliOptions, GitCommand } from './types'
+import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
+import type { CostMode } from '@codebuff/common/constants'
+import type { PrintModeFinish } from '@codebuff/common/types/print-mode'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 // Cache for local agent info to avoid async issues in sync methods
 let cachedLocalAgentInfo: Record<

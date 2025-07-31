@@ -1,11 +1,12 @@
-import { hasMaxedReferrals } from '@/lib/server/referral'
-import { logger } from '@/util/logger'
 import { grantCreditOperation } from '@codebuff/billing'
 import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/constants'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
+
+import { hasMaxedReferrals } from '@/lib/server/referral'
+import { logger } from '@/util/logger'
 
 export async function redeemReferralCode(referralCode: string, userId: string) {
   try {

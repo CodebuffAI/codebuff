@@ -1,10 +1,11 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import db from '@codebuff/common/db'
-import { eq } from 'drizzle-orm'
-import * as schema from '@codebuff/common/db/schema'
 import { z } from 'zod'
+
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
 const autoTopupSchema = z.object({
   enabled: z.boolean(),

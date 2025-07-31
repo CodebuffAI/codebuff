@@ -1,12 +1,7 @@
 import {
-  GetExpandedFileContextForTrainingBlobTrace,
-  GetExpandedFileContextForTrainingTrace,
-  GetRelevantFilesPayload,
-  GetRelevantFilesTrace,
   getTracesAndAllDataForUser,
   getTracesWithoutRelabels,
   insertRelabel,
-  Relabel,
   setupBigQuery,
 } from '@codebuff/bigquery'
 import {
@@ -14,18 +9,26 @@ import {
   models,
   TEST_USER_ID,
 } from '@codebuff/common/constants'
-import { Message } from '@codebuff/common/types/message'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
-import { Request, Response } from 'express'
 
-import { System } from '../llm-apis/claude'
+
 import { rerank } from '../llm-apis/relace-api'
 import {
   promptAiSdk,
   transformMessages,
 } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from '../util/logger'
+
+import type { System } from '../llm-apis/claude'
+import type {
+  GetExpandedFileContextForTrainingBlobTrace,
+  GetExpandedFileContextForTrainingTrace,
+  GetRelevantFilesPayload,
+  GetRelevantFilesTrace,
+  Relabel} from '@codebuff/bigquery';
+import type { Message } from '@codebuff/common/types/message'
+import type { Request, Response } from 'express'
 
 // --- GET Handler Logic ---
 

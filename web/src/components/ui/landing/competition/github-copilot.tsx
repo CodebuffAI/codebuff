@@ -1,6 +1,7 @@
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
+import { useRef, useEffect, useState } from 'react'
+
 import { cn } from '@/lib/utils'
-import { useRef, useEffect, useState, useMemo } from 'react'
 
 interface GithubCopilotVisualizationProps {
   progress: number

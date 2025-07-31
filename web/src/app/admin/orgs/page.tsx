@@ -1,13 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Search,
   Users,
@@ -15,15 +7,23 @@ import {
   AlertTriangle,
   CheckCircle,
   Settings,
-  Eye,
   Filter,
   Download,
   GitBranch,
 } from 'lucide-react'
 import Link from 'next/link'
-import { toast } from '@/components/ui/use-toast'
-import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
+import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { useEffect, useState } from 'react'
+
 import { ModelConfigSheet } from '@/components/organization/model-config-sheet'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
+import { toast } from '@/components/ui/use-toast'
 
 interface OrganizationSummary {
   id: string

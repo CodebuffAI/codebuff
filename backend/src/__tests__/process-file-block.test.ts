@@ -1,12 +1,12 @@
 import { TEST_USER_ID } from '@codebuff/common/constants'
-import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
-import { applyPatch } from '@codebuff/common/util/patch'
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
+import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
+import { applyPatch } from '@codebuff/common/util/patch'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+
 import { processFileBlock } from '../process-file-block'
 
 describe('processFileBlockModule', () => {

@@ -9,13 +9,13 @@ import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
-import { loops } from '@codebuff/internal'
+import { loops , env } from '@codebuff/internal'
 import { eq } from 'drizzle-orm'
-import type { NextAuthOptions } from 'next-auth'
-import { Adapter } from 'next-auth/adapters'
 import GitHubProvider from 'next-auth/providers/github'
 
-import { env } from '@codebuff/internal'
+import type { NextAuthOptions } from 'next-auth'
+import type { Adapter } from 'next-auth/adapters'
+
 import { logger } from '@/util/logger'
 
 async function createAndLinkStripeCustomer(

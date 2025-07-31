@@ -1,11 +1,13 @@
-import type { CodebuffToolCall } from '../../constants'
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
 import { consumeCreditsWithFallback } from '@codebuff/billing'
+
 import { getRequestContext } from '../../../context/app-context'
 import { searchWeb } from '../../../llm-apis/linkup-api'
 import { PROFIT_MARGIN } from '../../../llm-apis/message-cost-tracker'
 import { logger } from '../../../util/logger'
+
+import type { CodebuffToolCall } from '../../constants'
+import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
 export const handleWebSearch = ((params: {
   previousToolCallFinished: Promise<void>

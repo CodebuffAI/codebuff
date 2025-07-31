@@ -1,4 +1,3 @@
-import type { OpenRouterChatSettings } from './types/openrouter-chat-settings'
 
 import {
   convertReadableStreamToArray,
@@ -7,6 +6,8 @@ import {
 import { describe, expect, it } from 'bun:test'
 
 import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model'
+
+import type { OpenRouterChatSettings } from './types/openrouter-chat-settings'
 
 describe('OpenRouter Streaming Usage Accounting', () => {
   const server = new StreamingTestServer(

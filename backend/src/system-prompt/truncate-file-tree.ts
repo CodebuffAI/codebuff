@@ -1,12 +1,15 @@
 import {
-  FileTreeNode,
   printFileTree,
-  printFileTreeWithTokens,
-  ProjectFileContext,
+  printFileTreeWithTokens
 } from '@codebuff/common/util/file'
 import { sampleSizeWithSeed } from '@codebuff/common/util/random'
+
 import { logger } from '../util/logger'
 import { countTokens, countTokensJson } from '../util/token-counter'
+
+import type {
+  FileTreeNode,
+  ProjectFileContext} from '@codebuff/common/util/file';
 
 type TruncationLevel = 'none' | 'unimportant-files' | 'tokens' | 'depth-based'
 const DEBUG = false

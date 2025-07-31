@@ -1,8 +1,9 @@
+import { fetchContext7LibraryDocumentation } from '../../../llm-apis/context7-api'
+import { logger } from '../../../util/logger'
+
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
-import { fetchContext7LibraryDocumentation } from '../../../llm-apis/context7-api'
-import { logger } from '../../../util/logger'
 
 export const handleReadDocs = (({
   previousToolCallFinished,

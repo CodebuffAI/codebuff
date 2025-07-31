@@ -1,15 +1,14 @@
 'use client'
 
+import { Gift, CreditCard, Users } from 'lucide-react'
 import Image from 'next/image'
-import { Session } from 'next-auth'
+import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import posthog from 'posthog-js'
-import { useRouter } from 'next/navigation'
-import { env } from '@codebuff/internal'
-import { Gift, CreditCard, Users } from 'lucide-react'
+
+import type { Session } from 'next-auth'
 
 import { Icons } from '@/components/icons'
-import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,

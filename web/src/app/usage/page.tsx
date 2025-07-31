@@ -1,40 +1,20 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
-import { UsageDisplay, UsageDisplaySkeleton } from './usage-display'
-import { Button } from '@/components/ui/button'
-import Link from 'next/link'
 import { env } from '@codebuff/internal'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from '@/components/ui/use-toast'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Info, ChevronDown, ChevronUp, Loader2 as Loader } from 'lucide-react'
-import { UserProfile } from '@/types/user'
-import { useSession } from 'next-auth/react'
-import {
-  convertCreditsToUsdCents,
-  convertStripeGrantAmountToCredits,
-} from '@codebuff/common/util/currency'
-import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
-import { cn, clamp } from '@/lib/utils'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { Skeleton } from '@/components/ui/skeleton'
-import debounce from 'lodash/debounce'
 import { loadStripe } from '@stripe/stripe-js'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+import { useState } from 'react'
 
-import { AutoTopupSettings } from '@/components/auto-topup/AutoTopupSettings'
-import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
-import { CreditConfetti } from '@/components/ui/credit-confetti'
+import { UsageDisplay, UsageDisplaySkeleton } from './usage-display'
+
 import { CreditManagementSection } from '@/components/credits/CreditManagementSection'
+import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CreditConfetti } from '@/components/ui/credit-confetti'
+import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from '@/components/ui/use-toast'
 
 type UserProfileKeys =
   | 'handle'

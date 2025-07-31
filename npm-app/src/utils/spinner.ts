@@ -2,9 +2,9 @@ import * as readline from 'readline'
 
 import { green } from 'picocolors'
 
-import { getPrevious, setPrevious } from '../display/squash-newlines'
 import { createTimeoutDetector } from './rage-detector'
 import { HIDE_CURSOR_ALT, SHOW_CURSOR_ALT } from './terminal'
+import { getPrevious, setPrevious } from '../display/squash-newlines'
 
 const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 

@@ -1,4 +1,8 @@
 import { TEST_USER_ID } from '@codebuff/common/constants'
+
+
+// Mock imports needed for setup within the test
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterEach,
@@ -9,19 +13,20 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { WebSocket } from 'ws'
-import { mainPrompt } from '../main-prompt'
 
-// Mock imports needed for setup within the test
-import { getToolCallString } from '@codebuff/common/tools/utils'
-import { PrintModeObject } from '@codebuff/common/types/print-mode'
-import { ProjectFileContext } from '@codebuff/common/util/file'
+
+
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
+import { mainPrompt } from '../main-prompt'
 import { logger } from '../util/logger'
 import { renderReadFilesResult } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
+
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { WebSocket } from 'ws'
 
 // --- Shared Mocks & Helpers ---
 

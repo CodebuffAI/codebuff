@@ -1,6 +1,7 @@
-import { allDocs } from '.contentlayer/generated'
-import { Article } from '@/app/api/feed/route'
+import type { Article } from '@/app/api/feed/route'
 import type { Doc } from '@/types/docs'
+
+import { allDocs } from '.contentlayer/generated'
 
 export function getDocsByCategory(category: string) {
   if (!allDocs) return []

@@ -1,7 +1,8 @@
-import { API_KEY_TYPES, ApiKeyType, KEY_LENGTHS, KEY_PREFIXES } from '@codebuff/common/api-keys/constants'
+import { API_KEY_TYPES, KEY_LENGTHS, KEY_PREFIXES } from '@codebuff/common/api-keys/constants'
 import { yellow } from 'picocolors'
 
-import { Client } from '../client'
+import type { Client } from '../client'
+import type { ApiKeyType} from '@codebuff/common/api-keys/constants';
 
 export type ApiKeyDetectionResult =
   | { status: 'found'; type: ApiKeyType; key: string }

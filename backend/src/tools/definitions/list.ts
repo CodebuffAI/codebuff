@@ -1,8 +1,5 @@
-import type { ToolName } from '@codebuff/common/tools/constants'
-import type { ToolSet } from 'ai'
-import type { ToolDescription } from './tool-def-type'
-
 import { llmToolCallSchema } from '@codebuff/common/tools/list'
+
 import { addMessageTool } from './tool/add-message'
 import { addSubgoalTool } from './tool/add-subgoal'
 import { browserLogsTool } from './tool/browser-logs'
@@ -24,6 +21,10 @@ import { thinkDeeplyTool } from './tool/think-deeply'
 import { updateSubgoalTool } from './tool/update-subgoal'
 import { webSearchTool } from './tool/web-search'
 import { writeFileTool } from './tool/write-file'
+
+import type { ToolDescription } from './tool-def-type'
+import type { ToolName } from '@codebuff/common/tools/constants'
+import type { ToolSet } from 'ai'
 
 const toolDescriptions = {
   add_message: addMessageTool,
@@ -62,5 +63,5 @@ export const codebuffToolDefs = Object.fromEntries(
       ...toolDescriptions[toolName as ToolName],
       ...llmToolCallSchema[toolName as ToolName],
     } satisfies ToolDefinition,
-  ])
+  ]),
 ) as { [K in ToolName]: ToolDefinition<K> } satisfies ToolSet

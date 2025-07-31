@@ -1,4 +1,5 @@
 import { z } from 'zod'
+
 import { GrantTypeValues } from './grant'
 
 export const usageDataSchema = z.object({

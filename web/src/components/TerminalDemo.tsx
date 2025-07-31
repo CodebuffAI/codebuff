@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react'
-import Terminal, { ColorMode, TerminalOutput } from './ui/terminal'
-import { cn } from '../lib/utils'
 import { sleep } from '@codebuff/common/util/promise'
-import { match, P } from 'ts-pattern'
-import posthog from 'posthog-js'
-import { useTheme } from 'next-themes'
 import { useMutation } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
+import { useTheme } from 'next-themes'
+import posthog from 'posthog-js'
+import React, { useState, useEffect, useRef } from 'react'
+import { match, P } from 'ts-pattern'
+
+import Terminal, { ColorMode, TerminalOutput } from './ui/terminal'
+import { cn } from '../lib/utils'
 
 const FIX_BUG_FLAG = true
 

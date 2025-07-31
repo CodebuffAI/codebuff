@@ -1,9 +1,11 @@
-import { CoreMessage } from 'ai';
-import { z } from 'zod';
-import { promptAiSdkStructured } from './vercel-ai-sdk/ai-sdk';
 import { models } from '@codebuff/common/constants';
-import { getCoreMessagesSubset } from '../util/messages';
+import { z } from 'zod';
+
+import { promptAiSdkStructured } from './vercel-ai-sdk/ai-sdk';
 import { logger } from '../util/logger';
+import { getCoreMessagesSubset } from '../util/messages';
+
+import type { CoreMessage } from 'ai';
 
 const loopCheckSchema = z.object({
   is_loop: z.boolean().describe('Whether the assistant is in a non-productive loop.'),

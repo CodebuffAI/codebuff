@@ -1,13 +1,15 @@
-import {
-  clearMockedModules,
-  mockModule,
-} from '../testing/mock-modules'
-import { ProjectFileContext } from '../util/file'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+
 import {
   dynamicAgentService,
   DynamicAgentService,
 } from '../templates/dynamic-agent-service'
+import {
+  clearMockedModules,
+  mockModule,
+} from '../testing/mock-modules'
+
+import type { ProjectFileContext } from '../util/file'
 
 describe('Dynamic Agent Loader', () => {
   const mockFileContext: ProjectFileContext = {

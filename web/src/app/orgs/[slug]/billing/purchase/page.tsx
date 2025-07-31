@@ -1,11 +1,6 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { loadStripe } from '@stripe/stripe-js'
 import {
   ArrowLeft,
   Building2,
@@ -15,12 +10,18 @@ import {
   Users,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { useState, useEffect } from 'react'
+
+import { OrgAutoTopupSettings } from '@/components/auto-topup/OrgAutoTopupSettings'
+import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
-import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
-import { OrgAutoTopupSettings } from '@/components/auto-topup/OrgAutoTopupSettings'
-import { useState, useEffect } from 'react'
-import { loadStripe } from '@stripe/stripe-js'
+
 
 export default function OrganizationBillingPurchasePage() {
   const { data: session, status } = useSession()

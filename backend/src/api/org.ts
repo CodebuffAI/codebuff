@@ -1,13 +1,14 @@
-import {
+import { findOrganizationForRepository } from '@codebuff/billing'
+import { z } from 'zod'
+
+import { logger } from '../util/logger'
+import { getUserIdFromAuthToken } from '../websockets/websocket-action'
+
+import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
   NextFunction,
 } from 'express'
-import { z } from 'zod'
-import { findOrganizationForRepository } from '@codebuff/billing'
-
-import { getUserIdFromAuthToken } from '../websockets/websocket-action'
-import { logger } from '../util/logger'
 
 const isRepoCoveredRequestSchema = z.object({
   owner: z.string(),

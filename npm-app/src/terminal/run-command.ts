@@ -1,10 +1,9 @@
-import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
-import { closeXml } from '@codebuff/common/util/xml'
+import { spawn } from 'child_process'
 import { mkdtempSync, unlinkSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import * as os from 'os'
 import path, { join } from 'path'
-import { green } from 'picocolors'
+
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { buildArray } from '@codebuff/common/util/array'
@@ -13,16 +12,20 @@ import {
   stripColors,
   truncateStringWithMessage,
 } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
+import { green } from 'picocolors'
 
 import {
   getProjectRoot,
   getWorkingDirectory,
   setWorkingDirectory,
 } from '../project-files'
+import { runBackgroundCommand } from './background'
 import { trackEvent } from '../utils/analytics'
 import { detectShell } from '../utils/detect-shell'
 import { logger } from '../utils/logger'
-import { runBackgroundCommand } from './background'
+
+import type { ChildProcessWithoutNullStreams} from 'child_process';
 
 /* ------------------------------------------------------------------ */
 /* constants                                                          */

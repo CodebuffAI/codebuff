@@ -1,7 +1,9 @@
-import { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
+
 import { agentTemplates } from './agent-list'
-import { AgentRegistry } from './agent-registry'
+
+import type { AgentRegistry } from './agent-registry'
+import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
 export function buildSubagentsDescription(
   subagents: AgentTemplateType[],

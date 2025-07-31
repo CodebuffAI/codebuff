@@ -1,26 +1,30 @@
 import {
-  GetRelevantFilesPayload,
-  GetRelevantFilesTrace,
+  promptAiSdk,
+  transformMessages,
+} from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { castAssistantMessage } from '@codebuff/backend/util/messages'
+import {
   getTracesAndRelabelsForUser,
   insertRelabel,
-  Relabel,
   setupBigQuery,
 } from '@codebuff/bigquery'
-import { castAssistantMessage } from '@codebuff/backend/util/messages'
 import {
   finetunedVertexModelNames,
   finetunedVertexModels,
   geminiModels,
   TEST_USER_ID,
 } from '@codebuff/common/constants'
-import { Message } from '@codebuff/common/types/message'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { System } from '../../backend/src/llm-apis/claude'
-import {
-  promptAiSdk,
-  transformMessages,
-} from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+
 import { isValidationSample } from './collect-tuning-data'
+
+import type { System } from '../../backend/src/llm-apis/claude'
+import type {
+  GetRelevantFilesPayload,
+  GetRelevantFilesTrace,
+  Relabel} from '@codebuff/bigquery';
+import type { Message } from '@codebuff/common/types/message'
+
 
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'

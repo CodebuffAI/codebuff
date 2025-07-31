@@ -1,6 +1,8 @@
 import { newQuickJSWASMModuleFromVariant } from 'quickjs-emscripten-core'
-import type { QuickJSContext, QuickJSWASMModule, QuickJSRuntime } from 'quickjs-emscripten-core'
+
 import { logger } from './logger'
+
+import type { QuickJSContext, QuickJSWASMModule, QuickJSRuntime } from 'quickjs-emscripten-core'
 
 // Initialize QuickJS module once
 let QuickJS: QuickJSWASMModule | null = null

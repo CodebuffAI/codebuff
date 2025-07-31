@@ -1,7 +1,8 @@
 'use client'
 
-import { Card, CardContent } from '@/components/ui/card'
 import { FileSearch, Inbox } from 'lucide-react'
+
+import { Card, CardContent } from '@/components/ui/card'
 
 interface EmptyStateProps {
   type: 'search' | 'no-data'

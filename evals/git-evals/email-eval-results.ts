@@ -1,6 +1,7 @@
 import { sendBasicEmail } from '@codebuff/internal/loops'
-import { PostEvalAnalysis } from './post-eval-analysis'
-import { FullEvalLog } from './types'
+
+import type { PostEvalAnalysis } from './post-eval-analysis'
+import type { FullEvalLog } from './types'
 
 /**
  * Formats eval results and analysis into email-friendly content

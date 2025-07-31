@@ -1,13 +1,15 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
 import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/constants'
 import { getReferralLink } from '@codebuff/common/util/referral'
+import { env } from '@codebuff/internal'
+import { useQuery } from '@tanstack/react-query'
 import { CopyIcon, Forward } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { match, P } from 'ts-pattern'
 
-import { ReferralData } from '@/app/api/referrals/route'
+import type { ReferralData } from '@/app/api/referrals/route'
+
 import CardWithBeams from '@/components/card-with-beams'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { Button } from '@/components/ui/button'
@@ -19,12 +21,11 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
 
 
-import { Separator } from '@/components/ui/separator'
-import { env } from '@codebuff/internal'
 
 const copyReferral = (link: string) => {
   navigator.clipboard.writeText(link)

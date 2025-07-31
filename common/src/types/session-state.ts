@@ -1,7 +1,11 @@
 import { z } from 'zod'
 
-import { ProjectFileContext, ProjectFileContextSchema } from '../util/file'
-import { CodebuffMessage, CodebuffMessageSchema } from './message'
+import { CodebuffMessageSchema } from './message'
+import { ProjectFileContextSchema } from '../util/file'
+
+import type { CodebuffMessage} from './message';
+import type { ProjectFileContext} from '../util/file';
+
 
 export const toolCallSchema = z.object({
   toolName: z.string(),

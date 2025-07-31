@@ -1,9 +1,13 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { uniq } from 'lodash'
-import { Parser, Query } from 'web-tree-sitter'
 
-import { LanguageConfig, getLanguageConfig } from './languages'
+import { uniq } from 'lodash'
+
+import { getLanguageConfig } from './languages'
+
+import type { LanguageConfig} from './languages';
+import type { Parser, Query } from 'web-tree-sitter'
+
 
 export const DEBUG_PARSING = false
 const IGNORE_TOKENS = ['__init__', '__post_init__', '__call__', 'constructor']

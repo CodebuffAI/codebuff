@@ -1,9 +1,11 @@
-import { Model, models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { PLACEHOLDER } from './types'
+
+import type { Model} from '@codebuff/common/constants';
 
 export const baseAgentSystemPrompt = (model: Model) => {
   return `# Persona: ${PLACEHOLDER.AGENT_NAME}

@@ -1,13 +1,18 @@
-import {
-  DynamicAgentConfigParsed,
-  DynamicAgentConfigSchema,
-  DynamicAgentTemplate,
-} from '@codebuff/common/types/dynamic-agent-template'
+
 import * as fs from 'fs'
 import * as path from 'path'
+
+import {
+  DynamicAgentConfigSchema
+} from '@codebuff/common/types/dynamic-agent-template'
 import { cyan, green } from 'picocolors'
-import { CodebuffConfig } from '@codebuff/common/json-config/constants'
+
 import { getAllTsFiles, getAgentsDirectory } from './agent-utils'
+
+import type { CodebuffConfig } from '@codebuff/common/json-config/constants'
+import type {
+  DynamicAgentConfigParsed,
+  DynamicAgentTemplate} from '@codebuff/common/types/dynamic-agent-template';
 
 export let loadedAgents: Record<string, DynamicAgentTemplate> = {}
 

@@ -1,4 +1,17 @@
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
+import { generateCompactId } from '@codebuff/common/util/string'
+
+import { handleSpawnAgents } from './spawn-agents'
+import { asyncAgentManager } from '../../../async-agent-manager'
+import { getAllAgentTemplates } from '../../../templates/agent-registry'
+import { logger } from '../../../util/logger'
+
+import type { AgentTemplate } from '../../../templates/types'
+import type { CodebuffToolCall } from '../../constants'
+import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { SendSubagentChunk } from './spawn-agents'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
@@ -6,18 +19,8 @@ import type {
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { CoreMessage } from 'ai'
 import type { WebSocket } from 'ws'
-import type { AgentTemplate } from '../../../templates/types'
-import type { CodebuffToolCall } from '../../constants'
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { SendSubagentChunk } from './spawn-agents'
 
-import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
-import { PrintModeObject } from '@codebuff/common/types/print-mode'
-import { generateCompactId } from '@codebuff/common/util/string'
-import { asyncAgentManager } from '../../../async-agent-manager'
-import { getAllAgentTemplates } from '../../../templates/agent-registry'
-import { logger } from '../../../util/logger'
-import { handleSpawnAgents } from './spawn-agents'
+
 export const handleSpawnAgentsAsync = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'spawn_agents_async'>

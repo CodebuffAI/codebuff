@@ -1,14 +1,18 @@
 'use client'
 
+import { ExternalLink } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ExternalLink } from 'lucide-react'
+import posthog from 'posthog-js'
+
+import { Section } from '../section'
+import { SECTION_THEMES } from './constants'
+
 import { testimonials, type Testimonial } from '@/lib/testimonials'
 import { cn } from '@/lib/utils'
-import { Section } from '../section'
-import posthog from 'posthog-js'
-import { motion } from 'framer-motion'
-import { SECTION_THEMES } from './constants'
+
+
+
 
 const ReviewCard = ({
   t,

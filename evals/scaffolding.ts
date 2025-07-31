@@ -1,37 +1,40 @@
+import { execSync } from 'child_process'
+import { EventEmitter } from 'events'
+import fs from 'fs'
+import path from 'path'
+
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
 import { getAllAgentTemplates } from '@codebuff/backend/templates/agent-registry'
-import { ClientToolCall } from '@codebuff/backend/tools/constants'
+import { getFileTokenScores } from '@codebuff/code-map/parse'
+import { TEST_USER_ID } from '@codebuff/common/constants'
+import { mockModule } from '@codebuff/common/testing/mock-modules'
+import { applyAndRevertChanges } from '@codebuff/common/util/changes'
+import { generateCompactId } from '@codebuff/common/util/string'
+import { handleToolCall } from '@codebuff/npm-app/tool-handlers'
+import { getSystemInfo } from '@codebuff/npm-app/utils/system-info'
+import { mock } from 'bun:test'
+import { blue } from 'picocolors'
+
 import {
+  getAllFilePaths,
+  getProjectFileTree,
+} from '../common/src/project-file-tree'
+
+import type { ClientToolCall } from '@codebuff/backend/tools/constants'
+import type {
   requestFiles as originalRequestFiles,
   requestToolCall as originalRequestToolCall,
 } from '@codebuff/backend/websockets/websocket-action'
-import { getFileTokenScores } from '@codebuff/code-map/parse'
-import { FileChanges } from '@codebuff/common/actions'
-import { TEST_USER_ID } from '@codebuff/common/constants'
-import { mockModule } from '@codebuff/common/testing/mock-modules'
-import { PrintModeObject } from '@codebuff/common/types/print-mode'
-import {
+import type { FileChanges } from '@codebuff/common/actions'
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type {
   AgentState,
   AgentTemplateType,
   SessionState,
   ToolResult,
 } from '@codebuff/common/types/session-state'
-import { applyAndRevertChanges } from '@codebuff/common/util/changes'
-import { ProjectFileContext } from '@codebuff/common/util/file'
-import { generateCompactId } from '@codebuff/common/util/string'
-import { handleToolCall } from '@codebuff/npm-app/tool-handlers'
-import { getSystemInfo } from '@codebuff/npm-app/utils/system-info'
-import { mock } from 'bun:test'
-import { execSync } from 'child_process'
-import { EventEmitter } from 'events'
-import fs from 'fs'
-import path from 'path'
-import { blue } from 'picocolors'
-import { WebSocket } from 'ws'
-import {
-  getAllFilePaths,
-  getProjectFileTree,
-} from '../common/src/project-file-tree'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { WebSocket } from 'ws'
 
 const DEBUG_MODE = true
 
@@ -66,7 +69,7 @@ export function createFileReadingMock(projectRoot: string) {
       userInputId: string,
       toolName: string,
       args: Record<string, any>,
-      timeout: number = 30_000
+      timeout: number = 30_000,
     ): ReturnType<typeof originalRequestToolCall<string>> => {
       // Execute the tool call using existing tool handlers
       const toolCall = {
@@ -107,12 +110,12 @@ export function createFileReadingMock(projectRoot: string) {
 }
 
 export async function getProjectFileContext(
-  projectPath: string
+  projectPath: string,
 ): Promise<ProjectFileContext> {
   const fileTree = getProjectFileTree(projectPath)
   const allFilePaths = getAllFilePaths(fileTree)
   const knowledgeFilePaths = allFilePaths.filter((filePath) =>
-    filePath.endsWith('knowledge.md')
+    filePath.endsWith('knowledge.md'),
   )
   const knowledgeFiles: Record<string, string> = {}
   for (const filePath of knowledgeFilePaths) {
@@ -148,7 +151,7 @@ export async function runAgentStepScaffolding(
   fileContext: ProjectFileContext,
   prompt: string | undefined,
   sessionId: string,
-  agentType: AgentTemplateType
+  agentType: AgentTemplateType,
 ) {
   const mockWs = new EventEmitter() as WebSocket
   mockWs.send = mock()
@@ -235,7 +238,7 @@ export async function loopMainPrompt({
       sessionState.fileContext,
       iterations === 1 ? prompt : undefined,
       sessionId,
-      agentType
+      agentType,
     )
     currentAgentState = newAgentState
 
@@ -261,7 +264,7 @@ export async function loopMainPrompt({
   console.log(
     '  - took',
     ((Date.now() - startTime) / 1000).toFixed(2),
-    'seconds'
+    'seconds',
   )
 
   return {
@@ -297,7 +300,7 @@ export const applyAndRevertChangesSequentially = (() => {
   return async (
     projectRoot: string,
     changes: FileChanges,
-    onApply: () => Promise<void>
+    onApply: () => Promise<void>,
   ) => {
     return new Promise<void>((resolve, reject) => {
       queue.push(async () => {
@@ -320,7 +323,7 @@ export function resetRepoToCommit(projectPath: string, commit: string) {
       `cd ${projectPath} && git reset --hard ${commit} && git clean -fd`,
       {
         timeout: 30_000,
-      }
+      },
     )
     console.log('Repository reset successful')
   } catch (error) {

@@ -1,5 +1,5 @@
 import assert from 'assert'
-import { createWriteStream, mkdirSync, WriteStream } from 'fs'
+import { createWriteStream, mkdirSync } from 'fs'
 import * as os from 'os'
 import path, { dirname } from 'path'
 
@@ -9,9 +9,12 @@ import { green } from 'picocolors'
 
 import {
   backgroundProcesses,
-  BackgroundProcessInfo,
   spawnAndTrack,
 } from '../background-process-manager'
+
+import type {
+  BackgroundProcessInfo} from '../background-process-manager';
+import type { WriteStream } from 'fs';
 
 export function runBackgroundCommand(
   options: {

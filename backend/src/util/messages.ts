@@ -1,18 +1,22 @@
-import { CodebuffMessage, Message } from '@codebuff/common/types/message'
+import { AssertionError } from 'assert'
+
+
+import { buildArray } from '@codebuff/common/util/array'
 import {
   withCacheControl,
   withCacheControlCore,
 } from '@codebuff/common/util/messages'
-
-import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
-import { CoreMessage } from 'ai'
-import { AssertionError } from 'assert'
-import { System } from '../llm-apis/claude'
-import { OpenAIMessage } from '../llm-apis/openai-api'
+
+
 import { logger } from './logger'
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
+
+import type { System } from '../llm-apis/claude'
+import type { OpenAIMessage } from '../llm-apis/openai-api'
+import type { CodebuffMessage, Message } from '@codebuff/common/types/message'
+import type { CoreMessage } from 'ai'
 
 /**
  * Wraps an array of messages with a system prompt for LLM API calls

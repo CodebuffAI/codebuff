@@ -1,14 +1,16 @@
 import { insertTrace } from '@codebuff/bigquery'
 import { buildArray } from '@codebuff/common/util/array'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 
-import { logger } from '../util/logger'
-import { countTokens, countTokensJson } from '../util/token-counter'
+
 import {
   getGitChangesPrompt,
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from './prompts'
+import { logger } from '../util/logger'
+import { countTokens, countTokensJson } from '../util/token-counter'
+
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 export function getSearchSystemPrompt(
   fileContext: ProjectFileContext,

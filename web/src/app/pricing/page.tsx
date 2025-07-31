@@ -1,17 +1,15 @@
 'use client'
 
+import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/constants'
+import { Gift, Shield } from 'lucide-react'
 import { useSession } from 'next-auth/react'
+
 import { BlockColor } from '@/components/ui/decorative-blocks'
 import { SECTION_THEMES } from '@/components/ui/landing/constants'
 import { FeatureSection } from '@/components/ui/landing/feature'
-import { CheckCircle, Gift, Shield, XCircle } from 'lucide-react'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/constants'
+
+
+
 
 function CreditVisual() {
   return (

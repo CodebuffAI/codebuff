@@ -1,8 +1,5 @@
 'use client'
 
-import { useMemo, useState, useRef, useEffect } from 'react'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
   Cpu,
   GitBranch,
@@ -12,7 +9,12 @@ import {
   ArrowRight,
   ChevronLeft,
 } from 'lucide-react'
+import { useMemo, useState, useRef, useEffect } from 'react'
+
 import type { TimelineEvent } from '@/app/api/admin/traces/[clientRequestId]/timeline/route'
+
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 
 interface TimelineChartProps {
   events: TimelineEvent[]

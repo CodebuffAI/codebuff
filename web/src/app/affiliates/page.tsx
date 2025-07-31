@@ -1,7 +1,23 @@
 'use client'
 
-import React from 'react'
+import {
+  CREDITS_REFERRAL_BONUS,
+  AFFILIATE_USER_REFFERAL_LIMIT,
+} from '@codebuff/common/constants'
+import { env } from '@codebuff/internal'
+import Link from 'next/link'
 import { useSession } from 'next-auth/react'
+import React, { useEffect, useState, useCallback } from 'react'
+import { useFormState, useFormStatus } from 'react-dom'
+
+
+import { setAffiliateHandleAction } from './actions'
+
+import type { SetHandleFormState } from './actions';
+
+import CardWithBeams from '@/components/card-with-beams'
+import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -9,22 +25,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import CardWithBeams from '@/components/card-with-beams'
-import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
-import { env } from '@codebuff/internal'
-import Link from 'next/link'
-import { useEffect, useState, useCallback } from 'react'
-import { useFormState, useFormStatus } from 'react-dom'
-import { setAffiliateHandleAction, SetHandleFormState } from './actions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/use-toast'
-import {
-  CREDITS_REFERRAL_BONUS,
-  AFFILIATE_USER_REFFERAL_LIMIT,
-} from '@codebuff/common/constants'
+
 
 function SubmitButton() {
   const { pending } = useFormStatus()

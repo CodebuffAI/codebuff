@@ -1,25 +1,29 @@
-import type { CodebuffToolCall } from '../../constants'
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
 import {
-  GetExpandedFileContextForTrainingBlobTrace,
   insertTrace,
 } from '@codebuff/bigquery'
-import { CodebuffMessage } from '@codebuff/common/types/message'
-import { ProjectFileContext } from '@codebuff/common/util/file'
-import { CoreMessage } from 'ai'
-import { WebSocket } from 'ws'
+
+
 import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
 } from '../../../find-files/request-files-prompt'
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
-import { TextBlock } from '../../../llm-apis/claude'
 import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prompt'
 import { logger } from '../../../util/logger'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from '../../../util/token-counter'
 import { requestFiles } from '../../../websockets/websocket-action'
+
+import type { TextBlock } from '../../../llm-apis/claude'
+import type { CodebuffToolCall } from '../../constants'
+import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type {
+  GetExpandedFileContextForTrainingBlobTrace} from '@codebuff/bigquery';
+import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { CoreMessage } from 'ai'
+import type { WebSocket } from 'ws'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.

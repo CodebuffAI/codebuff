@@ -1,5 +1,3 @@
-import type { ToolName } from '@codebuff/common/tools/constants'
-import type { CodebuffToolHandlerFunction } from './handler-function-type'
 
 import { handleAddMessage } from './tool/add-message'
 import { handleAddSubgoal } from './tool/add-subgoal'
@@ -22,6 +20,9 @@ import { handleThinkDeeply } from './tool/think-deeply'
 import { handleUpdateSubgoal } from './tool/update-subgoal'
 import { handleWebSearch } from './tool/web-search'
 import { handleWriteFile } from './tool/write-file'
+
+import type { CodebuffToolHandlerFunction } from './handler-function-type'
+import type { ToolName } from '@codebuff/common/tools/constants'
 
 /**
  * Each value in this record that:

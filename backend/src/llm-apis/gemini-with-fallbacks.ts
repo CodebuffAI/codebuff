@@ -1,14 +1,17 @@
 import {
-  CostMode,
-  FinetunedVertexModel,
-  GeminiModel,
   openaiModels,
   openrouterModels,
 } from '@codebuff/common/constants'
 
-import { CoreMessage } from 'ai'
+
 import { logger } from '../util/logger'
 import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
+
+import type {
+  CostMode,
+  FinetunedVertexModel,
+  GeminiModel} from '@codebuff/common/constants';
+import type { CoreMessage } from 'ai'
 
 /**
  * Prompts a Gemini model with fallback logic.

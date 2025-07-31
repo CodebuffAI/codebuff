@@ -3,7 +3,8 @@ import { countTokens } from '@codebuff/backend/util/token-counter'
 import { geminiModels } from '@codebuff/common/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { z } from 'zod'
-import { FullEvalLog } from './types'
+
+import type { FullEvalLog } from './types'
 
 const MAX_TOKENS = 1_000_000 // 1 million token limit
 

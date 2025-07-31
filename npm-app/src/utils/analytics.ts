@@ -1,8 +1,8 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { PostHog } from 'posthog-node'
 
-import { logger } from './logger'
 import { suppressConsoleOutput } from './suppress-console'
+
+import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 // Prints the events to console
 // It's very noisy, so recommended you set this to true

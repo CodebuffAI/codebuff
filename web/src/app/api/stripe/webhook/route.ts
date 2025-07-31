@@ -1,10 +1,3 @@
-import { eq } from 'drizzle-orm'
-import { NextRequest, NextResponse } from 'next/server'
-import Stripe from 'stripe'
-
-import { env } from '@codebuff/internal'
-import { getStripeCustomerId } from '@/lib/stripe-utils'
-import { logger } from '@/util/logger'
 import {
   grantOrganizationCredits,
   processAndGrantCredit,
@@ -13,6 +6,16 @@ import {
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { stripeServer } from '@codebuff/common/util/stripe'
+import { env } from '@codebuff/internal'
+import { eq } from 'drizzle-orm'
+import { NextResponse } from 'next/server'
+
+import type { NextRequest} from 'next/server';
+import type Stripe from 'stripe'
+
+import { getStripeCustomerId } from '@/lib/stripe-utils'
+import { logger } from '@/util/logger'
+
 
 async function handleCustomerCreated(customer: Stripe.Customer) {
   logger.info({ customerId: customer.id }, 'New customer created')

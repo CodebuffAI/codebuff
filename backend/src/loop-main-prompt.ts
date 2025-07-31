@@ -1,8 +1,12 @@
-import { ClientAction } from '@codebuff/common/actions'
-import { SessionState, ToolResult } from '@codebuff/common/types/session-state'
-import { WebSocket } from 'ws'
-import { mainPrompt, MainPromptOptions } from './main-prompt'
-import { ClientToolCall } from './tools/constants'
+import { mainPrompt } from './main-prompt'
+
+import type { MainPromptOptions } from './main-prompt';
+import type { ClientToolCall } from './tools/constants'
+import type { ClientAction } from '@codebuff/common/actions'
+import type { SessionState, ToolResult } from '@codebuff/common/types/session-state'
+import type { WebSocket } from 'ws'
+
+
 
 const DEFAULT_MAX_ITERATIONS = 20
 

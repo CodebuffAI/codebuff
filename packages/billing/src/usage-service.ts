@@ -1,17 +1,21 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { logger } from '@codebuff/common/util/logger'
+import { eq, and, desc, gte, sql } from 'drizzle-orm'
+
+import { checkAndTriggerAutoTopup } from './auto-topup'
 import { 
-  calculateUsageAndBalance, 
-  CreditBalance 
+  calculateUsageAndBalance 
 } from './balance-calculator'
 import { triggerMonthlyResetAndGrant } from './grant-credits'
-import { checkAndTriggerAutoTopup } from './auto-topup'
 import { 
   calculateOrganizationUsageAndBalance, 
   syncOrganizationBillingCycle 
 } from './org-billing'
+
+import type { 
+  CreditBalance 
+} from './balance-calculator';
 
 export interface UserUsageData {
   usageThisCycle: number

@@ -8,23 +8,23 @@ import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import { Message } from '@codebuff/common/types/message'
 import { withRetry } from '@codebuff/common/util/promise'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
-import { CoreMessage } from 'ai'
 import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { WebSocket } from 'ws'
 
 import { getRequestContext } from '../context/app-context'
-import { stripNullCharsFromObject } from '../util/object'
-
 import { logger, withLoggerContext } from '../util/logger'
+import { stripNullCharsFromObject } from '../util/object'
 import { SWITCHBOARD } from '../websockets/server'
-import { ClientState } from '../websockets/switchboard'
 import { sendAction } from '../websockets/websocket-action'
-import { OpenAIMessage } from './openai-api'
+
+import type { OpenAIMessage } from './openai-api'
+import type { ClientState } from '../websockets/switchboard'
+import type { Message } from '@codebuff/common/types/message'
+import type { CoreMessage } from 'ai'
 
 export const PROFIT_MARGIN = 0.3
 

@@ -1,13 +1,15 @@
 'use server'
 
-import { redirect } from 'next/navigation'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq } from 'drizzle-orm'
-import CardWithBeams from '@/components/card-with-beams'
 import { env } from '@codebuff/internal'
+import { eq } from 'drizzle-orm'
 import Link from 'next/link'
-import { Metadata } from 'next'
+import { redirect } from 'next/navigation'
+
+import type { Metadata } from 'next'
+
+import CardWithBeams from '@/components/card-with-beams'
 
 export const generateMetadata = async ({
   params,

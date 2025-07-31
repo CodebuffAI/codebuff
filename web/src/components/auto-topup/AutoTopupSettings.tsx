@@ -1,7 +1,8 @@
-import { useAutoTopup } from '@/hooks/use-auto-topup'
-import { AutoTopupSwitch } from './AutoTopupSwitch'
 import { AutoTopupSettingsForm } from './AutoTopupSettingsForm'
+import { AutoTopupSwitch } from './AutoTopupSwitch'
 import { BaseAutoTopupSettings } from './BaseAutoTopupSettings'
+
+import { useAutoTopup } from '@/hooks/use-auto-topup'
 
 export function AutoTopupSettings() {
   const {

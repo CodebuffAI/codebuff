@@ -1,9 +1,9 @@
 /**
  * This is a modified version of the Saxy library that emits text nodes immediately
  */
+import { Transform } from 'node:stream'
 import { StringDecoder } from 'string_decoder'
 
-import { Transform } from 'node:stream'
 
 import { includesMatch, isWhitespace } from './string'
 

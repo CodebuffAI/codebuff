@@ -1,13 +1,17 @@
 import React, {
   useState,
   useEffect,
-  useRef,
-  KeyboardEvent,
-  ChangeEvent,
-  ReactNode,
+  useRef
 } from 'react'
+
 import TerminalInput from './terminal-input'
 import TerminalOutput from './terminal-output'
+
+import type {
+  KeyboardEvent,
+  ChangeEvent,
+  ReactNode} from 'react';
+
 import './style.css'
 import { cn } from '@/lib/utils'
 

@@ -1,13 +1,16 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+
+import { DynamicAgentService } from '../templates/dynamic-agent-service'
 import {
   clearMockedModules,
   mockModule,
 } from '../testing/mock-modules'
 import {
-  getStubProjectFileContext,
-  ProjectFileContext,
+  getStubProjectFileContext
 } from '../util/file'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
-import { DynamicAgentService } from '../templates/dynamic-agent-service'
+
+import type {
+  ProjectFileContext} from '../util/file';
 
 describe('Dynamic Agent Schema Validation', () => {
   let service: DynamicAgentService

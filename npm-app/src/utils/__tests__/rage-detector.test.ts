@@ -14,6 +14,7 @@ import {
   spyOn,
   test,
 } from 'bun:test'
+
 import {
   createCountDetector,
   createTimeBetweenDetector,

@@ -1,18 +1,20 @@
 'use server'
 
-import { toast } from '@/components/ui/use-toast'
-import { getServerSession } from 'next-auth'
-import Image from 'next/image'
-import { redirect } from 'next/navigation'
+import { MAX_DATE } from '@codebuff/common/constants'
 import { db } from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { and, eq, gt } from 'drizzle-orm'
-import { MAX_DATE } from '@codebuff/common/constants'
-import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { genAuthCode } from '@codebuff/common/util/credentials'
 import { env } from '@codebuff/internal'
-import CardWithBeams from '@/components/card-with-beams'
+import { and, eq, gt } from 'drizzle-orm'
+import Image from 'next/image'
+import { redirect } from 'next/navigation'
+import { getServerSession } from 'next-auth'
+
+import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { redeemReferralCode } from '../api/referrals/helpers'
+
+import CardWithBeams from '@/components/card-with-beams'
+import { toast } from '@/components/ui/use-toast'
 
 interface PageProps {
   searchParams?: {

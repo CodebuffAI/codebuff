@@ -1,7 +1,8 @@
-import path from 'path'
 import { mkdirSync } from 'fs'
-import { spawnSync } from 'bun'
+import path from 'path'
+
 import { rgPath as vscodeRgPath } from '@vscode/ripgrep'
+import { spawnSync } from 'bun'
 
 import { CONFIG_DIR } from '../credentials'
 import { logger } from '../utils/logger'

@@ -5,7 +5,10 @@ import {
 } from '@codebuff/common/tools/constants'
 import { getPartialJsonDelta } from '@codebuff/common/util/partial-json-delta'
 import { Saxy } from '@codebuff/common/util/saxy'
-import { defaultToolCallRenderer, ToolCallRenderer } from './tool-renderers'
+
+import { defaultToolCallRenderer } from './tool-renderers'
+
+import type { ToolCallRenderer } from './tool-renderers';
 
 /**
  * Creates a transform stream that processes XML tool calls

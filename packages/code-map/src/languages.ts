@@ -1,32 +1,32 @@
 import * as path from 'path'
-import { Language, Parser, Query } from 'web-tree-sitter'
-import { DEBUG_PARSING } from './parse'
+
 
 /* ------------------------------------------------------------------ */
 /* 1 .  WASM files
 /* ------------------------------------------------------------------ */
 // Import WASM files from @vscode/tree-sitter-wasm
-import cppWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-cpp.wasm' with { type: 'file' }
 import csharpWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-c-sharp.wasm' with { type: 'file' }
+import cppWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-cpp.wasm' with { type: 'file' }
 import goWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-go.wasm' with { type: 'file' }
 import javaWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-java.wasm' with { type: 'file' }
 import javascriptWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-javascript.wasm' with { type: 'file' }
 import pythonWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-python.wasm' with { type: 'file' }
 import rubyWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-ruby.wasm' with { type: 'file' }
 import rustWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-rust.wasm' with { type: 'file' }
-import typescriptWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-typescript.wasm' with { type: 'file' }
 import tsxWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-tsx.wasm' with { type: 'file' }
+import typescriptWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-typescript.wasm' with { type: 'file' }
+import { Language, Parser, Query } from 'web-tree-sitter'
+
+import { DEBUG_PARSING } from './parse'
 
 /* ------------------------------------------------------------------ */
 /* 2 .  Queries
 /* ------------------------------------------------------------------ */
-import cQuery from './tree-sitter-queries/tree-sitter-c-tags.scm'
-import cppQuery from './tree-sitter-queries/tree-sitter-cpp-tags.scm'
 import csharpQuery from './tree-sitter-queries/tree-sitter-c_sharp-tags.scm'
+import cppQuery from './tree-sitter-queries/tree-sitter-cpp-tags.scm'
 import goQuery from './tree-sitter-queries/tree-sitter-go-tags.scm'
 import javaQuery from './tree-sitter-queries/tree-sitter-java-tags.scm'
 import javascriptQuery from './tree-sitter-queries/tree-sitter-javascript-tags.scm'
-import phpQuery from './tree-sitter-queries/tree-sitter-php-tags.scm'
 import pythonQuery from './tree-sitter-queries/tree-sitter-python-tags.scm'
 import rubyQuery from './tree-sitter-queries/tree-sitter-ruby-tags.scm'
 import rustQuery from './tree-sitter-queries/tree-sitter-rust-tags.scm'

@@ -1,11 +1,16 @@
-import {
-  DynamicAgentConfigSchema,
-  DynamicAgentTemplate,
-} from '../types/dynamic-agent-template'
-import { AgentState } from '../types/session-state'
-import { ProjectFileContext } from '../util/file'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+
 import { dynamicAgentService } from '../templates/dynamic-agent-service'
+import {
+  DynamicAgentConfigSchema
+} from '../types/dynamic-agent-template'
+
+import type {
+  DynamicAgentTemplate} from '../types/dynamic-agent-template';
+import type { AgentState } from '../types/session-state'
+import type { ProjectFileContext } from '../util/file'
+
+
 
 describe('handleSteps Parsing Tests', () => {
   let mockFileContext: ProjectFileContext

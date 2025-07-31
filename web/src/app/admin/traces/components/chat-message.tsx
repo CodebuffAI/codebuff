@@ -1,15 +1,18 @@
 'use client'
 
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { User, Bot, Clock, Coins, Hash, Wrench } from 'lucide-react'
-import type { TraceMessage } from '@/app/api/admin/traces/[clientRequestId]/messages/route'
+
 import {
   extractActualUserMessage,
   extractActualAssistantResponse,
   parseToolCallsFromContent,
 } from '../utils/trace-processing'
+
+import type { TraceMessage } from '@/app/api/admin/traces/[clientRequestId]/messages/route'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 
 interface ChatMessageProps {
   message: TraceMessage

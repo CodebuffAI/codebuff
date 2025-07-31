@@ -1,14 +1,3 @@
-import type {
-  LanguageModelV1,
-  LanguageModelV1FinishReason,
-  LanguageModelV1LogProbs,
-  LanguageModelV1StreamPart,
-} from '@ai-sdk/provider'
-import type { ParseResult } from '@ai-sdk/provider-utils'
-import type {
-  OpenRouterCompletionModelId,
-  OpenRouterCompletionSettings,
-} from './openrouter-completion-settings'
 
 import { UnsupportedFunctionalityError } from '@ai-sdk/provider'
 import {
@@ -18,7 +7,7 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils'
 import { z } from 'zod'
-import { ReasoningDetailArraySchema } from './schemas/reasoning-details'
+
 
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt'
 import { mapOpenRouterCompletionLogProbs } from './map-openrouter-completion-logprobs'
@@ -27,6 +16,19 @@ import {
   OpenRouterErrorResponseSchema,
   openrouterFailedResponseHandler,
 } from './openrouter-error'
+import { ReasoningDetailArraySchema } from './schemas/reasoning-details'
+
+import type {
+  OpenRouterCompletionModelId,
+  OpenRouterCompletionSettings,
+} from './openrouter-completion-settings'
+import type {
+  LanguageModelV1,
+  LanguageModelV1FinishReason,
+  LanguageModelV1LogProbs,
+  LanguageModelV1StreamPart,
+} from '@ai-sdk/provider'
+import type { ParseResult } from '@ai-sdk/provider-utils'
 
 type OpenRouterCompletionConfig = {
   provider: string

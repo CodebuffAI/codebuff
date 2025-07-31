@@ -1,4 +1,4 @@
-import { CodebuffConfig } from './constants'
+import type { CodebuffConfig } from './constants'
 
 export function getDefaultConfig(): CodebuffConfig {
   return {

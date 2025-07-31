@@ -1,3 +1,8 @@
+import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
+
+import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
+import { OpenRouterCompletionLanguageModel } from './openrouter-completion-language-model';
+
 import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
@@ -8,10 +13,7 @@ import type {
   OpenRouterChatSettings,
 } from './types/openrouter-chat-settings';
 
-import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 
-import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
-import { OpenRouterCompletionLanguageModel } from './openrouter-completion-language-model';
 
 /**
 @deprecated Use `createOpenRouter` instead.

@@ -1,6 +1,7 @@
+import { getToolCallString } from '@codebuff/common/tools/utils'
+
 import type { ToolDescription } from '../tool-def-type'
 
-import { getToolCallString } from '@codebuff/common/tools/utils'
 
 const toolName = 'web_search'
 export const webSearchTool = {

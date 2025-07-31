@@ -1,9 +1,6 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
-import { TextBlock } from '../llm-apis/claude'
 import {
-  GetExpandedFileContextForTrainingTrace,
-  GetRelevantFilesTrace,
   insertTrace,
 } from '@codebuff/bigquery'
 import {
@@ -11,32 +8,36 @@ import {
   models,
   type FinetunedVertexModel,
 } from '@codebuff/common/constants'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
-import {
-  ProjectFileContext,
-} from '@codebuff/common/util/file'
+import { and, eq } from 'drizzle-orm'
 import { range, shuffle, uniq } from 'lodash'
 
-import { logger } from '../util/logger'
 import { checkNewFilesNecessary } from './check-new-files-necessary'
-
-import { CoreMessage } from 'ai'
+import {
+  CustomFilePickerConfigSchema,
+} from './custom-file-picker-config'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
+import { logger } from '../util/logger'
 import {
   castAssistantMessage,
   coreMessagesWithSystem,
   getCoreMessagesSubset,
 } from '../util/messages'
-
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
-import { and, eq } from 'drizzle-orm'
 import { getRequestContext } from '../websockets/request-context'
-import {
-  CustomFilePickerConfig,
-  CustomFilePickerConfigSchema,
-} from './custom-file-picker-config'
+
+import type {
+  CustomFilePickerConfig} from './custom-file-picker-config';
+import type { TextBlock } from '../llm-apis/claude'
+import type {
+  GetExpandedFileContextForTrainingTrace,
+  GetRelevantFilesTrace} from '@codebuff/bigquery';
+import type {
+  ProjectFileContext,
+} from '@codebuff/common/util/file'
+import type { CoreMessage } from 'ai'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30

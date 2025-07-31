@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Section } from '../../section'
-import { CompetitionTabs, type CompetitorType, competitors } from './tabs'
-import { useIsMobile } from '@/hooks/use-mobile'
-import { SECTION_THEMES } from '../constants'
 import posthog from 'posthog-js'
+import { useState, useEffect, useRef } from 'react'
+
+import { CompetitionTabs, type CompetitorType, competitors } from './tabs'
+import { Section } from '../../section'
+import { SECTION_THEMES } from '../constants'
+
+import { useIsMobile } from '@/hooks/use-mobile'
 
 export function CompetitionSection() {
   const [progress, setProgress] = useState(0)

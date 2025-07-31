@@ -1,10 +1,13 @@
-import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import * as fs from 'fs'
+
 import { cyan, green, red, yellow } from 'picocolors'
+
 import { getAgentsDirectory } from '../agents/agent-utils'
 import { loadLocalAgents } from '../agents/load-agents'
 import { websiteUrl } from '../config'
 import { getUserCredentials } from '../credentials'
+
+import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 
 interface PublishResponse {
   success: boolean

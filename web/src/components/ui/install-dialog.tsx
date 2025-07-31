@@ -1,13 +1,15 @@
 'use client'
 
-import { useInstallDialog } from '@/hooks/use-install-dialog'
-import { cn } from '@/lib/utils'
 import { ExternalLink } from 'lucide-react'
 import Image from 'next/image'
 import posthog from 'posthog-js'
 import { useRef } from 'react'
+
 import { Dialog, DialogContent } from './dialog'
 import { EnhancedCopyButton } from './enhanced-copy-button'
+
+import { useInstallDialog } from '@/hooks/use-install-dialog'
+import { cn } from '@/lib/utils'
 
 export function InstallDialog() {
   const { isOpen, close } = useInstallDialog()

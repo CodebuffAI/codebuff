@@ -1,11 +1,12 @@
-import { notFound } from 'next/navigation'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { User, Mail, Calendar, CheckCircle } from 'lucide-react'
 import Image from 'next/image'
+import { notFound } from 'next/navigation'
+
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface PublisherPageProps {
   params: {

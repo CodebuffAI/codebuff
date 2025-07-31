@@ -1,12 +1,3 @@
-import {
-  ClientAction,
-  InitResponseSchema,
-  MessageCostResponseSchema,
-  PromptResponseSchema,
-  ServerAction,
-  UsageReponseSchema,
-  UsageResponse,
-} from '@codebuff/common/actions'
 import { spawn } from 'child_process'
 import {
   existsSync,
@@ -16,35 +7,36 @@ import {
   writeFileSync,
 } from 'fs'
 import os from 'os'
+import path from 'path'
 
-import { ApiKeyType, READABLE_NAME } from '@codebuff/common/api-keys/constants'
+import {
+  InitResponseSchema,
+  MessageCostResponseSchema,
+  PromptResponseSchema,
+  UsageReponseSchema,
+} from '@codebuff/common/actions'
+import { READABLE_NAME } from '@codebuff/common/api-keys/constants'
 import {
   ASKED_CONFIG,
-  CostMode,
   CREDITS_REFERRAL_BONUS,
   ONE_TIME_LABELS,
   ONE_TIME_TAGS,
   REQUEST_CREDIT_SHOW_THRESHOLD,
   SHOULD_ASK_CONFIG,
   UserState,
+  ASYNC_AGENTS_ENABLED,
 } from '@codebuff/common/constants'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   getAllAgents,
   resolveNameToId,
 } from '@codebuff/common/util/agent-name-resolver'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
-import {
-  getInitialSessionState,
-  SessionState,
-  ToolResult,
-} from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
-import { User } from '@codebuff/common/util/credentials'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 import { generateCompactId, pluralize } from '@codebuff/common/util/string'
+import { closeXml } from '@codebuff/common/util/xml'
 import { APIRealtimeClient } from '@codebuff/common/websockets/websocket-client'
-import path from 'path'
 import {
   blue,
   blueBright,
@@ -58,16 +50,17 @@ import {
 import { match, P } from 'ts-pattern'
 import { z } from 'zod'
 
-import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
-import { closeXml } from '@codebuff/common/util/xml'
+import { getLoadedAgentNames } from './agents/load-agents'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CLI } from './cli'
+import { refreshSubagentDisplay } from './cli-handlers/subagent'
 import { backendUrl, npmAppVersion, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { DiffManager } from './diff-manager'
+import { printModeLog } from './display/print-mode'
 import { calculateFingerprint } from './fingerprint'
 import { loadCodebuffConfig } from './json-config/parser'
 import { displayGreeting } from './menu'
@@ -80,26 +73,36 @@ import {
   startNewChat,
 } from './project-files'
 import { logAndHandleStartup } from './startup-process-handler'
-import { handleToolCall } from './tool-handlers'
-import { GitCommand, MakeNullable } from './types'
-import { identifyUser, trackEvent } from './utils/analytics'
-import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
-
-import { getLoadedAgentNames } from './agents/load-agents'
-import { refreshSubagentDisplay } from './cli-handlers/subagent'
-import { printModeLog } from './display/print-mode'
 import {
   clearSubagentStorage,
   getAllSubagentIds,
   markSubagentInactive,
   storeSubagentChunk,
 } from './subagent-storage'
+import { handleToolCall } from './tool-handlers'
+import { identifyUser, trackEvent } from './utils/analytics'
+import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { toolRenderers } from './utils/tool-renderers'
 import { createXMLStreamParser } from './utils/xml-stream-parser'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
-import { PrintModeObject } from '@codebuff/common/types/print-mode'
+
+import type { GitCommand, MakeNullable } from './types'
+import type {
+  ClientAction,
+  ServerAction,
+  UsageResponse,
+} from '@codebuff/common/actions'
+import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
+import type { CostMode } from '@codebuff/common/constants'
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type {
+  SessionState,
+  ToolResult,
+} from '@codebuff/common/types/session-state'
+import type { User } from '@codebuff/common/util/credentials'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 const LOW_BALANCE_THRESHOLD = 100
 

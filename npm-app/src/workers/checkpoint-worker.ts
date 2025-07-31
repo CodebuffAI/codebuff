@@ -1,4 +1,5 @@
 import { parentPort as maybeParentPort } from 'worker_threads'
+
 import { restoreFileState, storeFileState } from '../checkpoints/file-manager'
 import { setProjectRoot } from '../project-files'
 

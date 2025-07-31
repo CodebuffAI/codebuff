@@ -1,6 +1,7 @@
+import z from 'zod/v4'
+
 import type { ToolParams } from '../../constants'
 
-import z from 'zod/v4'
 
 const toolName = 'add_subgoal'
 const endsAgentStep = false

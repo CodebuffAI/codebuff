@@ -1,12 +1,13 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
-import { ToolName } from '@codebuff/common/tools/constants'
 import { capitalize, snakeToTitleCase } from '@codebuff/common/util/string'
 import { bold, gray, strikethrough } from 'picocolors'
 
 import { Client } from '../client'
 import { getProjectRoot } from '../project-files'
 import { Spinner } from './spinner'
+
+import type { ToolName } from '@codebuff/common/tools/constants'
 
 /**
  * Interface for handling tool call rendering

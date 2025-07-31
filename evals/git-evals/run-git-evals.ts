@@ -1,6 +1,5 @@
 import { execSync, fork } from 'child_process'
 import fs from 'fs'
-import pLimit from 'p-limit'
 import path from 'path'
 
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
@@ -10,6 +9,8 @@ import { getDefaultConfig } from '@codebuff/common/json-config/default'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
+import pLimit from 'p-limit'
+
 import {
   createFileReadingMock,
   loopMainPrompt,
@@ -19,16 +20,18 @@ import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import {
+  AgentDecisionSchema
+} from './types'
+
+import type {
   AgentDecision,
-  AgentDecisionSchema,
   CodebuffTrace,
   CommitFileState,
   EvalCommit,
   EvalRunJudged,
   EvalRunLog,
   FullEvalLog,
-  GitRepoEvalData,
-} from './types'
+  GitRepoEvalData} from './types';
 
 disableLiveUserInputCheck()
 

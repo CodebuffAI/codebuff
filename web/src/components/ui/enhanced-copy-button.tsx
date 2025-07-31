@@ -1,11 +1,13 @@
 'use client'
 
-import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { Check, Copy, Terminal } from 'lucide-react'
 import posthog from 'posthog-js'
 import { forwardRef, useState } from 'react'
+
 import { BlockColor } from './decorative-blocks'
+
+import { cn } from '@/lib/utils'
 
 interface EnhancedCopyButtonProps {
   value: string

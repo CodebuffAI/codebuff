@@ -1,13 +1,14 @@
 'use client'
 
 import { sleep } from '@codebuff/common/util/promise'
-import { OAuthProviderType } from 'next-auth/providers/oauth-types'
-import { signIn } from 'next-auth/react'
 import { usePathname, useSearchParams } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { useTransition } from 'react'
 
 import { toast } from '../ui/use-toast'
+
+import type { OAuthProviderType } from 'next-auth/providers/oauth-types'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'

@@ -1,4 +1,4 @@
-import { UserProfile } from '@/types/user'
+import type { UserProfile } from '@/types/user'
 
 export interface AutoTopupState {
   isEnabled: boolean

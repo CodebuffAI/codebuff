@@ -1,6 +1,8 @@
 import { BaseAutoTopupSettingsForm } from './BaseAutoTopupSettingsForm'
 import { AUTO_TOPUP_CONSTANTS } from './constants'
-import { AutoTopupSettingsFormProps } from './types'
+
+import type { AutoTopupSettingsFormProps } from './types'
+
 import { dollarsToCredits } from '@/lib/currency'
 
 const {

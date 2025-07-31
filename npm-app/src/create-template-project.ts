@@ -1,8 +1,10 @@
 import { execSync } from 'child_process'
-import { join } from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
+import { join } from 'path'
+
 import { green } from 'picocolors'
+
 import { logger } from './utils/logger'
 
 export async function createTemplateProject(

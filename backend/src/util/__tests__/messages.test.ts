@@ -7,7 +7,6 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { Message } from '@codebuff/common/types/message'
 
 import {
   trimMessagesToFitTokenLimit,
@@ -15,6 +14,8 @@ import {
   messagesWithSystem,
 } from '../messages'
 import * as tokenCounter from '../token-counter'
+
+import type { Message } from '@codebuff/common/types/message'
 
 describe('messagesWithSystem', () => {
   it('prepends system message to array', () => {

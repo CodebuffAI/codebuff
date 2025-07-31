@@ -1,10 +1,12 @@
-import { AgentState } from '@codebuff/common/types/session-state'
-import { FileTreeNode, ProjectFileContext } from '@codebuff/common/util/file'
 import { describe, expect, it } from 'bun:test'
 
-import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import { getAllAgentTemplates } from '../templates/agent-registry'
 import { collectParentInstructions } from '../templates/strings'
+
+import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
+import type { AgentState } from '@codebuff/common/types/session-state'
+import type { FileTreeNode, ProjectFileContext } from '@codebuff/common/util/file'
+
 
 // Helper to create a mock ProjectFileContext
 const createMockFileContext = (

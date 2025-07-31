@@ -1,5 +1,6 @@
-import db from '../common/src/db/index'
 import fs from 'fs'
+
+import db from '../common/src/db/index'
 import * as schema from '../common/src/db/schema'
 
 async function applyCreditMigration() {

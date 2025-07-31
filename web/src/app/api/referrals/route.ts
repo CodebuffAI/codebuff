@@ -1,12 +1,12 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
-import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 
-import { authOptions } from '../auth/[...nextauth]/auth-options'
 import { redeemReferralCode } from './helpers'
+import { authOptions } from '../auth/[...nextauth]/auth-options'
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
   Pick<typeof schema.referral.$inferSelect, 'credits'>

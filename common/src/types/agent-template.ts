@@ -1,10 +1,10 @@
 import type { Model } from '../constants'
-import type { ToolName } from '../tools/constants'
 import type {
   AgentState,
   AgentTemplateType,
   ToolResult,
 } from './session-state'
+import type { ToolName } from '../tools/constants'
 import type { z } from 'zod/v4'
 
 export type AgentTemplate<

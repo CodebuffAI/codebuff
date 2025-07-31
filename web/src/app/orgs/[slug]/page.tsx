@@ -1,16 +1,6 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { loadStripe } from '@stripe/stripe-js'
 import {
   ArrowLeft,
   Building2,
@@ -20,20 +10,30 @@ import {
   Settings,
   Plus,
   AlertCircle,
-  CheckCircle,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
 import Link from 'next/link'
-import { toast } from '@/components/ui/use-toast'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { useState, useEffect } from 'react'
+
 import { CreditMonitor } from '@/components/organization/credit-monitor'
-import { BillingAlerts } from '@/components/organization/billing-alerts'
-import { TeamManagement } from '@/components/organization/team-management'
 import { RepositoryManagement } from '@/components/organization/repository-management'
+import { TeamManagement } from '@/components/organization/team-management'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useOrganizationData } from '@/hooks/use-organization-data'
-import { useState, useEffect } from 'react'
-import { loadStripe } from '@stripe/stripe-js'
+
 
 export default function OrganizationPage() {
   const { data: session, status } = useSession()

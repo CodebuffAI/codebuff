@@ -1,11 +1,12 @@
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
-import { GrantType } from '@codebuff/common/db/schema'
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+
+import type { GrantType } from '@codebuff/common/db/schema'
 
 describe('Usage Calculation System', () => {
   beforeAll(() => {

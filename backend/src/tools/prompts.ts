@@ -1,10 +1,12 @@
-import type { ToolName } from '@codebuff/common/tools/constants'
 
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import z from 'zod/v4'
+
 import { codebuffToolDefs } from './definitions/list'
+
+import type { ToolName } from '@codebuff/common/tools/constants'
 
 function paramsSection(schema: z.ZodObject, endsAgentStep: boolean) {
   const schemaWithEndsAgentStepParam = endsAgentStep

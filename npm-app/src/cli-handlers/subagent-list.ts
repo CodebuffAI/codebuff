@@ -1,5 +1,6 @@
-import { green, yellow, cyan, magenta, bold, gray, blue } from 'picocolors'
 import { pluralize } from '@codebuff/common/util/string'
+import { green, yellow, cyan, magenta, bold, gray } from 'picocolors'
+
 import { getSubagentsChronological } from '../subagent-storage'
 import { enterSubagentBuffer } from './subagent'
 import {
@@ -8,7 +9,6 @@ import {
   CLEAR_SCREEN,
   HIDE_CURSOR,
   SHOW_CURSOR,
-  MOVE_CURSOR,
 } from '../utils/terminal'
 
 let isInSubagentListBuffer = false

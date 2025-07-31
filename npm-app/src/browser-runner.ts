@@ -1,22 +1,27 @@
+import * as fs from 'fs'
+import * as path from 'path'
+
 import {
-  BROWSER_DEFAULTS,
-  BrowserAction,
-  BrowserConfig,
-  BrowserResponse,
+  BROWSER_DEFAULTS
 } from '@codebuff/common/browser-actions'
 import { ensureDirectoryExists } from '@codebuff/common/util/file'
 import { sleep } from '@codebuff/common/util/promise'
 import { ensureUrlProtocol } from '@codebuff/common/util/string'
-import * as fs from 'fs'
-import * as path from 'path'
-import puppeteer, {
+import puppeteer from 'puppeteer-core'
+
+import { getCurrentChatDir, getProjectDataDir } from './project-files'
+import { logger } from './utils/logger'
+
+import type {
+  BrowserAction,
+  BrowserConfig,
+  BrowserResponse} from '@codebuff/common/browser-actions';
+import type {
   Browser,
   HTTPRequest,
   HTTPResponse,
   Page,
-} from 'puppeteer-core'
-import { getCurrentChatDir, getProjectDataDir } from './project-files'
-import { logger } from './utils/logger'
+} from 'puppeteer-core';
 
 type NonOptional<T, K extends keyof T> = T & { [P in K]-?: T[P] }
 

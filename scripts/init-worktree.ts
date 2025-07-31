@@ -1,9 +1,10 @@
 #!/usr/bin/env bun
 
 import { spawn } from 'child_process'
-import { existsSync, mkdirSync, writeFileSync, chmodSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join, resolve } from 'path'
 import { createInterface } from 'readline'
+
 import { z } from 'zod'
 
 // Validation schemas

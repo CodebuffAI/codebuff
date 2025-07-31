@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 
-import type { GitEvalResultRequest } from '@codebuff/common/db/schema'
-import { Command, Flags } from '@oclif/core'
 import path from 'path'
+
+import { Command, Flags } from '@oclif/core'
+
 import { sendEvalResultsEmail } from './email-eval-results'
 import { analyzeEvalResults } from './post-eval-analysis'
 import {
@@ -10,7 +11,9 @@ import {
   runGitEvals,
   setGlobalConcurrencyLimit,
 } from './run-git-evals'
-import { EvalConfig, EvalResult } from './types'
+
+import type { EvalConfig, EvalResult } from './types'
+import type { GitEvalResultRequest } from '@codebuff/common/db/schema'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
 const MOCK_PATH = 'git-evals/eval-result-codebuff-mock.json'

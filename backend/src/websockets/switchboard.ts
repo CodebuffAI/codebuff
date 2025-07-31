@@ -1,4 +1,4 @@
-import { WebSocket } from 'ws'
+import type { WebSocket } from 'ws'
 
 export type ClientState = {
   sessionId?: string

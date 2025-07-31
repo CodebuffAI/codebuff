@@ -1,16 +1,19 @@
 import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 
-import { yellow } from 'picocolors'
 
 import {
-  CodebuffConfig,
   codebuffConfigFile,
   codebuffConfigFileBackup,
   CodebuffConfigSchema,
 } from '@codebuff/common/json-config/constants'
 import { getDefaultConfig } from '@codebuff/common/json-config/default'
+import { yellow } from 'picocolors'
+
 import { getProjectRoot } from '../project-files'
+
+import type {
+  CodebuffConfig} from '@codebuff/common/json-config/constants';
 
 /**
  * Simple JSONC parser that strips comments and trailing commas

@@ -1,12 +1,7 @@
 import { Writable } from 'stream'
-import stripAnsi from 'strip-ansi'
-import { toolRenderers } from '../../utils/tool-renderers'
-import { createXMLStreamParser } from '../xml-stream-parser'
 
-import * as projectFiles from '../../project-files'
-
-import { getToolCallString } from '@codebuff/common/tools/utils'
 import * as projectFileTree from '@codebuff/common/project-file-tree'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import {
   afterEach,
   beforeEach,
@@ -16,6 +11,13 @@ import {
   spyOn,
   test,
 } from 'bun:test'
+import stripAnsi from 'strip-ansi'
+
+import * as projectFiles from '../../project-files'
+import { toolRenderers } from '../../utils/tool-renderers'
+import { createXMLStreamParser } from '../xml-stream-parser'
+
+
 
 describe('Tool renderers with XML parser', () => {
   beforeEach(() => {

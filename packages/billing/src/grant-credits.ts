@@ -4,7 +4,6 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { GrantType } from '@codebuff/common/db/schema'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import { logger } from '@codebuff/common/util/logger'
 import { withRetry } from '@codebuff/common/util/promise'
@@ -12,6 +11,8 @@ import { logSyncFailure } from '@codebuff/common/util/sync-failure'
 import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
 
 import { generateOperationIdTimestamp } from './utils'
+
+import type { GrantType } from '@codebuff/common/db/schema'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
 type DbTransaction = Parameters<typeof db.transaction>[0] extends (

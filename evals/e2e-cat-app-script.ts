@@ -1,9 +1,12 @@
 #!/usr/bin/env bun
 
-import { spawn, ChildProcess } from 'child_process'
+import { spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+
 import { sleep } from '@codebuff/common/util/promise'
+
+import type { ChildProcess } from 'child_process';
 
 const BACKEND_PORT = 3001
 const BACKEND_READY_TIMEOUT = 30000 // 30 seconds

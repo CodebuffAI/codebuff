@@ -1,3 +1,3 @@
-import OpenAI from 'openai'
+import type OpenAI from 'openai'
 
 export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam

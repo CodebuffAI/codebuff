@@ -1,14 +1,15 @@
 'use client'
 
-import React from 'react'
-import { notFound } from 'next/navigation'
-import { getDocsByCategory } from '@/lib/docs'
 import dynamic from 'next/dynamic'
-import { useMDXComponent } from 'next-contentlayer/hooks'
-import type { Doc } from '@/types/docs'
-import { sections } from '@/components/docs/doc-sidebar'
 import NextLink from 'next/link'
+import { notFound } from 'next/navigation'
+import React from 'react'
+
+import type { Doc } from '@/types/docs'
+
+import { sections } from '@/components/docs/doc-sidebar'
 import { Mdx } from '@/components/docs/mdx/mdx-components'
+import { getDocsByCategory } from '@/lib/docs'
 
 const DocNavigation = ({ category }: { category: string }) => {
   const currentIndex = sections.findIndex((s) => s.href === `/docs/${category}`)

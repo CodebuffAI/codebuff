@@ -1,7 +1,7 @@
 import { execSync } from 'child_process'
 import path from 'path'
 
-import { ExecutorContext } from '@nx/devkit'
+import type { ExecutorContext } from '@nx/devkit'
 
 export interface InfisicalRunExecutorOptions {
   command: string

@@ -9,13 +9,15 @@ import {
   getLastReadFilePaths,
 } from '@codebuff/common/project-file-tree'
 import {
-  createMarkdownFileBlock,
-  ProjectFileContext,
+  createMarkdownFileBlock
 } from '@codebuff/common/util/file'
 import { truncateString } from '@codebuff/common/util/string'
-
 import { closeXml } from '@codebuff/common/util/xml'
+
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
+
+import type {
+  ProjectFileContext} from '@codebuff/common/util/file';
 
 export const configSchemaPrompt = `
 # Codebuff Configuration (${codebuffConfigFile})

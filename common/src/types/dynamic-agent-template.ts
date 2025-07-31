@@ -1,7 +1,9 @@
 import { z } from 'zod'
+
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
 import { toolNames } from '../tools/constants'
-import { AgentConfig } from '../util/agent-config'
+
+import type { AgentConfig } from '../util/agent-config'
 
 // Filter models to only include those that begin with allowed prefixes
 const filteredModels = Object.values(models).filter((model) =>

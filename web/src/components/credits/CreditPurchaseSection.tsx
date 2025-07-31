@@ -1,13 +1,13 @@
+import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
+import { Loader2 as Loader } from 'lucide-react'
+import { useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2 as Loader } from 'lucide-react'
 import { NeonGradientButton } from '@/components/ui/neon-gradient-button'
-import { cn } from '@/lib/utils'
-import { useState } from 'react'
-import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
-import { toast } from '@/components/ui/use-toast'
 import { formatDollars } from '@/lib/currency'
+import { cn } from '@/lib/utils'
 
 // Individual user credit options (starting from $10)
 export const CREDIT_OPTIONS = [1000, 2500, 5000, 10000] as const

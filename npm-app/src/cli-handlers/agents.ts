@@ -1,12 +1,21 @@
-import { green, yellow, cyan, magenta, bold, gray, blue, red } from 'picocolors'
-import { pluralize } from '@codebuff/common/util/string'
+import * as fs from 'fs'
+import * as path from 'path'
+
+import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import {
   filterCustomAgentFiles,
   extractAgentIdFromFileName,
 } from '@codebuff/common/util/agent-file-utils'
-import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import { green, yellow, cyan, magenta, bold, gray, red } from 'picocolors'
+
 import { loadLocalAgents, getLoadedAgentNames } from '../agents/load-agents'
 import { CLI } from '../cli'
+import { getProjectRoot } from '../project-files'
+import {
+  startAgentCreationChat,
+  createAgentFromRequirements,
+} from './agent-creation-chat'
 import { Spinner } from '../utils/spinner'
 import {
   ENTER_ALT_BUFFER,
@@ -14,18 +23,9 @@ import {
   CLEAR_SCREEN,
   HIDE_CURSOR,
   SHOW_CURSOR,
-  MOVE_CURSOR,
 } from '../utils/terminal'
-import * as fs from 'fs'
-import * as path from 'path'
-import { getProjectRoot } from '../project-files'
-import { cleanupMiniChat } from './mini-chat'
-import {
-  startAgentCreationChat,
-  createAgentFromRequirements,
-} from './agent-creation-chat'
-import { enterMiniChat } from './mini-chat'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+
+
 
 let isInAgentsBuffer = false
 let originalKeyHandlers: ((str: string, key: any) => void)[] = []

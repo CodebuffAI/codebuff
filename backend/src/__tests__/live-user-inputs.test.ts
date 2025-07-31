@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+
 import {
   startUserInput,
   cancelUserInput,
-  endUserInput,
   checkLiveUserInput,
   setSessionConnected,
   getLiveUserInputIds,

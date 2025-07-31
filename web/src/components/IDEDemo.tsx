@@ -1,10 +1,5 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
-import { cn } from '@/lib/utils'
-import Terminal from './ui/terminal'
-import TerminalOutput from './ui/terminal/terminal-output'
-import { ColorMode } from './ui/terminal'
 import {
   ChevronRight,
   ChevronDown,
@@ -12,7 +7,6 @@ import {
   Search,
   Settings,
   Bug,
-  Play,
   Split,
   X,
   Plus,
@@ -20,6 +14,12 @@ import {
   Files,
   Package,
 } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+
+import Terminal, { ColorMode } from './ui/terminal'
+import TerminalOutput from './ui/terminal/terminal-output'
+
+import { cn } from '@/lib/utils'
 
 interface FileItem {
   name: string

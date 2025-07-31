@@ -1,17 +1,19 @@
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
-import { ToolName } from '../tools/constants'
-import { AgentTemplate } from '../types/agent-template'
-import { DynamicAgentTemplate } from '../types/dynamic-agent-template'
-import { AgentTemplateType } from '../types/session-state'
-import { normalizeAgentNames } from '../util/agent-name-normalization'
 import {
   formatParentInstructionsError,
   formatSubagentError,
   validateParentInstructions,
   validateSubagents,
 } from '@codebuff/common/util/agent-template-validation'
+
+import { normalizeAgentNames } from '../util/agent-name-normalization'
 import { logger } from '../util/logger'
+
+import type { ToolName } from '../tools/constants'
+import type { AgentTemplate } from '../types/agent-template'
+import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
+import type { AgentTemplateType } from '../types/session-state'
 
 export interface DynamicAgentValidationError {
   filePath: string

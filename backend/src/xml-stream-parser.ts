@@ -1,5 +1,4 @@
 import { trackEvent } from '@codebuff/common/analytics'
-import { Model } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   endsAgentStepParam,
@@ -7,7 +6,9 @@ import {
   startToolTag,
   toolNameParam,
 } from '@codebuff/common/tools/constants'
-import {
+
+import type { Model } from '@codebuff/common/constants'
+import type {
   PrintModeError,
   PrintModeText,
   PrintModeToolCall,

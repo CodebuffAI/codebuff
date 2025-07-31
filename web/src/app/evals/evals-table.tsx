@@ -1,8 +1,9 @@
 'use client'
 
 import { getLogoForModel, models } from '@codebuff/common/constants'
-import * as schema from '@codebuff/common/db/schema'
 import { useState } from 'react'
+
+import type * as schema from '@codebuff/common/db/schema'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

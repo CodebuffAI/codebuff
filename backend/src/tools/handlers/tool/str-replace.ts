@@ -1,15 +1,16 @@
-import type { WebSocket } from 'ws'
+import { getFileProcessingValues, postStreamProcessing } from './write-file'
+import { processStrReplace } from '../../../process-str-replace'
+import { logger } from '../../../util/logger'
+import { requestOptionalFile } from '../../../websockets/websocket-action'
+
 import type { ClientToolCall, CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   FileProcessingState,
   OptionalFileProcessingState,
 } from './write-file'
+import type { WebSocket } from 'ws'
 
-import { processStrReplace } from '../../../process-str-replace'
-import { logger } from '../../../util/logger'
-import { requestOptionalFile } from '../../../websockets/websocket-action'
-import { getFileProcessingValues, postStreamProcessing } from './write-file'
 
 export const handleStrReplace = ((params: {
   previousToolCallFinished: Promise<void>

@@ -2,13 +2,16 @@ import {
   green,
   yellow,
   cyan,
-  magenta,
   bold,
   gray,
   blue,
   italic,
   red,
 } from 'picocolors'
+import stringWidth from 'string-width'
+import wrapAnsi from 'wrap-ansi'
+
+import { Spinner } from '../utils/spinner'
 import {
   ENTER_ALT_BUFFER,
   EXIT_ALT_BUFFER,
@@ -17,9 +20,6 @@ import {
   SHOW_CURSOR,
   MOVE_CURSOR,
 } from '../utils/terminal'
-import wrapAnsi from 'wrap-ansi'
-import stringWidth from 'string-width'
-import { Spinner } from '../utils/spinner'
 
 interface ChatMessage {
   role: 'assistant' | 'user'

@@ -1,11 +1,12 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
-import { useParams, useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+
 import { TeamManagement } from '@/components/organization/team-management'
+import { Button } from '@/components/ui/button'
 import { useOrganizationData } from '@/hooks/use-organization-data'
 
 export default function TeamPage() {

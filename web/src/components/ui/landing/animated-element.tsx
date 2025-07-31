@@ -1,6 +1,10 @@
-import { motion, HTMLMotionProps } from 'framer-motion'
+import { motion } from 'framer-motion'
+
+
 import { ANIMATION } from './constants'
-import { ReactNode } from 'react'
+
+import type { HTMLMotionProps } from 'framer-motion';
+import type { ReactNode } from 'react'
 
 interface AnimatedElementProps extends HTMLMotionProps<'div'> {
   children: ReactNode

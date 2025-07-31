@@ -1,5 +1,6 @@
 import { z } from 'zod/v4'
-import { AgentTemplate } from '../types'
+
+import type { AgentTemplate } from '../types'
 
 const paramsSchema = z.object({
   prompts: z

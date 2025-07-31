@@ -1,9 +1,11 @@
-import { models } from '@codebuff/common/constants'
-import { generateCompactId } from '@codebuff/common/util/string'
 import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+
+import { models } from '@codebuff/common/constants'
+import { generateCompactId } from '@codebuff/common/util/string'
 import prettier from 'prettier'
+
 import { promptAiSdk } from '../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 
 // Native slugify implementation

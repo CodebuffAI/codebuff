@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+
 import { getProjectRoot } from '../project-files'
 
 const agentTemplatesSubdir = ['.agents'] as const

@@ -1,13 +1,16 @@
+import fs from 'fs'
+
 import {
   setProjectRoot,
   setWorkingDirectory,
 } from '@codebuff/npm-app/project-files'
 import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
-import fs from 'fs'
+
 import { createFileReadingMock } from '../scaffolding'
 import { setupTestEnvironmentVariables } from '../test-setup'
 import { runSingleEval } from './run-git-evals'
-import { EvalCommit } from './types'
+
+import type { EvalCommit } from './types'
 
 async function main() {
   const [

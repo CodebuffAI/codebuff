@@ -1,13 +1,14 @@
 'use client'
 
 import { Suspense } from 'react'
+
+import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
 } from '@/components/ui/card'
-import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 
 export function LoginCard({ authCode }: { authCode?: string | null }) {
   return (

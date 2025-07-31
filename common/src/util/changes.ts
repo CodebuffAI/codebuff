@@ -1,9 +1,10 @@
 import fs from 'fs'
 import path from 'path'
 
-import type { FileChanges } from '../actions'
 import { isFileIgnored } from '../project-file-tree'
 import { applyPatch } from './patch'
+
+import type { FileChanges } from '../actions'
 
 export function applyChanges(projectRoot: string, changes: FileChanges) {
   const created: string[] = []

@@ -1,14 +1,16 @@
+import { logger } from '@codebuff/common/util/logger'
 import { BigQuery } from '@google-cloud/bigquery'
 
-import { logger } from '@codebuff/common/util/logger'
 import {
+  RELABELS_SCHEMA,
+  TRACES_SCHEMA,
+} from './schema'
+
+import type {
   BaseTrace,
   GetRelevantFilesTrace,
   Relabel,
-  RELABELS_SCHEMA,
-  Trace,
-  TRACES_SCHEMA,
-} from './schema'
+  Trace} from './schema';
 
 const DATASET =
   process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'

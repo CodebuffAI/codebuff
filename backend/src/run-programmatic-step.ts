@@ -1,3 +1,15 @@
+
+import { getToolCallString } from '@codebuff/common/tools/utils'
+
+import { executeToolCall } from './tools/tool-executor'
+import { logger } from './util/logger'
+import { asUserMessage } from './util/messages'
+import { SandboxManager } from './util/quickjs-sandbox'
+import { getRequestContext } from './websockets/request-context'
+import { sendAction } from './websockets/websocket-action'
+
+import type { AgentTemplate, StepGenerator } from './templates/types'
+import type { CodebuffToolCall } from './tools/constants'
 import type { PrintModeObject } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -6,16 +18,6 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
-import type { AgentTemplate, StepGenerator } from './templates/types'
-import type { CodebuffToolCall } from './tools/constants'
-
-import { getToolCallString } from '@codebuff/common/tools/utils'
-import { executeToolCall } from './tools/tool-executor'
-import { logger } from './util/logger'
-import { asUserMessage } from './util/messages'
-import { SandboxManager } from './util/quickjs-sandbox'
-import { getRequestContext } from './websockets/request-context'
-import { sendAction } from './websockets/websocket-action'
 
 // Global sandbox manager for QuickJS contexts
 const sandboxManager = new SandboxManager()

@@ -3,9 +3,9 @@ import { mkdirSync } from 'fs'
 import path from 'path'
 import { format } from 'util'
 
+import { env } from '@codebuff/internal'
 import pino from 'pino'
 
-import { env } from '@codebuff/internal'
 import { splitData } from './split-data'
 import {
   getLoggerContext,

@@ -13,6 +13,7 @@ import {
   spyOn,
   test,
 } from 'bun:test'
+
 import { searchWeb } from '../linkup-api'
 
 // Mock environment variables

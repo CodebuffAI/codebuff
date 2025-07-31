@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 
-import { compileToolDefinitions } from '@codebuff/common/tools/compile-tool-definitions'
 import { writeFileSync } from 'fs'
 import { join } from 'path'
+
+import { compileToolDefinitions } from '@codebuff/common/tools/compile-tool-definitions'
 
 /**
  * Regenerates the tool-definitions.d.ts file from the current tool schemas.

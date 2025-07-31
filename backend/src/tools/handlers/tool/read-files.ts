@@ -1,12 +1,14 @@
-import type { CodebuffToolCall } from '../../constants'
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
-import { CodebuffMessage } from '@codebuff/common/types/message'
-import { ProjectFileContext } from '@codebuff/common/util/file'
-import { WebSocket } from 'ws'
+
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { logger } from '../../../util/logger'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
+
+import type { CodebuffToolCall } from '../../constants'
+import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { WebSocket } from 'ws'
 
 export const handleReadFiles = ((params: {
   previousToolCallFinished: Promise<void>

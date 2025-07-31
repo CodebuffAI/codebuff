@@ -1,3 +1,6 @@
+import fs from 'fs'
+import path from 'path'
+
 import {
   clearMockedModules,
   mockModule,
@@ -12,8 +15,7 @@ import {
   mock,
   test,
 } from 'bun:test'
-import fs from 'fs'
-import path from 'path'
+
 import { handleCodeSearch } from '../tool-handlers'
 
 describe('handleCodeSearch', () => {

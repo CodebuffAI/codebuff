@@ -1,14 +1,16 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
 import { sleep } from '@codebuff/common/util/promise'
+import { env } from '@codebuff/internal'
+import { useQuery } from '@tanstack/react-query'
 import { CheckIcon, CopyIcon, GiftIcon } from 'lucide-react'
-import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { useEffect, useState } from 'react'
 
 import type { ReferralCodeResponse } from '@/app/api/referrals/[code]/route'
+
 import CardWithBeams from '@/components/card-with-beams'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,7 +22,6 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { env } from '@codebuff/internal'
 import { storeSearchParams } from '@/lib/trackConversions'
 
 const InputWithCopyButton = ({ text }: { text: string }) => {

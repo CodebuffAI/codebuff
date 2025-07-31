@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 
-import { enableSquashNewlines } from './display/squash-newlines'
 
 import { type CostMode } from '@codebuff/common/constants'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
@@ -14,6 +13,7 @@ import { handlePublish } from './cli-handlers/publish'
 import { npmAppVersion } from './config'
 import { createTemplateProject } from './create-template-project'
 import { printModeLog, setPrintMode } from './display/print-mode'
+import { enableSquashNewlines } from './display/squash-newlines'
 import { loadCodebuffConfig } from './json-config/parser'
 import {
   getProjectRoot,
@@ -24,9 +24,10 @@ import {
 import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/run-command'
-import { CliOptions } from './types'
 import { initAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
+
+import type { CliOptions } from './types'
 
 async function codebuff({
   initialInput,

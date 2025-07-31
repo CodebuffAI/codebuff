@@ -1,8 +1,10 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider'
 import { createTestServer } from '@ai-sdk/provider-utils/test'
 import { streamText } from 'ai'
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
+
 import { createOpenRouter } from './openrouter-provider'
+
+import type { LanguageModelV1Prompt } from '@ai-sdk/provider'
 
 // Add type assertions for the mocked classes
 const TEST_MESSAGES: LanguageModelV1Prompt = [

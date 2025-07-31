@@ -1,7 +1,8 @@
+import { logger } from '../../../util/logger'
+
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
-import { logger } from '../../../util/logger'
 
 export const handleThinkDeeply = ((params: {
   previousToolCallFinished: Promise<any>

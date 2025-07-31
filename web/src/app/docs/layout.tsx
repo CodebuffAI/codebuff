@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { DocSidebar, sections } from '@/components/docs/doc-sidebar'
-import { usePathname } from 'next/navigation'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Menu } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { useState } from 'react'
+
+import { DocSidebar, sections } from '@/components/docs/doc-sidebar'
 import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+
+
 
 export default function DocsLayout({
   children,

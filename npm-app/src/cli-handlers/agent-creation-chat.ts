@@ -1,8 +1,10 @@
-import { enterMiniChat } from './mini-chat'
-import { green, gray, yellow, red } from 'picocolors'
 import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
-import { CLI } from '../cli'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { green, gray, red } from 'picocolors'
+
+import { enterMiniChat } from './mini-chat'
+import { CLI } from '../cli'
+
 
 interface AgentRequirements {
   name: string

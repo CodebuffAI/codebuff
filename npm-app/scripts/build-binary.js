@@ -3,6 +3,7 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+
 const { patchWebTreeSitter } = require('./patch-web-tree-sitter.js')
 
 // Configuration

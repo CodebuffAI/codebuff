@@ -1,11 +1,14 @@
 import {
-  GetExpandedFileContextForTrainingBlobTrace,
-  GetRelevantFilesPayload,
   getTracesAndAllDataForUser,
   setupBigQuery,
 } from '@codebuff/bigquery'
 import { models } from '@codebuff/common/constants'
+
 import { relabelWithClaudeWithFullFileContext } from '../../backend/src/admin/relabelRuns'
+
+import type {
+  GetExpandedFileContextForTrainingBlobTrace,
+  GetRelevantFilesPayload} from '@codebuff/bigquery';
 
 // Model we want to test - focusing on Claude 4 Opus
 const MODEL_TO_TEST = models.openrouter_claude_opus_4

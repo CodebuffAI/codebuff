@@ -1,20 +1,23 @@
+import { finetunedVertexModels } from '@codebuff/common/constants'
 import {
   beforeEach,
   mock as bunMockFn,
   spyOn as bunSpyOn,
   describe,
   expect,
-  it,
-  Mock,
+  it
 } from 'bun:test'
 
 // Import the entire module to spy on its exports
-import { CostMode, finetunedVertexModels } from '@codebuff/common/constants'
-import { ProjectFileContext } from '@codebuff/common/util/file'
-import { CoreMessage } from 'ai'
 import * as checkNewFilesNecessaryModule from '../find-files/check-new-files-necessary'
 import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
 import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
+
+import type { CostMode} from '@codebuff/common/constants';
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { CoreMessage } from 'ai'
+import type {
+  Mock} from 'bun:test';
 
 // Restore module-level mocks using bunMockFn for the mock implementations
 bunMockFn.module('../find-files/check-new-files-necessary', () => ({

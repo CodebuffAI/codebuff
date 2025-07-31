@@ -2,7 +2,7 @@
  * Utility functions for working with agent template files
  */
 
-import { DynamicAgentTemplate } from '../types/dynamic-agent-template'
+import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 
 /**
  * Determines if a file is a valid custom agent template file.

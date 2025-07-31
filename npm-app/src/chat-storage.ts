@@ -1,8 +1,10 @@
+import * as fs from 'fs'
+import * as path from 'path'
+
 import { type Log } from '@codebuff/common/browser-actions'
 import { type CodebuffMessage } from '@codebuff/common/types/message'
 import { transformJsonInString } from '@codebuff/common/util/string'
-import * as fs from 'fs'
-import * as path from 'path'
+
 import { getCurrentChatDir, getCurrentChatId } from './project-files'
 import { logger } from './utils/logger'
 

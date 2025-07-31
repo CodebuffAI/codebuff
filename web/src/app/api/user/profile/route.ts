@@ -1,12 +1,14 @@
+import { validateAutoTopupStatus } from '@codebuff/billing'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+
+import type { UserProfile } from '@/types/user'
+
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import db from '@codebuff/common/db'
-import { eq } from 'drizzle-orm'
-import * as schema from '@codebuff/common/db/schema'
 import { logger } from '@/util/logger'
-import { UserProfile } from '@/types/user'
-import { validateAutoTopupStatus } from '@codebuff/billing'
 
 export async function GET() {
   const session = await getServerSession(authOptions)

@@ -1,11 +1,12 @@
-import { NextResponse } from 'next/server'
-import { z } from 'zod'
-import { env } from '@codebuff/internal'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { genAuthCode } from '@codebuff/common/util/credentials'
-import { logger } from '@/util/logger'
+import { env } from '@codebuff/internal'
 import { and, eq, gt } from 'drizzle-orm'
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+
+import { logger } from '@/util/logger'
 
 export async function POST(req: Request) {
   const reqSchema = z.object({

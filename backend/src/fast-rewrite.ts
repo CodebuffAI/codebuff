@@ -1,12 +1,15 @@
-import { CoreMessage } from 'ai'
 import { geminiModels, openaiModels } from '@codebuff/common/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { parseFileBlocks, parseMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { generateCompactId, hasLazyEdit } from '@codebuff/common/util/string'
+
+
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptRelaceAI } from './llm-apis/relace-api'
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
+
+import type { CoreMessage } from 'ai'
 
 export async function fastRewrite(
   initialContent: string,

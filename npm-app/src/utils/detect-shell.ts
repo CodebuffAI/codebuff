@@ -1,5 +1,6 @@
 import { execSync } from 'child_process'
 import { platform } from 'os'
+
 import { logger } from './logger'
 
 export function detectShell():

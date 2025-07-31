@@ -1,13 +1,14 @@
+import { Info } from 'lucide-react'
+import { useState, useEffect } from 'react'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Info } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 
 interface AutoTopupConstants {

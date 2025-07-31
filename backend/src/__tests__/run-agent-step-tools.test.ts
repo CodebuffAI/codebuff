@@ -1,9 +1,12 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/constants'
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { ProjectFileContext } from '@codebuff/common/util/file'
 import {
   afterAll,
   afterEach,
@@ -15,19 +18,18 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { WebSocket } from 'ws'
+
 
 // Mock imports
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { getAllAgentTemplates } from '../templates/agent-registry'
-import { AgentTemplate } from '../templates/types'
 import * as websocketAction from '../websockets/websocket-action'
+
+import type { AgentTemplate } from '../templates/types'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { WebSocket } from 'ws'
 
 describe('runAgentStep - set_output tool', () => {
   beforeAll(() => {

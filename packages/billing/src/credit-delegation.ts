@@ -1,13 +1,14 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq, and } from 'drizzle-orm'
 import { logger } from '@codebuff/common/util/logger'
+import { eq, and } from 'drizzle-orm'
+
+import { consumeCredits } from './balance-calculator'
 import {
   consumeOrganizationCredits,
   normalizeRepositoryUrl,
   extractOwnerAndRepo,
 } from './org-billing'
-import { consumeCredits } from './balance-calculator'
 
 export interface OrganizationLookupResult {
   found: boolean

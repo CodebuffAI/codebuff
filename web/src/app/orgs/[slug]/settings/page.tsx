@@ -1,14 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import {
+  ArrowLeft,
+  Settings,
+  Trash2,
+  AlertTriangle,
+} from 'lucide-react'
+import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useSession } from 'next-auth/react'
+import { useState, useEffect } from 'react'
+
+import { BillingStatus } from '@/components/organization/billing-status'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -17,16 +22,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  ArrowLeft,
-  Settings,
-  Trash2,
-  AlertTriangle,
-} from 'lucide-react'
-import Link from 'next/link'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
-import { BillingStatus } from '@/components/organization/billing-status'
 
 export default function OrganizationSettingsPage() {
   const { data: session, status } = useSession()

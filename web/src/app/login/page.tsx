@@ -1,5 +1,8 @@
 'use server'
 
+import { env } from '@codebuff/internal'
+
+import { LoginCard } from '@/components/login/login-card'
 import {
   Card,
   CardHeader,
@@ -7,8 +10,6 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card'
-import { env } from '@codebuff/internal'
-import { LoginCard } from '@/components/login/login-card'
 
 // Server component that handles the auth code expiration check
 export default async function LoginPage({

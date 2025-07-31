@@ -1,20 +1,23 @@
 import { execSync } from 'child_process'
 import fs from 'fs'
-import { chunk } from 'lodash'
 import path from 'path'
-import { z } from 'zod'
+
 
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { geminiModels, models } from '@codebuff/common/constants'
+import { chunk } from 'lodash'
+import { z } from 'zod'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import {
+  CommitSelectionSchema
+} from './types'
+
+import type {
   CommitFileState,
   CommitInfo,
-  CommitSelectionSchema,
   EvalCommit,
-  GitRepoEvalData,
-} from './types'
+  GitRepoEvalData} from './types';
 
 const COMMIT_SELECTION_PROMPT = `You are an expert at identifying substantial and complete code changes in git commits.
 

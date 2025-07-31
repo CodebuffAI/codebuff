@@ -2,7 +2,9 @@ import * as fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { CostMode, AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import { codebuffConfigFile } from '@codebuff/common/json-config/constants'
+import { isValidProjectRoot } from '@codebuff/common/util/file'
 import {
   blue,
   blueBright,
@@ -16,10 +18,11 @@ import {
   yellow,
 } from 'picocolors'
 
-import { codebuffConfigFile } from '@codebuff/common/json-config/constants'
-import { isValidProjectRoot } from '@codebuff/common/util/file'
-import { Formatter } from 'picocolors/types'
+
 import { getProjectRoot } from './project-files'
+
+import type { CostMode} from '@codebuff/common/constants';
+import type { Formatter } from 'picocolors/types'
 
 export interface CommandInfo {
   commandText: string // e.g., 'type "login"', 'type "diff" or "d"', 'hit ESC key or Ctrl-C'

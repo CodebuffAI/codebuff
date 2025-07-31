@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages'
 
 describe('user messages', () => {

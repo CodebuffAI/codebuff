@@ -1,10 +1,9 @@
 import crypto from 'crypto'
+
+import { env } from '@codebuff/internal'
 import { and, eq } from 'drizzle-orm'
 
 import { db } from '../db'
-import { encryptedApiKeys } from '../db/schema'
-import { logger } from '../util/logger'
-
 import {
   ALGORITHM,
   type ApiKeyType,
@@ -13,8 +12,10 @@ import {
   KEY_LENGTHS,
   KEY_PREFIXES,
 } from './constants'
+import { encryptedApiKeys } from '../db/schema'
+import { logger } from '../util/logger'
 
-import { env } from '@codebuff/internal'
+
 
 /**
  * Encrypts an API key using the secret from environment variables.

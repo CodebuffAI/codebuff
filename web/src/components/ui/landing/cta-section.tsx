@@ -1,16 +1,17 @@
 'use client'
 
-import Link from 'next/link'
-import { BlockColor } from '../decorative-blocks'
-import { HeroButtons } from '../hero-buttons'
-import { useState } from 'react'
-import { Section } from '../section'
 import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
-import { TerminalCopyButton } from '../enhanced-copy-button'
-import { useInstallDialog } from '@/hooks/use-install-dialog'
-import { SECTION_THEMES } from './constants'
 import posthog from 'posthog-js'
+import { useState } from 'react'
+
+import { BlockColor } from '../decorative-blocks'
+import { TerminalCopyButton } from '../enhanced-copy-button'
+import { Section } from '../section'
+import { SECTION_THEMES } from './constants'
+
+import { useInstallDialog } from '@/hooks/use-install-dialog'
+
+
 
 // Benefit card component for the CTA section
 function BenefitCard({

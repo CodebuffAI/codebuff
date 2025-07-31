@@ -49,6 +49,7 @@
     "@types/node": "^22.9.0",
     "@types/node-fetch": "^2.6.12",
     "@types/parse-path": "^7.1.0",
+    "@typescript-eslint/eslint-plugin": "^6.17",
     "bun-types": "^1.2.2",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",

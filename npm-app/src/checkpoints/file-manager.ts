@@ -5,6 +5,7 @@ import os from 'os'
 import path, { join } from 'path'
 
 import { buildArray } from '@codebuff/common/util/array'
+
 import { getProjectDataDir } from '../project-files'
 import { gitCommandIsAvailable } from '../utils/git'
 import { logger } from '../utils/logger'

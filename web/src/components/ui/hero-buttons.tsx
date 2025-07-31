@@ -1,10 +1,12 @@
-import { useInstallDialog } from '@/hooks/use-install-dialog';
-import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import posthog from 'posthog-js';
 import { useState } from 'react';
+
 import { Button } from './button';
 import { TerminalCopyButton } from './enhanced-copy-button';
+
+import { useInstallDialog } from '@/hooks/use-install-dialog';
+import { cn } from '@/lib/utils';
 
 interface HeroButtonsProps {
   className?: string

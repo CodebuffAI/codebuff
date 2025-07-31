@@ -1,10 +1,11 @@
 'use client'
 
+import { env } from '@codebuff/internal'
+import { useSession } from 'next-auth/react'
+import posthog from 'posthog-js'
 import {
   PostHogProvider as PostHogProviderWrapper,
-  usePostHog as usePostHogWrapper,
 } from 'posthog-js/react'
-import { useSession } from 'next-auth/react'
 import {
   useEffect,
   createContext,
@@ -12,8 +13,6 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import posthog from 'posthog-js'
-import { env } from '@codebuff/internal'
 
 type PostHogContextType = {
   reinitialize: () => void

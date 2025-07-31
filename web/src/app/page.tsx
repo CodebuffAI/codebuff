@@ -1,7 +1,7 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { useEffect, useState, Suspense } from 'react'
 

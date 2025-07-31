@@ -1,4 +1,6 @@
-import { Loader2, LogOut, LucideProps, Moon, Sun } from 'lucide-react';
+import { Loader2, LogOut, Moon, Sun } from 'lucide-react';
+
+import type { LucideProps} from 'lucide-react';
 
 export const Icons = {
   sun: Sun,

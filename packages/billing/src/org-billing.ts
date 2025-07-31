@@ -1,21 +1,22 @@
+import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
-import { GrantType } from '@codebuff/common/db/schema'
-import { logger } from '@codebuff/common/util/logger'
-import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 import { withSerializableTransaction } from '@codebuff/common/db/transaction'
 import { GrantTypeValues } from '@codebuff/common/types/grant'
+import { logger } from '@codebuff/common/util/logger'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { env } from '@codebuff/internal/env'
+import { and, asc, gt, isNull, or, eq } from 'drizzle-orm'
+
 import {
-  CreditBalance,
-  CreditUsageAndBalance,
-  CreditConsumptionResult,
-  getOrderedActiveGrants,
-  updateGrantBalance,
   consumeFromOrderedGrants,
 } from './balance-calculator'
+
+import type {
+  CreditBalance,
+  CreditUsageAndBalance,
+  CreditConsumptionResult} from './balance-calculator';
+import type { GrantType } from '@codebuff/common/db/schema'
 
 // Add a minimal structural type that both `db` and `tx` satisfy
 type DbConn = Pick<typeof db, 'select' | 'update'>

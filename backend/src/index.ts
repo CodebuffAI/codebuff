@@ -2,6 +2,7 @@ import http from 'http'
 
 import { setupBigQuery } from '@codebuff/bigquery'
 import { flushAnalytics, initAnalytics } from '@codebuff/common/analytics'
+import { env } from '@codebuff/internal'
 import cors from 'cors'
 import express from 'express'
 
@@ -9,9 +10,8 @@ import {
   getTracesForUserHandler,
   relabelForUserHandler,
 } from './admin/relabelRuns'
-import usageHandler from './api/usage'
 import { isRepoCoveredHandler } from './api/org'
-import { env } from '@codebuff/internal'
+import usageHandler from './api/usage'
 import { checkAdmin } from './util/check-auth'
 import { logger } from './util/logger'
 import {

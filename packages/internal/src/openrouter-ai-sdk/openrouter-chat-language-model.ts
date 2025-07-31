@@ -1,18 +1,3 @@
-import type {
-  LanguageModelV1,
-  LanguageModelV1FinishReason,
-  LanguageModelV1FunctionTool,
-  LanguageModelV1LogProbs,
-  LanguageModelV1ProviderDefinedTool,
-  LanguageModelV1StreamPart,
-} from '@ai-sdk/provider'
-import type { ParseResult } from '@ai-sdk/provider-utils'
-import type { ReasoningDetailUnion } from './schemas/reasoning-details'
-import type { OpenRouterUsageAccounting } from './types/index'
-import type {
-  OpenRouterChatModelId,
-  OpenRouterChatSettings,
-} from './types/openrouter-chat-settings'
 
 import {
   InvalidResponseDataError,
@@ -27,10 +12,7 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils'
 import { z } from 'zod'
-import {
-  ReasoningDetailArraySchema,
-  ReasoningDetailType,
-} from './schemas/reasoning-details'
+
 
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages'
 import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs'
@@ -39,6 +21,26 @@ import {
   OpenRouterErrorResponseSchema,
   openrouterFailedResponseHandler,
 } from './openrouter-error'
+import {
+  ReasoningDetailArraySchema,
+  ReasoningDetailType,
+} from './schemas/reasoning-details'
+
+import type { ReasoningDetailUnion } from './schemas/reasoning-details'
+import type { OpenRouterUsageAccounting } from './types/index'
+import type {
+  OpenRouterChatModelId,
+  OpenRouterChatSettings,
+} from './types/openrouter-chat-settings'
+import type {
+  LanguageModelV1,
+  LanguageModelV1FinishReason,
+  LanguageModelV1FunctionTool,
+  LanguageModelV1LogProbs,
+  LanguageModelV1ProviderDefinedTool,
+  LanguageModelV1StreamPart,
+} from '@ai-sdk/provider'
+import type { ParseResult } from '@ai-sdk/provider-utils'
 
 function isFunctionTool(
   tool: LanguageModelV1FunctionTool | LanguageModelV1ProviderDefinedTool

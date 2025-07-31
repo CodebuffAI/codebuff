@@ -6,18 +6,19 @@ import {
   DEFAULT_MAX_FILES,
   getAllFilePaths,
 } from '@codebuff/common/project-file-tree'
-import { SessionState, ToolResult } from '@codebuff/common/types/session-state'
 import { blue, bold, cyan, gray, red, underline, yellow } from 'picocolors'
 
 import { DiffManager } from '../diff-manager'
 import { getProjectRoot } from '../project-files'
-import { gitCommandIsAvailable } from '../utils/git'
-import { logger } from '../utils/logger'
 import {
   getBareRepoPath,
   getLatestCommit,
   hasUnsavedChanges,
 } from './file-manager'
+import { gitCommandIsAvailable } from '../utils/git'
+import { logger } from '../utils/logger'
+
+import type { SessionState, ToolResult } from '@codebuff/common/types/session-state'
 
 export class CheckpointsDisabledError extends Error {
   constructor(message?: string, options?: ErrorOptions) {

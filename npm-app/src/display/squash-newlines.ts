@@ -6,6 +6,7 @@
  * character between the first two and the last two newline characters.
  */
 import stringWidth from 'string-width'
+
 import {
   originalConsoleDebug,
   originalConsoleError,

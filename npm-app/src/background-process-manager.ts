@@ -1,9 +1,6 @@
 import assert from 'assert'
 import {
-  ChildProcessByStdio,
-  ChildProcessWithoutNullStreams,
-  spawn,
-  SpawnOptionsWithoutStdio,
+  spawn
 } from 'child_process'
 import {
   mkdirSync,
@@ -16,7 +13,6 @@ import path from 'path'
 import process from 'process'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { ToolResult } from '@codebuff/common/types/session-state'
 import { buildArray } from '@codebuff/common/util/array'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
@@ -25,6 +21,12 @@ import { z } from 'zod'
 
 import { CONFIG_DIR } from './credentials'
 import { logger } from './utils/logger'
+
+import type { ToolResult } from '@codebuff/common/types/session-state'
+import type {
+  ChildProcessByStdio,
+  ChildProcessWithoutNullStreams,
+  SpawnOptionsWithoutStdio} from 'child_process';
 
 const COMMAND_OUTPUT_LIMIT = 5000 // Limit output to 10KB per stream
 const COMMAND_KILL_TIMEOUT_MS = 5000

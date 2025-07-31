@@ -1,8 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { checkAdminAuth } from '@/app/api/admin/admin-auth'
+
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { NextResponse } from 'next/server'
+
+import type { NextRequest} from 'next/server';
+
+import { checkAdminAuth } from '@/app/api/admin/admin-auth'
 
 interface RouteParams {
   params: {

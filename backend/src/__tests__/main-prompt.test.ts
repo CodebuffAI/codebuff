@@ -1,6 +1,14 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/constants'
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import {
+  getToolCallString,
+  renderToolResults,
+} from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterAll,
@@ -13,27 +21,20 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { WebSocket } from 'ws'
+
 
 // Mock imports
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
+import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import * as liveUserInputs from '../live-user-inputs'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
-
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
-import {
-  getToolCallString,
-  renderToolResults,
-} from '@codebuff/common/tools/utils'
-import { ProjectFileContext } from '@codebuff/common/util/file'
-import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import * as websocketAction from '../websockets/websocket-action'
+
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { WebSocket } from 'ws'
 
 const mockAgentStream = (streamOutput: string) => {
   spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {

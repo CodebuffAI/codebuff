@@ -1,10 +1,12 @@
-import { AgentOverrideConfig } from '../types/agent-overrides'
+import { normalizeAgentNames } from './agent-name-normalization'
 import {
-  DynamicAgentTemplate,
   DynamicAgentTemplateSchema,
 } from '../types/dynamic-agent-template'
 import { AgentTemplateTypes } from '../types/session-state'
-import { normalizeAgentNames } from './agent-name-normalization'
+
+import type { AgentOverrideConfig } from '../types/agent-overrides'
+import type {
+  DynamicAgentTemplate} from '../types/dynamic-agent-template';
 
 export interface SubagentValidationResult {
   valid: boolean

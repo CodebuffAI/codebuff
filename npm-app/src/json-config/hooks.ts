@@ -1,13 +1,14 @@
-import { ToolResult } from '@codebuff/common/types/session-state'
 import { generateCompactId } from '@codebuff/common/util/string'
 import micromatch from 'micromatch'
 import { bold, gray } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
+import { loadCodebuffConfig } from './parser'
 import { runTerminalCommand } from '../terminal/run-command'
 import { logger } from '../utils/logger'
 import { Spinner } from '../utils/spinner'
-import { loadCodebuffConfig } from './parser'
+
+import type { ToolResult } from '@codebuff/common/types/session-state'
 
 /**
  * Runs file change hooks defined in the codebuff.json configuration.

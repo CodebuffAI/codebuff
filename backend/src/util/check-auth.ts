@@ -1,11 +1,13 @@
-import { utils } from '@codebuff/internal'
-import { ServerAction } from '@codebuff/common/actions'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
+import { utils } from '@codebuff/internal'
 import { eq } from 'drizzle-orm'
-import { Request, Response, NextFunction } from 'express'
 
 import { logger } from './logger'
+
+import type { ServerAction } from '@codebuff/common/actions'
+import type { Request, Response, NextFunction } from 'express'
+
 
 export const checkAuth = async ({
   fingerprintId,

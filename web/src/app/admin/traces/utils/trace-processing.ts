@@ -1,6 +1,7 @@
+import { parseToolCallXml } from '@codebuff/internal'
+
 import type { TraceMessage } from '@/app/api/admin/traces/[clientRequestId]/messages/route'
 import type { TimelineEvent } from '@/app/api/admin/traces/[clientRequestId]/timeline/route'
-import { parseToolCallXml } from '@codebuff/internal'
 
 /**
  * Represents a parsed tool call from message content

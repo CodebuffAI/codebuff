@@ -1,4 +1,4 @@
-import { BlockColor } from '../decorative-blocks'
+import type { BlockColor } from '../decorative-blocks'
 
 export interface KeyPoint {
   icon: string

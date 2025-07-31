@@ -1,9 +1,13 @@
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { countTokens } from '@codebuff/backend/util/token-counter'
 import { geminiModels } from '@codebuff/common/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { countTokens } from '@codebuff/backend/util/token-counter'
-import { EvalRunLog, JudgingAnalysisSchema } from './types'
 import { createPatch } from 'diff'
+
+import { JudgingAnalysisSchema } from './types'
+
+import type { EvalRunLog} from './types';
+
 
 const MAX_TOKENS = 1_000_000 // 1 million token limit
 

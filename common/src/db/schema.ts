@@ -1,4 +1,4 @@
-import { SQL, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import {
   boolean,
   index,
@@ -11,9 +11,12 @@ import {
   text,
   timestamp,
 } from 'drizzle-orm/pg-core'
-import type { AdapterAccount } from 'next-auth/adapters'
+
 import { GrantTypeValues } from '../types/grant'
 import { ReferralStatusValues } from '../types/referral'
+
+import type { SQL} from 'drizzle-orm';
+import type { AdapterAccount } from 'next-auth/adapters'
 
 export const ReferralStatus = pgEnum('referral_status', [
   ReferralStatusValues[0],

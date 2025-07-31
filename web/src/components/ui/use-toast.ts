@@ -1,6 +1,6 @@
 // Inspired by react-hot-toast library
-import * as React from 'react'
 import posthog from 'posthog-js'
+import * as React from 'react'
 
 import type { ToastActionElement, ToastProps } from '@/components/ui/toast'
 

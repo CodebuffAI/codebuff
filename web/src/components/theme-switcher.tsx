@@ -1,6 +1,7 @@
 'use client';
 
-import { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
+
 import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 

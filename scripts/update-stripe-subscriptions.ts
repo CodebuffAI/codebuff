@@ -1,9 +1,13 @@
 import fs from 'fs'
-import { stripeServer } from '../common/src/util/stripe'
-import Stripe from 'stripe'
+
 import { db } from '@codebuff/common/db'
-import * as schema from '../common/src/db/schema'
 import { eq } from 'drizzle-orm'
+
+
+import * as schema from '../common/src/db/schema'
+import { stripeServer } from '../common/src/util/stripe'
+
+import type Stripe from 'stripe'
 
 const USAGE_PRICE_ID = process.env.STRIPE_USAGE_PRICE_ID
 

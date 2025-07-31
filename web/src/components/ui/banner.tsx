@@ -1,14 +1,15 @@
 'use client'
 
-import { Button } from './button'
-import { X, Gift } from 'lucide-react'
-import { Suspense, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import Link from 'next/link'
 import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/constants'
-import { useSearchParams } from 'next/navigation'
-import posthog from 'posthog-js'
 import { capitalize } from '@codebuff/common/util/string'
+import { X, Gift } from 'lucide-react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import posthog from 'posthog-js'
+import { Suspense, useState } from 'react'
+
+import { Button } from './button'
 
 function BannerContent() {
   const [isVisible, setIsVisible] = useState(true)
