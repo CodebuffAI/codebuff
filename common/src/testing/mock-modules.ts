@@ -15,7 +15,7 @@ let mockModuleCache: Record<string, MockResult> = {}
  */
 export const mockModule = async (
   modulePath: string,
-  renderMocks: () => Record<string, any>
+  renderMocks: () => Record<string, any>,
 ): Promise<MockResult> => {
   let original = originalModuleCache[modulePath] ?? {
     ...(await import(modulePath)),

@@ -1,4 +1,3 @@
-
 import { DemoCodeDisplay } from '@/components/ui/landing/demo-code-display'
 
 interface CodeIllustrationProps {

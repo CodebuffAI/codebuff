@@ -29,7 +29,7 @@ export function countTokensJson(text: string | object): number {
 }
 
 export function countTokensForFiles(
-  files: Record<string, string | null>
+  files: Record<string, string | null>,
 ): Record<string, number> {
   const tokenCounts: Record<string, number> = {}
   for (const [filePath, content] of Object.entries(files)) {

@@ -1,4 +1,3 @@
-
 import {
   convertReadableStreamToArray,
   JsonTestServer,
@@ -119,7 +118,7 @@ const model = provider.chat('anthropic/claude-3.5-sonnet')
 
 describe('doGenerate', () => {
   const server = new JsonTestServer(
-    'https://openrouter.ai/api/v1/chat/completions'
+    'https://openrouter.ai/api/v1/chat/completions',
   )
 
   server.setupTestEnvironment()
@@ -215,7 +214,7 @@ describe('doGenerate', () => {
         prompt: TEST_PROMPT,
       })
     expect(response.logprobs).toStrictEqual(
-      mapOpenRouterChatLogProbsOutput(TEST_LOGPROBS) as any
+      mapOpenRouterChatLogProbsOutput(TEST_LOGPROBS) as any,
     )
   })
 
@@ -419,7 +418,7 @@ describe('doGenerate', () => {
 
 describe('doStream', () => {
   const server = new StreamingTestServer(
-    'https://openrouter.ai/api/v1/chat/completions'
+    'https://openrouter.ai/api/v1/chat/completions',
   )
 
   server.setupTestEnvironment()
@@ -458,10 +457,10 @@ describe('doStream', () => {
         return `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":1,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`
       }),
       `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{},"finish_reason":"${finish_reason}","logprobs":${JSON.stringify(
-        logprobs
+        logprobs,
       )}}]}\n\n`,
       `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":${JSON.stringify(
-        usage
+        usage,
       )}}\n\n`,
       'data: [DONE]\n\n',
     ]
@@ -989,7 +988,7 @@ describe('doStream', () => {
     expect(requestBody).toHaveProperty('custom_field', 'custom_value')
     expect(requestBody).toHaveProperty(
       'providers.anthropic.custom_field',
-      'custom_value'
+      'custom_value',
     )
   })
 })

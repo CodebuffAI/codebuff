@@ -193,7 +193,7 @@ describe('trimMessagesToFitTokenLimit', () => {
     const result = trimMessagesToFitTokenLimit(
       testMessages,
       systemTokens,
-      maxTotalTokens
+      maxTotalTokens,
     )
 
     // Verify the first message was dropped
@@ -207,10 +207,10 @@ describe('trimMessagesToFitTokenLimit', () => {
     expect(result[1].role).toEqual(testMessages[2].role)
     expect(Array.isArray(result[1].content)).toBe(true)
     expect((result[1].content[0] as any).text).toContain(
-      '<result>[Output omitted]</result>'
+      '<result>[Output omitted]</result>',
     )
     expect((result[1].content[1] as any).text).toBe(
-      (testMessages[2].content[1] as any).text
+      (testMessages[2].content[1] as any).text,
     )
 
     expect(result[2].role).toEqual(testMessages[3].role)
@@ -233,7 +233,7 @@ describe('trimMessagesToFitTokenLimit', () => {
     const result = trimMessagesToFitTokenLimit(
       testMessages,
       systemTokens,
-      maxTotalTokens
+      maxTotalTokens,
     )
 
     // Verify the first message was dropped
@@ -247,10 +247,10 @@ describe('trimMessagesToFitTokenLimit', () => {
     expect(result[1].role).toEqual(testMessages[2].role)
     expect(Array.isArray(result[1].content)).toBe(true)
     expect((result[1].content[0] as any).text).toContain(
-      '<result>[Output omitted]</result>'
+      '<result>[Output omitted]</result>',
     )
     expect((result[1].content[1] as any).text).toBe(
-      (testMessages[2].content[1] as any).text
+      (testMessages[2].content[1] as any).text,
     )
 
     expect(result[2].role).toEqual(testMessages[3].role)
@@ -273,7 +273,7 @@ describe('trimMessagesToFitTokenLimit', () => {
     const result = trimMessagesToFitTokenLimit(
       testMessages,
       systemTokens,
-      maxTotalTokens
+      maxTotalTokens,
     )
 
     // All messages should be unchanged

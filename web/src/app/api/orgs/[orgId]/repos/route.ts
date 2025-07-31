@@ -1,4 +1,7 @@
-import { validateAndNormalizeRepositoryUrl, extractOwnerAndRepo } from '@codebuff/billing'
+import {
+  validateAndNormalizeRepositoryUrl,
+  extractOwnerAndRepo,
+} from '@codebuff/billing'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -6,21 +9,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import type { AddRepositoryRequest } from '@codebuff/common/types/organization'
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-
-
-
 
 interface RouteParams {
   params: { orgId: string }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -42,7 +39,10 @@ export async function GET(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     // Get repositories
@@ -74,10 +74,7 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -100,12 +97,18 @@ export async function POST(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const { role } = membership[0]
     if (role !== 'owner' && role !== 'admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
     }
 
     // Validate and normalize repository URL

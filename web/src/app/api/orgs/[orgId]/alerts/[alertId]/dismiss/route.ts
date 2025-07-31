@@ -1,12 +1,10 @@
-
-
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
@@ -39,12 +37,15 @@ export async function POST(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     // In a real implementation, you would store dismissed alerts in the database
     // For now, we'll just return success since alerts are generated dynamically
-    
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error dismissing alert:', error)

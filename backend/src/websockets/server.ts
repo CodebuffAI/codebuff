@@ -1,7 +1,5 @@
 import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
-import {
-  CLIENT_MESSAGE_SCHEMA
-} from '@codebuff/common/websockets/websocket-schema'
+import { CLIENT_MESSAGE_SCHEMA } from '@codebuff/common/websockets/websocket-schema'
 import { isError } from 'lodash'
 import { WebSocketServer } from 'ws'
 
@@ -11,11 +9,9 @@ import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
 import { logger } from '../util/logger'
 
-import type {
-  ServerMessage} from '@codebuff/common/websockets/websocket-schema';
+import type { ServerMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { Server as HttpServer } from 'node:http'
-import type { RawData, WebSocket} from 'ws';
-
+import type { RawData, WebSocket } from 'ws'
 
 export const SWITCHBOARD = new Switchboard()
 
@@ -38,7 +34,7 @@ function serializeError(err: unknown) {
 async function processMessage(
   ws: WebSocket,
   clientSessionId: string,
-  data: RawData
+  data: RawData,
 ): Promise<ServerMessage<'ack'>> {
   let messageObj: any
   try {
@@ -46,7 +42,7 @@ async function processMessage(
   } catch (err) {
     logger.error(
       { err, data },
-      'Error parsing message: not valid UTF-8 encoded JSON.'
+      'Error parsing message: not valid UTF-8 encoded JSON.',
     )
     return { type: 'ack', success: false, error: serializeError(err) }
   }
@@ -99,7 +95,7 @@ export function listen(server: HttpServer, path: string) {
             const client = SWITCHBOARD.getClient(ws)
             if (!client) {
               logger.warn(
-                'Client not found in switchboard, terminating connection'
+                'Client not found in switchboard, terminating connection',
               )
               ws.terminate()
               continue

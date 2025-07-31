@@ -3,7 +3,11 @@ import { parentPort as maybeParentPort } from 'worker_threads'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 
 import { initializeCheckpointFileManager } from '../checkpoints/file-manager'
-import { getProjectFileContext, setProjectRoot, setChatIdFromExternal } from '../project-files'
+import {
+  getProjectFileContext,
+  setProjectRoot,
+  setChatIdFromExternal,
+} from '../project-files'
 
 if (maybeParentPort) {
   const parentPort = maybeParentPort
@@ -13,7 +17,7 @@ if (maybeParentPort) {
     if (chatId) {
       setChatIdFromExternal(chatId)
     }
-    
+
     setProjectRoot(dir)
     const initFileContext = await getProjectFileContext(dir, {})
     if (!initFileContext) {

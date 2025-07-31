@@ -2,8 +2,8 @@
  * Add a new message to the conversation history. To be used for complex requests that can't be solved in a single step, as you may forget what happened!
  */
 export interface AddMessageParams {
-  "role": "user" | "assistant"
-  "content": string
+  role: 'user' | 'assistant'
+  content: string
 }
 
 /**
@@ -11,15 +11,15 @@ export interface AddMessageParams {
  */
 export interface AddSubgoalParams {
   // A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.
-  "id": string
+  id: string
   // The objective of the subgoal, concisely and clearly stated.
-  "objective": string
+  objective: string
   // The status of the subgoal.
-  "status": "NOT_STARTED" | "IN_PROGRESS" | "COMPLETE" | "ABORTED"
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'ABORTED'
   // A plan for the subgoal.
-  "plan"?: string
+  plan?: string
   // A log message for the subgoal progress.
-  "log"?: string
+  log?: string
 }
 
 /**
@@ -27,11 +27,11 @@ export interface AddSubgoalParams {
  */
 export interface BrowserLogsParams {
   // The type of browser action to perform (e.g., "navigate").
-  "type": string
+  type: string
   // The URL to navigate to.
-  "url": string
+  url: string
   // When to consider navigation successful. Defaults to 'load'.
-  "waitUntil"?: "load" | "domcontentloaded" | "networkidle0"
+  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0'
 }
 
 /**
@@ -39,11 +39,11 @@ export interface BrowserLogsParams {
  */
 export interface CodeSearchParams {
   // The pattern to search for.
-  "pattern": string
+  pattern: string
   // Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not test" to exclude test files).
-  "flags"?: string
+  flags?: string
   // Optional working directory to search within, relative to the project root. Defaults to searching the entire project.
-  "cwd"?: string
+  cwd?: string
 }
 
 /**
@@ -51,24 +51,22 @@ export interface CodeSearchParams {
  */
 export interface CreatePlanParams {
   // The path including the filename of a markdown file that will be overwritten with the plan.
-  "path": string
+  path: string
   // A detailed plan to solve the user's request.
-  "plan": string
+  plan: string
 }
 
 /**
  * End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.
  */
-export interface EndTurnParams {
-
-}
+export interface EndTurnParams {}
 
 /**
  * Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.
  */
 export interface FindFilesParams {
   // A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
-  "prompt": string
+  prompt: string
 }
 
 /**
@@ -76,11 +74,11 @@ export interface FindFilesParams {
  */
 export interface ReadDocsParams {
   // The exact library or framework name (e.g., "Next.js", "MongoDB", "React"). Use the official name as it appears in documentation, not a search query.
-  "libraryTitle": string
+  libraryTitle: string
   // Optional specific topic to focus on (e.g., "routing", "hooks", "authentication")
-  "topic"?: string
+  topic?: string
   // Optional maximum number of tokens to return. Defaults to 10000. Values less than 10000 are automatically increased to 10000.
-  "max_tokens"?: number
+  max_tokens?: number
 }
 
 /**
@@ -88,7 +86,7 @@ export interface ReadDocsParams {
  */
 export interface ReadFilesParams {
   // List of file paths to read.
-  "paths": string[]
+  paths: string[]
 }
 
 /**
@@ -96,7 +94,7 @@ export interface ReadFilesParams {
  */
 export interface RunFileChangeHooksParams {
   // List of file paths that were changed and should trigger file change hooks
-  "files": string[]
+  files: string[]
 }
 
 /**
@@ -104,13 +102,13 @@ export interface RunFileChangeHooksParams {
  */
 export interface RunTerminalCommandParams {
   // CLI command valid for user's OS.
-  "command": string
+  command: string
   // Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC
-  "process_type": "SYNC" | "BACKGROUND"
+  process_type: 'SYNC' | 'BACKGROUND'
   // The working directory to run the command in. Default is the project root.
-  "cwd"?: string
+  cwd?: string
   // Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30
-  "timeout_seconds": number
+  timeout_seconds: number
 }
 
 /**
@@ -118,56 +116,54 @@ export interface RunTerminalCommandParams {
  */
 export interface SendAgentMessageParams {
   // ID of the target agent to send message to. Use "PARENT_ID" to send to parent agent.
-  "target_agent_id": string
+  target_agent_id: string
   // Message prompt to send to the target agent
-  "prompt": string
+  prompt: string
   // Optional parameters object to send with the message
-  "params"?: Record<string, any>
+  params?: Record<string, any>
 }
 
 /**
  * Set the conversation history to the provided messages.
  */
 export interface SetMessagesParams {
-  "messages": {
-  "role": "user" | "assistant"
-  "content": string
-}[]
+  messages: {
+    role: 'user' | 'assistant'
+    content: string
+  }[]
 }
 
 /**
  * JSON object to set as the agent output. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.
  */
-export interface SetOutputParams {
-
-}
+export interface SetOutputParams {}
 
 /**
  * Spawn multiple agents and send a prompt to each of them.
  */
 export interface SpawnAgentsParams {
-  "agents": {
-  // Agent to spawn
-  "agent_type": string
-  // Prompt to send to the agent
-  "prompt"?: string
-  // Parameters object for the agent (if any)
-  "params"?: Record<string, any>
-}[]
+  agents: {
+    // Agent to spawn
+    agent_type: string
+    // Prompt to send to the agent
+    prompt?: string
+    // Parameters object for the agent (if any)
+    params?: Record<string, any>
+  }[]
 }
 
 /**
  * Parameters for spawn_agents_async tool
  */
 export interface SpawnAgentsAsyncParams {
-  "agents": {
-  // Agent to spawn
-  "agent_type": string
-  // Prompt to send to the agent
-  "prompt"?: string
-  // Parameters object for the agent (if any)
-  "params"?: Record<string, any>
-}[]
+  agents: {
+    // Agent to spawn
+    agent_type: string
+    // Prompt to send to the agent
+    prompt?: string
+    // Parameters object for the agent (if any)
+    params?: Record<string, any>
+  }[]
 }
 
 /**
@@ -175,14 +171,14 @@ export interface SpawnAgentsAsyncParams {
  */
 export interface StrReplaceParams {
   // The path to the file to edit.
-  "path": string
+  path: string
   // Array of replacements to make.
-  "replacements": {
-  // The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
-  "old": string
-  // The string to replace the corresponding old string with. Can be empty to delete.
-  "new": string
-}[]
+  replacements: {
+    // The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
+    old: string
+    // The string to replace the corresponding old string with. Can be empty to delete.
+    new: string
+  }[]
 }
 
 /**
@@ -190,7 +186,7 @@ export interface StrReplaceParams {
  */
 export interface ThinkDeeplyParams {
   // Detailed step-by-step analysis. Initially keep each step concise (max ~5-7 words per step).
-  "thought": string
+  thought: string
 }
 
 /**
@@ -198,13 +194,13 @@ export interface ThinkDeeplyParams {
  */
 export interface UpdateSubgoalParams {
   // The id of the subgoal to update.
-  "id": string
+  id: string
   // Change the status of the subgoal.
-  "status"?: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETE" | "ABORTED"
+  status?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'ABORTED'
   // Change the plan for the subgoal.
-  "plan"?: string
+  plan?: string
   // Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.
-  "log"?: string
+  log?: string
 }
 
 /**
@@ -212,9 +208,9 @@ export interface UpdateSubgoalParams {
  */
 export interface WebSearchParams {
   // The search query to find relevant web content
-  "query": string
+  query: string
   // Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'.
-  "depth": "standard" | "deep"
+  depth: 'standard' | 'deep'
 }
 
 /**
@@ -222,43 +218,64 @@ export interface WebSearchParams {
  */
 export interface WriteFileParams {
   // Path to the file relative to the **project root**
-  "path": string
+  path: string
   // What the change is intended to do in only one sentence.
-  "instructions": string
+  instructions: string
   // Edit snippet to apply to the file.
-  "content": string
+  content: string
 }
 
 /**
  * Union type of all available tool names
  */
-export type ToolName = 'add_message' | 'add_subgoal' | 'browser_logs' | 'code_search' | 'create_plan' | 'end_turn' | 'find_files' | 'read_docs' | 'read_files' | 'run_file_change_hooks' | 'run_terminal_command' | 'send_agent_message' | 'set_messages' | 'set_output' | 'spawn_agents' | 'spawn_agents_async' | 'str_replace' | 'think_deeply' | 'update_subgoal' | 'web_search' | 'write_file'
+export type ToolName =
+  | 'add_message'
+  | 'add_subgoal'
+  | 'browser_logs'
+  | 'code_search'
+  | 'create_plan'
+  | 'end_turn'
+  | 'find_files'
+  | 'read_docs'
+  | 'read_files'
+  | 'run_file_change_hooks'
+  | 'run_terminal_command'
+  | 'send_agent_message'
+  | 'set_messages'
+  | 'set_output'
+  | 'spawn_agents'
+  | 'spawn_agents_async'
+  | 'str_replace'
+  | 'think_deeply'
+  | 'update_subgoal'
+  | 'web_search'
+  | 'write_file'
 
 /**
  * Map of tool names to their parameter types
  */
 export interface ToolParamsMap {
-  'add_message': AddMessageParams
-  'add_subgoal': AddSubgoalParams
-  'browser_logs': BrowserLogsParams
-  'code_search': CodeSearchParams
-  'create_plan': CreatePlanParams
-  'end_turn': EndTurnParams
-  'find_files': FindFilesParams
-  'read_docs': ReadDocsParams
-  'read_files': ReadFilesParams
-  'run_file_change_hooks': RunFileChangeHooksParams
-  'run_terminal_command': RunTerminalCommandParams
-  'send_agent_message': SendAgentMessageParams
-  'set_messages': SetMessagesParams
-  'set_output': SetOutputParams
-  'spawn_agents': SpawnAgentsParams
-  'spawn_agents_async': SpawnAgentsAsyncParams
-  'str_replace': StrReplaceParams
-  'think_deeply': ThinkDeeplyParams
-  'update_subgoal': UpdateSubgoalParams
-  'web_search': WebSearchParams
-  'write_file': WriteFileParams
+  add_message: AddMessageParams
+  add_subgoal: AddSubgoalParams
+  browser_logs: BrowserLogsParams
+  code_search: CodeSearchParams
+  create_plan: CreatePlanParams
+  end_turn: EndTurnParams
+  find_files: FindFilesParams
+  read_docs: ReadDocsParams
+  read_files: ReadFilesParams
+  run_file_change_hooks: RunFileChangeHooksParams
+  run_terminal_command: RunTerminalCommandParams
+  send_agent_message: SendAgentMessageParams
+  set_messages: SetMessagesParams
+  set_output: SetOutputParams
+  spawn_agents: SpawnAgentsParams
+  spawn_agents_async: SpawnAgentsAsyncParams
+  str_replace: StrReplaceParams
+  think_deeply: ThinkDeeplyParams
+  update_subgoal: UpdateSubgoalParams
+  web_search: WebSearchParams
+  write_file: WriteFileParams
 }
 
 /**

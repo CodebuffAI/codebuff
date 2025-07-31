@@ -54,13 +54,13 @@ async function analyzeEditBlocks() {
   for (const block of editBlocks) {
     fileFrequency.set(
       block.filePath,
-      (fileFrequency.get(block.filePath) || 0) + 1
+      (fileFrequency.get(block.filePath) || 0) + 1,
     )
   }
 
   // Sort by frequency
   const sortedFiles = Array.from(fileFrequency.entries()).sort(
-    (a, b) => b[1] - a[1]
+    (a, b) => b[1] - a[1],
   )
 
   for (const [file, count] of sortedFiles) {

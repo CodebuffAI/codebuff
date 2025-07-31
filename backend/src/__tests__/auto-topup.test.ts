@@ -32,7 +32,7 @@ describe('Auto Top-up System', () => {
           auto_topup_amount: 500,
           stripe_customer_id: 'cus_123',
           next_quota_reset: new Date(),
-        })
+        }),
       )
 
       balanceMock = mock(() =>
@@ -44,7 +44,7 @@ describe('Auto Top-up System', () => {
             netBalance: 50,
             breakdown: {},
           },
-        })
+        }),
       )
 
       validateAutoTopupMock = mock(() =>
@@ -58,7 +58,7 @@ describe('Auto Top-up System', () => {
               exp_month: 12,
             },
           },
-        })
+        }),
       )
 
       grantCreditsMock = mock(() => Promise.resolve())
@@ -81,10 +81,10 @@ describe('Auto Top-up System', () => {
 
       spyOn(billing, 'calculateUsageAndBalance').mockImplementation(balanceMock)
       spyOn(billing, 'validateAutoTopupStatus').mockImplementation(
-        validateAutoTopupMock
+        validateAutoTopupMock,
       )
       spyOn(billing, 'processAndGrantCredit').mockImplementation(
-        grantCreditsMock
+        grantCreditsMock,
       )
 
       // Mock Stripe payment intent creation
@@ -95,7 +95,7 @@ describe('Auto Top-up System', () => {
               Promise.resolve({
                 status: 'succeeded',
                 id: 'pi_123',
-              })
+              }),
             ),
           },
         },
@@ -133,16 +133,16 @@ describe('Auto Top-up System', () => {
             netBalance: 200,
             breakdown: {},
           },
-        })
+        }),
       )
 
       // Update the spies with the new mock implementations
       spyOn(billing, 'calculateUsageAndBalance').mockImplementation(balanceMock)
       spyOn(billing, 'validateAutoTopupStatus').mockImplementation(
-        validateAutoTopupMock
+        validateAutoTopupMock,
       )
       spyOn(billing, 'processAndGrantCredit').mockImplementation(
-        grantCreditsMock
+        grantCreditsMock,
       )
 
       await checkAndTriggerAutoTopup('test-user')
@@ -169,16 +169,16 @@ describe('Auto Top-up System', () => {
             netBalance: -600,
             breakdown: {},
           },
-        })
+        }),
       )
 
       // Update the spies with the new mock implementations
       spyOn(billing, 'calculateUsageAndBalance').mockImplementation(balanceMock)
       spyOn(billing, 'validateAutoTopupStatus').mockImplementation(
-        validateAutoTopupMock
+        validateAutoTopupMock,
       )
       spyOn(billing, 'processAndGrantCredit').mockImplementation(
-        grantCreditsMock
+        grantCreditsMock,
       )
 
       await checkAndTriggerAutoTopup('test-user')
@@ -195,16 +195,16 @@ describe('Auto Top-up System', () => {
         Promise.resolve({
           blockedReason: 'No valid payment method found',
           validPaymentMethod: null,
-        })
+        }),
       )
 
       // Update the spy with the new mock implementation
       spyOn(billing, 'validateAutoTopupStatus').mockImplementation(
-        validateAutoTopupMock
+        validateAutoTopupMock,
       )
 
       await expect(checkAndTriggerAutoTopup('test-user')).rejects.toThrow(
-        'No valid payment method found'
+        'No valid payment method found',
       )
 
       // Should have called validation

@@ -49,7 +49,6 @@ import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 
-
 interface Member {
   user: {
     id: string
@@ -1095,8 +1094,9 @@ export function TeamManagement({
             <DialogTitle>Remove Team Member</DialogTitle>
             <DialogDescription>
               Are you sure you want to remove{' '}
-              <strong>{currentMemberToRemove?.name}</strong> from the organization?
-              This action cannot be undone and they will lose access immediately.
+              <strong>{currentMemberToRemove?.name}</strong> from the
+              organization? This action cannot be undone and they will lose
+              access immediately.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

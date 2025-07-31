@@ -5,7 +5,7 @@ import { closeXml } from '@codebuff/common/util/xml'
 
 import { PLACEHOLDER } from './types'
 
-import type { Model} from '@codebuff/common/constants';
+import type { Model } from '@codebuff/common/constants'
 
 export const baseAgentSystemPrompt = (model: Model) => {
   return `# Persona: ${PLACEHOLDER.AGENT_NAME}
@@ -278,7 +278,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
       (isFlash || isGeminiPro) &&
         'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.',
 
-      'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.'
+      'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
     ).join('\n\n') +
     closeXml('system_instructions')
   )

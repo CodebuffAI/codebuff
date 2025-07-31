@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-
 interface UsageDisplayProps {
   usageThisCycle: number
   balance: CreditBalance
@@ -230,7 +229,10 @@ export const UsageDisplay = ({
     if (typeKey !== 'organization') {
       const currentBalanceVal = breakdown[typeKey] || 0
       const principalVal = principals[typeKey] || currentBalanceVal
-      usedCredits[typeKey as FilteredGrantType] = Math.max(0, principalVal - currentBalanceVal)
+      usedCredits[typeKey as FilteredGrantType] = Math.max(
+        0,
+        principalVal - currentBalanceVal
+      )
     }
   })
 

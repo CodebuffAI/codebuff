@@ -14,7 +14,12 @@ interface AvatarUploadProps {
   className?: string
 }
 
-export function AvatarUpload({ value, onChange, disabled, className }: AvatarUploadProps) {
+export function AvatarUpload({
+  value,
+  onChange,
+  disabled,
+  className,
+}: AvatarUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(value || null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -24,48 +29,60 @@ export function AvatarUpload({ value, onChange, disabled, className }: AvatarUpl
     setPreviewUrl(value || null)
   }, [value])
 
-  const handleFile = useCallback((file: File) => {
-    if (!file.type.startsWith('image/')) {
-      return
-    }
+  const handleFile = useCallback(
+    (file: File) => {
+      if (!file.type.startsWith('image/')) {
+        return
+      }
 
-    const url = URL.createObjectURL(file)
-    setPreviewUrl(url)
-    onChange(file, url)
-  }, [onChange])
+      const url = URL.createObjectURL(file)
+      setPreviewUrl(url)
+      onChange(file, url)
+    },
+    [onChange]
+  )
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    
-    if (disabled) return
-    
-    const files = Array.from(e.dataTransfer.files)
-    const imageFile = files.find(file => file.type.startsWith('image/'))
-    
-    if (imageFile) {
-      handleFile(imageFile)
-    }
-  }, [handleFile, disabled])
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setIsDragOver(false)
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    if (!disabled) {
-      setIsDragOver(true)
-    }
-  }, [disabled])
+      if (disabled) return
+
+      const files = Array.from(e.dataTransfer.files)
+      const imageFile = files.find((file) => file.type.startsWith('image/'))
+
+      if (imageFile) {
+        handleFile(imageFile)
+      }
+    },
+    [handleFile, disabled]
+  )
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      if (!disabled) {
+        setIsDragOver(true)
+      }
+    },
+    [disabled]
+  )
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(false)
   }, [])
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      handleFile(file)
-    }
-  }, [handleFile])
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (file) {
+        handleFile(file)
+      }
+    },
+    [handleFile]
+  )
 
   const handleRemove = useCallback(() => {
     if (previewUrl && previewUrl.startsWith('blob:')) {
@@ -133,7 +150,7 @@ export function AvatarUpload({ value, onChange, disabled, className }: AvatarUpl
           </div>
         )}
       </div>
-      
+
       <input
         ref={fileInputRef}
         type="file"
@@ -142,7 +159,7 @@ export function AvatarUpload({ value, onChange, disabled, className }: AvatarUpl
         className="hidden"
         disabled={disabled}
       />
-      
+
       <p className="text-xs text-center text-muted-foreground">
         Drag and drop an image, or click to browse
       </p>

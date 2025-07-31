@@ -12,7 +12,6 @@ import {
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 
-
 import { rerank } from '../llm-apis/relace-api'
 import {
   promptAiSdk,
@@ -26,7 +25,8 @@ import type {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesPayload,
   GetRelevantFilesTrace,
-  Relabel} from '@codebuff/bigquery';
+  Relabel,
+} from '@codebuff/bigquery'
 import type { Message } from '@codebuff/common/types/message'
 import type { Request, Response } from 'express'
 
@@ -95,7 +95,7 @@ export async function getTracesForUserHandler(req: Request, res: Response) {
           query,
           outputs,
         }
-      }
+      },
     )
 
     // Return the formatted data
@@ -107,7 +107,7 @@ export async function getTracesForUserHandler(req: Request, res: Response) {
         stack: error instanceof Error ? error.stack : undefined,
         message: error instanceof Error ? error.message : 'Unknown error',
       },
-      'Error fetching traces and relabels'
+      'Error fetching traces and relabels',
     )
     return res
       .status(500)
@@ -152,7 +152,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
       const traces = await getTracesWithoutRelabels(model, limit, userId)
 
       logger.info(
-        `Found ${traces.length} traces without relabels for model ${model}`
+        `Found ${traces.length} traces without relabels for model ${model}`,
       )
 
       // Process traces for this model
@@ -173,7 +173,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
             output = await promptAiSdk({
               messages: transformMessages(
                 messages as Message[],
-                system as System
+                system as System,
               ),
               model: model,
               clientSessionId: 'relabel-trace-api',
@@ -214,7 +214,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
                 message:
                   error instanceof Error ? error.message : 'Unknown error',
               },
-              `Error processing trace ${trace.id}:`
+              `Error processing trace ${trace.id}:`,
             )
             return {
               traceId: trace.id,
@@ -223,7 +223,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
               error: error instanceof Error ? error.message : 'Unknown error',
             }
           }
-        })
+        }),
       )
 
       allResults.push(...modelResults)
@@ -246,7 +246,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
         stack: error instanceof Error ? error.stack : undefined,
         message: error instanceof Error ? error.message : 'Unknown error',
       },
-      'Error relabeling traces'
+      'Error relabeling traces',
     )
     return res.status(500).json({ error: 'Failed to relabel traces' })
   }
@@ -264,11 +264,11 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
     const files = traceBundle.relatedTraces.find(
       (t) =>
         t.type === 'get-expanded-file-context-for-training' &&
-        (t.payload as GetRelevantFilesPayload)
+        (t.payload as GetRelevantFilesPayload),
     ) as GetExpandedFileContextForTrainingTrace
     // TODO: We might be messing this up by not storing if 'Key' or 'Non-obvious', now that we collect both (?)
     const fileBlobs = traceBundle.relatedTraces.find(
-      (t) => t.type === 'get-expanded-file-context-for-training-blobs'
+      (t) => t.type === 'get-expanded-file-context-for-training-blobs',
     ) as GetExpandedFileContextForTrainingBlobTrace
 
     if (!files || !fileBlobs) {
@@ -279,14 +279,17 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
       relabelPromises.push(relabelWithRelace(trace, fileBlobs))
       didRelabel = true
     }
-    for (const model of [models.openrouter_claude_sonnet_4, models.openrouter_claude_opus_4]) {
+    for (const model of [
+      models.openrouter_claude_sonnet_4,
+      models.openrouter_claude_opus_4,
+    ]) {
       if (
         !traceBundle.relabels.some(
-          (r) => r.model === `${model}-with-full-file-context`
+          (r) => r.model === `${model}-with-full-file-context`,
         )
       ) {
         relabelPromises.push(
-          relabelWithClaudeWithFullFileContext(trace, fileBlobs, model)
+          relabelWithClaudeWithFullFileContext(trace, fileBlobs, model),
         )
         didRelabel = true
       }
@@ -309,7 +312,7 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
 
 async function relabelWithRelace(
   trace: GetRelevantFilesTrace,
-  fileBlobs: GetExpandedFileContextForTrainingBlobTrace
+  fileBlobs: GetExpandedFileContextForTrainingBlobTrace,
 ) {
   logger.info(`Relabeling ${trace.id} with Relace`)
   const messages = trace.payload.messages || []
@@ -326,7 +329,7 @@ async function relabelWithRelace(
     ([path, file]) => ({
       path,
       content: file.content,
-    })
+    }),
   )
 
   const relaced = await rerank(filesWithPath, query, {
@@ -360,7 +363,7 @@ export async function relabelWithClaudeWithFullFileContext(
   trace: GetRelevantFilesTrace,
   fileBlobs: GetExpandedFileContextForTrainingBlobTrace,
   model: string,
-  dataset?: string
+  dataset?: string,
 ) {
   if (dataset) {
     await setupBigQuery(dataset)
@@ -370,7 +373,7 @@ export async function relabelWithClaudeWithFullFileContext(
     ([path, file]): { path: string; content: string } => ({
       path,
       content: file.content,
-    })
+    }),
   )
 
   const filesString = filesWithPath
@@ -378,7 +381,7 @@ export async function relabelWithClaudeWithFullFileContext(
       (f) => `<file-contents>
       <name>${f.path}${closeXml('name')}
       <contents>${f.content}${closeXml('contents')}
-    ${closeXml('file-contents')}`
+    ${closeXml('file-contents')}`,
     )
     .join('\n')
 

@@ -25,8 +25,6 @@ import {
   SHOW_CURSOR,
 } from '../utils/terminal'
 
-
-
 let isInAgentsBuffer = false
 let originalKeyHandlers: ((str: string, key: any) => void)[] = []
 let selectedIndex = 0
@@ -222,7 +220,7 @@ function centerSelectedItem() {
   const selectedLineIndex = agentLinePositions[selectedIndex]
   const maxScrollOffset = Math.max(
     0,
-    allContentLines.length - maxScrollableLines
+    allContentLines.length - maxScrollableLines,
   )
 
   // Center item in the scrollable viewport
@@ -263,16 +261,16 @@ function buildAllContentLines() {
           const titlePadding = Math.max(0, headerWidth - cleanName.length - 4)
           const separatorLine = '─'.repeat(titlePadding)
           lines.push(
-            `  ${cyan('│')} ${gray(separatorLine)}  ${agent.name} ${cyan('│')}`
+            `  ${cyan('│')} ${gray(separatorLine)}  ${agent.name} ${cyan('│')}`,
           )
 
           if (agent.description) {
             const descPadding = Math.max(
               0,
-              headerWidth - cleanDescription.length
+              headerWidth - cleanDescription.length,
             )
             lines.push(
-              `  ${cyan('│')} ${agent.description}${' '.repeat(descPadding)} ${cyan('│')}`
+              `  ${cyan('│')} ${agent.description}${' '.repeat(descPadding)} ${cyan('│')}`,
             )
           }
           lines.push(`  ${cyan('└' + '─'.repeat(headerWidth + 2) + '┘')}`)
@@ -280,7 +278,7 @@ function buildAllContentLines() {
           // Right-aligned title with separator line for unselected
           const titlePadding = Math.max(
             0,
-            availableWidth - cleanName.length - 4
+            availableWidth - cleanName.length - 4,
           )
           const separatorLine = gray('─'.repeat(titlePadding))
           lines.push(`  ${separatorLine}  ${agent.name}`)
@@ -316,10 +314,10 @@ function buildAllContentLines() {
           const boxWidth = Math.min(terminalWidth - 6, 50)
           lines.push(`  ${cyan('┌' + '─'.repeat(boxWidth + 2) + '┐')}`)
           lines.push(
-            `  ${cyan('│')} ${agent.name} ${' '.repeat(Math.max(0, boxWidth - agent.name.replace(/\u001b\[[0-9;]*m/g, '').length))} ${cyan('│')}`
+            `  ${cyan('│')} ${agent.name} ${' '.repeat(Math.max(0, boxWidth - agent.name.replace(/\u001b\[[0-9;]*m/g, '').length))} ${cyan('│')}`,
           )
           lines.push(
-            `  ${cyan('│')} ${gray(agent.description || '')} ${' '.repeat(Math.max(0, boxWidth - (agent.description || '').length))} ${cyan('│')}`
+            `  ${cyan('│')} ${gray(agent.description || '')} ${' '.repeat(Math.max(0, boxWidth - (agent.description || '').length))} ${cyan('│')}`,
           )
           lines.push(`  ${cyan('└' + '─'.repeat(boxWidth + 2) + '┘')}`)
         } else {
@@ -352,8 +350,8 @@ function buildAllContentLines() {
         // Calculate box width based on content
         const maxContentWidth = Math.max(
           ...contentForBox.map(
-            (line) => line.replace(/\u001b\[[0-9;]*m/g, '').length
-          )
+            (line) => line.replace(/\u001b\[[0-9;]*m/g, '').length,
+          ),
         )
         const boxWidth = Math.min(terminalWidth - 6, maxContentWidth)
 
@@ -406,7 +404,7 @@ function renderAgentsList() {
   const maxScrollableLines = terminalHeight - headerLines.length - 2
   const visibleLines = allContentLines.slice(
     scrollOffset,
-    scrollOffset + maxScrollableLines
+    scrollOffset + maxScrollableLines,
   )
 
   // Display scrollable content
@@ -645,14 +643,14 @@ Which agent would you like to edit and what changes do you want to make?`
       {
         editMode: true,
       },
-      editPrompt
+      editPrompt,
     )
     .then(() => {
       console.log(green(`\n✏️ Ready to edit your agents!`))
       console.log(
         gray(
-          'Tell the agent-builder which agent to edit and what changes to make.'
-        )
+          'Tell the agent-builder which agent to edit and what changes to make.',
+        ),
       )
       cliInstance.freshPrompt()
     })

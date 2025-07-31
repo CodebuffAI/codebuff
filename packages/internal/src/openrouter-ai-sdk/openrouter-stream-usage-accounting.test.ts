@@ -1,4 +1,3 @@
-
 import {
   convertReadableStreamToArray,
   StreamingTestServer,
@@ -11,7 +10,7 @@ import type { OpenRouterChatSettings } from './types/openrouter-chat-settings'
 
 describe('OpenRouter Streaming Usage Accounting', () => {
   const server = new StreamingTestServer(
-    'https://api.openrouter.ai/chat/completions'
+    'https://api.openrouter.ai/chat/completions',
   )
 
   server.setupTestEnvironment()
@@ -24,7 +23,7 @@ describe('OpenRouter Streaming Usage Accounting', () => {
 
     if (includeUsage) {
       server.responseChunks.push(
-        `data: {"usage":{"prompt_tokens":10,"prompt_tokens_details":{"cached_tokens":5},"completion_tokens":20,"completion_tokens_details":{"reasoning_tokens":8},"total_tokens":30,"cost":0.0015},"choices":[]}\n\n`
+        `data: {"usage":{"prompt_tokens":10,"prompt_tokens_details":{"cached_tokens":5},"completion_tokens":20,"completion_tokens_details":{"reasoning_tokens":8},"total_tokens":30,"cost":0.0015},"choices":[]}\n\n`,
       )
     }
 

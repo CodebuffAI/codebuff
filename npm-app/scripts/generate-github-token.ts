@@ -46,7 +46,7 @@ function generateJWT() {
 
   const headerB64 = base64urlEscape(Buffer.from(headerJson).toString('base64'))
   const payloadB64 = base64urlEscape(
-    Buffer.from(payloadJson).toString('base64')
+    Buffer.from(payloadJson).toString('base64'),
   )
 
   console.log(`🔍 Header B64: ${headerB64}`)
@@ -63,7 +63,7 @@ function generateJWT() {
     // Create signature using openssl
     const signature = execSync(
       `cat "${tempFile}" | openssl dgst -sha256 -sign "${tempKeyFile}" -binary | base64 -w 0`,
-      { encoding: 'utf8' }
+      { encoding: 'utf8' },
     )
     const signatureB64 = base64urlEscape(signature.trim())
 
@@ -95,7 +95,7 @@ function getInstallationToken(jwt) {
 
   try {
     console.log(
-      `🔍 Getting installation token for installation ID: ${INSTALLATION_ID}`
+      `🔍 Getting installation token for installation ID: ${INSTALLATION_ID}`,
     )
 
     // Write JWT to temp file to avoid shell escaping issues
@@ -107,7 +107,7 @@ function getInstallationToken(jwt) {
       -H "Accept: application/vnd.github.v3+json" \
       -H "Authorization: Bearer $(cat ${tempJwtFile})" \
       https://api.github.com/app/installations/${INSTALLATION_ID}/access_tokens`,
-      { encoding: 'utf8' }
+      { encoding: 'utf8' },
     )
 
     // Clean up temp file
@@ -142,7 +142,7 @@ function main() {
   console.log(`export GITHUB_TOKEN="${token}"`)
   console.log('')
   console.log(
-    'Copy and run the export command above, then run your release script.'
+    'Copy and run the export command above, then run your release script.',
   )
 }
 

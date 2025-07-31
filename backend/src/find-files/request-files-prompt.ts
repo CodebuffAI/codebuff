@@ -1,8 +1,6 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
-import {
-  insertTrace,
-} from '@codebuff/bigquery'
+import { insertTrace } from '@codebuff/bigquery'
 import {
   finetunedVertexModels,
   models,
@@ -15,9 +13,7 @@ import { and, eq } from 'drizzle-orm'
 import { range, shuffle, uniq } from 'lodash'
 
 import { checkNewFilesNecessary } from './check-new-files-necessary'
-import {
-  CustomFilePickerConfigSchema,
-} from './custom-file-picker-config'
+import { CustomFilePickerConfigSchema } from './custom-file-picker-config'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from '../util/logger'
@@ -28,15 +24,13 @@ import {
 } from '../util/messages'
 import { getRequestContext } from '../websockets/request-context'
 
-import type {
-  CustomFilePickerConfig} from './custom-file-picker-config';
+import type { CustomFilePickerConfig } from './custom-file-picker-config'
 import type { TextBlock } from '../llm-apis/claude'
 import type {
   GetExpandedFileContextForTrainingTrace,
-  GetRelevantFilesTrace} from '@codebuff/bigquery';
-import type {
-  ProjectFileContext,
-} from '@codebuff/common/util/file'
+  GetRelevantFilesTrace,
+} from '@codebuff/bigquery'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { CoreMessage } from 'ai'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
@@ -44,7 +38,7 @@ const MAX_FILES_PER_REQUEST = 30
 
 export async function getCustomFilePickerConfigForOrg(
   orgId: string | undefined,
-  isRepoApprovedForUserInOrg: boolean | undefined
+  isRepoApprovedForUserInOrg: boolean | undefined,
 ): Promise<CustomFilePickerConfig | null> {
   if (!orgId || !isRepoApprovedForUserInOrg) {
     return null
@@ -58,8 +52,8 @@ export async function getCustomFilePickerConfigForOrg(
         and(
           eq(schema.orgFeature.org_id, orgId),
           eq(schema.orgFeature.feature, 'custom-file-picker'),
-          eq(schema.orgFeature.is_active, true)
-        )
+          eq(schema.orgFeature.is_active, true),
+        ),
       )
       .limit(1)
       .then((rows) => rows[0])
@@ -72,7 +66,7 @@ export async function getCustomFilePickerConfigForOrg(
       } catch (jsonParseError) {
         logger.error(
           { error: jsonParseError, orgId, configString: orgFeature.config },
-          'Failed to parse customFilePickerConfig JSON string'
+          'Failed to parse customFilePickerConfig JSON string',
         )
         return null // Parsing the string itself failed
       }
@@ -82,45 +76,45 @@ export async function getCustomFilePickerConfigForOrg(
       if (parseResult.success) {
         logger.info(
           { orgId, modelName: parseResult.data.modelName },
-          'Using custom file picker configuration for organization'
+          'Using custom file picker configuration for organization',
         )
         return parseResult.data
       } else {
         logger.error(
           { error: parseResult.error, orgId, configObject: parsedConfigObject }, // Log the object that failed parsing
-          'Invalid custom file picker configuration, using defaults'
+          'Invalid custom file picker configuration, using defaults',
         )
       }
     } else if (orgFeature?.config) {
       // If config is not a string but exists, it might be an object already (e.g. from a direct mock)
       // or an unexpected type. Let's try to parse it directly, assuming it might be an object.
       const parseResult = CustomFilePickerConfigSchema.safeParse(
-        orgFeature.config
+        orgFeature.config,
       )
       if (parseResult.success) {
         logger.info(
           { orgId, modelName: parseResult.data.modelName },
-          'Using custom file picker configuration for organization (pre-parsed config object)'
+          'Using custom file picker configuration for organization (pre-parsed config object)',
         )
         return parseResult.data
       } else {
         logger.error(
           { error: parseResult.error, orgId, configValue: orgFeature.config },
-          'Invalid custom file picker configuration (non-string config value), using defaults'
+          'Invalid custom file picker configuration (non-string config value), using defaults',
         )
       }
     }
   } catch (error) {
     logger.error(
       { error, orgId },
-      'Error fetching custom file picker configuration'
+      'Error fetching custom file picker configuration',
     )
   }
   return null
 }
 
 function isValidFilePickerModelName(
-  modelName: string
+  modelName: string,
 ): modelName is keyof typeof finetunedVertexModels {
   return Object.keys(finetunedVertexModels).includes(modelName)
 }
@@ -140,14 +134,14 @@ export async function requestRelevantFiles(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  repoId: string | undefined
+  repoId: string | undefined,
 ) {
   // Check for organization custom file picker feature
   const requestContext = getRequestContext()
   const orgId = requestContext?.approvedOrgIdForRepo
   const customFilePickerConfig = await getCustomFilePickerConfigForOrg(
     orgId,
-    requestContext?.isRepoApprovedForUserInOrg
+    requestContext?.isRepoApprovedForUserInOrg,
   )
 
   const countPerRequest = 12
@@ -175,7 +169,7 @@ export async function requestRelevantFiles(
         fingerprintId,
         userInputId,
         userPrompt,
-        userId
+        userId,
       ).catch((error) => {
         logger.error({ error }, 'Error checking new files necessary')
         return { newFilesNecessary: true, response: 'N/A', duration: 0 }
@@ -196,7 +190,7 @@ export async function requestRelevantFiles(
         response: newFilesNecessaryResponse,
         duration: newFilesNecessaryDuration,
       },
-      'requestRelevantFiles: No new files necessary, keeping current files'
+      'requestRelevantFiles: No new files necessary, keeping current files',
     )
     return null // Early return if no new files are necessary
   }
@@ -206,7 +200,7 @@ export async function requestRelevantFiles(
     userPrompt,
     assistantPrompt,
     fileContext,
-    countPerRequest
+    countPerRequest,
   )
 
   let modelIdForRequest: FinetunedVertexModel | undefined = undefined
@@ -217,7 +211,7 @@ export async function requestRelevantFiles(
     } else {
       logger.warn(
         { modelName: customFilePickerConfig.modelName },
-        'Custom file picker modelName not found in finetunedVertexModel, using default'
+        'Custom file picker modelName not found in finetunedVertexModel, using default',
       )
     }
   }
@@ -235,7 +229,7 @@ export async function requestRelevantFiles(
     userInputId,
     userId,
     repoId,
-    modelIdForRequest
+    modelIdForRequest,
   ).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
@@ -255,7 +249,7 @@ export async function requestRelevantFiles(
       modelName: customFilePickerConfig?.modelName,
       orgId,
     },
-    'requestRelevantFiles: results'
+    'requestRelevantFiles: results',
   )
 
   return candidateFiles.slice(0, maxFilesPerRequest)
@@ -276,7 +270,7 @@ export async function requestRelevantFilesForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  repoId: string | undefined
+  repoId: string | undefined,
 ) {
   const COUNT = 50
 
@@ -294,13 +288,13 @@ export async function requestRelevantFilesForTraining(
     userPrompt,
     assistantPrompt,
     fileContext,
-    COUNT
+    COUNT,
   )
   const nonObviousPrompt = generateNonObviousRequestFilesPrompt(
     userPrompt,
     assistantPrompt,
     fileContext,
-    COUNT
+    COUNT,
   )
 
   const keyFiles = await getRelevantFilesForTraining(
@@ -315,7 +309,7 @@ export async function requestRelevantFilesForTraining(
     fingerprintId,
     userInputId,
     userId,
-    repoId
+    repoId,
   )
 
   const nonObviousFiles = await getRelevantFilesForTraining(
@@ -330,14 +324,14 @@ export async function requestRelevantFilesForTraining(
     fingerprintId,
     userInputId,
     userId,
-    repoId
+    repoId,
   )
 
   const candidateFiles = [...keyFiles.files, ...nonObviousFiles.files]
   const validatedFiles = validateFilePaths(uniq(candidateFiles))
   logger.debug(
     { keyFiles, nonObviousFiles, validatedFiles },
-    'requestRelevantFilesForTraining: results'
+    'requestRelevantFilesForTraining: results',
   )
   return validatedFiles.slice(0, MAX_FILES_PER_REQUEST)
 }
@@ -358,7 +352,7 @@ async function getRelevantFiles(
   userInputId: string,
   userId: string | undefined,
   repoId: string | undefined,
-  modelId?: FinetunedVertexModel
+  modelId?: FinetunedVertexModel,
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -369,7 +363,7 @@ async function getRelevantFiles(
         content: userPrompt,
       },
     ],
-    bufferTokens
+    bufferTokens,
   )
   const start = performance.now()
   let coreMessages = coreMessagesWithSystem(messagesWithPrompt, system)
@@ -440,7 +434,7 @@ async function getRelevantFilesForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  repoId: string | undefined
+  repoId: string | undefined,
 ) {
   const bufferTokens = 100_000
   const messagesWithPrompt = getCoreMessagesSubset(
@@ -451,7 +445,7 @@ async function getRelevantFilesForTraining(
         content: userPrompt,
       },
     ],
-    bufferTokens
+    bufferTokens,
   )
   const start = performance.now()
   let response = await promptAiSdk({
@@ -528,7 +522,7 @@ function generateNonObviousRequestFilesPrompt(
   userPrompt: string | null,
   assistantPrompt: string | null,
   fileContext: ProjectFileContext,
-  count: number
+  count: number,
 ): string {
   const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
   return `
@@ -583,7 +577,7 @@ function generateKeyRequestFilesPrompt(
   userPrompt: string | null,
   assistantPrompt: string | null,
   fileContext: ProjectFileContext,
-  count: number
+  count: number,
 ): string {
   const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
 

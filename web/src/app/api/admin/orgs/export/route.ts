@@ -1,4 +1,4 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { NextResponse } from 'next/server'
 
@@ -56,10 +56,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       'Auto Topup Amount',
       'Credit Limit',
       'Billing Alerts',
-      'Usage Alerts'
+      'Usage Alerts',
     ]
 
-    const csvRows = organizations.map(org => [
+    const csvRows = organizations.map((org) => [
       org.id,
       org.name,
       org.slug,
@@ -74,20 +74,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       org.auto_topup_amount?.toString() || '',
       org.credit_limit?.toString() || '',
       org.billing_alerts ? 'Yes' : 'No',
-      org.usage_alerts ? 'Yes' : 'No'
+      org.usage_alerts ? 'Yes' : 'No',
     ])
 
     const csvContent = [
       csvHeaders.join(','),
-      ...csvRows.map(row => row.map(field => `"${field}"`).join(','))
+      ...csvRows.map((row) => row.map((field) => `"${field}"`).join(',')),
     ].join('\n')
 
     const now = new Date()
     return new NextResponse(csvContent, {
       headers: {
         'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="organizations-export-${now.toISOString().split('T')[0]}.csv"`
-      }
+        'Content-Disposition': `attachment; filename="organizations-export-${now.toISOString().split('T')[0]}.csv"`,
+      },
     })
   } catch (error) {
     console.error('Error exporting organizations:', error)

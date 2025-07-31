@@ -39,7 +39,9 @@ export default function RepositoriesPage() {
         <div className="max-w-md mx-auto">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Sign in Required</h1>
-            <p className="mb-4">Please sign in to manage this organization's repositories.</p>
+            <p className="mb-4">
+              Please sign in to manage this organization's repositories.
+            </p>
             <Link href="/login">
               <Button>Sign In</Button>
             </Link>
@@ -86,7 +88,8 @@ export default function RepositoriesPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Repository Management</h1>
           <p className="text-muted-foreground mt-2">
-            Manage repositories for credit delegation and usage tracking in {organization.name}
+            Manage repositories for credit delegation and usage tracking in{' '}
+            {organization.name}
           </p>
         </div>
 

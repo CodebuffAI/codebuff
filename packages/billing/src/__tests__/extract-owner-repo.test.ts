@@ -5,34 +5,46 @@ import { extractOwnerAndRepo } from '../org-billing'
 describe('extractOwnerAndRepo', () => {
   describe('GitHub HTTPS URLs', () => {
     it('should extract owner and repo from standard GitHub HTTPS URL', () => {
-      const result = extractOwnerAndRepo('https://github.com/codebuffai/codebuff')
+      const result = extractOwnerAndRepo(
+        'https://github.com/codebuffai/codebuff',
+      )
       expect(result).toEqual({ owner: 'codebuffai', repo: 'codebuff' })
     })
 
     it('should extract owner and repo from GitHub HTTPS URL with .git suffix', () => {
-      const result = extractOwnerAndRepo('https://github.com/codebuffai/codebuff.git')
+      const result = extractOwnerAndRepo(
+        'https://github.com/codebuffai/codebuff.git',
+      )
       expect(result).toEqual({ owner: 'codebuffai', repo: 'codebuff' })
     })
 
     it('should handle mixed case URLs', () => {
-      const result = extractOwnerAndRepo('https://github.com/CodebuffAI/Codebuff')
+      const result = extractOwnerAndRepo(
+        'https://github.com/CodebuffAI/Codebuff',
+      )
       expect(result).toEqual({ owner: 'codebuffai', repo: 'codebuff' })
     })
 
     it('should handle URLs with extra path segments', () => {
-      const result = extractOwnerAndRepo('https://github.com/codebuffai/codebuff/tree/main')
+      const result = extractOwnerAndRepo(
+        'https://github.com/codebuffai/codebuff/tree/main',
+      )
       expect(result).toEqual({ owner: 'codebuffai', repo: 'codebuff' })
     })
 
     it('should handle URLs with query parameters', () => {
-      const result = extractOwnerAndRepo('https://github.com/codebuffai/codebuff?tab=readme-ov-file')
+      const result = extractOwnerAndRepo(
+        'https://github.com/codebuffai/codebuff?tab=readme-ov-file',
+      )
       expect(result).toEqual({ owner: 'codebuffai', repo: 'codebuff' })
     })
   })
 
   describe('GitHub SSH URLs', () => {
     it('should extract owner and repo from SSH URL', () => {
-      const result = extractOwnerAndRepo('git@github.com:CodebuffAI/codebuff.git')
+      const result = extractOwnerAndRepo(
+        'git@github.com:CodebuffAI/codebuff.git',
+      )
       expect(result).toEqual({ owner: 'codebuffai', repo: 'codebuff' })
     })
 
@@ -42,7 +54,9 @@ describe('extractOwnerAndRepo', () => {
     })
 
     it('should handle SSH URLs with mixed case', () => {
-      const result = extractOwnerAndRepo('git@github.com:CODEBUFFAI/CODEBUFF.git')
+      const result = extractOwnerAndRepo(
+        'git@github.com:CODEBUFFAI/CODEBUFF.git',
+      )
       expect(result).toEqual({ owner: 'codebuffai', repo: 'codebuff' })
     })
   })
@@ -108,12 +122,16 @@ describe('extractOwnerAndRepo', () => {
     })
 
     it('should handle URLs with trailing slashes', () => {
-      const result = extractOwnerAndRepo('https://github.com/codebuffai/codebuff/')
+      const result = extractOwnerAndRepo(
+        'https://github.com/codebuffai/codebuff/',
+      )
       expect(result).toEqual({ owner: 'codebuffai', repo: 'codebuff' })
     })
 
     it('should handle URLs with multiple trailing slashes', () => {
-      const result = extractOwnerAndRepo('https://github.com/codebuffai/codebuff///')
+      const result = extractOwnerAndRepo(
+        'https://github.com/codebuffai/codebuff///',
+      )
       expect(result).toEqual({ owner: 'codebuffai', repo: 'codebuff' })
     })
 
@@ -123,7 +141,9 @@ describe('extractOwnerAndRepo', () => {
     })
 
     it('should handle URLs with special characters in owner/repo names', () => {
-      const result = extractOwnerAndRepo('https://github.com/my-org/my-repo-name')
+      const result = extractOwnerAndRepo(
+        'https://github.com/my-org/my-repo-name',
+      )
       expect(result).toEqual({ owner: 'my-org', repo: 'my-repo-name' })
     })
 
@@ -143,20 +163,20 @@ describe('extractOwnerAndRepo', () => {
       const testCases = [
         {
           input: 'https://github.com/facebook/react.git',
-          expected: { owner: 'facebook', repo: 'react' }
+          expected: { owner: 'facebook', repo: 'react' },
         },
         {
           input: 'git@github.com:microsoft/TypeScript.git',
-          expected: { owner: 'microsoft', repo: 'typescript' }
+          expected: { owner: 'microsoft', repo: 'typescript' },
         },
         {
           input: 'https://github.com/vercel/next.js',
-          expected: { owner: 'vercel', repo: 'next.js' }
+          expected: { owner: 'vercel', repo: 'next.js' },
         },
         {
           input: 'git@github.com:nodejs/node',
-          expected: { owner: 'nodejs', repo: 'node' }
-        }
+          expected: { owner: 'nodejs', repo: 'node' },
+        },
       ]
 
       testCases.forEach(({ input, expected }) => {

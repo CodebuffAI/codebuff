@@ -8,9 +8,6 @@ import { BlockColor } from '@/components/ui/decorative-blocks'
 import { SECTION_THEMES } from '@/components/ui/landing/constants'
 import { FeatureSection } from '@/components/ui/landing/feature'
 
-
-
-
 function CreditVisual() {
   return (
     <div className="flex flex-col items-center text-center">
@@ -29,7 +26,9 @@ function CreditVisual() {
             <div className="p-2 rounded-full bg-blue-500/10 mb-2">
               <Gift className="h-5 w-5 text-blue-400" />
             </div>
-            <div className="text-lg font-bold text-blue-400">{DEFAULT_FREE_CREDITS_GRANT}</div>
+            <div className="text-lg font-bold text-blue-400">
+              {DEFAULT_FREE_CREDITS_GRANT}
+            </div>
             <div className="text-xs sm:text-sm text-white/70">Free monthly</div>
           </div>
 
@@ -44,7 +43,9 @@ function CreditVisual() {
       </div>
 
       <div className="mt-8 text-sm text-white/90 max-w-sm border border-white/20 rounded-md p-3 bg-white/5">
-        <span>{DEFAULT_FREE_CREDITS_GRANT} credits is typically enough for</span>{' '}
+        <span>
+          {DEFAULT_FREE_CREDITS_GRANT} credits is typically enough for
+        </span>{' '}
         <span>a few hours of intense coding on a new project</span>
       </div>
     </div>

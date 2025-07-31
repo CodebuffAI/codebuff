@@ -75,7 +75,7 @@ export const UsageReponseSchema = z.object({
   balanceBreakdown: z
     .record(
       z.enum([GrantTypeValues[0], ...GrantTypeValues.slice(1)]),
-      z.number()
+      z.number(),
     )
     .optional(),
   next_quota_reset: z.coerce.date().nullable(),
@@ -92,7 +92,7 @@ export const InitResponseSchema = z
   .merge(
     UsageReponseSchema.omit({
       type: true,
-    })
+    }),
   )
 export type InitResponse = z.infer<typeof InitResponseSchema>
 
@@ -109,7 +109,7 @@ export const ResponseCompleteSchema = z
   .merge(
     UsageReponseSchema.omit({
       type: true,
-    }).partial()
+    }).partial(),
   )
 
 export const MessageCostResponseSchema = z.object({

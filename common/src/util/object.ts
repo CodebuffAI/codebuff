@@ -12,7 +12,7 @@ export const removeUndefinedProps = <T extends object>(obj: T): T => {
 
 export const removeNullOrUndefinedProps = <T extends object>(
   obj: T,
-  exceptions?: string[]
+  exceptions?: string[],
 ): T => {
   const newObj: any = {}
 
@@ -28,7 +28,7 @@ export const removeNullOrUndefinedProps = <T extends object>(
 
 export const addObjects = <T extends { [key: string]: number }>(
   obj1: T,
-  obj2: T
+  obj2: T,
 ) => {
   const keys = union(Object.keys(obj1), Object.keys(obj2))
   const newObj = {} as any
@@ -42,7 +42,7 @@ export const addObjects = <T extends { [key: string]: number }>(
 
 export const subtractObjects = <T extends { [key: string]: number }>(
   obj1: T,
-  obj2: T
+  obj2: T,
 ) => {
   const keys = union(Object.keys(obj1), Object.keys(obj2))
   const newObj = {} as any
@@ -62,7 +62,7 @@ export const hasChanges = <T extends object>(obj: T, partial: Partial<T>) => {
 export const hasSignificantDeepChanges = <T extends object>(
   obj: T,
   partial: Partial<T>,
-  epsilonForNumbers: number
+  epsilonForNumbers: number,
 ): boolean => {
   const compareValues = (currValue: any, partialValue: any): boolean => {
     if (typeof currValue === 'number' && typeof partialValue === 'number') {
@@ -72,7 +72,7 @@ export const hasSignificantDeepChanges = <T extends object>(
       return hasSignificantDeepChanges(
         currValue,
         partialValue,
-        epsilonForNumbers
+        epsilonForNumbers,
       )
     }
     return !isEqual(currValue, partialValue)
@@ -91,7 +91,7 @@ export const hasSignificantDeepChanges = <T extends object>(
 
 export const filterObject = <T extends object>(
   obj: T,
-  predicate: (value: any, key: keyof T) => boolean
+  predicate: (value: any, key: keyof T) => boolean,
 ): { [P in keyof T]: T[P] } => {
   const result = {} as { [P in keyof T]: T[P] }
   for (const key in obj) {
@@ -124,7 +124,7 @@ export function errorToObject(value: any) {
         acc[key] = (value as any)[key]
         return acc
       },
-      {}
+      {},
     )
   }
   return value

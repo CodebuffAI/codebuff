@@ -2,7 +2,6 @@ import z from 'zod/v4'
 
 import type { ToolParams } from '../../constants'
 
-
 const toolName = 'update_subgoal'
 const endsAgentStep = false
 export const updateSubgoalParams = {
@@ -23,10 +22,10 @@ export const updateSubgoalParams = {
         .string()
         .optional()
         .describe(
-          `Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.`
+          `Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.`,
         ),
     })
     .describe(
-      `Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.`
+      `Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.`,
     ),
 } satisfies ToolParams

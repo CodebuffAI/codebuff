@@ -1,8 +1,10 @@
 import { geminiModels, openaiModels } from '@codebuff/common/constants'
 import { buildArray } from '@codebuff/common/util/array'
-import { parseFileBlocks, parseMarkdownCodeBlock } from '@codebuff/common/util/file'
+import {
+  parseFileBlocks,
+  parseMarkdownCodeBlock,
+} from '@codebuff/common/util/file'
 import { generateCompactId, hasLazyEdit } from '@codebuff/common/util/string'
-
 
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptRelaceAI } from './llm-apis/relace-api'
@@ -20,18 +22,23 @@ export async function fastRewrite(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  userMessage: string | undefined
+  userMessage: string | undefined,
 ) {
   const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
-  let response = await promptRelaceAI(initialContent, editSnippet, instructions, {
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    userMessage,
-    messageId,
-  })
+  let response = await promptRelaceAI(
+    initialContent,
+    editSnippet,
+    instructions,
+    {
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      userMessage,
+      messageId,
+    },
+  )
   const relaceDuration = Date.now() - relaceStartTime
 
   // Check if response still contains lazy edits
@@ -49,11 +56,11 @@ export async function fastRewrite(
       fingerprintId,
       userInputId,
       userId,
-      userMessage
+      userMessage,
     )
     logger.debug(
       { filePath, relaceResponse, openaiResponse: response, messageId },
-      `Relace output contained lazy edits, trying GPT-4o-mini ${filePath}`
+      `Relace output contained lazy edits, trying GPT-4o-mini ${filePath}`,
     )
   }
 
@@ -66,7 +73,7 @@ export async function fastRewrite(
       messageId,
       relaceDuration,
     },
-    `fastRewrite of ${filePath}`
+    `fastRewrite of ${filePath}`,
   )
 
   return response
@@ -81,7 +88,7 @@ export async function rewriteWithOpenAI(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  userMessage: string | undefined
+  userMessage: string | undefined,
 ): Promise<string> {
   const prompt = `You are an expert programmer tasked with implementing changes to a file. Please rewrite the file to implement the changes shown in the edit snippet, while preserving the original formatting and behavior of unchanged parts.
 
@@ -133,16 +140,16 @@ export const shouldAddFilePlaceholders = async (
   userId: string | undefined,
   clientSessionId: string,
   fingerprintId: string,
-  userInputId: string
+  userInputId: string,
 ) => {
   const fileBlocks = parseFileBlocks(
     messageHistory
       .map((message) =>
         typeof message.content === 'string'
           ? message.content
-          : message.content.map((c) => ('text' in c ? c.text : '')).join('\n')
+          : message.content.map((c) => ('text' in c ? c.text : '')).join('\n'),
       )
-      .join('\n') + fullResponse
+      .join('\n') + fullResponse,
   )
   const fileWasPreviouslyEdited = Object.keys(fileBlocks).includes(filePath)
   if (!fileWasPreviouslyEdited) {
@@ -183,7 +190,7 @@ Do not write anything else.
     {
       role: 'user' as const,
       content: prompt,
-    }
+    },
   )
   const response = await promptFlashWithFallbacks(messages, {
     clientSessionId,
@@ -202,7 +209,7 @@ Do not write anything else.
       filePath,
       duration: Date.now() - startTime,
     },
-    `shouldAddFilePlaceholders response for ${filePath}`
+    `shouldAddFilePlaceholders response for ${filePath}`,
   )
 
   return shouldAddPlaceholderComments

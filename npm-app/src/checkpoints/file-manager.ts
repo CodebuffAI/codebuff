@@ -16,7 +16,7 @@ async function getIsomorphicGit() {
   return git
 }
 
-const maxBuffer = 50 * 1024 * 1024  // 50 MB
+const maxBuffer = 50 * 1024 * 1024 // 50 MB
 
 /**
  * Generates a unique path for storing the bare git repository based on the project directory.
@@ -56,13 +56,13 @@ function exposeSubmodules({
         ':(exclude)**/*.codebuffbackup',
         ':(exclude)**/*.codebuffbackup/**',
       ],
-      { stdio: ['ignore', 'pipe', 'inherit'], maxBuffer }
+      { stdio: ['ignore', 'pipe', 'inherit'], maxBuffer },
     ).toString()
     const submodules = buildArray(
       submodulesOutput
         .split('\n')
         .filter((line) => line.startsWith('160000'))
-        .map((line) => line.split('\t')[1])
+        .map((line) => line.split('\t')[1]),
     )
 
     if (submodules.length === 0) {
@@ -76,7 +76,7 @@ function exposeSubmodules({
         }
         fs.renameSync(
           path.join(projectDir, submodule, '.git'),
-          path.join(projectDir, submodule, '.git.codebuffbackup')
+          path.join(projectDir, submodule, '.git.codebuffbackup'),
         )
         nestedRepos.push(submodule)
       } catch (error) {
@@ -85,7 +85,7 @@ function exposeSubmodules({
             error,
             nestedRepo: submodule,
           },
-          'Failed to backup .git directory for nested repo for checking status'
+          'Failed to backup .git directory for nested repo for checking status',
         )
       }
     }
@@ -105,12 +105,12 @@ function exposeSubmodules({
           '--cached',
           ...submodules,
         ],
-        { stdio: 'ignore', maxBuffer }
+        { stdio: 'ignore', maxBuffer },
       )
     } catch (error) {
       logger.error(
         { error },
-        'Error running git rm --cached while exposing submodules'
+        'Error running git rm --cached while exposing submodules',
       )
     }
   }
@@ -121,14 +121,14 @@ function restoreSubmodules({ projectDir }: { projectDir: string }) {
     const codebuffBackup = path.join(
       projectDir,
       nestedRepo,
-      '.git.codebuffbackup'
+      '.git.codebuffbackup',
     )
     const gitDir = path.join(projectDir, nestedRepo, '.git')
     try {
       fs.renameSync(codebuffBackup, gitDir)
     } catch (error) {
       console.error(
-        `Failed to restore .git directory for nested repo. Please rename ${codebuffBackup} to ${gitDir}\n${JSON.stringify({ error }, null, 2)}`
+        `Failed to restore .git directory for nested repo. Please rename ${codebuffBackup} to ${gitDir}\n${JSON.stringify({ error }, null, 2)}`,
       )
       logger.error(
         {
@@ -137,7 +137,7 @@ function restoreSubmodules({ projectDir }: { projectDir: string }) {
           errorStack: error instanceof Error ? error.stack : undefined,
           nestedRepo,
         },
-        'Failed to restore .git directory for nested repo'
+        'Failed to restore .git directory for nested repo',
       )
     }
   }
@@ -185,7 +185,7 @@ export async function hasUnsavedChanges({
           ':(exclude)**/*.codebuffbackup',
           ':(exclude)**/*.codebuffbackup/**',
         ],
-        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
+        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer },
       ).toString()
       return !!output
     } catch (error) {
@@ -195,7 +195,7 @@ export async function hasUnsavedChanges({
           projectDir,
           bareRepoPath,
         },
-        'Error running git status for unsaved changes check'
+        'Error running git status for unsaved changes check',
       )
       return false
     }
@@ -220,7 +220,7 @@ export async function getLatestCommit({
       return execFileSync(
         'git',
         ['--git-dir', bareRepoPath, 'rev-parse', 'HEAD'],
-        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
+        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer },
       )
         .toString()
         .trim()
@@ -231,7 +231,7 @@ export async function getLatestCommit({
           errorStack: error instanceof Error ? error.stack : undefined,
           bareRepoPath,
         },
-        'Error getting latest commit with git command'
+        'Error getting latest commit with git command',
       )
     }
   }
@@ -321,7 +321,7 @@ async function gitAddAll({
           ':!**/*.codebuffbackup',
           ':!**/*.codebuffbackup/**',
         ],
-        { stdio: 'ignore', maxBuffer }
+        { stdio: 'ignore', maxBuffer },
       )
       return
     } catch (error) {
@@ -332,7 +332,7 @@ async function gitAddAll({
           projectDir,
           bareRepoPath,
         },
-        'Failed to git add all files'
+        'Failed to git add all files',
       )
     }
   }
@@ -368,7 +368,7 @@ async function gitAddAll({
             projectDir,
             bareRepoPath,
           },
-          'Error adding file to git'
+          'Error adding file to git',
         )
       }
     } else if (workdirStatus === 0) {
@@ -385,7 +385,7 @@ async function gitAddAll({
             projectDir,
             bareRepoPath,
           },
-          'Error removing file from git'
+          'Error removing file from git',
         )
       }
     }
@@ -416,12 +416,12 @@ async function gitAddAllIgnoringNestedRepos({
           'status',
           '--porcelain',
         ],
-        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer }
+        { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer },
       ).toString()
     } catch (error) {
       logger.error(
         { error, projectDir, bareRepoPath },
-        'Failed to get git status while finding nested git repos'
+        'Failed to get git status while finding nested git repos',
       )
       return
     }
@@ -453,7 +453,7 @@ async function gitAddAllIgnoringNestedRepos({
           '-rf',
           ...modifiedFiles,
         ],
-        { stdio: 'ignore', maxBuffer }
+        { stdio: 'ignore', maxBuffer },
       )
     } catch (error) {
       logger.error({ error }, 'Failed to run git rm --cached')
@@ -487,7 +487,7 @@ async function gitCommit({
           '-m',
           message,
         ],
-        { stdio: 'ignore', maxBuffer }
+        { stdio: 'ignore', maxBuffer },
       )
       return await getLatestCommit({ bareRepoPath })
     } catch (error) {
@@ -499,7 +499,7 @@ async function gitCommit({
           bareRepoPath,
           message,
         },
-        'Failed to commit with git command, falling back to isomorphic-git'
+        'Failed to commit with git command, falling back to isomorphic-git',
       )
     }
   }
@@ -526,7 +526,7 @@ async function gitCommit({
           'checkout',
           'master',
         ],
-        { stdio: 'ignore', maxBuffer }
+        { stdio: 'ignore', maxBuffer },
       )
       return commitHash
     } catch (error) {
@@ -536,7 +536,7 @@ async function gitCommit({
           projectDir,
           bareRepoPath,
         },
-        'Unable to checkout with git command'
+        'Unable to checkout with git command',
       )
     }
   }
@@ -598,15 +598,19 @@ export async function restoreFileState({
   let resetDone = false
   if (gitCommandIsAvailable()) {
     try {
-      execFileSync('git', [
-        '--git-dir',
-        bareRepoPath,
-        '--work-tree',
-        projectDir,
-        'reset',
-        '--hard',
-        commit,
-      ], { maxBuffer })
+      execFileSync(
+        'git',
+        [
+          '--git-dir',
+          bareRepoPath,
+          '--work-tree',
+          projectDir,
+          'reset',
+          '--hard',
+          commit,
+        ],
+        { maxBuffer },
+      )
       return
     } catch (error) {
       logger.error(
@@ -617,7 +621,7 @@ export async function restoreFileState({
           bareRepoPath,
           commit,
         },
-        'Failed to use git reset, falling back to isomorphic-git'
+        'Failed to use git reset, falling back to isomorphic-git',
       )
     }
   }
@@ -642,8 +646,8 @@ export async function restoreFileState({
         gitdir: bareRepoPath,
         filepath,
         ref: commit,
-      })
-    )
+      }),
+    ),
   )
 }
 

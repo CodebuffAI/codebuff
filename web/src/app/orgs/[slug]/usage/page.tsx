@@ -23,7 +23,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
 
-
 interface UsageData {
   currentBalance: number
   usageThisCycle: number
@@ -293,7 +292,9 @@ export default function UsagePage() {
               <div className="text-2xl font-bold">
                 {usageData?.topUsers?.length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">{pluralize(usageData?.topUsers?.length || 0, 'User')} with usage</p>
+              <p className="text-xs text-muted-foreground">
+                {pluralize(usageData?.topUsers?.length || 0, 'User')} with usage
+              </p>
             </CardContent>
           </Card>
 
@@ -379,10 +380,15 @@ export default function UsagePage() {
                     let repoPath = 'N/A'
                     if (usage.repository_url) {
                       try {
-                        repoPath = new URL(usage.repository_url).pathname.slice(1)
+                        repoPath = new URL(usage.repository_url).pathname.slice(
+                          1
+                        )
                       } catch (e) {
                         // If URL is invalid, repoPath remains 'N/A'
-                        console.warn(`Invalid repository_url: ${usage.repository_url}`, e)
+                        console.warn(
+                          `Invalid repository_url: ${usage.repository_url}`,
+                          e
+                        )
                       }
                     }
                     return (

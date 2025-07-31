@@ -1,8 +1,4 @@
-
-import {
-  insertTrace,
-} from '@codebuff/bigquery'
-
+import { insertTrace } from '@codebuff/bigquery'
 
 import {
   requestRelevantFiles,
@@ -18,8 +14,7 @@ import { requestFiles } from '../../../websockets/websocket-action'
 import type { TextBlock } from '../../../llm-apis/claude'
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type {
-  GetExpandedFileContextForTrainingBlobTrace} from '@codebuff/bigquery';
+import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { CoreMessage } from 'ai'
@@ -66,7 +61,7 @@ export const handleFindFiles = ((params: {
   }
   if (!fingerprintId) {
     throw new Error(
-      'Internal error for find_files: Missing fingerprintId in state'
+      'Internal error for find_files: Missing fingerprintId in state',
     )
   }
 
@@ -89,7 +84,7 @@ export const handleFindFiles = ((params: {
       fingerprintId,
       userInputId,
       userId,
-      repoId
+      repoId,
     )
 
     if (requestedFiles && requestedFiles.length > 0) {
@@ -115,11 +110,11 @@ export const handleFindFiles = ((params: {
           fingerprintId,
           userInputId,
           userId,
-          repoId
+          repoId,
         ).catch((error) => {
           logger.error(
             { error },
-            'Error uploading expanded file context for training'
+            'Error uploading expanded file context for training',
           )
         })
       }
@@ -132,7 +127,7 @@ export const handleFindFiles = ((params: {
           updatedFilePaths,
           printedPaths,
         },
-        'find_files tool call'
+        'find_files tool call',
       )
 
       if (addedFiles.length > 0) {
@@ -166,7 +161,7 @@ async function uploadExpandedFileContextForTraining(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  repoId: string | undefined
+  repoId: string | undefined,
 ) {
   const files = await requestRelevantFilesForTraining(
     { messages, system },
@@ -177,7 +172,7 @@ async function uploadExpandedFileContextForTraining(
     fingerprintId,
     userInputId,
     userId,
-    repoId
+    repoId,
   )
 
   const loadedFiles = await requestFiles(ws, files)

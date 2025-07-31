@@ -22,7 +22,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
 
-
 export default function OrganizationBillingPurchasePage() {
   const { data: session, status } = useSession()
   const params = useParams()
@@ -39,7 +38,8 @@ export default function OrganizationBillingPurchasePage() {
 
   // Check if we just completed billing setup
   const setupSuccess = searchParams.get('setup_success') === 'true'
-  const subscriptionSuccess = searchParams.get('subscription_success') === 'true'
+  const subscriptionSuccess =
+    searchParams.get('subscription_success') === 'true'
 
   useEffect(() => {
     if (setupSuccess) {
@@ -273,10 +273,14 @@ export default function OrganizationBillingPurchasePage() {
                   Team subscription activated!
                 </h3>
                 <p className="text-green-800 text-sm mb-3">
-                  Your team plan is now active. Invite your team members to start collaborating.
+                  Your team plan is now active. Invite your team members to
+                  start collaborating.
                 </p>
                 <Link href={`/orgs/${orgSlug}/team?invite=true`}>
-                  <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
                     <Users className="h-4 w-4 mr-2" />
                     Invite Team Members
                   </Button>

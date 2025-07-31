@@ -10,12 +10,11 @@ import { env } from '@codebuff/internal'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 import type Stripe from 'stripe'
 
 import { getStripeCustomerId } from '@/lib/stripe-utils'
 import { logger } from '@/util/logger'
-
 
 async function handleCustomerCreated(customer: Stripe.Customer) {
   logger.info({ customerId: customer.id }, 'New customer created')
@@ -256,7 +255,10 @@ async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
       )
     }
     // Handle subscription updates (status changes, etc.)
-    else if (subscription.status === 'active' || subscription.status === 'past_due') {
+    else if (
+      subscription.status === 'active' ||
+      subscription.status === 'past_due'
+    ) {
       // Ensure organization has the subscription ID set
       const org = await db
         .select({ stripe_subscription_id: schema.org.stripe_subscription_id })

@@ -20,7 +20,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { CoreMessage } from 'ai'
 import type { WebSocket } from 'ws'
 
-
 export const handleSpawnAgentsAsync = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'spawn_agents_async'>
@@ -73,32 +72,32 @@ export const handleSpawnAgentsAsync = ((params: {
 
   if (!ws) {
     throw new Error(
-      'Internal error for spawn_agents_async: Missing WebSocket in state'
+      'Internal error for spawn_agents_async: Missing WebSocket in state',
     )
   }
   if (!fingerprintId) {
     throw new Error(
-      'Internal error for spawn_agents_async: Missing fingerprintId in state'
+      'Internal error for spawn_agents_async: Missing fingerprintId in state',
     )
   }
   if (!parentAgentTemplate) {
     throw new Error(
-      'Internal error for spawn_agents_async: Missing agentTemplate in state'
+      'Internal error for spawn_agents_async: Missing agentTemplate in state',
     )
   }
   if (!messages) {
     throw new Error(
-      'Internal error for spawn_agents_async: Missing messages in state'
+      'Internal error for spawn_agents_async: Missing messages in state',
     )
   }
   if (!agentState) {
     throw new Error(
-      'Internal error for spawn_agents: Missing agentState in state'
+      'Internal error for spawn_agents: Missing agentState in state',
     )
   }
   if (!sendSubagentChunk) {
     throw new Error(
-      'Internal error for spawn_agents_async: Missing sendSubagentChunk in state'
+      'Internal error for spawn_agents_async: Missing sendSubagentChunk in state',
     )
   }
 
@@ -118,7 +117,7 @@ export const handleSpawnAgentsAsync = ((params: {
       content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
         getLatestState().messages,
         null,
-        2
+        2,
       )}`,
     }
 
@@ -133,7 +132,7 @@ export const handleSpawnAgentsAsync = ((params: {
 
         if (!parentAgentTemplate.subagents.includes(agentType)) {
           throw new Error(
-            `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`
+            `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`,
           )
         }
 
@@ -145,7 +144,7 @@ export const handleSpawnAgentsAsync = ((params: {
           const result = inputSchema.prompt.safeParse(prompt)
           if (!result.success) {
             throw new Error(
-              `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
+              `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`,
             )
           }
         }
@@ -155,14 +154,14 @@ export const handleSpawnAgentsAsync = ((params: {
           const result = inputSchema.params.safeParse(params)
           if (!result.success) {
             throw new Error(
-              `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
+              `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`,
             )
           }
         }
 
         logger.debug(
           { agentTemplate, prompt, params },
-          `Spawning async agent — ${agentType}`
+          `Spawning async agent — ${agentType}`,
         )
 
         const subAgentMessages: CoreMessage[] = []
@@ -228,7 +227,7 @@ export const handleSpawnAgentsAsync = ((params: {
                   if (outputMode === 'last_message') {
                     const assistantMessages =
                       result.agentState.messageHistory.filter(
-                        (message) => message.role === 'assistant'
+                        (message) => message.role === 'assistant',
                       )
                     const lastAssistantMessage =
                       assistantMessages[assistantMessages.length - 1]
@@ -239,7 +238,7 @@ export const handleSpawnAgentsAsync = ((params: {
                         messageContent = JSON.stringify(
                           lastAssistantMessage.content,
                           null,
-                          2
+                          2,
                         )
                       }
                     } else {
@@ -277,7 +276,7 @@ export const handleSpawnAgentsAsync = ((params: {
                       outputMode,
                       messageContent,
                     },
-                    'Sent completion message to parent agent'
+                    'Sent completion message to parent agent',
                   )
                 } catch (error) {
                   logger.error(
@@ -286,7 +285,7 @@ export const handleSpawnAgentsAsync = ((params: {
                       parentId: agentState.parentId,
                       error,
                     },
-                    'Failed to send completion message to parent agent'
+                    'Failed to send completion message to parent agent',
                   )
                 }
               }
@@ -316,7 +315,7 @@ export const handleSpawnAgentsAsync = ((params: {
         })
         logger.error(
           { agentType: agentTypeStr, error },
-          'Failed to spawn async agent'
+          'Failed to spawn async agent',
         )
         // Continue with other agents even if one fails
       }

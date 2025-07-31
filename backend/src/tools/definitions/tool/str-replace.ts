@@ -1,4 +1,3 @@
-
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { closeXml } from '@codebuff/common/util/xml'
 

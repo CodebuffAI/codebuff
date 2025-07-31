@@ -18,10 +18,9 @@ import {
   yellow,
 } from 'picocolors'
 
-
 import { getProjectRoot } from './project-files'
 
-import type { CostMode} from '@codebuff/common/constants';
+import type { CostMode } from '@codebuff/common/constants'
 import type { Formatter } from 'picocolors/types'
 
 export interface CommandInfo {
@@ -214,7 +213,7 @@ export const interactiveCommandDetails: CommandInfo[] = [
 
 export function getSlashCommands(): CommandInfo[] {
   return interactiveCommandDetails.filter(
-    (cmd) => cmd.isSlashCommand && cmd.baseCommand
+    (cmd) => cmd.isSlashCommand && cmd.baseCommand,
   )
 }
 
@@ -229,7 +228,7 @@ export function displaySlashCommandHelperMenu() {
     ...commands.map((cmd) => {
       const commandString = `/${cmd.baseCommand}${cmd.params ? ` ${cmd.params}` : ''}`
       return commandString.length
-    })
+    }),
   )
 
   // Format each command with its description
@@ -242,7 +241,7 @@ export function displaySlashCommandHelperMenu() {
 
   // Add the shell command tip at the end
   const shellTip = gray(
-    'Tip: Type "!" followed by a command to run it in your shell, e.g., !ls'
+    'Tip: Type "!" followed by a command to run it in your shell, e.g., !ls',
   )
 
   // Print with consistent spacing
@@ -255,7 +254,7 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     lite: bold(yellow('Lite mode ✨ enabled (switch modes by typing in "/")')),
     normal: '',
     max: bold(
-      blueBright('Max mode️ ⚡ enabled (switch modes by typing in "/")')
+      blueBright('Max mode️ ⚡ enabled (switch modes by typing in "/")'),
     ),
     experimental: bold(magenta('Experimental mode 🧪 enabled')),
     ask: bold(cyan("Ask mode 💬 enabled (won't modify code)")),
@@ -267,8 +266,8 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
   if (costMode === 'max') {
     console.log(
       blueBright(
-        '\n\nMax mode is now even more powerful, though more expensive, as it uses Claude Opus.\n\n'
-      )
+        '\n\nMax mode is now even more powerful, though more expensive, as it uses Claude Opus.\n\n',
+      ),
     )
   }
 
@@ -281,25 +280,25 @@ You are currently in "${green(getProjectRoot())}".
 To get started:
 1. Navigate to your project (cd your/project/root)
 2. Run "codebuff" there instead
-`.trim()
+`.trim(),
     )
     process.exit(0)
   }
 
   console.log(
-    `Codebuff will read and write files in "${getProjectRoot()}". Type "/help" for a list of commands.`
+    `Codebuff will read and write files in "${getProjectRoot()}". Type "/help" for a list of commands.`,
   )
   const gitDir = path.join(getProjectRoot(), '.git')
   if (!fs.existsSync(gitDir)) {
     console.info(
       magenta(
-        "Just fyi, this project doesn't contain a .git directory (are you at the top level of your project?). Codebuff works best with a git repo!"
-      )
+        "Just fyi, this project doesn't contain a .git directory (are you at the top level of your project?). Codebuff works best with a git repo!",
+      ),
     )
   }
 
   console.log(
-    `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do?`
+    `\nWelcome${username ? ` back ${username}` : ''}! What would you like to do?`,
   )
 }
 
@@ -341,7 +340,7 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
 `)
 
   console.log(
-    `\n${bold('Your AI pair programmer that understands, edits, and improves your codebase through natural conversation.')}`
+    `\n${bold('Your AI pair programmer that understands, edits, and improves your codebase through natural conversation.')}`,
   )
 
   console.log(`\n${bold(underline('PROJECT SETUP'))}`)
@@ -351,13 +350,13 @@ ${colorizeRandom(' ╚═════╝')}${colorizeRandom(' ╚═════
       const currentDirectoryLine = `${green('✅ Current directory:')} ${bold(blueBright(getProjectRoot()))}`
       const hasGitRepo = fs.existsSync(path.join(getProjectRoot(), '.git'))
       const hasGitIgnore = fs.existsSync(
-        path.join(getProjectRoot(), '.gitignore')
+        path.join(getProjectRoot(), '.gitignore'),
       )
       const hasKnowledgeMd = fs.existsSync(
-        path.join(getProjectRoot(), 'knowledge.md')
+        path.join(getProjectRoot(), 'knowledge.md'),
       )
       const hasCodebuffJson = fs.existsSync(
-        path.join(getProjectRoot(), codebuffConfigFile)
+        path.join(getProjectRoot(), codebuffConfigFile),
       )
       const gitignoreNote =
         ' (Codebuff never reads files in your .gitignore/.codebuffignore)'
@@ -400,16 +399,16 @@ ${
 ${hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow(`${codebuffConfigFile} runs deployment scripts for you to test your code and runs configured checks for you by running your dev server.`)}` : ''}
 ${!hasKnowledgeMd && hasCodebuffJson ? `\n${yellow('knowledge.md helps Codebuff understand your project structure and codebase better for better results.')}` : ''}
 ${!hasKnowledgeMd && !hasCodebuffJson ? `\n${yellow('knowledge.md helps Codebuff understand your project structure and codebase better for better results.')}\n${yellow(`${codebuffConfigFile} runs deployment scripts for you to test your code and runs configured checks for you by running your dev server.`)}` : ''}`
-    })()
+    })(),
   )
 
   // COMMUNITY & FEEDBACK SECTION
   console.log(`\n${bold(underline('COMMUNITY & FEEDBACK'))}`)
   console.log(
-    `Thanks for using Codebuff! DM @brandonkachen or @jahooma on Discord, or email ${blueBright('founders@codebuff.com')}`
+    `Thanks for using Codebuff! DM @brandonkachen or @jahooma on Discord, or email ${blueBright('founders@codebuff.com')}`,
   )
   console.log(
-    `Join our Discord: ${blueBright('https://codebuff.com/discord')} ${gray(`(${os.platform() === 'darwin' ? 'Command' : 'Ctrl'} + Click to open)`)}`
+    `Join our Discord: ${blueBright('https://codebuff.com/discord')} ${gray(`(${os.platform() === 'darwin' ? 'Command' : 'Ctrl'} + Click to open)`)}`,
   )
 
   console.log(`\n${bold(underline('EXAMPLE PROMPTS'))}
@@ -449,11 +448,11 @@ ${cyan('  • "Set up CI/CD pipeline config"')}
     .map((cmd) => formatMenuLine(cmd.commandText, cmd.description))
 
   console.log(
-    `\n${bold(underline('COMMANDS (type these below)'))}${' '.repeat(fixedCommandWidth - 27)}${bold(underline('DESCRIPTION'))}\n\n${menuLines.join(`\n${'─'.repeat(terminalWidth)}\n`)}\n`
+    `\n${bold(underline('COMMANDS (type these below)'))}${' '.repeat(fixedCommandWidth - 27)}${bold(underline('DESCRIPTION'))}\n\n${menuLines.join(`\n${'─'.repeat(terminalWidth)}\n`)}\n`,
   )
 
   console.log(
-    `\n${bold(underline('KEYBOARD SHORTCUTS'))}\n\n${cyan('ESC')}${' '.repeat(fixedCommandWidth - 3)}Stop AI response or exit special modes\n${cyan('Ctrl+C')}${' '.repeat(fixedCommandWidth - 6)}Exit application (press twice)\n`
+    `\n${bold(underline('KEYBOARD SHORTCUTS'))}\n\n${cyan('ESC')}${' '.repeat(fixedCommandWidth - 3)}Stop AI response or exit special modes\n${cyan('Ctrl+C')}${' '.repeat(fixedCommandWidth - 6)}Exit application (press twice)\n`,
   )
 
   console.log(`\n↓ Enter your prompt or command below ↓`)

@@ -283,7 +283,7 @@ tail -f debug/backend.log | grep "dynamic agent"
 ```typescript
 class DynamicAgentService {
   async loadAgents(
-    fileContext: ProjectFileContext
+    fileContext: ProjectFileContext,
   ): Promise<DynamicAgentLoadResult>
   getTemplate(agentType: string): AgentTemplate | undefined
   getAllTemplates(): Record<string, AgentTemplate>

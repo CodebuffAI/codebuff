@@ -8,7 +8,6 @@ import { logger } from './logger'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { Request, Response, NextFunction } from 'express'
 
-
 export const checkAuth = async ({
   fingerprintId,
   authToken,
@@ -48,7 +47,7 @@ export const checkAuth = async ({
 export const checkAdmin = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   // Extract auth token from Authorization header
   const authHeader = req.headers.authorization
@@ -97,7 +96,7 @@ export const checkAdmin = async (
   if (!adminUser) {
     logger.warn(
       { userId: user.id, email: user.email, clientSessionId },
-      'Unauthorized access attempt to admin endpoint'
+      'Unauthorized access attempt to admin endpoint',
     )
     return res.status(403).json({ error: 'Forbidden' })
   }

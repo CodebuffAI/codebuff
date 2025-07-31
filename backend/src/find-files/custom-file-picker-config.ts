@@ -11,7 +11,7 @@ const customFileCountsShape = costModes.reduce(
     acc[mode] = z.number().int().positive().optional()
     return acc
   },
-  {} as Record<CostMode, z.ZodOptional<z.ZodNumber>>
+  {} as Record<CostMode, z.ZodOptional<z.ZodNumber>>,
 )
 
 // Prepare enum values for modelName.
@@ -22,16 +22,17 @@ const modelNameEnumValues = Object.values(finetunedVertexModelNames)
 if (
   !Array.isArray(modelNameEnumValues) ||
   modelNameEnumValues.length === 0 ||
-  !modelNameEnumValues.every(val => typeof val === 'string' && val.length > 0)
+  !modelNameEnumValues.every((val) => typeof val === 'string' && val.length > 0)
 ) {
   // This will prevent the server/tests from starting if no valid model names are found.
   let problemDescription = 'Unknown issue.'
   if (!Array.isArray(modelNameEnumValues)) problemDescription = 'Not an array.'
-  else if (modelNameEnumValues.length === 0) problemDescription = 'Array is empty.'
+  else if (modelNameEnumValues.length === 0)
+    problemDescription = 'Array is empty.'
   else problemDescription = 'Array contains non-string or empty string values.'
-  
+
   throw new Error(
-    `CustomFilePickerConfigSchema: No valid string values found for modelName enum. Problem: ${problemDescription}. Values from finetunedVertexModelNames: ${JSON.stringify(modelNameEnumValues)}`
+    `CustomFilePickerConfigSchema: No valid string values found for modelName enum. Problem: ${problemDescription}. Values from finetunedVertexModelNames: ${JSON.stringify(modelNameEnumValues)}`,
   )
 }
 

@@ -1,19 +1,20 @@
 import { mainPrompt } from './main-prompt'
 
-import type { MainPromptOptions } from './main-prompt';
+import type { MainPromptOptions } from './main-prompt'
 import type { ClientToolCall } from './tools/constants'
 import type { ClientAction } from '@codebuff/common/actions'
-import type { SessionState, ToolResult } from '@codebuff/common/types/session-state'
+import type {
+  SessionState,
+  ToolResult,
+} from '@codebuff/common/types/session-state'
 import type { WebSocket } from 'ws'
-
-
 
 const DEFAULT_MAX_ITERATIONS = 20
 
 export async function loopMainPrompt(
   ws: WebSocket,
   action: Extract<ClientAction, { type: 'prompt' }>,
-  options: MainPromptOptions & { maxIterations?: number }
+  options: MainPromptOptions & { maxIterations?: number },
 ): Promise<{
   sessionState: SessionState
   toolCalls: Array<ClientToolCall>
@@ -23,7 +24,7 @@ export async function loopMainPrompt(
   let { sessionState, toolResults, toolCalls } = await mainPrompt(
     ws,
     action,
-    options
+    options,
   )
   let iterations = 0
   // Continue running as long as the agent is using tools and hasn't decided to end the turn.

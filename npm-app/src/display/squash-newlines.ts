@@ -105,14 +105,14 @@ export function squashNewlines(str: string): string {
  */
 function createSquashingWriteFunction<T extends Function>(
   originalWrite: T,
-  isSquashingEnabled: () => boolean
+  isSquashingEnabled: () => boolean,
 ): T {
   return function (
     chunk: string | Uint8Array,
     encodingOrCallback?:
       | BufferEncoding
       | ((err?: Error | null | undefined) => void),
-    callbackMaybe?: (err?: Error | null | undefined) => void
+    callbackMaybe?: (err?: Error | null | undefined) => void,
   ): boolean {
     if (printModeIsEnabled()) {
       return false
@@ -145,12 +145,12 @@ function createSquashingWriteFunction<T extends Function>(
 // Override stdout and stderr write functions
 process.stdout.write = createSquashingWriteFunction(
   originalStdoutWrite,
-  () => squashingEnabled
+  () => squashingEnabled,
 )
 
 process.stderr.write = createSquashingWriteFunction(
   originalStderrWrite,
-  () => squashingEnabled
+  () => squashingEnabled,
 )
 
 console.log = function (...args: any[]) {
@@ -169,7 +169,7 @@ console.log = function (...args: any[]) {
           ? arg
           : typeof arg === 'object'
             ? JSON.stringify(arg, null, 2)
-            : String(arg)
+            : String(arg),
       )
       .join(' ') + '\n'
 
@@ -192,7 +192,7 @@ console.error = function (...args: any[]) {
           ? arg
           : typeof arg === 'object'
             ? JSON.stringify(arg, null, 2)
-            : String(arg)
+            : String(arg),
       )
       .join(' ') + '\n'
 
@@ -215,7 +215,7 @@ console.warn = function (...args: any[]) {
           ? arg
           : typeof arg === 'object'
             ? JSON.stringify(arg, null, 2)
-            : String(arg)
+            : String(arg),
       )
       .join(' ') + '\n'
 
@@ -238,7 +238,7 @@ console.debug = function (...args: any[]) {
           ? arg
           : typeof arg === 'object'
             ? JSON.stringify(arg, null, 2)
-            : String(arg)
+            : String(arg),
       )
       .join(' ') + '\n'
 
@@ -261,7 +261,7 @@ console.info = function (...args: any[]) {
           ? arg
           : typeof arg === 'object'
             ? JSON.stringify(arg, null, 2)
-            : String(arg)
+            : String(arg),
       )
       .join(' ') + '\n'
 

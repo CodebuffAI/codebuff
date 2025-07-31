@@ -6,7 +6,7 @@ import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-p
 export async function processStrReplace(
   path: string,
   replacements: { old: string; new: string }[],
-  initialContentPromise: Promise<string | null>
+  initialContentPromise: Promise<string | null>,
 ): Promise<
   | {
       tool: 'str_replace'
@@ -28,13 +28,13 @@ export async function processStrReplace(
     // Regular case: require oldStr for replacements
     if (!oldStr) {
       messages.push(
-        'The old string was empty, which does not match any content, skipping.'
+        'The old string was empty, which does not match any content, skipping.',
       )
       continue
     }
     if (currentContent === null) {
       messages.push(
-        'The file does not exist, skipping. Please use the write_file tool to create the file.'
+        'The file does not exist, skipping. Please use the write_file tool to create the file.',
       )
       continue
     }
@@ -47,11 +47,11 @@ export async function processStrReplace(
     const updatedOldStr = tryMatchOldStr(
       normalizedCurrentContent,
       normalizedOldStr,
-      newStr
+      newStr,
     )
     if (updatedOldStr === null) {
       messages.push(
-        `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.`
+        `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.`,
       )
     }
 
@@ -79,7 +79,7 @@ export async function processStrReplace(
         path,
         initialContent,
       },
-      `processStrReplace: No change to ${path}`
+      `processStrReplace: No change to ${path}`,
     )
     messages.push('No change to the file.')
     return {
@@ -98,7 +98,7 @@ export async function processStrReplace(
       patch: finalPatch,
       messages,
     },
-    `processStrReplace: Updated file ${path}`
+    `processStrReplace: Updated file ${path}`,
   )
 
   return {
@@ -113,7 +113,7 @@ export async function processStrReplace(
 const tryMatchOldStr = (
   initialContent: string,
   oldStr: string,
-  newStr: string
+  newStr: string,
 ) => {
   if (initialContent.includes(oldStr)) {
     return oldStr
@@ -122,7 +122,7 @@ const tryMatchOldStr = (
   const newChange = tryToDoStringReplacementWithExtraIndentation(
     initialContent,
     oldStr,
-    newStr
+    newStr,
   )
   if (newChange) {
     logger.debug('Matched with indentation modification')
@@ -160,7 +160,7 @@ const tryMatchOldStr = (
       // Find the actual content with original whitespace
       const actualContent = initialContent.slice(
         realIndex,
-        realIndex + searchLength
+        realIndex + searchLength,
       )
       if (initialContent.includes(actualContent)) {
         logger.debug('Matched with whitespace removed')

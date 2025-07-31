@@ -6,11 +6,11 @@ import * as schema from '../common/src/db/schema'
 async function applyCreditMigration() {
   try {
     const migrationData: any[] = JSON.parse(
-      fs.readFileSync('credit-migration-data.json', 'utf-8')
+      fs.readFileSync('credit-migration-data.json', 'utf-8'),
     )
 
     console.log(
-      `Starting credit migration for ${migrationData.length} users...`
+      `Starting credit migration for ${migrationData.length} users...`,
     )
 
     // Progress‑tracking file — just an array of operation_ids
@@ -46,7 +46,7 @@ async function applyCreditMigration() {
       if (newIdsWritten) {
         fs.writeFileSync(
           progressPath,
-          JSON.stringify(Array.from(processedIds), null, 2)
+          JSON.stringify(Array.from(processedIds), null, 2),
         )
         console.log(`Processed credits for user ${userId}`)
       } else {

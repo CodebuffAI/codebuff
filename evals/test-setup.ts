@@ -23,7 +23,7 @@ const SWE_BENCH_PIP_PATH = path.join(SWE_BENCH_VENV_PATH, 'bin', 'pip')
 export const SWE_BENCH_PYTHON_PATH = path.join(
   SWE_BENCH_VENV_PATH,
   'bin',
-  'python'
+  'python',
 )
 
 // Mock required environment variables for tests
@@ -38,7 +38,7 @@ function patchRunDockerScript() {
   const runDockerPath = path.join(
     SWE_BENCH_REPO_PATH,
     'swebench_docker',
-    'run_docker.py'
+    'run_docker.py',
   )
   let content = fs.readFileSync(runDockerPath, 'utf-8')
 
@@ -51,7 +51,7 @@ function patchRunDockerScript() {
             '--entrypoint', '',
             '/bin/bash', '-c', 'git config --global --add safe.directory \\'*\\' && exec /entrypoint.sh'
         ]`
-    }
+    },
   )
 
   fs.writeFileSync(runDockerPath, content)
@@ -80,7 +80,7 @@ export async function ensureTestRepos() {
           `git clone --depth 1 --branch main ${repo} ${projectDir} && cd ${projectDir} && git fetch --depth 1 origin ${commit} && git checkout ${commit}`,
           {
             timeout: 60_000, // 1 minute timeout for git operations
-          }
+          },
         )
       } else {
         try {
@@ -88,7 +88,7 @@ export async function ensureTestRepos() {
             `git clone --branch main ${repo} ${projectDir} && cd ${projectDir}`,
             {
               timeout: 60_000, // 1 minute timeout for git operations
-            }
+            },
           )
         } catch (error) {
           // Maybe main doesn't exist? try master
@@ -96,7 +96,7 @@ export async function ensureTestRepos() {
             `git clone --branch master ${repo} ${projectDir} && cd ${projectDir}`,
             {
               timeout: 60_000, // 1 minute timeout for git operations
-            }
+            },
           )
         }
       }
@@ -113,7 +113,7 @@ export async function ensureTestRepos() {
           `cd ${projectDir} && git fetch --depth 1 origin ${commit} && git checkout ${commit}`,
           {
             timeout: 60_000, // 1 minute timeout for git operations
-          }
+          },
         )
       }
     }

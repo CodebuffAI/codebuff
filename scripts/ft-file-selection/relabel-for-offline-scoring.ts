@@ -22,9 +22,9 @@ import type { System } from '../../backend/src/llm-apis/claude'
 import type {
   GetRelevantFilesPayload,
   GetRelevantFilesTrace,
-  Relabel} from '@codebuff/bigquery';
+  Relabel,
+} from '@codebuff/bigquery'
 import type { Message } from '@codebuff/common/types/message'
-
 
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
@@ -73,7 +73,7 @@ async function getFilteredValidationBundles(): Promise<
     LIMIT, // limit
     START_CURSOR,
     DATASET, // dataset
-    'INNER' // joinType - user had this in their diff
+    'INNER', // joinType - user had this in their diff
     // No pageCursor, fetching all at onc
   )
 
@@ -85,7 +85,7 @@ async function getFilteredValidationBundles(): Promise<
   })
 
   console.log(
-    `Found ${validationBundles.length} validation bundles with ground truth relabel.`
+    `Found ${validationBundles.length} validation bundles with ground truth relabel.`,
   )
   return validationBundles
 }
@@ -121,7 +121,7 @@ async function runRelabelMode() {
     for (let j = 0; j < validationTracesToProcess.length; j += MAX_PARALLEL) {
       const batch = validationTracesToProcess.slice(j, j + MAX_PARALLEL)
       console.log(
-        `Processing relabel batch of ${batch.length} validation traces (${j + 1}-${Math.min(j + MAX_PARALLEL, validationTracesToProcess.length)} of total ${validationTracesToProcess.length})`
+        `Processing relabel batch of ${batch.length} validation traces (${j + 1}-${Math.min(j + MAX_PARALLEL, validationTracesToProcess.length)} of total ${validationTracesToProcess.length})`,
       )
 
       await Promise.all(
@@ -129,29 +129,29 @@ async function runRelabelMode() {
           const trace = bundle.trace as GetRelevantFilesTrace
           for (const modelToTest of MODELS) {
             const hasModelRelabel = bundle.relabels.some(
-              (r) => r.model === modelToTest
+              (r) => r.model === modelToTest,
             )
             if (!hasModelRelabel) {
               console.log(
-                `Relabeling trace ${trace.id} for model ${modelToTest}`
+                `Relabeling trace ${trace.id} for model ${modelToTest}`,
               )
               try {
                 await relabelTraceForModel(trace, modelToTest, DATASET)
                 console.log(
-                  `Successfully stored relabel for trace ${trace.id} with model ${modelToTest}`
+                  `Successfully stored relabel for trace ${trace.id} with model ${modelToTest}`,
                 )
               } catch (error) {
                 console.error(
                   `Error relabeling trace ${trace.id} for model ${modelToTest}:`,
-                  error
+                  error,
                 )
               }
             }
           }
-        })
+        }),
       )
       console.log(
-        `Completed relabel batch of ${batch.length} validation traces`
+        `Completed relabel batch of ${batch.length} validation traces`,
       )
     }
     console.log('Relabel mode completed.')
@@ -163,7 +163,7 @@ async function runRelabelMode() {
 async function relabelTraceForModel(
   trace: GetRelevantFilesTrace,
   modelToTest: (typeof MODELS)[number],
-  dataset: string
+  dataset: string,
 ) {
   const payload = trace.payload as GetRelevantFilesPayload
   const messages = payload.messages as Message[]
@@ -220,7 +220,7 @@ interface OutputPair {
 function mrr(
   teacherOutput: string,
   studentOutput: string,
-  topK: number | undefined = undefined
+  topK: number | undefined = undefined,
 ): number {
   const teacherFiles = teacherOutput
     .split('\n')
@@ -244,7 +244,7 @@ function mrr(
 function jaccardSimilarity(
   teacherOutput: string,
   studentOutput: string,
-  topK: number | undefined = undefined
+  topK: number | undefined = undefined,
 ): number {
   let teacherFiles = teacherOutput
     .split('\n')
@@ -277,7 +277,7 @@ function jaccardSimilarity(
 
 function calculatePercentiles(
   scores: number[],
-  percentilesToCalc: number[]
+  percentilesToCalc: number[],
 ): number[] {
   if (!scores || scores.length === 0) return percentilesToCalc.map(() => 0)
   const sortedScores = [...scores].sort((a, b) => a - b)
@@ -295,10 +295,10 @@ function calculatePercentiles(
 
 async function scoreSingleModelOutputs(
   outputPairs: OutputPair[],
-  metricFn: (teacher: string, student: string) => number
+  metricFn: (teacher: string, student: string) => number,
 ): Promise<number[]> {
   return outputPairs.map((pair) =>
-    metricFn(pair.teacherOutput, pair.studentOutput)
+    metricFn(pair.teacherOutput, pair.studentOutput),
   )
 }
 
@@ -338,19 +338,19 @@ async function runScoreMode() {
     }
 
     console.log(
-      `Processing ${validationBundles.length} validation bundles for scoring.`
+      `Processing ${validationBundles.length} validation bundles for scoring.`,
     )
 
     for (const bundle of validationBundles) {
       const teacherRelabel = bundle.relabels.find(
-        (r) => r.model === GROUND_TRUTH_MODEL
+        (r) => r.model === GROUND_TRUTH_MODEL,
       )
       if (!teacherRelabel || !teacherRelabel.payload.output) continue
       const teacherOutput = teacherRelabel.payload.output
 
       for (const modelName of MODELS) {
         const studentRelabel = bundle.relabels.find(
-          (r) => r.model === modelName
+          (r) => r.model === modelName,
         )
         if (studentRelabel && studentRelabel.payload.output) {
           modelScoresData[modelName].push({
@@ -367,7 +367,7 @@ async function runScoreMode() {
     console.log('Introducing the models...')
     for (const modelName of MODELS) {
       console.log(
-        `\n${finetunedVertexModelNames[modelName] ?? modelName}: ${modelDescriptions[modelName]}`
+        `\n${finetunedVertexModelNames[modelName] ?? modelName}: ${modelDescriptions[modelName]}`,
       )
     }
 
@@ -378,7 +378,7 @@ async function runScoreMode() {
         const pairsForModel = modelScoresData[modelName]
         if (pairsForModel.length === 0) {
           console.log(
-            `\n${finetunedVertexModelNames[modelName] ?? modelName} (0 samples)`
+            `\n${finetunedVertexModelNames[modelName] ?? modelName} (0 samples)`,
           )
           console.log('No samples found for scoring for this model.')
           continue
@@ -386,7 +386,7 @@ async function runScoreMode() {
 
         const individualScores = await scoreSingleModelOutputs(
           pairsForModel,
-          metric.fn
+          metric.fn,
         )
 
         const averageScore =
@@ -395,11 +395,11 @@ async function runScoreMode() {
         const percentiles = calculatePercentiles(individualScores, [10, 25, 50])
 
         console.log(
-          `\n${finetunedVertexModelNames[modelName] ?? modelName} (${individualScores.length} samples)`
+          `\n${finetunedVertexModelNames[modelName] ?? modelName} (${individualScores.length} samples)`,
         )
         console.log(`Average: ${averageScore.toFixed(4)}`)
         console.log(
-          `10/25/50 perc: ${percentiles.map((p) => p.toFixed(4)).join('/')}`
+          `10/25/50 perc: ${percentiles.map((p) => p.toFixed(4)).join('/')}`,
         )
       }
     }

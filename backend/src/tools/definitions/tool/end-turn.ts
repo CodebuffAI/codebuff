@@ -2,7 +2,6 @@ import { getToolCallString } from '@codebuff/common/tools/utils'
 
 import type { ToolDescription } from '../tool-def-type'
 
-
 const toolName = 'end_turn'
 export const endTurnTool = {
   toolName,

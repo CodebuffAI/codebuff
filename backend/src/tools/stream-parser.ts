@@ -21,8 +21,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolCallPart } from 'ai'
 import type { WebSocket } from 'ws'
 
-
-
 export type ToolCallError = {
   toolName?: string
   args: Record<string, unknown>
@@ -123,7 +121,7 @@ export async function processStreamWithTools<T extends string>(options: {
   const streamWithTags = processStreamWithTags(
     stream,
     Object.fromEntries(
-      toolNames.map((toolName) => [toolName, toolCallback(toolName)])
+      toolNames.map((toolName) => [toolName, toolCallback(toolName)]),
     ),
     (toolName, error) => {
       toolResults.push({
@@ -137,7 +135,7 @@ export async function processStreamWithTools<T extends string>(options: {
       userId,
       model: agentTemplate.model,
       agentName: agentTemplate.id,
-    }
+    },
   )
 
   for await (const chunk of streamWithTags) {

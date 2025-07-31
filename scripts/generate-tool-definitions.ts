@@ -11,13 +11,13 @@ import { compileToolDefinitions } from '@codebuff/common/tools/compile-tool-defi
  */
 function main() {
   console.log('🔧 Generating tool definitions...')
-  
+
   try {
     const content = compileToolDefinitions()
     const outputPath = join(process.cwd(), 'common/src/util/tools.d.ts')
-    
+
     writeFileSync(outputPath, content, 'utf8')
-    
+
     console.log('✅ Successfully generated tools.d.ts')
     console.log(`📁 Output: ${outputPath}`)
   } catch (error) {

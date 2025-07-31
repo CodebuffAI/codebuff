@@ -155,7 +155,7 @@ describe('simplifyTerminalCommandResultsInMessages', () => {
     const result = simplifyTerminalCommandResults(messageContent)
     expect(result).toContain('[Output omitted]')
     expect(result).toContain(
-      '<read_file>\n<path>test.txt</path>\n<content>content</content>\n<referenced_by>None</referenced_by>\n</read_file>'
+      '<read_file>\n<path>test.txt</path>\n<content>content</content>\n<referenced_by>None</referenced_by>\n</read_file>',
     )
   })
 
@@ -225,7 +225,7 @@ describe('simplifyReadFileToolResult', () => {
     expect(simplified.toolCallId).toBe('1')
     expect(simplified.toolName).toBe('read_files')
     expect(simplified.result).toBe(
-      'Read the following files: test1.txt\ntest2.txt'
+      'Read the following files: test1.txt\ntest2.txt',
     )
   })
 

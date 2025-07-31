@@ -60,7 +60,7 @@ describe('Rage Detectors', () => {
     // Mock setTimeout
     mockSetTimeout = spyOn(global, 'setTimeout').mockImplementation(((
       callback: Function,
-      delay: number
+      delay: number,
     ) => {
       const id = timeoutId++
       timeouts.push({
@@ -74,7 +74,7 @@ describe('Rage Detectors', () => {
 
     // Mock clearTimeout
     mockClearTimeout = spyOn(global, 'clearTimeout').mockImplementation(((
-      id: number
+      id: number,
     ) => {
       timeouts = timeouts.filter((timeout) => timeout.id !== id)
     }) as typeof clearTimeout)
@@ -92,7 +92,7 @@ describe('Rage Detectors', () => {
     currentTime += ms
     // Execute any timeouts that should have fired
     const toExecute = timeouts.filter(
-      (timeout) => timeout.scheduledTime <= currentTime
+      (timeout) => timeout.scheduledTime <= currentTime,
     )
     timeouts = timeouts.filter((timeout) => timeout.scheduledTime > currentTime)
     toExecute.forEach((timeout) => timeout.callback())
@@ -498,7 +498,7 @@ describe('Rage Detectors', () => {
           durationMs: 60000,
           timeoutMs: 60000,
           context: 'test',
-        })
+        }),
       )
     })
 
@@ -573,7 +573,7 @@ describe('Rage Detectors', () => {
           globalContext: 'global',
           localContext: 'local',
           overrideGlobal: 'fromLocal',
-        })
+        }),
       )
     })
 
@@ -592,7 +592,7 @@ describe('Rage Detectors', () => {
         expect.objectContaining({
           reason: 'context_test',
           globalOnly: 'global',
-        })
+        }),
       )
     })
   })
@@ -692,7 +692,7 @@ describe('Rage Detectors', () => {
           timeoutMs: 60000,
           connectionIssue: 'websocket_persistent_failure',
           url: 'ws://localhost:3000',
-        })
+        }),
       )
     })
 

@@ -2,14 +2,19 @@ import { newQuickJSWASMModuleFromVariant } from 'quickjs-emscripten-core'
 
 import { logger } from './logger'
 
-import type { QuickJSContext, QuickJSWASMModule, QuickJSRuntime } from 'quickjs-emscripten-core'
+import type {
+  QuickJSContext,
+  QuickJSWASMModule,
+  QuickJSRuntime,
+} from 'quickjs-emscripten-core'
 
 // Initialize QuickJS module once
 let QuickJS: QuickJSWASMModule | null = null
 
 async function initQuickJS(): Promise<QuickJSWASMModule> {
   if (!QuickJS) {
-    const variant = (await import('@jitl/quickjs-wasmfile-release-sync')).default
+    const variant = (await import('@jitl/quickjs-wasmfile-release-sync'))
+      .default
     QuickJS = await newQuickJSWASMModuleFromVariant(variant)
   }
   return QuickJS
@@ -35,10 +40,7 @@ export class QuickJSSandbox {
   private runtime: QuickJSRuntime
   private initialized = false
 
-  constructor(
-    context: QuickJSContext,
-    runtime: QuickJSRuntime
-  ) {
+  constructor(context: QuickJSContext, runtime: QuickJSRuntime) {
     this.context = context
     this.runtime = runtime
   }
@@ -49,22 +51,22 @@ export class QuickJSSandbox {
   static async create(
     generatorCode: string,
     initialInput: any,
-    config: SandboxConfig = {}
+    config: SandboxConfig = {},
   ): Promise<QuickJSSandbox> {
     const {
       memoryLimit = 1024 * 1024 * 20, // 20MB
       maxStackSize = 1024 * 512, // 512KB
-      enableInterruptHandler = false
+      enableInterruptHandler = false,
     } = config
 
     const quickjs = await initQuickJS()
 
     // Create new runtime with memory limits
     const runtime = quickjs.newRuntime()
-    
+
     // Set memory limit
     runtime.setMemoryLimit(memoryLimit)
-    
+
     // Set max stack size
     runtime.setMaxStackSize(maxStackSize)
 
@@ -115,7 +117,9 @@ export class QuickJSSandbox {
         setupResult.error.dispose()
         context.dispose()
         runtime.dispose()
-        throw new Error(`Failed to setup QuickJS generator: ${JSON.stringify(error)}`)
+        throw new Error(
+          `Failed to setup QuickJS generator: ${JSON.stringify(error)}`,
+        )
       }
 
       // Only dispose if the value exists and is not null/undefined
@@ -147,9 +151,7 @@ export class QuickJSSandbox {
 
     const inputJson = JSON.stringify(input)
 
-    const result = this.context.evalCode(
-      `globalThis._nextStep(${inputJson})`
-    )
+    const result = this.context.evalCode(`globalThis._nextStep(${inputJson})`)
 
     if (result.error) {
       const error = this.context.dump(result.error)
@@ -185,10 +187,7 @@ export class QuickJSSandbox {
       this.runtime.dispose()
       this.initialized = false
     } catch (error) {
-      logger.warn(
-        { error },
-        'Failed to dispose QuickJS sandbox'
-      )
+      logger.warn({ error }, 'Failed to dispose QuickJS sandbox')
     }
   }
 
@@ -213,7 +212,7 @@ export class SandboxManager {
     agentId: string,
     generatorCode: string,
     initialInput: any,
-    config?: SandboxConfig
+    config?: SandboxConfig,
   ): Promise<QuickJSSandbox> {
     const existing = this.sandboxes.get(agentId)
     if (existing && existing.isInitialized()) {
@@ -226,7 +225,11 @@ export class SandboxManager {
     }
 
     // Create new sandbox
-    const sandbox = await QuickJSSandbox.create(generatorCode, initialInput, config)
+    const sandbox = await QuickJSSandbox.create(
+      generatorCode,
+      initialInput,
+      config,
+    )
     this.sandboxes.set(agentId, sandbox)
     return sandbox
   }
@@ -259,7 +262,7 @@ export class SandboxManager {
       } catch (error) {
         logger.warn(
           { error, agentId },
-          'Failed to dispose sandbox during cleanup'
+          'Failed to dispose sandbox during cleanup',
         )
       }
     }

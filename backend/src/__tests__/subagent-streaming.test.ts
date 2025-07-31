@@ -1,4 +1,3 @@
-
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -20,8 +19,7 @@ import * as loggerModule from '../util/logger'
 
 import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
-import type {
-  Mock} from 'bun:test';
+import type { Mock } from 'bun:test'
 import type { WebSocket } from 'ws'
 
 describe('Subagent Streaming', () => {
@@ -35,7 +33,7 @@ describe('Subagent Streaming', () => {
     spyOn(loggerModule.logger, 'info').mockImplementation(() => {})
     spyOn(loggerModule.logger, 'warn').mockImplementation(() => {})
     spyOn(loggerModule, 'withLoggerContext').mockImplementation(
-      async (context: any, fn: () => Promise<any>) => fn()
+      async (context: any, fn: () => Promise<any>) => fn(),
     )
 
     // Mock sendSubagentChunk function to capture streaming messages
@@ -46,13 +44,13 @@ describe('Subagent Streaming', () => {
         agentType: string
         chunk: string
         prompt?: string
-      }) => {}
+      }) => {},
     )
 
     // Mock loopAgentSteps to simulate subagent execution with streaming
     mockLoopAgentSteps = spyOn(
       runAgentStep,
-      'loopAgentSteps'
+      'loopAgentSteps',
     ).mockImplementation(async (ws, options) => {
       // Simulate streaming chunks by calling the callback
       if (options.onResponseChunk) {
@@ -95,7 +93,7 @@ describe('Subagent Streaming', () => {
           },
         },
         validationErrors: [],
-      })
+      }),
     )
   })
 

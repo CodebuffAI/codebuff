@@ -94,7 +94,7 @@ describe('Organization Billing', () => {
       const result = await calculateOrganizationUsageAndBalance(
         organizationId,
         quotaResetDate,
-        now
+        now,
       )
 
       // Total positive balance: 800
@@ -129,7 +129,7 @@ describe('Organization Billing', () => {
       const result = await calculateOrganizationUsageAndBalance(
         organizationId,
         quotaResetDate,
-        now
+        now,
       )
 
       expect(result.balance.totalRemaining).toBe(0)
@@ -142,29 +142,29 @@ describe('Organization Billing', () => {
   describe('normalizeRepositoryUrl', () => {
     it('should normalize GitHub URLs correctly', () => {
       expect(normalizeRepositoryUrl('https://github.com/user/repo.git')).toBe(
-        'https://github.com/user/repo'
+        'https://github.com/user/repo',
       )
 
       expect(normalizeRepositoryUrl('git@github.com:user/repo.git')).toBe(
-        'https://github.com/user/repo'
+        'https://github.com/user/repo',
       )
 
       expect(normalizeRepositoryUrl('github.com/user/repo')).toBe(
-        'https://github.com/user/repo'
+        'https://github.com/user/repo',
       )
 
       expect(normalizeRepositoryUrl('HTTPS://GITHUB.COM/USER/REPO')).toBe(
-        'https://github.com/user/repo'
+        'https://github.com/user/repo',
       )
     })
 
     it('should handle various URL formats', () => {
       expect(normalizeRepositoryUrl('https://gitlab.com/user/repo.git')).toBe(
-        'https://gitlab.com/user/repo'
+        'https://gitlab.com/user/repo',
       )
 
       expect(normalizeRepositoryUrl('  https://github.com/user/repo  ')).toBe(
-        'https://github.com/user/repo'
+        'https://github.com/user/repo',
       )
     })
   })
@@ -172,7 +172,7 @@ describe('Organization Billing', () => {
   describe('validateAndNormalizeRepositoryUrl', () => {
     it('should validate and normalize valid URLs', () => {
       const result = validateAndNormalizeRepositoryUrl(
-        'https://github.com/user/repo'
+        'https://github.com/user/repo',
       )
       expect(result.isValid).toBe(true)
       expect(result.normalizedUrl).toBe('https://github.com/user/repo')
@@ -181,7 +181,7 @@ describe('Organization Billing', () => {
 
     it('should reject invalid domains', () => {
       const result = validateAndNormalizeRepositoryUrl(
-        'https://example.com/user/repo'
+        'https://example.com/user/repo',
       )
       expect(result.isValid).toBe(false)
       expect(result.error).toBe('Repository domain not allowed')
@@ -198,7 +198,7 @@ describe('Organization Billing', () => {
 
       domains.forEach((domain) => {
         const result = validateAndNormalizeRepositoryUrl(
-          `https://${domain}/user/repo`
+          `https://${domain}/user/repo`,
         )
         expect(result.isValid).toBe(true)
         expect(result.normalizedUrl).toBe(`https://${domain}/user/repo`)
@@ -213,7 +213,7 @@ describe('Organization Billing', () => {
 
       const result = await consumeOrganizationCredits(
         organizationId,
-        creditsToConsume
+        creditsToConsume,
       )
 
       expect(result.consumed).toBe(100)
@@ -236,8 +236,8 @@ describe('Organization Billing', () => {
           userId,
           amount,
           operationId,
-          description
-        )
+          description,
+        ),
       ).resolves.toBeUndefined()
     })
 
@@ -269,8 +269,8 @@ describe('Organization Billing', () => {
           userId,
           amount,
           operationId,
-          description
-        )
+          description,
+        ),
       ).resolves.toBeUndefined()
     })
   })

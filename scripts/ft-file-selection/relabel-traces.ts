@@ -3,19 +3,13 @@ import {
   promptAiSdk,
   transformMessages,
 } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import {
-  getTracesWithoutRelabels,
-  insertRelabel,
-} from '@codebuff/bigquery'
+import { getTracesWithoutRelabels, insertRelabel } from '@codebuff/bigquery'
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import type { System } from '../../backend/src/llm-apis/claude'
-import type {
-  GetRelevantFilesPayload} from '@codebuff/bigquery';
+import type { GetRelevantFilesPayload } from '@codebuff/bigquery'
 import type { Message } from '@codebuff/common/types/message'
-
-
 
 // Models we want to test
 const MODELS_TO_TEST = [
@@ -36,18 +30,18 @@ async function runTraces() {
         model,
         1000,
         undefined,
-        DATASET
+        DATASET,
       )
 
       console.log(
-        `Found ${traces.length} get-relevant-files traces without relabels for model ${model}`
+        `Found ${traces.length} get-relevant-files traces without relabels for model ${model}`,
       )
 
       // Process traces in batches of MAX_PARALLEL
       for (let i = 0; i < traces.length; i += MAX_PARALLEL) {
         const batch = traces.slice(i, i + MAX_PARALLEL)
         console.log(
-          `Processing batch of ${batch.length} traces (${i + 1}-${Math.min(i + MAX_PARALLEL, traces.length)})`
+          `Processing batch of ${batch.length} traces (${i + 1}-${Math.min(i + MAX_PARALLEL, traces.length)})`,
         )
 
         await Promise.all(
@@ -68,7 +62,7 @@ async function runTraces() {
                 output = await promptAiSdk({
                   messages: transformMessages(
                     messages as Message[],
-                    system as System
+                    system as System,
                   ),
                   model: model as typeof models.openrouter_claude_sonnet_4,
                   clientSessionId: 'relabel-trace-run',
@@ -85,7 +79,7 @@ async function runTraces() {
                     fingerprintId: 'relabel-trace-run',
                     userInputId: 'relabel-trace-run',
                     userId: 'relabel-trace-run',
-                  }
+                  },
                 )
               }
 
@@ -110,7 +104,7 @@ async function runTraces() {
               } catch (error) {
                 console.error(
                   `Error inserting relabel for trace ${trace.id}:`,
-                  JSON.stringify(error, null, 2)
+                  JSON.stringify(error, null, 2),
                 )
               }
 
@@ -118,7 +112,7 @@ async function runTraces() {
             } catch (error) {
               console.error(`Error processing trace ${trace.id}:`, error)
             }
-          })
+          }),
         )
 
         console.log(`Completed batch of ${batch.length} traces`)

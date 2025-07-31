@@ -39,7 +39,7 @@ export class DynamicAgentService {
    * Load and validate dynamic agent templates from user-provided agentTemplates
    */
   async loadAgents(
-    agentTemplates: Record<string, DynamicAgentTemplate> = {}
+    agentTemplates: Record<string, DynamicAgentTemplate> = {},
   ): Promise<DynamicAgentLoadResult> {
     this.templates = {}
     this.validationErrors = []
@@ -59,7 +59,7 @@ export class DynamicAgentService {
       // Pass 1: Collect all agent IDs from template files
       const dynamicAgentIds = await this.collectAgentIds(
         agentKeys,
-        agentTemplates
+        agentTemplates,
       )
 
       // Pass 2: Load and validate each agent template
@@ -97,7 +97,7 @@ export class DynamicAgentService {
    */
   private async collectAgentIds(
     jsonFiles: string[],
-    agentTemplates: Record<string, DynamicAgentTemplate> = {}
+    agentTemplates: Record<string, DynamicAgentTemplate> = {},
   ): Promise<string[]> {
     const agentIds: string[] = []
 
@@ -123,7 +123,7 @@ export class DynamicAgentService {
         // Log but don't fail the collection process for other errors
         logger.debug(
           { filePath, error },
-          'Failed to extract agent ID during collection phase'
+          'Failed to extract agent ID during collection phase',
         )
       }
     }
@@ -137,7 +137,7 @@ export class DynamicAgentService {
   private async loadSingleAgent(
     filePath: string,
     dynamicAgentIds: string[],
-    agentTemplates: Record<string, DynamicAgentTemplate> = {}
+    agentTemplates: Record<string, DynamicAgentTemplate> = {},
   ): Promise<void> {
     try {
       const content = agentTemplates[filePath]
@@ -147,14 +147,14 @@ export class DynamicAgentService {
 
       const subagentValidation = validateSubagents(
         content.subagents,
-        dynamicAgentIds
+        dynamicAgentIds,
       )
       if (!subagentValidation.valid) {
         this.validationErrors.push({
           filePath,
           message: formatSubagentError(
             subagentValidation.invalidAgents,
-            subagentValidation.availableAgents
+            subagentValidation.availableAgents,
           ),
           details: `Available agents: ${subagentValidation.availableAgents.join(', ')}`,
         })
@@ -165,14 +165,14 @@ export class DynamicAgentService {
       if (content.parentInstructions) {
         const parentInstructionsValidation = validateParentInstructions(
           content.parentInstructions,
-          dynamicAgentIds
+          dynamicAgentIds,
         )
         if (!parentInstructionsValidation.valid) {
           this.validationErrors.push({
             filePath,
             message: formatParentInstructionsError(
               parentInstructionsValidation.invalidAgents,
-              parentInstructionsValidation.availableAgents
+              parentInstructionsValidation.availableAgents,
             ),
             details: `Available agents: ${parentInstructionsValidation.availableAgents.join(', ')}`,
           })
@@ -181,7 +181,7 @@ export class DynamicAgentService {
       }
 
       const validatedSubagents = normalizeAgentNames(
-        content.subagents
+        content.subagents,
       ) as AgentTemplateType[]
 
       // Convert schemas and handle validation errors
@@ -190,7 +190,7 @@ export class DynamicAgentService {
         inputSchema = this.convertInputSchema(
           content.inputSchema?.prompt,
           content.inputSchema?.params,
-          filePath
+          filePath,
         )
       } catch (error) {
         this.validationErrors.push({
@@ -258,7 +258,7 @@ export class DynamicAgentService {
 
       logger.warn(
         { filePath, error: errorMessage },
-        'Failed to load dynamic agent template'
+        'Failed to load dynamic agent template',
       )
     }
   }
@@ -285,7 +285,7 @@ export class DynamicAgentService {
   private convertInputSchema(
     inputPromptSchema?: Record<string, any>,
     paramsSchema?: Record<string, any>,
-    filePath?: string
+    filePath?: string,
   ): AgentTemplate['inputSchema'] {
     const result: any = {}
     const fileContext = filePath ? ` in ${filePath}` : ''
@@ -304,7 +304,7 @@ export class DynamicAgentService {
           throw new Error(
             `Invalid inputSchema.prompt${fileContext}: Schema must allow string or undefined values. ` +
               `Current schema validation error: ${errorDetails}. ` +
-              `Please ensure your JSON schema accepts string types.`
+              `Please ensure your JSON schema accepts string types.`,
           )
         }
 
@@ -320,7 +320,7 @@ export class DynamicAgentService {
           error instanceof Error ? error.message : 'Unknown error'
         throw new Error(
           `Failed to convert inputSchema.prompt to Zod${fileContext}: ${errorMessage}. ` +
-            `Please check that your inputSchema.prompt is a valid JSON schema object.`
+            `Please check that your inputSchema.prompt is a valid JSON schema object.`,
         )
       }
     }
@@ -335,7 +335,7 @@ export class DynamicAgentService {
           error instanceof Error ? error.message : 'Unknown error'
         throw new Error(
           `Failed to convert inputSchema.params to Zod${fileContext}: ${errorMessage}. ` +
-            `Please check that your inputSchema.params is a valid JSON schema object.`
+            `Please check that your inputSchema.params is a valid JSON schema object.`,
         )
       }
     }

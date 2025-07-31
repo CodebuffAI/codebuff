@@ -1,12 +1,14 @@
-
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
-import { extractUserPromptFromRequest, extractAssistantResponseFromResponse } from '@/app/admin/traces/utils/trace-processing'
+import {
+  extractUserPromptFromRequest,
+  extractAssistantResponseFromResponse,
+} from '@/app/admin/traces/utils/trace-processing'
 import { checkAdminAuth } from '@/lib/admin-auth'
 import { logger } from '@/util/logger'
 
@@ -76,7 +78,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // Transform messages into client messages
-    const clientMessages: ClientMessage[] = messages.map(msg => ({
+    const clientMessages: ClientMessage[] = messages.map((msg) => ({
       id: msg.id,
       client_request_id: msg.client_request_id,
       timestamp: msg.finished_at,
@@ -103,11 +105,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     logger.info(
-      { 
-        adminId: authResult.id, 
+      {
+        adminId: authResult.id,
         clientId,
         messageCount: messages.length,
-        totalCredits 
+        totalCredits,
       },
       'Admin fetched client session'
     )

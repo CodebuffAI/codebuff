@@ -1,17 +1,11 @@
 import { createHash } from 'crypto'
 import { existsSync, readdirSync, writeFileSync } from 'fs'
 
-import {
-  getTracesWithRelabels,
-  setupBigQuery,
-} from '@codebuff/bigquery'
+import { getTracesWithRelabels, setupBigQuery } from '@codebuff/bigquery'
 import { closeXml } from '@codebuff/common/util/xml'
 
-import type {
-  GetRelevantFilesTrace,
-  Relabel} from '@codebuff/bigquery';
+import type { GetRelevantFilesTrace, Relabel } from '@codebuff/bigquery'
 import type { Message } from '@codebuff/common/types/message'
-
 
 // Get model from command line args
 const model = process.argv[2]
@@ -27,7 +21,7 @@ const BLOBBIFY_MESSAGE_HISTORY = true
 // Utility function to get next available filename with auto-incrementing number
 function getNextAvailableFilename(
   baseFilename: string,
-  extension: string
+  extension: string,
 ): string {
   const dir = 'ft-file-selection'
   const files = readdirSync(dir)
@@ -102,7 +96,7 @@ function convertRole(role: string): 'user' | 'model' | 'system' {
 
 const TOP_N_FILES = 2
 function convertToTopFewTrainingExample(
-  example: GeminiTuningExample
+  example: GeminiTuningExample,
 ): GeminiTuningExample {
   // This function should:
   // a) in the very last message, keep the only the top 2 files, ie: the first 2 "lines" in the output
@@ -131,7 +125,7 @@ function convertToTopFewTrainingExample(
 
         const msgContentWithTopN = part.text.replace(
           /Remember to focus on the most important files and limit your selection to (\d+)/,
-          repString
+          repString,
         )
         part.text = msgContentWithTopN
       }
@@ -155,7 +149,7 @@ function compressMessagesToHistory(messages: GeminiMessage[]): string {
 function convertToGeminiFormat(
   system: SystemMessage[],
   messages: Message[],
-  output: string
+  output: string,
 ): GeminiTuningExample {
   // Handle system message
   let allMessages: Message[] = [
@@ -176,7 +170,7 @@ function convertToGeminiFormat(
     }
   } else {
     throw new Error(
-      `Invalid system message, expected string or array, got ${typeof system}`
+      `Invalid system message, expected string or array, got ${typeof system}`,
     )
   }
 
@@ -239,7 +233,7 @@ function convertToGeminiFormat(
 function convertToOpenAIFormat(
   system: SystemMessage[],
   messages: Message[],
-  output: string
+  output: string,
 ): OpenAITuningExample {
   // Handle system message
   let systemMessages: OpenAIMessage[] = []
@@ -285,7 +279,7 @@ function writeTracesAsOpenAIData(
   traces: {
     trace: GetRelevantFilesTrace
     relabel: Relabel
-  }[]
+  }[],
 ) {
   // Convert to OpenAI format
   const openaiTuningData = traces
@@ -294,7 +288,7 @@ function writeTracesAsOpenAIData(
         return convertToOpenAIFormat(
           trace.payload.system as SystemMessage[],
           trace.payload.messages as Message[],
-          relabel.payload.output
+          relabel.payload.output,
         )
       } catch (error) {
         console.error('Error processing trace for OpenAI:', error)
@@ -320,7 +314,7 @@ function writeTracesAsOpenAIData(
   writeFileSync(openaiPath, openaiJsonlContent)
 
   console.log(
-    `Successfully saved ${openaiJsonlContentFiltered.length} examples to ${openaiPath} (filtered ${openaiTuningData.length - openaiJsonlContentFiltered.length} examples due to length)`
+    `Successfully saved ${openaiJsonlContentFiltered.length} examples to ${openaiPath} (filtered ${openaiTuningData.length - openaiJsonlContentFiltered.length} examples due to length)`,
   )
 }
 
@@ -329,13 +323,14 @@ function writeGeminiTrainingAndValidationData(
   examples: {
     example: GeminiTuningExample
     deterministicSample: number
-  }[]
+  }[],
 ) {
   const trainingData = examples.filter(
-    ({ deterministicSample }) => deterministicSample > VALIDATION_SAMPLING_RATE
+    ({ deterministicSample }) => deterministicSample > VALIDATION_SAMPLING_RATE,
   )
   const validationData = examples.filter(
-    ({ deterministicSample }) => deterministicSample <= VALIDATION_SAMPLING_RATE
+    ({ deterministicSample }) =>
+      deterministicSample <= VALIDATION_SAMPLING_RATE,
   )
 
   // Save as JSONL with auto-incrementing filename
@@ -354,11 +349,11 @@ function writeGeminiTrainingAndValidationData(
   writeFileSync(filename, trainingJsonlContent)
   writeFileSync(
     filename.replace('.jsonl', '-validation.jsonl'),
-    validationJsonlContent
+    validationJsonlContent,
   )
 
   console.log(
-    `Successfully saved ${trainingJsonlContentFiltered.length} training examples and ${validationJsonlContentFiltered.length} validation examples to ${filename}`
+    `Successfully saved ${trainingJsonlContentFiltered.length} training examples and ${validationJsonlContentFiltered.length} validation examples to ${filename}`,
   )
 }
 
@@ -366,7 +361,7 @@ function writeTracesAsGeminiData(
   traces: {
     trace: GetRelevantFilesTrace
     relabel: Relabel
-  }[]
+  }[],
 ) {
   const tuningData = traces
     .map(({ trace, relabel }) => {
@@ -375,7 +370,7 @@ function writeTracesAsGeminiData(
           example: convertToGeminiFormat(
             trace.payload.system as SystemMessage[],
             trace.payload.messages as Message[],
-            relabel.payload.output
+            relabel.payload.output,
           ),
           deterministicSample: getDeterministicSample(trace.id),
         }
@@ -401,12 +396,12 @@ function writeTracesAsGeminiData(
           example: topFewExample,
           deterministicSample,
         }
-      }
+      },
     )
     const topFewTrainingDataPath = geminiPath.replace('.jsonl', '-top2.jsonl')
     writeGeminiTrainingAndValidationData(
       topFewTrainingDataPath,
-      topFewTrainingData
+      topFewTrainingData,
     )
   }
 }
@@ -416,7 +411,7 @@ async function main() {
     if (!model) {
       console.log('Missing model argument')
       console.log(
-        'Usage: bun run scripts/ft-file-selection/collect-tuning-data.ts <model> [--prod]'
+        'Usage: bun run scripts/ft-file-selection/collect-tuning-data.ts <model> [--prod]',
       )
       process.exit(1)
     }

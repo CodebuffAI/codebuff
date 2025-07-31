@@ -16,7 +16,7 @@ import type {
 
 const toolExtractionPattern = new RegExp(
   `${startToolTag}(.*?)${endToolTag}`,
-  'gs'
+  'gs',
 )
 
 const completionSuffix = `${JSON.stringify(endsAgentStepParam)}: true\n}${endToolTag}`
@@ -32,13 +32,13 @@ export async function* processStreamWithTags(
   >,
   onError: (tagName: string, errorMessage: string) => void,
   onResponseChunk: (
-    chunk: PrintModeText | PrintModeToolCall | PrintModeError
+    chunk: PrintModeText | PrintModeToolCall | PrintModeError,
   ) => void,
   loggerOptions?: {
     userId?: string
     model?: Model
     agentName?: string
-  }
+  },
 ): AsyncGenerator<string> {
   let streamCompleted = false
   let buffer = ''
@@ -80,7 +80,7 @@ export async function* processStreamWithTags(
             stack: error.stack,
           },
           autocompleted,
-        }
+        },
       )
       const shortenedContents =
         contents.length < 50
@@ -106,7 +106,7 @@ export async function* processStreamWithTags(
           model: loggerOptions?.model,
           agent: loggerOptions?.agentName,
           autocompleted,
-        }
+        },
       )
       onError(toolName, `Tool not found: ${toolName}`)
       return

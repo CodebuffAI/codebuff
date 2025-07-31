@@ -13,7 +13,6 @@ import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { eq } from 'drizzle-orm'
 
-
 import { asyncAgentManager } from '../async-agent-manager'
 import {
   cancelUserInput,
@@ -54,7 +53,7 @@ export const sendAction = (ws: WebSocket, action: ServerAction) => {
  * @returns The user ID if found, undefined otherwise
  */
 export const getUserIdFromAuthToken = async (
-  authToken?: string
+  authToken?: string,
 ): Promise<string | undefined> => {
   if (!authToken) return undefined
 
@@ -83,7 +82,7 @@ export const getUserIdFromAuthToken = async (
 export async function genUsageResponse(
   fingerprintId: string,
   userId: string,
-  clientSessionId: string | undefined
+  clientSessionId: string | undefined,
 ): Promise<UsageResponse> {
   const logContext = { fingerprintId, userId, sessionId: clientSessionId }
   const defaultResp = {
@@ -121,7 +120,7 @@ export async function genUsageResponse(
     } catch (error) {
       logger.error(
         { error, usage: defaultResp },
-        'Error generating usage response, returning default'
+        'Error generating usage response, returning default',
       )
     }
 
@@ -138,7 +137,7 @@ export async function genUsageResponse(
 const onPrompt = async (
   action: Extract<ClientAction, { type: 'prompt' }>,
   clientSessionId: string,
-  ws: WebSocket
+  ws: WebSocket,
 ) => {
   const { fingerprintId, authToken, promptId, prompt, costMode } = action
 
@@ -180,7 +179,7 @@ const onPrompt = async (
           {
             role: 'user' as const,
             content: asSystemMessage(`Received error from server: ${response}`),
-          }
+          },
         )
 
         sendAction(ws, {
@@ -214,11 +213,11 @@ const onPrompt = async (
         const usageResponse = await genUsageResponse(
           fingerprintId,
           userId,
-          undefined
+          undefined,
         )
         sendAction(ws, usageResponse)
       }
-    }
+    },
   )
 }
 
@@ -229,7 +228,7 @@ export const callMainPrompt = async (
     userId: string
     promptId: string
     clientSessionId: string
-  }
+  },
 ) => {
   const { userId, promptId, clientSessionId } = options
   const result = await mainPrompt(ws, action, {
@@ -274,7 +273,7 @@ const onInit = async (
     authToken,
   }: Extract<ClientAction, { type: 'init' }>,
   clientSessionId: string,
-  ws: WebSocket
+  ws: WebSocket,
 ) => {
   await withLoggerContext({ fingerprintId }, async () => {
     const userId = await getUserIdFromAuthToken(authToken)
@@ -306,7 +305,7 @@ const onInit = async (
       if (allValidationErrors.length > 0) {
         logger.warn(
           { errorCount: allValidationErrors.length },
-          'Agent template validation errors found'
+          'Agent template validation errors found',
         )
       }
     } else {
@@ -320,14 +319,14 @@ const onInit = async (
       Object.entries(agentRegistry).map(([id, agentTemplate]) => [
         id,
         agentTemplate.displayName,
-      ])
+      ]),
     )
 
     // Send combined init and usage response
     const usageResponse = await genUsageResponse(
       fingerprintId,
       userId,
-      clientSessionId
+      clientSessionId,
     )
     sendAction(ws, {
       ...usageResponse,
@@ -374,19 +373,19 @@ export const subscribeToAction = <T extends ClientAction['type']>(
   callback: (
     action: Extract<ClientAction, { type: T }>,
     clientSessionId: string,
-    ws: WebSocket
-  ) => void
+    ws: WebSocket,
+  ) => void,
 ) => {
   callbacksByAction[type] = (callbacksByAction[type] ?? []).concat(
     callback as (
       action: ClientAction,
       clientSessionId: string,
-      ws: WebSocket
-    ) => void
+      ws: WebSocket,
+    ) => void,
   )
   return () => {
     callbacksByAction[type] = (callbacksByAction[type] ?? []).filter(
-      (cb) => cb !== callback
+      (cb) => cb !== callback,
     )
   }
 }
@@ -400,13 +399,13 @@ export const subscribeToAction = <T extends ClientAction['type']>(
 export const onWebsocketAction = async (
   ws: WebSocket,
   clientSessionId: string,
-  msg: ClientMessage & { type: 'action' }
+  msg: ClientMessage & { type: 'action' },
 ) => {
   await withLoggerContext({ clientSessionId }, async () => {
     const callbacks = callbacksByAction[msg.data.type] ?? []
     try {
       await Promise.all(
-        callbacks.map((cb) => cb(msg.data, clientSessionId, ws))
+        callbacks.map((cb) => cb(msg.data, clientSessionId, ws)),
       )
     } catch (e) {
       logger.error(
@@ -414,7 +413,7 @@ export const onWebsocketAction = async (
           message: msg,
           error: e && typeof e === 'object' && 'message' in e ? e.message : e,
         },
-        'Got error running subscribeToAction callback'
+        'Got error running subscribeToAction callback',
       )
     }
   })
@@ -478,7 +477,7 @@ export async function requestToolCall<T = any>(
   ws: WebSocket,
   userInputId: string,
   toolName: string,
-  args: Record<string, any> & { timeout_seconds?: number }
+  args: Record<string, any> & { timeout_seconds?: number },
 ): Promise<{ success: boolean; result?: T; error?: string }> {
   return new Promise((resolve, reject) => {
     const requestId = generateCompactId()
@@ -494,11 +493,11 @@ export async function requestToolCall<T = any>(
               unsubscribe()
               reject(
                 new Error(
-                  `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`
-                )
+                  `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`,
+                ),
               )
             },
-            timeoutInSeconds * 1000 + 5000 // Convert to ms and add a small buffer
+            timeoutInSeconds * 1000 + 5000, // Convert to ms and add a small buffer
           )
 
     // Subscribe to response

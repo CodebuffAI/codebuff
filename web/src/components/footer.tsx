@@ -8,7 +8,6 @@ import { LinkedInInsightTag } from 'nextjs-linkedin-insight-tag'
 import { Separator } from '@/components/ui/separator'
 import { siteConfig } from '@/lib/constant'
 
-
 export const Footer = () => {
   const pathname = usePathname()
   if (pathname.startsWith('/docs')) {

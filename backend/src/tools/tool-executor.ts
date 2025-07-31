@@ -1,4 +1,3 @@
-
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -32,7 +31,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
     toolCallId: string
     args: Record<string, unknown>
   },
-  autoInsertEndStepParam: boolean = false
+  autoInsertEndStepParam: boolean = false,
 ): CodebuffToolCall<T> | ToolCallError {
   const toolName = rawToolCall.toolName
 
@@ -63,7 +62,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
           .parameters satisfies z.ZodObject as z.ZodObject
       ).extend({
         [endsAgentStepParam]: z.literal(
-          codebuffToolDefs[validName].endsAgentStep
+          codebuffToolDefs[validName].endsAgentStep,
         ),
       })
     : codebuffToolDefs[validName].parameters
@@ -77,7 +76,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
       error: `Invalid parameters for ${validName}: ${JSON.stringify(
         result.error.issues,
         null,
-        2
+        2,
       )}`,
     }
   }
@@ -136,7 +135,7 @@ export function executeToolCall<T extends ToolName>({
       toolCallId: generateCompactId(),
       args,
     },
-    autoInsertEndStepParam
+    autoInsertEndStepParam,
   )
   if ('error' in toolCall) {
     toolResults.push({
@@ -146,7 +145,7 @@ export function executeToolCall<T extends ToolName>({
     })
     logger.debug(
       { toolCall, error: toolCall.error },
-      `${toolName} error: ${toolCall.error}`
+      `${toolName} error: ${toolCall.error}`,
     )
     return previousToolCallFinished
   }
@@ -160,7 +159,7 @@ export function executeToolCall<T extends ToolName>({
 
   logger.debug(
     { toolCall },
-    `${toolName} (${toolCall.toolCallId}) tool call detected in stream`
+    `${toolName} (${toolCall.toolCallId}) tool call detected in stream`,
   )
   toolCalls.push(toolCall)
 
@@ -193,7 +192,7 @@ export function executeToolCall<T extends ToolName>({
         ws,
         userInputId,
         clientToolCall.toolName,
-        clientToolCall.args
+        clientToolCall.args,
       )
       return (
         clientToolResult.error ??
@@ -224,7 +223,7 @@ export function executeToolCall<T extends ToolName>({
     }
     logger.debug(
       { toolResult },
-      `${toolName} (${toolResult.toolCallId}) tool result for tool`
+      `${toolName} (${toolResult.toolCallId}) tool result for tool`,
     )
     if (result === undefined) {
       return

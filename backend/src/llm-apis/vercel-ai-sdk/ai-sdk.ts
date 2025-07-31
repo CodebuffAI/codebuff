@@ -1,4 +1,3 @@
-
 import { google } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import {
@@ -45,7 +44,7 @@ import type { z } from 'zod'
 const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
   if (
     Object.values(finetunedVertexModels as Record<string, string>).includes(
-      model
+      model,
     )
   ) {
     return vertexFinetuned(model)
@@ -77,13 +76,13 @@ export const promptAiSdkStream = async function* (
     thinkingBudget?: number
     userInputId: string
     maxRetries?: number
-  } & Omit<Parameters<typeof streamText>[0], 'model'>
+  } & Omit<Parameters<typeof streamText>[0], 'model'>,
 ) {
   if (
     !checkLiveUserInput(
       options.userId,
       options.userInputId,
-      options.clientSessionId
+      options.clientSessionId,
     )
   ) {
     logger.info(
@@ -92,7 +91,7 @@ export const promptAiSdkStream = async function* (
         userInputId: options.userInputId,
         liveUserInputId: getLiveUserInputIds(options.userId),
       },
-      'Skipping stream due to canceled user input'
+      'Skipping stream due to canceled user input',
     )
     yield ''
     return
@@ -126,7 +125,7 @@ export const promptAiSdkStream = async function* (
           error: errorToObject(chunk.error),
           model: options.model,
         },
-        'Error from AI SDK'
+        'Error from AI SDK',
       )
       if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
         const errorBody = APICallError.isInstance(chunk.error)
@@ -226,13 +225,13 @@ export const promptAiSdk = async function (
     model: Model
     userId: string | undefined
     chargeUser?: boolean
-  } & Omit<Parameters<typeof generateText>[0], 'model'>
+  } & Omit<Parameters<typeof generateText>[0], 'model'>,
 ): Promise<string> {
   if (
     !checkLiveUserInput(
       options.userId,
       options.userInputId,
-      options.clientSessionId
+      options.clientSessionId,
     )
   ) {
     logger.info(
@@ -241,7 +240,7 @@ export const promptAiSdk = async function (
         userInputId: options.userInputId,
         liveUserInputId: getLiveUserInputIds(options.userId),
       },
-      'Skipping prompt due to canceled user input'
+      'Skipping prompt due to canceled user input',
     )
     return ''
   }
@@ -295,7 +294,7 @@ export const promptAiSdkStructured = async function <T>(options: {
     !checkLiveUserInput(
       options.userId,
       options.userInputId,
-      options.clientSessionId
+      options.clientSessionId,
     )
   ) {
     logger.info(
@@ -304,7 +303,7 @@ export const promptAiSdkStructured = async function <T>(options: {
         userInputId: options.userInputId,
         liveUserInputId: getLiveUserInputIds(options.userId),
       },
-      'Skipping structured prompt due to canceled user input'
+      'Skipping structured prompt due to canceled user input',
     )
     return {} as T
   }
@@ -348,7 +347,7 @@ export const promptAiSdkStructured = async function <T>(options: {
 // and don't need this transform!!
 export function transformMessages(
   messages: (Message | CoreMessage)[],
-  system?: System
+  system?: System,
 ): CoreMessage[] {
   const coreMessages: CoreMessage[] = []
 
@@ -369,7 +368,7 @@ export function transformMessages(
         continue
       } else {
         throw new Error(
-          'Multiple part system message - unsupported (TODO: fix if we hit this.)'
+          'Multiple part system message - unsupported (TODO: fix if we hit this.)',
         )
       }
     }

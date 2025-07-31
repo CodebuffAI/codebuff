@@ -10,8 +10,8 @@
   background: #000000;
   color: #eee;
   font-size: 18px;
-  font-family: 'DM Mono', var(--font-mono), Consolas, Menlo, Monaco, 'Courier New', Courier,
-    monospace;
+  font-family: 'DM Mono', var(--font-mono), Consolas, Menlo, Monaco,
+    'Courier New', Courier, monospace;
   border-radius: 4px;
   position: relative;
   -webkit-box-sizing: border-box;
@@ -23,9 +23,11 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at var(--mouse-x, center) var(--mouse-y, center), 
-              rgba(255,255,255,0.08) 0%, /* Reduced from 0.15 */
-              transparent 65%); /* Adjusted from 70% */
+  background: radial-gradient(
+    circle at var(--mouse-x, center) var(--mouse-y, center),
+    rgba(255, 255, 255, 0.08) 0%,
+    /* Reduced from 0.15 */ transparent 65%
+  ); /* Adjusted from 70% */
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s;
@@ -173,8 +175,8 @@
 
 .react-terminal-line:hover {
   background: rgba(255, 255, 255, 0.03); /* Reduced from 0.05 */
-  box-shadow: 
-    0 0 20px rgba(255, 255, 255, 0.05), /* Reduced from 30px and 0.1 */
-    0 0 40px rgba(255, 255, 255, 0.02); /* Reduced from 60px and 0.05 */
+  box-shadow:
+    0 0 20px rgba(255, 255, 255, 0.05),
+    /* Reduced from 30px and 0.1 */ 0 0 40px rgba(255, 255, 255, 0.02); /* Reduced from 60px and 0.05 */
   z-index: 2;
 }

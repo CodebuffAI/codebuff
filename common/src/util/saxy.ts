@@ -4,7 +4,6 @@
 import { Transform } from 'node:stream'
 import { StringDecoder } from 'string_decoder'
 
-
 import { includesMatch, isWhitespace } from './string'
 
 export type TextNode = {
@@ -193,7 +192,7 @@ const parseEntities = (input: string): string => {
  * @return A map of attribute names to their values
  */
 export const parseAttrs = (
-  input: string
+  input: string,
 ): { attrs: Record<string, string>; errors: string[] } => {
   const attrs = {} as Record<string, string>
   const end = input.length
@@ -221,7 +220,7 @@ export const parseAttrs = (
     while (input[position] !== '=' && position < end) {
       if (isWhitespace(input[position])) {
         errors.push(
-          `Attribute names may not contain whitespace: ${input.slice(startName, position)}`
+          `Attribute names may not contain whitespace: ${input.slice(startName, position)}`,
         )
         continue attrLoop
       }
@@ -232,7 +231,7 @@ export const parseAttrs = (
     // This is XML, so we need a value for the attribute
     if (position === end) {
       errors.push(
-        `Expected a value for the attribute: ${input.slice(startName, position)}`
+        `Expected a value for the attribute: ${input.slice(startName, position)}`,
       )
       break
     }
@@ -245,7 +244,7 @@ export const parseAttrs = (
     if (startQuote !== '"' && startQuote !== "'") {
       position = seekNextWhitespace(position)
       errors.push(
-        `Attribute values should be quoted: ${input.slice(startName, position)}`
+        `Attribute values should be quoted: ${input.slice(startName, position)}`,
       )
       continue
     }
@@ -255,7 +254,7 @@ export const parseAttrs = (
     if (endQuote === -1) {
       position = seekNextWhitespace(position)
       errors.push(
-        `Unclosed attribute value: ${input.slice(startName, position)}`
+        `Unclosed attribute value: ${input.slice(startName, position)}`,
       )
       continue
     }
@@ -284,7 +283,7 @@ const findIndexOutside = (
   haystack: string,
   predicate: Function,
   delim = '',
-  fromIndex = 0
+  fromIndex = 0,
 ) => {
   const length = haystack.length
   let index = fromIndex
@@ -368,7 +367,7 @@ export class Saxy extends Transform {
   public _write(
     chunk: Buffer | string,
     encoding: string,
-    callback: NextFunction
+    callback: NextFunction,
   ) {
     const data =
       encoding === 'buffer'
@@ -622,7 +621,7 @@ export class Saxy extends Transform {
         input,
         (char: string) => char === '>',
         '"',
-        chunkPos
+        chunkPos,
       )
 
       if (tagClose === -1) {

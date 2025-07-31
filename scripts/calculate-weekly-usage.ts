@@ -3,7 +3,9 @@ import * as schema from '@codebuff/common/db/schema'
 import { sql } from 'drizzle-orm'
 
 async function calculateWeeklyUsage() {
-  console.log('Calculating credit usage in the last 7 days (active subscribers only)...\n')
+  console.log(
+    'Calculating credit usage in the last 7 days (active subscribers only)...\n',
+  )
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
@@ -15,12 +17,12 @@ async function calculateWeeklyUsage() {
       })
       .from(schema.message)
       .leftJoin(schema.user, sql`${schema.message.user_id} = ${schema.user.id}`)
-      .where(
-        sql`${schema.message.finished_at} >= ${sevenDaysAgo}`
-      )
+      .where(sql`${schema.message.finished_at} >= ${sevenDaysAgo}`)
 
     const totalCredits = parseInt(totalResult[0]?.totalCredits || '0')
-    console.log(`\nTotal credits used in last 7 days: ${totalCredits.toLocaleString()}`)
+    console.log(
+      `\nTotal credits used in last 7 days: ${totalCredits.toLocaleString()}`,
+    )
 
     // Get credits used per user with active subscription
     const userResults = await db
@@ -31,9 +33,7 @@ async function calculateWeeklyUsage() {
       })
       .from(schema.message)
       .leftJoin(schema.user, sql`${schema.message.user_id} = ${schema.user.id}`)
-      .where(
-        sql`${schema.message.finished_at} >= ${sevenDaysAgo}`
-      )
+      .where(sql`${schema.message.finished_at} >= ${sevenDaysAgo}`)
       .groupBy(schema.message.user_id, schema.user.email)
       .orderBy(sql`SUM(${schema.message.credits})` as any, 'desc' as any)
 
@@ -52,9 +52,7 @@ async function calculateWeeklyUsage() {
       })
       .from(schema.message)
       .leftJoin(schema.user, sql`${schema.message.user_id} = ${schema.user.id}`)
-      .where(
-        sql`${schema.message.finished_at} >= ${sevenDaysAgo}`
-      )
+      .where(sql`${schema.message.finished_at} >= ${sevenDaysAgo}`)
       .groupBy(sql`DATE(${schema.message.finished_at})`)
       .orderBy(sql`DATE(${schema.message.finished_at})` as any)
 
@@ -63,7 +61,6 @@ async function calculateWeeklyUsage() {
       const credits = parseInt(result.dailyCredits)
       console.log(`${result.date}: ${credits.toLocaleString()} credits`)
     }
-
   } catch (error) {
     console.error('Error calculating weekly usage:', error)
   }

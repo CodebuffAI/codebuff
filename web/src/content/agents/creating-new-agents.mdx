@@ -10,6 +10,7 @@ order: 2
 Create specialized agents from scratch using JSON templates.
 
 **Types:**
+
 - **LLM-based** - Use prompts and language models
 - **Programmatic** (coming soon) - Use JavaScript/TypeScript code
 
@@ -58,6 +59,7 @@ New agents need `"override": false` and these required fields:
 Create clear, comprehensive documentation for codebases.
 
 ## Guidelines
+
 - Research codebase first
 - Use clear, concise language
 - Include practical examples
@@ -139,18 +141,21 @@ Specialized for creating and reviewing database migrations:
 # Database Migration Guidelines
 
 ## Safety First
+
 - Always create reversible migrations (up and down)
 - Test migrations on a copy of production data
 - Add indexes for new foreign keys
 - Use transactions where supported
 
 ## Performance Considerations
+
 - Avoid locking tables during peak hours
 - Use `ADD COLUMN` with defaults carefully
 - Consider batching large data changes
 - Monitor migration execution time
 
 ## Best Practices
+
 - Include descriptive migration names
 - Add comments explaining complex changes
 - Validate data integrity after migration

@@ -21,7 +21,6 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useOrgAutoTopup } from '@/hooks/use-org-auto-topup'
 import { cn } from '@/lib/utils'
 
-
 interface CreditStatus {
   currentBalance: number
   usageThisCycle: number
@@ -124,19 +123,23 @@ export function CreditMonitor({
   const queryClient = useQueryClient()
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['creditStatus', organizationId] })
-    queryClient.invalidateQueries({ queryKey: ['organizationSettings', organizationId] })
+    queryClient.invalidateQueries({
+      queryKey: ['creditStatus', organizationId],
+    })
+    queryClient.invalidateQueries({
+      queryKey: ['organizationSettings', organizationId],
+    })
   }
 
   const handleEnableAutoTopup = async () => {
     if (!orgSettings || !canManageAutoTopup) return
 
     setIsRedirecting(true)
-    
+
     try {
       // Enable auto top-up first
       const success = await handleToggleAutoTopup(true)
-      
+
       if (success) {
         // Navigate to billing page
         router.push(`/orgs/${orgSettings.slug}/billing/purchase`)
@@ -238,10 +241,15 @@ export function CreditMonitor({
             <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
             <span className="truncate">Credit Monitor</span>
           </span>
-          <div className="flex items-center space-x-2"> {/* Group for buttons */}
+          <div className="flex items-center space-x-2">
+            {' '}
+            {/* Group for buttons */}
             <Link href={`/orgs/${orgSlug}/usage`}>
-              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3"> {/* Adjusted size for consistency */}
-                <BarChart3 className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" /> {/* Icon for usage button */}
+              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3">
+                {' '}
+                {/* Adjusted size for consistency */}
+                <BarChart3 className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />{' '}
+                {/* Icon for usage button */}
                 <span className="hidden sm:inline">Usage Details</span>
                 <span className="sm:hidden">Details</span>
               </Button>
@@ -253,7 +261,9 @@ export function CreditMonitor({
               disabled={isFetching}
               className="h-8 w-8 p-0"
             >
-              <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+              <RefreshCw
+                className={cn('h-4 w-4', isFetching && 'animate-spin')}
+              />
             </Button>
           </div>
         </CardTitle>
@@ -285,12 +295,14 @@ export function CreditMonitor({
                   onClick={handleEnableAutoTopup}
                   disabled={isAutoTopupPending || isRedirecting}
                 >
-                  {(isAutoTopupPending || isRedirecting) ? (
+                  {isAutoTopupPending || isRedirecting ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Power className="mr-2 h-4 w-4" />
                   )}
-                  {(isAutoTopupPending || isRedirecting) ? 'Enabling...' : 'Enable'}
+                  {isAutoTopupPending || isRedirecting
+                    ? 'Enabling...'
+                    : 'Enable'}
                 </Button>
               </div>
             </div>

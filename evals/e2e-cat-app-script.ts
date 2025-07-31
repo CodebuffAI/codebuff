@@ -6,7 +6,7 @@ import path from 'path'
 
 import { sleep } from '@codebuff/common/util/promise'
 
-import type { ChildProcess } from 'child_process';
+import type { ChildProcess } from 'child_process'
 
 const BACKEND_PORT = 3001
 const BACKEND_READY_TIMEOUT = 30000 // 30 seconds
@@ -37,7 +37,7 @@ export class E2ETestRunner {
     this.testDir = TEST_DIR
     // Convert string array to PromptStep array for backward compatibility
     this.prompts = prompts.map((p) =>
-      typeof p === 'string' ? { prompt: p } : p
+      typeof p === 'string' ? { prompt: p } : p,
     )
   }
 
@@ -274,7 +274,7 @@ export class E2ETestRunner {
 
   private async sendPromptToCli(
     promptStep: PromptStep,
-    stepNumber: number
+    stepNumber: number,
   ): Promise<boolean> {
     if (!this.cliProcess?.process.stdin) {
       console.error('❌ CLI stdin not available')
@@ -299,7 +299,7 @@ export class E2ETestRunner {
 
   private async waitForTaskCompletion(
     promptStep: PromptStep,
-    stepNumber: number
+    stepNumber: number,
   ): Promise<boolean> {
     const description = promptStep.description || `Step ${stepNumber}`
     const timeout = promptStep.timeout || TASK_COMPLETION_TIMEOUT

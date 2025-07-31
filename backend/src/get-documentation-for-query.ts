@@ -27,7 +27,7 @@ export async function getDocumentationForQuery(
     userInputId: string
     fingerprintId: string
     userId?: string
-  }
+  },
 ): Promise<string | null> {
   const startTime = Date.now()
 
@@ -42,7 +42,7 @@ export async function getDocumentationForQuery(
           total: Date.now() - startTime,
         },
       },
-      'Documentation chunks: No relevant libraries suggested.'
+      'Documentation chunks: No relevant libraries suggested.',
     )
     return null
   }
@@ -56,8 +56,8 @@ export async function getDocumentationForQuery(
         fetchContext7LibraryDocumentation(libraryName, {
           tokens: options.tokens,
           topic,
-        })
-      )
+        }),
+      ),
     )
   ).flat()
 
@@ -66,7 +66,7 @@ export async function getDocumentationForQuery(
     allRawChunks
       .filter((chunk) => chunk !== null)
       .join(DELIMITER)
-      .split(DELIMITER)
+      .split(DELIMITER),
   ).slice(0, maxChunks)
 
   if (allUniqueChunks.length === 0) {
@@ -79,7 +79,7 @@ export async function getDocumentationForQuery(
           gemini1: geminiDuration1,
         },
       },
-      'Documentation chunks: No chunks found after fetching from Context7.'
+      'Documentation chunks: No chunks found after fetching from Context7.',
     )
     return null
   }
@@ -88,7 +88,7 @@ export async function getDocumentationForQuery(
   const filterResults = await filterRelevantChunks(
     query,
     allUniqueChunks,
-    options
+    options,
   )
 
   const totalDuration = Date.now() - startTime
@@ -108,7 +108,7 @@ export async function getDocumentationForQuery(
           gemini2: filterResults?.geminiDuration,
         },
       },
-      'Documentation chunks: No relevant chunks selected by the filter, or filter failed.'
+      'Documentation chunks: No relevant chunks selected by the filter, or filter failed.',
     )
     return null
   }
@@ -129,7 +129,7 @@ export async function getDocumentationForQuery(
         gemini2: geminiDuration2,
       },
     },
-    'Documentation chunks: results'
+    'Documentation chunks: results',
   )
 
   return relevantChunks.join(DELIMITER)
@@ -142,7 +142,7 @@ const suggestLibraries = async (
     userInputId: string
     fingerprintId: string
     userId?: string
-  }
+  },
 ) => {
   const prompt =
     `You are an expert at documentation for libraries. Given a user's query return a list of (library name, topic) where each library name is the name of a library and topic is a keyword or phrase that specifies a topic within the library that is most relevant to the user's query.
@@ -173,7 +173,7 @@ ${closeXml('user_query')}
           z.object({
             libraryName: z.string(),
             topic: z.string(),
-          })
+          }),
         ),
       }),
       timeout: 5_000,
@@ -185,7 +185,7 @@ ${closeXml('user_query')}
   } catch (error) {
     logger.error(
       { error },
-      'Failed to get Gemini response getDocumentationForQuery'
+      'Failed to get Gemini response getDocumentationForQuery',
     )
     return null
   }
@@ -206,7 +206,7 @@ async function filterRelevantChunks(
     userInputId: string
     fingerprintId: string
     userId?: string
-  }
+  },
 ): Promise<{ relevantChunks: string[]; geminiDuration: number } | null> {
   const prompt = `You are an expert at analyzing documentation queries. Given a user's query and a list of documentation chunks, determine which chunks are relevant to the query. Choose as few chunks as possible, likely none. Only include chunks if they are relevant to the user query.
 
@@ -249,7 +249,7 @@ ${closeXml('documentation_chunks')}
         query,
         allChunksCount: allChunks.length,
       },
-      'Failed to get Gemini response in filterRelevantChunks'
+      'Failed to get Gemini response in filterRelevantChunks',
     )
     return null
   }

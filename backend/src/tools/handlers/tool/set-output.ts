@@ -6,7 +6,6 @@ import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-
 export const handleSetOutput = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'set_output'>
@@ -24,7 +23,7 @@ export const handleSetOutput = ((params: {
 
   if (!agentState) {
     throw new Error(
-      'Internal error for set_output: Missing agentState in state'
+      'Internal error for set_output: Missing agentState in state',
     )
   }
 
@@ -48,7 +47,7 @@ export const handleSetOutput = ((params: {
             agentId: agentState.agentId,
             error,
           },
-          'set_output validation error'
+          'set_output validation error',
         )
         throw new Error(errorMessage)
       }
@@ -64,7 +63,7 @@ export const handleSetOutput = ((params: {
         agentId: agentState.agentId,
         updatedOutput: agentState.output,
       },
-      'set_output tool call completed'
+      'set_output tool call completed',
     )
 
     return 'Output set'

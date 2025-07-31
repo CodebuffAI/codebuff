@@ -10,10 +10,9 @@ import { useSession } from 'next-auth/react'
 import React, { useEffect, useState, useCallback } from 'react'
 import { useFormState, useFormStatus } from 'react-dom'
 
-
 import { setAffiliateHandleAction } from './actions'
 
-import type { SetHandleFormState } from './actions';
+import type { SetHandleFormState } from './actions'
 
 import CardWithBeams from '@/components/card-with-beams'
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
@@ -29,7 +28,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/use-toast'
-
 
 function SubmitButton() {
   const { pending } = useFormStatus()

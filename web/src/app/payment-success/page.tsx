@@ -13,8 +13,6 @@ import { toast } from '@/components/ui/use-toast'
 import { useAutoTopup } from '@/hooks/use-auto-topup'
 import { trackUpgrade } from '@/lib/trackConversions'
 
-
-
 function PaymentSuccessContent() {
   const searchParams = useSearchParams()
   const credits = searchParams.get('amt')

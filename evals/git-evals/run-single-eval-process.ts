@@ -54,7 +54,7 @@ async function main() {
       projectPath,
       clientSessionId,
       fingerprintId,
-      agentType
+      agentType,
     )
     console.log('Final result:', { result })
     if (process.send) {

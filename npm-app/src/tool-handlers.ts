@@ -2,9 +2,7 @@ import { spawn } from 'child_process'
 import * as path from 'path'
 
 import { FileChangeSchema } from '@codebuff/common/actions'
-import {
-  BrowserActionSchema
-} from '@codebuff/common/browser-actions'
+import { BrowserActionSchema } from '@codebuff/common/browser-actions'
 import { SHOULD_ASK_CONFIG } from '@codebuff/common/constants'
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { applyChanges } from '@codebuff/common/util/changes'
@@ -24,13 +22,12 @@ import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { scrapeWebPage } from './web-scraper'
 
-import type {
-  BrowserResponse} from '@codebuff/common/browser-actions';
+import type { BrowserResponse } from '@codebuff/common/browser-actions'
 import type { ToolCall } from '@codebuff/common/types/session-state'
 
 export type ToolHandler<T extends Record<string, any>> = (
   parameters: T,
-  id: string
+  id: string,
 ) => Promise<string | BrowserResponse>
 
 export const handleUpdateFile: ToolHandler<{
@@ -54,7 +51,7 @@ export const handleUpdateFile: ToolHandler<{
   for (const file of created) {
     const counts = `(${green(`+${lines.length}`)})`
     result.push(
-      `Created ${file} successfully. Changes made:\n${lines.join('\n')}`
+      `Created ${file} successfully. Changes made:\n${lines.join('\n')}`,
     )
     console.log(green(`- Created ${file} ${counts}`))
   }
@@ -72,18 +69,18 @@ export const handleUpdateFile: ToolHandler<{
 
     const counts = `(${green(`+${addedLines}`)}, ${red(`-${deletedLines}`)})`
     result.push(
-      `Wrote to ${file} successfully. Changes made:\n${lines.join('\n')}`
+      `Wrote to ${file} successfully. Changes made:\n${lines.join('\n')}`,
     )
     console.log(green(`- Updated ${file} ${counts}`))
   }
   for (const file of ignored) {
     result.push(
-      `Failed to write to ${file}; file is ignored by .gitignore or .codebuffignore`
+      `Failed to write to ${file}; file is ignored by .gitignore or .codebuffignore`,
     )
   }
   for (const file of invalid) {
     result.push(
-      `Failed to write to ${file}; file path caused an error or file could not be written`
+      `Failed to write to ${file}; file path caused an error or file could not be written`,
     )
   }
 
@@ -94,7 +91,7 @@ export const handleUpdateFile: ToolHandler<{
 }
 
 export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
-  parameters
+  parameters,
 ) => {
   const { url } = parameters
   const content = await scrapeWebPage(url)
@@ -112,7 +109,7 @@ export const handleRunTerminalCommand = async (
     cwd?: string
     timeout_seconds?: number
   },
-  id: string
+  id: string,
 ): Promise<{ result: string; stdout: string }> => {
   const {
     command,
@@ -134,7 +131,7 @@ export const handleRunTerminalCommand = async (
     mode,
     process_type.toUpperCase() as 'SYNC' | 'BACKGROUND',
     timeout_seconds,
-    cwd
+    cwd,
   )
 }
 
@@ -160,7 +157,7 @@ export const handleCodeSearch: ToolHandler<{
       // Ensure the search path is within the project directory
       if (!requestedPath.startsWith(projectPath)) {
         resolve(
-          `<terminal_command_error>Invalid cwd: Path '${parameters.cwd}' is outside the project directory.${closeXml('terminal_command_error')}`
+          `<terminal_command_error>Invalid cwd: Path '${parameters.cwd}' is outside the project directory.${closeXml('terminal_command_error')}`,
         )
         return
       }
@@ -171,8 +168,8 @@ export const handleCodeSearch: ToolHandler<{
     console.log()
     console.log(
       green(
-        `Searching ${parameters.cwd ? `${basename}/${parameters.cwd}` : basename} for "${pattern}"${flags.length > 0 ? ` with flags: ${flags.join(' ')}` : ''}:`
-      )
+        `Searching ${parameters.cwd ? `${basename}/${parameters.cwd}` : basename} for "${pattern}"${flags.length > 0 ? ` with flags: ${flags.join(' ')}` : ''}:`,
+      ),
     )
 
     const childProcess = spawn(rgPath, args, {
@@ -213,14 +210,14 @@ export const handleCodeSearch: ToolHandler<{
           truncatedStdout,
           truncatedStderr,
           'Code search completed',
-          code
-        )
+          code,
+        ),
       )
     })
 
     childProcess.on('error', (error) => {
       resolve(
-        `<terminal_command_error>Failed to execute ripgrep: ${error.message}${closeXml('terminal_command_error')}`
+        `<terminal_command_error>Failed to execute ripgrep: ${error.message}${closeXml('terminal_command_error')}`,
       )
     })
   })
@@ -230,7 +227,7 @@ function formatResult(
   stdout: string,
   stderr: string | undefined,
   status: string,
-  exitCode: number | null
+  exitCode: number | null,
 ): string {
   let result = '<terminal_command_result>\n'
   result += `<stdout>${stdout}${closeXml('stdout')}\n`
@@ -252,7 +249,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   scrape_web_page: handleScrapeWebPage,
   run_terminal_command: ((parameters, id) =>
     handleRunTerminalCommand(parameters, id).then(
-      (result) => result.result
+      (result) => result.result,
     )) as ToolHandler<{
     command: string
     process_type: 'SYNC' | 'BACKGROUND'
@@ -264,7 +261,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
     await waitForPreviousCheckpoint()
 
     const { toolResults, someHooksFailed } = await runFileChangeHooks(
-      parameters.files
+      parameters.files,
     )
 
     // Format the results for display
@@ -299,7 +296,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
           errorStack: error instanceof Error ? error.stack : undefined,
           params,
         },
-        'Browser action validation failed'
+        'Browser action validation failed',
       )
       return JSON.stringify({
         success: false,
@@ -324,7 +321,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
         {
           errorMessage: response.error,
         },
-        'Browser action failed'
+        'Browser action failed',
       )
     }
     if (response.logs) {
@@ -337,7 +334,7 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
                 {
                   errorMessage: log.message,
                 },
-                'Browser tool error'
+                'Browser tool error',
               )
               break
             case 'warning':
@@ -368,7 +365,7 @@ export const handleToolCall = async (toolCall: ToolCall) => {
 
   if (typeof content !== 'string') {
     throw new Error(
-      `Tool call ${toolName} not supported. It returned non-string content.`
+      `Tool call ${toolName} not supported. It returned non-string content.`,
     )
   }
 

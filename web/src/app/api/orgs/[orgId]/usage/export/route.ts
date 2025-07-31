@@ -5,10 +5,9 @@ import { eq, and, desc, gte } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-
 
 interface RouteParams {
   params: { orgId: string }
@@ -39,7 +38,10 @@ export async function GET(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     // Sync organization billing cycle with Stripe and get current cycle start
@@ -67,14 +69,16 @@ export async function GET(
     // Convert to CSV
     const csvHeaders = 'Date,User,Repository,Credits Used,Message ID\n'
     const csvRows = usageData
-      .map(row => [
+      .map((row) => [
         row.date.toISOString(),
         row.user_name || 'Unknown',
         row.repository_url || '',
         row.credits_used.toString(),
         row.message_id,
       ])
-      .map(row => row.map(field => `"${field.replace(/"/g, '""')}"`).join(','))
+      .map((row) =>
+        row.map((field) => `"${field.replace(/"/g, '""')}"`).join(',')
+      )
       .join('\n')
 
     const csv = csvHeaders + csvRows

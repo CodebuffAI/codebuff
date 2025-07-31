@@ -1,4 +1,3 @@
-
 import { JsonTestServer } from '@ai-sdk/provider-utils/test'
 import { describe, expect, it } from 'bun:test'
 
@@ -8,7 +7,7 @@ import type { OpenRouterChatSettings } from './types/openrouter-chat-settings'
 
 describe('OpenRouter Usage Accounting', () => {
   const server = new JsonTestServer(
-    'https://api.openrouter.ai/chat/completions'
+    'https://api.openrouter.ai/chat/completions',
   )
 
   server.setupTestEnvironment()

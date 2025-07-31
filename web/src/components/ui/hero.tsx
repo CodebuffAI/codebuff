@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react'
 import { HeroButtons } from './hero-buttons'
 import { Section } from './section'
 
-
 // Typing effect component for hero headline
 function TypingEffect({ words }: { words: string[] }) {
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
@@ -104,7 +103,9 @@ export function Hero() {
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           <span className="whitespace-nowrap">Simple. Fast. Powerful.</span>{' '}
-          <span className="whitespace-nowrap">Codebuff works in your terminal.</span>
+          <span className="whitespace-nowrap">
+            Codebuff works in your terminal.
+          </span>
         </motion.h2>
 
         <motion.div

@@ -1,16 +1,9 @@
-import React, {
-  useState,
-  useEffect,
-  useRef
-} from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 
 import TerminalInput from './terminal-input'
 import TerminalOutput from './terminal-output'
 
-import type {
-  KeyboardEvent,
-  ChangeEvent,
-  ReactNode} from 'react';
+import type { KeyboardEvent, ChangeEvent, ReactNode } from 'react'
 
 import './style.css'
 import { cn } from '@/lib/utils'
@@ -54,7 +47,9 @@ const Terminal = ({
   const terminalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const wrapper = terminalRef.current?.closest('.react-terminal-wrapper') as HTMLElement | null
+    const wrapper = terminalRef.current?.closest(
+      '.react-terminal-wrapper'
+    ) as HTMLElement | null
     if (!wrapper) return
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -66,7 +61,8 @@ const Terminal = ({
     }
 
     wrapper.addEventListener('mousemove', handleMouseMove as EventListener)
-    return () => wrapper.removeEventListener('mousemove', handleMouseMove as EventListener)
+    return () =>
+      wrapper.removeEventListener('mousemove', handleMouseMove as EventListener)
   }, [])
 
   const updateCurrentLineInput = (event: ChangeEvent<HTMLInputElement>) => {

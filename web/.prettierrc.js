@@ -5,4 +5,4 @@ export default {
   jsxSingleQuote: false,
   trailingComma: 'es5',
   tabWidth: 2,
-};
+}

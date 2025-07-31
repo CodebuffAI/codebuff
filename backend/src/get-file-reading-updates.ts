@@ -4,7 +4,6 @@ import { toContentString } from '@codebuff/common/util/messages'
 import { countTokens } from 'gpt-tokenizer'
 import { uniq, difference } from 'lodash'
 
-
 import { logger } from './util/logger'
 import {
   isToolResult,
@@ -14,7 +13,7 @@ import {
 import { countTokensJson } from './util/token-counter'
 import { requestFiles } from './websockets/websocket-action'
 
-import type { ProjectFileContext} from '@codebuff/common/util/file';
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { CoreMessage } from 'ai'
 import type { WebSocket } from 'ws'
 
@@ -50,7 +49,7 @@ export async function getFileReadingUpdates(
     userInputId: string
     userId: string | undefined
     repoId: string | undefined
-  }
+  },
 ) {
   const FILE_TOKEN_BUDGET = 100_000
 
@@ -62,7 +61,7 @@ export async function getFileReadingUpdates(
     .flatMap(({ result }) => parseReadFilesResult(result))
 
   const previousFiles = Object.fromEntries(
-    previousFileList.map(({ path, content }) => [path, content])
+    previousFileList.map(({ path, content }) => [path, content]),
   )
   const previousFilePaths = uniq(Object.keys(previousFiles))
 
@@ -100,7 +99,7 @@ export async function getFileReadingUpdates(
   })
   const newFiles = difference(
     [...filteredRequestedFiles, ...includedInitialFiles],
-    previousFilePaths
+    previousFilePaths,
   )
   const newFilesToRead = uniq([
     // NOTE: When the assistant specifically asks for a file, we force it to be shown even if it's not new or changed.
@@ -112,7 +111,7 @@ export async function getFileReadingUpdates(
   const updatedFilePaths = [...previousFilePaths, ...editedFilePaths].filter(
     (path) => {
       return loadedFiles[path] !== previousFiles[path]
-    }
+    },
   )
 
   const addedFiles = uniq([
@@ -144,7 +143,7 @@ export async function getFileReadingUpdates(
     const printedPaths = getPrintedPaths(
       requestedFiles,
       newFilesToRead,
-      loadedFiles
+      loadedFiles,
     )
     logger.debug(
       {
@@ -155,7 +154,7 @@ export async function getFileReadingUpdates(
         newFileVersionTokens: countTokensJson(newFiles),
         FILE_TOKEN_BUDGET,
       },
-      'resetting read files b/c of token budget'
+      'resetting read files b/c of token budget',
     )
 
     return {
@@ -169,7 +168,7 @@ export async function getFileReadingUpdates(
   const printedPaths = getPrintedPaths(
     requestedFiles,
     newFilesToRead,
-    loadedFiles
+    loadedFiles,
   )
 
   return {
@@ -183,7 +182,7 @@ export async function getFileReadingUpdates(
 function getPrintedPaths(
   requestedFiles: string[],
   newFilesToRead: string[],
-  loadedFiles: Record<string, string | null>
+  loadedFiles: Record<string, string | null>,
 ) {
   // If no files requests, we don't want to print anything.
   // Could still have files added from initial files or edited files.
@@ -193,7 +192,7 @@ function getPrintedPaths(
     (path) =>
       loadedFiles[path] &&
       !HIDDEN_FILE_READ_STATUS.some((status) =>
-        loadedFiles[path]!.startsWith(status)
-      )
+        loadedFiles[path]!.startsWith(status),
+      ),
   )
 }

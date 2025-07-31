@@ -5,6 +5,7 @@ Welcome!
 For development, we have a shared windows machine, via Shadow.tech. Additionally, we have a Gmail & Github account - so you can login to Codebuff using those, instead of your personal account, on this shared machine.
 
 ### Credentials
+
 - Email: codebuffwindows@gmail.com
 - Gmail password: windbuff
 - Github password: windbuff1
@@ -14,11 +15,13 @@ For development, we have a shared windows machine, via Shadow.tech. Additionally
 
 You can access the machine either from the browser or with the desktop app:
 
-1. Shadow.tech Web viewer: 
-- Go to https://pc.shadow.tech/home 
+1. Shadow.tech Web viewer:
+
+- Go to https://pc.shadow.tech/home
 - Login with the above credentials
 
 2. Shadow.tech desktop app:
+
 - They claim its better, idk.
 - https://shadow.tech/download/
 
@@ -34,4 +37,3 @@ Surprisingly: most guides in fact recommend running everything in an Admin Power
 - Install NVM: Restart PowerShell (still as Admin) and run `choco install nvm -y`
 - Install Node: Restart PowerShell (still as Admin) and run `nvm install node`
 - Install Codebuff: Run `npm i -g codebuff`
-

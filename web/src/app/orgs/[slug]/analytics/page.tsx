@@ -12,7 +12,7 @@ import {
   Download,
   BarChart3,
   PieChart,
-  Activity
+  Activity,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -24,7 +24,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
-
 
 interface AnalyticsData {
   currentBalance: number
@@ -92,7 +91,9 @@ export default function OrganizationAnalyticsPage() {
       setAnalytics(data)
     } catch (error) {
       console.error('Error fetching analytics:', error)
-      setAnalyticsError(error instanceof Error ? error.message : 'Failed to load analytics')
+      setAnalyticsError(
+        error instanceof Error ? error.message : 'Failed to load analytics'
+      )
     } finally {
       setAnalyticsLoading(false)
     }
@@ -102,7 +103,9 @@ export default function OrganizationAnalyticsPage() {
     if (!organization) return
 
     try {
-      const response = await fetch(`/api/orgs/${organization.id}/analytics/export?format=${format}`)
+      const response = await fetch(
+        `/api/orgs/${organization.id}/analytics/export?format=${format}`
+      )
 
       if (!response.ok) {
         throw new Error('Failed to export data')
@@ -160,7 +163,9 @@ export default function OrganizationAnalyticsPage() {
               <CardTitle>Sign in Required</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">Please sign in to view organization analytics.</p>
+              <p className="mb-4">
+                Please sign in to view organization analytics.
+              </p>
               <Link href="/login">
                 <Button>Sign In</Button>
               </Link>
@@ -180,14 +185,14 @@ export default function OrganizationAnalyticsPage() {
               <CardTitle>Error</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">{error || analyticsError || 'Analytics data not found'}</p>
+              <p className="mb-4">
+                {error || analyticsError || 'Analytics data not found'}
+              </p>
               <div className="flex gap-2">
                 <Button onClick={() => router.back()} variant="outline">
                   Go Back
                 </Button>
-                <Button onClick={fetchAnalytics}>
-                  Try Again
-                </Button>
+                <Button onClick={fetchAnalytics}>Try Again</Button>
               </div>
             </CardContent>
           </Card>
@@ -210,11 +215,19 @@ export default function OrganizationAnalyticsPage() {
             </Link>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => exportData('csv')} variant="outline" size="sm">
+            <Button
+              onClick={() => exportData('csv')}
+              variant="outline"
+              size="sm"
+            >
               <Download className="mr-2 h-4 w-4" />
               Export CSV
             </Button>
-            <Button onClick={() => exportData('json')} variant="outline" size="sm">
+            <Button
+              onClick={() => exportData('json')}
+              variant="outline"
+              size="sm"
+            >
               <Download className="mr-2 h-4 w-4" />
               Export JSON
             </Button>
@@ -227,7 +240,8 @@ export default function OrganizationAnalyticsPage() {
             Analytics Dashboard
           </h1>
           <p className="text-muted-foreground mt-2">
-            Comprehensive insights into your organization's credit usage and trends
+            Comprehensive insights into your organization's credit usage and
+            trends
           </p>
         </div>
 
@@ -235,44 +249,67 @@ export default function OrganizationAnalyticsPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Current Balance
+              </CardTitle>
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics.currentBalance.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">{pluralize(analytics.currentBalance, 'Credit')} remaining</p>
+              <div className="text-2xl font-bold">
+                {analytics.currentBalance.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {pluralize(analytics.currentBalance, 'Credit')} remaining
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Usage This Cycle</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Usage This Cycle
+              </CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics.usageThisCycle.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">{pluralize(analytics.usageThisCycle, 'Credit')} consumed</p>
+              <div className="text-2xl font-bold">
+                {analytics.usageThisCycle.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {pluralize(analytics.usageThisCycle, 'Credit')} consumed
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Daily Average</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Daily Average
+              </CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics.costProjection.averageDaily.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">{pluralize(analytics.costProjection.averageDaily, 'Credit')} per day</p>
+              <div className="text-2xl font-bold">
+                {analytics.costProjection.averageDaily.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {pluralize(analytics.costProjection.averageDaily, 'Credit')} per
+                day
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Projection</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Monthly Projection
+              </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics.costProjection.currentMonthProjected.toLocaleString()}</div>
+              <div className="text-2xl font-bold">
+                {analytics.costProjection.currentMonthProjected.toLocaleString()}
+              </div>
               <p className="text-xs text-muted-foreground">Estimated total</p>
             </CardContent>
           </Card>
@@ -291,19 +328,28 @@ export default function OrganizationAnalyticsPage() {
             <CardContent>
               <div className="space-y-4">
                 {analytics.topUsers.slice(0, 5).map((user, index) => (
-                  <div key={user.user_id} className="flex items-center justify-between">
+                  <div
+                    key={user.user_id}
+                    className="flex items-center justify-between"
+                  >
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
                         {index + 1}
                       </div>
                       <div>
                         <p className="font-medium">{user.user_name}</p>
-                        <p className="text-sm text-muted-foreground">{user.percentage.toFixed(1)}% of total usage</p>
+                        <p className="text-sm text-muted-foreground">
+                          {user.percentage.toFixed(1)}% of total usage
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">{user.credits_used.toLocaleString()}</p>
-                      <p className="text-sm text-muted-foreground">{pluralize(user.credits_used, 'credit')}</p>
+                      <p className="font-medium">
+                        {user.credits_used.toLocaleString()}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {pluralize(user.credits_used, 'credit')}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -322,19 +368,30 @@ export default function OrganizationAnalyticsPage() {
             <CardContent>
               <div className="space-y-4">
                 {analytics.repositoryUsage.slice(0, 5).map((repo, index) => (
-                  <div key={repo.repository_url} className="flex items-center justify-between">
+                  <div
+                    key={repo.repository_url}
+                    className="flex items-center justify-between"
+                  >
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-sm font-medium">
                         {index + 1}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate">{repo.repository_name}</p>
-                        <p className="text-sm text-muted-foreground">{repo.percentage.toFixed(1)}% of total usage</p>
+                        <p className="font-medium truncate">
+                          {repo.repository_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {repo.percentage.toFixed(1)}% of total usage
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">{repo.credits_used.toLocaleString()}</p>
-                      <p className="text-sm text-muted-foreground">{pluralize(repo.credits_used, 'credit')}</p>
+                      <p className="font-medium">
+                        {repo.credits_used.toLocaleString()}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {pluralize(repo.credits_used, 'credit')}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -354,10 +411,16 @@ export default function OrganizationAnalyticsPage() {
           <CardContent>
             <div className="space-y-4">
               {analytics.usageTrend.map((trend, index) => (
-                <div key={trend.period} className="flex items-center justify-between p-4 border rounded-lg">
+                <div
+                  key={trend.period}
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                >
                   <div>
                     <p className="font-medium">{trend.period}</p>
-                    <p className="text-sm text-muted-foreground">{trend.usage.toLocaleString()} {pluralize(trend.usage, 'credit')} used</p>
+                    <p className="text-sm text-muted-foreground">
+                      {trend.usage.toLocaleString()}{' '}
+                      {pluralize(trend.usage, 'credit')} used
+                    </p>
                   </div>
                   <div className="flex items-center space-x-2">
                     {trend.change > 0 ? (
@@ -365,12 +428,17 @@ export default function OrganizationAnalyticsPage() {
                     ) : trend.change < 0 ? (
                       <TrendingDown className="h-4 w-4 text-red-600" />
                     ) : null}
-                    <span className={`text-sm font-medium ${
-                      trend.change > 0 ? 'text-green-600' :
-                      trend.change < 0 ? 'text-red-600' :
-                      'text-muted-foreground'
-                    }`}>
-                      {trend.change > 0 ? '+' : ''}{trend.change.toFixed(1)}%
+                    <span
+                      className={`text-sm font-medium ${
+                        trend.change > 0
+                          ? 'text-green-600'
+                          : trend.change < 0
+                            ? 'text-red-600'
+                            : 'text-muted-foreground'
+                      }`}
+                    >
+                      {trend.change > 0 ? '+' : ''}
+                      {trend.change.toFixed(1)}%
                     </span>
                   </div>
                 </div>
@@ -391,8 +459,13 @@ export default function OrganizationAnalyticsPage() {
             <div className="h-64 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
               <div className="text-center">
                 <BarChart3 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                <p className="text-muted-foreground">Interactive charts coming soon</p>
-                <p className="text-sm text-muted-foreground">Daily usage data: {analytics.dailyUsage.length} {pluralize(analytics.dailyUsage.length, 'day')} tracked</p>
+                <p className="text-muted-foreground">
+                  Interactive charts coming soon
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Daily usage data: {analytics.dailyUsage.length}{' '}
+                  {pluralize(analytics.dailyUsage.length, 'day')} tracked
+                </p>
               </div>
             </div>
           </CardContent>

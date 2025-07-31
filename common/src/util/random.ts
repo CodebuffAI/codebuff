@@ -3,7 +3,7 @@ import seedrandom from 'seedrandom'
 export function sampleSizeWithSeed<T>(
   array: T[],
   size: number,
-  seed: string
+  seed: string,
 ): T[] {
   const rng = seedrandom(seed)
   const result = array.slice()

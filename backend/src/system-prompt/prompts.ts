@@ -8,16 +8,13 @@ import {
   flattenTree,
   getLastReadFilePaths,
 } from '@codebuff/common/project-file-tree'
-import {
-  createMarkdownFileBlock
-} from '@codebuff/common/util/file'
+import { createMarkdownFileBlock } from '@codebuff/common/util/file'
 import { truncateString } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
-import type {
-  ProjectFileContext} from '@codebuff/common/util/file';
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 export const configSchemaPrompt = `
 # Codebuff Configuration (${codebuffConfigFile})
@@ -153,12 +150,12 @@ export const additionalSystemPrompts = {
 export const getProjectFileTreePrompt = (
   fileContext: ProjectFileContext,
   fileTreeTokenBudget: number,
-  mode: 'search' | 'agent'
+  mode: 'search' | 'agent',
 ) => {
   const { projectRoot } = fileContext
   const { printedTree, truncationLevel } = truncateFileTreeBasedOnTokenBudget(
     fileContext,
-    Math.max(0, fileTreeTokenBudget)
+    Math.max(0, fileTreeTokenBudget),
   )
 
   const truncationNote =

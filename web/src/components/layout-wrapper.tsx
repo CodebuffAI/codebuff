@@ -4,7 +4,6 @@ import { InstallDialog } from './ui/install-dialog'
 
 import type { ReactNode } from 'react'
 
-
 interface LayoutWrapperProps {
   children: ReactNode
 }

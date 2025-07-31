@@ -1,4 +1,3 @@
-
 import { getToolCallString } from '@codebuff/common/tools/utils'
 
 import { executeToolCall } from './tools/tool-executor'
@@ -64,7 +63,7 @@ export async function runProgrammaticStep(
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
     ws: WebSocket
-  }
+  },
 ): Promise<{ agentState: AgentState; endTurn: boolean }> {
   if (!template.handleSteps) {
     throw new Error('No step handler found for agent template ' + template.id)
@@ -77,7 +76,7 @@ export async function runProgrammaticStep(
       prompt,
       params,
     },
-    'Running programmatic step'
+    'Running programmatic step',
   )
 
   // Run with either a generator or a sandbox.
@@ -95,7 +94,7 @@ export async function runProgrammaticStep(
           agentState,
           prompt,
           params,
-        }
+        },
       )
     } else {
       // Initialize native generator
@@ -180,7 +179,7 @@ export async function runProgrammaticStep(
 
       logger.debug(
         { toolCall },
-        `${toolCall.toolName} tool call from programmatic agent`
+        `${toolCall.toolName} tool call from programmatic agent`,
       )
 
       // Add user message with the tool call before executing it
@@ -188,7 +187,7 @@ export async function runProgrammaticStep(
       if (toolCall.toolName !== 'add_message') {
         const toolCallString = getToolCallString(
           toolCall.toolName,
-          toolCall.args
+          toolCall.args,
         )
         state.messages.push({
           role: 'user' as const,
@@ -237,14 +236,14 @@ export async function runProgrammaticStep(
 
     logger.info(
       { output: state.agentState.output },
-      'Programmatic agent execution completed'
+      'Programmatic agent execution completed',
     )
 
     return { agentState: state.agentState, endTurn }
   } catch (error) {
     logger.error(
       { error, template: template.id },
-      'Programmatic agent execution failed'
+      'Programmatic agent execution failed',
     )
 
     const errorMessage = `Error executing handleSteps for agent ${template.id}: ${

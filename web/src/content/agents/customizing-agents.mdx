@@ -55,6 +55,7 @@ Create a specialized agent that provides guidance to other agents when spawning 
 ```
 
 **How parent instructions work:**
+
 - When `security-coordinator` spawns a `reviewer`, the reviewer automatically receives the security-focused instruction
 - Multiple agents can provide instructions for the same target - all instructions are combined
 - Instructions are injected into the target agent's `userInputPrompt` automatically
@@ -81,6 +82,7 @@ Create a specialized agent that provides guidance to other agents when spawning 
 **Path errors:** Use `.agents/templates/my-file.md` format
 
 **Debug tips:**
+
 1. Validate JSON: `cat file.json | jq`
 2. Restart Codebuff to see errors
 3. Test with `--agent <agent-id>` to debug specific agents

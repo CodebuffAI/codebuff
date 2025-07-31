@@ -56,6 +56,7 @@ web/src/
 - Sheet auto-closes on navigation
 
 ## Component Requirements
+
 ### MDX Components
 
 - Must be Client Components with dynamic imports

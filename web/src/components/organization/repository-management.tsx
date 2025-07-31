@@ -37,7 +37,6 @@ import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 
-
 interface Repository {
   id: string
   repository_url: string

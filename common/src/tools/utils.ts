@@ -1,4 +1,3 @@
-
 import {
   endsAgentStepParam,
   endToolTag,
@@ -41,7 +40,7 @@ ${toolResults
     (result) => `<tool_result>
 <tool>${result.toolName}${closeXml('tool')}
 <result>${result.result}${closeXml('result')}
-${closeXml('tool_result')}`
+${closeXml('tool_result')}`,
   )
   .join('\n\n')}
 `.trim()

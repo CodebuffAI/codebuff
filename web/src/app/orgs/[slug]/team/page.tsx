@@ -40,7 +40,9 @@ export default function TeamPage() {
         <div className="max-w-md mx-auto">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Sign in Required</h1>
-            <p className="mb-4">Please sign in to manage this organization's team.</p>
+            <p className="mb-4">
+              Please sign in to manage this organization's team.
+            </p>
             <Link href="/login">
               <Button>Sign In</Button>
             </Link>
@@ -72,7 +74,8 @@ export default function TeamPage() {
   }
 
   // Check if user has permission to manage team
-  const canManageTeam = organization.userRole === 'owner' || organization.userRole === 'admin'
+  const canManageTeam =
+    organization.userRole === 'owner' || organization.userRole === 'admin'
 
   if (!canManageTeam) {
     return (
@@ -80,7 +83,9 @@ export default function TeamPage() {
         <div className="max-w-md mx-auto">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-            <p className="mb-4">You don't have permission to manage this organization's team.</p>
+            <p className="mb-4">
+              You don't have permission to manage this organization's team.
+            </p>
             <Link href={`/orgs/${orgSlug}`}>
               <Button>Back to Organization</Button>
             </Link>

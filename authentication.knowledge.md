@@ -28,11 +28,13 @@ sequenceDiagram
 ## Entry Points
 
 ### 1. First Time Login / Missing Credentials
+
 - CLI generates fingerprint from hardware info + 8 random bytes
 - Uses `calculateFingerprint()` in `npm-app/src/fingerprint.ts`
 - Continues to core flow with new fingerprintId
 
 ### 2. Logout Flow
+
 - CLI calls POST `/api/auth/cli/logout`
 - Deletes session from database
 - Resets fingerprint `sig_hash` to null (unclaimed)
@@ -41,22 +43,26 @@ sequenceDiagram
 ## Exit Points
 
 ### 1. Success: New Device
+
 - Web creates fingerprint record in database
 - Creates new session with fingerprint_id
 - Returns user credentials to CLI
 
 ### 2. Success: Known Device
+
 - Web finds existing fingerprint
 - Verifies ownership via `sig_hash` match or null value
 - Updates/creates session
 - Returns user credentials to CLI
 
 ### 3. Failure: Ownership Conflict
+
 - Fingerprint exists with different `sig_hash`
 - Logs security event
 - Returns authentication error
 
 ### 4. Failure: Invalid/Expired Code
+
 - Auth code validation fails or expired (1h limit)
 - Returns authentication error
 

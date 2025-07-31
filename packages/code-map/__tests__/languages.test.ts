@@ -4,7 +4,6 @@ import * as path from 'path'
 
 import { describe, it, expect } from 'bun:test'
 
-
 // Sample code snippets for each language
 const samples = {
   typescript: `
@@ -234,7 +233,7 @@ function createGreeter(): Greeter {
 
 $greeter = createGreeter();
 $greeter->greet("World");
-`
+`,
 }
 
 // Helper function to run tree-sitter parsing in a separate Node process
@@ -373,8 +372,8 @@ parseSourceCode(filePath, sourceCode)
       `node "${tempScriptPath}" "${filePath}" "${content.replace(/"/g, '\\"')}"`,
       {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
-      }
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
     ).toString()
 
     // Parse the JSON output
@@ -392,12 +391,12 @@ parseSourceCode(filePath, sourceCode)
 describe('language parsing', () => {
   it('should parse TypeScript', async () => {
     const result = await parseFile('test.ts', samples.typescript)
-    
+
     expect(result.identifiers).toContain('Greeter')
     expect(result.identifiers).toContain('HelloGreeter')
     expect(result.identifiers).toContain('createGreeter')
     expect(result.identifiers).toContain('greet')
-    
+
     expect(result.calls).toContain('HelloGreeter')
     expect(result.calls).toContain('createGreeter')
     expect(result.calls).toContain('greet')
@@ -405,11 +404,11 @@ describe('language parsing', () => {
 
   it('should parse JavaScript', async () => {
     const result = await parseFile('test.js', samples.javascript)
-    
+
     expect(result.identifiers).toContain('Greeter')
     expect(result.identifiers).toContain('createGreeter')
     expect(result.identifiers).toContain('greet')
-    
+
     expect(result.calls).toContain('Greeter')
     expect(result.calls).toContain('createGreeter')
     expect(result.calls).toContain('greet')
@@ -417,24 +416,24 @@ describe('language parsing', () => {
 
   it('should parse Python', async () => {
     const result = await parseFile('test.py', samples.python)
-    
+
     expect(result.identifiers).toContain('Greeter')
     expect(result.identifiers).toContain('HelloGreeter')
     expect(result.identifiers).toContain('create_greeter')
     expect(result.identifiers).toContain('greet')
-    
+
     expect(result.calls).toContain('create_greeter')
     expect(result.calls).toContain('greet')
   })
 
   it('should parse Java', async () => {
     const result = await parseFile('test.java', samples.java)
-    
+
     expect(result.identifiers).toContain('Greeter')
     expect(result.identifiers).toContain('HelloGreeter')
     expect(result.identifiers).toContain('createGreeter')
     expect(result.identifiers).toContain('greet')
-    
+
     expect(result.calls).toContain('HelloGreeter')
     expect(result.calls).toContain('createGreeter')
     expect(result.calls).toContain('greet')
@@ -442,7 +441,7 @@ describe('language parsing', () => {
 
   it('should parse C#', async () => {
     const result = await parseFile('test.cs', samples.csharp)
-    
+
     expect(result.identifiers).toContain('IGreeter')
     expect(result.identifiers).toContain('HelloGreeter')
     expect(result.identifiers).toContain('CreateGreeter')
@@ -451,7 +450,7 @@ describe('language parsing', () => {
 
   it('should parse C++', async () => {
     const result = await parseFile('test.cpp', samples.cpp)
-    
+
     expect(result.identifiers).toContain('Greeter')
     expect(result.identifiers).toContain('HelloGreeter')
     expect(result.identifiers).toContain('createGreeter')
@@ -460,7 +459,7 @@ describe('language parsing', () => {
 
   it('should parse C', async () => {
     const result = await parseFile('test.c', samples.c)
-    
+
     expect(result.identifiers).toContain('Greeter')
     expect(result.identifiers).toContain('create_greeter')
     expect(result.identifiers).toContain('hello_greet')
@@ -468,23 +467,23 @@ describe('language parsing', () => {
 
   it('should parse Rust', async () => {
     const result = await parseFile('test.rs', samples.rust)
-    
+
     expect(result.identifiers).toContain('Greeter')
     expect(result.identifiers).toContain('HelloGreeter')
     expect(result.identifiers).toContain('create_greeter')
     expect(result.identifiers).toContain('greet')
-    
+
     expect(result.calls).toContain('create_greeter')
     expect(result.calls).toContain('greet')
   })
 
   it('should parse Ruby', async () => {
     const result = await parseFile('test.rb', samples.ruby)
-    
+
     expect(result.identifiers).toContain('Greeter')
     expect(result.identifiers).toContain('create_greeter')
     expect(result.identifiers).toContain('greet')
-    
+
     expect(result.calls).toContain('create_greeter')
     expect(result.calls).toContain('greet')
     expect(result.calls).toContain('new')
@@ -492,24 +491,24 @@ describe('language parsing', () => {
 
   it('should parse Go', async () => {
     const result = await parseFile('test.go', samples.go)
-    
+
     expect(result.identifiers).toContain('Greeter')
     expect(result.identifiers).toContain('HelloGreeter')
     expect(result.identifiers).toContain('createGreeter')
     expect(result.identifiers).toContain('Greet')
-    
+
     expect(result.calls).toContain('createGreeter')
     expect(result.calls).toContain('Greet')
   })
 
   it.skip('should parse PHP', async () => {
     const result = await parseFile('test.php', samples.php)
-    
+
     expect(result.identifiers).toContain('Greeter')
     expect(result.identifiers).toContain('HelloGreeter')
     expect(result.identifiers).toContain('createGreeter')
     expect(result.identifiers).toContain('greet')
-    
+
     expect(result.calls).toContain('HelloGreeter')
     expect(result.calls).toContain('createGreeter')
     expect(result.calls).toContain('greet')

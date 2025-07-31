@@ -1,10 +1,4 @@
-import {
-  Menu,
-  DollarSign,
-  LogIn,
-  BarChart2,
-  BookHeart,
-} from 'lucide-react'
+import { Menu, DollarSign, LogIn, BarChart2, BookHeart } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { getServerSession } from 'next-auth'

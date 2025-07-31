@@ -1,18 +1,12 @@
 import db from '@codebuff/common/db'
 import { user } from '@codebuff/common/db/schema'
 import { env } from '@codebuff/internal'
-import {
-  Client,
-  Events,
-  GatewayIntentBits
-} from 'discord.js'
+import { Client, Events, GatewayIntentBits } from 'discord.js'
 import { eq, or } from 'drizzle-orm'
 
 import { isRateLimited } from './rate-limiter'
 
-import type {
-  Interaction,
-  ChatInputCommandInteraction} from 'discord.js';
+import type { Interaction, ChatInputCommandInteraction } from 'discord.js'
 
 import { logger } from '@/util/logger'
 

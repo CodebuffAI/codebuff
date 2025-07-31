@@ -1,12 +1,9 @@
 import { normalizeAgentNames } from './agent-name-normalization'
-import {
-  DynamicAgentTemplateSchema,
-} from '../types/dynamic-agent-template'
+import { DynamicAgentTemplateSchema } from '../types/dynamic-agent-template'
 import { AgentTemplateTypes } from '../types/session-state'
 
 import type { AgentOverrideConfig } from '../types/agent-overrides'
-import type {
-  DynamicAgentTemplate} from '../types/dynamic-agent-template';
+import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 
 export interface SubagentValidationResult {
   valid: boolean
@@ -27,7 +24,7 @@ export interface AgentTemplateValidationResult {
  */
 export function validateSubagents(
   subagents: string[],
-  dynamicAgentIds: string[]
+  dynamicAgentIds: string[],
 ): SubagentValidationResult & { availableAgents: string[] } {
   // Normalize dynamic agent IDs to allow users to reference them without org prefixes
   const normalizedDynamicAgentIds = normalizeAgentNames(dynamicAgentIds)
@@ -43,7 +40,7 @@ export function validateSubagents(
 
   // Find invalid agents (those not in available types after normalization)
   const invalidAgents = subagents.filter(
-    (agent, index) => !availableAgentTypes.includes(normalizedSubagents[index])
+    (agent, index) => !availableAgentTypes.includes(normalizedSubagents[index]),
   )
 
   return {
@@ -59,7 +56,7 @@ export function validateSubagents(
  */
 export function validateParentInstructions(
   parentInstructions: Record<string, string>,
-  dynamicAgentIds: string[]
+  dynamicAgentIds: string[],
 ): SubagentValidationResult & { availableAgents: string[] } {
   // Normalize dynamic agent IDs to allow users to reference them without org prefixes
   const normalizedDynamicAgentIds = normalizeAgentNames(dynamicAgentIds)
@@ -75,13 +72,13 @@ export function validateParentInstructions(
 
   // Normalize parent instruction keys for comparison
   const normalizedParentInstructionKeys = normalizeAgentNames(
-    parentInstructionKeys
+    parentInstructionKeys,
   )
 
   // Find invalid agents (those not in available types after normalization)
   const invalidAgents = parentInstructionKeys.filter(
     (agent, index) =>
-      !availableAgentTypes.includes(normalizedParentInstructionKeys[index])
+      !availableAgentTypes.includes(normalizedParentInstructionKeys[index]),
   )
 
   return {
@@ -96,7 +93,7 @@ export function validateParentInstructions(
  */
 export function formatSubagentError(
   invalidAgents: string[],
-  availableAgents: string[]
+  availableAgents: string[],
 ): string {
   let message = `Invalid subagents: ${invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`
 
@@ -110,7 +107,7 @@ export function formatSubagentError(
  */
 export function formatParentInstructionsError(
   invalidAgents: string[],
-  availableAgents: string[]
+  availableAgents: string[],
 ): string {
   let message = `Invalid parent instruction agent IDs: ${invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`
 
@@ -125,7 +122,7 @@ export function formatParentInstructionsError(
  * @returns Formatted error message string or undefined if no errors
  */
 export function formatValidationErrorMessage(
-  validationErrors: Array<{ filePath: string; message: string }>
+  validationErrors: Array<{ filePath: string; message: string }>,
 ): string | undefined {
   if (validationErrors.length === 0) return undefined
 
@@ -142,7 +139,7 @@ export function formatValidationErrorMessage(
  */
 export function validateAgentTemplateConfigs(
   agentTemplates: Record<string, DynamicAgentTemplate>,
-  dynamicAgentIds: string[] = []
+  dynamicAgentIds: string[] = [],
 ): AgentTemplateValidationResult {
   const validConfigs: Array<{
     filePath: string
@@ -162,7 +159,7 @@ export function validateAgentTemplateConfigs(
             filePath: agentId,
             message: formatSubagentError(
               validation.invalidAgents,
-              validation.availableAgents
+              validation.availableAgents,
             ),
           })
           continue
@@ -186,7 +183,7 @@ export function validateAgentTemplateConfigs(
  */
 export function validateAgentTemplateFiles(
   agentTemplates: Record<string, DynamicAgentTemplate>,
-  logger?: { warn: (obj: any, msg: string) => void }
+  logger?: { warn: (obj: any, msg: string) => void },
 ): Record<string, DynamicAgentTemplate> {
   const validatedAgents: Record<string, DynamicAgentTemplate> = {}
   const { validConfigs, validationErrors } =

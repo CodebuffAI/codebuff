@@ -20,7 +20,7 @@ function example() {
 }
 `
     expect(
-      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER)
+      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER),
     ).toBe(expected)
   })
 
@@ -40,7 +40,7 @@ function example() {
 }
 `
     expect(
-      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER)
+      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER),
     ).toBe(expected)
   })
 
@@ -58,7 +58,7 @@ def example():
     ${EXISTING_CODE_MARKER}
 `
     expect(
-      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER)
+      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER),
     ).toBe(expected)
   })
 
@@ -86,7 +86,7 @@ function Example() {
 }
 `
     expect(
-      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER)
+      replaceNonStandardPlaceholderComments(input, EXISTING_CODE_MARKER),
     ).toBe(expected)
   })
 })

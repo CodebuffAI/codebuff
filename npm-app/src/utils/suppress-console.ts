@@ -31,7 +31,7 @@ function createWrappedConsoleMethod(type: 'error' | 'warn' | 'log') {
 
     // Check if any active suppress function wants to suppress this output
     const shouldSuppress = activeSuppressFunctions[type].some((suppressFn) =>
-      suppressFn(args, errorName)
+      suppressFn(args, errorName),
     )
 
     if (shouldSuppress) {
@@ -46,12 +46,12 @@ function createWrappedConsoleMethod(type: 'error' | 'warn' | 'log') {
 
 export function suppressConsoleOutput(
   type: 'error' | 'warn' | 'log' | 'all',
-  suppress: SuppressFunction
+  suppress: SuppressFunction,
 ): () => void {
   if (type === 'all') {
     // Apply to all console methods
     const cleanupFunctions = (['error', 'warn', 'log'] as const).map(
-      (consoleType) => suppressConsoleOutput(consoleType, suppress)
+      (consoleType) => suppressConsoleOutput(consoleType, suppress),
     )
 
     // Return cleanup function that cleans up all

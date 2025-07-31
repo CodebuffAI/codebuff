@@ -1,38 +1,37 @@
+import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils'
 
-import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
-
-import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
-import { OpenRouterCompletionLanguageModel } from './openrouter-completion-language-model';
+import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model'
+import { OpenRouterCompletionLanguageModel } from './openrouter-completion-language-model'
 
 import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
-} from './openrouter-completion-settings';
+} from './openrouter-completion-settings'
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
-} from './types/openrouter-chat-settings';
+} from './types/openrouter-chat-settings'
 
-export type { OpenRouterCompletionSettings };
+export type { OpenRouterCompletionSettings }
 
 export interface OpenRouterProvider {
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings,
-  ): OpenRouterCompletionLanguageModel;
+  ): OpenRouterCompletionLanguageModel
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterChatSettings,
-  ): OpenRouterChatLanguageModel;
+  ): OpenRouterChatLanguageModel
 
   languageModel(
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings,
-  ): OpenRouterCompletionLanguageModel;
+  ): OpenRouterCompletionLanguageModel
   languageModel(
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterChatSettings,
-  ): OpenRouterChatLanguageModel;
+  ): OpenRouterChatLanguageModel
 
   /**
 Creates an OpenRouter chat model for text generation.
@@ -40,7 +39,7 @@ Creates an OpenRouter chat model for text generation.
   chat(
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterChatSettings,
-  ): OpenRouterChatLanguageModel;
+  ): OpenRouterChatLanguageModel
 
   /**
 Creates an OpenRouter completion model for text generation.
@@ -48,47 +47,47 @@ Creates an OpenRouter completion model for text generation.
   completion(
     modelId: OpenRouterCompletionModelId,
     settings?: OpenRouterCompletionSettings,
-  ): OpenRouterCompletionLanguageModel;
+  ): OpenRouterCompletionLanguageModel
 }
 
 export interface OpenRouterProviderSettings {
   /**
 Base URL for the OpenRouter API calls.
      */
-  baseURL?: string;
+  baseURL?: string
 
   /**
 @deprecated Use `baseURL` instead.
      */
-  baseUrl?: string;
+  baseUrl?: string
 
   /**
 API key for authenticating requests.
      */
-  apiKey?: string;
+  apiKey?: string
 
   /**
 Custom headers to include in the requests.
      */
-  headers?: Record<string, string>;
+  headers?: Record<string, string>
 
   /**
 OpenRouter compatibility mode. Should be set to `strict` when using the OpenRouter API,
 and `compatible` when using 3rd party providers. In `compatible` mode, newer
 information such as streamOptions are not being sent. Defaults to 'compatible'.
    */
-  compatibility?: 'strict' | 'compatible';
+  compatibility?: 'strict' | 'compatible'
 
   /**
 Custom fetch implementation. You can use it as a middleware to intercept requests,
 or to provide a custom fetch implementation for e.g. testing.
     */
-  fetch?: typeof fetch;
+  fetch?: typeof fetch
 
   /**
 A JSON object to send as the request body to access OpenRouter features & upstream provider features.
   */
-  extraBody?: Record<string, unknown>;
+  extraBody?: Record<string, unknown>
 }
 
 /**
@@ -99,10 +98,10 @@ export function createOpenRouter(
 ): OpenRouterProvider {
   const baseURL =
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-    'https://openrouter.ai/api/v1';
+    'https://openrouter.ai/api/v1'
 
   // we default to compatible, because strict breaks providers like Groq:
-  const compatibility = options.compatibility ?? 'compatible';
+  const compatibility = options.compatibility ?? 'compatible'
 
   const getHeaders = () => ({
     Authorization: `Bearer ${loadApiKey({
@@ -111,7 +110,7 @@ export function createOpenRouter(
       description: 'OpenRouter',
     })}`,
     ...options.headers,
-  });
+  })
 
   const createChatModel = (
     modelId: OpenRouterChatModelId,
@@ -124,7 +123,7 @@ export function createOpenRouter(
       compatibility,
       fetch: options.fetch,
       extraBody: options.extraBody,
-    });
+    })
 
   const createCompletionModel = (
     modelId: OpenRouterCompletionModelId,
@@ -137,7 +136,7 @@ export function createOpenRouter(
       compatibility,
       fetch: options.fetch,
       extraBody: options.extraBody,
-    });
+    })
 
   const createLanguageModel = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
@@ -146,29 +145,29 @@ export function createOpenRouter(
     if (new.target) {
       throw new Error(
         'The OpenRouter model function cannot be called with the new keyword.',
-      );
+      )
     }
 
     if (modelId === 'openai/gpt-3.5-turbo-instruct') {
       return createCompletionModel(
         modelId,
         settings as OpenRouterCompletionSettings,
-      );
+      )
     }
 
-    return createChatModel(modelId, settings as OpenRouterChatSettings);
-  };
+    return createChatModel(modelId, settings as OpenRouterChatSettings)
+  }
 
   const provider = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
-  ) => createLanguageModel(modelId, settings);
+  ) => createLanguageModel(modelId, settings)
 
-  provider.languageModel = createLanguageModel;
-  provider.chat = createChatModel;
-  provider.completion = createCompletionModel;
+  provider.languageModel = createLanguageModel
+  provider.chat = createChatModel
+  provider.completion = createCompletionModel
 
-  return provider as OpenRouterProvider;
+  return provider as OpenRouterProvider
 }
 
 /**
@@ -176,4 +175,4 @@ Default OpenRouter provider instance. It uses 'strict' compatibility mode.
  */
 export const openrouter = createOpenRouter({
   compatibility: 'strict', // strict for OpenRouter API
-});
+})

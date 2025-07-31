@@ -12,7 +12,7 @@ describe('processStrReplace', () => {
       'test.ts',
       [{ old: oldStr, new: newStr }],
 
-      Promise.resolve(initialContent)
+      Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
@@ -29,7 +29,7 @@ describe('processStrReplace', () => {
     const result = await processStrReplace(
       'test.ts',
       [{ old: oldStr, new: newStr }],
-      Promise.resolve(initialContent)
+      Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
@@ -46,7 +46,7 @@ describe('processStrReplace', () => {
       'test.ts',
       [{ old: oldStr, new: newStr }],
 
-      Promise.resolve(initialContent)
+      Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
@@ -62,7 +62,7 @@ describe('processStrReplace', () => {
       'test.ts',
       [{ old: oldStr, new: newStr }],
 
-      Promise.resolve(initialContent)
+      Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
@@ -73,7 +73,7 @@ describe('processStrReplace', () => {
     const result = await processStrReplace(
       'test.ts',
       [{ old: 'old', new: 'new' }],
-      Promise.resolve(null)
+      Promise.resolve(null),
     )
 
     expect(result).not.toBeNull()
@@ -87,7 +87,7 @@ describe('processStrReplace', () => {
     const result = await processStrReplace(
       'test.ts',
       [{ old: '', new: 'new' }],
-      Promise.resolve('content')
+      Promise.resolve('content'),
     )
 
     expect(result).not.toBeNull()
@@ -102,7 +102,7 @@ describe('processStrReplace', () => {
     const result = await processStrReplace(
       'test.ts',
       [{ old: '', new: newContent }],
-      Promise.resolve(null)
+      Promise.resolve(null),
     )
 
     expect(result).not.toBeNull()
@@ -121,14 +121,14 @@ describe('processStrReplace', () => {
       'test.ts',
       [{ old: oldStr, new: newStr }],
 
-      Promise.resolve(initialContent)
+      Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain(
-        'The old string "const z = 3;" was not found'
+        'The old string "const z = 3;" was not found',
       )
     }
   })
@@ -142,7 +142,7 @@ describe('processStrReplace', () => {
       'test.ts',
       [{ old: oldStr, new: newStr }],
 
-      Promise.resolve(initialContent)
+      Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
@@ -157,7 +157,7 @@ describe('processStrReplace', () => {
     const result = await processStrReplace(
       'test.ts',
       [{ old: oldStr, new: newStr }],
-      Promise.resolve(initialContent)
+      Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
@@ -175,12 +175,12 @@ describe('processStrReplace', () => {
     const result = await processStrReplace(
       'test.ts',
       [{ old: oldStr, new: newStr }],
-      Promise.resolve(initialContent)
+      Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
     expect((result as any).content).toBe(
-      'const x = "hello & world";\nconst y = "<span>";\n'
+      'const x = "hello & world";\nconst y = "<span>";\n',
     )
   })
 
@@ -195,7 +195,7 @@ describe('processStrReplace', () => {
     const result = await processStrReplace(
       'test.ts',
       replacements,
-      Promise.resolve(initialContent)
+      Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
@@ -203,10 +203,10 @@ describe('processStrReplace', () => {
     if ('content' in result) {
       // Should have applied the successful replacements
       expect(result.content).toBe(
-        'const x = 10;\nconst y = 2;\nconst z = 30;\n'
+        'const x = 10;\nconst y = 2;\nconst z = 30;\n',
       )
       expect(result.messages).toContain(
-        'The old string "const w = 4;" was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.'
+        'The old string "const w = 4;" was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.',
       )
     }
   })

@@ -6,21 +6,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import type { InviteMemberRequest } from '@codebuff/common/types/organization'
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-
-
-
 
 interface RouteParams {
   params: { orgId: string }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -42,7 +36,10 @@ export async function GET(
       .limit(1)
 
     if (userMembership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     // Get all members
@@ -70,10 +67,7 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -87,7 +81,7 @@ export async function POST(
     const membership = await db
       .select({
         role: schema.orgMember.role,
-        organization: schema.org
+        organization: schema.org,
       })
       .from(schema.orgMember)
       .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
@@ -100,12 +94,18 @@ export async function POST(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const { role: userRole, organization } = membership[0]
     if (userRole !== 'owner' && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
     }
 
     // Find user by email
@@ -141,7 +141,7 @@ export async function POST(
     }
 
     // Add member and get updated count in a transaction
-    let actualQuantity = 0; // Initialize to handle edge cases
+    let actualQuantity = 0 // Initialize to handle edge cases
     await db.transaction(async (tx) => {
       // Add member
       await tx.insert(schema.orgMember).values({
@@ -166,7 +166,7 @@ export async function POST(
         actualQuantity,
         orgId,
         userId,
-        context: 'added member'
+        context: 'added member',
       })
     }
 

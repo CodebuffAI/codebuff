@@ -4,7 +4,6 @@ import { logger } from '../../../util/logger'
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
-
 export const handleReadDocs = (({
   previousToolCallFinished,
   toolCall,
@@ -36,7 +35,7 @@ export const handleReadDocs = (({
   }
   if (!fingerprintId) {
     throw new Error(
-      'Internal error for read_docs: Missing fingerprintId in state'
+      'Internal error for read_docs: Missing fingerprintId in state',
     )
   }
 
@@ -61,7 +60,7 @@ export const handleReadDocs = (({
         {
           topic,
           tokens: max_tokens,
-        }
+        },
       )
 
       const docsDuration = Date.now() - docsStartTime
@@ -78,7 +77,7 @@ export const handleReadDocs = (({
           hasResults,
           success: true,
         },
-        'Documentation request completed successfully'
+        'Documentation request completed successfully',
       )
 
       if (documentation) {
@@ -89,7 +88,7 @@ export const handleReadDocs = (({
             ...docsContext,
             docsDuration,
           },
-          'No documentation found in Context7 database'
+          'No documentation found in Context7 database',
         )
         return `No documentation found for "${libraryTitle}"${
           topic ? ` with topic "${topic}"` : ''
@@ -111,7 +110,7 @@ export const handleReadDocs = (({
           docsDuration,
           success: false,
         },
-        'Documentation request failed with error'
+        'Documentation request failed with error',
       )
       return `Error fetching documentation for "${libraryTitle}": ${
         error instanceof Error ? error.message : 'Unknown error'

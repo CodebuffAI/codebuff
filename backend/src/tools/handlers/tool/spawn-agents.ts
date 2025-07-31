@@ -16,7 +16,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { CoreMessage } from 'ai'
 import type { WebSocket } from 'ws'
 
-
 export type SendSubagentChunk = (data: {
   userInputId: string
   agentId: string
@@ -67,32 +66,32 @@ export const handleSpawnAgents = ((params: {
 
   if (!ws) {
     throw new Error(
-      'Internal error for spawn_agents: Missing WebSocket in state'
+      'Internal error for spawn_agents: Missing WebSocket in state',
     )
   }
   if (!fingerprintId) {
     throw new Error(
-      'Internal error for spawn_agents: Missing fingerprintId in state'
+      'Internal error for spawn_agents: Missing fingerprintId in state',
     )
   }
   if (!parentAgentTemplate) {
     throw new Error(
-      'Internal error for spawn_agents: Missing agentTemplate in state'
+      'Internal error for spawn_agents: Missing agentTemplate in state',
     )
   }
   if (!sendSubagentChunk) {
     throw new Error(
-      'Internal error for spawn_agents: Missing sendSubagentChunk in state'
+      'Internal error for spawn_agents: Missing sendSubagentChunk in state',
     )
   }
   if (!messages) {
     throw new Error(
-      'Internal error for spawn_agents: Missing messages in state'
+      'Internal error for spawn_agents: Missing messages in state',
     )
   }
   if (!agentState) {
     throw new Error(
-      'Internal error for spawn_agents: Missing agentState in state'
+      'Internal error for spawn_agents: Missing agentState in state',
     )
   }
 
@@ -102,7 +101,7 @@ export const handleSpawnAgents = ((params: {
       content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
         getLatestState().messages,
         null,
-        2
+        2,
       )}`,
     }
     // Initialize registry and get all templates
@@ -114,7 +113,7 @@ export const handleSpawnAgents = ((params: {
         availableAgentCount: Object.keys(agentRegistry).length,
         requestedAgents: agents.map((a) => a.agent_type),
       },
-      'Agent registry initialized for spawning'
+      'Agent registry initialized for spawning',
     )
     const results = await Promise.allSettled(
       agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
@@ -126,7 +125,7 @@ export const handleSpawnAgents = ((params: {
 
         if (!parentAgentTemplate.subagents.includes(agentType)) {
           throw new Error(
-            `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`
+            `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`,
           )
         }
 
@@ -138,7 +137,7 @@ export const handleSpawnAgents = ((params: {
           const result = inputSchema.prompt.safeParse(prompt)
           if (!result.success) {
             throw new Error(
-              `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
+              `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`,
             )
           }
         }
@@ -148,7 +147,7 @@ export const handleSpawnAgents = ((params: {
           const result = inputSchema.params.safeParse(params)
           if (!result.success) {
             throw new Error(
-              `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`
+              `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`,
             )
           }
         }
@@ -178,7 +177,7 @@ export const handleSpawnAgents = ((params: {
             agentId,
             parentId: subAgentState.parentId,
           },
-          `Spawning agent — ${agentType} (${agentId})`
+          `Spawning agent — ${agentType} (${agentId})`,
         )
 
         // Import loopAgentSteps dynamically to avoid circular dependency
@@ -216,7 +215,7 @@ export const handleSpawnAgents = ((params: {
           agentType,
           agentName: agentRegistry[agentType] || agentTemplate.displayName,
         }
-      })
+      }),
     )
 
     const reports = results.map((result, index) => {
@@ -233,7 +232,7 @@ export const handleSpawnAgents = ((params: {
         } else if (agentTemplate.outputMode === 'last_message') {
           const { agentState } = result.value
           const assistantMessages = agentState.messageHistory.filter(
-            (message) => message.role === 'assistant'
+            (message) => message.role === 'assistant',
           )
           const lastAssistantMessage =
             assistantMessages[assistantMessages.length - 1]
@@ -251,7 +250,7 @@ export const handleSpawnAgents = ((params: {
           report = `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
         } else {
           throw new Error(
-            `Unknown output mode: ${'outputMode' in agentTemplate ? agentTemplate.outputMode : 'undefined'}`
+            `Unknown output mode: ${'outputMode' in agentTemplate ? agentTemplate.outputMode : 'undefined'}`,
           )
         }
 

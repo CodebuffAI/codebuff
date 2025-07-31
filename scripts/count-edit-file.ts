@@ -11,7 +11,7 @@ import { gt, and, isNotNull } from 'drizzle-orm'
 function countOccurrences(text: string, substring: string): number {
   const regex = new RegExp(
     substring.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-    'g'
+    'g',
   )
   const matches = text.match(regex)
   return matches ? matches.length : 0
@@ -53,8 +53,8 @@ async function main() {
         and(
           gt(schema.message.finished_at, oneDayAgo),
           isNotNull(schema.message.finished_at),
-          isNotNull(schema.message.response)
-        )
+          isNotNull(schema.message.response),
+        ),
       )
 
     let totalEditFileCount = 0
@@ -82,7 +82,7 @@ async function main() {
       'Average edits per message with edits:',
       messagesWithEdits > 0
         ? (totalEditFileCount / messagesWithEdits).toFixed(2)
-        : 0
+        : 0,
     )
   } catch (error) {
     console.error('Error processing messages:', error)

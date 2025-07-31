@@ -16,7 +16,7 @@ export type User = z.infer<typeof userSchema>
 export const genAuthCode = (
   fingerprintId: string,
   expiresAt: string,
-  secret: string
+  secret: string,
 ) =>
   crypto
     .createHash('sha256')

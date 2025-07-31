@@ -33,7 +33,7 @@ export async function scrapeWebPage(url: string) {
         errorStack: error instanceof Error ? error.stack : undefined,
         url,
       },
-      'Failed to scrape web page'
+      'Failed to scrape web page',
     )
     scrapedPagesCache[url] = ''
     return ''
@@ -57,7 +57,7 @@ export async function getScrapedContentBlocks(urls: string[]) {
         : scrapedContent
     if (truncatedScrapedContent) {
       blocks.push(
-        `<web_scraped_content url="${url}">\n${truncatedScrapedContent}\n${closeXml('web_scraped_content')}`
+        `<web_scraped_content url="${url}">\n${truncatedScrapedContent}\n${closeXml('web_scraped_content')}`,
       )
     }
   }

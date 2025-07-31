@@ -13,7 +13,7 @@ const ProblemSchema = z.object({
   description: z
     .string()
     .describe(
-      'Longer paragraph or two describing the issue and specific cases where it happened'
+      'Longer paragraph or two describing the issue and specific cases where it happened',
     ),
   severity: z
     .enum(['critical', 'high', 'medium', 'low'])
@@ -26,7 +26,7 @@ const ProblemSchema = z.object({
   examples: z
     .array(z.string())
     .describe(
-      'Specific examples from the eval runs where this problem occurred'
+      'Specific examples from the eval runs where this problem occurred',
     ),
 })
 
@@ -37,7 +37,7 @@ export const PostEvalAnalysisSchema = z.object({
   problems: z
     .array(ProblemSchema)
     .describe(
-      'Priority-ordered list of problems to solve, most important first'
+      'Priority-ordered list of problems to solve, most important first',
     ),
   recommendations: z
     .array(z.string())
@@ -125,7 +125,7 @@ function truncatePromptIfNeeded(prompt: string, maxTokens: number): string {
   // If too long, truncate the detailed eval runs section while keeping the summary
   const lines = prompt.split('\n')
   const metricsEndIndex = lines.findIndex((line) =>
-    line.includes('=== Eval Run 1:')
+    line.includes('=== Eval Run 1:'),
   )
 
   if (metricsEndIndex === -1) {
@@ -154,7 +154,7 @@ function truncatePromptIfNeeded(prompt: string, maxTokens: number): string {
   const evalRunsText = evalRunsLines.join('\n')
   const evalRunsWords = evalRunsText.split(' ')
   const targetEvalWords = Math.floor(
-    (evalRunsWords.length * remainingTokens) / countTokens(evalRunsText)
+    (evalRunsWords.length * remainingTokens) / countTokens(evalRunsText),
   )
 
   const truncatedEvalRuns = evalRunsWords.slice(0, targetEvalWords).join(' ')
@@ -173,7 +173,7 @@ function truncatePromptIfNeeded(prompt: string, maxTokens: number): string {
  * @returns Analysis with prioritized list of problems to solve
  */
 export async function analyzeEvalResults(
-  evalResult: FullEvalLog
+  evalResult: FullEvalLog,
 ): Promise<PostEvalAnalysis> {
   const prompt = buildAnalysisPrompt(evalResult)
   const finalPrompt = truncatePromptIfNeeded(prompt, MAX_TOKENS)

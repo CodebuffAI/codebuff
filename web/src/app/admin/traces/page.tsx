@@ -8,11 +8,16 @@ import { ClientSessionViewer } from './components/client-session-viewer'
 import { TraceViewer } from './components/trace-viewer'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/use-toast'
-
 
 export default function TraceDashboardPage() {
   const router = useRouter()
@@ -34,7 +39,7 @@ export default function TraceDashboardPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!searchValue.trim()) {
       toast({
         title: 'Error',
@@ -75,21 +80,29 @@ export default function TraceDashboardPage() {
           <CardHeader>
             <CardTitle>Search Traces</CardTitle>
             <CardDescription>
-              Search by client request ID for specific traces or client ID for full sessions
+              Search by client request ID for specific traces or client ID for
+              full sessions
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={searchType} onValueChange={(v) => setSearchType(v as 'request' | 'client')}>
+            <Tabs
+              value={searchType}
+              onValueChange={(v) => setSearchType(v as 'request' | 'client')}
+            >
               <TabsList className="mb-4">
                 <TabsTrigger value="request">Client Request ID</TabsTrigger>
                 <TabsTrigger value="client">Client ID</TabsTrigger>
               </TabsList>
-              
+
               <form onSubmit={handleSearch} className="flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder={searchType === 'request' ? 'Enter client_request_id...' : 'Enter client_id...'}
+                    placeholder={
+                      searchType === 'request'
+                        ? 'Enter client_request_id...'
+                        : 'Enter client_id...'
+                    }
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
                     className="pl-10"
@@ -106,7 +119,7 @@ export default function TraceDashboardPage() {
 
         {/* Results Section */}
         {clientRequestId && (
-          <TraceViewer 
+          <TraceViewer
             clientRequestId={clientRequestId}
             onClose={() => {
               setClientRequestId(null)

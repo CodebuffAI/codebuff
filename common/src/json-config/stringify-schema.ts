@@ -13,7 +13,7 @@ function stringifyZodType(
   level: number = 0,
   fieldName?: string,
   needsComma: boolean = false,
-  includeDescription: boolean = true
+  includeDescription: boolean = true,
 ): string {
   const description = includeDescription
     ? getSchemaDescription(schema)
@@ -60,7 +60,7 @@ function stringifyZodType(
         0,
         undefined,
         false,
-        false
+        false,
       )
       output += `${indent(level + 1)}"${key}": ${typeStr}${isLastLine ? '' : ','}\n`
     })
@@ -84,7 +84,7 @@ function stringifyZodType(
         level + 2,
         undefined,
         false,
-        true
+        true,
       )
       output += objectOutput
     } else {
@@ -106,7 +106,7 @@ function stringifyZodType(
       level,
       undefined,
       false,
-      false
+      false,
     )
       .trim()
       .replace(/^".*":\s*/, '') // Remove field name if present
@@ -125,7 +125,7 @@ function stringifyZodType(
       level,
       undefined,
       false,
-      false
+      false,
     )
       .trim()
       .replace(/^".*":\s*/, '') // Remove field name if present
@@ -167,7 +167,7 @@ function stringifyZodType(
         (option: ZodTypeAny) =>
           stringifyZodType(option, 0, undefined, false, false)
             .trim()
-            .replace(/^".*":\s*/, '') // Remove field name if present
+            .replace(/^".*":\s*/, ''), // Remove field name if present
       )
       .join(' | ')
     let output = ''
@@ -185,7 +185,7 @@ function stringifyZodType(
       level,
       undefined,
       false,
-      false
+      false,
     )
       .trim()
       .replace(/^".*":\s*/, '') // Remove field name if present
@@ -238,6 +238,8 @@ function stringifyZodType(
  * @param schema The Zod schema object (e.g., z.object({...})).
  * @returns A string describing the schema structure and field descriptions.
  */
-export function stringifySchema(schema: z.ZodObject<any> | z.ZodEffects<any>): string {
+export function stringifySchema(
+  schema: z.ZodObject<any> | z.ZodEffects<any>,
+): string {
   return stringifyZodType(schema, 0)
 }

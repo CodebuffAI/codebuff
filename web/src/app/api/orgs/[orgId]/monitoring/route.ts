@@ -1,15 +1,14 @@
 import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { env } from '@codebuff/internal';
+import { env } from '@codebuff/internal'
 import { eq, and, gte, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-
 
 interface RouteParams {
   params: { orgId: string }
@@ -40,7 +39,10 @@ export async function GET(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const now = new Date()
@@ -52,13 +54,14 @@ export async function GET(
     // Get current balance and usage
     let currentBalance = 0
     let usageThisCycle = 0
-    
+
     try {
-      const { balance, usageThisCycle: usage } = await calculateOrganizationUsageAndBalance(
-        orgId,
-        currentMonthStart,
-        now
-      )
+      const { balance, usageThisCycle: usage } =
+        await calculateOrganizationUsageAndBalance(
+          orgId,
+          currentMonthStart,
+          now
+        )
       currentBalance = balance.netBalance
       usageThisCycle = usage
     } catch (error) {
@@ -96,8 +99,12 @@ export async function GET(
       )
 
     const previousVelocity = previousHourUsage[0]?.credits_used || 0
-    const velocityChange = previousVelocity > 0 ? ((currentVelocity - previousVelocity) / previousVelocity) * 100 : 0
-    const velocityTrend = velocityChange > 5 ? 'up' : velocityChange < -5 ? 'down' : 'stable'
+    const velocityChange =
+      previousVelocity > 0
+        ? ((currentVelocity - previousVelocity) / previousVelocity) * 100
+        : 0
+    const velocityTrend =
+      velocityChange > 5 ? 'up' : velocityChange < -5 ? 'down' : 'stable'
 
     // Calculate burn rates
     const dailyUsage = await db
@@ -129,22 +136,30 @@ export async function GET(
     const monthlyBurnRate = usageThisCycle
 
     // Calculate days remaining based on current burn rate
-    const daysRemaining = dailyBurnRate > 0 ? Math.floor(currentBalance / dailyBurnRate) : 999
+    const daysRemaining =
+      dailyBurnRate > 0 ? Math.floor(currentBalance / dailyBurnRate) : 999
 
     // Get alerts count
-    const alertsResponse = await fetch(`${env.NEXT_PUBLIC_APP_URL}/api/orgs/${orgId}/alerts`, {
-      headers: {
-        'Cookie': request.headers.get('Cookie') || ''
+    const alertsResponse = await fetch(
+      `${env.NEXT_PUBLIC_APP_URL}/api/orgs/${orgId}/alerts`,
+      {
+        headers: {
+          Cookie: request.headers.get('Cookie') || '',
+        },
       }
-    })
-    
+    )
+
     let alertsData = { alerts: [] }
     if (alertsResponse.ok) {
       alertsData = await alertsResponse.json()
     }
 
-    const criticalAlerts = alertsData.alerts.filter((alert: any) => alert.severity === 'critical').length
-    const warningAlerts = alertsData.alerts.filter((alert: any) => alert.severity === 'warning').length
+    const criticalAlerts = alertsData.alerts.filter(
+      (alert: any) => alert.severity === 'critical'
+    ).length
+    const warningAlerts = alertsData.alerts.filter(
+      (alert: any) => alert.severity === 'warning'
+    ).length
     const totalAlerts = alertsData.alerts.length
 
     // Determine health status
@@ -159,7 +174,7 @@ export async function GET(
     const performanceMetrics = {
       responseTime: Math.floor(Math.random() * 100) + 50, // 50-150ms
       errorRate: Math.random() * 2, // 0-2%
-      uptime: 99.5 + Math.random() * 0.5 // 99.5-100%
+      uptime: 99.5 + Math.random() * 0.5, // 99.5-100%
     }
 
     const monitoringData = {
@@ -167,20 +182,20 @@ export async function GET(
       creditVelocity: {
         current: currentVelocity,
         trend: velocityTrend,
-        percentage: Math.abs(velocityChange)
+        percentage: Math.abs(velocityChange),
       },
       burnRate: {
         daily: dailyBurnRate,
         weekly: weeklyBurnRate,
         monthly: monthlyBurnRate,
-        daysRemaining: Math.max(0, daysRemaining)
+        daysRemaining: Math.max(0, daysRemaining),
       },
       performanceMetrics,
       alerts: {
         active: totalAlerts,
         critical: criticalAlerts,
-        warnings: warningAlerts
-      }
+        warnings: warningAlerts,
+      },
     }
 
     return NextResponse.json(monitoringData)

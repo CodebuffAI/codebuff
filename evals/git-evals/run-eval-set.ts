@@ -117,7 +117,7 @@ async function runEvalSet(options: {
   console.log(`Running ${evalConfigs.length} evaluations:`)
   evalConfigs.forEach((config) => {
     console.log(
-      `  - ${config.name}: ${config.evalDataPath} -> ${config.outputDir} (${config.agentType})`
+      `  - ${config.name}: ${config.evalDataPath} -> ${config.outputDir} (${config.agentType})`,
     )
   })
 
@@ -138,13 +138,13 @@ async function runEvalSet(options: {
             config.outputDir,
             config.agentType,
             config.limit,
-            options.concurrency === 1
+            options.concurrency === 1,
           )
     } catch (error) {
       const evalDuration = Date.now() - evalStartTime
       console.error(
         `❌ ${config.name} evaluation failed after ${(evalDuration / 1000).toFixed(1)}s:`,
-        error
+        error,
       )
       return {
         name: config.name,
@@ -156,7 +156,7 @@ async function runEvalSet(options: {
 
     const evalDuration = Date.now() - evalStartTime
     console.log(
-      `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`
+      `✅ ${config.name} evaluation completed in ${(evalDuration / 1000).toFixed(1)}s`,
     )
 
     let analysis
@@ -171,7 +171,7 @@ async function runEvalSet(options: {
         console.log(`\nTop Problems:`)
         analysis.problems.forEach((problem, i) => {
           console.log(
-            `${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}`
+            `${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}`,
           )
           console.log(`   Frequency: ${(problem.frequency * 100).toFixed(1)}%`)
           console.log(`   ${problem.description}`)
@@ -179,7 +179,7 @@ async function runEvalSet(options: {
       } catch (analysisError) {
         console.warn(
           `⚠️ Post-eval analysis failed for ${config.name}:`,
-          analysisError
+          analysisError,
         )
       }
     }
@@ -204,7 +204,7 @@ async function runEvalSet(options: {
     } else {
       console.error(
         `❌ Eval config ${evalConfigs[index].name} was rejected:`,
-        res.reason
+        res.reason,
       )
       results.push({
         name: evalConfigs[index].name,
@@ -230,30 +230,30 @@ async function runEvalSet(options: {
     if (result.status === 'success') {
       successCount++
       console.log(
-        `✅ ${result.name}: SUCCESS (${(result.duration / 1000).toFixed(1)}s)`
+        `✅ ${result.name}: SUCCESS (${(result.duration / 1000).toFixed(1)}s)`,
       )
       if (result.result?.overall_metrics) {
         const metrics = result.result.overall_metrics
         console.log(
-          `   Overall Score: ${metrics.average_overall.toFixed(2)}/10`
+          `   Overall Score: ${metrics.average_overall.toFixed(2)}/10`,
         )
         console.log(
-          `   Completion: ${metrics.average_completion.toFixed(2)}/10`
+          `   Completion: ${metrics.average_completion.toFixed(2)}/10`,
         )
         console.log(
-          `   Efficiency: ${metrics.average_efficiency.toFixed(2)}/10`
+          `   Efficiency: ${metrics.average_efficiency.toFixed(2)}/10`,
         )
         console.log(
-          `   Code Quality: ${metrics.average_code_quality.toFixed(2)}/10`
+          `   Code Quality: ${metrics.average_code_quality.toFixed(2)}/10`,
         )
         console.log(
-          `   Runs: ${metrics.successful_runs}/${metrics.total_runs} successful`
+          `   Runs: ${metrics.successful_runs}/${metrics.total_runs} successful`,
         )
       }
     } else {
       failureCount++
       console.log(
-        `❌ ${result.name}: FAILED (${(result.duration / 1000).toFixed(1)}s)`
+        `❌ ${result.name}: FAILED (${(result.duration / 1000).toFixed(1)}s)`,
       )
       console.log(`   Error: ${result.error}`)
     }
@@ -267,7 +267,7 @@ async function runEvalSet(options: {
   // Send email summary if we have successful results with analyses
   if (sendEmail) {
     const successfulResults = results.filter(
-      (r) => r.status === 'success' && r.result && r.analysis
+      (r) => r.status === 'success' && r.result && r.analysis,
     )
     if (successfulResults.length > 0) {
       console.log('\n📧 Sending eval results email...')
@@ -281,13 +281,13 @@ async function runEvalSet(options: {
           evalResults,
           analyses,
           undefined,
-          title
+          title,
         )
         if (emailSent) {
           console.log('✅ Eval results email sent successfully!')
         } else {
           console.log(
-            '⚠️ Email sending was skipped (likely missing configuration)'
+            '⚠️ Email sending was skipped (likely missing configuration)',
           )
         }
       } catch (emailError) {
@@ -295,7 +295,7 @@ async function runEvalSet(options: {
       }
     } else {
       console.log(
-        '\n📧 Skipping email - no successful results with analyses to send'
+        '\n📧 Skipping email - no successful results with analyses to send',
       )
     }
   }
@@ -304,7 +304,7 @@ async function runEvalSet(options: {
   if (shouldInsert) {
     console.log('\n💾 Inserting eval results into database...')
     const successfulResults = results.filter(
-      (r) => r.status === 'success' && r.result
+      (r) => r.status === 'success' && r.result,
     )
 
     if (successfulResults.length > 0) {
@@ -364,19 +364,19 @@ async function runEvalSet(options: {
           if (result.status === 'fulfilled') {
             successfulInserts++
             console.log(
-              `✅ Inserted eval result for ${successfulResults[index].name}`
+              `✅ Inserted eval result for ${successfulResults[index].name}`,
             )
           } else {
             failedInserts++
             console.error(
               `❌ Failed to insert eval result for ${successfulResults[index].name}:`,
-              result.reason
+              result.reason,
             )
           }
         })
 
         console.log(
-          `💾 Database insertion complete: ${successfulInserts} successful, ${failedInserts} failed`
+          `💾 Database insertion complete: ${successfulInserts} successful, ${failedInserts} failed`,
         )
       } catch (error) {
         console.error('❌ Error during database insertion:', error)
@@ -388,7 +388,7 @@ async function runEvalSet(options: {
 
   if (failureCount > 0) {
     console.log(
-      '\n⚠️  Some evaluations failed. Check the logs above for details.'
+      '\n⚠️  Some evaluations failed. Check the logs above for details.',
     )
     process.exit(1)
   } else {

@@ -13,15 +13,15 @@ async function calculateDAU() {
     })
     .from(schema.message)
     .where(
-      sql`DATE(${schema.message.finished_at}) >= CURRENT_DATE - INTERVAL '7 days' AND DATE(${schema.message.finished_at}) < CURRENT_DATE`
+      sql`DATE(${schema.message.finished_at}) >= CURRENT_DATE - INTERVAL '7 days' AND DATE(${schema.message.finished_at}) < CURRENT_DATE`,
     )
     .groupBy(sql`DATE(${schema.message.finished_at})`)
     .orderBy(sql`DATE(${schema.message.finished_at})`)
 
   let totalUsers = 0
-  
+
   // Print daily stats
-  dailyStats.forEach(stat => {
+  dailyStats.forEach((stat) => {
     const users = parseInt(stat.uniqueUsers)
     totalUsers += users
     console.log(`${stat.date}: ${users} users`)

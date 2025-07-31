@@ -6,7 +6,7 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
 
-import type { ReferralStatus } from '@/lib/server/referral';
+import type { ReferralStatus } from '@/lib/server/referral'
 
 import { hasMaxedReferrals } from '@/lib/server/referral'
 

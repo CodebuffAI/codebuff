@@ -79,7 +79,7 @@ export const AGENT_PERSONAS = {
 
 // Agent IDs list from AGENT_PERSONAS keys
 export const AGENT_IDS = Object.keys(
-  AGENT_PERSONAS
+  AGENT_PERSONAS,
 ) as (keyof typeof AGENT_PERSONAS)[]
 
 // Agent ID prefix constant
@@ -90,7 +90,7 @@ export const AGENT_NAMES = Object.fromEntries(
   Object.entries(AGENT_PERSONAS).map(([agentType, persona]) => [
     agentType,
     persona.displayName,
-  ])
+  ]),
 ) as Record<keyof typeof AGENT_PERSONAS, string>
 
 export type AgentName =
@@ -101,8 +101,8 @@ export const UNIQUE_AGENT_NAMES = Array.from(
   new Set(
     Object.values(AGENT_PERSONAS)
       .filter((persona) => !('hidden' in persona) || !persona.hidden)
-      .map((persona) => persona.displayName)
-  )
+      .map((persona) => persona.displayName),
+  ),
 )
 
 // Map from display name back to agent types (for parsing user input)
@@ -112,5 +112,5 @@ export const AGENT_NAME_TO_TYPES = Object.entries(AGENT_NAMES).reduce(
     acc[name].push(type)
     return acc
   },
-  {} as Record<string, string[]>
+  {} as Record<string, string[]>,
 )

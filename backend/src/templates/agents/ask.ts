@@ -9,7 +9,7 @@ import {
 } from '../ask-prompts'
 import { PLACEHOLDER } from '../types'
 
-import type { AgentTemplate} from '../types';
+import type { AgentTemplate } from '../types'
 import type { Model } from '@codebuff/common/constants'
 
 export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({

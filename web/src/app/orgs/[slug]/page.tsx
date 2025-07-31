@@ -34,7 +34,6 @@ import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useOrganizationData } from '@/hooks/use-organization-data'
 
-
 export default function OrganizationPage() {
   const { data: session, status } = useSession()
   const params = useParams()
@@ -207,7 +206,11 @@ export default function OrganizationPage() {
         {/* Header */}
         <div className="flex items-center mb-6 sm:mb-8">
           <Link href="/orgs">
-            <Button variant="ghost" size="sm" className="mr-2 sm:mr-4 px-2 sm:px-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mr-2 sm:mr-4 px-2 sm:px-3"
+            >
               <ArrowLeft className="h-4 w-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Back to Organizations</span>
               <span className="sm:hidden">Back</span>
@@ -224,7 +227,10 @@ export default function OrganizationPage() {
                   {organization.name}
                 </h1>
               </div>
-              <Badge variant="secondary" className="self-start text-xs sm:text-sm">
+              <Badge
+                variant="secondary"
+                className="self-start text-xs sm:text-sm"
+              >
                 {organization.userRole}
               </Badge>
             </div>
@@ -237,7 +243,10 @@ export default function OrganizationPage() {
           {canManageOrg && (
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               {canManageBilling && organization.hasStripeSubscription && (
-                <Link href={`/orgs/${orgSlug}/billing/purchase`} className="w-full sm:w-auto">
+                <Link
+                  href={`/orgs/${orgSlug}/billing/purchase`}
+                  className="w-full sm:w-auto"
+                >
                   <Button
                     variant="outline"
                     size="sm"
@@ -248,7 +257,10 @@ export default function OrganizationPage() {
                   </Button>
                 </Link>
               )}
-              <Link href={`/orgs/${orgSlug}/settings`} className="w-full sm:w-auto">
+              <Link
+                href={`/orgs/${orgSlug}/settings`}
+                className="w-full sm:w-auto"
+              >
                 <Button
                   variant="outline"
                   size="sm"
@@ -282,7 +294,10 @@ export default function OrganizationPage() {
                   </div>
                 </div>
                 {canManageBilling && (
-                  <Link href={`/orgs/${orgSlug}/billing/purchase`} className="w-full sm:w-auto">
+                  <Link
+                    href={`/orgs/${orgSlug}/billing/purchase`}
+                    className="w-full sm:w-auto"
+                  >
                     <Button className="text-center text-white bg-red-600 hover:bg-red-700 w-full sm:w-auto">
                       <Plus className="mr-2 h-4 w-4" />
                       Purchase Credits
@@ -371,7 +386,9 @@ export default function OrganizationPage() {
                     ) : (
                       <div className="text-center py-6 sm:py-8 text-muted-foreground">
                         <Users className="mx-auto h-8 w-8 sm:h-12 sm:w-12 mb-4 opacity-50" />
-                        <p className="text-sm">You don't have permission to manage team members.</p>
+                        <p className="text-sm">
+                          You don't have permission to manage team members.
+                        </p>
                       </div>
                     )}
                   </CardContent>
@@ -470,7 +487,11 @@ export default function OrganizationPage() {
                 <CollapsibleContent>
                   <CardContent className="px-4 pb-4 pt-0 sm:px-6">
                     {organization.hasStripeSubscription ? (
-                      <CreditMonitor organizationId={organization.id} orgSlug={orgSlug} noCardWrapper={true} />
+                      <CreditMonitor
+                        organizationId={organization.id}
+                        orgSlug={orgSlug}
+                        noCardWrapper={true}
+                      />
                     ) : (
                       <div className="text-center py-4 text-muted-foreground">
                         <CreditCard className="mx-auto h-6 w-6 sm:h-8 sm:w-8 mb-2 opacity-50" />
@@ -516,7 +537,10 @@ export default function OrganizationPage() {
             {activeSection === 'creditBalance' && (
               <div className="space-y-6">
                 {organization.hasStripeSubscription ? (
-                  <CreditMonitor organizationId={organization.id} orgSlug={orgSlug} />
+                  <CreditMonitor
+                    organizationId={organization.id}
+                    orgSlug={orgSlug}
+                  />
                 ) : (
                   <Card>
                     <CardHeader>

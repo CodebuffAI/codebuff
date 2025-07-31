@@ -15,8 +15,6 @@ import {
 import { encryptedApiKeys } from '../db/schema'
 import { logger } from '../util/logger'
 
-
-
 /**
  * Encrypts an API key using the secret from environment variables.
  * @param apiKey The plaintext API key to encrypt.
@@ -26,7 +24,7 @@ function encryptApiKeyInternal(apiKey: string): string {
   const secretKey = env.API_KEY_ENCRYPTION_SECRET
   if (Buffer.from(secretKey, 'utf8').length !== 32) {
     throw new Error(
-      'Invalid secret key length in environment. Must be 32 bytes.'
+      'Invalid secret key length in environment. Must be 32 bytes.',
     )
   }
   const iv = crypto.randomBytes(IV_LENGTH)
@@ -36,7 +34,7 @@ function encryptApiKeyInternal(apiKey: string): string {
     iv,
     {
       authTagLength: AUTH_TAG_LENGTH,
-    }
+    },
   )
 
   let encrypted = cipher.update(apiKey, 'utf8', 'hex')
@@ -58,7 +56,7 @@ function decryptApiKeyInternal(storedValue: string): string | null {
   try {
     if (Buffer.from(secretKey, 'utf8').length !== 32) {
       throw new Error(
-        'Invalid secret key length in environment. Must be 32 bytes.'
+        'Invalid secret key length in environment. Must be 32 bytes.',
       )
     }
 
@@ -82,7 +80,7 @@ function decryptApiKeyInternal(storedValue: string): string | null {
       iv,
       {
         authTagLength: AUTH_TAG_LENGTH,
-      }
+      },
     )
     decipher.setAuthTag(authTag)
 
@@ -106,7 +104,7 @@ function decryptApiKeyInternal(storedValue: string): string | null {
 export async function encryptAndStoreApiKey(
   userId: string,
   keyType: ApiKeyType,
-  apiKey: string
+  apiKey: string,
 ): Promise<void> {
   logger.info({ userId, keyType }, 'Attempting to encrypt and store API key')
   try {
@@ -122,15 +120,15 @@ export async function encryptAndStoreApiKey(
       })
     logger.info(
       { userId, keyType },
-      'Successfully encrypted and stored API key'
+      'Successfully encrypted and stored API key',
     )
   } catch (error) {
     logger.error(
       { error, userId, keyType },
-      'API key encryption and storage failed'
+      'API key encryption and storage failed',
     )
     throw new Error(
-      `API key encryption and storage failed: ${error instanceof Error ? error.message : String(error)}`
+      `API key encryption and storage failed: ${error instanceof Error ? error.message : String(error)}`,
     )
   }
 }
@@ -144,14 +142,14 @@ export async function encryptAndStoreApiKey(
  */
 export async function retrieveAndDecryptApiKey(
   userId: string,
-  keyType: ApiKeyType
+  keyType: ApiKeyType,
 ): Promise<string | null> {
   logger.info({ userId, keyType }, 'Attempting to retrieve and decrypt API key')
   try {
     const result = await db.query.encryptedApiKeys.findFirst({
       where: and(
         eq(encryptedApiKeys.user_id, userId),
-        eq(encryptedApiKeys.type, keyType)
+        eq(encryptedApiKeys.type, keyType),
       ),
       columns: {
         api_key: true, // Select only the encrypted key column
@@ -181,20 +179,20 @@ export async function retrieveAndDecryptApiKey(
     ) {
       logger.warn(
         { userId, keyType, prefix, length, keyLength: decryptedKey.length },
-        'API key validation failed'
+        'API key validation failed',
       )
       return null // Validation failed
     }
 
     logger.info(
       { userId, keyType },
-      'Successfully retrieved and decrypted API key'
+      'Successfully retrieved and decrypted API key',
     )
     return decryptedKey
   } catch (error) {
     logger.error(
       { error, userId, keyType },
-      'Error retrieving or decrypting API key'
+      'Error retrieving or decrypting API key',
     )
     return null // Error during DB query or other unexpected issue
   }
@@ -207,7 +205,7 @@ export async function retrieveAndDecryptApiKey(
  */
 export async function clearApiKey(
   userId: string,
-  keyType: ApiKeyType
+  keyType: ApiKeyType,
 ): Promise<void> {
   logger.info({ userId, keyType }, 'Attempting to clear API key')
   try {
@@ -216,8 +214,8 @@ export async function clearApiKey(
       .where(
         and(
           eq(encryptedApiKeys.user_id, userId),
-          eq(encryptedApiKeys.type, keyType)
-        )
+          eq(encryptedApiKeys.type, keyType),
+        ),
       )
       .returning() // Return the deleted row to check if something was deleted
 
@@ -229,7 +227,7 @@ export async function clearApiKey(
   } catch (error) {
     logger.error({ error, userId, keyType }, 'Failed to clear API key')
     throw new Error(
-      `Failed to clear API key: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to clear API key: ${error instanceof Error ? error.message : String(error)}`,
     )
   }
 }

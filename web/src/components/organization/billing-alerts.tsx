@@ -1,11 +1,11 @@
 'use client'
 
-import { 
-  AlertTriangle, 
-  CheckCircle, 
-  CreditCard, 
+import {
+  AlertTriangle,
+  CheckCircle,
+  CreditCard,
   TrendingUp,
-  X
+  X,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
@@ -15,7 +15,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface BillingAlert {
   id: string
-  type: 'low_balance' | 'high_usage' | 'auto_topup_failed' | 'credit_limit_reached'
+  type:
+    | 'low_balance'
+    | 'high_usage'
+    | 'auto_topup_failed'
+    | 'credit_limit_reached'
   severity: 'info' | 'warning' | 'critical'
   title: string
   message: string
@@ -33,7 +37,7 @@ export function BillingAlerts({ organizationId }: BillingAlertsProps) {
 
   useEffect(() => {
     fetchAlerts()
-    
+
     // Poll for new alerts every 30 seconds
     const interval = setInterval(fetchAlerts, 30000)
     return () => clearInterval(interval)
@@ -42,7 +46,7 @@ export function BillingAlerts({ organizationId }: BillingAlertsProps) {
   const fetchAlerts = async () => {
     try {
       const response = await fetch(`/api/orgs/${organizationId}/alerts`)
-      
+
       if (response.ok) {
         const data = await response.json()
         setAlerts(data.alerts || [])
@@ -59,8 +63,8 @@ export function BillingAlerts({ organizationId }: BillingAlertsProps) {
       await fetch(`/api/orgs/${organizationId}/alerts/${alertId}/dismiss`, {
         method: 'POST',
       })
-      
-      setAlerts(alerts.filter(alert => alert.id !== alertId))
+
+      setAlerts(alerts.filter((alert) => alert.id !== alertId))
     } catch (error) {
       console.error('Error dismissing alert:', error)
     }
@@ -94,7 +98,7 @@ export function BillingAlerts({ organizationId }: BillingAlertsProps) {
     return null
   }
 
-  const activeAlerts = alerts.filter(alert => !alert.dismissed)
+  const activeAlerts = alerts.filter((alert) => !alert.dismissed)
 
   if (activeAlerts.length === 0) {
     return null
@@ -103,11 +107,16 @@ export function BillingAlerts({ organizationId }: BillingAlertsProps) {
   return (
     <div className="space-y-4">
       {activeAlerts.map((alert) => (
-        <Card key={alert.id} className={`border-l-4 ${
-          alert.severity === 'critical' ? 'border-l-red-500' :
-          alert.severity === 'warning' ? 'border-l-yellow-500' :
-          'border-l-blue-500'
-        }`}>
+        <Card
+          key={alert.id}
+          className={`border-l-4 ${
+            alert.severity === 'critical'
+              ? 'border-l-red-500'
+              : alert.severity === 'warning'
+                ? 'border-l-yellow-500'
+                : 'border-l-blue-500'
+          }`}
+        >
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -115,7 +124,10 @@ export function BillingAlerts({ organizationId }: BillingAlertsProps) {
                 <CardTitle className="text-sm font-medium">
                   {alert.title}
                 </CardTitle>
-                <Badge variant={getAlertColor(alert.severity)} className="text-xs">
+                <Badge
+                  variant={getAlertColor(alert.severity)}
+                  className="text-xs"
+                >
                   {alert.severity}
                 </Badge>
               </div>

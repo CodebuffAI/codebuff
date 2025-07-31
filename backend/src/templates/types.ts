@@ -8,7 +8,6 @@ import type {
 } from '@codebuff/common/types/agent-template'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
-
 // Re-export for backward compatibility
 export type { AgentTemplate, StepGenerator, StepHandler }
 
@@ -33,7 +32,7 @@ type PlaceholderType<T extends typeof placeholderNames> = {
 }
 
 export const PLACEHOLDER = Object.fromEntries(
-  placeholderNames.map((name) => [name, `{CODEBUFF_${name}}` as const])
+  placeholderNames.map((name) => [name, `{CODEBUFF_${name}}` as const]),
 ) as PlaceholderType<typeof placeholderNames>
 export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
 

@@ -5,12 +5,12 @@ import { desc, eq } from 'drizzle-orm'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 
-
 import { EvalsTable } from './evals-table'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
-const GitEvalMetadataSchema = z.object({
+const GitEvalMetadataSchema = z
+  .object({
     numCases: z.number().optional(),
     avgScore: z.number().optional(),
     avgCompletion: z.number().optional(),
@@ -19,49 +19,53 @@ const GitEvalMetadataSchema = z.object({
     avgDuration: z.number().optional(),
     suite: z.string().optional(),
     avgTurns: z.number().optional(),
-}).nullable()
+  })
+  .nullable()
 
 const GitEvalResultSchema = z.object({
-    id: z.string(),
-    cost_mode: z.string().nullable(),
-    reasoner_model: z.string().nullable(),
-    agent_model: z.string().nullable(),
-    metadata: GitEvalMetadataSchema,
-    cost: z.number(),
-    is_public: z.boolean(),
-    created_at: z.date(),
+  id: z.string(),
+  cost_mode: z.string().nullable(),
+  reasoner_model: z.string().nullable(),
+  agent_model: z.string().nullable(),
+  metadata: GitEvalMetadataSchema,
+  cost: z.number(),
+  is_public: z.boolean(),
+  created_at: z.date(),
 })
 
 type GitEvalResult = typeof schema.gitEvalResults.$inferSelect & {
-    metadata: schema.GitEvalMetadata | null
+  metadata: schema.GitEvalMetadata | null
 }
 
-async function getEvalResults(): Promise<{ results: GitEvalResult[], isAdmin: boolean }> {
-    const limit = 100
+async function getEvalResults(): Promise<{
+  results: GitEvalResult[]
+  isAdmin: boolean
+}> {
+  const limit = 100
 
-    // Check if user is admin
-    const session = await getServerSession(authOptions)
-    const isAdmin = await utils.checkSessionIsAdmin(session)
+  // Check if user is admin
+  const session = await getServerSession(authOptions)
+  const isAdmin = await utils.checkSessionIsAdmin(session)
 
-    // Build query with conditional where clause
-    const evalResults = await db
-        .select()
-        .from(schema.gitEvalResults)
-        .where(isAdmin ? undefined : eq(schema.gitEvalResults.is_public, true))
-        .orderBy(desc(schema.gitEvalResults.id))
-        .limit(limit)
+  // Build query with conditional where clause
+  const evalResults = await db
+    .select()
+    .from(schema.gitEvalResults)
+    .where(isAdmin ? undefined : eq(schema.gitEvalResults.is_public, true))
+    .orderBy(desc(schema.gitEvalResults.id))
+    .limit(limit)
 
-    // Validate results with Zod before casting
-    const validatedResults = z.array(GitEvalResultSchema).parse(evalResults)
+  // Validate results with Zod before casting
+  const validatedResults = z.array(GitEvalResultSchema).parse(evalResults)
 
-    return {
-        results: validatedResults as GitEvalResult[],
-        isAdmin: !!isAdmin,
-    }
+  return {
+    results: validatedResults as GitEvalResult[],
+    isAdmin: !!isAdmin,
+  }
 }
 
 export default async function Evals() {
-    const { results, isAdmin } = await getEvalResults()
+  const { results, isAdmin } = await getEvalResults()
 
-    return <EvalsTable results={results} isAdmin={isAdmin} />
+  return <EvalsTable results={results} isAdmin={isAdmin} />
 }

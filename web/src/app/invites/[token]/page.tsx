@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
-
 interface InvitationData {
   organization_name: string
   organization_slug: string

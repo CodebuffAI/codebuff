@@ -1,4 +1,3 @@
-
 import { addMessageParams } from './params/tool/add-message'
 import { addSubgoalParams } from './params/tool/add-subgoal'
 import { browserLogsParams } from './params/tool/browser-logs'

@@ -5,7 +5,6 @@ import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
-
 export interface AsyncAgentInfo {
   agentState: AgentState
   sessionId: string
@@ -55,7 +54,7 @@ export class AsyncAgentManager {
    */
   updateAgentState(
     agentState: AgentState,
-    status: AsyncAgentInfo['status']
+    status: AsyncAgentInfo['status'],
   ): void {
     const agent = this.agents.get(agentState.agentId)
     if (agent) {
@@ -86,7 +85,7 @@ export class AsyncAgentManager {
    */
   getChildAgents(parentAgentId: string): AsyncAgentInfo[] {
     return Array.from(this.agents.values()).filter(
-      (agent) => agent.agentState.parentId === parentAgentId
+      (agent) => agent.agentState.parentId === parentAgentId,
     )
   }
 
@@ -95,7 +94,7 @@ export class AsyncAgentManager {
    */
   hasRunningChildren(agentId: string): boolean {
     return this.getChildAgents(agentId).some(
-      (child) => child.status === 'running'
+      (child) => child.status === 'running',
     )
   }
 
@@ -113,14 +112,14 @@ export class AsyncAgentManager {
         toAgentId: message.toAgentId,
         prompt: message.prompt.slice(0, 50) + '...',
       },
-      'Queued message for async agent'
+      'Queued message for async agent',
     )
 
     // Trigger agent execution if not currently running (fire and forget)
     this.triggerAgentIfIdle(message.toAgentId).catch((error) => {
       logger.error(
         { agentId: message.toAgentId, error },
-        'Failed to trigger agent'
+        'Failed to trigger agent',
       )
     })
   }
@@ -133,7 +132,7 @@ export class AsyncAgentManager {
     if (!agent) {
       logger.debug(
         { agentId },
-        'Agent not found in async manager - may be a parent agent that will be triggered by normal agent loop'
+        'Agent not found in async manager - may be a parent agent that will be triggered by normal agent loop',
       )
       return
     }
@@ -172,7 +171,7 @@ export class AsyncAgentManager {
             userId,
             promptId: userInputId,
             clientSessionId: sessionId,
-          }
+          },
         )
         agentPromise = mainAgentPromise.then(({ sessionState }) => ({
           agentState: sessionState.mainAgentState,
@@ -205,7 +204,7 @@ export class AsyncAgentManager {
 
       logger.debug(
         { agentId },
-        'Agent completed execution after message trigger'
+        'Agent completed execution after message trigger',
       )
     } catch (error) {
       // Reset status to allow retry and clean up promise
@@ -213,7 +212,7 @@ export class AsyncAgentManager {
       agent.promise = undefined
       logger.error(
         { agentId, error },
-        'Agent failed during message-triggered execution'
+        'Agent failed during message-triggered execution',
       )
     }
   }
@@ -275,7 +274,7 @@ export class AsyncAgentManager {
 
     logger.debug(
       { sessionId, agentCount: agentIds.size },
-      'Cleaned up session agents'
+      'Cleaned up session agents',
     )
   }
 
@@ -305,7 +304,7 @@ export class AsyncAgentManager {
 
     logger.debug(
       { userInputId, agentCount: agentsToCleanup.length },
-      'Cleaned up agents for user input ID'
+      'Cleaned up agents for user input ID',
     )
   }
 
@@ -314,7 +313,7 @@ export class AsyncAgentManager {
    */
   getRunningAgents(): AsyncAgentInfo[] {
     return Array.from(this.agents.values()).filter(
-      (agent) => agent.status === 'running'
+      (agent) => agent.status === 'running',
     )
   }
 

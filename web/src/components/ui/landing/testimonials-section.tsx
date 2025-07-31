@@ -11,9 +11,6 @@ import { SECTION_THEMES } from './constants'
 import { testimonials, type Testimonial } from '@/lib/testimonials'
 import { cn } from '@/lib/utils'
 
-
-
-
 const ReviewCard = ({
   t,
   onTestimonialClick,

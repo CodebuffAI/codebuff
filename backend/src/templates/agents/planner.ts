@@ -4,7 +4,7 @@ import z from 'zod/v4'
 
 import { PLACEHOLDER } from '../types'
 
-import type { AgentTemplate} from '../types';
+import type { AgentTemplate } from '../types'
 import type { Model } from '@codebuff/common/constants'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
@@ -15,7 +15,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
     prompt: z
       .string()
       .describe(
-        'What problem you to solve and a few ideas and suggestions for the plan'
+        'What problem you to solve and a few ideas and suggestions for the plan',
       ),
   },
   outputMode: 'last_message',

@@ -136,7 +136,7 @@ describe('doGenerate', () => {
         prompt: TEST_PROMPT,
       })
     expect(response.logprobs).toStrictEqual(
-      mapOpenRouterCompletionLogProbs(TEST_LOGPROBS) as any
+      mapOpenRouterCompletionLogProbs(TEST_LOGPROBS) as any,
     )
   })
 
@@ -264,7 +264,7 @@ describe('doGenerate', () => {
 
 describe('doStream', () => {
   const server = new StreamingTestServer(
-    'https://openrouter.ai/api/v1/completions'
+    'https://openrouter.ai/api/v1/completions',
   )
 
   server.setupTestEnvironment()
@@ -297,10 +297,10 @@ describe('doStream', () => {
         return `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`
       }),
       `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"choices":[{"text":"","index":0,"logprobs":${JSON.stringify(
-        logprobs
+        logprobs,
       )},"finish_reason":"${finish_reason}"}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
       `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"model":"openai/gpt-3.5-turbo-instruct","usage":${JSON.stringify(
-        usage
+        usage,
       )},"choices":[]}\n\n`,
       'data: [DONE]\n\n',
     ]
@@ -497,7 +497,7 @@ describe('doStream', () => {
     expect(requestBody).toHaveProperty('custom_field', 'custom_value')
     expect(requestBody).toHaveProperty(
       'providers.anthropic.custom_field',
-      'custom_value'
+      'custom_value',
     )
   })
 })

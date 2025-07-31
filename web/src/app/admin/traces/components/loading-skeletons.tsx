@@ -40,7 +40,7 @@ export function TimelineChartSkeleton() {
         <Skeleton className="h-6 w-32" />
         <Skeleton className="h-6 w-32" />
       </div>
-      
+
       {/* Timeline lanes skeleton */}
       <div className="space-y-6">
         {[1, 2, 3].map((lane) => (

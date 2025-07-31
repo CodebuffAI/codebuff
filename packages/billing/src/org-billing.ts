@@ -8,14 +8,13 @@ import { stripeServer } from '@codebuff/common/util/stripe'
 import { env } from '@codebuff/internal/env'
 import { and, asc, gt, isNull, or, eq } from 'drizzle-orm'
 
-import {
-  consumeFromOrderedGrants,
-} from './balance-calculator'
+import { consumeFromOrderedGrants } from './balance-calculator'
 
 import type {
   CreditBalance,
   CreditUsageAndBalance,
-  CreditConsumptionResult} from './balance-calculator';
+  CreditConsumptionResult,
+} from './balance-calculator'
 import type { GrantType } from '@codebuff/common/db/schema'
 
 // Add a minimal structural type that both `db` and `tx` satisfy
@@ -35,7 +34,7 @@ interface UpdateSubscriptionQuantityParams {
  * All organizations are expected to have Stripe subscriptions.
  */
 export async function syncOrganizationBillingCycle(
-  organizationId: string
+  organizationId: string,
 ): Promise<Date> {
   const organization = await db.query.org.findFirst({
     where: eq(schema.org.id, organizationId),
@@ -52,7 +51,7 @@ export async function syncOrganizationBillingCycle(
 
   if (!organization.stripe_customer_id) {
     throw new Error(
-      `Organization ${organizationId} does not have a Stripe customer ID`
+      `Organization ${organizationId} does not have a Stripe customer ID`,
     )
   }
 
@@ -67,13 +66,13 @@ export async function syncOrganizationBillingCycle(
 
     if (subscriptions.data.length === 0) {
       throw new Error(
-        `No active Stripe subscription found for organization ${organizationId}`
+        `No active Stripe subscription found for organization ${organizationId}`,
       )
     }
 
     const subscription = subscriptions.data[0]
     const stripeCurrentStart = new Date(
-      subscription.current_period_start * 1000
+      subscription.current_period_start * 1000,
     )
     const stripeCurrentEnd = new Date(subscription.current_period_end * 1000)
 
@@ -83,11 +82,11 @@ export async function syncOrganizationBillingCycle(
       !organization.current_period_end ||
       Math.abs(
         stripeCurrentStart.getTime() -
-          organization.current_period_start.getTime()
+          organization.current_period_start.getTime(),
       ) >
         60 * 1000 ||
       Math.abs(
-        stripeCurrentEnd.getTime() - organization.current_period_end.getTime()
+        stripeCurrentEnd.getTime() - organization.current_period_end.getTime(),
       ) >
         60 * 1000
 
@@ -107,7 +106,7 @@ export async function syncOrganizationBillingCycle(
           currentPeriodStart: stripeCurrentStart.toISOString(),
           currentPeriodEnd: stripeCurrentEnd.toISOString(),
         },
-        'Synced organization billing cycle with Stripe subscription'
+        'Synced organization billing cycle with Stripe subscription',
       )
     }
 
@@ -117,14 +116,14 @@ export async function syncOrganizationBillingCycle(
         stripeCurrentStart: stripeCurrentStart.toISOString(),
         stripeCurrentEnd: stripeCurrentEnd.toISOString(),
       },
-      'Using Stripe subscription period for organization billing cycle'
+      'Using Stripe subscription period for organization billing cycle',
     )
 
     return stripeCurrentStart
   } catch (error) {
     logger.error(
       { organizationId, error },
-      'Failed to sync organization billing cycle with Stripe'
+      'Failed to sync organization billing cycle with Stripe',
     )
     throw error
   }
@@ -136,7 +135,7 @@ export async function syncOrganizationBillingCycle(
 export async function getOrderedActiveOrganizationGrants(
   organizationId: string,
   now: Date,
-  conn: DbConn = db
+  conn: DbConn = db,
 ) {
   return conn
     .select()
@@ -146,14 +145,14 @@ export async function getOrderedActiveOrganizationGrants(
         eq(schema.creditLedger.org_id, organizationId),
         or(
           isNull(schema.creditLedger.expires_at),
-          gt(schema.creditLedger.expires_at, now)
-        )
-      )
+          gt(schema.creditLedger.expires_at, now),
+        ),
+      ),
     )
     .orderBy(
       asc(schema.creditLedger.priority),
       asc(schema.creditLedger.expires_at),
-      asc(schema.creditLedger.created_at)
+      asc(schema.creditLedger.created_at),
     )
 }
 
@@ -164,13 +163,13 @@ export async function calculateOrganizationUsageAndBalance(
   organizationId: string,
   quotaResetDate: Date,
   now: Date = new Date(),
-  conn: DbConn = db
+  conn: DbConn = db,
 ): Promise<CreditUsageAndBalance> {
   // Get all relevant grants for the organization
   const grants = await getOrderedActiveOrganizationGrants(
     organizationId,
     now,
-    conn
+    conn,
   )
 
   // Initialize breakdown and principals with all grant types set to 0
@@ -232,7 +231,7 @@ export async function calculateOrganizationUsageAndBalance(
     const settlementAmount = Math.min(totalDebt, totalPositiveBalance)
     logger.debug(
       { organizationId, totalDebt, totalPositiveBalance, settlementAmount },
-      'Performing in-memory settlement for organization'
+      'Performing in-memory settlement for organization',
     )
 
     // After settlement:
@@ -247,7 +246,7 @@ export async function calculateOrganizationUsageAndBalance(
 
   logger.debug(
     { organizationId, balance, usageThisCycle, grantsCount: grants.length },
-    'Calculated organization usage and settled balance'
+    'Calculated organization usage and settled balance',
   )
 
   return { usageThisCycle, balance }
@@ -258,7 +257,7 @@ export async function calculateOrganizationUsageAndBalance(
  */
 export async function consumeOrganizationCredits(
   organizationId: string,
-  creditsToConsume: number
+  creditsToConsume: number,
 ): Promise<CreditConsumptionResult> {
   return await withSerializableTransaction(
     async (tx) => {
@@ -266,13 +265,13 @@ export async function consumeOrganizationCredits(
       const activeGrants = await getOrderedActiveOrganizationGrants(
         organizationId,
         now,
-        tx
+        tx,
       )
 
       if (activeGrants.length === 0) {
         logger.error(
           { organizationId, creditsToConsume },
-          'No active organization grants found to consume credits from'
+          'No active organization grants found to consume credits from',
         )
         throw new Error('No active organization grants found')
       }
@@ -281,12 +280,12 @@ export async function consumeOrganizationCredits(
         organizationId,
         creditsToConsume,
         activeGrants,
-        tx
+        tx,
       )
 
       return result
     },
-    { organizationId, creditsToConsume }
+    { organizationId, creditsToConsume },
   )
 }
 
@@ -299,7 +298,7 @@ export async function grantOrganizationCredits(
   amount: number,
   operationId: string,
   description: string = 'Organization credit purchase',
-  expiresAt: Date | null = null
+  expiresAt: Date | null = null,
 ): Promise<void> {
   const now = new Date()
 
@@ -319,14 +318,14 @@ export async function grantOrganizationCredits(
 
     logger.info(
       { organizationId, userId, operationId, amount, expiresAt },
-      'Created new organization credit grant'
+      'Created new organization credit grant',
     )
   } catch (error: any) {
     // Check if this is a unique constraint violation on operation_id
     if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
       logger.info(
         { organizationId, userId, operationId, amount },
-        'Skipping duplicate organization credit grant due to idempotency check'
+        'Skipping duplicate organization credit grant due to idempotency check',
       )
       return // Exit successfully, another concurrent request already created this grant
     }
@@ -339,7 +338,7 @@ export async function grantOrganizationCredits(
  * Returns null if the URL format is not recognized.
  */
 export function extractOwnerAndRepo(
-  url: string
+  url: string,
 ): { owner: string; repo: string } | null {
   try {
     // Handle empty or invalid URLs
@@ -472,7 +471,7 @@ export async function updateStripeSubscriptionQuantity({
       await stripeServer.subscriptions.retrieve(stripeSubscriptionId)
 
     const teamFeeItem = subscription.items.data.find(
-      (item) => item.price.id === env.STRIPE_TEAM_FEE_PRICE_ID
+      (item) => item.price.id === env.STRIPE_TEAM_FEE_PRICE_ID,
     )
 
     if (teamFeeItem && teamFeeItem.quantity !== actualQuantity) {
@@ -507,7 +506,7 @@ export async function updateStripeSubscriptionQuantity({
 
     logger.error(
       logData,
-      `Failed to update Stripe subscription quantity: ${context}`
+      `Failed to update Stripe subscription quantity: ${context}`,
     )
     // Don't throw - we don't want Stripe failures to break the core functionality
   }

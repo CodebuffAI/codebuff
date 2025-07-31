@@ -44,14 +44,14 @@ app.get(
   '/api/admin/relabel-for-user',
   cors(),
   checkAdmin,
-  getTracesForUserHandler
+  getTracesForUserHandler,
 )
 
 app.post(
   '/api/admin/relabel-for-user',
   cors(),
   checkAdmin,
-  relabelForUserHandler
+  relabelForUserHandler,
 )
 
 app.use(
@@ -59,11 +59,11 @@ app.use(
     err: Error,
     req: express.Request,
     res: express.Response,
-    next: express.NextFunction
+    next: express.NextFunction,
   ) => {
     logger.error({ err }, 'Something broke!')
     res.status(500).send('Something broke!')
-  }
+  },
 )
 
 // Initialize BigQuery before starting the server
@@ -77,7 +77,7 @@ setupBigQuery().catch((err) => {
       code: err.code,
       details: err.details,
     },
-    'Failed to initialize BigQuery client'
+    'Failed to initialize BigQuery client',
   )
 })
 
@@ -121,7 +121,7 @@ function handleShutdown(signal: string) {
   // force exit the process
   setTimeout(() => {
     console.error(
-      'Could not close connections in time, forcefully shutting down'
+      'Could not close connections in time, forcefully shutting down',
     )
     process.exit(1)
   }, 300000).unref()
@@ -144,7 +144,7 @@ process.on('unhandledRejection', (reason, promise) => {
       name,
       promise,
     },
-    `Unhandled promise rejection: ${reason instanceof Error ? reason.message : 'Unknown reason'}`
+    `Unhandled promise rejection: ${reason instanceof Error ? reason.message : 'Unknown reason'}`,
   )
 })
 
@@ -164,7 +164,7 @@ process.on('uncaughtException', (err, origin) => {
       name: err.name,
       origin,
     },
-    'uncaught exception detected'
+    'uncaught exception detected',
   )
 
   server.close(() => {

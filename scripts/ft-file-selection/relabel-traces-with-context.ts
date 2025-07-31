@@ -1,14 +1,12 @@
-import {
-  getTracesAndAllDataForUser,
-  setupBigQuery,
-} from '@codebuff/bigquery'
+import { getTracesAndAllDataForUser, setupBigQuery } from '@codebuff/bigquery'
 import { models } from '@codebuff/common/constants'
 
 import { relabelWithClaudeWithFullFileContext } from '../../backend/src/admin/relabelRuns'
 
 import type {
   GetExpandedFileContextForTrainingBlobTrace,
-  GetRelevantFilesPayload} from '@codebuff/bigquery';
+  GetRelevantFilesPayload,
+} from '@codebuff/bigquery'
 
 // Model we want to test - focusing on Claude 4 Opus
 const MODEL_TO_TEST = models.openrouter_claude_opus_4
@@ -24,7 +22,7 @@ async function runTraces() {
   await setupBigQuery(DATASET)
   try {
     console.log(
-      `\nProcessing traces for model ${MODEL_TO_TEST} with full file context...`
+      `\nProcessing traces for model ${MODEL_TO_TEST} with full file context...`,
     )
     let cursor: string | undefined = START_CURSOR
 
@@ -34,11 +32,11 @@ async function runTraces() {
         undefined,
         PAGE_SIZE,
         cursor,
-        DATASET
+        DATASET,
       )
 
       console.log(
-        `Found ${tracesBundles.length} trace bundles in page... (${i + 1}-${Math.min(i + PAGE_SIZE, LIMIT)})`
+        `Found ${tracesBundles.length} trace bundles in page... (${i + 1}-${Math.min(i + PAGE_SIZE, LIMIT)})`,
       )
 
       // Filter for traces that need relabeling
@@ -47,15 +45,15 @@ async function runTraces() {
         const files = bundle.relatedTraces.find(
           (t) =>
             t.type === 'get-expanded-file-context-for-training' &&
-            (t.payload as GetRelevantFilesPayload)
+            (t.payload as GetRelevantFilesPayload),
         )
         const fileBlobs = bundle.relatedTraces.find(
-          (t) => t.type === 'get-expanded-file-context-for-training-blobs'
+          (t) => t.type === 'get-expanded-file-context-for-training-blobs',
         ) as GetExpandedFileContextForTrainingBlobTrace
 
         // Check if we already have a relabel for this model
         const hasRelabel = bundle.relabels.some(
-          (r) => r.model === `${MODEL_TO_TEST}-with-full-file-context-new`
+          (r) => r.model === `${MODEL_TO_TEST}-with-full-file-context-new`,
         )
 
         // console.log(
@@ -72,21 +70,21 @@ async function runTraces() {
       // return
 
       console.log(
-        `Found ${tracesToProcess.length} traces that need relabeling with full file context for model ${MODEL_TO_TEST}`
+        `Found ${tracesToProcess.length} traces that need relabeling with full file context for model ${MODEL_TO_TEST}`,
       )
 
       // Process traces in batches of MAX_PARALLEL
       for (let j = 0; j < tracesToProcess.length; j += MAX_PARALLEL) {
         const batch = tracesToProcess.slice(j, j + MAX_PARALLEL)
         console.log(
-          `Processing batch of ${batch.length} traces (${j + 1}-${Math.min(j + MAX_PARALLEL, tracesToProcess.length)})`
+          `Processing batch of ${batch.length} traces (${j + 1}-${Math.min(j + MAX_PARALLEL, tracesToProcess.length)})`,
         )
 
         await Promise.all(
           batch.map(async (bundle) => {
             const trace = bundle.trace
             const fileBlobs = bundle.relatedTraces.find(
-              (t) => t.type === 'get-expanded-file-context-for-training-blobs'
+              (t) => t.type === 'get-expanded-file-context-for-training-blobs',
             ) as GetExpandedFileContextForTrainingBlobTrace
 
             console.log(`Processing trace ${trace.id}`)
@@ -96,13 +94,13 @@ async function runTraces() {
                 trace,
                 fileBlobs,
                 MODEL_TO_TEST,
-                DATASET
+                DATASET,
               )
               console.log(`Successfully stored relabel for trace ${trace.id}`)
             } catch (error) {
               console.error(`Error processing trace ${trace.id}:`, error)
             }
-          })
+          }),
         )
 
         console.log(`Completed batch of ${batch.length} traces`)

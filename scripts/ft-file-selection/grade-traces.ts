@@ -21,7 +21,7 @@ async function gradeTraces() {
       1000,
       undefined,
       DATASET,
-      'INNER'
+      'INNER',
     )
 
     const tracesAndRelabels = unfilteredTracesAndRelabels
@@ -36,8 +36,8 @@ async function gradeTraces() {
       console.log(
         `Processing batch of ${batch.length} traces (${i + 1}-${Math.min(
           i + MAX_PARALLEL,
-          tracesAndRelabels.length
-        )})`
+          tracesAndRelabels.length,
+        )})`,
       )
 
       // Process each trace in the batch in parallel
@@ -54,7 +54,7 @@ async function gradeTraces() {
           } catch (error) {
             logger.error(
               `Error grading trace ${traceAndRelabels.trace.id}:`,
-              error
+              error,
             )
             return {
               traceId: traceAndRelabels.trace.id,
@@ -62,7 +62,7 @@ async function gradeTraces() {
               error: error instanceof Error ? error.message : 'Unknown error',
             }
           }
-        })
+        }),
       )
 
       // Log results for this batch
@@ -73,7 +73,7 @@ async function gradeTraces() {
         } else {
           console.error(
             `Failed to grade trace ${result.traceId}:`,
-            result.error
+            result.error,
           )
         }
       })

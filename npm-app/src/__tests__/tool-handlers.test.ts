@@ -51,7 +51,7 @@ export function testFunction() {
 }
 
 export const FINDME_XYZ789 = 'uppercase version';
-`
+`,
     )
 
     await fs.promises.writeFile(
@@ -60,7 +60,7 @@ export const FINDME_XYZ789 = 'uppercase version';
 export interface TestInterface {
   UNIQUE_SEARCH_STRING_12345: string;
 }
-`
+`,
     )
   })
 

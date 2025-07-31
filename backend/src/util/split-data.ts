@@ -81,7 +81,7 @@ function splitObject(obj: PlainObject, maxSize: number): Chunk<PlainObject>[] {
 
       const items = splitDataWithLengths(
         value,
-        maxSize - (getJsonSize({ [key]: '' }) - 2)
+        maxSize - (getJsonSize({ [key]: '' }) - 2),
       )
 
       for (const [index, item] of items.entries()) {

@@ -145,7 +145,7 @@ describe('squashNewlines', () => {
       const invalidInput = 'invalid input without prefix'
 
       expect(() => squashNewlines(invalidInput)).toThrow(
-        `Expected string to start with ${JSON.stringify(PREFIX)}`
+        `Expected string to start with ${JSON.stringify(PREFIX)}`,
       )
     })
   })
@@ -212,14 +212,14 @@ describe('onlyWhitespace', () => {
     it('should return false for end of terminal command', () => {
       expect(
         onlyWhitespace(
-          '\u001b]697;OSCUnlock=683fe5e7c2d2476bb61d4e0588c15eec\u0007\u001b]697;Dir=/Users/jahooma/codebuff\u0007\u001b]697;Shell=bash\u0007\u001b]697;ShellPath=/bin/bash\u0007\u001b]697;PID=71631\u0007\u001b]697;ExitCode=0\u0007\u001b]697;TTY=/dev/ttys036\u0007\u001b]697;Log=\u0007\u001b]697;User=jahooma\u0007\u001b]697;OSCLock=683fe5e7c2d2476bb61d4e0588c15eec\u0007\u001b]697;PreExec\u0007\u001b]697;StartPrompt\u0007'
-        )
+          '\u001b]697;OSCUnlock=683fe5e7c2d2476bb61d4e0588c15eec\u0007\u001b]697;Dir=/Users/jahooma/codebuff\u0007\u001b]697;Shell=bash\u0007\u001b]697;ShellPath=/bin/bash\u0007\u001b]697;PID=71631\u0007\u001b]697;ExitCode=0\u0007\u001b]697;TTY=/dev/ttys036\u0007\u001b]697;Log=\u0007\u001b]697;User=jahooma\u0007\u001b]697;OSCLock=683fe5e7c2d2476bb61d4e0588c15eec\u0007\u001b]697;PreExec\u0007\u001b]697;StartPrompt\u0007',
+        ),
       ).toBe(true)
 
       expect(
         onlyWhitespace(
-          '\u001b]0;charles@charles-framework-13:~/github/codebuff\u001b\\\u001b]7;file://charles-framework-13/home/charles/github/codebuff\u001b\\\u001b[?2004h'
-        )
+          '\u001b]0;charles@charles-framework-13:~/github/codebuff\u001b\\\u001b]7;file://charles-framework-13/home/charles/github/codebuff\u001b\\\u001b[?2004h',
+        ),
       ).toBe(true)
     })
   })

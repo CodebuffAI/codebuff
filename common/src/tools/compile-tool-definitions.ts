@@ -8,32 +8,34 @@ import { llmToolCallSchema } from './list'
  */
 export function compileToolDefinitions(): string {
   const toolEntries = Object.entries(llmToolCallSchema)
-  
-  const toolInterfaces = toolEntries.map(([toolName, toolDef]) => {
-    const parameterSchema = toolDef.parameters
-    
-    // Convert Zod schema to TypeScript interface using JSON schema
-    let typeDefinition: string
-    try {
-      const jsonSchema = z.toJSONSchema(parameterSchema)
-      typeDefinition = jsonSchemaToTypeScript(jsonSchema)
-    } catch (error) {
-      console.warn(`Failed to convert schema for ${toolName}:`, error)
-      typeDefinition = '{ [key: string]: any }'
-    }
-    
-    return `/**
+
+  const toolInterfaces = toolEntries
+    .map(([toolName, toolDef]) => {
+      const parameterSchema = toolDef.parameters
+
+      // Convert Zod schema to TypeScript interface using JSON schema
+      let typeDefinition: string
+      try {
+        const jsonSchema = z.toJSONSchema(parameterSchema)
+        typeDefinition = jsonSchemaToTypeScript(jsonSchema)
+      } catch (error) {
+        console.warn(`Failed to convert schema for ${toolName}:`, error)
+        typeDefinition = '{ [key: string]: any }'
+      }
+
+      return `/**
  * ${parameterSchema.description || `Parameters for ${toolName} tool`}
  */
 export interface ${toPascalCase(toolName)}Params ${typeDefinition}`
-  }).join('\n\n')
-  
+    })
+    .join('\n\n')
+
   const toolUnion = toolEntries.map(([toolName]) => `'${toolName}'`).join(' | ')
-  
-  const toolParamsMap = toolEntries.map(([toolName]) => 
-    `  '${toolName}': ${toPascalCase(toolName)}Params`
-  ).join('\n')
-  
+
+  const toolParamsMap = toolEntries
+    .map(([toolName]) => `  '${toolName}': ${toPascalCase(toolName)}Params`)
+    .join('\n')
+
   return `${toolInterfaces}
 
 /**
@@ -62,7 +64,7 @@ export type GetToolParams<T extends ToolName> = ToolParamsMap[T]
 function toPascalCase(str: string): string {
   return str
     .split(/[-_]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join('')
 }
 
@@ -71,12 +73,14 @@ function toPascalCase(str: string): string {
  */
 function jsonSchemaToTypeScript(schema: any): string {
   if (schema.type === 'object' && schema.properties) {
-    const properties = Object.entries(schema.properties).map(([key, prop]: [string, any]) => {
-      const isOptional = !schema.required?.includes(key)
-      const propType = getTypeFromJsonSchema(prop)
-      const comment = prop.description ? `  // ${prop.description}\n` : ''
-      return `${comment}  "${key}"${isOptional ? '?' : ''}: ${propType}`
-    })
+    const properties = Object.entries(schema.properties).map(
+      ([key, prop]: [string, any]) => {
+        const isOptional = !schema.required?.includes(key)
+        const propType = getTypeFromJsonSchema(prop)
+        const comment = prop.description ? `  // ${prop.description}\n` : ''
+        return `${comment}  "${key}"${isOptional ? '?' : ''}: ${propType}`
+      },
+    )
     return `{\n${properties.join('\n')}\n}`
   }
   return getTypeFromJsonSchema(schema)

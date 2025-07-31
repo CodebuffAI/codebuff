@@ -33,13 +33,13 @@ export interface LoggerContext {
 
 export const withLoggerContext = <T>(
   additionalContext: Partial<LoggerContext>,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
 ) => {
   const store = (loggerAsyncStorage.getStore?.() ?? {}) as LoggerContext
   // Cast to Node's AsyncLocalStorage to resolve overload mismatch
   return (loggerAsyncStorage as NodeAsyncLocalStorage<LoggerContext>).run(
     { ...store, ...additionalContext },
-    fn
+    fn,
   )
 }
 
@@ -66,5 +66,5 @@ export const logger = pino(
     },
     timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
   },
-  fileTransport
+  fileTransport,
 )

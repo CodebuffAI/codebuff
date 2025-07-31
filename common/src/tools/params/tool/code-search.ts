@@ -2,7 +2,6 @@ import z from 'zod/v4'
 
 import type { ToolParams } from '../../constants'
 
-
 const toolName = 'code_search'
 const endsAgentStep = true
 export const codeSearchParams = {
@@ -18,16 +17,16 @@ export const codeSearchParams = {
         .string()
         .optional()
         .describe(
-          `Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not test" to exclude test files).`
+          `Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not test" to exclude test files).`,
         ),
       cwd: z
         .string()
         .optional()
         .describe(
-          `Optional working directory to search within, relative to the project root. Defaults to searching the entire project.`
+          `Optional working directory to search within, relative to the project root. Defaults to searching the entire project.`,
         ),
     })
     .describe(
-      `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`
+      `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`,
     ),
 } satisfies ToolParams

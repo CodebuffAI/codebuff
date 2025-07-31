@@ -1,8 +1,4 @@
-import {
-  openaiModels,
-  openrouterModels,
-} from '@codebuff/common/constants'
-
+import { openaiModels, openrouterModels } from '@codebuff/common/constants'
 
 import { logger } from '../util/logger'
 import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
@@ -10,7 +6,8 @@ import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
 import type {
   CostMode,
   FinetunedVertexModel,
-  GeminiModel} from '@codebuff/common/constants';
+  GeminiModel,
+} from '@codebuff/common/constants'
 import type { CoreMessage } from 'ai'
 
 /**
@@ -52,7 +49,7 @@ export async function promptFlashWithFallbacks(
     useGPT4oInsteadOfClaude?: boolean
     thinkingBudget?: number
     useFinetunedModel?: FinetunedVertexModel | undefined
-  }
+  },
 ): Promise<string> {
   const {
     costMode,
@@ -66,7 +63,7 @@ export async function promptFlashWithFallbacks(
     try {
       logger.info(
         { model: useFinetunedModel },
-        'Using finetuned model for file-picker!'
+        'Using finetuned model for file-picker!',
       )
       return await promptAiSdk({
         ...geminiOptions,
@@ -76,7 +73,7 @@ export async function promptFlashWithFallbacks(
     } catch (error) {
       logger.warn(
         { error },
-        'Error calling finetuned model, falling back to Gemini API'
+        'Error calling finetuned model, falling back to Gemini API',
       )
     }
   }
@@ -87,7 +84,7 @@ export async function promptFlashWithFallbacks(
   } catch (error) {
     logger.warn(
       { error },
-      `Error calling Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`
+      `Error calling Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`,
     )
     return await promptAiSdk({
       ...geminiOptions,

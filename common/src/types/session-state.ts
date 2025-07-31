@@ -3,9 +3,8 @@ import { z } from 'zod'
 import { CodebuffMessageSchema } from './message'
 import { ProjectFileContextSchema } from '../util/file'
 
-import type { CodebuffMessage} from './message';
-import type { ProjectFileContext} from '../util/file';
-
+import type { CodebuffMessage } from './message'
+import type { ProjectFileContext } from '../util/file'
 
 export const toolCallSchema = z.object({
   toolName: z.string(),
@@ -50,7 +49,7 @@ export const AgentStateSchema: z.ZodType<{
     stepsRemaining: z.number(),
     output: z.record(z.string(), z.any()).optional(),
     parentId: z.string().optional(),
-  })
+  }),
 )
 export type AgentState = z.infer<typeof AgentStateSchema>
 
@@ -80,7 +79,7 @@ export const AgentTemplateTypeList = [
   'example_programmatic',
 ] as const
 export const AgentTemplateTypes = Object.fromEntries(
-  AgentTemplateTypeList.map((name) => [name, name])
+  AgentTemplateTypeList.map((name) => [name, name]),
 ) as { [K in (typeof AgentTemplateTypeList)[number]]: K }
 const agentTemplateTypeSchema = z.enum(AgentTemplateTypeList)
 // Allow dynamic agent types by extending the base enum with string
@@ -93,7 +92,7 @@ export const SessionStateSchema = z.object({
 export type SessionState = z.infer<typeof SessionStateSchema>
 
 export function getInitialSessionState(
-  fileContext: ProjectFileContext
+  fileContext: ProjectFileContext,
 ): SessionState {
   return {
     mainAgentState: {

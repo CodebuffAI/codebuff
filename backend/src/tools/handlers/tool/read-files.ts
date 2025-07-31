@@ -1,5 +1,3 @@
-
-
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { logger } from '../../../util/logger'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
@@ -49,12 +47,12 @@ export const handleReadFiles = ((params: {
   }
   if (!fingerprintId) {
     throw new Error(
-      'Internal error for read_files: Missing fingerprintId in state'
+      'Internal error for read_files: Missing fingerprintId in state',
     )
   }
   if (!userInputId) {
     throw new Error(
-      'Internal error for read_files: Missing userInputId in state'
+      'Internal error for read_files: Missing userInputId in state',
     )
   }
 
@@ -71,7 +69,7 @@ export const handleReadFiles = ((params: {
         userInputId,
         userId,
         repoId,
-      }
+      },
     )
 
     logger.debug(
@@ -81,7 +79,7 @@ export const handleReadFiles = ((params: {
         addedFilesPaths: addedFiles.map((f) => f.path),
         updatedFilePaths,
       },
-      'read_files tool call'
+      'read_files tool call',
     )
 
     return renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})

@@ -18,10 +18,10 @@ export let identified: boolean = false
 // Apply console wrapping when PostHog is initialized
 function suppressPostHogConsoleErrors() {
   suppressConsoleOutput('error', (args, errorName) =>
-    errorName.toLowerCase().includes('posthog')
+    errorName.toLowerCase().includes('posthog'),
   )
   suppressConsoleOutput('warn', (args, errorName) =>
-    errorName.toLowerCase().includes('posthog')
+    errorName.toLowerCase().includes('posthog'),
   )
 }
 
@@ -31,7 +31,7 @@ export function initAnalytics() {
     !process.env.NEXT_PUBLIC_POSTHOG_HOST_URL
   ) {
     throw new Error(
-      'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_POSTHOG_HOST_URL is not set'
+      'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_POSTHOG_HOST_URL is not set',
     )
   }
 
@@ -59,7 +59,7 @@ export async function flushAnalytics() {
 
 export function trackEvent(
   event: AnalyticsEvent,
-  properties?: Record<string, any>
+  properties?: Record<string, any>,
 ) {
   const distinctId = currentUserId
   if (!distinctId) {
@@ -116,7 +116,7 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
 export function logError(
   error: any,
   userId?: string,
-  properties?: Record<string, any>
+  properties?: Record<string, any>,
 ) {
   if (!client) {
     return
@@ -126,7 +126,7 @@ export function logError(
     client.captureException(
       error,
       userId ?? currentUserId ?? 'unknown',
-      properties
+      properties,
     )
   } catch (postHogError) {
     // Silently handle PostHog errors - don't log them to console

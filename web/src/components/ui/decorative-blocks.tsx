@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from 'react'
 
-import type { ReactNode} from 'react';
+import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 

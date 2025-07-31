@@ -1,4 +1,3 @@
-
 import { consumeCreditsWithFallback } from '@codebuff/billing'
 
 import { getRequestContext } from '../../../context/app-context'
@@ -35,7 +34,7 @@ export const handleWebSearch = ((params: {
   const { userId, fingerprintId, repoId } = state
   if (!fingerprintId) {
     throw new Error(
-      'Internal error for web_search: Missing fingerprintId in state'
+      'Internal error for web_search: Missing fingerprintId in state',
     )
   }
 
@@ -63,7 +62,7 @@ export const handleWebSearch = ((params: {
       let creditResult = null
       if (userId) {
         const creditsToCharge = Math.round(
-          (depth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN)
+          (depth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN),
         )
         const requestContext = getRequestContext()
         const repoUrl = requestContext?.processedRepoUrl
@@ -83,7 +82,7 @@ export const handleWebSearch = ((params: {
               creditsToCharge,
               searchDuration,
             },
-            'Failed to charge credits for web search'
+            'Failed to charge credits for web search',
           )
         }
       }
@@ -101,7 +100,7 @@ export const handleWebSearch = ((params: {
             : 0,
           success: true,
         },
-        'Search completed'
+        'Search completed',
       )
 
       if (searchResult) {
@@ -112,7 +111,7 @@ export const handleWebSearch = ((params: {
             ...searchContext,
             searchDuration,
           },
-          'No results returned from search API'
+          'No results returned from search API',
         )
         return `No search results found for "${query}". Try refining your search query or using different keywords.`
       }
@@ -132,7 +131,7 @@ export const handleWebSearch = ((params: {
           searchDuration,
           success: false,
         },
-        'Search failed with error'
+        'Search failed with error',
       )
       return `Error performing web search for "${query}": ${
         error instanceof Error ? error.message : 'Unknown error'

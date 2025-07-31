@@ -4,18 +4,14 @@ import { logger } from '@codebuff/common/util/logger'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
 
 import { checkAndTriggerAutoTopup } from './auto-topup'
-import { 
-  calculateUsageAndBalance 
-} from './balance-calculator'
+import { calculateUsageAndBalance } from './balance-calculator'
 import { triggerMonthlyResetAndGrant } from './grant-credits'
-import { 
-  calculateOrganizationUsageAndBalance, 
-  syncOrganizationBillingCycle 
+import {
+  calculateOrganizationUsageAndBalance,
+  syncOrganizationBillingCycle,
 } from './org-billing'
 
-import type { 
-  CreditBalance 
-} from './balance-calculator';
+import type { CreditBalance } from './balance-calculator'
 
 export interface UserUsageData {
   usageThisCycle: number
@@ -62,7 +58,7 @@ export async function getUserUsageData(userId: string): Promise<UserUsageData> {
     } catch (error) {
       logger.error(
         { error, userId },
-        'Error during auto top-up check in getUserUsageData'
+        'Error during auto top-up check in getUserUsageData',
       )
       // Continue execution to return usage data even if auto top-up fails
     }
@@ -74,7 +70,7 @@ export async function getUserUsageData(userId: string): Promise<UserUsageData> {
       effectiveQuotaResetDate,
       now,
       undefined, // Use default db connection
-      true // isPersonalContext: true to exclude organization credits
+      true, // isPersonalContext: true to exclude organization credits
     )
 
     return {
@@ -84,10 +80,7 @@ export async function getUserUsageData(userId: string): Promise<UserUsageData> {
       autoTopupTriggered,
     }
   } catch (error) {
-    logger.error(
-      { userId, error },
-      'Error fetching user usage data'
-    )
+    logger.error({ userId, error }, 'Error fetching user usage data')
     throw error
   }
 }
@@ -98,7 +91,7 @@ export async function getUserUsageData(userId: string): Promise<UserUsageData> {
  */
 export async function getOrganizationUsageData(
   organizationId: string,
-  userId: string
+  userId: string,
 ): Promise<OrganizationUsageData> {
   try {
     // Check if user is a member of this organization
@@ -108,8 +101,8 @@ export async function getOrganizationUsageData(
       .where(
         and(
           eq(schema.orgMember.org_id, organizationId),
-          eq(schema.orgMember.user_id, userId)
-        )
+          eq(schema.orgMember.user_id, userId),
+        ),
       )
       .limit(1)
 
@@ -118,8 +111,9 @@ export async function getOrganizationUsageData(
     }
 
     // Sync organization billing cycle with Stripe and get current cycle start
-    const startOfCurrentCycle = await syncOrganizationBillingCycle(organizationId)
-    
+    const startOfCurrentCycle =
+      await syncOrganizationBillingCycle(organizationId)
+
     // Get the organization to fetch the current period end date
     const organization = await db.query.org.findFirst({
       where: eq(schema.org.id, organizationId),
@@ -130,27 +124,28 @@ export async function getOrganizationUsageData(
     })
 
     // Use the synced dates or fallback to reasonable defaults
-    const cycleStartDate = organization?.current_period_start || startOfCurrentCycle
-    const cycleEndDate = organization?.current_period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
-    
+    const cycleStartDate =
+      organization?.current_period_start || startOfCurrentCycle
+    const cycleEndDate =
+      organization?.current_period_end ||
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+
     let currentBalance = 0
     let usageThisCycle = 0
-    
+
     try {
       const now = new Date()
-      const { balance, usageThisCycle: usage } = await calculateOrganizationUsageAndBalance(
-        organizationId,
-        startOfCurrentCycle,
-        now
-      )
+      const { balance, usageThisCycle: usage } =
+        await calculateOrganizationUsageAndBalance(
+          organizationId,
+          startOfCurrentCycle,
+          now,
+        )
       currentBalance = balance.netBalance
       usageThisCycle = usage
     } catch (error) {
       // If no credits exist yet, that's fine
-      logger.debug(
-        { organizationId, error },
-        'No organization credits found'
-      )
+      logger.debug({ organizationId, error }, 'No organization credits found')
     }
 
     // Get top users by credit usage this cycle
@@ -166,8 +161,8 @@ export async function getOrganizationUsageData(
       .where(
         and(
           eq(schema.message.org_id, organizationId),
-          gte(schema.message.finished_at, startOfCurrentCycle)
-        )
+          gte(schema.message.finished_at, startOfCurrentCycle),
+        ),
       )
       .groupBy(schema.message.user_id, schema.user.name, schema.user.email)
       .orderBy(desc(sql`SUM(${schema.message.credits})`))
@@ -186,8 +181,8 @@ export async function getOrganizationUsageData(
       .where(
         and(
           eq(schema.message.org_id, organizationId),
-          gte(schema.message.finished_at, startOfCurrentCycle)
-        )
+          gte(schema.message.finished_at, startOfCurrentCycle),
+        ),
       )
       .orderBy(desc(schema.message.finished_at))
       .limit(50)
@@ -197,13 +192,13 @@ export async function getOrganizationUsageData(
       usageThisCycle,
       cycleStartDate: cycleStartDate.toISOString(),
       cycleEndDate: cycleEndDate.toISOString(),
-      topUsers: topUsers.map(user => ({
+      topUsers: topUsers.map((user) => ({
         user_id: user.user_id!,
         user_name: user.user_name || 'Unknown',
         user_email: user.user_email || 'Unknown',
         credits_used: user.credits_used,
       })),
-      recentUsage: recentUsage.map(usage => ({
+      recentUsage: recentUsage.map((usage) => ({
         date: usage.date.toISOString(),
         credits_used: usage.credits_used,
         repository_url: usage.repository_url || '',
@@ -213,7 +208,7 @@ export async function getOrganizationUsageData(
   } catch (error) {
     logger.error(
       { organizationId, userId, error },
-      'Error fetching organization usage data'
+      'Error fetching organization usage data',
     )
     throw error
   }
@@ -225,7 +220,7 @@ export async function getOrganizationUsageData(
  */
 export async function getOrganizationUsageResponse(
   organizationId: string,
-  userId: string
+  userId: string,
 ): Promise<{
   type: 'usage-response'
   usage: number
@@ -235,7 +230,7 @@ export async function getOrganizationUsageResponse(
 }> {
   try {
     const data = await getOrganizationUsageData(organizationId, userId)
-    
+
     return {
       type: 'usage-response' as const,
       usage: data.usageThisCycle,
@@ -246,7 +241,7 @@ export async function getOrganizationUsageResponse(
   } catch (error) {
     logger.error(
       { organizationId, userId, error },
-      'Error generating organization usage response'
+      'Error generating organization usage response',
     )
     throw error
   }

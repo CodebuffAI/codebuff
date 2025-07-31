@@ -5,8 +5,6 @@ import { motion } from 'framer-motion'
 import type { BlockColor } from './decorative-blocks'
 import type { ReactNode, CSSProperties } from 'react'
 
-
-
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 

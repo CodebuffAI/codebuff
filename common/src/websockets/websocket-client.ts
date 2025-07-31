@@ -132,7 +132,7 @@ export class APIRealtimeClient {
         }
         this.heartbeat = setInterval(
           async () => this.sendMessage('ping', {}).catch(() => {}),
-          30000
+          30000,
         )
 
         resolve()
@@ -201,7 +201,7 @@ export class APIRealtimeClient {
 
   async sendMessage<T extends ClientMessageType>(
     type: T,
-    data: Omit<ClientMessage<T>, 'type' | 'txid'>
+    data: Omit<ClientMessage<T>, 'type' | 'txid'>,
   ) {
     if (VERBOSE_LOGGING) {
       console.info(`> Outgoing API websocket ${type} message: `, data)
@@ -233,7 +233,7 @@ export class APIRealtimeClient {
       console.error(
         'Error sending action:',
         action.type,
-        typeof e === 'object' && e !== null && 'message' in e ? e.message : e
+        typeof e === 'object' && e !== null && 'message' in e ? e.message : e,
       )
 
       console.log()
@@ -249,7 +249,7 @@ export class APIRealtimeClient {
 
   subscribe<T extends ServerAction['type']>(
     action: T,
-    callback: (action: Extract<ServerAction, { type: T }>) => void
+    callback: (action: Extract<ServerAction, { type: T }>) => void,
   ) {
     const currSubscribers = this.subscribers.get(action) ?? []
     this.subscribers.set(action, [

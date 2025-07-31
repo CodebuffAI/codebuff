@@ -5,9 +5,8 @@ import { uniq } from 'lodash'
 
 import { getLanguageConfig } from './languages'
 
-import type { LanguageConfig} from './languages';
+import type { LanguageConfig } from './languages'
 import type { Parser, Query } from 'web-tree-sitter'
-
 
 export const DEBUG_PARSING = false
 const IGNORE_TOKENS = ['__init__', '__post_init__', '__call__', 'constructor']
@@ -26,7 +25,7 @@ export interface FileTokenData {
 
 export async function getFileTokenScores(
   projectRoot: string,
-  filePaths: string[]
+  filePaths: string[],
 ): Promise<FileTokenData> {
   const startTime = Date.now()
   const tokenScores: { [filePath: string]: { [token: string]: number } } = {}
@@ -40,7 +39,7 @@ export async function getFileTokenScores(
     if (languageConfig) {
       const { identifiers, calls, numLines } = await parseTokens(
         fullPath,
-        languageConfig
+        languageConfig,
       )
 
       const tokenScoresForFile: { [token: string]: number } = {}
@@ -138,7 +137,7 @@ export async function getFileTokenScores(
         tokenScores,
         fileCallsMap,
         externalCalls,
-      })
+      }),
     )
   }
 
@@ -147,7 +146,7 @@ export async function getFileTokenScores(
 
 export async function parseTokens(
   filePath: string,
-  languageConfig: LanguageConfig
+  languageConfig: LanguageConfig,
 ) {
   const { parser, query } = languageConfig
 
@@ -188,7 +187,7 @@ export async function parseTokens(
 function parseFile(
   parser: Parser,
   query: Query,
-  sourceCode: string
+  sourceCode: string,
 ): { [key: string]: string[] } {
   const tree = parser.parse(sourceCode)
   if (!tree) {

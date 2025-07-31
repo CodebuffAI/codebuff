@@ -29,7 +29,7 @@ When creating agent templates, you define all aspects of the agent from scratch.
 
 #### `model` (string, required)
 
-The model to use, which can be any model string from  [Openrouter](https://openrouter.ai/models).
+The model to use, which can be any model string from [Openrouter](https://openrouter.ai/models).
 
 ```json
 "model": "anthropic/claude-4-sonnet-20250522"
@@ -138,8 +138,6 @@ Instructions for how to process user input.
 
 Instructions for each step of the agent's execution.
 
-
-
 ### Schema Validation
 
 #### `inputSchema` (object, optional)
@@ -171,11 +169,13 @@ JSON Schema definitions for validating prompt and params when spawning the agent
 Defines instructions that this agent provides to other agents when they are spawned. This allows agents to guide the behavior of their sub-agents without creating full overrides.
 
 **How it works:**
+
 - When an agent spawns another agent, the system looks for any `parentInstructions` targeting that agent type
 - These instructions are automatically injected into the spawned agent's `userInputPrompt`
 - Multiple agents can provide instructions for the same target agent - all will be included
 
 **Structure:**
+
 ```json
 "parentInstructions": {
   "researcher": "Instruction text for researcher to know when to spawn your agent",
@@ -184,16 +184,19 @@ Defines instructions that this agent provides to other agents when they are spaw
 ```
 
 **When to use:**
+
 - **Conditional guidance**: Provide context-specific instructions based on the spawning scenario
 - **Workflow coordination**: Ensure spawned agents follow specific patterns or requirements
 - **Domain expertise**: Share specialized knowledge with relevant sub-agents
 - **Quality control**: Add validation or review requirements for specific agent types
 
 **Validation:**
+
 - Agent types in `parentInstructions` must be valid (either built-in or custom agents)
 - Invalid agent types will cause validation errors during agent loading
 
 **Best practices:**
+
 - Keep instructions concise and actionable
 - Focus on behavior modifications rather than complete workflow changes
 - Test instructions with different spawning scenarios

@@ -1,10 +1,4 @@
-import {
-  describe,
-  expect,
-  it,
-  mock as bunMockFn,
-  beforeEach,
-} from 'bun:test'
+import { describe, expect, it, mock as bunMockFn, beforeEach } from 'bun:test'
 
 // Test data
 const validConfigString = JSON.stringify({
@@ -26,7 +20,7 @@ describe('getCustomFilePickerConfigForOrg', () => {
   const mockFromFn = bunMockFn(() => ({ where: mockWhereFn }))
   const mockSelectFn = bunMockFn(() => ({ from: mockFromFn }))
   const mockDb = { select: mockSelectFn }
-  
+
   // Mock logger with proper types to accept any arguments
   const mockLogger = {
     info: bunMockFn((...args: any[]) => {}),
@@ -34,7 +28,7 @@ describe('getCustomFilePickerConfigForOrg', () => {
     warn: bunMockFn((...args: any[]) => {}),
     debug: bunMockFn((...args: any[]) => {}),
   }
-  
+
   // Mock context
   const mockGetRequestContext = bunMockFn(() => ({
     approvedOrgIdForRepo: 'org123',
@@ -45,17 +39,17 @@ describe('getCustomFilePickerConfigForOrg', () => {
   // This avoids having to mock all dependencies and import the actual function
   // Define a simple type for our config object
   type CustomFilePickerConfig = {
-    modelName: string;
-    maxFilesPerRequest?: number;
-    customFileCounts?: Record<string, number>;
-  };
-  
+    modelName: string
+    maxFilesPerRequest?: number
+    customFileCounts?: Record<string, number>
+  }
+
   async function getCustomFilePickerConfigForOrg(
     orgId: string,
-    isRepoApprovedForUserInOrg: boolean | undefined
+    isRepoApprovedForUserInOrg: boolean | undefined,
   ): Promise<CustomFilePickerConfig | null> {
     // Treat empty string as undefined for compatibility with the original function
-    if (!orgId || orgId === "" || !isRepoApprovedForUserInOrg) {
+    if (!orgId || orgId === '' || !isRepoApprovedForUserInOrg) {
       return null
     }
 
@@ -75,7 +69,9 @@ describe('getCustomFilePickerConfigForOrg', () => {
             mockLogger.info('Using custom file picker configuration', { orgId })
             return parsedConfigObject
           } else {
-            mockLogger.error('Invalid custom file picker configuration', { parsedConfigObject })
+            mockLogger.error('Invalid custom file picker configuration', {
+              parsedConfigObject,
+            })
             return null
           }
         } catch (jsonParseError) {
@@ -107,11 +103,11 @@ describe('getCustomFilePickerConfigForOrg', () => {
 
   it('should return null if orgId is empty', async () => {
     mockGetRequestContext.mockReturnValue({
-      approvedOrgIdForRepo: "",
+      approvedOrgIdForRepo: '',
       isRepoApprovedForUserInOrg: true,
     })
     // Pass empty string instead of undefined to satisfy TypeScript
-    const result = await getCustomFilePickerConfigForOrg("", true)
+    const result = await getCustomFilePickerConfigForOrg('', true)
     expect(result).toBeNull()
     expect(mockSelectFn).not.toHaveBeenCalled()
   })
@@ -131,7 +127,7 @@ describe('getCustomFilePickerConfigForOrg', () => {
   it('should return null if orgFeature is not found', async () => {
     // Ensure mockLimitFn returns empty array
     mockLimitFn.mockResolvedValueOnce([])
-    
+
     const result = await getCustomFilePickerConfigForOrg('org123', true)
     expect(result).toBeNull()
     expect(mockSelectFn).toHaveBeenCalledTimes(1)

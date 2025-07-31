@@ -1,10 +1,7 @@
-
 import * as fs from 'fs'
 import * as path from 'path'
 
-import {
-  DynamicAgentConfigSchema
-} from '@codebuff/common/types/dynamic-agent-template'
+import { DynamicAgentConfigSchema } from '@codebuff/common/types/dynamic-agent-template'
 import { cyan, green } from 'picocolors'
 
 import { getAllTsFiles, getAgentsDirectory } from './agent-utils'
@@ -12,7 +9,8 @@ import { getAllTsFiles, getAgentsDirectory } from './agent-utils'
 import type { CodebuffConfig } from '@codebuff/common/json-config/constants'
 import type {
   DynamicAgentConfigParsed,
-  DynamicAgentTemplate} from '@codebuff/common/types/dynamic-agent-template';
+  DynamicAgentTemplate,
+} from '@codebuff/common/types/dynamic-agent-template'
 
 export let loadedAgents: Record<string, DynamicAgentTemplate> = {}
 
@@ -87,7 +85,7 @@ export function getLoadedAgentNames(): Record<string, string> {
   return Object.fromEntries(
     Object.entries(loadedAgents).map(([agentType, agentConfig]) => {
       return [agentType, agentConfig.displayName]
-    })
+    }),
   )
 }
 
@@ -105,14 +103,14 @@ export function displayLoadedAgents(codebuffConfig: CodebuffConfig) {
     console.log(
       `${green('Configured subagents:')} ${subagents
         .map((name) => cyan(name))
-        .join(', ')}\n`
+        .join(', ')}\n`,
     )
   } else if (Object.keys(loadedAgents).length > 0) {
     const loadedAgentNames = Object.values(getLoadedAgentNames())
     console.log(
       `\n${green('Found custom agents:')} ${loadedAgentNames
         .map((name) => cyan(name))
-        .join(', ')}\n`
+        .join(', ')}\n`,
     )
   } else if (baseAgent) {
     // One more new line.

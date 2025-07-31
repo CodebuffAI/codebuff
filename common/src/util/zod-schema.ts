@@ -6,7 +6,7 @@ import { logger } from './logger'
  * Convert a Zod/v4 schema to JSON string representation.
  */
 export function schemaToJsonStr(
-  schema: z.ZodTypeAny | undefined | Record<string, any>
+  schema: z.ZodTypeAny | undefined | Record<string, any>,
 ): string {
   if (!schema) return 'None'
 
@@ -27,7 +27,7 @@ export function schemaToJsonStr(
         error,
         schema,
       },
-      'Failed to convert schema to JSON'
+      'Failed to convert schema to JSON',
     )
     return 'None'
   }

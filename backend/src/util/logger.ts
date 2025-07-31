@@ -21,7 +21,7 @@ const loggerAsyncStorage = new AsyncLocalStorage<LoggerContext>()
 
 export const withLoggerContext = <T>(
   additionalContext: Partial<LoggerContext>,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
 ) => {
   // Use the new combined context, preserving any existing request context
   return withAppContext(additionalContext, {}, fn)
@@ -63,7 +63,7 @@ const pinoLogger = pino(
         },
         level: 'debug',
       })
-    : undefined
+    : undefined,
 )
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
@@ -89,7 +89,7 @@ function splitAndLog(
   processedData.forEach((chunk, index) => {
     pinoLogger[level](
       chunk,
-      `${formattedMsg} (chunk ${index + 1}/${processedData.length})`
+      `${formattedMsg} (chunk ${index + 1}/${processedData.length})`,
     )
   })
 }
@@ -104,5 +104,5 @@ export const logger: Record<LogLevel, pino.LogFn> =
             (data: any, msg?: string, ...args: any[]) =>
               splitAndLog(level, data, msg, ...args),
           ]
-        })
+        }),
       ) as Record<LogLevel, pino.LogFn>)

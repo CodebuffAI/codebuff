@@ -8,13 +8,16 @@ The CI pipeline consists of two main jobs:
 2. **Test Job**: Runs tests for npm-app, backend, and common packages in parallel using matrix strategy
 
 ### Key Configuration
+
 - Uses Bun v1.2.12 for all jobs
 - Tests use retry logic (max 5 attempts, 10 min timeout)
 - Dependencies are cached between jobs using `actions/cache@v3`
 - Environment variables are set from GitHub secrets using `scripts/generate-ci-env.js`
 
 ### Test Strategy
+
 Tests run in parallel using matrix strategy:
+
 ```yaml
 strategy:
   matrix:
@@ -22,16 +25,19 @@ strategy:
 ```
 
 Each test job:
+
 - Runs unit tests only (excludes integration tests)
 - Uses `nick-fields/retry@v3` for reliability
 - Sets `CODEBUFF_GITHUB_ACTIONS=true` and `NEXT_PUBLIC_CB_ENVIRONMENT=test`
 
 ### Environment Variables
+
 - Secrets are extracted using `scripts/generate-ci-env.js`
 - Environment variables are set dynamically from GitHub secrets
 - Test environment flags are set for proper test execution
 
 ## Workflow Structure
+
 - Triggered on push/PR to main branch
 - Build job must complete before test jobs start (`needs: build`)
 - Uses `actions/checkout@v3`, `oven-sh/setup-bun@v2`, and `actions/cache@v3`
@@ -47,6 +53,7 @@ Each test job:
 ## Environment Variables in CI
 
 ### GitHub Actions Environment
+
 - Secrets and environment variables are managed through GitHub repository settings
 - The workflow uses GitHub secrets for sensitive data
 - CI-specific flags (like CODEBUFF_GITHUB_ACTIONS) are set directly in workflow steps
@@ -56,12 +63,14 @@ Each test job:
 When running GitHub Actions locally using `act`:
 
 1. **Environment Setup**:
+
    - `.github/act/bootstrap-act-config.sh` generates:
      - `.actrc`: Docker and artifact settings
      - `.env.act`: Non-secret environment variables
      - `.secrets.act`: Secret environment variables (chmod 600)
 
 2. **File Handling**:
+
    - `run-local.sh` automatically:
      - Backs up existing `.env.local` before running
      - Restores the backup after completion
@@ -69,6 +78,7 @@ When running GitHub Actions locally using `act`:
    - Other environment variables come from `.env.act` and `.secrets.act`
 
 3. **Running Act**:
+
    ```bash
    # Run all jobs
    bun act
@@ -87,6 +97,7 @@ When running GitHub Actions locally using `act`:
    ```
 
 ### Prerequisites
+
 1. Install `act`:
    ```bash
    brew install act  # macOS
@@ -98,6 +109,7 @@ When running GitHub Actions locally using `act`:
    ```
 
 ### Configuration Files
+
 - `.actrc`: Default act flags and settings
 - `.env.act`: Non-secret environment variables
 - `.secrets.act`: Secret environment variables (chmod 600)
@@ -105,6 +117,7 @@ When running GitHub Actions locally using `act`:
 - `.github/act/run-local.sh`: Helper script for running act
 
 ### Important Notes
+
 - First run will be slower as it builds the Docker image
 - Subsequent runs are faster due to `--reuse` flag
 - The `--bind` flag mounts local directories for file persistence
@@ -112,12 +125,15 @@ When running GitHub Actions locally using `act`:
 - `.secrets` file is auto-created from `.env.local` if it doesn't exist
 
 ### Troubleshooting
+
 1. If Docker container fails to start:
+
    - Check Docker memory allocation
    - Ensure Docker daemon is running
    - Use `bun act -v` for verbose output
 
 2. If tests fail with environment issues:
+
    - Verify `.secrets` file was created correctly
    - Check that `CODEBUFF_GITHUB_ACTIONS=true` is set
    - Ensure all required environment variables are present
@@ -128,6 +144,7 @@ When running GitHub Actions locally using `act`:
    - Try rebuilding the image without cache
 
 ### Best Practices
+
 1. Run specific jobs instead of all jobs when possible
 2. Use dry run (`-n`) to verify configuration
 3. Keep Docker image up to date with CI environment

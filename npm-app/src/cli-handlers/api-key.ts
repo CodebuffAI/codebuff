@@ -1,8 +1,12 @@
-import { API_KEY_TYPES, KEY_LENGTHS, KEY_PREFIXES } from '@codebuff/common/api-keys/constants'
+import {
+  API_KEY_TYPES,
+  KEY_LENGTHS,
+  KEY_PREFIXES,
+} from '@codebuff/common/api-keys/constants'
 import { yellow } from 'picocolors'
 
 import type { Client } from '../client'
-import type { ApiKeyType} from '@codebuff/common/api-keys/constants';
+import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
 
 export type ApiKeyDetectionResult =
   | { status: 'found'; type: ApiKeyType; key: string }
@@ -25,7 +29,7 @@ export function detectApiKey(userInput: string): ApiKeyDetectionResult {
       length: length,
       // Regex to find the key potentially surrounded by whitespace or at start/end
       regex: new RegExp(
-        `(?:^|\\s)(${escapedPrefix}[^\\s]{${length - prefix.length}})(?:\\s|$)`
+        `(?:^|\\s)(${escapedPrefix}[^\\s]{${length - prefix.length}})(?:\\s|$)`,
       ),
     }
   })
@@ -63,24 +67,21 @@ export async function handleApiKeyInput(
   client: Client,
   detectionResult: Exclude<ApiKeyDetectionResult, { status: 'not_found' }>,
   readyPromise: Promise<any>,
-  returnControlToUser: () => void
+  returnControlToUser: () => void,
 ): Promise<void> {
   switch (detectionResult.status) {
     case 'found':
       await readyPromise
       // Call the client method to add the valid key
-      await client.handleAddApiKey(
-        detectionResult.type,
-        detectionResult.key
-      )
+      await client.handleAddApiKey(detectionResult.type, detectionResult.key)
       // Note: client.handleAddApiKey calls returnControlToUser internally
       break
     case 'prefix_only':
       // Print the warning for incorrect format/length
       console.log(
         yellow(
-          `Input looks like a ${detectionResult.type} API key but has the wrong length or format. Expected ${detectionResult.length} characters starting with "${detectionResult.prefix}".`
-        )
+          `Input looks like a ${detectionResult.type} API key but has the wrong length or format. Expected ${detectionResult.length} characters starting with "${detectionResult.prefix}".`,
+        ),
       )
       returnControlToUser() // Give the user a fresh prompt after the warning
       break

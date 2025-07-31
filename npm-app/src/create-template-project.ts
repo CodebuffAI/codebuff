@@ -10,23 +10,24 @@ import { logger } from './utils/logger'
 export async function createTemplateProject(
   template: string,
   projectDir: string,
-  projectName: string = template
+  projectName: string = template,
 ) {
   console.log(
-    `Creating project from ${template} template in ${projectDir}/${projectName}`
+    `Creating project from ${template} template in ${projectDir}/${projectName}`,
   )
 
   // Validate template name contains only alphanumeric chars, dash and underscore
   if (!/^[a-zA-Z0-9-_]+$/.test(template)) {
     console.error(
-      'Template name can only contain letters, numbers, dash and underscore'
+      'Template name can only contain letters, numbers, dash and underscore',
     )
     logger.error(
       {
-        errorMessage: 'Template name can only contain letters, numbers, dash and underscore',
+        errorMessage:
+          'Template name can only contain letters, numbers, dash and underscore',
         template,
       },
-      'Invalid template name'
+      'Invalid template name',
     )
     process.exit(1)
   }
@@ -34,14 +35,15 @@ export async function createTemplateProject(
   // Validate project name
   if (!/^[a-zA-Z0-9-_]+$/.test(projectName)) {
     console.error(
-      'Project name can only contain letters, numbers, dash and underscore'
+      'Project name can only contain letters, numbers, dash and underscore',
     )
     logger.error(
       {
-        errorMessage: 'Project name can only contain letters, numbers, dash and underscore',
+        errorMessage:
+          'Project name can only contain letters, numbers, dash and underscore',
         projectName,
       },
-      'Invalid project name'
+      'Invalid project name',
     )
     process.exit(1)
   }
@@ -56,7 +58,7 @@ export async function createTemplateProject(
         errorMessage: `Directory ${projectPath} already exists`,
         projectPath,
       },
-      'Directory already exists'
+      'Directory already exists',
     )
     process.exit(1)
   }
@@ -70,7 +72,7 @@ export async function createTemplateProject(
       {
         cwd: tempDir,
         stdio: 'pipe',
-      }
+      },
     )
 
     // Check if template exists in starter-templates or showcase directory
@@ -84,14 +86,14 @@ export async function createTemplateProject(
       templateDir = showcaseDir
     } else {
       console.error(
-        `Template ${template} not found in starter-templates/ or showcase/`
+        `Template ${template} not found in starter-templates/ or showcase/`,
       )
       logger.error(
         {
           errorMessage: `Template ${template} not found in starter-templates/ or showcase/`,
           template,
         },
-        'Template not found'
+        'Template not found',
       )
       fs.rmSync(tempDir, { recursive: true, force: true })
       process.exit(1)
@@ -141,7 +143,7 @@ export async function createTemplateProject(
         projectDir,
         projectName,
       },
-      'Failed to initialize project'
+      'Failed to initialize project',
     )
     console.error('Failed to initialize project:', error)
     process.exit(1)

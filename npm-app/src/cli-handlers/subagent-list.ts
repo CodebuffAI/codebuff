@@ -45,8 +45,8 @@ export function enterSubagentListBuffer(rl: any, onExit: () => void) {
     console.log(yellow('No subagents found from previous runs.'))
     console.log(
       gray(
-        'Subagents will appear here after you use spawn_agents in a conversation.'
-      )
+        'Subagents will appear here after you use spawn_agents in a conversation.',
+      ),
     )
     return
   }
@@ -119,7 +119,7 @@ function centerSelectedItem() {
   const selectedLineIndex = subagentLinePositions[selectedIndex] // No offset needed now
   const maxScrollOffset = Math.max(
     0,
-    allContentLines.length - maxScrollableLines
+    allContentLines.length - maxScrollableLines,
   )
 
   // Center item in the scrollable viewport
@@ -262,8 +262,8 @@ function buildAllContentLines() {
         // Calculate box width based on content, stripping ANSI codes for accurate length
         const maxContentWidth = Math.max(
           ...contentForBox.map(
-            (line) => line.replace(/\u001b\[[0-9;]*m/g, '').length
-          )
+            (line) => line.replace(/\u001b\[[0-9;]*m/g, '').length,
+          ),
         )
         const boxWidth = Math.min(terminalWidth - 6, maxContentWidth)
 
@@ -315,7 +315,7 @@ function renderSubagentList() {
   const maxScrollableLines = terminalHeight - headerLines.length - 2 // Leave space for header and status line
   const visibleLines = allContentLines.slice(
     scrollOffset,
-    scrollOffset + maxScrollableLines
+    scrollOffset + maxScrollableLines,
   )
 
   // Display scrollable content
@@ -406,7 +406,7 @@ function setupSubagentListKeyHandler(rl: any, onExit: () => void) {
     if (key && key.name === 'pagedown') {
       const newIndex = Math.min(
         subagentList.length - 1,
-        persistentSelectedIndex + 5
+        persistentSelectedIndex + 5,
       ) // Jump 5 items down
       if (newIndex !== persistentSelectedIndex) {
         persistentSelectedIndex = newIndex

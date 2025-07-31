@@ -8,8 +8,6 @@ import { DocSidebar, sections } from '@/components/docs/doc-sidebar'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 
-
-
 export default function DocsLayout({
   children,
 }: {

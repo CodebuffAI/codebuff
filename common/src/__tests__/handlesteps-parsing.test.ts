@@ -1,16 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { dynamicAgentService } from '../templates/dynamic-agent-service'
-import {
-  DynamicAgentConfigSchema
-} from '../types/dynamic-agent-template'
+import { DynamicAgentConfigSchema } from '../types/dynamic-agent-template'
 
-import type {
-  DynamicAgentTemplate} from '../types/dynamic-agent-template';
+import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 import type { AgentState } from '../types/session-state'
 import type { ProjectFileContext } from '../util/file'
-
-
 
 describe('handleSteps Parsing Tests', () => {
   let mockFileContext: ProjectFileContext
@@ -131,7 +126,7 @@ describe('handleSteps Parsing Tests', () => {
     }
 
     const result = await dynamicAgentService.loadAgents(
-      fileContext.agentTemplates || {}
+      fileContext.agentTemplates || {},
     )
 
     expect(result.validationErrors).toHaveLength(0)
@@ -183,7 +178,7 @@ describe('handleSteps Parsing Tests', () => {
     }
 
     const result = await dynamicAgentService.loadAgents(
-      fileContext.agentTemplates || {}
+      fileContext.agentTemplates || {},
     )
 
     expect(result.validationErrors.length).toBeGreaterThan(0)
@@ -226,7 +221,7 @@ describe('handleSteps Parsing Tests', () => {
 
     // Load agents through the service
     const result = await dynamicAgentService.loadAgents(
-      fileContext.agentTemplates || {}
+      fileContext.agentTemplates || {},
     )
 
     // Verify no validation errors

@@ -42,7 +42,7 @@ export interface SearchResult {
  * @returns Array of projects with their metadata, or null if the request fails
  */
 export async function searchLibraries(
-  query: string
+  query: string,
 ): Promise<SearchResult[] | null> {
   const searchStartTime = Date.now()
   const searchContext = {
@@ -67,7 +67,7 @@ export async function searchLibraries(
           fetchDuration,
           totalDuration: Date.now() - searchStartTime,
         },
-        `Library search failed with status ${response.status}`
+        `Library search failed with status ${response.status}`,
       )
       return null
     }
@@ -86,7 +86,7 @@ export async function searchLibraries(
         resultsCount: projects.results?.length || 0,
         success: true,
       },
-      'Library search completed successfully'
+      'Library search completed successfully',
     )
 
     return projects.results
@@ -106,7 +106,7 @@ export async function searchLibraries(
         totalDuration,
         success: false,
       },
-      'Error during library search'
+      'Error during library search',
     )
     return null
   }
@@ -124,7 +124,7 @@ export async function fetchContext7LibraryDocumentation(
     tokens?: number
     topic?: string
     folders?: string
-  } = {}
+  } = {},
 ): Promise<string | null> {
   const apiStartTime = Date.now()
   const apiContext = {
@@ -146,7 +146,7 @@ export async function fetchContext7LibraryDocumentation(
         totalDuration: Date.now() - apiStartTime,
         librariesFound: 0,
       },
-      'No libraries found for query'
+      'No libraries found for query',
     )
     return null
   }
@@ -166,7 +166,7 @@ export async function fetchContext7LibraryDocumentation(
         stars: selectedLibrary.stars,
       },
     },
-    'Selected library for documentation fetch'
+    'Selected library for documentation fetch',
   )
 
   try {
@@ -184,7 +184,7 @@ export async function fetchContext7LibraryDocumentation(
           'X-Context7-Source': 'codebuff',
         },
       }),
-      FETCH_TIMEOUT_MS
+      FETCH_TIMEOUT_MS,
     )
     const fetchDuration = Date.now() - fetchStartTime
 
@@ -199,7 +199,7 @@ export async function fetchContext7LibraryDocumentation(
           fetchDuration,
           totalDuration: Date.now() - apiStartTime,
         },
-        `Failed to fetch documentation with status ${response.status}`
+        `Failed to fetch documentation with status ${response.status}`,
       )
       return null
     }
@@ -225,7 +225,7 @@ export async function fetchContext7LibraryDocumentation(
           responseLength: text?.length || 0,
           emptyResponse: true,
         },
-        'Received empty or no-content response'
+        'Received empty or no-content response',
       )
       return null
     }
@@ -244,7 +244,7 @@ export async function fetchContext7LibraryDocumentation(
         estimatedTokens,
         success: true,
       },
-      'Documentation fetch completed successfully'
+      'Documentation fetch completed successfully',
     )
 
     return text
@@ -266,7 +266,7 @@ export async function fetchContext7LibraryDocumentation(
         totalDuration,
         success: false,
       },
-      'Error fetching library documentation'
+      'Error fetching library documentation',
     )
     return null
   }

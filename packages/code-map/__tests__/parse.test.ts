@@ -4,7 +4,6 @@ import * as path from 'path'
 
 import { describe, it, expect } from 'bun:test'
 
-
 // Test data
 const tsFile = `
 interface Greeter {
@@ -167,8 +166,8 @@ parseSourceCode(filePath, sourceCode)
       `node "${tempScriptPath}" "${filePath}" "${content.replace(/"/g, '\\"')}"`,
       {
         encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe']
-      }
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
     )
 
     // Parse the JSON output

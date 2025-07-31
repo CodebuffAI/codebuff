@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-
 interface Organization {
   id: string
   name: string
@@ -131,9 +130,16 @@ const OrganizationsPage = () => {
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="flex items-center min-w-0 flex-1">
                         <Building2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
-                        <span className="truncate text-sm sm:text-base">{org.name}</span>
+                        <span className="truncate text-sm sm:text-base">
+                          {org.name}
+                        </span>
                       </CardTitle>
-                      <Badge variant="secondary" className="text-xs flex-shrink-0">{org.role}</Badge>
+                      <Badge
+                        variant="secondary"
+                        className="text-xs flex-shrink-0"
+                      >
+                        {org.role}
+                      </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="px-4 pb-3 sm:px-6 sm:pb-4">
@@ -173,7 +179,9 @@ const OrganizationsPage = () => {
                   </div>
 
                   <div>
-                    <h4 className="font-semibold mb-3 text-sm sm:text-base">Key Features:</h4>
+                    <h4 className="font-semibold mb-3 text-sm sm:text-base">
+                      Key Features:
+                    </h4>
                     <ul className="text-xs sm:text-sm text-muted-foreground space-y-2">
                       <li className="flex items-center">
                         <CreditCard className="mr-2 h-3 w-3 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" />

@@ -19,9 +19,7 @@ import {
 import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
-import {
-  AgentDecisionSchema
-} from './types'
+import { AgentDecisionSchema } from './types'
 
 import type {
   AgentDecision,
@@ -31,7 +29,8 @@ import type {
   EvalRunJudged,
   EvalRunLog,
   FullEvalLog,
-  GitRepoEvalData} from './types';
+  GitRepoEvalData,
+} from './types'
 
 disableLiveUserInputCheck()
 
@@ -45,7 +44,7 @@ export async function runSingleEval(
   projectPath: string,
   clientSessionId: string,
   fingerprintId: string,
-  agentType: string = AGENT_TYPE
+  agentType: string = AGENT_TYPE,
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -91,7 +90,7 @@ export async function runSingleEval(
       const renderedTrace = trace
         .map(
           ({ prompt, steps }) =>
-            `You: ${prompt}\n\nCodebuff:${steps.map(({ response }) => response).join('\n\n')}`
+            `You: ${prompt}\n\nCodebuff:${steps.map(({ response }) => response).join('\n\n')}`,
         )
         .join('\n\n')
 
@@ -129,7 +128,7 @@ Explain your reasoning in detail.`,
         })
       } catch (agentError) {
         throw new Error(
-          `Agent decision failed: ${agentError instanceof Error ? agentError.message : String(agentError)}`
+          `Agent decision failed: ${agentError instanceof Error ? agentError.message : String(agentError)}`,
         )
       }
 
@@ -154,7 +153,7 @@ Explain your reasoning in detail.`,
             agentType: agentType as any,
           }),
           // Timeout after 30 minutes
-          60_000 * 30
+          60_000 * 30,
         )
 
         sessionState.mainAgentState = codeBuffResult.agentState
@@ -239,7 +238,7 @@ Explain your reasoning in detail.`,
 function getCodebuffFileStates(
   trace: CodebuffTrace[],
   evalCommitSha: string,
-  projectPath: string
+  projectPath: string,
 ): CommitFileState[] {
   const codebuffWrittenFilePaths = new Set<string>()
   if (trace) {
@@ -312,15 +311,15 @@ export async function runGitEvals(
   outputDir: string,
   agentType: string = AGENT_TYPE,
   limit?: number,
-  logToStdout: boolean = false
+  logToStdout: boolean = false,
 ): Promise<FullEvalLog> {
   console.log(`Loading eval data from: ${evalDataPath}`)
   const evalData = JSON.parse(
-    fs.readFileSync(evalDataPath, 'utf-8')
+    fs.readFileSync(evalDataPath, 'utf-8'),
   ) as GitRepoEvalData
 
   console.log(
-    `Loaded ${evalData.evalCommits.length} eval commits from ${evalDataPath}`
+    `Loaded ${evalData.evalCommits.length} eval commits from ${evalDataPath}`,
   )
 
   const { repoUrl } = evalData
@@ -346,7 +345,7 @@ export async function runGitEvals(
   // Generate filenames with trace ID (single file that gets overwritten)
   const partialOutputPath = path.join(
     outputDir,
-    `eval-partial-${testRepoName}-${traceId}.json`
+    `eval-partial-${testRepoName}-${traceId}.json`,
   )
 
   const commitsToRun = limit
@@ -354,10 +353,10 @@ export async function runGitEvals(
     : evalData.evalCommits
 
   console.log(
-    `Running ${commitsToRun.length} evaluations out of ${evalData.evalCommits.length} total commits...`
+    `Running ${commitsToRun.length} evaluations out of ${evalData.evalCommits.length} total commits...`,
   )
   console.log(
-    `Using concurrency limit: ${globalConcurrencyLimiter ? 'global limiter' : 'local limiter (20)'}`
+    `Using concurrency limit: ${globalConcurrencyLimiter ? 'global limiter' : 'local limiter (20)'}`,
   )
 
   // Use global limiter if available, otherwise create a local one
@@ -369,16 +368,16 @@ export async function runGitEvals(
         new Promise<EvalRunJudged>(async (resolve, reject) => {
           try {
             console.log(
-              `Setting up test repository for commit ${evalCommit.sha}...`
+              `Setting up test repository for commit ${evalCommit.sha}...`,
             )
             const projectPath = await setupTestRepo(
               repoUrl,
               testRepoName,
-              evalCommit.sha
+              evalCommit.sha,
             )
 
             console.log(
-              `Starting ${testRepoName} eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.message}...`
+              `Starting ${testRepoName} eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.message}...`,
             )
 
             const safeMessage = evalCommit.message
@@ -394,7 +393,7 @@ export async function runGitEvals(
             // Write evalCommit to temporary file to avoid long command line arguments
             const tempEvalCommitPath = path.join(
               logsDir,
-              `eval-commit-${evalCommit.sha.slice(0, 7)}.json`
+              `eval-commit-${evalCommit.sha.slice(0, 7)}.json`,
             )
             fs.writeFileSync(tempEvalCommitPath, JSON.stringify(evalCommit))
 
@@ -407,7 +406,7 @@ export async function runGitEvals(
                 fingerprintId,
                 agentType,
               ],
-              { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] }
+              { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] },
             )
 
             child.stdout?.pipe(logStream)
@@ -426,12 +425,12 @@ export async function runGitEvals(
                 } catch (e) {
                   console.warn(
                     `Failed to clean up temp file ${tempEvalCommitPath}:`,
-                    e
+                    e,
                   )
                 }
                 if (message.type === 'result' && message.result) {
                   console.log(
-                    `Completed eval for commit ${testRepoName} - ${evalCommit.message}`
+                    `Completed eval for commit ${testRepoName} - ${evalCommit.message}`,
                   )
                   if (!logToStdout) {
                     console.log(`${JSON.stringify(message.result, null, 2)}`)
@@ -440,42 +439,42 @@ export async function runGitEvals(
                 } else if (message.type === 'error') {
                   console.error(
                     `Received error while running eval: ${message.error.stack}\n`,
-                    { message }
+                    { message },
                   )
                   const err = new Error(message.error.message)
                   reject(err)
                 }
-              }
+              },
             )
 
             child.on('exit', (code) => {
               logStream.end()
               if (code !== 0) {
                 console.error(
-                  `Eval process for ${evalCommit.sha} exited with code ${code}. See logs at ${logPath}`
+                  `Eval process for ${evalCommit.sha} exited with code ${code}. See logs at ${logPath}`,
                 )
                 reject(
                   new Error(
-                    `Eval process for ${evalCommit.sha} exited with code ${code}`
-                  )
+                    `Eval process for ${evalCommit.sha} exited with code ${code}`,
+                  ),
                 )
               }
             })
           } catch (error) {
             console.error(
               `Error while running git eval for ${testRepoName} commit ${evalCommit.sha}`,
-              { error }
+              { error },
             )
             reject(error)
           }
-        })
+        }),
     )
   })
 
   const results = await Promise.allSettled(evalPromises)
 
   console.log(
-    `Promise.allSettled completed. Results: ${results.length} total, ${results.filter((r) => r.status === 'fulfilled').length} fulfilled, ${results.filter((r) => r.status === 'rejected').length} rejected`
+    `Promise.allSettled completed. Results: ${results.length} total, ${results.filter((r) => r.status === 'fulfilled').length} fulfilled, ${results.filter((r) => r.status === 'rejected').length} rejected`,
   )
 
   // Log rejected promises for debugging
@@ -483,7 +482,7 @@ export async function runGitEvals(
     if (result.status === 'rejected') {
       console.error(
         `❌ Eval ${index + 1}/${commitsToRun.length} (${commitsToRun[index].sha}) was rejected:`,
-        result.reason
+        result.reason,
       )
     }
   })
@@ -505,7 +504,7 @@ export async function runGitEvals(
   // Create final filename with trace ID
   const finalOutputPath = path.join(
     outputDir,
-    `eval-result-${testRepoName}-${traceId}.json`
+    `eval-result-${testRepoName}-${traceId}.json`,
   )
 
   // Write final results to file
@@ -522,22 +521,22 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
     average_completion:
       evalRuns.reduce(
         (sum, run) => sum + (run.judging_results.metrics.completionScore || 0),
-        0
+        0,
       ) / evalRuns.length,
     average_efficiency:
       evalRuns.reduce(
         (sum, run) => sum + (run.judging_results.metrics.efficiencyScore || 0),
-        0
+        0,
       ) / evalRuns.length,
     average_code_quality:
       evalRuns.reduce(
         (sum, run) => sum + (run.judging_results.metrics.codeQualityScore || 0),
-        0
+        0,
       ) / evalRuns.length,
     average_overall:
       evalRuns.reduce(
         (sum, run) => sum + (run.judging_results.metrics.overallScore || 0),
-        0
+        0,
       ) / evalRuns.length,
     average_duration_ms:
       evalRuns.reduce((sum, run) => sum + run.durationMs, 0) / evalRuns.length,
@@ -551,7 +550,7 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
 if (require.main === module) {
   const args = process.argv.slice(2)
   console.info(
-    'Usage: bun run run-git-eval [eval-data-path] [output-dir] [agent-type]'
+    'Usage: bun run run-git-eval [eval-data-path] [output-dir] [agent-type]',
   )
 
   const evalDataPath = args[0] || 'git-evals/git-evals.json'

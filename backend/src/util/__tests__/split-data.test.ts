@@ -48,7 +48,7 @@ describe('splitData - base cases', () => {
       .filter((v) => typeof v === 'string')
       .join('')
     expect(combined.startsWith(input.join('').slice(0, combined.length))).toBe(
-      true
+      true,
     )
     expect(chunks.every((c) => JSON.stringify(c).length <= 40)).toBe(true)
   })

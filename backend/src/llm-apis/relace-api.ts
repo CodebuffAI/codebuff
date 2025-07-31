@@ -12,7 +12,7 @@ import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Relace API request timed out')), ms)
+    setTimeout(() => reject(new Error('Relace API request timed out')), ms),
   )
 
 export async function promptRelaceAI(
@@ -26,7 +26,7 @@ export async function promptRelaceAI(
     userId: string | undefined
     messageId: string
     userMessage?: string
-  }
+  },
 ) {
   const {
     clientSessionId,
@@ -64,7 +64,7 @@ export async function promptRelaceAI(
 
     if (!response.ok) {
       throw new Error(
-        `Relace API error: ${response.status} ${response.statusText}`
+        `Relace API error: ${response.status} ${response.statusText}`,
       )
     }
 
@@ -100,7 +100,7 @@ export async function promptRelaceAI(
             ? error.message
             : 'Unknown error',
       },
-      'Error calling Relace AI, falling back to o3-mini'
+      'Error calling Relace AI, falling back to o3-mini',
     )
 
     // Fall back to Gemini
@@ -159,7 +159,7 @@ export async function rerank(
     userInputId: string
     userId: string | undefined
     messageId: string
-  }
+  },
 ) {
   const { clientSessionId, fingerprintId, userInputId, userId, messageId } =
     options
@@ -199,7 +199,7 @@ export async function rerank(
 
     if (!response.ok) {
       throw new Error(
-        `Relace API error: ${response.status} ${response.statusText}`
+        `Relace API error: ${response.status} ${response.statusText}`,
       )
     }
 
@@ -238,7 +238,7 @@ export async function rerank(
             ? error.message
             : 'Unknown error',
       },
-      'Error calling Relace ranker API'
+      'Error calling Relace ranker API',
     )
     // Return original files order on error instead of throwing
     return files.map((f) => f.path)

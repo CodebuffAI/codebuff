@@ -20,11 +20,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/use-toast'
 
-
-
-
-
-
 interface ConversationPair {
   userMessage: string | undefined
   assistantResponse: string

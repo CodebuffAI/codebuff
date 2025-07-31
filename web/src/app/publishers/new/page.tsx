@@ -113,7 +113,7 @@ const CreatePublisherPage = () => {
   const handleAvatarChange = async (file: File | null, url: string) => {
     setAvatarFile(file)
     setFormData((prev) => ({ ...prev, avatar_url: url }))
-    
+
     // Track if user explicitly removed the avatar
     if (!file && !url) {
       setHasRemovedAvatar(true)

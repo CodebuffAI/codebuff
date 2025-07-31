@@ -2,7 +2,6 @@ import z from 'zod/v4'
 
 import type { ToolParams } from '../../constants'
 
-
 const toolName = 'spawn_agents'
 const endsAgentStep = true
 export const spawnAgentsParams = {

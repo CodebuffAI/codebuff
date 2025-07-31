@@ -2,7 +2,6 @@ import z from 'zod/v4'
 
 import type { ToolParams } from '../../constants'
 
-
 const toolName = 'web_search'
 const endsAgentStep = true
 export const webSearchParams = {
@@ -19,7 +18,7 @@ export const webSearchParams = {
         .optional()
         .default('standard')
         .describe(
-          `Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'.`
+          `Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'.`,
         ),
     })
     .describe(`Search the web for current information using Linkup API.`),

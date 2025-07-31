@@ -19,7 +19,6 @@ import {
   spyOn,
 } from 'bun:test'
 
-
 // Mock imports
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
@@ -51,7 +50,7 @@ describe('runAgentStep - set_output tool', () => {
     analytics.initAnalytics()
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
-      Promise.resolve(true)
+      Promise.resolve(true),
     )
 
     spyOn(websocketAction, 'requestFiles').mockImplementation(
@@ -67,7 +66,7 @@ describe('runAgentStep - set_output tool', () => {
           }
         })
         return results
-      }
+      },
     )
 
     spyOn(websocketAction, 'requestFile').mockImplementation(
@@ -78,7 +77,7 @@ describe('runAgentStep - set_output tool', () => {
           return 'export interface User { id: string; name: string; }'
         }
         return null
-      }
+      },
     )
 
     spyOn(websocketAction, 'requestToolCall').mockImplementation(async () => ({
@@ -88,7 +87,7 @@ describe('runAgentStep - set_output tool', () => {
 
     // Mock LLM APIs
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
-      Promise.resolve('Test response')
+      Promise.resolve('Test response'),
     )
     clearAgentGeneratorCache()
   })
@@ -167,7 +166,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Analyze the codebase',
         params: undefined,
-      }
+      },
     )
 
     expect(result.agentState.output).toEqual({
@@ -209,7 +208,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Analyze the codebase',
         params: undefined,
-      }
+      },
     )
 
     expect(result.agentState.output).toEqual({
@@ -256,7 +255,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Update the output',
         params: undefined,
-      }
+      },
     )
 
     expect(result.agentState.output).toEqual({
@@ -294,7 +293,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Update with empty object',
         params: undefined,
-      }
+      },
     )
 
     // Should replace with empty object
@@ -344,7 +343,7 @@ describe('runAgentStep - set_output tool', () => {
           }
         })
         return results
-      }
+      },
     )
 
     // Mock the LLM stream to return a response that doesn't end the turn
@@ -370,7 +369,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Test the handleSteps functionality',
         params: undefined,
-      }
+      },
     )
 
     // Should end turn because toolCalls.length === 0 && toolResults.length === 0 from LLM processing
@@ -390,7 +389,7 @@ describe('runAgentStep - set_output tool', () => {
     expect(userPromptMessage.role).toBe('user')
     expect(typeof userPromptMessage.content).toBe('string')
     expect(userPromptMessage.content).toContain(
-      'Test the handleSteps functionality'
+      'Test the handleSteps functionality',
     )
 
     // Second message: user input prompt (user role)
@@ -421,7 +420,7 @@ describe('runAgentStep - set_output tool', () => {
     // Verify requestFiles was called with correct parameters
     expect(websocketAction.requestFiles).toHaveBeenCalledWith(
       expect.any(Object), // WebSocket
-      ['src/test.ts']
+      ['src/test.ts'],
     )
   })
 })

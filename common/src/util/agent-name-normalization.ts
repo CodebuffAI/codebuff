@@ -35,7 +35,7 @@ export function normalizeAgentNames(agentNames: string | string[]): string[] {
  */
 export function resolveAgentId(
   agentId: string,
-  agentRegistry: Record<string, any>
+  agentRegistry: Record<string, any>,
 ): string | null {
   // Handle empty or invalid input
   if (!agentId || typeof agentId !== 'string') {

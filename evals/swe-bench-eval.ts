@@ -13,12 +13,12 @@ import {
 const PREDICTIONS_DIR = path.join(TEST_REPOS_DIR, 'swebench_predictions')
 const SWE_BENCH_RUN_SINGLE_INSTANCE_PATH = path.join(
   SWE_BENCH_REPO_PATH,
-  'run_single_instance.py'
+  'run_single_instance.py',
 )
 
 export async function passesSweBenchTests(
   instanceId: string,
-  projectDir: string
+  projectDir: string,
 ): Promise<boolean> {
   var patch = execSync(`cd ${projectDir} && git diff`, { encoding: 'utf8' })
 
@@ -49,8 +49,8 @@ export async function passesSweBenchTests(
         },
       ],
       null,
-      2
-    )
+      2,
+    ),
   )
 
   console.log(`Running SWE-Bench tests on ${instanceId}...`)

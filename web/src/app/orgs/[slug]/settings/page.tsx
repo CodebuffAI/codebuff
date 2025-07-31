@@ -1,11 +1,6 @@
 'use client'
 
-import {
-  ArrowLeft,
-  Settings,
-  Trash2,
-  AlertTriangle,
-} from 'lucide-react'
+import { ArrowLeft, Settings, Trash2, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -95,7 +90,9 @@ export default function OrganizationSettingsPage() {
       toast({
         title: 'Error',
         description:
-          error instanceof Error ? error.message : 'Failed to update organization',
+          error instanceof Error
+            ? error.message
+            : 'Failed to update organization',
         variant: 'destructive',
       })
     } finally {
@@ -141,7 +138,9 @@ export default function OrganizationSettingsPage() {
       toast({
         title: 'Error',
         description:
-          error instanceof Error ? error.message : 'Failed to delete organization',
+          error instanceof Error
+            ? error.message
+            : 'Failed to delete organization',
         variant: 'destructive',
       })
     } finally {
@@ -174,7 +173,9 @@ export default function OrganizationSettingsPage() {
               <CardTitle>Sign in Required</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">Please sign in to manage organization settings.</p>
+              <p className="mb-4">
+                Please sign in to manage organization settings.
+              </p>
               <Link href="/login">
                 <Button>Sign In</Button>
               </Link>
@@ -217,7 +218,8 @@ export default function OrganizationSettingsPage() {
     return null
   }
 
-  const canManageOrg = organization.userRole === 'owner' || organization.userRole === 'admin'
+  const canManageOrg =
+    organization.userRole === 'owner' || organization.userRole === 'admin'
   const canDeleteOrg = organization.userRole === 'owner'
 
   if (!canManageOrg) {
@@ -229,7 +231,10 @@ export default function OrganizationSettingsPage() {
               <CardTitle>Access Denied</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">You don't have permission to manage this organization's settings.</p>
+              <p className="mb-4">
+                You don't have permission to manage this organization's
+                settings.
+              </p>
               <Link href={`/orgs/${orgSlug}`}>
                 <Button>Back to Organization</Button>
               </Link>
@@ -280,7 +285,9 @@ export default function OrganizationSettingsPage() {
                 <Input
                   id="name"
                   value={updateForm.name}
-                  onChange={(e) => setUpdateForm({ ...updateForm, name: e.target.value })}
+                  onChange={(e) =>
+                    setUpdateForm({ ...updateForm, name: e.target.value })
+                  }
                   placeholder="Enter organization name"
                 />
               </div>
@@ -289,7 +296,12 @@ export default function OrganizationSettingsPage() {
                 <Textarea
                   id="description"
                   value={updateForm.description}
-                  onChange={(e) => setUpdateForm({ ...updateForm, description: e.target.value })}
+                  onChange={(e) =>
+                    setUpdateForm({
+                      ...updateForm,
+                      description: e.target.value,
+                    })
+                  }
                   placeholder="Enter organization description (optional)"
                   rows={3}
                 />
@@ -321,7 +333,8 @@ export default function OrganizationSettingsPage() {
                 <div>
                   <h4 className="font-medium mb-2">Delete Organization</h4>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Permanently delete this organization and all associated data. This action cannot be undone.
+                    Permanently delete this organization and all associated
+                    data. This action cannot be undone.
                   </p>
                   <Button
                     variant="destructive"
@@ -346,7 +359,8 @@ export default function OrganizationSettingsPage() {
                 Delete Organization
               </DialogTitle>
               <DialogDescription>
-                This action cannot be undone. This will permanently delete the organization and all associated data.
+                This action cannot be undone. This will permanently delete the
+                organization and all associated data.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -364,7 +378,11 @@ export default function OrganizationSettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="delete-confirm">
-                  Type <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">{organization.slug}</code> to confirm:
+                  Type{' '}
+                  <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">
+                    {organization.slug}
+                  </code>{' '}
+                  to confirm:
                 </Label>
                 <Input
                   id="delete-confirm"

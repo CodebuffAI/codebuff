@@ -49,13 +49,16 @@ export const appContextStore = new AsyncLocalStorage<AppContext>()
 export function withAppContext<T>(
   loggerData: Partial<LoggerContext>,
   requestData: RequestContextData,
-  callback: () => T
+  callback: () => T,
 ): T {
   const existingContext = appContextStore.getStore()
-  return appContextStore.run({
-    logger: { ...existingContext?.logger, ...loggerData },
-    request: { ...existingContext?.request, ...requestData }
-  }, callback)
+  return appContextStore.run(
+    {
+      logger: { ...existingContext?.logger, ...loggerData },
+      request: { ...existingContext?.request, ...requestData },
+    },
+    callback,
+  )
 }
 
 /**
@@ -100,6 +103,8 @@ export function getRequestContext(): RequestContextData | undefined {
 /**
  * Helper function to update just the request context.
  */
-export function updateRequestContext(updates: Partial<RequestContextData>): void {
+export function updateRequestContext(
+  updates: Partial<RequestContextData>,
+): void {
   updateAppContext({ request: updates })
 }

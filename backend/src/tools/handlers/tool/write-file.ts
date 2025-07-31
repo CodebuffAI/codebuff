@@ -1,4 +1,3 @@
-
 import { partition } from 'lodash'
 
 import { processFileBlock } from '../../../process-file-block'
@@ -41,7 +40,7 @@ export type OptionalFileProcessingState = {
 }
 
 export function getFileProcessingValues(
-  state: OptionalFileProcessingState
+  state: OptionalFileProcessingState,
 ): FileProcessingState {
   const fileProcessingValues: FileProcessingState = {
     promisesByPath: {},
@@ -67,7 +66,7 @@ export const handleWriteFile = ((params: {
   userInputId: string
 
   requestClientToolCall: (
-    toolCall: ClientToolCall<'write_file'>
+    toolCall: ClientToolCall<'write_file'>,
   ) => Promise<string>
   writeToClient: (chunk: string) => void
 
@@ -104,7 +103,7 @@ export const handleWriteFile = ((params: {
   }
   if (!fingerprintId) {
     throw new Error(
-      'Internal error for write_file: Missing fingerprintId in state'
+      'Internal error for write_file: Missing fingerprintId in state',
     )
   }
 
@@ -127,7 +126,7 @@ export const handleWriteFile = ((params: {
     ? previousEdit.then((maybeResult) =>
         maybeResult && 'content' in maybeResult
           ? maybeResult.content
-          : requestOptionalFile(ws, path)
+          : requestOptionalFile(ws, path),
       )
     : requestOptionalFile(ws, path)
 
@@ -148,7 +147,7 @@ export const handleWriteFile = ((params: {
     clientSessionId,
     fingerprintId,
     userInputId,
-    userId
+    userId,
   )
     .catch((error) => {
       logger.error(error, 'Error processing write_file block')
@@ -171,7 +170,7 @@ export const handleWriteFile = ((params: {
         await newPromise,
         getLatestState(),
         writeToClient,
-        requestClientToolCall
+        requestClientToolCall,
       )
     }),
     state: fileProcessingState,
@@ -182,10 +181,10 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
   toolCall: FileProcessing<T>,
   fileProcessingState: FileProcessingState,
   writeToClient: (chunk: string) => void,
-  requestClientToolCall: (toolCall: ClientToolCall<T>) => Promise<string>
+  requestClientToolCall: (toolCall: ClientToolCall<T>) => Promise<string>,
 ) {
   const allFileProcessingResults = await Promise.all(
-    fileProcessingState.allPromises
+    fileProcessingState.allPromises,
   )
   if (!fileProcessingState.firstFileProcessed) {
     ;[fileProcessingState.fileChangeErrors, fileProcessingState.fileChanges] =
@@ -205,7 +204,7 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
     // Update the arrays with new results for subsequent tool calls
     const [newErrors, newChanges] = partition(
       allFileProcessingResults,
-      (result) => 'error' in result
+      (result) => 'error' in result,
     )
     fileProcessingState.fileChangeErrors = newErrors as Extract<
       FileProcessing,
@@ -220,14 +219,14 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
   const toolCallResults: string[] = []
 
   const errors = fileProcessingState.fileChangeErrors.filter(
-    (result) => result.toolCallId === toolCall.toolCallId
+    (result) => result.toolCallId === toolCall.toolCallId,
   )
   toolCallResults.push(
-    ...errors.map(({ path, error }) => `Error processing ${path}: ${error}`)
+    ...errors.map(({ path, error }) => `Error processing ${path}: ${error}`),
   )
 
   const changes = fileProcessingState.fileChanges.filter(
-    (result) => result.toolCallId === toolCall.toolCallId
+    (result) => result.toolCallId === toolCall.toolCallId,
   )
   for (const { path, content, patch } of changes) {
     const clientToolCall: ClientToolCall<T> = {

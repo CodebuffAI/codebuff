@@ -16,7 +16,7 @@ import type { GrantType } from '@codebuff/common/db/schema'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
 type DbTransaction = Parameters<typeof db.transaction>[0] extends (
-  tx: infer T
+  tx: infer T,
 ) => any
   ? T
   : never
@@ -31,7 +31,7 @@ type DbTransaction = Parameters<typeof db.transaction>[0] extends (
  * @returns The amount of the last expired free grant (capped at 2000) or the default.
  */
 export async function getPreviousFreeGrantAmount(
-  userId: string
+  userId: string,
 ): Promise<number> {
   const now = new Date()
   const lastExpiredFreeGrant = await db
@@ -43,8 +43,8 @@ export async function getPreviousFreeGrantAmount(
       and(
         eq(schema.creditLedger.user_id, userId),
         eq(schema.creditLedger.type, 'free'),
-        lte(schema.creditLedger.expires_at, now) // Grant has expired
-      )
+        lte(schema.creditLedger.expires_at, now), // Grant has expired
+      ),
     )
     .orderBy(desc(schema.creditLedger.expires_at)) // Most recent expiry first
     .limit(1)
@@ -54,13 +54,13 @@ export async function getPreviousFreeGrantAmount(
     const cappedAmount = Math.min(lastExpiredFreeGrant[0].principal, 2000)
     logger.debug(
       { userId, amount: lastExpiredFreeGrant[0].principal },
-      'Found previous expired free grant amount.'
+      'Found previous expired free grant amount.',
     )
     return cappedAmount
   } else {
     logger.debug(
       { userId, defaultAmount: DEFAULT_FREE_CREDITS_GRANT },
-      'No previous expired free grant found. Using default.'
+      'No previous expired free grant found. Using default.',
     )
     return DEFAULT_FREE_CREDITS_GRANT // Default if no previous grant found
   }
@@ -73,7 +73,7 @@ export async function getPreviousFreeGrantAmount(
  * @returns The total referral bonus credits earned.
  */
 export async function calculateTotalReferralBonus(
-  userId: string
+  userId: string,
 ): Promise<number> {
   try {
     const result = await db
@@ -84,8 +84,8 @@ export async function calculateTotalReferralBonus(
       .where(
         or(
           eq(schema.referral.referrer_id, userId),
-          eq(schema.referral.referred_id, userId)
-        )
+          eq(schema.referral.referred_id, userId),
+        ),
       )
 
     const totalBonus = parseInt(result[0]?.totalCredits ?? '0')
@@ -94,7 +94,7 @@ export async function calculateTotalReferralBonus(
   } catch (error) {
     logger.error(
       { userId, error },
-      'Error calculating total referral bonus. Returning 0.'
+      'Error calculating total referral bonus. Returning 0.',
     )
     return 0
   }
@@ -110,7 +110,7 @@ export async function grantCreditOperation(
   description: string,
   expiresAt: Date | null,
   operationId: string,
-  tx?: DbTransaction
+  tx?: DbTransaction,
 ) {
   const dbClient = tx || db
 
@@ -134,16 +134,16 @@ export async function grantCreditOperation(
         eq(schema.creditLedger.user_id, userId),
         or(
           isNull(schema.creditLedger.expires_at),
-          gt(schema.creditLedger.expires_at, now)
-        )
-      )
+          gt(schema.creditLedger.expires_at, now),
+        ),
+      ),
     )
     .then((grants) => grants.filter((g) => g.balance < 0))
 
   if (negativeGrants.length > 0) {
     const totalDebt = negativeGrants.reduce(
       (sum, g) => sum + Math.abs(g.balance),
-      0
+      0,
     )
     for (const grant of negativeGrants) {
       await dbClient
@@ -172,7 +172,7 @@ export async function grantCreditOperation(
         if (isUniqueConstraintError(error)) {
           logger.info(
             { userId, operationId, type, amount },
-            'Skipping duplicate credit grant due to idempotency check'
+            'Skipping duplicate credit grant due to idempotency check',
           )
           return
         }
@@ -197,7 +197,7 @@ export async function grantCreditOperation(
       if (isUniqueConstraintError(error)) {
         logger.info(
           { userId, operationId, type, amount },
-          'Skipping duplicate credit grant due to idempotency check'
+          'Skipping duplicate credit grant due to idempotency check',
         )
         return
       }
@@ -215,7 +215,7 @@ export async function grantCreditOperation(
 
   logger.info(
     { userId, operationId, type, amount, expiresAt },
-    'Created new credit grant'
+    'Created new credit grant',
   )
 }
 
@@ -229,7 +229,7 @@ export async function processAndGrantCredit(
   type: GrantType,
   description: string,
   expiresAt: Date | null,
-  operationId: string
+  operationId: string,
 ): Promise<void> {
   try {
     await withRetry(
@@ -240,7 +240,7 @@ export async function processAndGrantCredit(
           type,
           description,
           expiresAt,
-          operationId
+          operationId,
         ),
       {
         maxRetries: 3,
@@ -248,16 +248,16 @@ export async function processAndGrantCredit(
         onRetry: (error, attempt) => {
           logger.warn(
             { operationId, attempt, error },
-            `processAndGrantCredit retry ${attempt}`
+            `processAndGrantCredit retry ${attempt}`,
           )
         },
-      }
+      },
     )
   } catch (error: any) {
     await logSyncFailure(operationId, error.message, 'internal')
     logger.error(
       { operationId, error },
-      'processAndGrantCredit failed after retries, logged to sync_failure'
+      'processAndGrantCredit failed after retries, logged to sync_failure',
     )
     throw error
   }
@@ -273,7 +273,7 @@ export async function processAndGrantCredit(
  */
 export async function revokeGrantByOperationId(
   operationId: string,
-  reason: string
+  reason: string,
 ): Promise<boolean> {
   return await db.transaction(async (tx) => {
     const grant = await tx.query.creditLedger.findFirst({
@@ -288,7 +288,7 @@ export async function revokeGrantByOperationId(
     if (grant.balance < 0) {
       logger.warn(
         { operationId, currentBalance: grant.balance },
-        'Cannot revoke grant with negative balance - user has already spent these credits'
+        'Cannot revoke grant with negative balance - user has already spent these credits',
       )
       return false
     }
@@ -309,7 +309,7 @@ export async function revokeGrantByOperationId(
         revokedAmount: grant.balance,
         reason,
       },
-      'Revoked credit grant'
+      'Revoked credit grant',
     )
 
     return true
@@ -327,7 +327,7 @@ export async function revokeGrantByOperationId(
  * @returns The effective quota reset date (either existing or new)
  */
 export async function triggerMonthlyResetAndGrant(
-  userId: string
+  userId: string,
 ): Promise<Date> {
   return await db.transaction(async (tx) => {
     const now = new Date()
@@ -378,7 +378,7 @@ export async function triggerMonthlyResetAndGrant(
       'free',
       'Monthly free credits',
       newResetDate, // Free credits expire at next reset
-      freeOperationId
+      freeOperationId,
     )
 
     // Only grant referral credits if there are any
@@ -389,7 +389,7 @@ export async function triggerMonthlyResetAndGrant(
         'referral',
         'Monthly referral bonus',
         newResetDate, // Referral credits expire at next reset
-        referralOperationId
+        referralOperationId,
       )
     }
 
@@ -403,7 +403,7 @@ export async function triggerMonthlyResetAndGrant(
         newResetDate,
         previousResetDate: currentResetDate,
       },
-      'Processed monthly credit grants and reset'
+      'Processed monthly credit grants and reset',
     )
 
     return newResetDate

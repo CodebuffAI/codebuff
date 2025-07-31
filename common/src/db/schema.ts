@@ -15,7 +15,7 @@ import {
 import { GrantTypeValues } from '../types/grant'
 import { ReferralStatusValues } from '../types/referral'
 
-import type { SQL} from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm'
 import type { AdapterAccount } from 'next-auth/adapters'
 
 export const ReferralStatus = pgEnum('referral_status', [
@@ -47,7 +47,7 @@ export const user = pgTable('user', {
   stripe_customer_id: text('stripe_customer_id').unique(),
   stripe_price_id: text('stripe_price_id'),
   next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
-    sql<Date>`now() + INTERVAL '1 month'`
+    sql<Date>`now() + INTERVAL '1 month'`,
   ),
   created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
   referral_code: text('referral_code')
@@ -82,7 +82,7 @@ export const account = pgTable(
     primaryKey({
       columns: [account.provider, account.providerAccountId],
     }),
-  ]
+  ],
 )
 
 export const creditLedger = pgTable(
@@ -110,11 +110,11 @@ export const creditLedger = pgTable(
         table.balance,
         table.expires_at,
         table.priority,
-        table.created_at
+        table.created_at,
       )
       .where(sql`${table.balance} != 0 AND ${table.expires_at} IS NULL`),
     idx_credit_ledger_org: index('idx_credit_ledger_org').on(table.org_id),
-  })
+  }),
 )
 
 export const syncFailure = pgTable(
@@ -141,7 +141,7 @@ export const syncFailure = pgTable(
     idx_sync_failure_retry: index('idx_sync_failure_retry')
       .on(table.retry_count, table.last_attempt_at)
       .where(sql`${table.retry_count} < 5`),
-  })
+  }),
 )
 
 export const referral = pgTable(
@@ -160,7 +160,7 @@ export const referral = pgTable(
       .defaultNow(),
     completed_at: timestamp('completed_at', { mode: 'date' }),
   },
-  (table) => [primaryKey({ columns: [table.referrer_id, table.referred_id] })]
+  (table) => [primaryKey({ columns: [table.referrer_id, table.referred_id] })],
 )
 
 export const fingerprint = pgTable('fingerprint', {
@@ -179,7 +179,7 @@ export const message = pgTable(
     model: text('model').notNull(),
     request: jsonb('request').notNull(),
     lastMessage: jsonb('last_message').generatedAlwaysAs(
-      (): SQL => sql`${message.request} -> -1`
+      (): SQL => sql`${message.request} -> -1`,
     ),
     response: jsonb('response').notNull(),
     input_tokens: integer('input_tokens').notNull().default(0),
@@ -206,11 +206,11 @@ export const message = pgTable(
     index('message_user_id_idx').on(table.user_id),
     index('message_finished_at_user_id_idx').on(
       table.finished_at,
-      table.user_id
+      table.user_id,
     ),
     index('message_org_id_idx').on(table.org_id),
     index('message_org_id_finished_at_idx').on(table.org_id, table.finished_at),
-  ]
+  ],
 )
 
 export const session = pgTable('session', {
@@ -229,7 +229,7 @@ export const verificationToken = pgTable(
     token: text('token').notNull(),
     expires: timestamp('expires', { mode: 'date' }).notNull(),
   },
-  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
+  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })],
 )
 
 export const encryptedApiKeys = pgTable(
@@ -243,7 +243,7 @@ export const encryptedApiKeys = pgTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.user_id, table.type] }),
-  })
+  }),
 )
 
 // Organization tables
@@ -298,7 +298,7 @@ export const orgMember = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.org_id, table.user_id] })]
+  (table) => [primaryKey({ columns: [table.org_id, table.user_id] })],
 )
 
 export const orgRepo = pgTable(
@@ -325,7 +325,7 @@ export const orgRepo = pgTable(
     index('idx_org_repo_active').on(table.org_id, table.is_active),
     // Unique constraint on org + repo URL
     index('idx_org_repo_unique').on(table.org_id, table.repo_url),
-  ]
+  ],
 )
 
 export const orgInvite = pgTable(
@@ -357,12 +357,12 @@ export const orgInvite = pgTable(
     idx_org_invite_token: index('idx_org_invite_token').on(table.token),
     idx_org_invite_email: index('idx_org_invite_email').on(
       table.org_id,
-      table.email
+      table.email,
     ),
     idx_org_invite_expires: index('idx_org_invite_expires').on(
-      table.expires_at
+      table.expires_at,
     ),
-  })
+  }),
 )
 
 export const orgFeature = pgTable(
@@ -384,7 +384,7 @@ export const orgFeature = pgTable(
   (table) => [
     primaryKey({ columns: [table.org_id, table.feature] }),
     index('idx_org_feature_active').on(table.org_id, table.is_active),
-  ]
+  ],
 )
 
 export type GitEvalMetadata = {
@@ -453,15 +453,15 @@ export const agentConfig = pgTable(
       .references(() => publisher.id),
     major: integer('major').generatedAlwaysAs(
       (): SQL =>
-        sql`CAST(SPLIT_PART(${agentConfig.version}, '.', 1) AS INTEGER)`
+        sql`CAST(SPLIT_PART(${agentConfig.version}, '.', 1) AS INTEGER)`,
     ),
     minor: integer('minor').generatedAlwaysAs(
       (): SQL =>
-        sql`CAST(SPLIT_PART(${agentConfig.version}, '.', 2) AS INTEGER)`
+        sql`CAST(SPLIT_PART(${agentConfig.version}, '.', 2) AS INTEGER)`,
     ),
     patch: integer('patch').generatedAlwaysAs(
       (): SQL =>
-        sql`CAST(SPLIT_PART(${agentConfig.version}, '.', 3) AS INTEGER)`
+        sql`CAST(SPLIT_PART(${agentConfig.version}, '.', 3) AS INTEGER)`,
     ),
     data: jsonb('data').notNull(), // All agentConfig details
     created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
@@ -474,5 +474,5 @@ export const agentConfig = pgTable(
   (table) => [
     primaryKey({ columns: [table.id, table.version] }),
     index('idx_agent_config_publisher').on(table.publisher_id),
-  ]
+  ],
 )

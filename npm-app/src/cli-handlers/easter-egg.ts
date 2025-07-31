@@ -26,16 +26,16 @@ function quadraticBezier(
   P0: { x: number; y: number },
   P1: { x: number; y: number },
   P2: { x: number; y: number },
-  steps: number
+  steps: number,
 ) {
   const points = []
   for (let i = 0; i <= steps; i++) {
     const t = i / steps
     const x = Math.round(
-      (1 - t) ** 2 * P0.x + 2 * (1 - t) * t * P1.x + t ** 2 * P2.x
+      (1 - t) ** 2 * P0.x + 2 * (1 - t) * t * P1.x + t ** 2 * P2.x,
     )
     const y = Math.round(
-      (1 - t) ** 2 * P0.y + 2 * (1 - t) * t * P1.y + t ** 2 * P2.y
+      (1 - t) ** 2 * P0.y + 2 * (1 - t) * t * P1.y + t ** 2 * P2.y,
     )
     points.push({ x, y })
   }
@@ -61,7 +61,7 @@ function generateBPath(
   bYBottom: number,
   bWidth: number,
   bGap: number,
-  stepsPerCurve: number
+  stepsPerCurve: number,
 ) {
   let points: { x: number; y: number }[] = []
   const middle = Math.floor((bYTop + bYBottom) / 2)
@@ -77,7 +77,7 @@ function generateBPath(
     upperStart,
     upperControl,
     upperEnd,
-    stepsPerCurve
+    stepsPerCurve,
   )
 
   // Lower bubble: from the middle to the bottom.
@@ -91,7 +91,7 @@ function generateBPath(
     lowerStart,
     lowerControl,
     lowerEnd,
-    stepsPerCurve
+    stepsPerCurve,
   )
 
   // Combine the curves.
@@ -119,7 +119,7 @@ export async function showEasterEgg(complete: () => void) {
   const baselineHeight = 24
   const scaleFactor = Math.min(
     termWidth / baselineWidth,
-    termHeight / baselineHeight
+    termHeight / baselineHeight,
   )
 
   // Dynamically scale parameters for the shapes.

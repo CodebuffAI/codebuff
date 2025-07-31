@@ -24,25 +24,27 @@ export interface BillingStatus {
 }
 
 // Query functions
-const fetchOrganizationBySlug = async (slug: string): Promise<OrganizationDetails> => {
+const fetchOrganizationBySlug = async (
+  slug: string
+): Promise<OrganizationDetails> => {
   const response = await fetch(`/api/orgs/slug/${slug}`)
-  
+
   if (!response.ok) {
     const error = await response.json()
     throw new Error(error.error || 'Failed to fetch organization')
   }
-  
+
   return response.json()
 }
 
 const fetchBillingStatus = async (orgId: string): Promise<BillingStatus> => {
   const response = await fetch(`/api/orgs/${orgId}/billing/setup`)
-  
+
   if (!response.ok) {
     const error = await response.json()
     throw new Error(error.error || 'Failed to fetch billing status')
   }
-  
+
   return response.json()
 }
 
@@ -54,7 +56,7 @@ export function useOrganizationData(orgSlug: string) {
     data: organization,
     isLoading: isLoadingOrg,
     error: orgError,
-    isError: isOrgError
+    isError: isOrgError,
   } = useQuery({
     queryKey: ['organization', orgSlug],
     queryFn: () => fetchOrganizationBySlug(orgSlug),
@@ -62,10 +64,7 @@ export function useOrganizationData(orgSlug: string) {
   })
 
   // Query for billing status (depends on organization data)
-  const {
-    data: billingStatus,
-    isLoading: isLoadingBilling,
-  } = useQuery({
+  const { data: billingStatus, isLoading: isLoadingBilling } = useQuery({
     queryKey: ['billing-status', organization?.id],
     queryFn: () => fetchBillingStatus(organization!.id),
     enabled: !!organization?.id,

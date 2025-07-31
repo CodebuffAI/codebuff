@@ -1,11 +1,9 @@
-
-
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 
-import type { Relabel , GetRelevantFilesTrace } from '@codebuff/bigquery'
+import type { Relabel, GetRelevantFilesTrace } from '@codebuff/bigquery'
 
 const PROMPT = `
 You are an evaluator system, measuring how well various models perform at selecting the most relevant files for a given user request.
@@ -59,7 +57,7 @@ function modelsToXML(models: { model: string; output: string }[]) {
         `<output>
 <model_id>${index + 1}${closeXml('model_id')}
 ${model.output}
-${closeXml('output')}`
+${closeXml('output')}`,
     )
     .join('\n')
 }
@@ -74,7 +72,7 @@ function extractResponse(response: string): {
 
   const scoresXml = scoresMatch[1]
   const scoreMatches = scoresXml.match(
-    /<score>[\s\S]*?<model_id>(\d+)<\/model_id>[\s\S]*?<score>(\d+)<\/score>[\s\S]*?<\/score>/g
+    /<score>[\s\S]*?<model_id>(\d+)<\/model_id>[\s\S]*?<score>(\d+)<\/score>[\s\S]*?<\/score>/g,
   )
 
   if (!scoreMatches) {

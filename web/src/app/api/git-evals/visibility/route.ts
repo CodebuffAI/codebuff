@@ -3,7 +3,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { checkAdminAuth } from '@/lib/admin-auth'
 import { logger } from '@/util/logger'

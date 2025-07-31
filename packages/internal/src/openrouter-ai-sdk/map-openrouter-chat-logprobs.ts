@@ -1,19 +1,19 @@
-import type { LanguageModelV1LogProbs } from '@ai-sdk/provider';
+import type { LanguageModelV1LogProbs } from '@ai-sdk/provider'
 
 type OpenRouterChatLogProbs = {
   content:
     | {
-        token: string;
-        logprob: number;
+        token: string
+        logprob: number
         top_logprobs:
           | {
-              token: string;
-              logprob: number;
+              token: string
+              logprob: number
             }[]
-          | null;
+          | null
       }[]
-    | null;
-};
+    | null
+}
 
 export function mapOpenRouterChatLogProbsOutput(
   logprobs: OpenRouterChatLogProbs | null | undefined,
@@ -29,5 +29,5 @@ export function mapOpenRouterChatLogProbsOutput(
           }))
         : [],
     })) ?? undefined
-  );
+  )
 }

@@ -1,5 +1,3 @@
-
-
 import { asyncAgentManager } from '../../../async-agent-manager'
 import { logger } from '../../../util/logger'
 
@@ -21,7 +19,7 @@ export const handleSendAgentMessage = ((params: {
 
   if (!agentState) {
     throw new Error(
-      'Internal error for send_agent_message: Missing agentState in state'
+      'Internal error for send_agent_message: Missing agentState in state',
     )
   }
 
@@ -59,7 +57,7 @@ export const handleSendAgentMessage = ((params: {
         toAgentId: targetAgentId,
         prompt: prompt.slice(0, 50) + '...',
       },
-      'Sent message to agent'
+      'Sent message to agent',
     )
 
     return `Message sent to agent ${targetAgentId}`

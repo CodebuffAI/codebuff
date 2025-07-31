@@ -1,17 +1,16 @@
-
 import {
   calculateUsageAndBalance,
   triggerMonthlyResetAndGrant,
   checkAndTriggerAutoTopup,
   checkAndTriggerOrgAutoTopup,
-
   calculateOrganizationUsageAndBalance,
-  extractOwnerAndRepo, findOrganizationForRepository } from '@codebuff/billing'
+  extractOwnerAndRepo,
+  findOrganizationForRepository,
+} from '@codebuff/billing'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { pluralize } from '@codebuff/common/util/string'
 import { eq } from 'drizzle-orm'
-
 
 import { getUserInfoFromAuthToken } from './auth'
 import { updateRequestContext } from './request-context'
@@ -20,7 +19,7 @@ import { withAppContext } from '../context/app-context'
 import { checkAuth } from '../util/check-auth'
 import { logger } from '../util/logger'
 
-import type { UserInfo } from './auth';
+import type { UserInfo } from './auth'
 import type { ClientAction, ServerAction } from '@codebuff/common/actions'
 import type { WebSocket } from 'ws'
 
@@ -28,7 +27,7 @@ type MiddlewareCallback = (
   action: ClientAction,
   clientSessionId: string,
   ws: WebSocket,
-  userInfo: UserInfo | undefined
+  userInfo: UserInfo | undefined,
 ) => Promise<void | ServerAction>
 
 export class WebSocketMiddleware {
@@ -39,8 +38,8 @@ export class WebSocketMiddleware {
       action: Extract<ClientAction, { type: T }>,
       clientSessionId: string,
       ws: WebSocket,
-      userInfo: UserInfo | undefined
-    ) => Promise<void | ServerAction>
+      userInfo: UserInfo | undefined,
+    ) => Promise<void | ServerAction>,
   ) {
     this.middlewares.push(callback as MiddlewareCallback)
   }
@@ -49,7 +48,7 @@ export class WebSocketMiddleware {
     action: ClientAction,
     clientSessionId: string,
     ws: WebSocket,
-    options: { silent?: boolean } = {}
+    options: { silent?: boolean } = {},
   ): Promise<boolean> {
     const userInfo =
       'authToken' in action && action.authToken
@@ -61,7 +60,7 @@ export class WebSocketMiddleware {
         action,
         clientSessionId,
         ws,
-        userInfo
+        userInfo,
       )
       if (actionOrContinue) {
         logger.warn(
@@ -70,7 +69,7 @@ export class WebSocketMiddleware {
             middlewareResp: actionOrContinue.type,
             clientSessionId,
           },
-          'Middleware execution halted.'
+          'Middleware execution halted.',
         )
         if (!options.silent) {
           sendAction(ws, actionOrContinue)
@@ -85,14 +84,14 @@ export class WebSocketMiddleware {
     baseAction: (
       action: Extract<ClientAction, { type: T }>,
       clientSessionId: string,
-      ws: WebSocket
+      ws: WebSocket,
     ) => void,
-    options: { silent?: boolean } = {}
+    options: { silent?: boolean } = {},
   ) {
     return async (
       action: Extract<ClientAction, { type: T }>,
       clientSessionId: string,
-      ws: WebSocket
+      ws: WebSocket,
     ) => {
       const userInfo =
         'authToken' in action
@@ -113,12 +112,12 @@ export class WebSocketMiddleware {
             action,
             clientSessionId,
             ws,
-            options
+            options,
           )
           if (shouldContinue) {
             baseAction(action, clientSessionId, ws)
           }
-        }
+        },
       )
     }
   }
@@ -131,7 +130,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) =>
     fingerprintId: 'fingerprintId' in action ? action.fingerprintId : undefined,
     authToken: 'authToken' in action ? action.authToken : undefined,
     clientSessionId,
-  })
+  }),
 )
 
 // Organization repository coverage detection middleware
@@ -156,7 +155,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     if (!ownerRepo) {
       logger.debug(
         { userId, repoUrl },
-        'Could not extract owner/repo from repository URL'
+        'Could not extract owner/repo from repository URL',
       )
       return undefined
     }
@@ -190,7 +189,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
             errorType:
               error instanceof Error ? error.constructor.name : typeof error,
           },
-          'Error during organization auto top-up check in middleware'
+          'Error during organization auto top-up check in middleware',
         )
         // Continue execution to check remaining balance
       }
@@ -203,7 +202,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
         await calculateOrganizationUsageAndBalance(
           orgLookup.organizationId,
           orgQuotaResetDate,
-          now
+          now,
         )
 
       if (orgBalance.totalRemaining <= 0) {
@@ -221,7 +220,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
             organizationName: orgName,
             orgBalance: orgBalance.netBalance,
           },
-          'Organization has insufficient credits, gating request.'
+          'Organization has insufficient credits, gating request.',
         )
         return {
           type: 'action-error',
@@ -260,7 +259,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   } catch (error) {
     logger.error(
       { userId, repoUrl, error },
-      'Error processing organization repository coverage'
+      'Error processing organization repository coverage',
     )
   }
 
@@ -279,7 +278,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
         fingerprintId,
         actionType: action.type,
       },
-      'Missing user or fingerprint ID'
+      'Missing user or fingerprint ID',
     )
     return {
       type: 'action-error',
@@ -321,14 +320,14 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
         errorType:
           error instanceof Error ? error.constructor.name : typeof error,
       },
-      'Error during auto top-up check in middleware'
+      'Error during auto top-up check in middleware',
     )
     // Continue execution to check remaining balance
   }
 
   const { usageThisCycle, balance } = await calculateUsageAndBalance(
     userId,
-    user?.next_quota_reset ?? new Date(0)
+    user?.next_quota_reset ?? new Date(0),
   )
 
   // Check if we have enough remaining credits

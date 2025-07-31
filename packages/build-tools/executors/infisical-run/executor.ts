@@ -21,7 +21,7 @@ function isInfisicalAvailable(): boolean {
 
 export default async function infisicalRunExecutor(
   options: InfisicalRunExecutorOptions,
-  context: ExecutorContext
+  context: ExecutorContext,
 ): Promise<{ success: boolean }> {
   const { command, cwd, logLevel = 'warn', env } = options
 

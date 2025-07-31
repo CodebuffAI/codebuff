@@ -11,7 +11,11 @@ import { calculateOrganizationUsageAndBalance } from './org-billing'
 export interface OrganizationCreditAlert {
   organizationId: string
   organizationName?: string
-  alertType: 'low_balance' | 'high_usage' | 'failed_consumption' | 'billing_setup_required'
+  alertType:
+    | 'low_balance'
+    | 'high_usage'
+    | 'failed_consumption'
+    | 'billing_setup_required'
   currentBalance?: number
   threshold?: number
   usageAmount?: number
@@ -31,7 +35,11 @@ export interface OrganizationUsageMetrics {
 
 export interface OrganizationAlert {
   id: string
-  type: 'low_balance' | 'high_usage' | 'auto_topup_failed' | 'credit_limit_reached'
+  type:
+    | 'low_balance'
+    | 'high_usage'
+    | 'auto_topup_failed'
+    | 'credit_limit_reached'
   severity: 'info' | 'warning' | 'critical'
   title: string
   message: string
@@ -43,7 +51,7 @@ export interface OrganizationAlert {
  * Gets organization alerts for UI display
  */
 export async function getOrganizationAlerts(
-  organizationId: string
+  organizationId: string,
 ): Promise<OrganizationAlert[]> {
   const alerts: OrganizationAlert[] = []
 
@@ -60,11 +68,12 @@ export async function getOrganizationAlerts(
     // Check current balance
     const now = new Date()
     const quotaResetDate = getNextQuotaReset(now)
-    const { balance, usageThisCycle } = await calculateOrganizationUsageAndBalance(
-      organizationId,
-      quotaResetDate,
-      now
-    )
+    const { balance, usageThisCycle } =
+      await calculateOrganizationUsageAndBalance(
+        organizationId,
+        quotaResetDate,
+        now,
+      )
 
     // Low balance alert
     if (organization.billing_alerts && balance.netBalance < 500) {
@@ -74,7 +83,7 @@ export async function getOrganizationAlerts(
         severity: balance.netBalance < 100 ? 'critical' : 'warning',
         title: 'Low Credit Balance',
         message: `Organization has ${balance.netBalance} credits remaining`,
-        timestamp: new Date()
+        timestamp: new Date(),
       })
     }
 
@@ -86,19 +95,23 @@ export async function getOrganizationAlerts(
         severity: 'info',
         title: 'High Usage This Cycle',
         message: `Organization has used ${usageThisCycle} credits this billing cycle`,
-        timestamp: new Date()
+        timestamp: new Date(),
       })
     }
 
     // Credit limit alert
-    if (organization.credit_limit && usageThisCycle >= organization.credit_limit * 0.9) {
+    if (
+      organization.credit_limit &&
+      usageThisCycle >= organization.credit_limit * 0.9
+    ) {
       alerts.push({
         id: `credit-limit-${organizationId}`,
         type: 'credit_limit_reached',
-        severity: usageThisCycle >= organization.credit_limit ? 'critical' : 'warning',
+        severity:
+          usageThisCycle >= organization.credit_limit ? 'critical' : 'warning',
         title: 'Credit Limit Approaching',
         message: `Organization has used ${usageThisCycle} of ${organization.credit_limit} credits this month (${Math.round((usageThisCycle / organization.credit_limit) * 100)}%)`,
-        timestamp: new Date()
+        timestamp: new Date(),
       })
     }
 
@@ -109,7 +122,7 @@ export async function getOrganizationAlerts(
   } catch (error) {
     logger.error(
       { organizationId, error },
-      'Error generating organization alerts'
+      'Error generating organization alerts',
     )
     return alerts
   }
@@ -118,7 +131,9 @@ export async function getOrganizationAlerts(
 /**
  * Sends alerts for organization credit issues
  */
-export async function sendOrganizationAlert(alert: OrganizationCreditAlert): Promise<void> {
+export async function sendOrganizationAlert(
+  alert: OrganizationCreditAlert,
+): Promise<void> {
   try {
     // Log the alert
     logger.warn(
@@ -131,7 +146,7 @@ export async function sendOrganizationAlert(alert: OrganizationCreditAlert): Pro
         error: alert.error,
         metadata: alert.metadata,
       },
-      `Organization alert: ${alert.alertType}`
+      `Organization alert: ${alert.alertType}`,
     )
 
     // Track analytics event
@@ -162,46 +177,51 @@ export async function sendOrganizationAlert(alert: OrganizationCreditAlert): Pro
         break
     }
   } catch (error) {
-    logger.error(
-      { alert, error },
-      'Failed to send organization alert'
-    )
+    logger.error({ alert, error }, 'Failed to send organization alert')
   }
 }
 
-async function handleLowBalanceAlert(alert: OrganizationCreditAlert): Promise<void> {
+async function handleLowBalanceAlert(
+  alert: OrganizationCreditAlert,
+): Promise<void> {
   // TODO: Send email to organization owners about low balance
   // TODO: Suggest auto-topup or manual credit purchase
   logger.info(
     { organizationId: alert.organizationId, balance: alert.currentBalance },
-    'Low balance alert sent to organization owners'
+    'Low balance alert sent to organization owners',
   )
 }
 
-async function handleHighUsageAlert(alert: OrganizationCreditAlert): Promise<void> {
+async function handleHighUsageAlert(
+  alert: OrganizationCreditAlert,
+): Promise<void> {
   // TODO: Send usage spike notification
   // TODO: Provide usage breakdown and recommendations
   logger.info(
     { organizationId: alert.organizationId, usage: alert.usageAmount },
-    'High usage alert sent to organization admins'
+    'High usage alert sent to organization admins',
   )
 }
 
-async function handleFailedConsumptionAlert(alert: OrganizationCreditAlert): Promise<void> {
+async function handleFailedConsumptionAlert(
+  alert: OrganizationCreditAlert,
+): Promise<void> {
   // TODO: Send immediate notification about failed credit consumption
   // TODO: Provide troubleshooting steps
   logger.error(
     { organizationId: alert.organizationId, error: alert.error },
-    'Failed consumption alert sent to organization owners'
+    'Failed consumption alert sent to organization owners',
   )
 }
 
-async function handleBillingSetupAlert(alert: OrganizationCreditAlert): Promise<void> {
+async function handleBillingSetupAlert(
+  alert: OrganizationCreditAlert,
+): Promise<void> {
   // TODO: Send setup reminder to organization owners
   // TODO: Provide setup instructions and links
   logger.info(
     { organizationId: alert.organizationId },
-    'Billing setup reminder sent to organization owners'
+    'Billing setup reminder sent to organization owners',
   )
 }
 
@@ -212,7 +232,7 @@ export async function monitorOrganizationCredits(
   organizationId: string,
   currentBalance: number,
   recentUsage: number,
-  organizationName?: string
+  organizationName?: string,
 ): Promise<void> {
   const LOW_BALANCE_THRESHOLD = 100 // Credits
   const HIGH_USAGE_THRESHOLD = 1000 // Credits per day
@@ -253,7 +273,7 @@ export async function monitorOrganizationCredits(
   } catch (error) {
     logger.error(
       { organizationId, error },
-      'Error monitoring organization credits'
+      'Error monitoring organization credits',
     )
   }
 }
@@ -262,7 +282,7 @@ export async function monitorOrganizationCredits(
  * Tracks organization usage metrics for analytics
  */
 export async function trackOrganizationUsageMetrics(
-  metrics: OrganizationUsageMetrics
+  metrics: OrganizationUsageMetrics,
 ): Promise<void> {
   try {
     logger.info(
@@ -275,7 +295,7 @@ export async function trackOrganizationUsageMetrics(
         topRepository: metrics.topRepository,
         timeframe: metrics.timeframe,
       },
-      'Organization usage metrics tracked'
+      'Organization usage metrics tracked',
     )
 
     // Track analytics event
@@ -293,7 +313,7 @@ export async function trackOrganizationUsageMetrics(
   } catch (error) {
     logger.error(
       { metrics, error },
-      'Failed to track organization usage metrics'
+      'Failed to track organization usage metrics',
     )
   }
 }
@@ -302,7 +322,7 @@ export async function trackOrganizationUsageMetrics(
  * Validates organization billing health
  */
 export async function validateOrganizationBillingHealth(
-  organizationId: string
+  organizationId: string,
 ): Promise<{
   healthy: boolean
   issues: string[]
@@ -326,7 +346,7 @@ export async function validateOrganizationBillingHealth(
     if (!healthy) {
       logger.warn(
         { organizationId, issues, recommendations },
-        'Organization billing health check failed'
+        'Organization billing health check failed',
       )
     }
 
@@ -334,7 +354,7 @@ export async function validateOrganizationBillingHealth(
   } catch (error) {
     logger.error(
       { organizationId, error },
-      'Error validating organization billing health'
+      'Error validating organization billing health',
     )
     return {
       healthy: false,

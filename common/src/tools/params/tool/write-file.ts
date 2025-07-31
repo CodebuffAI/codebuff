@@ -2,7 +2,6 @@ import z from 'zod/v4'
 
 import type { ToolParams } from '../../constants'
 
-
 const toolName = 'write_file'
 const endsAgentStep = false
 export const writeFileParams = {

@@ -15,8 +15,10 @@ async function calculateMonthlyUsage(month: string) {
     // Using local timezone ensures we get the full month in the user's timezone
     const startDate = new Date(year, monthNum - 1, 1) // Month is 0-based in JS Date
     const endDate = new Date(year, monthNum, 1) // First day of next month
-    
-    console.log(`Calculating usage for ${month} (${startDate.toLocaleDateString()} to ${new Date(endDate.getTime() - 1).toLocaleDateString()} local time)`)
+
+    console.log(
+      `Calculating usage for ${month} (${startDate.toLocaleDateString()} to ${new Date(endDate.getTime() - 1).toLocaleDateString()} local time)`,
+    )
 
     // Query to get total credits and breakdown by user
     const results = await db
@@ -29,8 +31,8 @@ async function calculateMonthlyUsage(month: string) {
       .where(
         and(
           gte(schema.message.finished_at, startDate),
-          lt(schema.message.finished_at, endDate)
-        )
+          lt(schema.message.finished_at, endDate),
+        ),
       )
 
     // Get per-user breakdown
@@ -44,8 +46,8 @@ async function calculateMonthlyUsage(month: string) {
       .where(
         and(
           gte(schema.message.finished_at, startDate),
-          lt(schema.message.finished_at, endDate)
-        )
+          lt(schema.message.finished_at, endDate),
+        ),
       )
       .groupBy(schema.message.user_id)
       .orderBy(sql`SUM(${schema.message.credits}) DESC`)
@@ -54,10 +56,12 @@ async function calculateMonthlyUsage(month: string) {
     // Print results
     console.log(`\nCredit Usage Summary for ${month}:`)
     console.log('=====================================')
-    console.log(`Total Credits Used: ${results[0].totalCredits?.toLocaleString() ?? 0}`)
+    console.log(
+      `Total Credits Used: ${results[0].totalCredits?.toLocaleString() ?? 0}`,
+    )
     console.log(`Total Users: ${results[0].userCount}`)
     console.log(`Total Messages: ${results[0].messageCount}`)
-    
+
     console.log('\nTop 10 Users by Credit Usage:')
     console.log('============================')
     userBreakdown.forEach((user, index) => {
@@ -65,7 +69,6 @@ async function calculateMonthlyUsage(month: string) {
       console.log(`   Credits: ${user.userCredits?.toLocaleString() ?? 0}`)
       console.log(`   Messages: ${user.userMessages}`)
     })
-
   } catch (error) {
     logger.error({ error }, 'Error calculating monthly usage')
     throw error

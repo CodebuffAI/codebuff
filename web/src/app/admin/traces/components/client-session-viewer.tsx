@@ -3,7 +3,10 @@
 import { X, ExternalLink, Clock, Coins, MessageSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import type { ClientSession, ClientMessage } from '@/app/api/admin/traces/client/[clientId]/sessions/route'
+import type {
+  ClientSession,
+  ClientMessage,
+} from '@/app/api/admin/traces/client/[clientId]/sessions/route'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,14 +14,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
 
-
 interface ClientSessionViewerProps {
   clientId: string
   onViewTrace: (clientRequestId: string) => void
   onClose: () => void
 }
 
-export function ClientSessionViewer({ clientId, onViewTrace, onClose }: ClientSessionViewerProps) {
+export function ClientSessionViewer({
+  clientId,
+  onViewTrace,
+  onClose,
+}: ClientSessionViewerProps) {
   const [session, setSession] = useState<ClientSession | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -29,12 +35,14 @@ export function ClientSessionViewer({ clientId, onViewTrace, onClose }: ClientSe
   const fetchSession = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/admin/traces/client/${clientId}/sessions`)
-      
+      const response = await fetch(
+        `/api/admin/traces/client/${clientId}/sessions`
+      )
+
       if (!response.ok) {
         throw new Error('Failed to fetch session')
       }
-      
+
       const data = await response.json()
       setSession(data)
     } catch (error) {
@@ -92,7 +100,8 @@ export function ClientSessionViewer({ clientId, onViewTrace, onClose }: ClientSe
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              {new Date(session.date_range.start).toLocaleDateString()} - {new Date(session.date_range.end).toLocaleDateString()}
+              {new Date(session.date_range.start).toLocaleDateString()} -{' '}
+              {new Date(session.date_range.end).toLocaleDateString()}
             </span>
           </div>
         </div>
@@ -103,9 +112,9 @@ export function ClientSessionViewer({ clientId, onViewTrace, onClose }: ClientSe
       <CardContent>
         <div className="space-y-4">
           {session.messages.map((message, index) => (
-            <MessageCard 
-              key={message.id} 
-              message={message} 
+            <MessageCard
+              key={message.id}
+              message={message}
               index={index}
               onViewTrace={onViewTrace}
             />

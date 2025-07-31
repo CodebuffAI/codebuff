@@ -1,9 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import {
-  BROWSER_DEFAULTS
-} from '@codebuff/common/browser-actions'
+import { BROWSER_DEFAULTS } from '@codebuff/common/browser-actions'
 import { ensureDirectoryExists } from '@codebuff/common/util/file'
 import { sleep } from '@codebuff/common/util/promise'
 import { ensureUrlProtocol } from '@codebuff/common/util/string'
@@ -15,13 +13,9 @@ import { logger } from './utils/logger'
 import type {
   BrowserAction,
   BrowserConfig,
-  BrowserResponse} from '@codebuff/common/browser-actions';
-import type {
-  Browser,
-  HTTPRequest,
-  HTTPResponse,
-  Page,
-} from 'puppeteer-core';
+  BrowserResponse,
+} from '@codebuff/common/browser-actions'
+import type { Browser, HTTPRequest, HTTPResponse, Page } from 'puppeteer-core'
 
 type NonOptional<T, K extends keyof T> = T & { [P in K]-?: T[P] }
 
@@ -65,7 +59,7 @@ export class BrowserRunner {
   }> = []
 
   private async executeWithRetry(
-    action: BrowserAction
+    action: BrowserAction,
   ): Promise<BrowserResponse> {
     const retryOptions = action.retryOptions ?? BROWSER_DEFAULTS.retryOptions
     let lastError: Error | null = null
@@ -126,7 +120,7 @@ export class BrowserRunner {
           throw error
         }
         await new Promise((resolve) =>
-          setTimeout(resolve, retryOptions.retryDelay ?? 1000)
+          setTimeout(resolve, retryOptions.retryDelay ?? 1000),
         )
         this.logs.push({
           type: 'info',
@@ -183,7 +177,7 @@ export class BrowserRunner {
           }
         default:
           throw new Error(
-            `Unknown action type: ${(action as BrowserAction).type}`
+            `Unknown action type: ${(action as BrowserAction).type}`,
           )
       }
 
@@ -371,7 +365,7 @@ export class BrowserRunner {
     } catch (error) {
       // If launch fails, guide the user to install Google Chrome
       console.log(
-        `Couldn't launch Chrome browser. Please ensure Google Chrome is installed on your system.\nReceived error: ${error instanceof Error ? error.message : error}`
+        `Couldn't launch Chrome browser. Please ensure Google Chrome is installed on your system.\nReceived error: ${error instanceof Error ? error.message : error}`,
       )
       return {
         success: false,
@@ -403,7 +397,7 @@ export class BrowserRunner {
   }
 
   private async navigate(
-    action: Extract<BrowserAction, { type: 'navigate' }>
+    action: Extract<BrowserAction, { type: 'navigate' }>,
   ): Promise<BrowserResponse> {
     try {
       const { page } = await this.getBrowser(action)
@@ -482,7 +476,7 @@ export class BrowserRunner {
 
   private async takeScreenshot(
     action: Extract<BrowserAction, { type: 'screenshot' }>,
-    page: Page
+    page: Page,
   ): Promise<{
     data: string
     logs: BrowserResponse['logs']
@@ -535,7 +529,7 @@ export class BrowserRunner {
         // Save metadata
         const metadataPath = path.join(
           screenshotsDir,
-          `${timestamp}-metadata.json`
+          `${timestamp}-metadata.json`,
         )
         const metadata = {
           timestamp,
@@ -557,7 +551,7 @@ export class BrowserRunner {
               error instanceof Error ? error.message : String(error),
             errorStack: error instanceof Error ? error.stack : undefined,
           },
-          'Failed to save screenshot'
+          'Failed to save screenshot',
         )
       }
     }
@@ -611,7 +605,7 @@ export class BrowserRunner {
     this.page.on('response', async (response: HTTPResponse) => {
       const req = response.request()
       const index = this.networkEvents.findIndex(
-        (evt) => evt.url === req.url() && evt.method === req.method()
+        (evt) => evt.url === req.url() && evt.method === req.method(),
       )
 
       const status = response.status()
@@ -652,10 +646,10 @@ export class BrowserRunner {
     // Collect Web Vitals and other performance metrics
     const metrics = await this.page.evaluate(() => {
       const lcpEntry = (performance as any).getEntriesByType(
-        'largest-contentful-paint'
+        'largest-contentful-paint',
       )[0]
       const navEntry = (performance as any).getEntriesByType(
-        'navigation'
+        'navigation',
       )[0] as any
       const fcpEntry = (performance as any)
         .getEntriesByType('paint')
@@ -678,8 +672,8 @@ export class BrowserRunner {
 
     const perfEntries = JSON.parse(
       await this.page.evaluate(() =>
-        JSON.stringify((performance as any).getEntriesByType('navigation'))
-      )
+        JSON.stringify((performance as any).getEntriesByType('navigation')),
+      ),
     )
 
     let loadTime = 0
@@ -699,7 +693,7 @@ export class BrowserRunner {
       memoryUsage: memoryUsed,
       jsErrors: this.jsErrorCount,
       networkErrors: this.networkEvents.filter(
-        (e) => e.status && e.status >= 400
+        (e) => e.status && e.status >= 400,
       ).length,
       ttfb: this.performanceMetrics.ttfb,
       lcp: this.performanceMetrics.lcp,
@@ -711,7 +705,7 @@ export class BrowserRunner {
 
   private filterLogs(
     logs: BrowserResponse['logs'],
-    filter?: BrowserResponse['logFilter']
+    filter?: BrowserResponse['logFilter'],
   ): BrowserResponse['logs'] {
     // First deduplicate logs
     const seen = new Set<string>()
@@ -747,7 +741,7 @@ export class BrowserRunner {
       // Filter and deduplicate logs
       response.logs = this.filterLogs(
         response.logs,
-        action.logFilter ?? undefined
+        action.logFilter ?? undefined,
       )
       this.logs = [] // Clear logs after sending them in response
       return response
@@ -788,7 +782,7 @@ export class BrowserRunner {
             errorMessage: err instanceof Error ? err.message : String(err),
             errorStack: err instanceof Error ? err.stack : undefined,
           },
-          'Error closing browser'
+          'Error closing browser',
         )
       }
     }
@@ -796,7 +790,7 @@ export class BrowserRunner {
 }
 
 export const handleBrowserInstruction = async (
-  action: BrowserAction
+  action: BrowserAction,
 ): Promise<BrowserResponse> => {
   const response = await activeBrowserRunner.execute(action)
   return response

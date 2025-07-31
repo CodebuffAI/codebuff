@@ -1,4 +1,3 @@
-
 import { bold, cyan, green, red, underline } from 'picocolors'
 
 import {
@@ -37,7 +36,7 @@ export function displayCheckpointMenu(): void {
 
 export function isCheckpointCommand(
   userInput: string,
-  type: keyof typeof checkpointCommands | null = null
+  type: keyof typeof checkpointCommands | null = null,
 ): boolean | RegExpMatchArray {
   if (type === null) {
     if (userInput.startsWith('checkpoint')) {
@@ -79,7 +78,7 @@ export async function listCheckpoints(): Promise<void> {
 
 export async function handleUndo(
   client: Client,
-  rl: ReadlineInterface
+  rl: ReadlineInterface,
 ): Promise<string> {
   let failed: boolean = false
 
@@ -96,7 +95,7 @@ export async function handleUndo(
           errorMessage: error instanceof Error ? error.message : String(error),
           errorStack: error instanceof Error ? error.stack : undefined,
         },
-        'Failed to restore undo checkpoint'
+        'Failed to restore undo checkpoint',
       )
     }
   }
@@ -111,7 +110,7 @@ export async function handleUndo(
     client.lastToolResults = JSON.parse(currentCheckpoint.lastToolResultsString)
 
     console.log(
-      green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
+      green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`),
     )
     userInput =
       checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
@@ -123,7 +122,7 @@ export async function handleUndo(
 
 export async function handleRedo(
   client: Client,
-  rl: ReadlineInterface
+  rl: ReadlineInterface,
 ): Promise<string> {
   let failed: boolean = false
 
@@ -140,7 +139,7 @@ export async function handleRedo(
           errorMessage: error instanceof Error ? error.message : String(error),
           errorStack: error instanceof Error ? error.stack : undefined,
         },
-        'Failed to restore redo checkpoint'
+        'Failed to restore redo checkpoint',
       )
     }
   }
@@ -155,7 +154,7 @@ export async function handleRedo(
     client.lastToolResults = JSON.parse(currentCheckpoint.lastToolResultsString)
 
     console.log(
-      green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`)
+      green(`Checkpoint #${checkpointManager.currentCheckpointId} restored.`),
     )
     userInput =
       checkpointManager.checkpoints[checkpointManager.currentCheckpointId - 1]
@@ -168,13 +167,13 @@ export async function handleRedo(
 export async function handleRestoreCheckpoint(
   id: number,
   client: Client,
-  rl: ReadlineInterface
+  rl: ReadlineInterface,
 ): Promise<string> {
   Spinner.get().start('Restoring...')
 
   if (checkpointManager.disabledReason !== null) {
     console.log(
-      red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`)
+      red(`Checkpoints not enabled: ${checkpointManager.disabledReason}`),
     )
     return ''
   }
@@ -196,7 +195,7 @@ export async function handleRestoreCheckpoint(
         errorMessage: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined,
       },
-      'Failed to wait for latest checkpoint file state'
+      'Failed to wait for latest checkpoint file state',
     )
   }
 
@@ -220,7 +219,7 @@ export async function handleRestoreCheckpoint(
         errorMessage: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined,
       },
-      'Failed to restore checkpoint file state'
+      'Failed to restore checkpoint file state',
     )
   }
 
@@ -251,7 +250,7 @@ export async function saveCheckpoint(
   userInput: string,
   client: Client,
   readyPromise: Promise<any>,
-  saveWithNoChanges: boolean = false
+  saveWithNoChanges: boolean = false,
 ): Promise<void> {
   if (checkpointManager.disabledReason !== null) {
     return
@@ -271,7 +270,7 @@ export async function saveCheckpoint(
       client.sessionState as SessionState,
       client.lastToolResults,
       userInput,
-      saveWithNoChanges
+      saveWithNoChanges,
     )
 
     if (created) {
@@ -284,7 +283,7 @@ export async function saveCheckpoint(
         errorMessage: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined,
       },
-      'Failed to add checkpoint'
+      'Failed to add checkpoint',
     )
   }
 }

@@ -17,13 +17,13 @@ import {
 const LITE_DATASET_PATH = path.join(
   TEST_REPOS_DIR,
   'codebuff-swe-bench',
-  'princeton-nlp--SWE-bench_Lite.json'
+  'princeton-nlp--SWE-bench_Lite.json',
 )
 
 describe('SWE-Bench', async () => {
   await ensureTestRepos()
   const sweBenchLiteList = JSON.parse(
-    fs.readFileSync(LITE_DATASET_PATH, 'utf-8')
+    fs.readFileSync(LITE_DATASET_PATH, 'utf-8'),
   ) as Record<string, any>[]
 
   const sweBenchLiteDataset = sweBenchLiteList.reduce(
@@ -38,7 +38,7 @@ describe('SWE-Bench', async () => {
         base_commit: string
         problem_statement: string
       }
-    >
+    >,
   )
 
   Object.entries(SWE_BENCH_IDS).forEach(([repoName, instanceIds]) => {
@@ -63,8 +63,8 @@ describe('SWE-Bench', async () => {
             })
             expect(await passesSweBenchTests(instanceId, repoPath)).toBeTruthy()
           },
-          { timeout: 10 * 60 * 60 * 1000 } // 10 hours
-        )
+          { timeout: 10 * 60 * 60 * 1000 }, // 10 hours
+        ),
       )
     })
   })

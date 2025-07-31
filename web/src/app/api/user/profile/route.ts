@@ -33,9 +33,8 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const { blockedReason: auto_topup_blocked_reason } = await validateAutoTopupStatus(
-      session.user.id
-    )
+    const { blockedReason: auto_topup_blocked_reason } =
+      await validateAutoTopupStatus(session.user.id)
 
     const response: Partial<UserProfile> = {
       handle: user.handle,

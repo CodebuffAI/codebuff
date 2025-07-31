@@ -12,9 +12,10 @@ interface EmptyStateProps {
 export function EmptyState({ type, message }: EmptyStateProps) {
   const icon = type === 'search' ? FileSearch : Inbox
   const Icon = icon
-  const defaultMessage = type === 'search' 
-    ? 'No traces found matching your search'
-    : 'No trace data available'
+  const defaultMessage =
+    type === 'search'
+      ? 'No traces found matching your search'
+      : 'No trace data available'
 
   return (
     <Card className="border-dashed">

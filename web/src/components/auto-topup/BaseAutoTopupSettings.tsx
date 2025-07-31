@@ -17,9 +17,7 @@ export function BaseAutoTopupSettings({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        {switchComponent}
-      </div>
+      <div className="flex items-center justify-between">{switchComponent}</div>
       {formComponent}
     </>
   )

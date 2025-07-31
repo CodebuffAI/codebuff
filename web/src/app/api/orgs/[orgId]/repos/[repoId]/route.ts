@@ -1,12 +1,10 @@
-
-
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
@@ -14,10 +12,7 @@ interface RouteParams {
   params: { orgId: string; repoId: string }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -39,12 +34,18 @@ export async function DELETE(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const { role } = membership[0]
     if (role !== 'owner' && role !== 'admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
     }
 
     // Check if repository exists
@@ -52,21 +53,19 @@ export async function DELETE(
       .select()
       .from(schema.orgRepo)
       .where(
-        and(
-          eq(schema.orgRepo.id, repoId),
-          eq(schema.orgRepo.org_id, orgId)
-        )
+        and(eq(schema.orgRepo.id, repoId), eq(schema.orgRepo.org_id, orgId))
       )
       .limit(1)
 
     if (repository.length === 0) {
-      return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Repository not found' },
+        { status: 404 }
+      )
     }
 
     // Permanently delete repository (hard delete)
-    await db
-      .delete(schema.orgRepo)
-      .where(eq(schema.orgRepo.id, repoId))
+    await db.delete(schema.orgRepo).where(eq(schema.orgRepo.id, repoId))
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -78,10 +77,7 @@ export async function DELETE(
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -104,12 +100,18 @@ export async function PATCH(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const { role } = membership[0]
     if (role !== 'owner' && role !== 'admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
     }
 
     // Check if repository exists
@@ -117,15 +119,15 @@ export async function PATCH(
       .select()
       .from(schema.orgRepo)
       .where(
-        and(
-          eq(schema.orgRepo.id, repoId),
-          eq(schema.orgRepo.org_id, orgId)
-        )
+        and(eq(schema.orgRepo.id, repoId), eq(schema.orgRepo.org_id, orgId))
       )
       .limit(1)
 
     if (repository.length === 0) {
-      return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Repository not found' },
+        { status: 404 }
+      )
     }
 
     // Update repository status

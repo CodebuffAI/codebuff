@@ -1,6 +1,6 @@
 import {
   printFileTree,
-  printFileTreeWithTokens
+  printFileTreeWithTokens,
 } from '@codebuff/common/util/file'
 import { sampleSizeWithSeed } from '@codebuff/common/util/random'
 
@@ -9,14 +9,15 @@ import { countTokens, countTokensJson } from '../util/token-counter'
 
 import type {
   FileTreeNode,
-  ProjectFileContext} from '@codebuff/common/util/file';
+  ProjectFileContext,
+} from '@codebuff/common/util/file'
 
 type TruncationLevel = 'none' | 'unimportant-files' | 'tokens' | 'depth-based'
 const DEBUG = false
 
 export const truncateFileTreeBasedOnTokenBudget = (
   fileContext: ProjectFileContext,
-  tokenBudget: number
+  tokenBudget: number,
 ): {
   printedTree: string
   tokenCount: number
@@ -44,7 +45,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
   if (filteredTreeNoTokensCount <= tokenBudget) {
     const filteredTreeWithTokens = printFileTreeWithTokens(
       filteredTree,
-      fileTokenScores
+      fileTokenScores,
     )
     const filteredTreeWithTokensCount = countTokensJson(filteredTreeWithTokens)
     if (filteredTreeWithTokensCount <= tokenBudget) {
@@ -55,7 +56,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
             filteredTreeWithTokensCount,
             duration: performance.now() - startTime,
           },
-          'truncateFileTreeBasedOnTokenBudget unimportant-files'
+          'truncateFileTreeBasedOnTokenBudget unimportant-files',
         )
       }
       return {
@@ -67,14 +68,14 @@ export const truncateFileTreeBasedOnTokenBudget = (
     const { printedTree, tokenCount } = pruneFileTokenScores(
       filteredTree,
       fileTokenScores,
-      tokenBudget
+      tokenBudget,
     )
 
     if (tokenCount <= tokenBudget) {
       if (DEBUG) {
         logger.debug(
           { tokenBudget, tokenCount, duration: performance.now() - startTime },
-          'truncateFileTreeBasedOnTokenBudget tokens'
+          'truncateFileTreeBasedOnTokenBudget tokens',
         )
       }
       return {
@@ -90,7 +91,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
   // Get all files with their depths
   const getFilesWithDepths = (
     nodes: FileTreeNode[],
-    parentDepth = 0
+    parentDepth = 0,
   ): Array<{ node: FileTreeNode; path: string; depth: number }> => {
     return nodes.flatMap((node) => {
       if (node.type === 'file') {
@@ -98,7 +99,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
       }
       return (
         node.children?.flatMap((child) =>
-          getFilesWithDepths([child], parentDepth + 1)
+          getFilesWithDepths([child], parentDepth + 1),
         ) ?? []
       )
     })
@@ -118,7 +119,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
   const sampleFiles = sampleSizeWithSeed(
     sortedFiles,
     sampleCount,
-    JSON.stringify(sortedFiles) + JSON.stringify(sampleCount)
+    JSON.stringify(sortedFiles) + JSON.stringify(sampleCount),
   )
   const sampleText = sampleFiles.map((f) => f.node.name).join(' ')
   const sampleTokens = countTokens(sampleText)
@@ -141,7 +142,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
     const filesToRemove = new Set(
       sortedFiles
         .slice(0, Math.min(estimatedFilesToRemove, sortedFiles.length))
-        .map((f) => f.path)
+        .map((f) => f.path),
     )
     sortedFiles.splice(0, estimatedFilesToRemove)
 
@@ -169,7 +170,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
     if (currentTokenCount >= previousTokenCount) {
       logger.warn(
         { currentTokenCount, previousTokenCount, iterationCount },
-        'No progress in reducing tokens, breaking loop'
+        'No progress in reducing tokens, breaking loop',
       )
       break
     }
@@ -187,7 +188,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
   if (iterationCount >= MAX_ITERATIONS) {
     logger.warn(
       { iterationCount, currentTokenCount, tokenBudget },
-      'Hit max iterations while truncating file tree'
+      'Hit max iterations while truncating file tree',
     )
   }
 
@@ -195,7 +196,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
   if (end - start > 100) {
     logger.debug(
       { durationMs: end - start, tokenCount: currentTokenCount },
-      'fileNameTruncation took a while'
+      'fileNameTruncation took a while',
     )
   }
   if (DEBUG) {
@@ -205,7 +206,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
         tokenCount: currentTokenCount,
         duration: performance.now() - startTime,
       },
-      'truncateFileTreeBasedOnTokenBudget depth-based'
+      'truncateFileTreeBasedOnTokenBudget depth-based',
     )
   }
   return {
@@ -218,7 +219,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
 function pruneFileTokenScores(
   fileTree: FileTreeNode[],
   fileTokenScores: Record<string, Record<string, number>>,
-  tokenBudget: number
+  tokenBudget: number,
 ) {
   const startTime = performance.now()
 
@@ -229,7 +230,7 @@ function pruneFileTokenScores(
         filePath,
         token,
         score,
-      }))
+      })),
     )
     .sort((a, b) => a.score - b.score)
 
@@ -288,10 +289,10 @@ function pruneFileTokenScores(
         finalTokenCount: totalTokens,
         remainingTokenEntries: Object.values(pruned).reduce(
           (sum, tokens) => sum + Object.keys(tokens).length,
-          0
+          0,
         ),
       },
-      'pruneFileTokenScores took a while'
+      'pruneFileTokenScores took a while',
     )
   }
   return { pruned, printedTree, tokenCount: totalTokens }
@@ -304,7 +305,7 @@ const removeUnimportantFiles = (fileTree: FileTreeNode[]): FileTreeNode[] => {
       const dirPath = node.filePath.toLowerCase()
       const isUnimportantDir = unimportantExtensions.some(
         (ext) =>
-          ext.startsWith('/') && ext.endsWith('/') && dirPath.includes(ext)
+          ext.startsWith('/') && ext.endsWith('/') && dirPath.includes(ext),
       )
       if (isUnimportantDir) {
         return false
@@ -317,7 +318,7 @@ const removeUnimportantFiles = (fileTree: FileTreeNode[]): FileTreeNode[] => {
 
     const filePath = node.filePath.toLowerCase()
     return !unimportantExtensions.some(
-      (ext) => !ext.startsWith('/') && filePath.endsWith(ext)
+      (ext) => !ext.startsWith('/') && filePath.endsWith(ext),
     )
   }
 

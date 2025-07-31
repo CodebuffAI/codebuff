@@ -19,27 +19,31 @@ const isRepoCoveredRequestSchema = z.object({
 async function isRepoCoveredHandler(
   req: ExpressRequest,
   res: ExpressResponse,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void | ExpressResponse> {
   try {
-    const { owner, repo, remoteUrl } = isRepoCoveredRequestSchema.parse(req.body)
-    
+    const { owner, repo, remoteUrl } = isRepoCoveredRequestSchema.parse(
+      req.body,
+    )
+
     // Get user ID from Authorization header
     const authHeader = req.headers.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid authorization header' })
+      return res
+        .status(401)
+        .json({ error: 'Missing or invalid authorization header' })
     }
-    
+
     const authToken = authHeader.substring(7) // Remove 'Bearer ' prefix
     const userId = await getUserIdFromAuthToken(authToken)
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'Invalid authentication token' })
     }
 
     // Check if repository is covered by an organization
     const orgLookup = await findOrganizationForRepository(userId, remoteUrl)
-    
+
     return res.status(200).json({
       isCovered: orgLookup.found,
       organizationName: orgLookup.organizationName,

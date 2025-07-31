@@ -2,22 +2,20 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { geminiModels, models } from '@codebuff/common/constants'
 import { chunk } from 'lodash'
 import { z } from 'zod'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
-import {
-  CommitSelectionSchema
-} from './types'
+import { CommitSelectionSchema } from './types'
 
 import type {
   CommitFileState,
   CommitInfo,
   EvalCommit,
-  GitRepoEvalData} from './types';
+  GitRepoEvalData,
+} from './types'
 
 const COMMIT_SELECTION_PROMPT = `You are an expert at identifying substantial and complete code changes in git commits.
 
@@ -106,7 +104,7 @@ function parseGitStats(statsOutput: string): {
   }
 
   const filesChanged = parseInt(
-    statsLine.match(/(\d+) files? changed/)?.[1] || '0'
+    statsLine.match(/(\d+) files? changed/)?.[1] || '0',
   )
   const insertions = parseInt(statsLine.match(/(\d+) insertions?/)?.[1] || '0')
   const deletions = parseInt(statsLine.match(/(\d+) deletions?/)?.[1] || '0')
@@ -116,14 +114,14 @@ function parseGitStats(statsOutput: string): {
 
 async function selectSubstantialCommits(
   commits: CommitInfo[],
-  clientSessionId: string
+  clientSessionId: string,
 ): Promise<Array<CommitInfo & { selectionReason: string }>> {
   const commitsInfo = commits
     .map(
       (c) =>
         `${c.sha.substring(0, 8)}: ${c.message}\n` +
         `Author: ${c.author}, Date: ${c.date}\n` +
-        `Stats: ${c.stats.filesChanged} files changed, +${c.stats.insertions} -${c.stats.deletions}\n`
+        `Stats: ${c.stats.filesChanged} files changed, +${c.stats.insertions} -${c.stats.deletions}\n`,
     )
     .join('\n\n')
 
@@ -143,14 +141,14 @@ async function selectSubstantialCommits(
     return commits
       .filter((commit) =>
         response.commits.some((selected: { sha: string }) =>
-          commit.sha.startsWith(selected.sha)
-        )
+          commit.sha.startsWith(selected.sha),
+        ),
       )
       .map((commit) => ({
         ...commit,
         selectionReason: response.commits.find(
           (selected: { sha: string; reason: string }) =>
-            commit.sha.startsWith(selected.sha)
+            commit.sha.startsWith(selected.sha),
         )!.reason,
       }))
   } catch (e) {
@@ -162,7 +160,7 @@ async function selectSubstantialCommits(
 async function generateSpecForCommit(
   commit: CommitInfo & { selectionReason: string },
   repoPath: string,
-  clientSessionId: string
+  clientSessionId: string,
 ): Promise<{ spec: string; fileStates: CommitFileState[] }> {
   // Get list of files changed in this commit
   const filesCommand = `git show --name-only --pretty=format:"" ${commit.sha}`
@@ -194,11 +192,11 @@ async function generateSpecForCommit(
       // Or might be deleted in this commit
       const isNewFile = !execSync(
         `git show ${commit.sha}^:${file} 2>/dev/null || true`,
-        { cwd: repoPath }
+        { cwd: repoPath },
       ).toString()
       const isDeletedFile = !execSync(
         `git show ${commit.sha}:${file} 2>/dev/null || true`,
-        { cwd: repoPath }
+        { cwd: repoPath },
       ).toString()
 
       fileStates.push({
@@ -225,7 +223,7 @@ async function generateSpecForCommit(
   const preCommitContext = fileStates
     .map(
       ({ path, preContent }) =>
-        `File: ${path}\nPre-commit content:\n${preContent}\n`
+        `File: ${path}\nPre-commit content:\n${preContent}\n`,
     )
     .join('\n---\n')
 
@@ -278,7 +276,7 @@ export async function generateEvalFile({
   // Select substantial commits
   const selectedCommits = await selectSubstantialCommits(
     commits,
-    clientSessionId
+    clientSessionId,
   )
 
   console.log('Selected commits:', selectedCommits)
@@ -290,8 +288,8 @@ export async function generateEvalFile({
   for (const commitChunk of chunkedCommits) {
     const results = await Promise.all(
       commitChunk.map((commit) =>
-        generateSpecForCommit(commit, repoPath, clientSessionId)
-      )
+        generateSpecForCommit(commit, repoPath, clientSessionId),
+      ),
     )
     console.log('Generated specs and captured file states')
     evalCommits.push(
@@ -299,7 +297,7 @@ export async function generateEvalFile({
         ...commit,
         spec: results[index].spec,
         fileStates: results[index].fileStates,
-      }))
+      })),
     )
   }
 
@@ -322,7 +320,7 @@ export async function generateEvalFile({
 if (require.main === module) {
   const args = process.argv.slice(2)
   console.info(
-    'Usage: bun run generate-git-evals <repo-url> [output-path] [number-of-commits]'
+    'Usage: bun run generate-git-evals <repo-url> [output-path] [number-of-commits]',
   )
 
   const repoUrl = args[0]

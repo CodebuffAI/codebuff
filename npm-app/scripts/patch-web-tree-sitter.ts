@@ -15,7 +15,7 @@ function patchSingleFile(webTreeSitterPath: string, verbose: boolean): boolean {
   if (!fs.existsSync(webTreeSitterPath)) {
     if (verbose) {
       console.warn(
-        `⚠️  web-tree-sitter not found at ${webTreeSitterPath}, skipping`
+        `⚠️  web-tree-sitter not found at ${webTreeSitterPath}, skipping`,
       )
     }
     return false
@@ -33,7 +33,7 @@ function patchSingleFile(webTreeSitterPath: string, verbose: boolean): boolean {
     // Read and encode the WASM file as base64
     const wasmPath = path.join(
       __dirname,
-      '../../node_modules/web-tree-sitter/tree-sitter.wasm'
+      '../../node_modules/web-tree-sitter/tree-sitter.wasm',
     )
     if (!fs.existsSync(wasmPath)) {
       throw new Error(`❌ Web-tree-sitter WASM file not found at ${wasmPath}`)
@@ -111,7 +111,7 @@ var CODEBUFF_WASM_BINARY = null;
 
     const newContent2 = content.replace(
       getBinarySyncPattern,
-      getBinarySyncReplacement
+      getBinarySyncReplacement,
     )
     replacements.push({
       name: 'getBinarySync patch',
@@ -155,7 +155,7 @@ var CODEBUFF_WASM_BINARY = null;
         console.log('✅ Patched successfully with inlined WASM data')
         if (failedReplacements.length > 0) {
           console.warn(
-            `⚠️  Some patches failed: ${failedReplacements.map((r) => r.name).join(', ')}`
+            `⚠️  Some patches failed: ${failedReplacements.map((r) => r.name).join(', ')}`,
           )
         }
       }
@@ -163,10 +163,10 @@ var CODEBUFF_WASM_BINARY = null;
     } else {
       if (verbose) {
         console.log(
-          '⚠️  No changes made - all patterns may have failed to match'
+          '⚠️  No changes made - all patterns may have failed to match',
         )
         console.log(
-          `Failed replacements: ${failedReplacements.map((r) => r.name).join(', ')}`
+          `Failed replacements: ${failedReplacements.map((r) => r.name).join(', ')}`,
         )
       }
       return false
@@ -181,7 +181,7 @@ export function patchWebTreeSitter(verbose = false) {
   // Only patch root node_modules (hoisted)
   const webTreeSitterPath = path.join(
     __dirname,
-    '../../node_modules/web-tree-sitter/tree-sitter.js'
+    '../../node_modules/web-tree-sitter/tree-sitter.js',
   )
 
   let patchedCount = 0

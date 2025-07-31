@@ -31,7 +31,7 @@ export function detectShell():
         // Check parent process as final Windows check
         const parentProcess = execSync(
           'wmic process get ParentProcessId,CommandLine',
-          { stdio: 'pipe' }
+          { stdio: 'pipe' },
         )
           .toString()
           .toLowerCase()
@@ -66,7 +66,7 @@ export function detectShell():
         platform: platform(),
         shell,
       },
-      'Error detecting shell'
+      'Error detecting shell',
     )
   }
 

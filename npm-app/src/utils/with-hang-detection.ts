@@ -2,7 +2,7 @@ import { createTimeoutDetector } from './rage-detector'
 
 export async function withHangDetection<T>(
   commandName: string,
-  commandFn: () => Promise<T>
+  commandFn: () => Promise<T>,
 ): Promise<T> {
   const hangDetector = createTimeoutDetector({
     reason: 'command_hung',

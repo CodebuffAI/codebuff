@@ -1,4 +1,3 @@
-
 import { toContentString } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
@@ -65,7 +64,7 @@ export interface TokenCallerMap {
 
 export function renderReadFilesResult(
   files: { path: string; content: string }[],
-  tokenCallers: TokenCallerMap
+  tokenCallers: TokenCallerMap,
 ) {
   return files
     .map((file) => {
@@ -80,7 +79,7 @@ export function renderReadFilesResult(
 }
 
 export function parseReadFilesResult(
-  xmlString: string
+  xmlString: string,
 ): { path: string; content: string; referencedBy: string }[] {
   const files: { path: string; content: string; referencedBy: string }[] = []
   const filePattern =

@@ -13,7 +13,7 @@ export const DEFAULT_MAX_FILES = 10_000
 
 export function getProjectFileTree(
   projectRoot: string,
-  { maxFiles = DEFAULT_MAX_FILES }: { maxFiles?: number } = {}
+  { maxFiles = DEFAULT_MAX_FILES }: { maxFiles?: number } = {},
 ): FileTreeNode[] {
   const start = Date.now()
   const defaultIgnore = ignore.default()
@@ -100,7 +100,7 @@ export function getProjectFileTree(
 
 export function parseGitignore(
   fullDirPath: string,
-  projectRoot: string
+  projectRoot: string,
 ): ignore.Ignore {
   const ig = ignore.default()
   const relativeDirPath = path.relative(projectRoot, fullDirPath)
@@ -161,7 +161,7 @@ export function parseGitignore(
 
 export function getAllFilePaths(
   nodes: FileTreeNode[],
-  basePath: string = ''
+  basePath: string = '',
 ): string[] {
   return nodes.flatMap((node) => {
     if (node.type === 'file') {
@@ -182,11 +182,11 @@ export function flattenTree(nodes: FileTreeNode[]): FileTreeNode[] {
 
 export function getLastReadFilePaths(
   flattenedNodes: FileTreeNode[],
-  count: number
+  count: number,
 ) {
   return sortBy(
     flattenedNodes.filter((node) => node.lastReadTime),
-    'lastReadTime'
+    'lastReadTime',
   )
     .reverse()
     .slice(0, count)
@@ -201,7 +201,7 @@ export function isFileIgnored(filePath: string, projectRoot: string): boolean {
 
   const relativeFilePath = path.relative(
     projectRoot,
-    path.join(projectRoot, filePath)
+    path.join(projectRoot, filePath),
   )
   const dirPath = path.dirname(path.join(projectRoot, filePath))
 

@@ -25,7 +25,7 @@ export async function processFileBlock(
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
-  userId: string | undefined
+  userId: string | undefined,
 ): Promise<
   | {
       tool: 'write_file'
@@ -48,7 +48,7 @@ export async function processFileBlock(
     if (hasLazyEdit(cleanContent) && !path.endsWith('.md')) {
       logger.debug(
         { path, newContent },
-        `processFileBlock: New file contained a lazy edit for ${path}. Aborting.`
+        `processFileBlock: New file contained a lazy edit for ${path}. Aborting.`,
       )
       return {
         tool: 'write_file' as const,
@@ -60,7 +60,7 @@ export async function processFileBlock(
 
     logger.debug(
       { path, cleanContent },
-      `processFileBlock: Created new file ${path}`
+      `processFileBlock: Created new file ${path}`,
     )
     return {
       tool: 'write_file' as const,
@@ -74,7 +74,7 @@ export async function processFileBlock(
   if (newContent === initialContent) {
     logger.info(
       { newContent },
-      `processFileBlock: New was same as old, skipping ${path}`
+      `processFileBlock: New was same as old, skipping ${path}`,
     )
     return {
       tool: 'write_file' as const,
@@ -94,7 +94,7 @@ export async function processFileBlock(
     countTokens(normalizedInitialContent) + countTokens(normalizedEditSnippet)
 
   editMessages.push(
-    'Write diff created by fast-apply model. May contain errors. Make sure to double check!'
+    'Write diff created by fast-apply model. May contain errors. Make sure to double check!',
   )
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
     const largeFileContent = await handleLargeFile(
@@ -104,7 +104,7 @@ export async function processFileBlock(
       fingerprintId,
       userInputId,
       userId,
-      path
+      path,
     )
 
     if (!largeFileContent) {
@@ -127,7 +127,7 @@ export async function processFileBlock(
       fingerprintId,
       userInputId,
       userId,
-      lastUserPrompt
+      lastUserPrompt,
     )
     const shouldAddPlaceholders = await shouldAddFilePlaceholders(
       path,
@@ -138,7 +138,7 @@ export async function processFileBlock(
       userId,
       clientSessionId,
       fingerprintId,
-      userInputId
+      userInputId,
     )
 
     if (shouldAddPlaceholders) {
@@ -153,7 +153,7 @@ export async function processFileBlock(
         fingerprintId,
         userInputId,
         userId,
-        lastUserPrompt
+        lastUserPrompt,
       )
     }
   }
@@ -165,7 +165,7 @@ export async function processFileBlock(
     patch = lines.slice(hunkStartIndex).join('\n')
   } else {
     editMessages.push(
-      'The new content was the same as the old content, skipping.'
+      'The new content was the same as the old content, skipping.',
     )
     logger.debug(
       {
@@ -175,7 +175,7 @@ export async function processFileBlock(
         patch,
         editMessages,
       },
-      `processFileBlock: No change to ${path}`
+      `processFileBlock: No change to ${path}`,
     )
     return {
       tool: 'write_file' as const,
@@ -191,13 +191,13 @@ export async function processFileBlock(
       patch,
       editMessages,
     },
-    `processFileBlock: Updated file ${path}`
+    `processFileBlock: Updated file ${path}`,
   )
 
   const patchOriginalLineEndings = patch.replaceAll('\n', lineEnding)
   const updatedContentOriginalLineEndings = updatedContent.replaceAll(
     '\n',
-    lineEnding
+    lineEnding,
   )
 
   return {
@@ -218,7 +218,7 @@ export async function handleLargeFile(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  filePath: string
+  filePath: string,
 ): Promise<string | null> {
   const startTime = Date.now()
 
@@ -285,7 +285,7 @@ Please output just the SEARCH/REPLACE blocks like this:
         filePath,
         oldContent,
       },
-      'Initial diff blocks failed to match, retrying...'
+      'Initial diff blocks failed to match, retrying...',
     )
 
     const { newDiffBlocks, newDiffBlocksThatDidntMatch } =
@@ -296,7 +296,7 @@ Please output just the SEARCH/REPLACE blocks like this:
         fingerprintId,
         userInputId,
         userId,
-        diffBlocksThatDidntMatch
+        diffBlocksThatDidntMatch,
       )
 
     if (newDiffBlocksThatDidntMatch.length > 0) {
@@ -311,7 +311,7 @@ Please output just the SEARCH/REPLACE blocks like this:
           editSnippet,
           duration: Date.now() - startTime,
         },
-        'Failed to create matching diff blocks for large file after retry'
+        'Failed to create matching diff blocks for large file after retry',
       )
       return null
     }
@@ -330,7 +330,7 @@ Please output just the SEARCH/REPLACE blocks like this:
       filePath,
       duration: Date.now() - startTime,
     },
-    `handleLargeFile ${filePath}`
+    `handleLargeFile ${filePath}`,
   )
   return updatedContent
 }

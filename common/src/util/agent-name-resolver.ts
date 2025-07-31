@@ -26,7 +26,7 @@ export function getBuiltInAgents(): AgentInfo[] {
  * Convert local agent configs to AgentInfo array
  */
 export function getLocalAgents(
-  localAgents: Record<string, { displayName: string; purpose?: string }>
+  localAgents: Record<string, { displayName: string; purpose?: string }>,
 ): AgentInfo[] {
   return Object.entries(localAgents).map(([agentId, config]) => ({
     id: normalizeAgentName(agentId),
@@ -40,7 +40,7 @@ export function getLocalAgents(
  * Get all agents (built-in + local)
  */
 export function getAllAgents(
-  localAgents: Record<string, { displayName: string; purpose?: string }> = {}
+  localAgents: Record<string, { displayName: string; purpose?: string }> = {},
 ): AgentInfo[] {
   return [...getBuiltInAgents(), ...getLocalAgents(localAgents)]
 }
@@ -50,11 +50,11 @@ export function getAllAgents(
  */
 export function resolveNameToId(
   displayName: string,
-  localAgents: Record<string, { displayName: string; purpose?: string }> = {}
+  localAgents: Record<string, { displayName: string; purpose?: string }> = {},
 ): string | null {
   const agents = getAllAgents(localAgents)
   const agent = agents.find(
-    (a) => a.displayName.toLowerCase() === displayName.toLowerCase()
+    (a) => a.displayName.toLowerCase() === displayName.toLowerCase(),
   )
   return agent?.id || null
 }
@@ -64,7 +64,7 @@ export function resolveNameToId(
  */
 export function resolveIdToName(
   agentId: string,
-  localAgents: Record<string, { displayName: string; purpose?: string }> = {}
+  localAgents: Record<string, { displayName: string; purpose?: string }> = {},
 ): string | null {
   const normalizedId = normalizeAgentName(agentId)
   const agents = getAllAgents(localAgents)
@@ -77,7 +77,7 @@ export function resolveIdToName(
  */
 export function getAgentDisplayName(
   agentIdOrName: string,
-  localAgents: Record<string, { displayName: string; purpose?: string }> = {}
+  localAgents: Record<string, { displayName: string; purpose?: string }> = {},
 ): string {
   return (
     resolveIdToName(agentIdOrName, localAgents) ||
@@ -92,7 +92,7 @@ export function getAgentDisplayName(
  */
 export function getAgentId(
   agentIdOrName: string,
-  localAgents: Record<string, { displayName: string; purpose?: string }> = {}
+  localAgents: Record<string, { displayName: string; purpose?: string }> = {},
 ): string {
   return (
     resolveNameToId(agentIdOrName, localAgents) ||

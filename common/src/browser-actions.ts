@@ -180,7 +180,7 @@ export const RequiredBrowserStartActionSchema = z.object({
 
 // Combined schema
 export const BrowserStartActionSchema = RequiredBrowserStartActionSchema.merge(
-  OptionalBrowserConfigSchema
+  OptionalBrowserConfigSchema,
 ).merge(OptionalStartConfigSchema)
 
 export const RequiredBrowserNavigateActionSchema = z.object({
@@ -190,7 +190,7 @@ export const RequiredBrowserNavigateActionSchema = z.object({
 
 export const BrowserNavigateActionSchema =
   RequiredBrowserNavigateActionSchema.merge(OptionalBrowserConfigSchema).merge(
-    OptionalNavigateConfigSchema
+    OptionalNavigateConfigSchema,
   )
 
 const RangeSchema = z.object({
@@ -205,7 +205,7 @@ export const RequiredBrowserClickActionSchema = z.object({
 })
 
 export const BrowserClickActionSchema = RequiredBrowserClickActionSchema.merge(
-  OptionalBrowserConfigSchema
+  OptionalBrowserConfigSchema,
 ).merge(OptionalClickConfigSchema)
 
 export const RequiredBrowserTypeActionSchema = z.object({
@@ -215,7 +215,7 @@ export const RequiredBrowserTypeActionSchema = z.object({
 })
 
 export const BrowserTypeActionSchema = RequiredBrowserTypeActionSchema.merge(
-  OptionalBrowserConfigSchema
+  OptionalBrowserConfigSchema,
 ).merge(OptionalTypeConfigSchema)
 
 export const RequiredBrowserScrollActionSchema = z.object({
@@ -228,7 +228,7 @@ export const OptionalScrollConfigSchema = z.object({
 
 export const BrowserScrollActionSchema =
   RequiredBrowserScrollActionSchema.merge(OptionalBrowserConfigSchema).merge(
-    OptionalScrollConfigSchema
+    OptionalScrollConfigSchema,
   )
 
 export const RequiredBrowserScreenshotActionSchema = z.object({
@@ -237,14 +237,14 @@ export const RequiredBrowserScreenshotActionSchema = z.object({
 
 export const BrowserScreenshotActionSchema =
   RequiredBrowserScreenshotActionSchema.merge(
-    OptionalBrowserConfigSchema
+    OptionalBrowserConfigSchema,
   ).merge(OptionalScreenshotConfigSchema)
 
 export const RequiredBrowserStopActionSchema = z.object({
   type: z.literal('stop'),
 })
 export const BrowserStopActionSchema = RequiredBrowserStopActionSchema.merge(
-  OptionalBrowserConfigSchema
+  OptionalBrowserConfigSchema,
 )
 
 // First define the base action schemas without the diagnostic step
@@ -382,7 +382,7 @@ export function parseBrowserActionXML(xmlString: string): BrowserAction {
       }
       return acc
     },
-    {} as Record<string, any>
+    {} as Record<string, any>,
   )
 
   // Construct and validate the BrowserAction
@@ -397,7 +397,7 @@ export type BrowserAction = z.infer<typeof BrowserActionSchema>
  * Parse browser action XML attributes into a typed BrowserAction object
  */
 export function parseBrowserActionAttributes(
-  attributes: Record<string, string>
+  attributes: Record<string, string>,
 ): BrowserAction {
   const { action, ...rest } = attributes
   return {

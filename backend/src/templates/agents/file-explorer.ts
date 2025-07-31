@@ -6,7 +6,7 @@ const paramsSchema = z.object({
   prompts: z
     .array(z.string())
     .describe(
-      'List of 1-4 different parts of the codebase that could be useful to explore'
+      'List of 1-4 different parts of the codebase that could be useful to explore',
     ),
 })
 
@@ -34,7 +34,7 @@ export const fileExplorer = {
   handleSteps: function* ({ prompt, params }) {
     const filePickerPrompts = params.prompts.map(
       (focusPrompt) =>
-        `Based on the overall goal "${prompt}", find files related to this specific area: ${focusPrompt}`
+        `Based on the overall goal "${prompt}", find files related to this specific area: ${focusPrompt}`,
     )
 
     // Spawn all file pickers in parallel

@@ -1,8 +1,8 @@
 type OpenRouterCompletionLogProps = {
-  tokens: string[];
-  token_logprobs: number[];
-  top_logprobs: Record<string, number>[] | null;
-};
+  tokens: string[]
+  token_logprobs: number[]
+  top_logprobs: Record<string, number>[] | null
+}
 
 export function mapOpenRouterCompletionLogProbs(
   logprobs: OpenRouterCompletionLogProps | null | undefined,
@@ -18,5 +18,5 @@ export function mapOpenRouterCompletionLogProbs(
           }),
         )
       : [],
-  }));
+  }))
 }

@@ -10,7 +10,6 @@ import { z } from 'zod'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
-
 const RESERVED_HANDLES = [
   'api',
   'docs',

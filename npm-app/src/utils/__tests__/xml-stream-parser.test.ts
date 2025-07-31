@@ -247,7 +247,7 @@ describe('createXMLStreamParser', () => {
     // Read the file content directly - no need for complex unescaping
     const response = fs.readFileSync(
       path.join(__dirname, './response-example-4-files.txt'),
-      'utf-8'
+      'utf-8',
     )
 
     // Array to store output chunks as they're produced

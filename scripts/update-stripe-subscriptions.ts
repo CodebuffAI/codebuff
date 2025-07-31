@@ -3,7 +3,6 @@ import fs from 'fs'
 import { db } from '@codebuff/common/db'
 import { eq } from 'drizzle-orm'
 
-
 import * as schema from '../common/src/db/schema'
 import { stripeServer } from '../common/src/util/stripe'
 
@@ -22,7 +21,7 @@ interface MigrationEntry {
 }
 
 const migrationData: MigrationEntry[] = JSON.parse(
-  fs.readFileSync('credit-migration-data.json', 'utf-8')
+  fs.readFileSync('credit-migration-data.json', 'utf-8'),
 )
 
 const progressPath = 'update-stripe-progress.json'
@@ -55,8 +54,8 @@ async function processCustomer(entry: MigrationEntry) {
   const legacySub = subs.data.find((sub) =>
     sub.items.data.some(
       (item: Stripe.SubscriptionItem) =>
-        item.price.recurring?.usage_type === 'licensed'
-    )
+        item.price.recurring?.usage_type === 'licensed',
+    ),
   )
 
   // Cancel legacy immediately (no refund) if it exists
@@ -71,8 +70,8 @@ async function processCustomer(entry: MigrationEntry) {
   // Does customer already have usage‑based sub?
   const hasUsageBasedSub = subs.data.some((sub) =>
     sub.items.data.every(
-      (item: Stripe.SubscriptionItem) => item.price.id === USAGE_PRICE_ID
-    )
+      (item: Stripe.SubscriptionItem) => item.price.id === USAGE_PRICE_ID,
+    ),
   )
 
   if (!hasUsageBasedSub) {
@@ -84,7 +83,7 @@ async function processCustomer(entry: MigrationEntry) {
       expand: ['items.data.price'],
     })
     console.log(
-      `Created usage sub ${newSub.id} for customer ${entry.stripeCustomerId}`
+      `Created usage sub ${newSub.id} for customer ${entry.stripeCustomerId}`,
     )
   }
 
@@ -98,7 +97,7 @@ async function processCustomer(entry: MigrationEntry) {
   processedSubs.add(processedPathKey(entry.stripeCustomerId))
   fs.writeFileSync(
     progressPath,
-    JSON.stringify(Array.from(processedSubs), null, 2)
+    JSON.stringify(Array.from(processedSubs), null, 2),
   )
   console.log(`Processed customer ${entry.stripeCustomerId}`)
 }

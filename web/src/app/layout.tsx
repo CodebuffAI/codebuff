@@ -4,7 +4,6 @@ import '@/styles/globals.css'
 import type { Metadata } from 'next'
 import type { PropsWithChildren } from 'react'
 
-
 import { CookieConsentCard } from '@/components/CookieConsentCard'
 import { Footer } from '@/components/footer'
 import { LayoutWrapper } from '@/components/layout-wrapper'

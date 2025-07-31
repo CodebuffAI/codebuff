@@ -2,7 +2,6 @@ import { getToolCallString } from '@codebuff/common/tools/utils'
 
 import type { ToolDescription } from '../tool-def-type'
 
-
 const toolName = 'spawn_agents'
 export const spawnAgentsTool = {
   toolName,

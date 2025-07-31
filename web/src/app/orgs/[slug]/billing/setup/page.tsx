@@ -7,7 +7,13 @@ import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
 
@@ -34,12 +40,15 @@ export default function BillingSetupPage() {
 
     setSettingUp(true)
     try {
-      const response = await fetch(`/api/orgs/${organization.id}/billing/setup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+      const response = await fetch(
+        `/api/orgs/${organization.id}/billing/setup`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
 
       if (!response.ok) {
         const error = await response.json()
@@ -67,7 +76,8 @@ export default function BillingSetupPage() {
       console.error('Error setting up billing:', error)
       toast({
         title: 'Setup Failed',
-        description: error.message || 'Failed to setup billing. Please try again.',
+        description:
+          error.message || 'Failed to setup billing. Please try again.',
         variant: 'destructive',
       })
     } finally {
@@ -114,7 +124,9 @@ export default function BillingSetupPage() {
               <CardTitle>Organization Not Found</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">The organization you're looking for could not be found.</p>
+              <p className="mb-4">
+                The organization you're looking for could not be found.
+              </p>
               <Link href="/orgs">
                 <Button>Back to Organizations</Button>
               </Link>
@@ -126,7 +138,8 @@ export default function BillingSetupPage() {
   }
 
   // Check if user has permission to setup billing
-  const canManageBilling = organization.userRole === 'owner' || organization.userRole === 'admin'
+  const canManageBilling =
+    organization.userRole === 'owner' || organization.userRole === 'admin'
 
   if (!canManageBilling) {
     return (
@@ -137,7 +150,10 @@ export default function BillingSetupPage() {
               <CardTitle>Access Denied</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">You don't have permission to setup billing for this organization.</p>
+              <p className="mb-4">
+                You don't have permission to setup billing for this
+                organization.
+              </p>
               <Link href={`/orgs/${orgSlug}`}>
                 <Button>Back to Organization</Button>
               </Link>
@@ -161,7 +177,9 @@ export default function BillingSetupPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold">Setup Billing</h1>
-            <p className="text-muted-foreground">Add a payment method for {organization.name}</p>
+            <p className="text-muted-foreground">
+              Add a payment method for {organization.name}
+            </p>
           </div>
         </div>
 
@@ -173,18 +191,27 @@ export default function BillingSetupPage() {
               Add Payment Method
             </CardTitle>
             <CardDescription>
-              Add a credit card to enable automatic billing and credit purchases for your organization.
-              You'll need to load a credit balance after adding your payment method.
+              Add a credit card to enable automatic billing and credit purchases
+              for your organization. You'll need to load a credit balance after
+              adding your payment method.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="bg-muted/50 p-4 rounded-lg">
               <h3 className="font-medium mb-2">What happens next?</h3>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• You'll be redirected to Stripe to securely add your payment method</li>
+                <li>
+                  • You'll be redirected to Stripe to securely add your payment
+                  method
+                </li>
                 <li>• No charges will be made during this setup process</li>
-                <li>• After setup, you can purchase credits for your organization</li>
-                <li>• You can enable auto-topup to automatically maintain your credit balance</li>
+                <li>
+                  • After setup, you can purchase credits for your organization
+                </li>
+                <li>
+                  • You can enable auto-topup to automatically maintain your
+                  credit balance
+                </li>
               </ul>
             </div>
 

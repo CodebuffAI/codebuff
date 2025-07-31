@@ -20,9 +20,7 @@ import {
   getProjectFileTree,
   parseGitignore,
 } from '@codebuff/common/project-file-tree'
-import {
-  ensureDirectoryExists
-} from '@codebuff/common/util/file'
+import { ensureDirectoryExists } from '@codebuff/common/util/file'
 import { filterObject } from '@codebuff/common/util/object'
 import { createPatch } from 'diff'
 import { green } from 'picocolors'
@@ -36,8 +34,7 @@ import { logger } from './utils/logger'
 import { getSystemInfo } from './utils/system-info'
 import { getScrapedContentBlocks, parseUrlsFromContent } from './web-scraper'
 
-import type {
-  ProjectFileContext} from '@codebuff/common/util/file';
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 // Global variables for chat management
 // Initialize chat ID on first import with singleton pattern
@@ -104,7 +101,7 @@ export function setProjectRoot(dir: string, setCwd: boolean = false) {
 
       console.log(
         '\n' + green('Directory change:'),
-        `Codebuff will read and write files in "${dir}".\n`
+        `Codebuff will read and write files in "${dir}".\n`,
       )
     }
     projectRoot = dir
@@ -143,7 +140,7 @@ export function getStartingDirectory(dir: string | undefined = undefined): {
   } catch (error) {
     throw new Error(
       'Failed to get current working directory. Is this directory deleted?',
-      { cause: error }
+      { cause: error },
     )
   }
   if (!dir) {
@@ -201,7 +198,7 @@ export function clearCachedProjectFileContext() {
 
 export function initProjectFileContextWithWorker(
   dir: string,
-  resetCache: boolean = false
+  resetCache: boolean = false,
 ) {
   if (resetCache) {
     cachedProjectFileContext = undefined
@@ -213,7 +210,7 @@ export function initProjectFileContextWithWorker(
       ? // Use relative path for compiled binary.
         workerRelativePath
       : // Use absolute path for dev (via bun URL).
-        new URL(workerRelativePath, import.meta.url).href
+        new URL(workerRelativePath, import.meta.url).href,
   )
 
   // Pass the current chat ID to the worker to ensure consistency
@@ -256,7 +253,7 @@ export function initProjectFileContextWithWorker(
  */
 export const getProjectFileContext = async (
   projectRoot: string,
-  lastFileVersion: Record<string, string>
+  lastFileVersion: Record<string, string>,
 ): Promise<ProjectFileContext> => {
   const gitChanges = await getGitChanges()
   const changesSinceLastChat = getChangesSinceLastFileVersion(lastFileVersion)
@@ -292,7 +289,7 @@ export const getProjectFileContext = async (
 
     // Filter out agent template paths from knowledge files to avoid duplication
     const filteredKnowledgeFilePaths = knowledgeFilePaths.filter(
-      (filePath) => !filePath.startsWith(AGENT_TEMPLATES_DIR)
+      (filePath) => !filePath.startsWith(AGENT_TEMPLATES_DIR),
     )
 
     const knowledgeFiles = getExistingFiles(filteredKnowledgeFilePaths)
@@ -314,7 +311,7 @@ export const getProjectFileContext = async (
 
     const { tokenScores, tokenCallers } = await getFileTokenScores(
       projectRoot,
-      allFilePaths
+      allFilePaths,
     )
     await loadLocalAgents({ verbose: false })
 
@@ -405,7 +402,7 @@ async function getGitChanges(): Promise<{
         .slice(1)
         .reverse()
         .map((line) => line.trim())
-        .join('\n')
+        .join('\n'),
     )
     .catch((error) => {
       logger.error({ error }, 'Failed to get lastCommitMessages')
@@ -438,7 +435,7 @@ async function getGitChanges(): Promise<{
  *          be read are not included in the result.
  */
 export function getChangesSinceLastFileVersion(
-  lastFileVersion: Record<string, string>
+  lastFileVersion: Record<string, string>,
 ): Record<string, string> {
   const changes = Object.entries(lastFileVersion)
     .map(([filePath, lastContents]) => {
@@ -499,7 +496,7 @@ export function getFiles(filePaths: string[]) {
           errorStack: error instanceof Error ? error.stack : undefined,
           relativePath,
         },
-        'Error checking if file is ignored'
+        'Error checking if file is ignored',
       )
       result[relativePath] = FILE_READ_STATUS.ERROR
       continue
@@ -530,7 +527,7 @@ export function getFiles(filePaths: string[]) {
             errorStack: error instanceof Error ? error.stack : undefined,
             fullPath,
           },
-          'Error reading file'
+          'Error reading file',
         )
         result[relativePath] = FILE_READ_STATUS.ERROR
       }
@@ -544,14 +541,14 @@ export function getFilesOrNull(filePaths: string[]) {
     Object.entries(result).map(([filePath, content]) => [
       filePath,
       toOptionalFile(content),
-    ])
+    ]),
   )
 }
 
 export function getExistingFiles(filePaths: string[]) {
   return filterObject(
     getFilesOrNull(filePaths),
-    (value) => value !== null
+    (value) => value !== null,
   ) as Record<string, string>
 }
 export async function addScrapedContentToFiles(files: Record<string, string>) {
@@ -565,7 +562,7 @@ export async function addScrapedContentToFiles(files: Record<string, string>) {
         content +
         (scrapedContent.length > 0 ? '\n' : '') +
         scrapedContent.join('\n')
-    })
+    }),
   )
   return newFiles
 }
@@ -589,7 +586,7 @@ function findKnowledgeFilesInDir(dir: string): Record<string, string> {
               errorStack: error instanceof Error ? error.stack : undefined,
               fullPath,
             },
-            'Error reading knowledge file'
+            'Error reading knowledge file',
           )
         }
       }
@@ -602,7 +599,7 @@ function findKnowledgeFilesInDir(dir: string): Record<string, string> {
         errorStack: error instanceof Error ? error.stack : undefined,
         dir,
       },
-      'Error reading directory for knowledge files'
+      'Error reading directory for knowledge files',
     )
   }
   return result
@@ -621,7 +618,7 @@ export function getFilesAbsolutePath(filePaths: string[]) {
           errorStack: error instanceof Error ? error.stack : undefined,
           filePath,
         },
-        'Error reading file by absolute path'
+        'Error reading file by absolute path',
       )
       result[filePath] = null
     }
@@ -742,7 +739,7 @@ export const deleteFile = (fullPath: string): boolean => {
         errorStack: error instanceof Error ? error.stack : undefined,
         fullPath,
       },
-      'Error deleting file'
+      'Error deleting file',
     )
     return false
   }

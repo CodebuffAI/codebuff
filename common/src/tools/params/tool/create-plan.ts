@@ -2,7 +2,6 @@ import z from 'zod/v4'
 
 import type { ToolParams } from '../../constants'
 
-
 const toolName = 'create_plan'
 const endsAgentStep = false
 export const createPlanParams = {
@@ -14,7 +13,7 @@ export const createPlanParams = {
         .string()
         .min(1, 'Path cannot be empty')
         .describe(
-          `The path including the filename of a markdown file that will be overwritten with the plan.`
+          `The path including the filename of a markdown file that will be overwritten with the plan.`,
         ),
       plan: z
         .string()

@@ -138,7 +138,10 @@ export function BillingStatus({
     switch (status) {
       case 'active':
         return (
-          <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+          <Badge
+            variant="default"
+            className="text-xs bg-green-100 text-green-800"
+          >
             <CheckCircle className="mr-1 h-3 w-3" />
             Active
           </Badge>
@@ -199,7 +202,7 @@ export function BillingStatus({
                 {billingStatus.seatCount}
               </span>
             </div>
-            
+
             <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
               <div className="flex justify-between">
                 <span>Price per seat</span>
@@ -250,20 +253,22 @@ export function BillingStatus({
           )}
 
           {/* Subscription Details */}
-          {billingStatus.hasActiveSubscription && billingStatus.subscriptionDetails && (
-            <div className="text-xs sm:text-sm text-muted-foreground">
-              <p>
-                Current billing period:{' '}
-                {new Date(
-                  billingStatus.subscriptionDetails.current_period_start * 1000
-                ).toLocaleDateString()}{' '}
-                -{' '}
-                {new Date(
-                  billingStatus.subscriptionDetails.current_period_end * 1000
-                ).toLocaleDateString()}
-              </p>
-            </div>
-          )}
+          {billingStatus.hasActiveSubscription &&
+            billingStatus.subscriptionDetails && (
+              <div className="text-xs sm:text-sm text-muted-foreground">
+                <p>
+                  Current billing period:{' '}
+                  {new Date(
+                    billingStatus.subscriptionDetails.current_period_start *
+                      1000
+                  ).toLocaleDateString()}{' '}
+                  -{' '}
+                  {new Date(
+                    billingStatus.subscriptionDetails.current_period_end * 1000
+                  ).toLocaleDateString()}
+                </p>
+              </div>
+            )}
 
           {!billingStatus.hasActiveSubscription && (
             <div className="p-3 sm:p-4 border border-amber-200 bg-amber-50 rounded-lg">
@@ -274,7 +279,8 @@ export function BillingStatus({
                     No Active Subscription
                   </h4>
                   <p className="text-xs sm:text-sm text-amber-700 mt-1">
-                    Set up billing to enable team features and automatic seat management.
+                    Set up billing to enable team features and automatic seat
+                    management.
                   </p>
                 </div>
               </div>

@@ -16,33 +16,33 @@ export interface ToolCallRenderer {
   // Called when a tool tag starts
   onToolStart?: (
     toolName: string,
-    attributes: Record<string, string>
+    attributes: Record<string, string>,
   ) => string | null | (() => void)
 
   // Called when a parameter tag is found within a tool
   onParamStart?: (
     paramName: string,
-    toolName: string
+    toolName: string,
   ) => string | null | (() => void)
 
   // Called when parameter content is received
   onParamChunk?: (
     content: string,
     paramName: string,
-    toolName: string
+    toolName: string,
   ) => string | null | (() => void)
 
   // Called when a parameter tag ends
   onParamEnd?: (
     paramName: string,
     toolName: string,
-    content: string
+    content: string,
   ) => string | null | (() => void)
 
   // Called when a tool tag ends
   onToolEnd?: (
     toolName: string,
-    params: Record<string, string>
+    params: Record<string, string>,
   ) => string | null | (() => void)
 }
 
@@ -100,7 +100,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       files = files.map((fname) =>
         isFileIgnored(fname, getProjectRoot())
           ? strikethrough(fname) + ' (blocked)'
-          : fname
+          : fname,
       )
       const numFiles = files.length
       const maxInitialFiles = 3
@@ -116,7 +116,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
         const remainingFilesString = remainingFiles.join(' ')
 
         return gray(
-          `${initialFiles.map((file) => '- ' + file).join('\n')}\nand ${numRemaining} more: ${remainingFilesString}`
+          `${initialFiles.map((file) => '- ' + file).join('\n')}\nand ${numRemaining} more: ${remainingFilesString}`,
         )
       }
     },
@@ -288,7 +288,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
 
                 return `@${bold(agentName)}:\n${prompt || 'No prompt provided'}`
               })
-              .join('\n\n') + '\n'
+              .join('\n\n') + '\n',
           )
         }
       }
@@ -335,7 +335,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
 
                 return `@${bold(agentName)}:\n${prompt || 'No prompt provided'}`
               })
-              .join('\n\n') + '\n'
+              .join('\n\n') + '\n',
           )
         }
       }

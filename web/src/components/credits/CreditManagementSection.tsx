@@ -8,7 +8,7 @@ export interface CreditManagementSectionProps {
   isPurchasePending: boolean
   showAutoTopup?: boolean
   className?: string
-  context?: "user" | "organization"
+  context?: 'user' | 'organization'
   organizationId?: string
   isOrganization?: boolean // Keep for backward compatibility
 }
@@ -18,12 +18,12 @@ export function CreditManagementSection({
   isPurchasePending,
   showAutoTopup = true,
   className,
-  context = "user",
+  context = 'user',
   organizationId,
   isOrganization = false,
 }: CreditManagementSectionProps) {
   // Determine if we're in organization context
-  const isOrgContext = context === "organization" || isOrganization
+  const isOrgContext = context === 'organization' || isOrganization
 
   return (
     <div className={className}>

@@ -1,7 +1,7 @@
-import type { OpenRouterSharedSettings } from '..';
+import type { OpenRouterSharedSettings } from '..'
 
 // https://openrouter.ai/api/v1/models
-export type OpenRouterChatModelId = string;
+export type OpenRouterChatModelId = string
 
 export type OpenRouterChatSettings = {
   /**
@@ -18,7 +18,7 @@ should result in a ban or exclusive selection of the relevant token.
 As an example, you can pass {"50256": -100} to prevent the <|endoftext|>
 token from being generated.
 */
-  logitBias?: Record<number, number>;
+  logitBias?: Record<number, number>
 
   /**
 Return the log probabilities of the tokens. Including logprobs will increase
@@ -31,16 +31,16 @@ were generated.
 Setting to a number will return the log probabilities of the top n
 tokens that were generated.
 */
-  logprobs?: boolean | number;
+  logprobs?: boolean | number
 
   /**
 Whether to enable parallel function calling during tool use. Default to true.
    */
-  parallelToolCalls?: boolean;
+  parallelToolCalls?: boolean
 
   /**
 A unique identifier representing your end-user, which can help OpenRouter to
 monitor and detect abuse. Learn more.
 */
-  user?: string;
-} & OpenRouterSharedSettings;
+  user?: string
+} & OpenRouterSharedSettings

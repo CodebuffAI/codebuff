@@ -18,7 +18,7 @@ async function printRecentTraces() {
             code: err.code,
             details: err.details,
           },
-          'Failed to initialize BigQuery client'
+          'Failed to initialize BigQuery client',
         )
       })
       .finally(() => {

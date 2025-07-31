@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-
 import { type CostMode } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { Command, Option } from 'commander'
@@ -71,7 +70,7 @@ async function codebuff({
   })
   const codebuffConfig = loadCodebuffConfig()
   await loadLocalAgents({ verbose: true }).then(() =>
-    displayLoadedAgents(codebuffConfig)
+    displayLoadedAgents(codebuffConfig),
   )
   const cli = CLI.getInstance()
 
@@ -116,7 +115,7 @@ Examples:
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
 
 For all commands and options, run 'codebuff' and then type 'help'.
-`
+`,
   )
 
   program.parse()
@@ -146,15 +145,15 @@ For all commands and options, run 'codebuff' and then type 'help'.
   if (options.pro) {
     console.error(
       red(
-        'Warning: The --pro flag is deprecated. Please restart codebuff and use the --max option instead.'
-      )
+        'Warning: The --pro flag is deprecated. Please restart codebuff and use the --max option instead.',
+      ),
     )
     logger.error(
       {
         errorMessage:
           'The --pro flag is deprecated. Please restart codebuff and use the --max option instead.',
       },
-      'Deprecated --pro flag used'
+      'Deprecated --pro flag used',
     )
     process.exit(1)
   }

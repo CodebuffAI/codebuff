@@ -16,7 +16,7 @@ import type {
 export type OpenRouterCacheControl = { type: 'ephemeral' }
 
 function getCacheControl(
-  providerMetadata: LanguageModelV1ProviderMetadata | undefined
+  providerMetadata: LanguageModelV1ProviderMetadata | undefined,
 ): OpenRouterCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic
   const openrouter = providerMetadata?.openrouter
@@ -29,7 +29,7 @@ function getCacheControl(
 }
 
 export function convertToOpenRouterChatMessages(
-  prompt: LanguageModelV1Prompt
+  prompt: LanguageModelV1Prompt,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = []
   for (const { role, content, providerMetadata } of prompt) {
@@ -67,7 +67,7 @@ export function convertToOpenRouterChatMessages(
                       part.image instanceof URL
                         ? part.image.toString()
                         : `data:${part.mimeType ?? 'image/jpeg'};base64,${convertUint8ArrayToBase64(
-                            part.image
+                            part.image,
                           )}`,
                   },
                   // For image parts, use part-specific or message-level cache control
@@ -78,7 +78,7 @@ export function convertToOpenRouterChatMessages(
                   type: 'file' as const,
                   file: {
                     filename: String(
-                      part.providerMetadata?.openrouter?.filename
+                      part.providerMetadata?.openrouter?.filename,
                     ),
                     file_data:
                       part.data instanceof Uint8Array
@@ -90,11 +90,11 @@ export function convertToOpenRouterChatMessages(
               default: {
                 const _exhaustiveCheck: never = part
                 throw new Error(
-                  `Unsupported content part type: ${_exhaustiveCheck}`
+                  `Unsupported content part type: ${_exhaustiveCheck}`,
                 )
               }
             }
-          }
+          },
         )
 
         // For multi-part messages, don't add cache_control at the root level

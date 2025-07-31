@@ -60,7 +60,7 @@ export const CodebuffMessageSchema = z.intersection(
     timeToLive: z
       .union([z.literal('agentStep'), z.literal('userPrompt')])
       .optional(),
-  })
+  }),
 )
 
 export type CodebuffMessage = z.infer<typeof CodebuffMessageSchema>

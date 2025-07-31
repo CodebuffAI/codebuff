@@ -12,12 +12,12 @@ export function debugLog(...args: any[]) {
     const logMessage =
       args
         .map((arg) =>
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg,
         )
         .join(' ') + '\n'
     fs.appendFileSync(
       DEBUG_LOG_FILE,
-      `[${new Date().toISOString()}] ${logMessage}`
+      `[${new Date().toISOString()}] ${logMessage}`,
     )
   }
 }

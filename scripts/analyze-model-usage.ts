@@ -22,7 +22,7 @@ async function analyzeModelUsage(): Promise<void> {
         SELECT id FROM ${schema.message}
         ORDER BY finished_at DESC
         LIMIT 10000
-      )`
+      )`,
       )
       .groupBy(schema.message.model)
       .orderBy(sql`COUNT(*) DESC`)

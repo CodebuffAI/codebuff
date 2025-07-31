@@ -11,7 +11,7 @@ const VERTEX_LOCATION = 'us-west1'
 
 function patchedFetchForFinetune(
   requestInfo: string | URL | Request,
-  requestInit?: RequestInit
+  requestInit?: RequestInit,
 ): Promise<Response> {
   function patchString(str: string) {
     return str.replace(`/publishers/google/models`, `/endpoints`)

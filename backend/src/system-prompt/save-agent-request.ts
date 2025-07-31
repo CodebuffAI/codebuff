@@ -7,10 +7,9 @@ import { logger } from '../util/logger'
 
 import type { CoreMessage } from 'ai'
 
-
 export async function saveAgentRequest(
   messages: CoreMessage[],
-  userInputId: string
+  userInputId: string,
 ) {
   try {
     const promptsDir = path.join(process.cwd(), 'system-prompts')
@@ -24,12 +23,12 @@ export async function saveAgentRequest(
 
     await fs.promises.writeFile(
       filePath,
-      JSON.stringify(transformedMessages, null, 2)
+      JSON.stringify(transformedMessages, null, 2),
     )
 
     logger.debug(
       { messageCount, userInputId },
-      `Saved system prompt to ${filePath}`
+      `Saved system prompt to ${filePath}`,
     )
   } catch (error) {
     logger.error({ error }, 'Failed to save system prompt')

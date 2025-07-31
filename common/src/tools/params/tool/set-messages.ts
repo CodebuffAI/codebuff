@@ -2,7 +2,6 @@ import z from 'zod/v4'
 
 import type { ToolParams } from '../../constants'
 
-
 const toolName = 'set_messages'
 const endsAgentStep = true
 export const setMessagesParams = {
@@ -14,7 +13,7 @@ export const setMessagesParams = {
         z.object({
           role: z.enum(['user', 'assistant']),
           content: z.string(),
-        })
+        }),
       ),
     })
     .describe(`Set the conversation history to the provided messages.`),

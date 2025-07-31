@@ -85,7 +85,7 @@ export const CommitSelectionSchema = z.object({
     z.object({
       sha: z.string(),
       reason: z.string(),
-    })
+    }),
   ),
 })
 

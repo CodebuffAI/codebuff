@@ -1,11 +1,11 @@
 'use client'
 
-import { 
-  BarChart3, 
-  Download, 
+import {
+  BarChart3,
+  Download,
   TrendingUp,
   TrendingDown,
-  DollarSign
+  DollarSign,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
@@ -56,8 +56,10 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
   const fetchReport = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/orgs/${organizationId}/reports/billing?period=${selectedPeriod}`)
-      
+      const response = await fetch(
+        `/api/orgs/${organizationId}/reports/billing?period=${selectedPeriod}`
+      )
+
       if (response.ok) {
         const data = await response.json()
         setReport(data)
@@ -71,8 +73,10 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
 
   const exportReport = async () => {
     try {
-      const response = await fetch(`/api/orgs/${organizationId}/reports/billing/export?period=${selectedPeriod}`)
-      
+      const response = await fetch(
+        `/api/orgs/${organizationId}/reports/billing/export?period=${selectedPeriod}`
+      )
+
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
@@ -156,16 +160,24 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold">{report.totalCreditsUsed.toLocaleString()}</div>
+              <div className="text-2xl font-bold">
+                {report.totalCreditsUsed.toLocaleString()}
+              </div>
               <div className="text-sm text-muted-foreground">Total Credits</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold">${report.totalCost.toFixed(2)}</div>
+              <div className="text-2xl font-bold">
+                ${report.totalCost.toFixed(2)}
+              </div>
               <div className="text-sm text-muted-foreground">Total Cost</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold">${report.averageDailyCost.toFixed(2)}</div>
-              <div className="text-sm text-muted-foreground">Avg Daily Cost</div>
+              <div className="text-2xl font-bold">
+                ${report.averageDailyCost.toFixed(2)}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Avg Daily Cost
+              </div>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center space-x-1">
@@ -192,7 +204,9 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
                 <div key={index} className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{user.name}</div>
-                    <div className="text-sm text-muted-foreground truncate">{user.email}</div>
+                    <div className="text-sm text-muted-foreground truncate">
+                      {user.email}
+                    </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Badge variant="outline" className="text-xs">
@@ -234,12 +248,18 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
             <h4 className="font-medium mb-3">Daily Usage Trend</h4>
             <div className="h-32 flex items-end space-x-1">
               {report.dailyUsage.slice(-14).map((day, index) => {
-                const maxCredits = Math.max(...report.dailyUsage.map(d => d.credits))
-                const height = maxCredits > 0 ? (day.credits / maxCredits) * 100 : 0
-                
+                const maxCredits = Math.max(
+                  ...report.dailyUsage.map((d) => d.credits)
+                )
+                const height =
+                  maxCredits > 0 ? (day.credits / maxCredits) * 100 : 0
+
                 return (
-                  <div key={index} className="flex-1 flex flex-col items-center">
-                    <div 
+                  <div
+                    key={index}
+                    className="flex-1 flex flex-col items-center"
+                  >
+                    <div
                       className="w-full bg-blue-500 rounded-t"
                       style={{ height: `${height}%` }}
                       title={`${day.date}: ${day.credits} credits`}

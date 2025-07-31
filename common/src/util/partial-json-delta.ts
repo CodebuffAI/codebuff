@@ -43,7 +43,7 @@ export function parsePartialJsonObjectSingle(content: string): {
 
 export function getPartialJsonDelta(
   content: string,
-  previous: string
+  previous: string,
 ): {
   delta: Record<string, any>
   result: Record<string, any>
@@ -51,7 +51,7 @@ export function getPartialJsonDelta(
 } {
   if (!content.startsWith(previous)) {
     throw new Error(
-      `Content must be previous content plus new content. Content ${JSON.stringify(content)} does not start with previous content ${JSON.stringify(previous)}`
+      `Content must be previous content plus new content. Content ${JSON.stringify(content)} does not start with previous content ${JSON.stringify(previous)}`,
     )
   }
   const { lastParamComplete, params } = parsePartialJsonObjectSingle(content)

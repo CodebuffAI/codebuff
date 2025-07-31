@@ -17,8 +17,6 @@ import * as projectFiles from '../../project-files'
 import { toolRenderers } from '../../utils/tool-renderers'
 import { createXMLStreamParser } from '../xml-stream-parser'
 
-
-
 describe('Tool renderers with XML parser', () => {
   beforeEach(() => {
     spyOn(projectFileTree, 'isFileIgnored').mockImplementation(() => false)

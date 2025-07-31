@@ -111,7 +111,7 @@ try {
   envTemp = createEnv(envSchema)
 } catch (error) {
   console.error(
-    "\nERROR: Environment variables not loaded. It looks like you're missing some required environment variables.\nPlease run commands using the project's runner (e.g., 'infisical run -- <your-command>') to load them automatically."
+    "\nERROR: Environment variables not loaded. It looks like you're missing some required environment variables.\nPlease run commands using the project's runner (e.g., 'infisical run -- <your-command>') to load them automatically.",
   )
 
   throw error

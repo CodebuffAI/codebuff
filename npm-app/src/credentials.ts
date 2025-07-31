@@ -1,6 +1,4 @@
-import type { User} from '@codebuff/common/util/credentials';
-
-
+import type { User } from '@codebuff/common/util/credentials'
 
 import { z } from 'zod'
 
@@ -20,7 +18,7 @@ const credentialsSchema = z
 
 export const userFromJson = (
   json: string,
-  profileName: string = 'default'
+  profileName: string = 'default',
 ): User | undefined => {
   try {
     const allCredentials = credentialsSchema.parse(JSON.parse(json))
@@ -34,7 +32,7 @@ export const userFromJson = (
         errorStack: error instanceof Error ? error.stack : undefined,
         profileName,
       },
-      'Error parsing user JSON'
+      'Error parsing user JSON',
     )
     return
   }
@@ -50,7 +48,7 @@ export const CONFIG_DIR = path.join(
     (process.env.NEXT_PUBLIC_CB_ENVIRONMENT &&
     process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
       ? `-${process.env.NEXT_PUBLIC_CB_ENVIRONMENT}`
-      : '')
+      : ''),
 )
 
 // Ensure config directory exists
@@ -76,7 +74,7 @@ export const getUserCredentials = (): User | null => {
       {
         error: error instanceof Error ? error.message : String(error),
       },
-      'Error reading credentials'
+      'Error reading credentials',
     )
     return null
   }

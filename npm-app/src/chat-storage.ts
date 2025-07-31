@@ -24,7 +24,7 @@ export function setMessages(messages: CodebuffMessage[]) {
         content,
         'logs',
         (logs) => logs.filter((log) => log.source === 'tool'),
-        '(LOGS_REMOVED)'
+        '(LOGS_REMOVED)',
       )
 
       // Remove metrics
@@ -32,7 +32,7 @@ export function setMessages(messages: CodebuffMessage[]) {
         content,
         'metrics',
         () => '(METRICS_REMOVED)',
-        '(METRICS_REMOVED)'
+        '(METRICS_REMOVED)',
       )
 
       return content
@@ -55,7 +55,7 @@ export function setMessages(messages: CodebuffMessage[]) {
         content: msg.content.map((part) =>
           part.type === 'text'
             ? { ...part, text: cleanContent(part.text) }
-            : part
+            : part,
         ),
       }
     }
@@ -66,7 +66,9 @@ export function setMessages(messages: CodebuffMessage[]) {
     return {
       ...msg,
       content: msg.content.map((part) =>
-        part.type === 'text' ? { ...part, text: cleanContent(part.text) } : part
+        part.type === 'text'
+          ? { ...part, text: cleanContent(part.text) }
+          : part,
       ),
     }
   })
@@ -91,7 +93,7 @@ export function setMessages(messages: CodebuffMessage[]) {
         errorStack: error instanceof Error ? error.stack : undefined,
         messagesCount: messages.length,
       },
-      'Failed to save messages to file'
+      'Failed to save messages to file',
     )
     logger.error(
       {
@@ -99,7 +101,7 @@ export function setMessages(messages: CodebuffMessage[]) {
         errorStack: error instanceof Error ? error.stack : undefined,
         messagesCount: messages.length,
       },
-      'Failed to save messages to file'
+      'Failed to save messages to file',
     )
   }
 }

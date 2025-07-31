@@ -25,12 +25,12 @@ const nextConfig = {
       'perf_hooks',
       'async_hooks'
     )
-    
+
     // Suppress contentlayer webpack cache warnings
     config.infrastructureLogging = {
       level: 'error',
     }
-    
+
     return config
   },
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],

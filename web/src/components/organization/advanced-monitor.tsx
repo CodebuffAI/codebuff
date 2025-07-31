@@ -1,15 +1,15 @@
 'use client'
 
-import { 
-  Activity, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  TrendingUp, 
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  TrendingUp,
   TrendingDown,
   Zap,
   Shield,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -48,7 +48,10 @@ interface AdvancedMonitorProps {
   refreshInterval?: number
 }
 
-export function AdvancedMonitor({ orgId, refreshInterval = 30000 }: AdvancedMonitorProps) {
+export function AdvancedMonitor({
+  orgId,
+  refreshInterval = 30000,
+}: AdvancedMonitorProps) {
   const [data, setData] = useState<MonitoringData | null>(null)
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -209,14 +212,22 @@ export function AdvancedMonitor({ orgId, refreshInterval = 30000 }: AdvancedMoni
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                {data.creditVelocity.trend === 'up' ? 'Increase' : 
-                 data.creditVelocity.trend === 'down' ? 'Decrease' : 'No change'} from last period
+                {data.creditVelocity.trend === 'up'
+                  ? 'Increase'
+                  : data.creditVelocity.trend === 'down'
+                    ? 'Decrease'
+                    : 'No change'}{' '}
+                from last period
               </span>
-              <span className={`text-sm font-medium ${
-                data.creditVelocity.trend === 'up' ? 'text-red-600' : 
-                data.creditVelocity.trend === 'down' ? 'text-green-600' : 
-                'text-gray-600'
-              }`}>
+              <span
+                className={`text-sm font-medium ${
+                  data.creditVelocity.trend === 'up'
+                    ? 'text-red-600'
+                    : data.creditVelocity.trend === 'down'
+                      ? 'text-green-600'
+                      : 'text-gray-600'
+                }`}
+              >
                 {data.creditVelocity.percentage.toFixed(1)}%
               </span>
             </div>
@@ -236,15 +247,21 @@ export function AdvancedMonitor({ orgId, refreshInterval = 30000 }: AdvancedMoni
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <p className="text-2xl font-bold">{data.burnRate.daily.toLocaleString()}</p>
+                <p className="text-2xl font-bold">
+                  {data.burnRate.daily.toLocaleString()}
+                </p>
                 <p className="text-xs text-muted-foreground">Daily</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold">{data.burnRate.weekly.toLocaleString()}</p>
+                <p className="text-2xl font-bold">
+                  {data.burnRate.weekly.toLocaleString()}
+                </p>
                 <p className="text-xs text-muted-foreground">Weekly</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold">{data.burnRate.monthly.toLocaleString()}</p>
+                <p className="text-2xl font-bold">
+                  {data.burnRate.monthly.toLocaleString()}
+                </p>
                 <p className="text-xs text-muted-foreground">Monthly</p>
               </div>
             </div>
@@ -255,8 +272,11 @@ export function AdvancedMonitor({ orgId, refreshInterval = 30000 }: AdvancedMoni
                   {data.burnRate.daysRemaining} days
                 </span>
               </div>
-              <Progress 
-                value={Math.max(0, Math.min(100, (data.burnRate.daysRemaining / 30) * 100))} 
+              <Progress
+                value={Math.max(
+                  0,
+                  Math.min(100, (data.burnRate.daysRemaining / 30) * 100)
+                )}
                 className="mt-2"
               />
             </div>
@@ -276,15 +296,21 @@ export function AdvancedMonitor({ orgId, refreshInterval = 30000 }: AdvancedMoni
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Response Time</span>
-              <span className="text-lg font-bold">{data.performanceMetrics.responseTime}ms</span>
+              <span className="text-lg font-bold">
+                {data.performanceMetrics.responseTime}ms
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Error Rate</span>
-              <span className="text-lg font-bold">{data.performanceMetrics.errorRate.toFixed(2)}%</span>
+              <span className="text-lg font-bold">
+                {data.performanceMetrics.errorRate.toFixed(2)}%
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Uptime</span>
-              <span className="text-lg font-bold">{data.performanceMetrics.uptime.toFixed(1)}%</span>
+              <span className="text-lg font-bold">
+                {data.performanceMetrics.uptime.toFixed(1)}%
+              </span>
             </div>
           </div>
         </CardContent>
@@ -301,11 +327,15 @@ export function AdvancedMonitor({ orgId, refreshInterval = 30000 }: AdvancedMoni
         <CardContent>
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-red-600">{data.alerts.critical}</p>
+              <p className="text-2xl font-bold text-red-600">
+                {data.alerts.critical}
+              </p>
               <p className="text-xs text-muted-foreground">Critical</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-yellow-600">{data.alerts.warnings}</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {data.alerts.warnings}
+              </p>
               <p className="text-xs text-muted-foreground">Warnings</p>
             </div>
             <div className="text-center">

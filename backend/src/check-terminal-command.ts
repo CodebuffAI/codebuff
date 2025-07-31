@@ -15,7 +15,7 @@ export async function checkTerminalCommand(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
-  }
+  },
 ): Promise<string | null> {
   if (!prompt?.trim()) {
     return null
@@ -60,10 +60,10 @@ ${JSON.stringify(prompt)}`,
     // Race between OpenAI and Gemini with timeouts
     const response = await withTimeout(
       promptAiSdk({ messages, model: models.gpt4omini, ...options }).then(
-        (response) => response.toLowerCase().includes('y')
+        (response) => response.toLowerCase().includes('y'),
       ),
       30000,
-      'OpenAI API request timed out'
+      'OpenAI API request timed out',
     )
 
     if (response) {
@@ -75,7 +75,7 @@ ${JSON.stringify(prompt)}`,
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error(
       { error },
-      `Error checking if prompt is terminal command: ${errorMessage}`
+      `Error checking if prompt is terminal command: ${errorMessage}`,
     )
     return null
   }

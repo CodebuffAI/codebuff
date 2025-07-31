@@ -3,9 +3,7 @@
 import { env } from '@codebuff/internal'
 import { useSession } from 'next-auth/react'
 import posthog from 'posthog-js'
-import {
-  PostHogProvider as PostHogProviderWrapper,
-} from 'posthog-js/react'
+import { PostHogProvider as PostHogProviderWrapper } from 'posthog-js/react'
 import {
   useEffect,
   createContext,
@@ -77,7 +75,9 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
 
   return (
     <PostHogContext.Provider value={{ reinitialize: initializePostHog }}>
-      <PostHogProviderWrapper client={posthog}>{children}</PostHogProviderWrapper>
+      <PostHogProviderWrapper client={posthog}>
+        {children}
+      </PostHogProviderWrapper>
     </PostHogContext.Provider>
   )
 }

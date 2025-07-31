@@ -1,15 +1,12 @@
 import path from 'path'
 
-import {
-  codebuffConfigFile
-} from '@codebuff/common/json-config/constants'
+import { codebuffConfigFile } from '@codebuff/common/json-config/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { yellow } from 'picocolors'
 
 import { runBackgroundCommand } from './terminal/background'
 
-import type {
-  StartupProcess} from '@codebuff/common/json-config/constants';
+import type { StartupProcess } from '@codebuff/common/json-config/constants'
 
 /**
  * Starts background development processes defined in the config file.
@@ -21,7 +18,7 @@ import type {
  */
 export function startDevProcesses(
   processes: StartupProcess[],
-  projectPath: string
+  projectPath: string,
 ) {
   const toStart = processes.filter((process) => process.enabled)
 
@@ -67,7 +64,7 @@ export function startDevProcesses(
         } else {
           console.log(yellow(`- ${name}: ${command} — failed to start`))
         }
-      }
+      },
     )
   }
 

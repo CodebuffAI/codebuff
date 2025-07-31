@@ -10,19 +10,24 @@ This package provides integration with Google BigQuery for storing and analyzing
 ## Environment Configuration
 
 Dataset name determined by `NEXT_PUBLIC_CB_ENVIRONMENT`:
+
 - Production: `codebuff_data`
 - Development: `codebuff_data_dev`
 
 ## Tables
 
 ### Traces Table
+
 Stores agent interaction traces:
+
 - `id`, `agent_step_id`, `user_id`, `created_at`, `type`, `payload`
 - Time partitioned by month on `created_at`
 - Clustered by `user_id`, `agent_step_id`
 
 ### Relabels Table
+
 Stores relabeling data:
+
 - `id`, `agent_step_id`, `user_id`, `created_at`, `model`, `payload`
 - Time partitioned by month on `created_at`
 - Clustered by `user_id`, `agent_step_id`
@@ -47,11 +52,13 @@ await setupBigQuery()
 // Insert trace
 await insertTrace({
   id: 'trace-id',
-  agent_step_id: 'step-id', 
+  agent_step_id: 'step-id',
   user_id: 'user-id',
   created_at: new Date(),
   type: 'get-relevant-files',
-  payload: { /* ... */ }
+  payload: {
+    /* ... */
+  },
 })
 ```
 

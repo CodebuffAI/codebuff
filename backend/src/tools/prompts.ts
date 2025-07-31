@@ -1,4 +1,3 @@
-
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
@@ -37,7 +36,7 @@ function buildToolDescription(
   toolName: string,
   schema: z.ZodObject,
   description: string = '',
-  endsAgentStep: boolean
+  endsAgentStep: boolean,
 ): string {
   return buildArray([
     `### ${toolName}`,
@@ -54,15 +53,15 @@ export const toolDescriptions = Object.fromEntries(
       name,
       config.parameters,
       config.description,
-      config.endsAgentStep
+      config.endsAgentStep,
     ),
-  ])
+  ]),
 ) as Record<keyof typeof codebuffToolDefs, string>
 
 function buildShortToolDescription(
   toolName: string,
   schema: z.ZodObject,
-  endsAgentStep: boolean
+  endsAgentStep: boolean,
 ): string {
   return `${toolName}:\n${paramsSection(schema, endsAgentStep)}`
 }
@@ -83,7 +82,7 @@ ${getToolCallString(
     parameter1: 'value1',
     parameter2: 123,
   },
-  false
+  false,
 )}
 
 ### Commentary
@@ -149,7 +148,7 @@ ${getToolCallString(
     parameter1: 'value1',
     parameter2: 123,
   },
-  false
+  false,
 )}
 
 ${toolDescriptions.join('\n\n')}`.trim()

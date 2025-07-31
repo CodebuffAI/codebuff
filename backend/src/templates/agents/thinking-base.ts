@@ -8,12 +8,12 @@ import {
 } from '../base-prompts'
 import { baseAgentSubagents, baseAgentToolNames } from '../types'
 
-import type { AgentTemplate} from '../types';
+import type { AgentTemplate } from '../types'
 import type { Model } from '@codebuff/common/constants'
 
 export const thinkingBase = (
   model: Model,
-  allAvailableAgents?: string[]
+  allAvailableAgents?: string[],
 ): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['base_lite'].displayName,

@@ -181,8 +181,8 @@ export function CompetitionTabs({
                   animate={
                     activeTab === competitor
                       ? {
-                        scale: [1, 1.1, 1],
-                      }
+                          scale: [1, 1.1, 1],
+                        }
                       : {}
                   }
                   transition={{

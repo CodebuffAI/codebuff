@@ -1,6 +1,5 @@
 import * as path from 'path'
 
-
 /* ------------------------------------------------------------------ */
 /* 1 .  WASM files
 /* ------------------------------------------------------------------ */
@@ -117,7 +116,7 @@ const parserReady = Parser.init()
 /* 5 .  Public helper                                                  */
 /* ------------------------------------------------------------------ */
 export async function getLanguageConfig(
-  filePath: string
+  filePath: string,
 ): Promise<LanguageConfig | undefined> {
   const ext = path.extname(filePath)
   const cfg = languageTable.find((c) => c.extensions.includes(ext))

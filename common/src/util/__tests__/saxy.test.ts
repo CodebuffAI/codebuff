@@ -7,7 +7,7 @@ describe('Saxy XML Parser', () => {
   const processXML = (
     xml: string,
     schema?: Record<string, string[]>,
-    shouldParseEntities = true
+    shouldParseEntities = true,
   ) => {
     const events: Array<{ type: string; data: any }> = []
     const parser = new Saxy(schema, shouldParseEntities)
@@ -214,7 +214,7 @@ describe('Saxy XML Parser', () => {
     parser.on('tagclose', (data) => events.push({ type: 'tagclose', data }))
 
     parser.write(
-      'This is < not a tag> and < another not a tag> but <valid>this is</valid>'
+      'This is < not a tag> and < another not a tag> but <valid>this is</valid>',
     )
     parser.end()
 
@@ -268,7 +268,7 @@ describe('Saxy XML Parser', () => {
     parser.on('tagclose', (data) => events.push({ type: 'tagclose', data }))
 
     parser.write(
-      'Text with < brackets> and <valid-tag>real XML</valid-tag> mixed together'
+      'Text with < brackets> and <valid-tag>real XML</valid-tag> mixed together',
     )
     parser.end()
 
@@ -404,7 +404,7 @@ describe('Saxy XML Parser', () => {
         },
       ])
       expect(events.map((chunk) => chunk.data.contents).join('')).toEqual(
-        'Text with & and < entities &g'
+        'Text with & and < entities &g',
       )
     })
 
@@ -570,7 +570,7 @@ describe('Saxy XML Parser', () => {
 
       // The entities should be properly decoded and combined
       expect(events.map((e) => e.data.contents).join('')).toBe(
-        'Text with & and < symbols'
+        'Text with & and < symbols',
       )
     })
 
@@ -826,7 +826,7 @@ describe('Saxy XML Parser', () => {
         events
           .filter((e) => e.type === 'text')
           .map((e) => e.data.contents)
-          .join('')
+          .join(''),
       ).toEqual('Text with &amp; and &lt; entities')
     })
 
@@ -858,7 +858,7 @@ describe('Saxy XML Parser', () => {
 
       // Write text split across chunks with no entities or tags
       parser.write(
-        '<write_file>\n<path>path/to/file</path>\n<content>testing && ( &lt;div className="flex flex-col"&gt;</content>\n</write_file>'
+        '<write_file>\n<path>path/to/file</path>\n<content>testing && ( &lt;div className="flex flex-col"&gt;</content>\n</write_file>',
       )
       parser.end()
 
@@ -936,7 +936,7 @@ describe('Saxy XML Parser', () => {
 
       // Write text split across chunks with no entities or tags
       parser.write(
-        `<write_file>\n<path>path/to/file</path>\n<content>some value &amp</content>\n</write_file>`
+        `<write_file>\n<path>path/to/file</path>\n<content>some value &amp</content>\n</write_file>`,
       )
       parser.end()
 

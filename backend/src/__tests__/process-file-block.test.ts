@@ -86,7 +86,7 @@ describe('processFileBlockModule', () => {
         'clientSessionId',
         'fingerprintId',
         'userInputId',
-        TEST_USER_ID
+        TEST_USER_ID,
       )
 
       expect(result).not.toBeNull()
@@ -122,7 +122,7 @@ describe('processFileBlockModule', () => {
         'clientSessionId',
         'fingerprintId',
         'userInputId',
-        TEST_USER_ID
+        TEST_USER_ID,
       )
 
       expect(result).not.toBeNull()
@@ -154,7 +154,7 @@ describe('processFileBlockModule', () => {
         'clientSessionId',
         'fingerprintId',
         'userInputId',
-        TEST_USER_ID
+        TEST_USER_ID,
       )
 
       expect(result).not.toBeNull()
@@ -223,7 +223,7 @@ function divide(a: number, b: number) {
         'clientSessionId',
         'fingerprintId',
         'userInputId',
-        TEST_USER_ID
+        TEST_USER_ID,
       )
 
       expect(result).not.toBeNull()
@@ -235,12 +235,12 @@ function divide(a: number, b: number) {
       if (result.patch) {
         const updatedContent = applyPatch(oldContent, result.patch)
         expect(updatedContent).toContain(
-          "if (typeof a !== 'number' || typeof b !== 'number')"
+          "if (typeof a !== 'number' || typeof b !== 'number')",
         )
         expect(
           updatedContent.match(
-            /if \(typeof a !== 'number' \|\| typeof b !== 'number'\)/g
-          )?.length
+            /if \(typeof a !== 'number' \|\| typeof b !== 'number'\)/g,
+          )?.length,
         ).toBe(2)
       }
     })
@@ -260,7 +260,7 @@ function divide(a: number, b: number) {
         'clientSessionId',
         'fingerprintId',
         'userInputId',
-        TEST_USER_ID
+        TEST_USER_ID,
       )
 
       expect(result).not.toBeNull()
@@ -283,10 +283,10 @@ function divide(a: number, b: number) {
         // Verify patch can be applied and preserves line endings
         const patchLines = result.patch.split('\r\n')
         expect(patchLines.some((line) => line.startsWith('-const y'))).toBe(
-          true
+          true,
         )
         expect(patchLines.some((line) => line.startsWith('+const z'))).toBe(
-          true
+          true,
         )
       }
     })
@@ -306,7 +306,7 @@ function divide(a: number, b: number) {
         'clientSessionId',
         'fingerprintId',
         'userInputId',
-        TEST_USER_ID
+        TEST_USER_ID,
       )
 
       expect(result).not.toBeNull()

@@ -7,7 +7,7 @@ import * as schema from '../db/schema'
 export async function logSyncFailure(
   id: string,
   errorMessage: string,
-  provider = 'stripe'
+  provider = 'stripe',
 ): Promise<void> {
   try {
     await db
@@ -29,7 +29,7 @@ export async function logSyncFailure(
   } catch (dbError) {
     logger.error(
       { id, provider, error: dbError },
-      'Failed to log sync failure to database.'
+      'Failed to log sync failure to database.',
     )
   }
 }

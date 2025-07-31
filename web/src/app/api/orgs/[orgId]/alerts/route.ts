@@ -5,10 +5,9 @@ import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-
 
 interface RouteParams {
   params: { orgId: string }
@@ -39,16 +38,19 @@ export async function GET(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     // Get alerts using centralized billing logic
     const alerts = await getOrganizationAlerts(orgId)
 
     // Convert Date objects to ISO strings for JSON serialization
-    const serializedAlerts = alerts.map(alert => ({
+    const serializedAlerts = alerts.map((alert) => ({
       ...alert,
-      timestamp: alert.timestamp.toISOString()
+      timestamp: alert.timestamp.toISOString(),
     }))
 
     return NextResponse.json({ alerts: serializedAlerts })

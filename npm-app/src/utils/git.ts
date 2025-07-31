@@ -5,7 +5,6 @@ import path from 'path'
 import { isValidProjectRoot } from '@codebuff/common/util/file'
 import gitUrlParse from 'git-url-parse'
 
-
 import { getWorkingDirectory } from '../project-files'
 import { logger } from './logger'
 
@@ -32,7 +31,7 @@ export function gitCommandIsAvailable(): boolean {
           errorMessage: error instanceof Error ? error.message : String(error),
           errorStack: error instanceof Error ? error.stack : undefined,
         },
-        'Git command not available'
+        'Git command not available',
       )
       cachedGitAvailable = false
     }
@@ -92,10 +91,10 @@ export async function getRepoMetrics(providedRemoteUrl?: string): Promise<{
     (error) => {
       logger.error(
         { error },
-        'Error fetching git log. Is this an empty git repo?'
+        'Error fetching git log. Is this an empty git repo?',
       )
       return [] as any[]
-    }
+    },
   )
   const firstCommit = commitsArr.at(-1) // earliest
 
@@ -129,18 +128,18 @@ export async function getRepoMetrics(providedRemoteUrl?: string): Promise<{
   const nowSec = Math.floor(Date.now() / 1000)
   const THIRTY_DAYS = 30 * 24 * 60 * 60
   const recent = commitsArr.filter(
-    (c) => nowSec - c.commit.committer.timestamp <= THIRTY_DAYS
+    (c) => nowSec - c.commit.committer.timestamp <= THIRTY_DAYS,
   )
   const authors = new Set(
     recent.map(
-      (c) => `${c.commit.author.name}|${c.commit.author.email?.toLowerCase()}`
-    )
+      (c) => `${c.commit.author.name}|${c.commit.author.email?.toLowerCase()}`,
+    ),
   )
 
   const res = {
     ageDays: firstCommit
       ? Math.floor(
-          (Date.now() / 1000 - firstCommit.commit.committer.timestamp) / 86_400
+          (Date.now() / 1000 - firstCommit.commit.committer.timestamp) / 86_400,
         )
       : 0,
     trackedFiles: tracked.length,

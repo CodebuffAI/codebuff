@@ -15,7 +15,7 @@ import type { ToolResult } from '@codebuff/common/types/session-state'
  * Returns an array of tool results for any hooks that fail.
  */
 export async function runFileChangeHooks(
-  filesChanged: string[]
+  filesChanged: string[],
 ): Promise<{ toolResults: ToolResult[]; someHooksFailed: boolean }> {
   const config = loadCodebuffConfig()
   const toolResults: ToolResult[] = []
@@ -58,7 +58,7 @@ export async function runFileChangeHooks(
         -1,
         hook.cwd || getProjectRoot(),
         undefined,
-        undefined
+        undefined,
       )
       if (result.exitCode !== 0) {
         someHooksFailed = true
@@ -81,7 +81,7 @@ export async function runFileChangeHooks(
           hookName: hook.name,
           hookCommand: hook.command,
         },
-        'Error running file change hook'
+        'Error running file change hook',
       )
     }
   }

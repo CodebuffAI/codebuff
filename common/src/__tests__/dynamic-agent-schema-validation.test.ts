@@ -1,16 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 
 import { DynamicAgentService } from '../templates/dynamic-agent-service'
-import {
-  clearMockedModules,
-  mockModule,
-} from '../testing/mock-modules'
-import {
-  getStubProjectFileContext
-} from '../util/file'
+import { clearMockedModules, mockModule } from '../testing/mock-modules'
+import { getStubProjectFileContext } from '../util/file'
 
-import type {
-  ProjectFileContext} from '../util/file';
+import type { ProjectFileContext } from '../util/file'
 
 describe('Dynamic Agent Schema Validation', () => {
   let service: DynamicAgentService
@@ -65,7 +59,7 @@ describe('Dynamic Agent Schema Validation', () => {
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('no_prompt_schema_agent')
       expect(
-        result.templates.no_prompt_schema_agent.inputSchema.prompt
+        result.templates.no_prompt_schema_agent.inputSchema.prompt,
       ).toBeUndefined()
     })
 
@@ -97,7 +91,7 @@ describe('Dynamic Agent Schema Validation', () => {
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('no_params_schema_agent')
       expect(
-        result.templates.no_params_schema_agent.inputSchema.params
+        result.templates.no_params_schema_agent.inputSchema.params,
       ).toBeUndefined()
     })
   })
@@ -166,7 +160,7 @@ describe('Dynamic Agent Schema Validation', () => {
 
       // Test params schema
       expect(
-        paramsSchema.safeParse({ mode: 'fast', iterations: 5 }).success
+        paramsSchema.safeParse({ mode: 'fast', iterations: 5 }).success,
       ).toBe(true)
       expect(paramsSchema.safeParse({ mode: 'invalid' }).success).toBe(false) // Invalid enum
       expect(paramsSchema.safeParse({ iterations: 5 }).success).toBe(false) // Missing required field
@@ -381,7 +375,7 @@ describe('Dynamic Agent Schema Validation', () => {
 
       // Empty schemas should have no prompt schema
       expect(
-        result.templates.empty_schema_agent.inputSchema.prompt
+        result.templates.empty_schema_agent.inputSchema.prompt,
       ).toBeUndefined()
     })
   })

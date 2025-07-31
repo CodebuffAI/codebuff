@@ -92,13 +92,13 @@ describe('Agent ID Resolution', () => {
 
     it('should resolve custom agent IDs directly', () => {
       expect(resolveAgentId('my-custom-agent', mockRegistry)).toBe(
-        'my-custom-agent'
+        'my-custom-agent',
       )
     })
 
     it('should resolve prefixed agent IDs directly', () => {
       expect(resolveAgentId('CodebuffAI/git-committer', mockRegistry)).toBe(
-        'CodebuffAI/git-committer'
+        'CodebuffAI/git-committer',
       )
     })
   })
@@ -106,10 +106,10 @@ describe('Agent ID Resolution', () => {
   describe('Prefixed ID Resolution', () => {
     it('should resolve unprefixed spawnable agent IDs by adding CodebuffAI prefix', () => {
       expect(resolveAgentId('git-committer', mockRegistry)).toBe(
-        'CodebuffAI/git-committer'
+        'CodebuffAI/git-committer',
       )
       expect(resolveAgentId('example-agent', mockRegistry)).toBe(
-        'CodebuffAI/example-agent'
+        'CodebuffAI/example-agent',
       )
     })
 
@@ -151,7 +151,7 @@ describe('Agent ID Resolution', () => {
 
       // Should find it directly
       expect(resolveAgentId('OtherOrg/special-agent', mockRegistry)).toBe(
-        'OtherOrg/special-agent'
+        'OtherOrg/special-agent',
       )
 
       // Should not add CodebuffAI prefix to it
@@ -176,7 +176,7 @@ describe('Agent ID Resolution', () => {
       }
 
       expect(resolveAgentId('weird/agent-name', mockRegistry)).toBe(
-        'weird/agent-name'
+        'weird/agent-name',
       )
     })
   })

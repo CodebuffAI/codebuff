@@ -29,7 +29,9 @@ export async function generateMetadata({ params }: PublisherPageProps) {
 
   return {
     title: `${publisher[0].name} - Codebuff Publisher`,
-    description: publisher[0].bio || `View ${publisher[0].name}'s published agents on Codebuff`,
+    description:
+      publisher[0].bio ||
+      `View ${publisher[0].name}'s published agents on Codebuff`,
   }
 }
 
@@ -88,15 +90,22 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
               )}
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <CardTitle className="text-2xl">{publisherData.name}</CardTitle>
+                  <CardTitle className="text-2xl">
+                    {publisherData.name}
+                  </CardTitle>
                   {publisherData.verified && (
-                    <Badge variant="secondary" className="flex items-center space-x-1">
+                    <Badge
+                      variant="secondary"
+                      className="flex items-center space-x-1"
+                    >
                       <CheckCircle className="h-3 w-3" />
                       <span>Verified</span>
                     </Badge>
                   )}
                 </div>
-                <p className="text-muted-foreground mb-2">@{publisherData.id}</p>
+                <p className="text-muted-foreground mb-2">
+                  @{publisherData.id}
+                </p>
                 {publisherData.bio && (
                   <p className="text-sm mb-4">{publisherData.bio}</p>
                 )}
@@ -109,7 +118,10 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
                   )}
                   <div className="flex items-center space-x-1">
                     <Calendar className="h-4 w-4" />
-                    <span>Joined {new Date(publisherData.created_at).toLocaleDateString()}</span>
+                    <span>
+                      Joined{' '}
+                      {new Date(publisherData.created_at).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -127,7 +139,9 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
           </Card>
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold">{publisherData.verified ? 'Verified' : 'Unverified'}</div>
+              <div className="text-2xl font-bold">
+                {publisherData.verified ? 'Verified' : 'Unverified'}
+              </div>
               <p className="text-sm text-muted-foreground">Publisher Status</p>
             </CardContent>
           </Card>
@@ -149,21 +163,29 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
           <CardContent>
             {publishedAgents.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No agents published yet.</p>
+                <p className="text-muted-foreground">
+                  No agents published yet.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
                 {publishedAgents.map((agent) => {
                   // Parse the data JSON to get agent details
-                  const agentData = typeof agent.data === 'string' 
-                    ? JSON.parse(agent.data) 
-                    : agent.data
-                  
+                  const agentData =
+                    typeof agent.data === 'string'
+                      ? JSON.parse(agent.data)
+                      : agent.data
+
                   return (
-                    <div key={`${agent.id}-${agent.version}`} className="border rounded-lg p-4">
+                    <div
+                      key={`${agent.id}-${agent.version}`}
+                      className="border rounded-lg p-4"
+                    >
                       <div className="flex items-start justify-between">
                         <div>
-                          <h3 className="font-semibold">{agentData.name || agent.id}</h3>
+                          <h3 className="font-semibold">
+                            {agentData.name || agent.id}
+                          </h3>
                           <p className="text-sm text-muted-foreground mb-2">
                             Version {agent.version}
                           </p>

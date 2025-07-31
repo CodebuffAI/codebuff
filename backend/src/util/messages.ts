@@ -1,13 +1,11 @@
 import { AssertionError } from 'assert'
 
-
 import { buildArray } from '@codebuff/common/util/array'
 import {
   withCacheControl,
   withCacheControlCore,
 } from '@codebuff/common/util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
-
 
 import { logger } from './logger'
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
@@ -29,7 +27,7 @@ export const messagesWithSystem = (messages: Message[], system: System) =>
 
 export function coreMessagesWithSystem(
   messages: CoreMessage[],
-  system: System
+  system: System,
 ): CoreMessage[] {
   return [
     {
@@ -101,7 +99,7 @@ export function castAssistantMessage(message: CoreMessage): CoreMessage | null {
         }
       }
       return null
-    })
+    }),
   )
   return content
     ? {
@@ -122,7 +120,7 @@ const numTerminalCommandsToKeep = 5
  */
 function simplifyTerminalHelper(
   text: string,
-  numKept: number
+  numKept: number,
 ): { result: string; numKept: number } {
   const simplifiedText = simplifyTerminalCommandResults(text)
 
@@ -157,7 +155,7 @@ const shortenedMessageTokenFactor = 0.5
 export function trimMessagesToFitTokenLimit(
   messages: Message[],
   systemTokens: number,
-  maxTotalTokens: number = 200_000
+  maxTotalTokens: number = 200_000,
 ): Message[] {
   const MAX_MESSAGE_TOKENS = maxTotalTokens - systemTokens
 
@@ -230,7 +228,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     indexLastSubgoalComplete === -1
       ? messages
       : messages.slice(indexLastSubgoalComplete),
-    otherTokens
+    otherTokens,
   )
 
   // Remove cache_control from all messages
@@ -251,7 +249,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         messagesSubset,
         otherTokens,
       },
-      'No last message found in messagesSubset!'
+      'No last message found in messagesSubset!',
     )
   }
 
@@ -275,7 +273,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 export function trimCoreMessagesToFitTokenLimit(
   messages: CodebuffMessage[],
   systemTokens: number,
-  maxTotalTokens: number = 190_000
+  maxTotalTokens: number = 190_000,
 ): CodebuffMessage[] {
   const MAX_MESSAGE_TOKENS = maxTotalTokens - systemTokens
 
@@ -373,7 +371,7 @@ export function trimCoreMessagesToFitTokenLimit(
 export function getCoreMessagesSubset(
   messages: CodebuffMessage[],
   otherTokens: number,
-  includeCacheControl: boolean = true
+  includeCacheControl: boolean = true,
 ): CodebuffMessage[] {
   const messagesSubset = trimCoreMessagesToFitTokenLimit(messages, otherTokens)
 
@@ -392,7 +390,7 @@ export function getCoreMessagesSubset(
         messagesSubset,
         otherTokens,
       },
-      'No last message found in messagesSubset!'
+      'No last message found in messagesSubset!',
     )
     return messagesSubset
   }
@@ -416,12 +414,12 @@ export function getCoreMessagesSubset(
 
 export function expireMessages(
   messages: CodebuffMessage[],
-  endOf: 'agentStep' | 'userPrompt'
+  endOf: 'agentStep' | 'userPrompt',
 ): CodebuffMessage[] {
   return messages.filter(
     (m) =>
       (m.timeToLive === undefined && true) ||
       (m.timeToLive === 'userPrompt' && endOf === 'agentStep') ||
-      (m.timeToLive === 'agentStep' && false)
+      (m.timeToLive === 'agentStep' && false),
   )
 }

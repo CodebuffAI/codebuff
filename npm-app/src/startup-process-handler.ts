@@ -20,8 +20,8 @@ export function logAndHandleStartup(): Promise<any> {
     } else {
       console.log(
         gray(
-          'Another instance of codebuff detected. Skipping startup processes.'
-        ) + '\n'
+          'Another instance of codebuff detected. Skipping startup processes.',
+        ) + '\n',
       )
     }
   }

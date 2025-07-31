@@ -5,9 +5,7 @@ import {
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
 import { renderToolResults } from '@codebuff/common/tools/utils'
-import {
-  getInitialSessionState
-} from '@codebuff/common/types/session-state'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterAll,
   afterEach,
@@ -32,7 +30,8 @@ import * as requestContext from '../websockets/request-context'
 import type { AgentTemplate, StepGenerator } from '../templates/types'
 import type {
   AgentState,
-  ToolResult} from '@codebuff/common/types/session-state';
+  ToolResult,
+} from '@codebuff/common/types/session-state'
 import type { WebSocket } from 'ws'
 
 describe('runProgrammaticStep', () => {
@@ -64,13 +63,13 @@ describe('runProgrammaticStep', () => {
     // Mock executeToolCall
     executeToolCallSpy = spyOn(
       toolExecutor,
-      'executeToolCall'
+      'executeToolCall',
     ).mockImplementation(async () => {})
 
     // Mock getRequestContext
     getRequestContextSpy = spyOn(
       requestContext,
-      'getRequestContext'
+      'getRequestContext',
     ).mockImplementation(() => ({
       processedRepoId: 'test-repo-id',
     }))
@@ -78,7 +77,7 @@ describe('runProgrammaticStep', () => {
     // Mock crypto.randomUUID
     spyOn(crypto, 'randomUUID').mockImplementation(
       () =>
-        'mock-uuid-0000-0000-0000-000000000000' as `${string}-${string}-${string}-${string}-${string}`
+        'mock-uuid-0000-0000-0000-000000000000' as `${string}-${string}-${string}-${string}-${string}`,
     )
 
     // Create mock template
@@ -195,7 +194,7 @@ describe('runProgrammaticStep', () => {
       mockTemplate.handleSteps = undefined
 
       await expect(
-        runProgrammaticStep(mockAgentState, mockParams)
+        runProgrammaticStep(mockAgentState, mockParams),
       ).rejects.toThrow('No step handler found for agent template test-agent')
     })
   })
@@ -220,7 +219,7 @@ describe('runProgrammaticStep', () => {
         require('../websockets/websocket-action').sendAction
       const sendActionSpy = spyOn(
         require('../websockets/websocket-action'),
-        'sendAction'
+        'sendAction',
       ).mockImplementation((ws: any, action: any) => {
         if (action.type === 'subagent-response-chunk') {
           sentChunks.push(action.chunk)
@@ -234,7 +233,7 @@ describe('runProgrammaticStep', () => {
         expect.objectContaining({
           toolName: 'add_message',
           args: { role: 'user', content: 'Hello world' },
-        })
+        }),
       )
 
       // Verify read_files tool was executed
@@ -242,19 +241,19 @@ describe('runProgrammaticStep', () => {
         expect.objectContaining({
           toolName: 'read_files',
           args: { paths: ['test.txt'] },
-        })
+        }),
       )
 
       // Check that no tool call chunk was sent for add_message
       const addMessageToolCallChunk = sentChunks.find(
         (chunk) =>
-          chunk.includes('add_message') && chunk.includes('Hello world')
+          chunk.includes('add_message') && chunk.includes('Hello world'),
       )
       expect(addMessageToolCallChunk).toBeUndefined()
 
       // Check that tool call chunk WAS sent for read_files (normal behavior)
       const readFilesToolCallChunk = sentChunks.find(
-        (chunk) => chunk.includes('read_files') && chunk.includes('test.txt')
+        (chunk) => chunk.includes('read_files') && chunk.includes('test.txt'),
       )
       expect(readFilesToolCallChunk).toBeDefined()
 
@@ -263,7 +262,7 @@ describe('runProgrammaticStep', () => {
         (msg) =>
           typeof msg.content === 'string' &&
           msg.content.includes('add_message') &&
-          msg.content.includes('Hello world')
+          msg.content.includes('Hello world'),
       )
       expect(addMessageToolCallInHistory).toBeUndefined()
 
@@ -286,7 +285,7 @@ describe('runProgrammaticStep', () => {
           args: expect.any(Object),
           agentTemplate: mockTemplate,
           fileContext: mockFileContext,
-        })
+        }),
       )
       expect(result.endTurn).toBe(true)
     })
@@ -323,7 +322,7 @@ describe('runProgrammaticStep', () => {
                 toolCallId: toolResult.toolCallId,
                 result: toolResult.result,
               },
-            ])
+            ]),
           )
           options.state.messages.push({
             role: 'user',
@@ -342,7 +341,7 @@ describe('runProgrammaticStep', () => {
           args: { query: 'authentication' },
           agentTemplate: mockTemplate,
           fileContext: mockFileContext,
-        })
+        }),
       )
 
       // Verify tool result was added to messageHistory
@@ -350,7 +349,7 @@ describe('runProgrammaticStep', () => {
         (msg) =>
           msg.role === 'user' &&
           typeof msg.content === 'string' &&
-          msg.content.includes('src/auth.ts')
+          msg.content.includes('src/auth.ts'),
       )
       expect(toolMessages).toHaveLength(1)
       expect(toolMessages[0].content).toContain('src/auth.ts')
@@ -520,7 +519,7 @@ describe('runProgrammaticStep', () => {
             if (state.agentState.agentContext['auth-analysis']) {
               state.agentState.agentContext['auth-analysis'].status = 'COMPLETE'
               state.agentState.agentContext['auth-analysis'].logs.push(
-                'Analysis completed successfully'
+                'Analysis completed successfully',
               )
             }
             break
@@ -541,7 +540,7 @@ describe('runProgrammaticStep', () => {
 
         // Add tool result to state.messages like the real implementation
         const formattedToolResult = asSystemMessage(
-          renderToolResults([toolResult])
+          renderToolResults([toolResult]),
         )
         state.messages.push({
           role: 'user',
@@ -582,10 +581,10 @@ describe('runProgrammaticStep', () => {
       // Verify state management throughout execution
       expect(stateSnapshots).toHaveLength(7)
       expect(Object.keys(result1.agentState.agentContext)).toContain(
-        'auth-analysis'
+        'auth-analysis',
       )
       expect(result1.agentState.agentContext['auth-analysis']?.status).toBe(
-        'COMPLETE'
+        'COMPLETE',
       )
       expect(result1.agentState.output).toEqual({
         status: 'success',
@@ -598,7 +597,7 @@ describe('runProgrammaticStep', () => {
       // Verify tool results were processed correctly
       expect(toolResultsReceived).toHaveLength(7)
       expect(toolResultsReceived.every((result) => result !== undefined)).toBe(
-        true
+        true,
       )
 
       // Verify that executeToolCall was called with state.messages (not agentState.messageHistory)
@@ -608,7 +607,7 @@ describe('runProgrammaticStep', () => {
           state: expect.objectContaining({
             messages: expect.any(Array),
           }),
-        })
+        }),
       )
 
       // Reset spy for second call
@@ -785,7 +784,7 @@ describe('runProgrammaticStep', () => {
       expect(result.endTurn).toBe(true)
       expect(result.agentState.output?.error).toContain('Generator error')
       expect(
-        responseChunks.some((chunk) => chunk.includes('Generator error'))
+        responseChunks.some((chunk) => chunk.includes('Generator error')),
       ).toBe(true)
     })
 
@@ -1027,7 +1026,7 @@ describe('runProgrammaticStep', () => {
       expect(executeToolCallSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           agentStepId: 'mock-uuid-0000-0000-0000-000000000000',
-        })
+        }),
       )
     })
   })

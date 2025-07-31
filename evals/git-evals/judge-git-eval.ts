@@ -6,8 +6,7 @@ import { createPatch } from 'diff'
 
 import { JudgingAnalysisSchema } from './types'
 
-import type { EvalRunLog} from './types';
-
+import type { EvalRunLog } from './types'
 
 const MAX_TOKENS = 1_000_000 // 1 million token limit
 
@@ -15,7 +14,7 @@ function buildAnalysisPrompt(
   evalRun: EvalRunLog,
   includeBeforeContent: boolean,
   includeAfterContent: boolean,
-  truncatedTrace?: string
+  truncatedTrace?: string,
 ): string {
   // Format timing information
   const durationSeconds = (evalRun.durationMs / 1000).toFixed(1)
@@ -61,7 +60,7 @@ function buildAnalysisPrompt(
     truncatedTrace ||
     evalRun.trace
       .map(({ prompt, steps }) =>
-        `Prompt: ${prompt}\n\nCodebuff Steps: ${JSON.stringify(steps)}`.trim()
+        `Prompt: ${prompt}\n\nCodebuff Steps: ${JSON.stringify(steps)}`.trim(),
       )
       .join('\n\n')
 
@@ -117,7 +116,7 @@ function truncateTraceFromEnd(trace: any[], maxTokens: number): string {
   while (currentTrace.length > 0) {
     const traceContent = currentTrace
       .map(({ prompt, steps }) =>
-        `Prompt: ${prompt}\n\nCodebuff Steps: ${JSON.stringify(steps)}`.trim()
+        `Prompt: ${prompt}\n\nCodebuff Steps: ${JSON.stringify(steps)}`.trim(),
       )
       .join('\n\n')
 
@@ -163,14 +162,14 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
       evalRun,
       attempt.includeBeforeContent,
       attempt.includeAfterContent,
-      attempt.truncatedTrace
+      attempt.truncatedTrace,
     )
 
     const tokenCount = countTokens(prompt)
 
     if (tokenCount <= MAX_TOKENS) {
       console.log(
-        `Using prompt with ${tokenCount} tokens (before: ${attempt.includeBeforeContent}, after: ${attempt.includeAfterContent})`
+        `Using prompt with ${tokenCount} tokens (before: ${attempt.includeBeforeContent}, after: ${attempt.includeAfterContent})`,
       )
       finalPrompt = prompt
       break
@@ -184,7 +183,7 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
       { ...evalRun, trace: [] }, // Empty trace
       false, // includeBeforeContent
       false, // includeAfterContent
-      '' // empty trace content
+      '', // empty trace content
     )
     const baseTokens = countTokens(basePrompt)
     const maxTraceTokens = MAX_TOKENS - baseTokens - 100 // Reserve 100 tokens for truncation notice
@@ -195,12 +194,12 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
       evalRun,
       false, // includeBeforeContent
       false, // includeAfterContent
-      truncatedTrace
+      truncatedTrace,
     )
 
     const finalTokenCount = countTokens(finalPrompt)
     console.log(
-      `Using truncated prompt with ${finalTokenCount} tokens (trace truncated, base: ${baseTokens}, max trace: ${maxTraceTokens})`
+      `Using truncated prompt with ${finalTokenCount} tokens (trace truncated, base: ${baseTokens}, max trace: ${maxTraceTokens})`,
     )
   }
 
@@ -220,7 +219,7 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
     }).catch((error) => {
       console.warn(`Judge ${index + 1} failed:`, error)
       return null
-    })
+    }),
   )
 
   const judgeResults = await Promise.all(judgePromises)
@@ -234,13 +233,13 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
 
   // Sort judges by overall score and select the median
   const sortedResults = validResults.sort(
-    (a, b) => a.metrics.overallScore - b.metrics.overallScore
+    (a, b) => a.metrics.overallScore - b.metrics.overallScore,
   )
   const medianIndex = Math.floor(sortedResults.length / 2)
   const medianResult = sortedResults[medianIndex]
 
   console.log(
-    `Using median judge (${medianIndex + 1} of ${sortedResults.length}) with overall score: ${medianResult.metrics.overallScore}`
+    `Using median judge (${medianIndex + 1} of ${sortedResults.length}) with overall score: ${medianResult.metrics.overallScore}`,
   )
 
   return medianResult

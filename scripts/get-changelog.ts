@@ -82,7 +82,7 @@ function getWeekNumber(date: Date): number {
       ((d.getTime() - week1.getTime()) / 86400000 -
         3 +
         ((week1.getDay() + 6) % 7)) /
-        7
+        7,
     )
   )
 }
@@ -102,12 +102,12 @@ async function generateChangelog(end: Date) {
   fs.mkdirSync(changelogDir, { recursive: true })
   const existingFiles = fs.readdirSync(changelogDir)
   const existingChangelog = existingFiles.find((file) =>
-    file.startsWith(endDate)
+    file.startsWith(endDate),
   )
 
   if (existingChangelog) {
     console.log(
-      `⏭️  Changelog already exists for week ending ${endDate}, skipping...`
+      `⏭️  Changelog already exists for week ending ${endDate}, skipping...`,
     )
     return true // Return true to indicate we should continue
   }
@@ -203,7 +203,7 @@ ${contentWithoutFirstHeading}`
     const changelogPath = path.join(changelogDir, filename)
     fs.writeFileSync(
       changelogPath,
-      await prettier.format(changelogContent, { parser: 'markdown' })
+      await prettier.format(changelogContent, { parser: 'markdown' }),
     )
 
     console.log(`✨ Successfully generated changelog at ${changelogPath}`)
@@ -211,7 +211,7 @@ ${contentWithoutFirstHeading}`
   } catch (error) {
     console.error(
       `❌ Error generating changelog for week ending ${endDate}:`,
-      error
+      error,
     )
     return true // Return true to continue even if there's an error
   }
@@ -296,7 +296,7 @@ async function generateAllChangelogs() {
 
   console.log(`🎉 Finished generating up to 3 changelogs!`)
   console.log(
-    `📅 Stopped at week ending ${formatDate(currentWeek, 'yyyy-MM-dd')}`
+    `📅 Stopped at week ending ${formatDate(currentWeek, 'yyyy-MM-dd')}`,
   )
 }
 

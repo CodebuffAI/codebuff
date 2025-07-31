@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { logger } from '@/util/logger'
 

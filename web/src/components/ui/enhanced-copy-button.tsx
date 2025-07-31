@@ -15,11 +15,10 @@ interface EnhancedCopyButtonProps {
   onClick?: () => void
 }
 
-export const EnhancedCopyButton = forwardRef<HTMLButtonElement, EnhancedCopyButtonProps>(({
-  value,
-  className,
-  onClick,
-}, ref) => {
+export const EnhancedCopyButton = forwardRef<
+  HTMLButtonElement,
+  EnhancedCopyButtonProps
+>(({ value, className, onClick }, ref) => {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {

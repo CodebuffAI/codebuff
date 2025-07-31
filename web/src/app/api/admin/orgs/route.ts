@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { checkAdminAuth } from '@/lib/admin-auth'
 
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (authResult instanceof NextResponse) {
       return authResult
     }
-    
+
     // Get all organizations with their details
     const organizations = await db
       .select({
@@ -57,8 +57,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const organizationSummaries = await Promise.all(
       organizations.map(async (org) => {
-        const memberCount = memberCounts.find(m => m.org_id === org.id)?.count || 0
-        const repositoryCount = repoCounts.find(r => r.org_id === org.id)?.count || 0
+        const memberCount =
+          memberCounts.find((m) => m.org_id === org.id)?.count || 0
+        const repositoryCount =
+          repoCounts.find((r) => r.org_id === org.id)?.count || 0
 
         // Get credit balance and usage
         let creditBalance = 0
@@ -66,11 +68,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         let healthStatus: 'healthy' | 'warning' | 'critical' = 'healthy'
 
         try {
-          const { balance, usageThisCycle: usage } = await calculateOrganizationUsageAndBalance(
-            org.id,
-            currentMonthStart,
-            now
-          )
+          const { balance, usageThisCycle: usage } =
+            await calculateOrganizationUsageAndBalance(
+              org.id,
+              currentMonthStart,
+              now
+            )
           creditBalance = balance.netBalance
           usageThisCycle = usage
 
@@ -103,7 +106,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           usage_this_cycle: usageThisCycle,
           health_status: healthStatus,
           created_at: org.created_at.toISOString(),
-          last_activity: lastActivity[0]?.finished_at.toISOString() || org.created_at.toISOString(),
+          last_activity:
+            lastActivity[0]?.finished_at.toISOString() ||
+            org.created_at.toISOString(),
         }
       })
     )

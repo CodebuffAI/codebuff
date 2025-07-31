@@ -1,6 +1,5 @@
 import { dynamicAgentService } from '@codebuff/common/templates/dynamic-agent-service'
 
-
 import { agentTemplates as staticTemplates } from './agent-list'
 import { logger } from '../util/logger'
 
@@ -61,7 +60,7 @@ export async function getAllAgentTemplates({
   if (validationErrors.length > 0) {
     logger.warn(
       { errors: validationErrors },
-      'Dynamic agent template validation errors'
+      'Dynamic agent template validation errors',
     )
   }
 

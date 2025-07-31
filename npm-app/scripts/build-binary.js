@@ -111,7 +111,7 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
   const outputFile = path.join(binDir, outputName)
 
   log(
-    `🔨 Building ${outputName} (${targetInfo.platform}-${targetInfo.arch})...`
+    `🔨 Building ${outputName} (${targetInfo.platform}-${targetInfo.arch})...`,
   )
 
   const flags = {
@@ -156,7 +156,7 @@ async function buildTarget(bunTarget, outputName, targetInfo) {
     }
 
     logAlways(
-      `✅ Built ${outputName} for ${targetInfo.platform}-${targetInfo.arch}`
+      `✅ Built ${outputName} for ${targetInfo.platform}-${targetInfo.arch}`,
     )
   } catch (error) {
     logAlways(`❌ Failed to build ${outputName}: ${error.message}`)

@@ -131,7 +131,7 @@ afterEach(() => {
 ```typescript
 // From main-prompt.test.ts - Mocking LLM APIs
 spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
-  Promise.resolve('Test response')
+  Promise.resolve('Test response'),
 )
 spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
   yield 'Test response'
@@ -152,7 +152,7 @@ spyOn(websocketAction, 'requestFiles').mockImplementation(
       }
     })
     return results
-  }
+  },
 )
 ```
 
@@ -178,7 +178,7 @@ mock.module('../services/api-client', () => ({
   ApiError: class MockApiError extends Error {
     constructor(
       message: string,
-      public status: number
+      public status: number,
     ) {
       super(message)
     }
@@ -240,6 +240,7 @@ describe('My Tests', () => {
 ```
 
 **Benefits:**
+
 - Reduces code duplication across tests
 - Makes tests more maintainable
 - Ensures consistent mock data structure

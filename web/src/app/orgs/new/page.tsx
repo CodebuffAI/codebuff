@@ -92,7 +92,7 @@ const CreateOrganizationPage = () => {
       }
 
       const organization = await response.json()
-      
+
       // Show success modal first, then navigate when user clicks "Get Started"
       setCreatedOrganization(organization)
       setSuccessModalOpen(true)
@@ -172,7 +172,8 @@ const CreateOrganizationPage = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="name">
-                  Organization Name <span className="text-red-500 text-xs">(required)</span>
+                  Organization Name{' '}
+                  <span className="text-red-500 text-xs">(required)</span>
                 </Label>
                 <Input
                   id="name"
@@ -188,8 +189,8 @@ const CreateOrganizationPage = () => {
                   <p className="text-sm text-red-600">{nameError}</p>
                 )}
                 <p className="text-sm text-muted-foreground">
-                  3-50 characters. Letters, numbers, spaces, hyphens,
-                  and underscores allowed.
+                  3-50 characters. Letters, numbers, spaces, hyphens, and
+                  underscores allowed.
                 </p>
               </div>
 

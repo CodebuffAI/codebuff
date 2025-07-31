@@ -93,7 +93,7 @@ async function getLatestVersion() {
   try {
     // Use the direct /latest endpoint for stable releases
     const res = await httpGet(
-      `https://registry.npmjs.org/${packageName}/latest`
+      `https://registry.npmjs.org/${packageName}/latest`,
     )
 
     if (res.statusCode !== 200) return null
@@ -282,8 +282,8 @@ async function downloadBinary(version) {
         const pct = Math.round((downloadedSize / totalSize) * 100)
         term.write(
           `Downloading... ${createProgressBar(pct)} ${pct}% of ${formatBytes(
-            totalSize
-          )}`
+            totalSize,
+          )}`,
         )
       } else {
         term.write(`Downloading... ${formatBytes(downloadedSize)}`)
@@ -310,7 +310,7 @@ async function downloadBinary(version) {
       }
     } else {
       throw new Error(
-        `Binary not found after extraction. Expected: ${extractedPath}, Available files: ${files.join(', ')}`
+        `Binary not found after extraction. Expected: ${extractedPath}, Available files: ${files.join(', ')}`,
       )
     }
   } catch (error) {
@@ -404,7 +404,7 @@ async function main() {
   console.log('\x1b[1m\x1b[91m' + '='.repeat(60) + '\x1b[0m')
   console.log('\x1b[1m\x1b[93m❄️ CODECANE STAGING ENVIRONMENT ❄️\x1b[0m')
   console.log(
-    '\x1b[1m\x1b[91mFOR TESTING PURPOSES ONLY - NOT FOR PRODUCTION USE\x1b[0m'
+    '\x1b[1m\x1b[91mFOR TESTING PURPOSES ONLY - NOT FOR PRODUCTION USE\x1b[0m',
   )
   console.log('\x1b[1m\x1b[91m' + '='.repeat(60) + '\x1b[0m')
   console.log('')

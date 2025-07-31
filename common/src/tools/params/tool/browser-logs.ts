@@ -2,7 +2,6 @@ import z from 'zod/v4'
 
 import type { ToolParams } from '../../constants'
 
-
 const toolName = 'browser_logs'
 const endsAgentStep = true
 export const browserLogsParams = {

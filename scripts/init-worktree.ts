@@ -15,7 +15,7 @@ const WorktreeArgsSchema = z.object({
     .max(50, 'Worktree name must be 50 characters or less')
     .regex(
       /^[a-zA-Z0-9_/-]+$/,
-      'Worktree name must contain only letters, numbers, hyphens, underscores, and forward slashes'
+      'Worktree name must contain only letters, numbers, hyphens, underscores, and forward slashes',
     ),
   backendPort: z
     .number()
@@ -39,7 +39,7 @@ interface ValidationError {
 class WorktreeError extends Error {
   constructor(
     message: string,
-    public code: string = 'WORKTREE_ERROR'
+    public code: string = 'WORKTREE_ERROR',
   ) {
     super(message)
     this.name = 'WorktreeError'
@@ -52,10 +52,10 @@ function parseArgs(): WorktreeArgs {
 
   if (args.length < 3) {
     console.error(
-      'Usage: bun scripts/init-worktree.ts <worktree-name> <backend-port> <web-port>'
+      'Usage: bun scripts/init-worktree.ts <worktree-name> <backend-port> <web-port>',
     )
     console.error(
-      'Example: bun scripts/init-worktree.ts feature-branch 8001 3001'
+      'Example: bun scripts/init-worktree.ts feature-branch 8001 3001',
     )
     console.error('All parameters are required to avoid port conflicts')
     process.exit(1)
@@ -68,14 +68,14 @@ function parseArgs(): WorktreeArgs {
   if (isNaN(backendPort)) {
     throw new WorktreeError(
       `Backend port must be a number, got: ${backendPortStr}`,
-      'INVALID_PORT'
+      'INVALID_PORT',
     )
   }
 
   if (isNaN(webPort)) {
     throw new WorktreeError(
       `Web port must be a number, got: ${webPortStr}`,
-      'INVALID_PORT'
+      'INVALID_PORT',
     )
   }
 
@@ -133,7 +133,7 @@ async function checkPortConflicts(args: WorktreeArgs): Promise<void> {
 
   if (backendInUse) {
     console.warn(
-      `Warning: Backend port ${args.backendPort} appears to be in use`
+      `Warning: Backend port ${args.backendPort} appears to be in use`,
     )
     const shouldContinue = await promptUser('Continue anyway? (y/N) ')
     if (!shouldContinue) {
@@ -153,7 +153,7 @@ async function checkPortConflicts(args: WorktreeArgs): Promise<void> {
 async function runCommand(
   command: string,
   args: string[],
-  cwd?: string
+  cwd?: string,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, {
@@ -185,8 +185,8 @@ async function runCommand(
       reject(
         new WorktreeError(
           `Failed to run ${command}: ${error.message}`,
-          'COMMAND_ERROR'
-        )
+          'COMMAND_ERROR',
+        ),
       )
     })
   })
@@ -258,7 +258,7 @@ async function main(): Promise<void> {
     if (existsSync(worktreePath)) {
       throw new WorktreeError(
         `Worktree directory already exists: ${worktreePath}\nUse 'bun run cleanup-worktree ${args.name}' to remove it first`,
-        'WORKTREE_EXISTS'
+        'WORKTREE_EXISTS',
       )
     }
 
@@ -266,7 +266,7 @@ async function main(): Promise<void> {
     const branchExists = await checkGitBranchExists(args.name)
     if (branchExists) {
       console.log(
-        `Git branch '${args.name}' already exists - will create worktree from existing branch`
+        `Git branch '${args.name}' already exists - will create worktree from existing branch`,
       )
     }
 

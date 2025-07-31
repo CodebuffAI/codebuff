@@ -22,7 +22,6 @@ import {
   test,
 } from 'bun:test'
 
-
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
@@ -55,7 +54,7 @@ describe('web_search tool with researcher agent', () => {
     analytics.initAnalytics()
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
-      Promise.resolve(true)
+      Promise.resolve(true),
     )
 
     // Mock websocket actions
@@ -68,16 +67,16 @@ describe('web_search tool with researcher agent', () => {
 
     // Mock LLM APIs
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
-      Promise.resolve('Test response')
+      Promise.resolve('Test response'),
     )
 
     // Mock other required modules
     spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
-      async () => []
+      async () => [],
     )
     spyOn(
       checkTerminalCommandModule,
-      'checkTerminalCommand'
+      'checkTerminalCommand',
     ).mockImplementation(async () => null)
 
     // Mock live user inputs
@@ -98,7 +97,7 @@ describe('web_search tool with researcher agent', () => {
     const mockSearchResult = 'Test search result'
 
     spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => mockSearchResult
+      async () => mockSearchResult,
     )
 
     const mockResponse =
@@ -144,7 +143,7 @@ describe('web_search tool with researcher agent', () => {
       'Next.js 15 introduces new features including improved performance and React 19 support. You can explore the latest features and improvements in Next.js 15.'
 
     spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => mockSearchResult
+      async () => mockSearchResult,
     )
 
     const mockResponse =
@@ -179,14 +178,14 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: 'Search for Next.js 15 new features',
         params: undefined,
-      }
+      },
     )
 
     expect(linkupApi.searchWeb).toHaveBeenCalledWith(
       'Next.js 15 new features',
       {
         depth: 'standard',
-      }
+      },
     )
 
     // Check that the search results were added to the message history
@@ -194,11 +193,11 @@ describe('web_search tool with researcher agent', () => {
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('web_search')
+        m.content.includes('web_search'),
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      mockSearchResult
+      mockSearchResult,
     )
   })
 
@@ -207,7 +206,7 @@ describe('web_search tool with researcher agent', () => {
       'A comprehensive guide to React Server Components and their implementation.'
 
     spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => mockSearchResult
+      async () => mockSearchResult,
     )
 
     const mockResponse =
@@ -247,7 +246,7 @@ describe('web_search tool with researcher agent', () => {
       'React Server Components tutorial',
       {
         depth: 'deep',
-      }
+      },
     )
   })
 
@@ -286,7 +285,7 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: "Search for something that doesn't exist",
         params: undefined,
-      }
+      },
     )
 
     // Verify that searchWeb was called
@@ -294,7 +293,7 @@ describe('web_search tool with researcher agent', () => {
       'very obscure search query that returns nothing',
       {
         depth: 'standard',
-      }
+      },
     )
 
     // Check that the "no results found" message was added
@@ -302,11 +301,11 @@ describe('web_search tool with researcher agent', () => {
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('web_search')
+        m.content.includes('web_search'),
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'No search results found'
+      'No search results found',
     )
   })
 
@@ -349,7 +348,7 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: 'Search for something',
         params: undefined,
-      }
+      },
     )
 
     // Verify that searchWeb was called
@@ -362,14 +361,14 @@ describe('web_search tool with researcher agent', () => {
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('web_search')
+        m.content.includes('web_search'),
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error performing web search'
+      'Error performing web search',
     )
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Linkup API timeout'
+      'Linkup API timeout',
     )
   })
 
@@ -408,7 +407,7 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: 'Search for something',
         params: undefined,
-      }
+      },
     )
 
     // Verify that searchWeb was called
@@ -454,7 +453,7 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: 'Search for something',
         params: undefined,
-      }
+      },
     )
 
     // Verify that searchWeb was called
@@ -467,11 +466,11 @@ describe('web_search tool with researcher agent', () => {
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('web_search')
+        m.content.includes('web_search'),
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error performing web search'
+      'Error performing web search',
     )
   })
 
@@ -480,7 +479,7 @@ describe('web_search tool with researcher agent', () => {
       'This is the first search result content. This is the second search result content.'
 
     spyOn(linkupApi, 'searchWeb').mockImplementation(
-      async () => mockSearchResult
+      async () => mockSearchResult,
     )
 
     const mockResponse =
@@ -515,7 +514,7 @@ describe('web_search tool with researcher agent', () => {
         agentState,
         prompt: 'Test search result formatting',
         params: undefined,
-      }
+      },
     )
 
     // Verify that searchWeb was called
@@ -528,11 +527,11 @@ describe('web_search tool with researcher agent', () => {
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('web_search')
+        m.content.includes('web_search'),
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      mockSearchResult
+      mockSearchResult,
     )
   })
 })

@@ -5,7 +5,6 @@ import { green, gray, red } from 'picocolors'
 import { enterMiniChat } from './mini-chat'
 import { CLI } from '../cli'
 
-
 interface AgentRequirements {
   name: string
   purpose: string
@@ -46,7 +45,7 @@ const AGENT_CREATION_STEPS = [
 export function startAgentCreationChat(
   rl: any,
   onExit: () => void,
-  onComplete: (requirements: AgentRequirements) => void
+  onComplete: (requirements: AgentRequirements) => void,
 ) {
   enterMiniChat(rl, onExit, {
     title: '🤖 Agent Creation Assistant',
@@ -73,7 +72,7 @@ export function startAgentCreationChat(
 }
 
 export async function createAgentFromRequirements(
-  requirements: AgentRequirements
+  requirements: AgentRequirements,
 ) {
   // Create a simple prompt for the agent builder with the requirements
   const prompt = `Create a new agent template with these requirements:
@@ -96,18 +95,18 @@ Please create a complete TypeScript agent template file in the ${AGENT_TEMPLATES
         specialty: requirements.specialty,
         model: requirements.model,
       },
-      prompt
+      prompt,
     )
 
     console.log(
       green(
-        `\n✅ Agent created! Check the ${AGENT_TEMPLATES_DIR} directory for your new agent.`
-      )
+        `\n✅ Agent created! Check the ${AGENT_TEMPLATES_DIR} directory for your new agent.`,
+      ),
     )
     console.log(
       gray(
-        'Continue adjusting your agent here, or type "/agents" to switch agents and test it out.'
-      )
+        'Continue adjusting your agent here, or type "/agents" to switch agents and test it out.',
+      ),
     )
 
     cliInstance.freshPrompt()
@@ -115,7 +114,7 @@ Please create a complete TypeScript agent template file in the ${AGENT_TEMPLATES
     console.error(red('\nError during agent creation:'))
     console.error(
       'Error message:',
-      error instanceof Error ? error.message : String(error)
+      error instanceof Error ? error.message : String(error),
     )
     throw error
   }

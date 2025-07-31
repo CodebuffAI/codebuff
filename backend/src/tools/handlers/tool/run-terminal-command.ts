@@ -5,7 +5,7 @@ export const handleRunTerminalCommand = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'run_terminal_command'>
   requestClientToolCall: (
-    toolCall: ClientToolCall<'run_terminal_command'>
+    toolCall: ClientToolCall<'run_terminal_command'>,
   ) => Promise<string>
 }): { result: Promise<string>; state: {} } => {
   const { previousToolCallFinished, toolCall, requestClientToolCall } = params
@@ -23,7 +23,7 @@ export const handleRunTerminalCommand = ((params: {
   }
   return {
     result: previousToolCallFinished.then(() =>
-      requestClientToolCall(clientToolCall)
+      requestClientToolCall(clientToolCall),
     ),
     state: {},
   }

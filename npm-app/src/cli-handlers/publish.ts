@@ -37,7 +37,7 @@ interface PublishResponse {
   if (!agentId) {
     console.log(red('Agent id is required. Usage: publish <agent-id>'))
     console.log(
-      yellow('This prevents accidentally publishing all agents at once.')
+      yellow('This prevents accidentally publishing all agents at once.'),
     )
 
     // Show available agents
@@ -60,7 +60,7 @@ interface PublishResponse {
 
     if (!fs.existsSync(agentsDir)) {
       console.log(
-        red('No .agents directory found. Create agent templates first.')
+        red('No .agents directory found. Create agent templates first.'),
       )
       return
     }
@@ -78,7 +78,7 @@ interface PublishResponse {
       ([key, template]) =>
         key === agentId ||
         template.id === agentId ||
-        template.displayName === agentId
+        template.displayName === agentId,
     )
 
     if (!matchingTemplate) {
@@ -90,7 +90,7 @@ interface PublishResponse {
     }
     const [key, template] = matchingTemplate
     console.log(
-      yellow(`Publishing ${template.displayName} (${template.id})...`)
+      yellow(`Publishing ${template.displayName} (${template.id})...`),
     )
 
     try {
@@ -99,20 +99,20 @@ interface PublishResponse {
       if (result.success) {
         console.log(
           green(
-            `✅ Successfully published ${template.displayName} v${result.version}`
-          )
+            `✅ Successfully published ${template.displayName} v${result.version}`,
+          ),
         )
         console.log(cyan(`   Agent ID: ${result.agentId}`))
       } else {
         console.log(
-          red(`❌ Failed to publish ${template.displayName}: ${result.error}`)
+          red(`❌ Failed to publish ${template.displayName}: ${result.error}`),
         )
       }
     } catch (error) {
       console.log(
         red(
-          `❌ Error publishing ${template.displayName}: ${error instanceof Error ? error.message : String(error)}`
-        )
+          `❌ Error publishing ${template.displayName}: ${error instanceof Error ? error.message : String(error)}`,
+        ),
       )
       // Avoid logger.error here as it can cause sonic boom errors that mask the real error
       // The error is already displayed to the user via console.log above
@@ -120,8 +120,8 @@ interface PublishResponse {
   } catch (error) {
     console.log(
       red(
-        `Error during publish: ${error instanceof Error ? error.message + '\n' + error.stack : String(error)}`
-      )
+        `Error during publish: ${error instanceof Error ? error.message + '\n' + error.stack : String(error)}`,
+      ),
     )
     // Avoid logger.error here as it can cause sonic boom errors that mask the real error
     // The error is already displayed to the user via console.log above
@@ -133,7 +133,7 @@ interface PublishResponse {
  */
 async function publishAgentTemplate(
   data: DynamicAgentTemplate,
-  authToken: string
+  authToken: string,
 ): Promise<PublishResponse> {
   try {
     const response = await fetch(`${websiteUrl}/api/agents/publish`, {

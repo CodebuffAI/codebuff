@@ -41,7 +41,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -92,7 +92,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -152,7 +152,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -211,7 +211,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -255,7 +255,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -304,7 +304,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -360,7 +360,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -410,7 +410,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -450,7 +450,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -476,7 +476,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -514,7 +514,7 @@ describe('processStreamWithTags', () => {
       stream,
       processors,
       onError,
-      () => {}
+      () => {},
     )) {
       result.push(chunk)
     }
@@ -567,7 +567,7 @@ describe('processStreamWithTags', () => {
         stream,
         processors,
         onError,
-        () => {}
+        () => {},
       )) {
         result.push(chunk)
       }

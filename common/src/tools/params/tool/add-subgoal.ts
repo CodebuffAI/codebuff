@@ -2,7 +2,6 @@ import z from 'zod/v4'
 
 import type { ToolParams } from '../../constants'
 
-
 const toolName = 'add_subgoal'
 const endsAgentStep = false
 export const addSubgoalParams = {
@@ -14,13 +13,13 @@ export const addSubgoalParams = {
         .string()
         .min(1, 'Id cannot be empty')
         .describe(
-          `A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.`
+          `A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.`,
         ),
       objective: z
         .string()
         .min(1, 'Objective cannot be empty')
         .describe(
-          `The objective of the subgoal, concisely and clearly stated.`
+          `The objective of the subgoal, concisely and clearly stated.`,
         ),
       status: z
         .enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ABORTED'])
@@ -32,6 +31,6 @@ export const addSubgoalParams = {
         .describe('A log message for the subgoal progress.'),
     })
     .describe(
-      `Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!`
+      `Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!`,
     ),
 } satisfies ToolParams

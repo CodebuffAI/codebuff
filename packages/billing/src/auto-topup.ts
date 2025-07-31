@@ -20,7 +20,6 @@ import { generateOperationIdTimestamp } from './utils'
 
 import type Stripe from 'stripe'
 
-
 const MINIMUM_PURCHASE_CREDITS = 500
 
 export interface AutoTopupValidationResult {
@@ -43,7 +42,7 @@ class AutoTopupPaymentError extends Error {
 }
 
 export async function validateAutoTopupStatus(
-  userId: string
+  userId: string,
 ): Promise<AutoTopupValidationResult> {
   const logContext = { userId }
 
@@ -57,7 +56,7 @@ export async function validateAutoTopupStatus(
 
     if (!user?.stripe_customer_id) {
       throw new AutoTopupValidationError(
-        `You don't have a valid account with us. Please log in at ${env.NEXT_PUBLIC_APP_URL}/login`
+        `You don't have a valid account with us. Please log in at ${env.NEXT_PUBLIC_APP_URL}/login`,
       )
     }
 
@@ -95,7 +94,7 @@ export async function validateAutoTopupStatus(
 
     if (!validPaymentMethod) {
       throw new AutoTopupValidationError(
-        'You need a valid payment method to enable auto top-up. Try buying some credits!'
+        'You need a valid payment method to enable auto top-up. Try buying some credits!',
       )
     }
 
@@ -133,7 +132,7 @@ async function processAutoTopupPayment(
   userId: string,
   amountToTopUp: number,
   stripeCustomerId: string,
-  paymentMethod: Stripe.PaymentMethod
+  paymentMethod: Stripe.PaymentMethod,
 ): Promise<void> {
   const logContext = { userId, amountToTopUp }
 
@@ -168,7 +167,7 @@ async function processAutoTopupPayment(
     },
     {
       idempotencyKey, // Add Stripe idempotency key
-    }
+    },
   )
 
   if (paymentIntent.status !== 'succeeded') {
@@ -181,7 +180,7 @@ async function processAutoTopupPayment(
     'purchase',
     `Auto top-up of ${amountToTopUp.toLocaleString()} credits`,
     null,
-    operationId
+    operationId,
   )
 
   logger.info(
@@ -190,12 +189,12 @@ async function processAutoTopupPayment(
       operationId,
       paymentIntentId: paymentIntent.id,
     },
-    'Auto top-up payment succeeded and credits granted'
+    'Auto top-up payment succeeded and credits granted',
   )
 }
 
 export async function checkAndTriggerAutoTopup(
-  userId: string
+  userId: string,
 ): Promise<number | undefined> {
   const logContext = { userId }
 
@@ -225,7 +224,7 @@ export async function checkAndTriggerAutoTopup(
     // Calculate balance
     const { balance } = await calculateUsageAndBalance(
       userId,
-      user.next_quota_reset ?? new Date(0)
+      user.next_quota_reset ?? new Date(0),
     )
 
     if (
@@ -239,7 +238,7 @@ export async function checkAndTriggerAutoTopup(
           threshold: user.auto_topup_threshold,
           totalDebt: balance.totalDebt,
         },
-        `Auto top-up not needed for user ${userId}. Balance ${balance.totalRemaining} is above threshold ${user.auto_topup_threshold} and no debt.`
+        `Auto top-up not needed for user ${userId}. Balance ${balance.totalRemaining} is above threshold ${user.auto_topup_threshold} and no debt.`,
       )
       return undefined
     }
@@ -252,7 +251,7 @@ export async function checkAndTriggerAutoTopup(
     if (amountToTopUp < MINIMUM_PURCHASE_CREDITS) {
       logger.warn(
         logContext,
-        `Auto-top-up triggered but amount ${amountToTopUp} is less than minimum ${MINIMUM_PURCHASE_CREDITS}. Skipping top-up. Check user settings.`
+        `Auto-top-up triggered but amount ${amountToTopUp} is less than minimum ${MINIMUM_PURCHASE_CREDITS}. Skipping top-up. Check user settings.`,
       )
       return undefined
     }
@@ -265,7 +264,7 @@ export async function checkAndTriggerAutoTopup(
         threshold: user.auto_topup_threshold,
         amountToTopUp,
       },
-      `Auto-top-up needed for user ${userId}. Will attempt to purchase ${amountToTopUp} credits.`
+      `Auto-top-up needed for user ${userId}. Will attempt to purchase ${amountToTopUp} credits.`,
     )
 
     // Validate payment method
@@ -281,7 +280,7 @@ export async function checkAndTriggerAutoTopup(
         userId,
         amountToTopUp,
         user.stripe_customer_id,
-        validPaymentMethod
+        validPaymentMethod,
       )
       return amountToTopUp // Return the amount that was successfully added
     } catch (error) {
@@ -296,7 +295,7 @@ export async function checkAndTriggerAutoTopup(
   } catch (error) {
     logger.error(
       { ...logContext, error },
-      `Error during auto-top-up check for user ${userId}`
+      `Error during auto-top-up check for user ${userId}`,
     )
     throw error
   }
@@ -326,7 +325,7 @@ async function getOrganizationSettings(organizationId: string) {
  */
 async function getOrganizationPaymentMethod(
   organizationId: string,
-  stripeCustomerId: string
+  stripeCustomerId: string,
 ): Promise<string> {
   const logContext = { organizationId, stripeCustomerId }
 
@@ -356,12 +355,12 @@ async function getOrganizationPaymentMethod(
       paymentMethodIds: allPaymentMethods.map((pm) => pm.id),
       paymentMethodTypes: allPaymentMethods.map((pm) => pm.type),
     },
-    'Retrieved payment methods for organization (cards and link)'
+    'Retrieved payment methods for organization (cards and link)',
   )
 
   if (allPaymentMethods.length === 0) {
     throw new AutoTopupPaymentError(
-      'No payment methods available for organization'
+      'No payment methods available for organization',
     )
   }
 
@@ -383,14 +382,14 @@ async function getOrganizationPaymentMethod(
 
     // Verify the default payment method is still valid and available
     const isDefaultValid = allPaymentMethods.some(
-      (pm) => pm.id === defaultPaymentMethodId
+      (pm) => pm.id === defaultPaymentMethodId,
     )
 
     if (isDefaultValid) {
       paymentMethodToUse = defaultPaymentMethodId
       logger.debug(
         { ...logContext, paymentMethodId: paymentMethodToUse },
-        'Using existing default payment method for organization auto top-up'
+        'Using existing default payment method for organization auto top-up',
       )
     }
   }
@@ -410,12 +409,12 @@ async function getOrganizationPaymentMethod(
 
       logger.info(
         { ...logContext, paymentMethodId: paymentMethodToUse },
-        'Set first available payment method as default for organization'
+        'Set first available payment method as default for organization',
       )
     } catch (error) {
       logger.warn(
         { ...logContext, paymentMethodId: paymentMethodToUse, error },
-        'Failed to set default payment method, but will proceed with payment'
+        'Failed to set default payment method, but will proceed with payment',
       )
     }
   }
@@ -427,7 +426,7 @@ async function processOrgAutoTopupPayment(
   organizationId: string,
   userId: string,
   amountToTopUp: number,
-  stripeCustomerId: string
+  stripeCustomerId: string,
 ): Promise<void> {
   const logContext = { organizationId, userId, amountToTopUp, stripeCustomerId }
 
@@ -446,7 +445,7 @@ async function processOrgAutoTopupPayment(
   // Get the payment method to use for this organization
   const paymentMethodToUse = await getOrganizationPaymentMethod(
     organizationId,
-    stripeCustomerId
+    stripeCustomerId,
   )
 
   const paymentIntent = await stripeServer.paymentIntents.create(
@@ -467,7 +466,7 @@ async function processOrgAutoTopupPayment(
     },
     {
       idempotencyKey, // Add Stripe idempotency key
-    }
+    },
   )
 
   if (paymentIntent.status !== 'succeeded') {
@@ -480,7 +479,7 @@ async function processOrgAutoTopupPayment(
     amountToTopUp,
     operationId,
     `Organization auto top-up of ${amountToTopUp.toLocaleString()} credits`,
-    null
+    null,
   )
 
   logger.info(
@@ -490,13 +489,13 @@ async function processOrgAutoTopupPayment(
       paymentIntentId: paymentIntent.id,
       paymentMethodId: paymentMethodToUse,
     },
-    'Organization auto top-up payment succeeded and credits granted'
+    'Organization auto top-up payment succeeded and credits granted',
   )
 }
 
 export async function checkAndTriggerOrgAutoTopup(
   organizationId: string,
-  userId: string
+  userId: string,
 ): Promise<void> {
   const logContext = { organizationId, userId }
 
@@ -509,7 +508,7 @@ export async function checkAndTriggerOrgAutoTopup(
 
     const { balance } = await calculateOrganizationUsageAndBalance(
       organizationId,
-      getNextQuotaReset(null)
+      getNextQuotaReset(null),
     )
 
     if (balance.netBalance > (org.auto_topup_threshold || 0)) {
@@ -519,7 +518,7 @@ export async function checkAndTriggerOrgAutoTopup(
           currentBalance: balance.netBalance,
           threshold: org.auto_topup_threshold,
         },
-        `Organization auto top-up not needed. Balance ${balance.netBalance} is above threshold ${org.auto_topup_threshold}.`
+        `Organization auto top-up not needed. Balance ${balance.netBalance} is above threshold ${org.auto_topup_threshold}.`,
       )
       return
     }
@@ -529,7 +528,7 @@ export async function checkAndTriggerOrgAutoTopup(
     if (amountToTopUp < MINIMUM_PURCHASE_CREDITS) {
       logger.warn(
         logContext,
-        `Organization auto-top-up triggered but amount ${amountToTopUp} is less than minimum ${MINIMUM_PURCHASE_CREDITS}. Skipping top-up. Check organization settings.`
+        `Organization auto-top-up triggered but amount ${amountToTopUp} is less than minimum ${MINIMUM_PURCHASE_CREDITS}. Skipping top-up. Check organization settings.`,
       )
       return
     }
@@ -541,7 +540,7 @@ export async function checkAndTriggerOrgAutoTopup(
         threshold: org.auto_topup_threshold,
         amountToTopUp,
       },
-      `Organization auto-top-up needed. Will attempt to purchase ${amountToTopUp} credits.`
+      `Organization auto-top-up needed. Will attempt to purchase ${amountToTopUp} credits.`,
     )
 
     try {
@@ -549,21 +548,21 @@ export async function checkAndTriggerOrgAutoTopup(
         organizationId,
         userId,
         amountToTopUp,
-        org.stripe_customer_id
+        org.stripe_customer_id,
       )
     } catch (error) {
       // Auto-topup failures are automatically logged to sync_failures table
       // by the existing error handling in processOrgAutoTopupPayment
       logger.error(
         { ...logContext, error },
-        'Organization auto top-up payment failed'
+        'Organization auto top-up payment failed',
       )
       throw error
     }
   } catch (error) {
     logger.error(
       { ...logContext, error },
-      `Error during organization auto-top-up check for ${organizationId}`
+      `Error during organization auto-top-up check for ${organizationId}`,
     )
     throw error
   }

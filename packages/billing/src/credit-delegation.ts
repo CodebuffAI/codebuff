@@ -31,7 +31,7 @@ export interface CreditDelegationResult {
  */
 export async function findOrganizationForRepository(
   userId: string,
-  repositoryUrl: string
+  repositoryUrl: string,
 ): Promise<OrganizationLookupResult> {
   try {
     const normalizedUrl = normalizeRepositoryUrl(repositoryUrl)
@@ -40,7 +40,7 @@ export async function findOrganizationForRepository(
     if (!ownerRepo) {
       logger.debug(
         { userId, repositoryUrl, normalizedUrl },
-        'Could not extract owner/repo from repository URL'
+        'Could not extract owner/repo from repository URL',
       )
       return { found: false }
     }
@@ -59,7 +59,7 @@ export async function findOrganizationForRepository(
     if (userOrganizations.length === 0) {
       logger.debug(
         { userId, repositoryUrl },
-        'User is not a member of any organizations'
+        'User is not a member of any organizations',
       )
       return { found: false }
     }
@@ -76,8 +76,8 @@ export async function findOrganizationForRepository(
         .where(
           and(
             eq(schema.orgRepo.org_id, userOrg.orgId),
-            eq(schema.orgRepo.is_active, true)
-          )
+            eq(schema.orgRepo.is_active, true),
+          ),
         )
 
       // Check if any repository in this organization matches
@@ -99,7 +99,7 @@ export async function findOrganizationForRepository(
               matchedRepoUrl: orgRepo.repoUrl,
               ownerRepo: ownerRepo,
             },
-            'Found organization for repository using owner/repo matching'
+            'Found organization for repository using owner/repo matching',
           )
 
           return {
@@ -119,14 +119,14 @@ export async function findOrganizationForRepository(
         ownerRepo,
         userOrganizations: userOrganizations.length,
       },
-      'No organization found for repository'
+      'No organization found for repository',
     )
 
     return { found: false }
   } catch (error) {
     logger.error(
       { userId, repositoryUrl, error },
-      'Error finding organization for repository'
+      'Error finding organization for repository',
     )
     return { found: false }
   }
@@ -138,14 +138,14 @@ export async function findOrganizationForRepository(
 export async function consumeCreditsWithDelegation(
   userId: string,
   repositoryUrl: string | null,
-  creditsToConsume: number
+  creditsToConsume: number,
 ): Promise<CreditDelegationResult> {
   try {
     // If no repository URL, fall back to personal credits
     if (!repositoryUrl) {
       logger.debug(
         { userId, creditsToConsume },
-        'No repository URL provided, falling back to personal credits'
+        'No repository URL provided, falling back to personal credits',
       )
       return { success: false, error: 'No repository URL provided' }
     }
@@ -156,7 +156,7 @@ export async function consumeCreditsWithDelegation(
     if (!orgLookup.found || !orgLookup.organizationId) {
       logger.debug(
         { userId, repositoryUrl, creditsToConsume },
-        'No organization found for repository, falling back to personal credits'
+        'No organization found for repository, falling back to personal credits',
       )
       return { success: false, error: 'No organization found for repository' }
     }
@@ -165,7 +165,7 @@ export async function consumeCreditsWithDelegation(
     try {
       await consumeOrganizationCredits(
         orgLookup.organizationId,
-        creditsToConsume
+        creditsToConsume,
       )
 
       logger.info(
@@ -177,7 +177,7 @@ export async function consumeCreditsWithDelegation(
           organizationSlug: orgLookup.organizationSlug, // Return the slug
           creditsToConsume,
         },
-        'Successfully consumed credits from organization'
+        'Successfully consumed credits from organization',
       )
 
       return {
@@ -195,7 +195,7 @@ export async function consumeCreditsWithDelegation(
           creditsToConsume,
           error: consumeError,
         },
-        'Failed to consume credits from organization'
+        'Failed to consume credits from organization',
       )
 
       return {
@@ -209,7 +209,7 @@ export async function consumeCreditsWithDelegation(
   } catch (error) {
     logger.error(
       { userId, repositoryUrl, creditsToConsume, error },
-      'Error in credit delegation process'
+      'Error in credit delegation process',
     )
 
     return { success: false, error: 'Credit delegation process failed' }
@@ -236,7 +236,7 @@ export interface CreditFallbackResult {
  * Tries organization delegation first if a repo URL is available, falls back to personal credits.
  */
 export async function consumeCreditsWithFallback(
-  options: CreditConsumptionOptions
+  options: CreditConsumptionOptions,
 ): Promise<CreditFallbackResult> {
   const { userId, creditsToCharge, repoUrl, context } = options
 
@@ -246,7 +246,7 @@ export async function consumeCreditsWithFallback(
       const delegationResult = await consumeCreditsWithDelegation(
         userId,
         repoUrl,
-        creditsToCharge
+        creditsToCharge,
       )
 
       if (delegationResult.success) {
@@ -257,7 +257,7 @@ export async function consumeCreditsWithFallback(
             organizationId: delegationResult.organizationId,
             context,
           },
-          `Charged organization credits for ${context}`
+          `Charged organization credits for ${context}`,
         )
 
         return {
@@ -273,7 +273,7 @@ export async function consumeCreditsWithFallback(
     await consumeCredits(userId, creditsToCharge)
     logger.debug(
       { userId, creditsToCharge, context },
-      `Charged personal credits for ${context}`
+      `Charged personal credits for ${context}`,
     )
 
     return {
@@ -283,7 +283,7 @@ export async function consumeCreditsWithFallback(
   } catch (error) {
     logger.error(
       { error, userId, creditsToCharge, context },
-      `Failed to charge credits for ${context}`
+      `Failed to charge credits for ${context}`,
     )
 
     return {

@@ -4,7 +4,6 @@ import { tmpdir } from 'os'
 import * as os from 'os'
 import path, { join } from 'path'
 
-
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { buildArray } from '@codebuff/common/util/array'
 import { isSubdir } from '@codebuff/common/util/file'
@@ -25,7 +24,7 @@ import { trackEvent } from '../utils/analytics'
 import { detectShell } from '../utils/detect-shell'
 import { logger } from '../utils/logger'
 
-import type { ChildProcessWithoutNullStreams} from 'child_process';
+import type { ChildProcessWithoutNullStreams } from 'child_process'
 
 /* ------------------------------------------------------------------ */
 /* constants                                                          */
@@ -177,7 +176,7 @@ function buildEnv(shell: ShellKind): NodeJS.ProcessEnv {
 function createWrapperScript(
   shell: UnixShell,
   initLines: string[],
-  userCmd: string
+  userCmd: string,
 ) {
   const tmp = mkdtempSync(join(tmpdir(), 'codebuff-')) // safe unique dir
   const scriptPath = join(tmp, `cmd.${shell}`)
@@ -197,7 +196,7 @@ function createWrapperScript(
       userCmd,
       '', // final newline
     ].join('\n'),
-    { mode: 0o755 }
+    { mode: 0o755 },
   )
 
   return scriptPath
@@ -207,7 +206,7 @@ function createWrapperScript(
 function buildWinInvocation(
   shell: WinShell,
   initLines: string[],
-  userCmd: string
+  userCmd: string,
 ): { exe: string; args: string[] } {
   const init = initLines.join('; ')
   const cmdAll = init ? `${init}; ${userCmd}` : userCmd
@@ -246,7 +245,7 @@ export type PersistentProcess = {
 }
 
 async function createPersistentProcess(
-  dir: string
+  dir: string,
 ): Promise<PersistentProcess> {
   const shell = selectShell()
   const env = buildEnv(shell)
@@ -306,7 +305,7 @@ function formatResult(command: string, stdout: string, status: string): string {
       remove: 'MIDDLE',
     })}${closeXml('output')}`,
     `<status>${status}${closeXml('status')}`,
-    `${closeXml('terminal_command_result')}`
+    `${closeXml('terminal_command_result')}`,
   ).join('\n')
 }
 
@@ -322,7 +321,7 @@ export const runTerminalCommand = async (
   timeoutSeconds: number,
   cwd?: string,
   stdoutFile?: string,
-  stderrFile?: string
+  stderrFile?: string,
 ): Promise<{ result: string; stdout: string; exitCode: number | null }> => {
   const maybeTimeoutSeconds = timeoutSeconds < 0 ? null : timeoutSeconds
   const projectRoot = getProjectRoot()
@@ -367,8 +366,8 @@ export const runTerminalCommand = async (
     return new Promise((res) =>
       runBackgroundCommand(
         { toolCallId, command: modifiedCmd, mode, cwd, stdoutFile, stderrFile },
-        (v) => res(resolveCommand(v))
-      )
+        (v) => res(resolveCommand(v)),
+      ),
     )
   }
 
@@ -380,8 +379,8 @@ export const runTerminalCommand = async (
       mode,
       cwd!,
       maybeTimeoutSeconds,
-      (v) => resolve(resolveCommand(v))
-    )
+      (v) => resolve(resolveCommand(v)),
+    ),
   )
 }
 
@@ -399,7 +398,7 @@ const runCommandChildProcess = async (
     result: string
     stdout: string
     exitCode: number | null
-  }) => void
+  }) => void,
 ) => {
   const projectRoot = getProjectRoot()
 
@@ -418,7 +417,7 @@ const runCommandChildProcess = async (
   if (mode === 'assistant') {
     const displayDir = path.join(
       path.parse(projectRoot).base,
-      path.relative(projectRoot, path.resolve(projectRoot, cwd))
+      path.relative(projectRoot, path.resolve(projectRoot, cwd)),
     )
     console.log(green(`${displayDir} > ${command}`))
   }
@@ -432,7 +431,7 @@ const runCommandChildProcess = async (
     const { exe, args } = buildWinInvocation(
       shell as WinShell,
       initLines,
-      command
+      command,
     )
     child = spawn(exe, args, { cwd, env: pp.env })
   } else {
@@ -462,7 +461,7 @@ const runCommandChildProcess = async (
           result: formatResult(
             command,
             '',
-            `Command timed out after ${maybeTimeoutSeconds}s and was terminated.`
+            `Command timed out after ${maybeTimeoutSeconds}s and was terminated.`,
           ),
           stdout: '',
           exitCode: 124,
@@ -517,8 +516,8 @@ If you want to change the project root:
             command,
             cmdOut,
             buildArray([`cwd: ${path.resolve(projectRoot, cwd)}`, status]).join(
-              '\n\n'
-            )
+              '\n\n',
+            ),
           )
         : formatResult(
             command,
@@ -527,7 +526,7 @@ If you want to change the project root:
               `Starting cwd: ${cwd}`,
               `${status}\n`,
               `Final **user** cwd: ${getWorkingDirectory()} (Assistant's cwd is still project root)`,
-            ]).join('\n')
+            ]).join('\n'),
           )
 
     resolve({ result: payload, stdout: cmdOut, exitCode: code })

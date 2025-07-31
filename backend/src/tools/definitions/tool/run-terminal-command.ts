@@ -1,4 +1,3 @@
-
 import { getToolCallString } from '@codebuff/common/tools/utils'
 
 import { gitCommitGuidePrompt } from '../../../system-prompt/prompts'

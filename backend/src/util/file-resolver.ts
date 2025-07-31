@@ -35,7 +35,7 @@ export function resolveFileContent(filePath: string, basePath: string): string {
  */
 export function resolvePromptField(
   field: string | { path: string },
-  basePaths: string[]
+  basePaths: string[],
 ): string {
   if (typeof field === 'string') {
     return field
@@ -52,7 +52,7 @@ export function resolvePromptField(
     }
     logger.warn(
       { path: field.path, basePaths, error },
-      `Failed to load content from file path ${field.path}`
+      `Failed to load content from file path ${field.path}`,
     )
     throw new Error(`Failed to load content from path: ${field.path}`)
   }

@@ -184,9 +184,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
       const error = e as Error
       redeemReferralMessage = (
         <div className="flex flex-col space-y-2">
-          <p>
-            Uh-oh, we couldn't apply your referral code. {error.message}
-          </p>
+          <p>Uh-oh, we couldn't apply your referral code. {error.message}</p>
           <p>
             Please try again and reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if
             the problem persists.

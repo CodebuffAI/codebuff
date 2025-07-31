@@ -4,12 +4,12 @@ import z from 'zod/v4'
 
 import { PLACEHOLDER } from '../types'
 
-import type { AgentTemplate} from '../types';
+import type { AgentTemplate } from '../types'
 import type { Model } from '@codebuff/common/constants'
 
 export const superagent = (
   model: Model,
-  allAvailableAgents?: string[]
+  allAvailableAgents?: string[],
 ): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['superagent'].displayName,

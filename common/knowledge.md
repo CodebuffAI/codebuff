@@ -25,6 +25,7 @@ This package contains code shared between the `web` (Next.js frontend/backend) a
 ## Credit Grant Management
 
 Credit grants are managed in `packages/billing/src/grant-credits.ts`:
+
 - Use `processAndGrantCredit` for standalone grants (handles retries and failure logging)
 - Use `grantCreditOperation` for grants within a larger database transaction
 - Grant types: 'free', 'referral', 'rollover', 'purchase', 'admin'
@@ -32,11 +33,13 @@ Credit grants are managed in `packages/billing/src/grant-credits.ts`:
 - Always include unique `operation_id` for tracking
 
 ### Credit Grant Flow
+
 1. Create local credit grant record immediately
-2. Create Stripe grant asynchronously  
+2. Create Stripe grant asynchronously
 3. Webhook updates local grant with Stripe ID when confirmed
 
 ### Monthly Reset Flow
+
 1. Calculate unused purchase/rollover credits
 2. Create new rollover grant if needed
 3. Reset usage to 0 and update `next_quota_reset`

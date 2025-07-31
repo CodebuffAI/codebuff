@@ -29,7 +29,7 @@ export function cancelUserInput(userId: string, userInputId: string): void {
   } else {
     logger.debug(
       { userId, userInputId, liveUserInputId: live[userId] ?? 'undefined' },
-      'Tried to cancel user input with incorrect userId or userInputId'
+      'Tried to cancel user input with incorrect userId or userInputId',
     )
   }
 }
@@ -45,7 +45,7 @@ export function endUserInput(userId: string, userInputId: string): void {
 export function checkLiveUserInput(
   userId: string | undefined,
   userInputId: string,
-  sessionId: string
+  sessionId: string,
 ): boolean {
   if (!liveUserInputCheckEnabled) {
     return true
@@ -67,7 +67,7 @@ export function checkLiveUserInput(
 
 export function setSessionConnected(
   sessionId: string,
-  connected: boolean
+  connected: boolean,
 ): void {
   if (connected) {
     sessionConnections[sessionId] = true
@@ -77,7 +77,7 @@ export function setSessionConnected(
 }
 
 export function getLiveUserInputIds(
-  userId: string | undefined
+  userId: string | undefined,
 ): string[] | undefined {
   if (!userId) {
     return undefined
@@ -89,7 +89,7 @@ export function getLiveUserInputIds(
 export function resetLiveUserInputsState(): void {
   Object.keys(live).forEach((key) => delete live[key])
   Object.keys(sessionConnections).forEach(
-    (key) => delete sessionConnections[key]
+    (key) => delete sessionConnections[key],
   )
   liveUserInputCheckEnabled = true
 }

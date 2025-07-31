@@ -11,13 +11,11 @@ import type {
   OptionalFileProcessingState,
 } from './write-file'
 
-
-
 export const handleCreatePlan = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'create_plan'>
   requestClientToolCall: (
-    toolCall: ClientToolCall<'create_plan'>
+    toolCall: ClientToolCall<'create_plan'>,
   ) => Promise<string>
   writeToClient: (chunk: string) => void
 
@@ -58,7 +56,7 @@ export const handleCreatePlan = ((params: {
       path,
       plan,
     },
-    'Create plan'
+    'Create plan',
   )
   // Add the plan file to the processing queue
   if (!fileProcessingState.promisesByPath[path]) {
@@ -90,7 +88,7 @@ export const handleCreatePlan = ((params: {
         change,
         getLatestState(),
         writeToClient,
-        requestClientToolCall
+        requestClientToolCall,
       )
     }),
     state: fileProcessingState,

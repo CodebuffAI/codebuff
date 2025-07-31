@@ -11,7 +11,7 @@ import { Hero } from '@/components/ui/hero'
 import { CompetitionSection } from '@/components/ui/landing/competition'
 import {
   FEATURE_POINTS,
-  SECTION_THEMES
+  SECTION_THEMES,
 } from '@/components/ui/landing/constants'
 import { CTASection } from '@/components/ui/landing/cta-section'
 import { FeatureSection } from '@/components/ui/landing/feature'
@@ -33,7 +33,7 @@ function SearchParamsHandler() {
   useEffect(() => {
     storeSearchParams(searchParams)
   }, [searchParams])
-  
+
   return null
 }
 
@@ -61,9 +61,9 @@ export default function Home() {
             },
             body: JSON.stringify({ referralCode }),
           })
-          
+
           const data = await response.json()
-          
+
           if (response.ok) {
             toast({
               title: 'Success!',
@@ -71,7 +71,7 @@ export default function Home() {
               className: 'cursor-pointer',
               onClick: () => {
                 window.location.href = '/referrals'
-              }
+              },
             })
           }
         } catch (error) {
@@ -97,7 +97,7 @@ export default function Home() {
       <Suspense>
         <SearchParamsHandler />
       </Suspense>
-      
+
       <Section background={SECTION_THEMES.hero.background} hero fullViewport>
         <div
           className={cn(

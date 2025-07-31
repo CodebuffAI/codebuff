@@ -5,14 +5,14 @@ export const handleRunFileChangeHooks = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'run_file_change_hooks'>
   requestClientToolCall: (
-    toolCall: ClientToolCall<'run_file_change_hooks'>
+    toolCall: ClientToolCall<'run_file_change_hooks'>,
   ) => Promise<string>
 }): { result: Promise<string>; state: {} } => {
   const { previousToolCallFinished, toolCall, requestClientToolCall } = params
 
   return {
     result: previousToolCallFinished.then(() =>
-      requestClientToolCall(toolCall)
+      requestClientToolCall(toolCall),
     ),
     state: {},
   }

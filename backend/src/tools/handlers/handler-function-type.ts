@@ -25,7 +25,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
   } & PresentOrAbsent<
     'requestClientToolCall',
     (toolCall: ClientToolCall<T>) => Promise<string>
-  >
+  >,
 ) => {
   result: Promise<string | undefined>
   state?: Record<string, any>

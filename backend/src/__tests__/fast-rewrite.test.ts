@@ -51,13 +51,13 @@ describe.skip('rewriteWithOpenAI', () => {
       'fingerprintId',
       'userInputId',
       TEST_USER_ID,
-      undefined
+      undefined,
     )
 
     const patch = createPatch('test.ts', expectedResult, result)
     const patchLines = patch.split('\n').slice(4)
     const linesChanged = patchLines.filter(
-      (line) => line.startsWith('+') || line.startsWith('-')
+      (line) => line.startsWith('+') || line.startsWith('-'),
     ).length
     console.log(patch)
     expect(linesChanged).toBeLessThanOrEqual(14)

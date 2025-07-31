@@ -96,7 +96,7 @@ async function runSingleEvalTask(options: {
   }
 
   const evalData = JSON.parse(
-    fs.readFileSync(evalFile, 'utf-8')
+    fs.readFileSync(evalFile, 'utf-8'),
   ) as GitRepoEvalData
   console.log(`Repository: ${evalData.repoUrl}`)
   console.log(`Total commits available: ${evalData.evalCommits.length}`)
@@ -105,7 +105,7 @@ async function runSingleEvalTask(options: {
   let evalCommit: EvalCommit
   if (commitSha) {
     const found = evalData.evalCommits.find((commit) =>
-      commit.sha.startsWith(commitSha)
+      commit.sha.startsWith(commitSha),
     )
     if (!found) {
       throw new Error(`Commit with SHA ${commitSha} not found in eval data`)
@@ -115,7 +115,7 @@ async function runSingleEvalTask(options: {
   } else if (commitIndex !== undefined) {
     if (commitIndex < 0 || commitIndex >= evalData.evalCommits.length) {
       throw new Error(
-        `Commit index ${commitIndex} is out of range (0-${evalData.evalCommits.length - 1})`
+        `Commit index ${commitIndex} is out of range (0-${evalData.evalCommits.length - 1})`,
       )
     }
     evalCommit = evalData.evalCommits[commitIndex]
@@ -125,7 +125,7 @@ async function runSingleEvalTask(options: {
   }
 
   console.log(
-    `Commit: ${evalCommit.sha.slice(0, 8)} - ${evalCommit.message.split('\n')[0]}`
+    `Commit: ${evalCommit.sha.slice(0, 8)} - ${evalCommit.message.split('\n')[0]}`,
   )
 
   // Parse model config
@@ -148,7 +148,7 @@ async function runSingleEvalTask(options: {
   const projectPath = await setupTestRepo(
     evalData.repoUrl,
     testRepoName,
-    evalCommit.sha
+    evalCommit.sha,
   )
   console.log(`Repository cloned to: ${projectPath}`)
 
@@ -164,7 +164,7 @@ async function runSingleEvalTask(options: {
 
   console.log('🤖 Running evaluation...')
   console.log(
-    `Spec: ${evalCommit.spec.slice(0, 100)}${evalCommit.spec.length > 100 ? '...' : ''}`
+    `Spec: ${evalCommit.spec.slice(0, 100)}${evalCommit.spec.length > 100 ? '...' : ''}`,
   )
 
   const startTime = Date.now()
@@ -175,7 +175,7 @@ async function runSingleEvalTask(options: {
       evalCommit,
       projectPath,
       clientSessionId,
-      fingerprintId
+      fingerprintId,
     )
 
     const duration = Date.now() - startTime
@@ -223,7 +223,7 @@ async function runSingleEvalTask(options: {
     const duration = Date.now() - startTime
     console.error(
       `❌ Evaluation failed after ${(duration / 1000).toFixed(1)}s:`,
-      error
+      error,
     )
     process.exit(1)
   }

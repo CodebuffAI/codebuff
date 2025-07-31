@@ -36,13 +36,13 @@ async function calculateMRR() {
         // Get the base subscription price (licensed item)
         const basePriceItem = subscription.items.data.find(
           (item: Stripe.SubscriptionItem) =>
-            item.price.recurring?.usage_type === 'licensed'
+            item.price.recurring?.usage_type === 'licensed',
         )
 
         if (basePriceItem?.price.unit_amount) {
           totalMRR += basePriceItem.price.unit_amount
           console.log(
-            `Active base MRR for customer ${subscription.customer}: $${(basePriceItem.price.unit_amount / 100).toFixed(2)}`
+            `Active base MRR for customer ${subscription.customer}: $${(basePriceItem.price.unit_amount / 100).toFixed(2)}`,
           )
         }
       }
@@ -73,13 +73,13 @@ async function calculateMRR() {
         // Get the base subscription price (licensed item)
         const basePriceItem = subscription.items.data.find(
           (item: Stripe.SubscriptionItem) =>
-            item.price.recurring?.usage_type === 'licensed'
+            item.price.recurring?.usage_type === 'licensed',
         )
 
         if (basePriceItem?.price.unit_amount) {
           totalPastDueMRR += basePriceItem.price.unit_amount
           console.log(
-            `Past due base MRR for customer ${subscription.customer}: $${(basePriceItem.price.unit_amount / 100).toFixed(2)}`
+            `Past due base MRR for customer ${subscription.customer}: $${(basePriceItem.price.unit_amount / 100).toFixed(2)}`,
           )
           totalPastDueInvoices++
         }
@@ -98,14 +98,14 @@ async function calculateMRR() {
     console.log(`\nProcessed ${totalSubscriptions} total subscriptions`)
     console.log(`Found ${totalPastDueInvoices} past due subscriptions`)
     console.log(
-      `Base MRR (from active subscriptions): $${mrrInDollars.toFixed(2)}`
+      `Base MRR (from active subscriptions): $${mrrInDollars.toFixed(2)}`,
     )
     console.log(`Past Due Base MRR: $${pastDueMRRInDollars.toFixed(2)}`)
     console.log(
-      `Total Base MRR: $${(mrrInDollars + pastDueMRRInDollars).toFixed(2)}`
+      `Total Base MRR: $${(mrrInDollars + pastDueMRRInDollars).toFixed(2)}`,
     )
     console.log(
-      `Annual Base Run Rate (ARR): $${((mrrInDollars + pastDueMRRInDollars) * 12).toFixed(2)}`
+      `Annual Base Run Rate (ARR): $${((mrrInDollars + pastDueMRRInDollars) * 12).toFixed(2)}`,
     )
   } catch (error) {
     console.error('Error calculating MRR:', error)

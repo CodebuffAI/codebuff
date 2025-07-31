@@ -36,7 +36,7 @@ export function extractRepoNameFromUrl(repoUrl: string): string {
 export async function setupTestRepo(
   repoUrl: string,
   customRepoName: string,
-  commitSha: string = 'HEAD'
+  commitSha: string = 'HEAD',
 ): Promise<string> {
   const repoName = customRepoName || extractRepoNameFromUrl(repoUrl)
   console.log(`Setting up test repository: ${repoName}...`)
@@ -94,13 +94,13 @@ export async function setupTestRepo(
       // Add token authentication to the URL
       cloneUrl = cloneUrl.replace(
         'https://github.com/',
-        `https://${githubToken}@github.com/`
+        `https://${githubToken}@github.com/`,
       )
       console.log('Using GitHub token authentication for private repository')
       console.log(`Token prefix: ${githubToken.substring(0, 10)}...`)
 
       console.log(
-        `Cloning from remote: ${cloneUrl.replace(githubToken || '', '***')}`
+        `Cloning from remote: ${cloneUrl.replace(githubToken || '', '***')}`,
       )
 
       // Set git configuration for the clone operation
@@ -158,7 +158,7 @@ export async function setupTestRepo(
     })
 
     console.log(
-      `Git status check passed. Working directory status: ${gitStatus.trim() || 'clean'}`
+      `Git status check passed. Working directory status: ${gitStatus.trim() || 'clean'}`,
     )
 
     // Test that we can access commit history
@@ -186,22 +186,22 @@ export async function setupTestRepo(
     ) {
       console.error('\nAuthentication troubleshooting:')
       console.error(
-        '1. Verify CODEBUFF_GITHUB_TOKEN environment variable is set'
+        '1. Verify CODEBUFF_GITHUB_TOKEN environment variable is set',
       )
       console.error(
-        '2. Ensure token has appropriate repository access permissions'
+        '2. Ensure token has appropriate repository access permissions',
       )
       console.error(
-        '3. Check if token is a Personal Access Token (PAT) with repo scope'
+        '3. Check if token is a Personal Access Token (PAT) with repo scope',
       )
       console.error(
-        '4. For private repos, ensure token owner has access to the repository'
+        '4. For private repos, ensure token owner has access to the repository',
       )
 
       const token = process.env.CODEBUFF_GITHUB_TOKEN
       if (token) {
         console.error(
-          `Token format: ${token.substring(0, 10)}... (length: ${token.length})`
+          `Token format: ${token.substring(0, 10)}... (length: ${token.length})`,
         )
       } else {
         console.error('CODEBUFF_GITHUB_TOKEN environment variable is not set')
@@ -217,7 +217,7 @@ if (require.main === module) {
   const args = process.argv.slice(2)
   if (args.length < 3) {
     console.error(
-      'Usage: bun run setup-test-repo <repo-url> <repo-name> <commit-sha>'
+      'Usage: bun run setup-test-repo <repo-url> <repo-name> <commit-sha>',
     )
     process.exit(1)
   }

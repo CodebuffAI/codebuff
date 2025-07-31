@@ -16,7 +16,10 @@ interface ErrorBoundaryProps {
   fallbackTitle?: string
 }
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false, error: null }
@@ -48,7 +51,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             <p className="text-sm text-red-700 mb-4">
               {this.state.error?.message || 'An unexpected error occurred'}
             </p>
-            <Button 
+            <Button
               onClick={this.handleReset}
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-100"

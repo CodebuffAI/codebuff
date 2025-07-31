@@ -13,7 +13,7 @@ import type { Model } from '@codebuff/common/constants'
 
 export const base = (
   model: Model,
-  allAvailableAgents?: string[]
+  allAvailableAgents?: string[],
 ): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['base'].displayName,

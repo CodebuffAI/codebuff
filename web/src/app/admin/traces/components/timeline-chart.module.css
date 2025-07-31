@@ -38,7 +38,12 @@
 }
 
 .timeRuler {
-  background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.05) 50%, transparent 100%);
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.05) 50%,
+    transparent 100%
+  );
 }
 
 .expandButton {

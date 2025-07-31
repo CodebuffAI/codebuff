@@ -4,7 +4,7 @@
     "target": "ES2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "moduleResolution": "bundler",       // Bun-friendly + TS 5.5 import maps
+    "moduleResolution": "bundler", // Bun-friendly + TS 5.5 import maps
     "allowImportingTsExtensions": true, // smooth “./foo.ts” imports
     "noEmit": true,
 
@@ -18,7 +18,7 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     // "verbatimModuleSyntax": true,        // don’t rewrite ESM syntax
-    "skipLibCheck": true,                // faster CI
+    "skipLibCheck": true, // faster CI
     "forceConsistentCasingInFileNames": true
   }
 

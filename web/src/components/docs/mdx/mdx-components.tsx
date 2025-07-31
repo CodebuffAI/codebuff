@@ -3,8 +3,6 @@ import Image from 'next/image'
 import { useMDXComponent } from 'next-contentlayer/hooks'
 import React, { useState, useEffect } from 'react'
 
-
-
 import { CodeDemo } from './code-demo'
 import { MarkdownTable } from './markdown-table'
 import {
@@ -13,8 +11,11 @@ import {
   SchemaDisplay,
 } from './schema-display'
 
-
-import type { HTMLAttributes, AnchorHTMLAttributes, ImgHTMLAttributes } from 'react'
+import type {
+  HTMLAttributes,
+  AnchorHTMLAttributes,
+  ImgHTMLAttributes,
+} from 'react'
 
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'

@@ -1,4 +1,3 @@
-
 import fs, { readdirSync } from 'fs'
 import * as os from 'os'
 import { homedir } from 'os'
@@ -125,7 +124,7 @@ async function getLocalAgentInfo(): Promise<
           displayName: agentConfig.displayName,
           purpose: agentConfig.parentPrompt,
         },
-      ])
+      ]),
     )
     cachedLocalAgentInfo = agentInfo // Update cache
     return agentInfo
@@ -179,7 +178,7 @@ export class CLI {
 
   private constructor(
     readyPromise: Promise<[ProjectFileContext, void]>,
-    { git, costMode, model, agent, params, print, trace }: CliOptions
+    { git, costMode, model, agent, params, print, trace }: CliOptions,
   ) {
     this.git = git
     this.costMode = costMode
@@ -235,7 +234,7 @@ export class CLI {
             reason instanceof Error ? reason.message : String(reason),
           errorStack: reason instanceof Error ? reason.stack : undefined,
         },
-        'Unhandled Rejection'
+        'Unhandled Rejection',
       )
       this.freshPrompt()
     })
@@ -258,7 +257,7 @@ export class CLI {
           errorStack: err.stack,
           origin,
         },
-        'Uncaught Exception'
+        'Uncaught Exception',
       )
       this.freshPrompt()
     })
@@ -266,7 +265,7 @@ export class CLI {
 
   public static initialize(
     readyPromise: Promise<[ProjectFileContext, void]>,
-    options: CliOptions
+    options: CliOptions,
   ): void {
     if (CLI.instance) {
       throw new Error('CLI is already initialized')
@@ -296,7 +295,7 @@ export class CLI {
       if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
         logger.info(
           '[dev] active handles on close',
-          (process as any)._getActiveHandles()
+          (process as any)._getActiveHandles(),
         )
       }
     })
@@ -334,7 +333,7 @@ export class CLI {
           errorMessage: error instanceof Error ? error.message : String(error),
           errorStack: error instanceof Error ? error.stack : undefined,
         },
-        'Error loading prompt history'
+        'Error loading prompt history',
       )
       // If file doesn't exist or is invalid JSON, create empty history file
       fs.writeFileSync(PROMPT_HISTORY_PATH, '[]')
@@ -364,7 +363,7 @@ export class CLI {
           errorMessage: error instanceof Error ? error.message : String(error),
           errorStack: error instanceof Error ? error.stack : undefined,
         },
-        'Error appending to prompt history'
+        'Error appending to prompt history',
       )
     }
   }
@@ -417,13 +416,13 @@ export class CLI {
       const localAgentInfo = getCachedLocalAgentInfo()
       const allAgentNames = [
         ...new Set(
-          getAllAgents(localAgentInfo).map((agent) => agent.displayName)
+          getAllAgents(localAgentInfo).map((agent) => agent.displayName),
         ),
       ]
 
       // Filter agent names that match the search term
       const matchingAgents = allAgentNames.filter((name) =>
-        name.toLowerCase().startsWith(searchTerm)
+        name.toLowerCase().startsWith(searchTerm),
       )
 
       if (matchingAgents.length > 0) {
@@ -457,7 +456,7 @@ export class CLI {
         .filter((file) => file.startsWith(partial))
         .map(
           (file) =>
-            file + (isDir(path.join(baseDir, file)) ? directorySuffix : '')
+            file + (isDir(path.join(baseDir, file)) ? directorySuffix : ''),
         )
       return [fsMatches, partial]
     } catch {
@@ -472,7 +471,7 @@ export class CLI {
       }
       return this.getAllFilePaths(
         node.children || [],
-        path.join(basePath, node.name)
+        path.join(basePath, node.name),
       )
     })
   }
@@ -488,7 +487,7 @@ export class CLI {
     ]
 
     const maxNameLength = Math.max(
-      ...uniqueAgentNames.map((agent) => agent.displayName.length)
+      ...uniqueAgentNames.map((agent) => agent.displayName.length),
     )
 
     const agentLines = uniqueAgentNames.map((agent) => {
@@ -498,7 +497,7 @@ export class CLI {
     })
 
     const tip = gray(
-      'Tip: Type "@" followed by an agent name to request a specific agent, e.g., @reid find relevant files'
+      'Tip: Type "@" followed by an agent name to request a specific agent, e.g., @reid find relevant files',
     )
 
     console.log(`\n\n${agentLines.join('\n')}\n${tip}\n`)
@@ -529,7 +528,7 @@ export class CLI {
   public async resetAgent(
     agent?: string,
     initialParams?: Record<string, any>,
-    userPrompt?: string
+    userPrompt?: string,
   ) {
     const client = Client.getInstance()
 
@@ -544,7 +543,7 @@ export class CLI {
     const localAgentInfo = await getLocalAgentInfo()
     const agentDisplayName = getAgentDisplayName(
       agent || 'base',
-      localAgentInfo
+      localAgentInfo,
     )
 
     // Tell user who they're working with now
@@ -582,9 +581,9 @@ export class CLI {
       console.log(
         '\n\n' +
           green(
-            `Auto top-up successful! ${client.pendingTopUpMessageAmount.toLocaleString()} credits added.`
+            `Auto top-up successful! ${client.pendingTopUpMessageAmount.toLocaleString()} credits added.`,
           ) +
-          '\n'
+          '\n',
       )
       client.pendingTopUpMessageAmount = 0
     }
@@ -634,7 +633,7 @@ export class CLI {
         displayGreeting(this.costMode, client.user.name)
       } else {
         console.log(
-          `Welcome to Codebuff! Give us a sec to get your account set up...`
+          `Welcome to Codebuff! Give us a sec to get your account set up...`,
         )
         await client.login()
         return
@@ -676,11 +675,11 @@ export class CLI {
     // Record input for frustration detection before processing
     const cleanedInput = this.cleanCommandInput(userInput)
     rageDetectors.repeatInputDetector.recordEvent(
-      cleanedInput.toLowerCase().trim()
+      cleanedInput.toLowerCase().trim(),
     )
 
     const processedResult = await withHangDetection(userInput, () =>
-      this.processCommand(userInput)
+      this.processCommand(userInput),
     )
 
     if (processedResult === null) {
@@ -716,7 +715,7 @@ export class CLI {
   private handleUnknownCommand(command: string) {
     console.log(
       yellow(`Unknown slash command: ${command}`) +
-        `\nType / to see available commands`
+        `\nType / to see available commands`,
     )
     this.freshPrompt()
   }
@@ -728,7 +727,7 @@ export class CLI {
     // Early check: if command requires slash but no slash provided, forward to backend
     const commandInfo = interactiveCommandDetails.find(
       (cmd) =>
-        cmd.baseCommand === cleanInput || cmd.aliases?.includes(cleanInput)
+        cmd.baseCommand === cleanInput || cmd.aliases?.includes(cleanInput),
     )
     if (commandInfo?.requireSlash === true && !hasSlash) {
       return userInput
@@ -736,7 +735,7 @@ export class CLI {
 
     // Handle cost mode commands with optional message: /lite, /lite message, /normal, /normal message, etc.
     const costModeMatch = userInput.match(
-      /^\/?(lite|normal|max|experimental|ask)(?:\s+(.*))?$/i
+      /^\/?(lite|normal|max|experimental|ask)(?:\s+(.*))?$/i,
     )
     if (costModeMatch) {
       const mode = costModeMatch[1].toLowerCase() as CostMode
@@ -745,7 +744,7 @@ export class CLI {
 
       // Check if this command requires a slash for local processing
       const commandInfo = interactiveCommandDetails.find(
-        (cmd) => cmd.baseCommand === mode
+        (cmd) => cmd.baseCommand === mode,
       )
       const requiresSlash = commandInfo?.requireSlash ?? false
 
@@ -769,23 +768,23 @@ export class CLI {
         console.log(green('⚖️ Switched to normal mode (balanced)'))
       } else if (mode === 'max') {
         console.log(
-          blueBright('⚡ Switched to max mode (slower, more thorough)')
+          blueBright('⚡ Switched to max mode (slower, more thorough)'),
         )
         console.log(
-          blueBright('New Jul 2: Even more powerful (though more expensive)')
+          blueBright('New Jul 2: Even more powerful (though more expensive)'),
         )
       } else if (mode === 'experimental') {
         console.log(magenta('🧪 Switched to experimental mode (cutting-edge)'))
       } else if (mode === 'ask') {
         console.log(
           cyan(
-            '💬 Switched to ask mode (questions & planning only, no code changes)'
-          )
+            '💬 Switched to ask mode (questions & planning only, no code changes)',
+          ),
         )
         console.log(
           gray(
-            'Tip: Use /export to save conversation summary to a file after fleshing out a plan'
-          )
+            'Tip: Use /export to save conversation summary to a file after fleshing out a plan',
+          ),
         )
       }
 
@@ -851,7 +850,7 @@ export class CLI {
         Client.getInstance(),
         detectionResult,
         this.readyPromise,
-        this.freshPrompt.bind(this)
+        this.freshPrompt.bind(this),
       )
       return null
     }
@@ -876,7 +875,7 @@ export class CLI {
       const processStartPromise = logAndHandleStartup()
       const initFileContextPromise = initProjectFileContextWithWorker(
         projectRoot,
-        true
+        true,
       )
 
       this.readyPromise = Promise.all([
@@ -908,7 +907,7 @@ export class CLI {
 
       if (!agentId) {
         console.log(
-          yellow('Please provide a subagent ID. Usage: subagent <agent-id>')
+          yellow('Please provide a subagent ID. Usage: subagent <agent-id>'),
         )
         const recentSubagents = getRecentSubagents(10)
         displaySubagentList(recentSubagents)
@@ -924,7 +923,7 @@ export class CLI {
 
       if (isInSubagentBufferMode()) {
         console.log(
-          yellow('Already in subagent buffer mode! Press ESC to exit.')
+          yellow('Already in subagent buffer mode! Press ESC to exit.'),
         )
         this.freshPrompt()
         return null
@@ -1104,7 +1103,7 @@ export class CLI {
       {
         errorMessage: 'Could not connect. Retrying...',
       },
-      'WebSocket connection error'
+      'WebSocket connection error',
     )
 
     // Start hang detection for persistent connection issues
@@ -1280,18 +1279,18 @@ export class CLI {
       // When covered by an organization, show organization information
       console.log(
         green(
-          `Your usage in this repository was covered by the ${bold(coverage.organizationName)} organization.`
-        )
+          `Your usage in this repository was covered by the ${bold(coverage.organizationName)} organization.`,
+        ),
       )
     } else {
       // Only show personal credit renewal when not covered by an organization
       if (client.usageData.next_quota_reset) {
         const daysUntilReset = Math.ceil(
           (new Date(client.usageData.next_quota_reset).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24),
         )
         console.log(
-          `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`
+          `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`,
         )
       }
     }

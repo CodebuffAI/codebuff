@@ -79,7 +79,7 @@ export interface TokenCallerMap {
  * Parse read files result from XML
  */
 export function parseReadFilesResult(
-  xmlString: string
+  xmlString: string,
 ): { path: string; content: string; referencedBy: string }[] {
   const files: { path: string; content: string; referencedBy: string }[] = []
   const filePattern =

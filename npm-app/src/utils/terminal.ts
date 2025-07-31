@@ -24,5 +24,6 @@ export const TerminalControl = {
   clearScreen: () => process.stdout.write(CLEAR_SCREEN),
   hideCursor: () => process.stdout.write(HIDE_CURSOR),
   showCursor: () => process.stdout.write(SHOW_CURSOR),
-  moveCursor: (row: number, col: number) => process.stdout.write(MOVE_CURSOR(row, col)),
+  moveCursor: (row: number, col: number) =>
+    process.stdout.write(MOVE_CURSOR(row, col)),
 } as const

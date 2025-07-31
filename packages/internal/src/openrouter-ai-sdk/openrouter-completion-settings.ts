@@ -1,6 +1,6 @@
-import type { OpenRouterSharedSettings } from './types';
+import type { OpenRouterSharedSettings } from './types'
 
-export type OpenRouterCompletionModelId = string;
+export type OpenRouterCompletionModelId = string
 
 export type OpenRouterCompletionSettings = {
   /**
@@ -17,7 +17,7 @@ should result in a ban or exclusive selection of the relevant token.
 As an example, you can pass {"50256": -100} to prevent the <|endoftext|>
 token from being generated.
    */
-  logitBias?: Record<number, number>;
+  logitBias?: Record<number, number>
 
   /**
 Return the log probabilities of the tokens. Including logprobs will increase
@@ -30,10 +30,10 @@ were generated.
 Setting to a number will return the log probabilities of the top n
 tokens that were generated.
    */
-  logprobs?: boolean | number;
+  logprobs?: boolean | number
 
   /**
 The suffix that comes after a completion of inserted text.
    */
-  suffix?: string;
-} & OpenRouterSharedSettings;
+  suffix?: string
+} & OpenRouterSharedSettings

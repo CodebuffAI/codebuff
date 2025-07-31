@@ -1,4 +1,3 @@
-
 import { handleAddMessage } from './tool/add-message'
 import { handleAddSubgoal } from './tool/add-subgoal'
 import { handleBrowserLogs } from './tool/browser-logs'

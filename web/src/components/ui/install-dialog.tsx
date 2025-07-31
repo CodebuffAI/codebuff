@@ -20,28 +20,44 @@ export function InstallDialog() {
   const editors = [
     { name: 'VS Code', href: 'vscode://~/', icon: '/logos/visual-studio.png' },
     { name: 'Cursor', href: 'cursor://~/', icon: '/logos/cursor.png' },
-    { name: 'IntelliJ', href: 'idea://~/', icon: '/logos/intellij.png', needsWhiteBg: true },
-    { name: 'PyCharm', href: 'pycharm://~/', icon: '/logos/pycharm.png', needsWhiteBg: true },
+    {
+      name: 'IntelliJ',
+      href: 'idea://~/',
+      icon: '/logos/intellij.png',
+      needsWhiteBg: true,
+    },
+    {
+      name: 'PyCharm',
+      href: 'pycharm://~/',
+      icon: '/logos/pycharm.png',
+      needsWhiteBg: true,
+    },
   ]
 
   const handleEditorClick = (editorName: string, href: string) => {
-    window.open(href + encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : ''), '_blank')
+    window.open(
+      href +
+        encodeURIComponent(
+          typeof window !== 'undefined' ? window.location.pathname : ''
+        ),
+      '_blank'
+    )
   }
 
   const handleCdCommandCopy = () => {
-    navigator.clipboard.writeText("cd /path/to/your-repo")
+    navigator.clipboard.writeText('cd /path/to/your-repo')
     posthog.capture('install_dialog.cd_command_copied')
     cdCopyButtonRef.current?.click()
   }
 
   const handleRunCommandCopy = () => {
-    navigator.clipboard.writeText("codebuff")
+    navigator.clipboard.writeText('codebuff')
     posthog.capture('install_dialog.run_command_copied')
     runCopyButtonRef.current?.click()
   }
 
   const handleInstallCommandCopy = () => {
-    navigator.clipboard.writeText("npm install -g codebuff")
+    navigator.clipboard.writeText('npm install -g codebuff')
     posthog.capture('install_dialog.install_command_copied')
     installCopyButtonRef.current?.click()
   }
@@ -55,7 +71,7 @@ export function InstallDialog() {
             <li className="text-lg leading-relaxed">
               <span>Open your terminal in your favorite IDE</span>
               <div className="grid grid-cols-2 gap-3 mt-3">
-                {editors.map(ed => (
+                {editors.map((ed) => (
                   <button
                     key={ed.name}
                     className="relative w-full bg-zinc-800/60 hover:bg-zinc-800/80 rounded-lg border border-zinc-600/70 hover:border-white/40 flex flex-row items-center justify-between group transition-all duration-200 py-1 px-3"
@@ -63,10 +79,12 @@ export function InstallDialog() {
                     aria-label={`Open in ${ed.name}`}
                   >
                     <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "w-4 h-4 relative flex-shrink-0",
-                        ed.needsWhiteBg && "bg-white rounded-sm p-[1px]"
-                      )}>
+                      <div
+                        className={cn(
+                          'w-4 h-4 relative flex-shrink-0',
+                          ed.needsWhiteBg && 'bg-white rounded-sm p-[1px]'
+                        )}
+                      >
                         <Image
                           src={ed.icon}
                           alt={ed.name}
@@ -74,11 +92,11 @@ export function InstallDialog() {
                           className="object-contain"
                         />
                       </div>
-                      <span className="text-white/90 font-mono text-sm">{ed.name}</span>
+                      <span className="text-white/90 font-mono text-sm">
+                        {ed.name}
+                      </span>
                     </div>
-                    <ExternalLink
-                      className="w-3.5 h-3.5 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity"
-                    />
+                    <ExternalLink className="w-3.5 h-3.5 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                 ))}
               </div>
@@ -93,11 +111,10 @@ export function InstallDialog() {
                   aria-label="Copy command: cd /path/to/your-repo"
                   onKeyDown={(e) => e.key === 'Enter' && handleCdCommandCopy()}
                 >
-                  <code className="font-mono text-white/90 select-all text-sm">cd /path/to/your-repo</code>
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="ml-2"
-                  >
+                  <code className="font-mono text-white/90 select-all text-sm">
+                    cd /path/to/your-repo
+                  </code>
+                  <div onClick={(e) => e.stopPropagation()} className="ml-2">
                     <EnhancedCopyButton
                       value="cd /path/to/your-repo"
                       ref={cdCopyButtonRef}
@@ -114,13 +131,14 @@ export function InstallDialog() {
                   onClick={handleInstallCommandCopy}
                   tabIndex={0}
                   aria-label="Copy command: npm install -g codebuff"
-                  onKeyDown={(e) => e.key === 'Enter' && handleInstallCommandCopy()}
+                  onKeyDown={(e) =>
+                    e.key === 'Enter' && handleInstallCommandCopy()
+                  }
                 >
-                  <code className="font-mono text-white/90 select-all text-sm">npm install -g codebuff</code>
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="ml-2"
-                  >
+                  <code className="font-mono text-white/90 select-all text-sm">
+                    npm install -g codebuff
+                  </code>
+                  <div onClick={(e) => e.stopPropagation()} className="ml-2">
                     <EnhancedCopyButton
                       value="npm install -g codebuff"
                       ref={installCopyButtonRef}
@@ -139,11 +157,10 @@ export function InstallDialog() {
                   aria-label="Copy command: codebuff"
                   onKeyDown={(e) => e.key === 'Enter' && handleRunCommandCopy()}
                 >
-                  <code className="font-mono text-white/90 select-all text-sm">codebuff</code>
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="ml-2"
-                  >
+                  <code className="font-mono text-white/90 select-all text-sm">
+                    codebuff
+                  </code>
+                  <div onClick={(e) => e.stopPropagation()} className="ml-2">
                     <EnhancedCopyButton
                       value="codebuff"
                       ref={runCopyButtonRef}

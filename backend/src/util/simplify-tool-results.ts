@@ -4,7 +4,6 @@ import { parseReadFilesResult, parseToolResults } from './parse-tool-call-xml'
 
 import type { ToolResult } from '@codebuff/common/types/session-state'
 
-
 /**
  * Helper function to simplify tool results of a specific type while preserving others.
  * Extracts results of the specified tool type, applies a simplification function to them,
@@ -17,7 +16,7 @@ import type { ToolResult } from '@codebuff/common/types/session-state'
 function simplifyToolResults(
   messageContent: string | object[],
   toolName: string,
-  simplifyFn: (result: ToolResult) => ToolResult
+  simplifyFn: (result: ToolResult) => ToolResult,
 ): string {
   const resultsStr =
     typeof messageContent === 'string'
@@ -30,7 +29,7 @@ function simplifyToolResults(
 
   const toolResults = parseToolResults(resultsStr)
   const targetResults = toolResults.filter(
-    (result) => result.toolName === toolName
+    (result) => result.toolName === toolName,
   )
 
   if (targetResults.length === 0) {
@@ -39,7 +38,7 @@ function simplifyToolResults(
 
   // Keep non-target results unchanged
   const otherResults = toolResults.filter(
-    (result) => result.toolName !== toolName
+    (result) => result.toolName !== toolName,
   )
 
   // Create simplified results
@@ -56,12 +55,12 @@ function simplifyToolResults(
  * @returns The message content with simplified read_files results showing only paths
  */
 export function simplifyReadFileResults(
-  messageContent: string | object[]
+  messageContent: string | object[],
 ): string {
   return simplifyToolResults(
     messageContent,
     'read_files',
-    simplifyReadFileToolResult
+    simplifyReadFileToolResult,
   )
 }
 
@@ -72,12 +71,12 @@ export function simplifyReadFileResults(
  * @returns The message content with simplified terminal command results
  */
 export function simplifyTerminalCommandResults(
-  messageContent: string | object[]
+  messageContent: string | object[],
 ): string {
   return simplifyToolResults(
     messageContent,
     'run_terminal_command',
-    simplifyTerminalCommandToolResult
+    simplifyTerminalCommandToolResult,
   )
 }
 
@@ -102,7 +101,7 @@ export function simplifyReadFileToolResult(toolResult: ToolResult): ToolResult {
  * @returns A new tool result with shortened output if the original was long
  */
 export function simplifyTerminalCommandToolResult(
-  toolResult: ToolResult
+  toolResult: ToolResult,
 ): ToolResult {
   const shortenedResultCandidate = '[Output omitted]'
   return shortenedResultCandidate.length < toolResult.result.length

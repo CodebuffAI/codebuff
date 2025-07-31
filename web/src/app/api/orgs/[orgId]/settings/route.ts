@@ -1,12 +1,10 @@
-
-
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
@@ -39,12 +37,18 @@ export async function GET(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const userRole = membership[0].role
     if (userRole !== 'owner' && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
     }
 
     // Get organization details
@@ -55,7 +59,10 @@ export async function GET(
       .limit(1)
 
     if (organization.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const org = organization[0]
@@ -111,12 +118,18 @@ export async function PATCH(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const userRole = membership[0].role
     if (userRole !== 'owner' && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
     }
 
     const body = await request.json()
@@ -184,18 +197,22 @@ export async function DELETE(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     const userRole = membership[0].role
     if (userRole !== 'owner') {
-      return NextResponse.json({ error: 'Only organization owners can delete organizations' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Only organization owners can delete organizations' },
+        { status: 403 }
+      )
     }
 
     // Delete organization (this will cascade to related tables)
-    await db
-      .delete(schema.org)
-      .where(eq(schema.org.id, orgId))
+    await db.delete(schema.org).where(eq(schema.org.id, orgId))
 
     return NextResponse.json({ success: true })
   } catch (error) {

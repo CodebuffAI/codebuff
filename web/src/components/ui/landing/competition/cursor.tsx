@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 
-
 interface CursorMazeVisualizationProps {
   progress: number
   complexity: 'simple' | 'full'

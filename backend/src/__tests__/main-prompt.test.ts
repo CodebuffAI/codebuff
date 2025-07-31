@@ -22,7 +22,6 @@ import {
   spyOn,
 } from 'bun:test'
 
-
 // Mock imports
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
@@ -62,7 +61,7 @@ describe('mainPrompt', () => {
     analytics.initAnalytics() // Initialize the mock
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
-      Promise.resolve(true)
+      Promise.resolve(true),
     ) // Return Promise<boolean>
 
     // Mock processFileBlock
@@ -76,12 +75,12 @@ describe('mainPrompt', () => {
           patch: undefined,
           messages: [],
         }
-      }
+      },
     )
 
     // Mock LLM APIs
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
-      Promise.resolve('Test response')
+      Promise.resolve('Test response'),
     )
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield 'Test response'
@@ -100,7 +99,7 @@ describe('mainPrompt', () => {
           }
         })
         return results
-      }
+      },
     )
 
     spyOn(websocketAction, 'requestFile').mockImplementation(
@@ -109,7 +108,7 @@ describe('mainPrompt', () => {
           return 'mock content for test.txt'
         }
         return null
-      }
+      },
     )
 
     spyOn(websocketAction, 'requestToolCall').mockImplementation(
@@ -118,27 +117,27 @@ describe('mainPrompt', () => {
         userInputId: string,
         toolName: string,
         args: Record<string, any>,
-        timeout: number = 30_000
+        timeout: number = 30_000,
       ) => {
         return {
           success: true,
           result: `Tool call success: ${{ toolName, args }}` as any,
         }
-      }
+      },
     )
 
     spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
-      async () => []
+      async () => [],
     )
 
     spyOn(
       checkTerminalCommandModule,
-      'checkTerminalCommand'
+      'checkTerminalCommand',
     ).mockImplementation(async () => null)
 
     spyOn(
       getDocumentationForQueryModule,
-      'getDocumentationForQuery'
+      'getDocumentationForQuery',
     ).mockImplementation(async () => null)
 
     // Mock live user inputs
@@ -220,7 +219,7 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-      }
+      },
     )
 
     // Find the user message containing tool results added *during* the mainPrompt execution
@@ -231,14 +230,14 @@ describe('mainPrompt', () => {
         (m) =>
           m.role === 'user' &&
           typeof m.content === 'string' &&
-          m.content.includes('<tool_result>')
+          m.content.includes('<tool_result>'),
       )
 
     // Find the specific tool result message that contains file_updates
     const fileUpdateMessage = toolResultMessages.find(
       (m) =>
         typeof m.content === 'string' &&
-        m.content.includes('<tool>read_files</tool>')
+        m.content.includes('<tool>read_files</tool>'),
     )
 
     expect(fileUpdateMessage).toBeDefined()
@@ -251,7 +250,7 @@ describe('mainPrompt', () => {
     // Override the mock to return a terminal command
     spyOn(
       checkTerminalCommandModule,
-      'checkTerminalCommand'
+      'checkTerminalCommand',
     ).mockImplementation(async () => 'ls -la')
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -272,7 +271,7 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-      }
+      },
     )
 
     // Verify that requestToolCall was called with the terminal command
@@ -287,7 +286,7 @@ describe('mainPrompt', () => {
         mode: 'user',
         process_type: 'SYNC',
         timeout_seconds: -1,
-      })
+      }),
     )
 
     // Verify that a tool result was added to message history
@@ -296,7 +295,7 @@ describe('mainPrompt', () => {
         (m) =>
           m.role === 'user' &&
           typeof m.content === 'string' &&
-          m.content.includes('<tool_result>')
+          m.content.includes('<tool_result>'),
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
   })
@@ -344,7 +343,7 @@ describe('mainPrompt', () => {
         type: 'file',
         path: 'new-file.txt',
         content: 'Hello, world!',
-      })
+      }),
     )
   })
 
@@ -375,7 +374,7 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-      }
+      },
     )
 
     expect(toolCalls).toHaveLength(0) // No tool calls expected
@@ -402,12 +401,12 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-      }
+      },
     )
 
     // When there's a new prompt, consecutiveAssistantMessages should be set to 1
     expect(newSessionState.mainAgentState.stepsRemaining).toBe(
-      sessionState.mainAgentState.stepsRemaining - 1
+      sessionState.mainAgentState.stepsRemaining - 1,
     )
   })
 
@@ -433,7 +432,7 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-      }
+      },
     )
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
@@ -462,7 +461,7 @@ describe('mainPrompt', () => {
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
-      }
+      },
     )
 
     expect(toolCalls).toHaveLength(0) // No tool calls expected for empty response
@@ -513,7 +512,7 @@ describe('mainPrompt', () => {
         command: expectedCommand,
         process_type: 'SYNC',
         mode: 'assistant',
-      })
+      }),
     )
   })
 })

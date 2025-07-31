@@ -19,7 +19,6 @@ import {
   test,
 } from 'bun:test'
 
-
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
@@ -52,7 +51,7 @@ describe('read_docs tool with researcher agent', () => {
     analytics.initAnalytics()
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
-      Promise.resolve(true)
+      Promise.resolve(true),
     )
 
     // Mock websocket actions
@@ -65,16 +64,16 @@ describe('read_docs tool with researcher agent', () => {
 
     // Mock LLM APIs
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
-      Promise.resolve('Test response')
+      Promise.resolve('Test response'),
     )
 
     // Mock other required modules
     spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
-      async () => []
+      async () => [],
     )
     spyOn(
       checkTerminalCommandModule,
-      'checkTerminalCommand'
+      'checkTerminalCommand',
     ).mockImplementation(async () => null)
 
     // Mock live user inputs
@@ -96,7 +95,7 @@ describe('read_docs tool with researcher agent', () => {
       'React is a JavaScript library for building user interfaces...'
 
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
-      async () => mockDocumentation
+      async () => mockDocumentation,
     )
 
     const mockResponse =
@@ -131,12 +130,12 @@ describe('read_docs tool with researcher agent', () => {
         agentState,
         prompt: 'Get React documentation',
         params: undefined,
-      }
+      },
     )
 
     expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith(
       'React',
-      {}
+      {},
     )
 
     // Check that the documentation was added to the message history
@@ -144,11 +143,11 @@ describe('read_docs tool with researcher agent', () => {
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('read_docs')
+        m.content.includes('read_docs'),
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      mockDocumentation
+      mockDocumentation,
     )
   })
 
@@ -157,7 +156,7 @@ describe('read_docs tool with researcher agent', () => {
       'React hooks allow you to use state and other React features...'
 
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
-      async () => mockDocumentation
+      async () => mockDocumentation,
     )
 
     const mockResponse =
@@ -199,13 +198,13 @@ describe('read_docs tool with researcher agent', () => {
       {
         topic: 'hooks',
         tokens: 5000,
-      }
+      },
     )
   })
 
   test('should handle case when no documentation is found', async () => {
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
-      async () => null
+      async () => null,
     )
 
     const mockResponse =
@@ -240,7 +239,7 @@ describe('read_docs tool with researcher agent', () => {
         agentState,
         prompt: 'Get documentation for NonExistentLibrary',
         params: undefined,
-      }
+      },
     )
 
     // Check that the "no documentation found" message was added
@@ -248,11 +247,11 @@ describe('read_docs tool with researcher agent', () => {
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('read_docs')
+        m.content.includes('read_docs'),
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'No documentation found for "NonExistentLibrary"'
+      'No documentation found for "NonExistentLibrary"',
     )
   })
 
@@ -262,7 +261,7 @@ describe('read_docs tool with researcher agent', () => {
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
       async () => {
         throw mockError
-      }
+      },
     )
 
     const mockResponse =
@@ -297,7 +296,7 @@ describe('read_docs tool with researcher agent', () => {
         agentState,
         prompt: 'Get React documentation',
         params: undefined,
-      }
+      },
     )
 
     // Check that the error message was added
@@ -305,20 +304,20 @@ describe('read_docs tool with researcher agent', () => {
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('read_docs')
+        m.content.includes('read_docs'),
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error fetching documentation for "React"'
+      'Error fetching documentation for "React"',
     )
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Network timeout'
+      'Network timeout',
     )
   })
 
   test('should include topic in error message when specified', async () => {
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
-      async () => null
+      async () => null,
     )
 
     const mockResponse =
@@ -354,7 +353,7 @@ describe('read_docs tool with researcher agent', () => {
         agentState,
         prompt: 'Get React server components documentation',
         params: undefined,
-      }
+      },
     )
 
     // Check that the topic is included in the error message
@@ -362,11 +361,11 @@ describe('read_docs tool with researcher agent', () => {
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('read_docs')
+        m.content.includes('read_docs'),
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'No documentation found for "React" with topic "server-components"'
+      'No documentation found for "React" with topic "server-components"',
     )
   })
 
@@ -374,7 +373,7 @@ describe('read_docs tool with researcher agent', () => {
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
       async () => {
         throw 'String error'
-      }
+      },
     )
 
     const mockResponse =
@@ -409,7 +408,7 @@ describe('read_docs tool with researcher agent', () => {
         agentState,
         prompt: 'Get React documentation',
         params: undefined,
-      }
+      },
     )
 
     // Check that the generic error message was added
@@ -417,14 +416,14 @@ describe('read_docs tool with researcher agent', () => {
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.includes('read_docs')
+        m.content.includes('read_docs'),
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error fetching documentation for "React"'
+      'Error fetching documentation for "React"',
     )
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Unknown error'
+      'Unknown error',
     )
   })
 })

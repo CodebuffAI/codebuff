@@ -18,7 +18,10 @@ import {
 import { gitCommandIsAvailable } from '../utils/git'
 import { logger } from '../utils/logger'
 
-import type { SessionState, ToolResult } from '@codebuff/common/types/session-state'
+import type {
+  SessionState,
+  ToolResult,
+} from '@codebuff/common/types/session-state'
 
 export class CheckpointsDisabledError extends Error {
   constructor(message?: string, options?: ErrorOptions) {
@@ -105,7 +108,7 @@ export class CheckpointManager {
           ? // Use relative path for compiled binary.
             workerRelativePath
           : // Use absolute path for dev (via bun URL).
-            new URL(workerRelativePath, import.meta.url).href
+            new URL(workerRelativePath, import.meta.url).href,
       )
       // Set max listeners to prevent warnings
       this.worker.setMaxListeners(50)
@@ -187,7 +190,7 @@ export class CheckpointManager {
     sessionState: SessionState,
     lastToolResults: ToolResult[],
     userInput: string,
-    saveWithNoChanges: boolean = false
+    saveWithNoChanges: boolean = false,
   ): Promise<{ checkpoint: Checkpoint; created: boolean }> {
     if (this.disabledReason !== null) {
       throw new CheckpointsDisabledError(this.disabledReason)
@@ -302,7 +305,7 @@ export class CheckpointManager {
 
     const relativeFilepaths = getAllFilePaths(
       (JSON.parse(checkpoint.sessionStateString) as SessionState).fileContext
-        .fileTree
+        .fileTree,
     )
 
     const params = {
@@ -329,7 +332,7 @@ export class CheckpointManager {
     const currentCheckpoint = this.checkpoints[this.currentCheckpointId - 1]
     assert(
       currentCheckpoint,
-      `Internal error: checkpoint #${this.currentCheckpointId} not found`
+      `Internal error: checkpoint #${this.currentCheckpointId} not found`,
     )
 
     if (currentCheckpoint.parentId === 0) {
@@ -353,7 +356,7 @@ export class CheckpointManager {
     // Check if targetId is either 0 or undefined
     assert(
       targetId,
-      `Internal error: Checkpoint ID ${targetId} found in undo list`
+      `Internal error: Checkpoint ID ${targetId} found in undo list`,
     )
 
     try {
@@ -366,7 +369,7 @@ export class CheckpointManager {
           errorStack: error instanceof Error ? error.stack : undefined,
           targetId,
         },
-        'Unable to restore checkpoint during redo'
+        'Unable to restore checkpoint during redo',
       )
       throw new Error('Unable to restore checkpoint', { cause: error })
     }
@@ -411,7 +414,7 @@ export class CheckpointManager {
           : userInputOneLine
 
       lines.push(
-        `${cyan(bold(`#${checkpoint.id}`))} ${gray(`[${formattedDate}]`)}:`
+        `${cyan(bold(`#${checkpoint.id}`))} ${gray(`[${formattedDate}]`)}:`,
       )
 
       lines.push(`  ${blue('Input')}: ${userInput}`)

@@ -1,6 +1,6 @@
 import React from 'react'
 
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren } from 'react'
 
 type TerminalInputProps = PropsWithChildren<{
   prompt?: string

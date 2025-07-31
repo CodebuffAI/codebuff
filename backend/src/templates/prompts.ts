@@ -7,7 +7,7 @@ import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
 export function buildSubagentsDescription(
   subagents: AgentTemplateType[],
-  agentRegistry: AgentRegistry
+  agentRegistry: AgentRegistry,
 ): string {
   if (subagents.length === 0) {
     return ''

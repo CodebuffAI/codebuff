@@ -125,7 +125,7 @@ export type CostMode = (typeof costModes)[number]
 
 export const getModelForMode = (
   costMode: CostMode,
-  operation: 'agent' | 'file-requests' | 'check-new-files'
+  operation: 'agent' | 'file-requests' | 'check-new-files',
 ) => {
   if (operation === 'agent') {
     return {
@@ -265,7 +265,7 @@ export const providerModelNames = {
     Object.entries(geminiModels).map(([name, model]) => [
       model,
       'gemini' as const,
-    ])
+    ]),
   ),
   // ...Object.fromEntries(
   //   Object.entries(openrouterModels).map(([name, model]) => [
@@ -277,13 +277,13 @@ export const providerModelNames = {
     Object.entries(openaiModels).map(([name, model]) => [
       model,
       'openai' as const,
-    ])
+    ]),
   ),
   ...Object.fromEntries(
     Object.entries(openrouterModels).map(([name, model]) => [
       model,
       'openrouter' as const,
-    ])
+    ]),
   ),
 }
 
@@ -304,14 +304,14 @@ export function supportsCacheControl(model: Model): boolean {
 export const TEST_USER_ID = 'test-user-id'
 
 export function getModelFromShortName(
-  modelName: string | undefined
+  modelName: string | undefined,
 ): Model | undefined {
   if (!modelName) return undefined
   if (modelName && !(modelName in shortModelNames)) {
     throw new Error(
       `Unknown model: ${modelName}. Please use a valid model. Valid models are: ${Object.keys(
-        shortModelNames
-      ).join(', ')}`
+        shortModelNames,
+      ).join(', ')}`,
     )
   }
 

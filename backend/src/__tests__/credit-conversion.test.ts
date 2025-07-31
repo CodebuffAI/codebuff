@@ -1,6 +1,4 @@
-import {
-  getUserCostPerCredit,
-} from '@codebuff/billing'
+import { getUserCostPerCredit } from '@codebuff/billing'
 import {
   convertCreditsToUsdCents,
   convertStripeGrantAmountToCredits,

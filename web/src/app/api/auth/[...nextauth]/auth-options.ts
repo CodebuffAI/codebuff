@@ -9,7 +9,7 @@ import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
-import { loops , env } from '@codebuff/internal'
+import { loops, env } from '@codebuff/internal'
 import { eq } from 'drizzle-orm'
 import GitHubProvider from 'next-auth/providers/github'
 

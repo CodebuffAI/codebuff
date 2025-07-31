@@ -47,7 +47,7 @@ export const isWhitespace = (character: string) => /\s/.test(character)
 
 export const replaceNonStandardPlaceholderComments = (
   content: string,
-  replacement: string
+  replacement: string,
 ): string => {
   const commentPatterns = [
     // JSX comments (match this first)
@@ -177,7 +177,7 @@ export const ensureUrlProtocol = (url: string): string => {
 export const safeReplace = (
   content: string,
   searchStr: string,
-  replaceStr: string
+  replaceStr: string,
 ): string => {
   const escapedReplaceStr = replaceStr.replace(/\$/g, '$$$$')
   return content.replace(searchStr, escapedReplaceStr)
@@ -191,25 +191,25 @@ export const hasLazyEdit = (content: string) => {
     cleanedContent.includes('# rest of the') ||
     // Match various comment styles with ellipsis and specific words
     /\/\/\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent
+      cleanedContent,
     ) || // C-style single line
     /\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\//.test(
-      cleanedContent
+      cleanedContent,
     ) || // C-style multi-line
     /#\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent
+      cleanedContent,
     ) || // Python/Ruby style
     /<!--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*-->/.test(
-      cleanedContent
+      cleanedContent,
     ) || // HTML style
     /--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent
+      cleanedContent,
     ) || // SQL/Haskell style
     /%\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent
+      cleanedContent,
     ) || // MATLAB style
     /{\s*\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\/\s*}/.test(
-      cleanedContent
+      cleanedContent,
     ) // JSX style
   )
 }
@@ -227,7 +227,7 @@ export function transformJsonInString<T = unknown>(
   content: string,
   field: string,
   transform: (json: T) => unknown,
-  fallback: string
+  fallback: string,
 ): string {
   // Use a non-greedy match for objects/arrays to prevent over-matching
   const pattern = new RegExp(`"${field}"\\s*:\\s*(\\{[^}]*?\\}|\\[[^\\]]*?\\])`)
@@ -244,7 +244,7 @@ export function transformJsonInString<T = unknown>(
     // Important: Only replace the exact matched portion to prevent duplicates
     return content.replace(
       match[0],
-      `"${field}":${JSON.stringify(transformed)}`
+      `"${field}":${JSON.stringify(transformed)}`,
     )
   } catch (error) {
     // Only replace the exact matched portion even in error case
@@ -304,7 +304,7 @@ export function stripAnsi(str: string): string {
 
 export function includesMatch(
   array: (string | RegExp)[],
-  value: string
+  value: string,
 ): boolean {
   return array.some((p) => {
     if (typeof p === 'string') {

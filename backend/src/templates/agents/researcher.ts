@@ -4,7 +4,7 @@ import z from 'zod/v4'
 
 import { PLACEHOLDER } from '../types'
 
-import type { AgentTemplate} from '../types';
+import type { AgentTemplate } from '../types'
 import type { Model } from '@codebuff/common/constants'
 
 export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
@@ -15,7 +15,7 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
     prompt: z
       .string()
       .describe(
-        'A question you would like answered using web search and documentation'
+        'A question you would like answered using web search and documentation',
       ),
   },
   outputMode: 'last_message',

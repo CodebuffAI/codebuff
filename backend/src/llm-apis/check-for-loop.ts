@@ -1,31 +1,33 @@
-import { models } from '@codebuff/common/constants';
-import { z } from 'zod';
+import { models } from '@codebuff/common/constants'
+import { z } from 'zod'
 
-import { promptAiSdkStructured } from './vercel-ai-sdk/ai-sdk';
-import { logger } from '../util/logger';
-import { getCoreMessagesSubset } from '../util/messages';
+import { promptAiSdkStructured } from './vercel-ai-sdk/ai-sdk'
+import { logger } from '../util/logger'
+import { getCoreMessagesSubset } from '../util/messages'
 
-import type { CoreMessage } from 'ai';
+import type { CoreMessage } from 'ai'
 
 const loopCheckSchema = z.object({
-  is_loop: z.boolean().describe('Whether the assistant is in a non-productive loop.'),
-});
+  is_loop: z
+    .boolean()
+    .describe('Whether the assistant is in a non-productive loop.'),
+})
 
 export async function checkForUnproductiveLoop(
   messages: CoreMessage[],
   options: {
-    clientSessionId: string;
-    fingerprintId: string;
-    userInputId: string;
-    userId: string | undefined;
-  }
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+  },
 ): Promise<boolean> {
-  const { clientSessionId, fingerprintId, userInputId, userId } = options;
+  const { clientSessionId, fingerprintId, userInputId, userId } = options
 
-  const relevantMessages = getCoreMessagesSubset(messages, 0).slice(-6);
+  const relevantMessages = getCoreMessagesSubset(messages, 0).slice(-6)
 
   if (relevantMessages.length < 4) {
-    return false;
+    return false
   }
 
   const prompt = `
@@ -40,14 +42,11 @@ Respond with a JSON object matching the following schema:
 {
   "is_loop": boolean, // true if a loop is detected, false otherwise.
 }
-`;
+`
 
   try {
     const result = await promptAiSdkStructured({
-      messages: [
-        ...relevantMessages,
-        { role: 'user', content: prompt },
-      ],
+      messages: [...relevantMessages, { role: 'user', content: prompt }],
       schema: loopCheckSchema,
       model: models.gemini2_5_flash,
       clientSessionId,
@@ -55,12 +54,12 @@ Respond with a JSON object matching the following schema:
       userInputId,
       userId,
       temperature: 0,
-    });
+    })
 
-    logger.debug({ result }, 'Unproductive loop check result');
-    return result.is_loop;
+    logger.debug({ result }, 'Unproductive loop check result')
+    return result.is_loop
   } catch (error) {
-    logger.error({ error }, 'Error checking for unproductive loop');
-    return false;
+    logger.error({ error }, 'Error checking for unproductive loop')
+    return false
   }
 }

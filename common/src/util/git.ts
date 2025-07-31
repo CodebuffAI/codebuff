@@ -4,7 +4,7 @@ import * as path from 'path'
 
 import type { FileChanges } from '../actions'
 
-const maxBuffer = 50 * 1024 * 1024  // 50 MB
+const maxBuffer = 50 * 1024 * 1024 // 50 MB
 
 export function hasStagedChanges(): boolean {
   try {
@@ -42,7 +42,7 @@ export function stagePatches(dir: string, changes: FileChanges): boolean {
   try {
     const fileNames = changes.map((change) => change.path)
     const existingFileNames = fileNames.filter((filePath) =>
-      fs.existsSync(path.join(dir, filePath))
+      fs.existsSync(path.join(dir, filePath)),
     )
 
     if (existingFileNames.length === 0) {

@@ -1,12 +1,10 @@
-
-
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq, and, gte, desc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
@@ -41,7 +39,10 @@ export async function GET(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     // Get detailed usage data for export
@@ -69,25 +70,31 @@ export async function GET(
 
     if (format === 'csv') {
       // Generate CSV
-      const csvHeaders = ['Date', 'User Name', 'User Email', 'Repository', 'Credits Used']
-      const csvRows = usageData.map(row => [
+      const csvHeaders = [
+        'Date',
+        'User Name',
+        'User Email',
+        'Repository',
+        'Credits Used',
+      ]
+      const csvRows = usageData.map((row) => [
         row.date.toISOString(),
         row.user_name || 'Unknown',
         row.user_email,
         row.repository_url,
-        row.credits_used.toString()
+        row.credits_used.toString(),
       ])
 
       const csvContent = [
         csvHeaders.join(','),
-        ...csvRows.map(row => row.map(field => `"${field}"`).join(','))
+        ...csvRows.map((row) => row.map((field) => `"${field}"`).join(',')),
       ].join('\n')
 
       return new NextResponse(csvContent, {
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="org-${orgId}-usage-${now.toISOString().split('T')[0]}.csv"`
-        }
+          'Content-Disposition': `attachment; filename="org-${orgId}-usage-${now.toISOString().split('T')[0]}.csv"`,
+        },
       })
     } else if (format === 'json') {
       // Generate JSON
@@ -96,31 +103,37 @@ export async function GET(
         export_date: now.toISOString(),
         period: {
           start: currentMonthStart.toISOString(),
-          end: now.toISOString()
+          end: now.toISOString(),
         },
-        usage_data: usageData.map(row => ({
+        usage_data: usageData.map((row) => ({
           date: row.date.toISOString(),
           user: {
             name: row.user_name || 'Unknown',
-            email: row.user_email
+            email: row.user_email,
           },
           repository_url: row.repository_url,
-          credits_used: row.credits_used
+          credits_used: row.credits_used,
         })),
         summary: {
           total_records: usageData.length,
-          total_credits: usageData.reduce((sum, row) => sum + row.credits_used, 0)
-        }
+          total_credits: usageData.reduce(
+            (sum, row) => sum + row.credits_used,
+            0
+          ),
+        },
       }
 
       return new NextResponse(JSON.stringify(jsonData, null, 2), {
         headers: {
           'Content-Type': 'application/json',
-          'Content-Disposition': `attachment; filename="org-${orgId}-usage-${now.toISOString().split('T')[0]}.json"`
-        }
+          'Content-Disposition': `attachment; filename="org-${orgId}-usage-${now.toISOString().split('T')[0]}.json"`,
+        },
       })
     } else {
-      return NextResponse.json({ error: 'Invalid format. Use csv or json.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid format. Use csv or json.' },
+        { status: 400 }
+      )
     }
   } catch (error) {
     console.error('Error exporting organization analytics:', error)

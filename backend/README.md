@@ -16,8 +16,10 @@ To deploy the Codebuff backend to Google Cloud Platform, follow these steps:
 ## Database
 
 ### Environment Variable
+
 - `DATABASE_URL`: Set this environment variable in your .env file to connect to the database.
 
 ### Migrations
+
 - Migrations are stored in the `./drizzle` folder.
 - Run migrations using the `migrate` script in package.json.

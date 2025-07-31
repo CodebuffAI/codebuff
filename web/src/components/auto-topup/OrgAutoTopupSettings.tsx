@@ -7,7 +7,9 @@ interface OrgAutoTopupSettingsProps {
   organizationId: string
 }
 
-export function OrgAutoTopupSettings({ organizationId }: OrgAutoTopupSettingsProps) {
+export function OrgAutoTopupSettings({
+  organizationId,
+}: OrgAutoTopupSettingsProps) {
   const {
     isEnabled,
     threshold,
@@ -32,7 +34,7 @@ export function OrgAutoTopupSettings({ organizationId }: OrgAutoTopupSettingsPro
         isPending={isPending}
         canManageAutoTopup={canManageAutoTopup}
       />
-      
+
       {/* Add more space between toggle and form */}
       <div className="pt-2">
         <OrgAutoTopupSettingsForm

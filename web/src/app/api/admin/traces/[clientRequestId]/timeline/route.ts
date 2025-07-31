@@ -1,10 +1,9 @@
-
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { buildTimelineFromMessages } from '@/app/admin/traces/utils/trace-processing'
 import { checkAdminAuth } from '@/lib/admin-auth'

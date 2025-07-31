@@ -138,7 +138,7 @@ const RELACE_FAST_APPLY_COST = 0.01
  */
 const getGemini25ProPreviewCost = (
   input_tokens: number,
-  output_tokens: number
+  output_tokens: number,
 ): number => {
   let inputCost = 0
   const tier1Tokens = Math.min(input_tokens, 200_000)
@@ -192,7 +192,7 @@ const getGrok4Cost = (input_tokens: number, output_tokens: number): number => {
 
 const getPerTokenCost = (
   model: string,
-  type: keyof typeof TOKENS_COST_PER_M
+  type: keyof typeof TOKENS_COST_PER_M,
 ): number => {
   const costMap = TOKENS_COST_PER_M[type] as Record<CostModelKey, number>
   return (costMap[model as CostModelKey] ?? 0) / 1_000_000
@@ -203,7 +203,7 @@ const calcCost = (
   input_tokens: number,
   output_tokens: number,
   cache_creation_input_tokens: number,
-  cache_read_input_tokens: number
+  cache_read_input_tokens: number,
 ) => {
   if (model === 'relace-fast-apply') {
     return RELACE_FAST_APPLY_COST
@@ -244,7 +244,7 @@ async function syncMessageToStripe(messageData: {
     if (VERBOSE) {
       logger.debug(
         { messageId, userId },
-        'Skipping Stripe sync (no user or test user).'
+        'Skipping Stripe sync (no user or test user).',
       )
     }
     return
@@ -261,7 +261,7 @@ async function syncMessageToStripe(messageData: {
     if (!user?.stripe_customer_id) {
       logger.warn(
         logContext,
-        'Cannot sync usage to Stripe: User has no stripe_customer_id.'
+        'Cannot sync usage to Stripe: User has no stripe_customer_id.',
       )
       return
     }
@@ -286,8 +286,8 @@ async function syncMessageToStripe(messageData: {
         .catch((err) =>
           logger.error(
             { ...logContext, error: err },
-            'Error deleting sync failure record after successful sync.'
-          )
+            'Error deleting sync failure record after successful sync.',
+          ),
         )
     }
 
@@ -301,13 +301,13 @@ async function syncMessageToStripe(messageData: {
         ) {
           logger.warn(
             { ...logContext, error: error.message, type: error.type },
-            'Retrying Stripe sync due to error.'
+            'Retrying Stripe sync due to error.',
           )
           return true
         }
         logger.error(
           { ...logContext, error: error.message, type: error.type },
-          'Non-retriable error during Stripe sync.'
+          'Non-retriable error during Stripe sync.',
         )
         return false
       },
@@ -319,7 +319,7 @@ async function syncMessageToStripe(messageData: {
         : 'Unknown error during Stripe sync'
     logger.error(
       { ...logContext, error: errorMessage },
-      'Failed to sync usage to Stripe after retries.'
+      'Failed to sync usage to Stripe after retries.',
     )
     await logSyncFailure(messageId, errorMessage, 'stripe')
   }
@@ -345,7 +345,7 @@ type InsertMessageParams = {
 }
 
 async function insertMessageRecord(
-  params: InsertMessageParams
+  params: InsertMessageParams,
 ): Promise<typeof schema.message.$inferSelect | null> {
   const {
     messageId,
@@ -403,14 +403,14 @@ async function insertMessageRecord(
     } else {
       logger.error(
         { messageId: messageId },
-        'Failed to insert message into DB (no rows returned).'
+        'Failed to insert message into DB (no rows returned).',
       )
       return null
     }
   } catch (dbError) {
     logger.error(
       { messageId: messageId, error: dbError },
-      'Error saving message to DB.'
+      'Error saving message to DB.',
     )
     return null
   }
@@ -419,12 +419,12 @@ async function insertMessageRecord(
 async function sendCostResponseToClient(
   clientSessionId: string,
   userInputId: string,
-  creditsUsed: number
+  creditsUsed: number,
 ): Promise<void> {
   try {
     const clientEntry = Array.from(SWITCHBOARD.clients.entries()).find(
       ([_, state]: [WebSocket, ClientState]) =>
-        state.sessionId === clientSessionId
+        state.sessionId === clientSessionId,
     )
 
     if (clientEntry) {
@@ -438,19 +438,19 @@ async function sendCostResponseToClient(
       } else {
         logger.warn(
           { clientSessionId: clientSessionId },
-          'WebSocket connection not in OPEN state when trying to send cost response.'
+          'WebSocket connection not in OPEN state when trying to send cost response.',
         )
       }
     } else {
       logger.warn(
         { clientSessionId: clientSessionId },
-        'No WebSocket connection found for cost response.'
+        'No WebSocket connection found for cost response.',
       )
     }
   } catch (wsError) {
     logger.error(
       { clientSessionId: clientSessionId, error: wsError },
-      'Error sending message cost response via WebSocket.'
+      'Error sending message cost response via WebSocket.',
     )
   }
 }
@@ -462,13 +462,13 @@ type CreditConsumptionResult = {
 
 async function updateUserCycleUsage(
   userId: string,
-  creditsUsed: number
+  creditsUsed: number,
 ): Promise<CreditConsumptionResult> {
   if (creditsUsed <= 0) {
     if (VERBOSE) {
       logger.debug(
         { userId, creditsUsed },
-        'Skipping user usage update (zero credits).'
+        'Skipping user usage update (zero credits).',
       )
     }
     return { consumed: 0, fromPurchased: 0 }
@@ -487,7 +487,7 @@ async function updateUserCycleUsage(
       if (VERBOSE) {
         logger.debug(
           { userId, orgId, creditsUsed, ...result },
-          `Consumed organization credits (${creditsUsed})`
+          `Consumed organization credits (${creditsUsed})`,
         )
       }
 
@@ -505,7 +505,7 @@ async function updateUserCycleUsage(
       if (VERBOSE) {
         logger.debug(
           { userId, creditsUsed, ...result },
-          `Consumed personal credits (${creditsUsed})`
+          `Consumed personal credits (${creditsUsed})`,
         )
       }
 
@@ -519,7 +519,7 @@ async function updateUserCycleUsage(
   } catch (error) {
     logger.error(
       { userId, orgId, creditsUsed, error },
-      'Error consuming credits.'
+      'Error consuming credits.',
     )
     throw error
   }
@@ -558,7 +558,7 @@ export const saveMessage = async (value: {
           value.inputTokens,
           value.outputTokens,
           value.cacheCreationInputTokens ?? 0,
-          value.cacheReadInputTokens ?? 0
+          value.cacheReadInputTokens ?? 0,
         )
 
       // Default to 1 cent per credit
@@ -574,8 +574,8 @@ export const saveMessage = async (value: {
               Math.round(
                 cost *
                   100 *
-                  (value.usesUserApiKey ? PROFIT_MARGIN : 1 + PROFIT_MARGIN)
-              )
+                  (value.usesUserApiKey ? PROFIT_MARGIN : 1 + PROFIT_MARGIN),
+              ),
             )
           : 0
 
@@ -590,7 +590,7 @@ export const saveMessage = async (value: {
             centsPerCredit,
             value: { ...value, request: 'Omitted', response: 'Omitted' },
           },
-          `Credits used by test user (${creditsUsed})`
+          `Credits used by test user (${creditsUsed})`,
         )
         return
       }
@@ -604,14 +604,14 @@ export const saveMessage = async (value: {
             creditsUsed,
             centsPerCredit,
           },
-          `Calculated credits (${creditsUsed})`
+          `Calculated credits (${creditsUsed})`,
         )
       }
 
       sendCostResponseToClient(
         value.clientSessionId,
         value.userInputId,
-        creditsUsed
+        creditsUsed,
       )
 
       const savedMessageResult = await insertMessageRecord({
@@ -623,20 +623,20 @@ export const saveMessage = async (value: {
       if (!savedMessageResult || !value.userId) {
         logger.debug(
           { messageId: value.messageId, userId: value.userId },
-          'Skipping further processing (no user ID or failed to save message).'
+          'Skipping further processing (no user ID or failed to save message).',
         )
         return null
       }
 
       const consumptionResult = await updateUserCycleUsage(
         value.userId,
-        creditsUsed
+        creditsUsed,
       )
 
       // Only sync the portion from purchased credits to Stripe
       if (consumptionResult.fromPurchased > 0) {
         const purchasedCostInCents = Math.round(
-          (costInCents * consumptionResult.fromPurchased) / creditsUsed
+          (costInCents * consumptionResult.fromPurchased) / creditsUsed,
         )
         syncMessageToStripe({
           messageId: value.messageId,
@@ -646,16 +646,16 @@ export const saveMessage = async (value: {
         }).catch((syncError) => {
           logger.error(
             { messageId: value.messageId, error: syncError },
-            'Background Stripe sync failed.'
+            'Background Stripe sync failed.',
           )
         })
       } else if (VERBOSE) {
         logger.debug(
           { messageId: value.messageId },
-          'Skipping Stripe sync (no purchased credits used)'
+          'Skipping Stripe sync (no purchased credits used)',
         )
       }
 
       return savedMessageResult
-    }
+    },
   )

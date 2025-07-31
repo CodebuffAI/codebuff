@@ -33,14 +33,17 @@ export function BaseAutoTopupSwitch({
             onCheckedChange={onToggle}
             disabled={isDisabled}
             aria-describedby={
-              blockedReason ? 'auto-topup-blocked-reason' : 
-              !canManage ? 'auto-topup-permission-note' : undefined
+              blockedReason
+                ? 'auto-topup-blocked-reason'
+                : !canManage
+                  ? 'auto-topup-permission-note'
+                  : undefined
             }
           />
           <Label htmlFor="auto-topup-switch">{label}</Label>
         </div>
         {blockedReason && !isEnabled && (
-          <p 
+          <p
             id="auto-topup-blocked-reason"
             className="text-sm text-muted-foreground"
           >
@@ -48,7 +51,7 @@ export function BaseAutoTopupSwitch({
           </p>
         )}
         {!canManage && permissionMessage && (
-          <p 
+          <p
             id="auto-topup-permission-note"
             className="text-sm text-muted-foreground"
           >

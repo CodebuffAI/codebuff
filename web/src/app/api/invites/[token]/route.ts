@@ -5,7 +5,7 @@ import { eq, and, gt, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Accept the invitation in a transaction and get updated count
-    let actualQuantity = 0; // Initialize to handle edge cases
+    let actualQuantity = 0 // Initialize to handle edge cases
     await db.transaction(async (tx) => {
       // Add user to organization
       await tx.insert(schema.orgMember).values({
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         actualQuantity,
         orgId: inv.org_id,
         userId: session.user!.id,
-        context: 'invite accepted'
+        context: 'invite accepted',
       })
     }
 

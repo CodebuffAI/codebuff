@@ -1,7 +1,6 @@
 import { insertTrace } from '@codebuff/bigquery'
 import { buildArray } from '@codebuff/common/util/array'
 
-
 import {
   getGitChangesPrompt,
   getProjectFileTreePrompt,
@@ -21,7 +20,7 @@ export function getSearchSystemPrompt(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
-  }
+  },
 ): string {
   const startTime = Date.now()
 
@@ -38,13 +37,13 @@ export function getSearchSystemPrompt(
       (systemPromptTokenBudget -
         maxFilesTokens -
         countTokens(gitChangesPrompt)) /
-        20_000
+        20_000,
     ) * 20_000
 
   const projectFileTreePrompt = getProjectFileTreePrompt(
     fileContext,
     fileTreeTokenBudget,
-    'search'
+    'search',
   )
 
   const t = Date.now()
@@ -54,7 +53,7 @@ export function getSearchSystemPrompt(
       acc[budget] = getProjectFileTreePrompt(fileContext, budget, 'search')
       return acc
     },
-    {} as Record<number, string>
+    {} as Record<number, string>,
   )
 
   const trace = {
@@ -94,7 +93,7 @@ export function getSearchSystemPrompt(
       messagesTokens,
       duration: Date.now() - startTime,
     },
-    'search system prompt tokens'
+    'search system prompt tokens',
   )
 
   return systemPrompt

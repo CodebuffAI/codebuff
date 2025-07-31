@@ -11,12 +11,11 @@ import type {
 } from './write-file'
 import type { WebSocket } from 'ws'
 
-
 export const handleStrReplace = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'str_replace'>
   requestClientToolCall: (
-    toolCall: ClientToolCall<'str_replace'>
+    toolCall: ClientToolCall<'str_replace'>,
   ) => Promise<string>
   writeToClient: (chunk: string) => void
 
@@ -40,7 +39,7 @@ export const handleStrReplace = ((params: {
   const { ws } = state
   if (ws === undefined) {
     throw new Error(
-      'Internal error for str_replace: Missing WebSocket in state'
+      'Internal error for str_replace: Missing WebSocket in state',
     )
   }
   const fileProcessingState = getFileProcessingValues(state)
@@ -50,7 +49,7 @@ export const handleStrReplace = ((params: {
   }
 
   const latestContentPromise = Promise.all(
-    fileProcessingState.promisesByPath[path]
+    fileProcessingState.promisesByPath[path],
   ).then((results) => {
     const previousEdit = results.findLast((r) => 'content' in r)
     return previousEdit ? previousEdit.content : requestOptionalFile(ws, path)
@@ -79,7 +78,7 @@ export const handleStrReplace = ((params: {
         await newPromise,
         getLatestState(),
         writeToClient,
-        requestClientToolCall
+        requestClientToolCall,
       )
     }),
     state: fileProcessingState,

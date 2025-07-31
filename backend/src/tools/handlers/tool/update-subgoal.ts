@@ -16,7 +16,7 @@ export const handleUpdateSubgoal = ((params: {
   let messages: string[] = []
   if (!agentContext[toolCall.args.id]) {
     messages.push(
-      `Subgoal with id ${toolCall.args.id} not found. Creating new subgoal.`
+      `Subgoal with id ${toolCall.args.id} not found. Creating new subgoal.`,
     )
     agentContext[toolCall.args.id] = {
       objective: undefined,

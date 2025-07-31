@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-
 import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
@@ -119,7 +118,7 @@ describe('QuickJS Sandbox Generator', () => {
 
     expect(result.endTurn).toBe(true)
     expect(result.agentState.output?.error).toContain(
-      'Error executing handleSteps for agent test-vm-agent-error'
+      'Error executing handleSteps for agent test-vm-agent-error',
     )
   })
 })

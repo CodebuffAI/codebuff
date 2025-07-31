@@ -18,7 +18,7 @@ if (process.env.LOOPS_API_KEY) {
 async function sendTransactionalEmail(
   transactionalId: string,
   email: string,
-  dataVariables: Record<string, any> = {}
+  dataVariables: Record<string, any> = {},
 ): Promise<SendEmailResult> {
   if (!loopsClient) {
     return {
@@ -37,7 +37,7 @@ async function sendTransactionalEmail(
 
     logger.info(
       { email, transactionalId, loopsId: (response as any)?.id },
-      'Loops transactional email sent successfully via SDK'
+      'Loops transactional email sent successfully via SDK',
     )
     return { success: true, loopsId: (response as any)?.id }
   } catch (error) {
@@ -50,13 +50,13 @@ async function sendTransactionalEmail(
           transactionalId,
           errorType: 'APIError',
         },
-        `Loops APIError sending transactional email: ${error.message}`
+        `Loops APIError sending transactional email: ${error.message}`,
       )
       errorMessage = `Loops APIError: ${error.message} (Status: ${error.statusCode})`
     } else {
       logger.error(
         { email, transactionalId, error },
-        'An unexpected error occurred sending transactional email via Loops SDK'
+        'An unexpected error occurred sending transactional email via Loops SDK',
       )
     }
     return { success: false, error: errorMessage }
@@ -66,7 +66,7 @@ async function sendTransactionalEmail(
 export async function sendSignupEventToLoops(
   userId: string,
   email: string | null,
-  name: string | null
+  name: string | null,
 ): Promise<void> {
   if (!loopsClient) {
     logger.warn({ userId }, 'Loops SDK not initialized. Skipping signup event.')
@@ -75,7 +75,7 @@ export async function sendSignupEventToLoops(
   if (!email) {
     logger.warn(
       { userId },
-      'User email missing, cannot send Loops signup event.'
+      'User email missing, cannot send Loops signup event.',
     )
     return
   }
@@ -92,7 +92,7 @@ export async function sendSignupEventToLoops(
 
     logger.info(
       { email, userId, eventName: 'signup', loopsId: (response as any)?.id },
-      'Sent signup event to Loops via SDK'
+      'Sent signup event to Loops via SDK',
     )
   } catch (error) {
     if (error instanceof APIError) {
@@ -104,12 +104,12 @@ export async function sendSignupEventToLoops(
           eventName: 'signup',
           errorType: 'APIError',
         },
-        `Loops APIError sending event: ${error.message}`
+        `Loops APIError sending event: ${error.message}`,
       )
     } else {
       logger.error(
         { error, email, userId, eventName: 'signup' },
-        'An unexpected error occurred sending signup event via Loops SDK'
+        'An unexpected error occurred sending signup event via Loops SDK',
       )
     }
     // Original function did not return error status, just logged.
@@ -117,7 +117,7 @@ export async function sendSignupEventToLoops(
 }
 
 export async function sendOrganizationInvitationEmail(
-  data: LoopsEmailData // data no longer contains firstName
+  data: LoopsEmailData, // data no longer contains firstName
 ): Promise<SendEmailResult> {
   let lookedUpFirstName: string = 'there' // Default to 'there'
   try {
@@ -137,7 +137,7 @@ export async function sendOrganizationInvitationEmail(
         error,
         source: 'sendOrganizationInvitationEmail-lookup',
       },
-      'Error fetching user by email for invitation, using default name.'
+      'Error fetching user by email for invitation, using default name.',
     )
     // Continue with default name 'there'
   }
@@ -151,13 +151,13 @@ export async function sendOrganizationInvitationEmail(
       inviterName: data.inviterName || '', // data.inviterName is still expected
       invitationUrl: data.invitationUrl || '', // data.invitationUrl is still expected
       role: data.role || 'member', // data.role is still expected
-    }
+    },
   )
 }
 
 export async function sendBasicEmail(
   email: string,
-  data: { subject: string; message: string }
+  data: { subject: string; message: string },
 ): Promise<SendEmailResult> {
   return sendTransactionalEmail(BASIC_TRANSACTIONAL_ID, email, {
     subject: data.subject,

@@ -1,18 +1,15 @@
-
-
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import {
-  PublisherIdSchema,
-} from '@codebuff/common/types/publisher'
+import { PublisherIdSchema } from '@codebuff/common/types/publisher'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import type {
   CreatePublisherRequest,
-  PublisherProfileResponse} from '@codebuff/common/types/publisher';
-import type { NextRequest} from 'next/server';
+  PublisherProfileResponse,
+} from '@codebuff/common/types/publisher'
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'

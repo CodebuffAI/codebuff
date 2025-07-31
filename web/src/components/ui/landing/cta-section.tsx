@@ -11,8 +11,6 @@ import { SECTION_THEMES } from './constants'
 
 import { useInstallDialog } from '@/hooks/use-install-dialog'
 
-
-
 // Benefit card component for the CTA section
 function BenefitCard({
   title,

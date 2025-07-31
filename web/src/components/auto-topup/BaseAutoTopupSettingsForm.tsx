@@ -56,7 +56,9 @@ export function BaseAutoTopupSettingsForm({
   } = constants
 
   // Convert dollar amount to credits for display
-  const topUpAmountCredits = Math.round((topUpAmountDollars * 100) / CENTS_PER_CREDIT)
+  const topUpAmountCredits = Math.round(
+    (topUpAmountDollars * 100) / CENTS_PER_CREDIT
+  )
 
   // Check threshold limits
   useEffect(() => {
@@ -96,20 +98,25 @@ export function BaseAutoTopupSettingsForm({
 
   if (!isEnabled) return null
 
-  const balanceText = entityType === 'organization' 
-    ? 'the organization balance falls below this credit amount'
-    : 'your balance falls below this credit amount'
+  const balanceText =
+    entityType === 'organization'
+      ? 'the organization balance falls below this credit amount'
+      : 'your balance falls below this credit amount'
 
-  const topUpText = entityType === 'organization'
-    ? 'when the organization balance is low'
-    : 'when your balance is low'
+  const topUpText =
+    entityType === 'organization'
+      ? 'when the organization balance is low'
+      : 'when your balance is low'
 
   return (
     <TooltipProvider>
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
           <div className="space-y-2">
-            <Label htmlFor={`${entityType}-threshold`} className="flex items-center gap-1">
+            <Label
+              htmlFor={`${entityType}-threshold`}
+              className="flex items-center gap-1"
+            >
               Low Balance Threshold
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -142,7 +149,10 @@ export function BaseAutoTopupSettingsForm({
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor={`${entityType}-topUpAmount`} className="flex items-center gap-1">
+            <Label
+              htmlFor={`${entityType}-topUpAmount`}
+              className="flex items-center gap-1"
+            >
               Top-up Amount
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -180,9 +190,7 @@ export function BaseAutoTopupSettingsForm({
           </div>
         </div>
         {!canManage && permissionMessage && (
-          <p className="text-sm text-muted-foreground">
-            {permissionMessage}
-          </p>
+          <p className="text-sm text-muted-foreground">{permissionMessage}</p>
         )}
       </div>
     </TooltipProvider>

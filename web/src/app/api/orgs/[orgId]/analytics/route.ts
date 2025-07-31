@@ -1,12 +1,10 @@
-
-
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
@@ -55,7 +53,10 @@ export async function GET(
       .limit(1)
 
     if (membership.length === 0) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
     }
 
     // Get current month start
@@ -116,16 +117,16 @@ export async function GET(
       .orderBy(sql`DATE(${schema.message.finished_at})`)
 
     return NextResponse.json({
-      topUsers: topUsers.map(user => ({
+      topUsers: topUsers.map((user) => ({
         user_id: user.user_id!,
         user_name: user.user_name || 'Unknown',
         credits_used: user.credits_used,
       })),
-      topRepositories: topRepositories.map(repo => ({
+      topRepositories: topRepositories.map((repo) => ({
         repository_url: repo.repository_url || '',
         credits_used: repo.credits_used,
       })),
-      dailyUsage: dailyUsage.map(usage => ({
+      dailyUsage: dailyUsage.map((usage) => ({
         date: usage.date,
         credits_used: usage.credits_used,
       })),

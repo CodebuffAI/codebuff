@@ -6,7 +6,6 @@ import type { ToolName } from '@codebuff/common/tools/constants'
 import type { ToolCallPart } from 'ai'
 import type { z } from 'zod/v4'
 
-
 export const globalStopSequence = `${JSON.stringify(endsAgentStepParam)}`
 
 // Tool call from LLM

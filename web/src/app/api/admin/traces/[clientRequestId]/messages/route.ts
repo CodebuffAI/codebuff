@@ -3,11 +3,10 @@ import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 
 import { checkAdminAuth } from '@/lib/admin-auth'
 import { logger } from '@/util/logger'
-
 
 interface RouteParams {
   params: {
@@ -79,10 +78,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     logger.info(
-      { 
-        adminId: authResult.id, 
+      {
+        adminId: authResult.id,
         clientRequestId,
-        messageCount: messages.length 
+        messageCount: messages.length,
       },
       'Admin fetched trace messages'
     )

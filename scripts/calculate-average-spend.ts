@@ -46,7 +46,7 @@ async function calculateAverageSpend() {
         const invoiceDate = invoice.created
         customerFirstInvoiceDates.set(
           customerId,
-          Math.min(currentFirstDate, invoiceDate)
+          Math.min(currentFirstDate, invoiceDate),
         )
 
         const currentSpend = customerSpends.get(customerId) || 0
@@ -87,17 +87,17 @@ async function calculateAverageSpend() {
     // Convert from cents to dollars
     const totalCustomers = customerSpends.size
     console.log(
-      `Total unique customers found: ${totalCustomers} (${newCustomers} new, ${existingCustomers} existing)`
+      `Total unique customers found: ${totalCustomers} (${newCustomers} new, ${existingCustomers} existing)`,
     )
     console.log(`Total monthly spend: $${(totalSpend / 100).toFixed(2)}`)
     console.log(`  New customers: $${(newCustomerSpend / 100).toFixed(2)}`)
     console.log(
-      `  Existing customers: $${(existingCustomerSpend / 100).toFixed(2)}`
+      `  Existing customers: $${(existingCustomerSpend / 100).toFixed(2)}`,
     )
     console.log(`Note: Only includes paid invoices`)
     if (existingCustomers > 0) {
       console.log(
-        `Average spend per existing customer: $${(existingCustomerSpend / (existingCustomers * 100)).toFixed(2)}`
+        `Average spend per existing customer: $${(existingCustomerSpend / (existingCustomers * 100)).toFixed(2)}`,
       )
     }
 
@@ -117,7 +117,7 @@ async function calculateAverageSpend() {
 
     // Print spend ranges in decreasing order
     const sortedRanges = Array.from(spendRanges.entries()).sort(
-      (a, b) => b[1] - a[1]
+      (a, b) => b[1] - a[1],
     )
     for (const [range, count] of sortedRanges) {
       console.log(`${range}: ${count} customers`)

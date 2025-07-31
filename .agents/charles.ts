@@ -2,7 +2,7 @@ import { AgentConfig } from './types/agent-config'
 
 /**
  * Charles - Deep Sea Sardine Research Specialist
- * 
+ *
  * A dedicated agent focused on deep sea sardine research and marine biology.
  * Charles combines scientific expertise with research capabilities to provide
  * comprehensive insights into sardine behavior, ecology, and conservation.
@@ -19,21 +19,19 @@ const config: AgentConfig = {
     'write_file',
     'read_files',
     'spawn_agents',
-    'end_turn'
+    'end_turn',
   ],
 
   // Subagents for specialized research tasks
-  subagents: [
-    'researcher',
-    'thinker'
-  ],
+  subagents: ['researcher', 'thinker'],
 
   // Input schema for research requests
   inputSchema: {
     prompt: {
       type: 'string',
-      description: 'Research question or topic related to deep sea sardines, marine biology, or oceanography'
-    }
+      description:
+        'Research question or topic related to deep sea sardines, marine biology, or oceanography',
+    },
   },
 
   // System prompt defining Charles's expertise and personality
@@ -63,7 +61,8 @@ You approach every research question with scientific rigor, enthusiasm for marin
 Provide well-structured, scientifically accurate responses that demonstrate your passion for sardine research and marine conservation.`,
 
   // Step prompt for research workflow
-  stepPrompt: 'Continue your sardine research with scientific precision and marine biology expertise. Use available tools to gather comprehensive data and provide insightful analysis.'
+  stepPrompt:
+    'Continue your sardine research with scientific precision and marine biology expertise. Use available tools to gather comprehensive data and provide insightful analysis.',
 }
 
 export default config

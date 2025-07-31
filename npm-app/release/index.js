@@ -93,7 +93,7 @@ function httpGet(url, options = {}) {
 async function getLatestVersion() {
   try {
     const res = await httpGet(
-      `https://github.com/${CONFIG.githubRepo}/releases.atom`
+      `https://github.com/${CONFIG.githubRepo}/releases.atom`,
     )
 
     if (res.statusCode !== 200) return null
@@ -102,7 +102,7 @@ async function getLatestVersion() {
 
     // Parse the Atom XML to extract the latest release tag
     const tagMatch = body.match(
-      /<id>tag:github\.com,2008:Repository\/\d+\/([^<]+)<\/id>/
+      /<id>tag:github\.com,2008:Repository\/\d+\/([^<]+)<\/id>/,
     )
     if (tagMatch && tagMatch[1]) {
       return tagMatch[1].replace(/^v/, '')
@@ -245,8 +245,8 @@ async function downloadBinary(version) {
         const pct = Math.round((downloadedSize / totalSize) * 100)
         term.write(
           `Downloading... ${createProgressBar(pct)} ${pct}% of ${formatBytes(
-            totalSize
-          )}`
+            totalSize,
+          )}`,
         )
       } else {
         term.write(`Downloading... ${formatBytes(downloadedSize)}`)
@@ -273,7 +273,7 @@ async function downloadBinary(version) {
       }
     } else {
       throw new Error(
-        `Binary not found after extraction. Expected: ${extractedPath}, Available files: ${files.join(', ')}`
+        `Binary not found after extraction. Expected: ${extractedPath}, Available files: ${files.join(', ')}`,
       )
     }
   } catch (error) {
@@ -286,8 +286,10 @@ async function downloadBinary(version) {
 
   term.clearLine()
   if (isPrintMode) {
-    console.log(JSON.stringify({type: 'download', version, status: 'complete'})) }
-    else {
+    console.log(
+      JSON.stringify({ type: 'download', version, status: 'complete' }),
+    )
+  } else {
     console.log('Download complete! Starting Codebuff...')
   }
 }
@@ -297,7 +299,12 @@ async function ensureBinaryExists() {
     const version = await getLatestVersion()
     if (!version) {
       if (isPrintMode) {
-        console.error(JSON.stringify({type: 'error', message: 'Failed to determinie latest version.'}))
+        console.error(
+          JSON.stringify({
+            type: 'error',
+            message: 'Failed to determinie latest version.',
+          }),
+        )
       } else {
         console.error('❌ Failed to determine latest version')
         console.error('Please check your internet connection and try again')
@@ -310,7 +317,12 @@ async function ensureBinaryExists() {
     } catch (error) {
       term.clearLine()
       if (isPrintMode) {
-        console.error(JSON.stringify({type: 'error', message: `Failed to download codebuff: ${error.message}`}))
+        console.error(
+          JSON.stringify({
+            type: 'error',
+            message: `Failed to download codebuff: ${error.message}`,
+          }),
+        )
       } else {
         console.error('❌ Failed to download codebuff:', error.message)
         console.error('Please check your internet connection and try again')

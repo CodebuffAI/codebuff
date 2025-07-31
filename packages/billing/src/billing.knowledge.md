@@ -3,12 +3,14 @@
 ## Credit Purchase Flow
 
 Credits are granted via webhook handlers, not API routes. Two payment flows:
+
 1. Direct Payment (payment_intent.succeeded webhook)
 2. Checkout Session (checkout.session.completed webhook)
 
 Both require metadata: userId, credits, operationId, grantType
 
 When granting credits:
+
 1. Check for negative balances (debt)
 2. If debt exists: Clear debt to 0, reduce grant by debt amount
 3. Only create grant if amount > debt
@@ -23,10 +25,12 @@ When granting credits:
 ## Credit Balance Design
 
 Credits tracked in creditLedger table:
+
 - principal: Initial amount (never changes)
 - balance: Current remaining (can go negative)
 
 Consumption order:
+
 1. Priority (lower number = higher priority)
 2. Expiration (soonest first, null expires_at treated as furthest future)
 3. Creation date (oldest first)
@@ -52,6 +56,7 @@ Only last grant can go negative. No maximum debt limit enforced in code.
 ## Auto Top-up
 
 Triggers when:
+
 - Enabled AND (balance below threshold OR debt exists)
 - Valid payment method exists
 - Amount >= 500 credits (minimum)

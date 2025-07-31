@@ -1,4 +1,3 @@
-
 import { UnsupportedFunctionalityError } from '@ai-sdk/provider'
 import {
   combineHeaders,
@@ -7,7 +6,6 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils'
 import { z } from 'zod'
-
 
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt'
 import { mapOpenRouterCompletionLogProbs } from './map-openrouter-completion-logprobs'
@@ -51,7 +49,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
   constructor(
     modelId: OpenRouterCompletionModelId,
     settings: OpenRouterCompletionSettings,
-    config: OpenRouterCompletionConfig
+    config: OpenRouterCompletionConfig,
   ) {
     this.modelId = modelId
     this.settings = settings
@@ -169,7 +167,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
   }
 
   async doGenerate(
-    options: Parameters<LanguageModelV1['doGenerate']>[0]
+    options: Parameters<LanguageModelV1['doGenerate']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
     const args = this.getArgs(options)
 
@@ -182,7 +180,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
-        OpenRouterCompletionChunkSchema
+        OpenRouterCompletionChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -219,7 +217,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
   }
 
   async doStream(
-    options: Parameters<LanguageModelV1['doStream']>[0]
+    options: Parameters<LanguageModelV1['doStream']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV1['doStream']>>> {
     const args = this.getArgs(options)
 
@@ -241,7 +239,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       },
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(
-        OpenRouterCompletionChunkSchema
+        OpenRouterCompletionChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -300,7 +298,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
             }
 
             const mappedLogprobs = mapOpenRouterCompletionLogProbs(
-              choice?.logprobs
+              choice?.logprobs,
             )
             if (mappedLogprobs?.length) {
               if (logprobs === undefined) {
@@ -318,7 +316,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
               usage,
             })
           },
-        })
+        }),
       ),
       rawCall: { rawPrompt, rawSettings },
       rawResponse: { headers: responseHeaders },
@@ -349,7 +347,7 @@ const OpenRouterCompletionChunkSchema = z.union([
           })
           .nullable()
           .optional(),
-      })
+      }),
     ),
     usage: z
       .object({

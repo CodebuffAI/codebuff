@@ -5,7 +5,7 @@ export const PublisherIdSchema = z
   .string()
   .regex(
     /^[a-z0-9-]+$/,
-    'Publisher ID must contain only lowercase letters, numbers, and hyphens'
+    'Publisher ID must contain only lowercase letters, numbers, and hyphens',
   )
 
 // Publisher creation/update schema

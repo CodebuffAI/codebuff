@@ -223,7 +223,7 @@ describe('DynamicAgentConfigSchema', () => {
         expect(result.success).toBe(false)
         if (!result.success) {
           expect(result.error.issues[0].message).toContain(
-            'lowercase letters, numbers, and hyphens'
+            'lowercase letters, numbers, and hyphens',
           )
         }
       })
@@ -283,12 +283,12 @@ describe('DynamicAgentConfigSchema', () => {
         // Find the specific error about set_output tool
         const setOutputError = result.error.issues.find((issue) =>
           issue.message.includes(
-            "outputMode 'json' requires the 'set_output' tool"
-          )
+            "outputMode 'json' requires the 'set_output' tool",
+          ),
         )
         expect(setOutputError).toBeDefined()
         expect(setOutputError?.message).toContain(
-          "outputMode 'json' requires the 'set_output' tool"
+          "outputMode 'json' requires the 'set_output' tool",
         )
       }
     })
@@ -369,7 +369,7 @@ describe('DynamicAgentConfigSchema', () => {
       const dynamicAgentIds = ['custom_agent']
       const result = validateParentInstructions(
         parentInstructions,
-        dynamicAgentIds
+        dynamicAgentIds,
       )
       expect(result.valid).toBe(true)
       expect(result.invalidAgents).toEqual([])
@@ -385,7 +385,7 @@ describe('DynamicAgentConfigSchema', () => {
 
       const result = validateParentInstructions(
         parentInstructions,
-        dynamicAgentIds
+        dynamicAgentIds,
       )
       expect(result.valid).toBe(false)
       expect(result.invalidAgents).toEqual(['invalid_agent', 'another_invalid'])
@@ -399,13 +399,13 @@ describe('DynamicAgentConfigSchema', () => {
 
       const errorMessage = formatParentInstructionsError(
         invalidAgents,
-        availableAgents
+        availableAgents,
       )
       expect(errorMessage).toContain(
-        'Invalid parent instruction agent IDs: invalid_agent, another_invalid'
+        'Invalid parent instruction agent IDs: invalid_agent, another_invalid',
       )
       expect(errorMessage).toContain(
-        'Available agents: researcher, file_picker, custom_agent'
+        'Available agents: researcher, file_picker, custom_agent',
       )
     })
   })

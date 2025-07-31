@@ -30,7 +30,7 @@ describe('Credit Delegation', () => {
           from: mock(() => ({
             innerJoin: mock(() => ({
               where: mock(() =>
-                Promise.resolve([{ orgId: 'org-123', orgName: 'CodebuffAI' }])
+                Promise.resolve([{ orgId: 'org-123', orgName: 'CodebuffAI' }]),
               ),
             })),
           })),
@@ -92,7 +92,7 @@ describe('Credit Delegation', () => {
       const result = await consumeCreditsWithDelegation(
         userId,
         repositoryUrl,
-        creditsToConsume
+        creditsToConsume,
       )
 
       expect(result.success).toBe(false)

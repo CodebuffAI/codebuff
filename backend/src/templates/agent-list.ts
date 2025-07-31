@@ -1,7 +1,5 @@
 import { models } from '@codebuff/common/constants'
-import {
-  AgentTemplateTypes,
-} from '@codebuff/common/types/session-state'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
 import { agentBuilder } from './agents/agent-builder'
 import { dryRun } from './agents/archive/dry-run'
@@ -17,8 +15,7 @@ import { thinker } from './agents/thinker'
 import { thinkingBase } from './agents/thinking-base'
 
 import type { AgentTemplate } from './types'
-import type {
-  AgentTemplateType} from '@codebuff/common/types/session-state';
+import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
 export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
   {

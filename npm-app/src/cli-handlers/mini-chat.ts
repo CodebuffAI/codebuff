@@ -1,13 +1,4 @@
-import {
-  green,
-  yellow,
-  cyan,
-  bold,
-  gray,
-  blue,
-  italic,
-  red,
-} from 'picocolors'
+import { green, yellow, cyan, bold, gray, blue, italic, red } from 'picocolors'
 import stringWidth from 'string-width'
 import wrapAnsi from 'wrap-ansi'
 
@@ -124,7 +115,7 @@ function renderChat() {
   // Display content
   const visibleLines = contentLines.slice(
     scrollOffset,
-    scrollOffset + maxContentLines
+    scrollOffset + maxContentLines,
   )
   process.stdout.write(visibleLines.join('\n'))
 
@@ -142,7 +133,7 @@ function renderChat() {
     if (currentStepInfo) {
       const placeholder = gray(italic(`(${currentStepInfo.placeholder})`))
       process.stdout.write(
-        `\n${bold('Your response:')} ${currentInput}${currentInput ? '' : placeholder}`
+        `\n${bold('Your response:')} ${currentInput}${currentInput ? '' : placeholder}`,
       )
     }
 
@@ -180,7 +171,7 @@ function processUserInput(input: string) {
     isProcessing = true
     addMessage(
       'assistant',
-      'Perfect! I have everything I need. Processing your responses...'
+      'Perfect! I have everything I need. Processing your responses...',
     )
 
     // Start spinner to show processing

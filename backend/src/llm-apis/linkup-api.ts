@@ -27,7 +27,7 @@ export async function searchWeb(
   query: string,
   options: {
     depth?: 'standard' | 'deep'
-  } = {}
+  } = {},
 ): Promise<string | null> {
   const { depth = 'standard' } = options
   const apiStartTime = Date.now()
@@ -57,7 +57,7 @@ export async function searchWeb(
         },
         body: JSON.stringify(requestBody),
       }),
-      FETCH_TIMEOUT_MS
+      FETCH_TIMEOUT_MS,
     )
     const fetchDuration = Date.now() - fetchStartTime
 
@@ -72,7 +72,7 @@ export async function searchWeb(
             bodyError,
             fetchDuration,
           },
-          'Failed to read error response body'
+          'Failed to read error response body',
         )
       }
 
@@ -94,7 +94,7 @@ export async function searchWeb(
               })()
             : 'No headers',
         },
-        `Request failed with ${response.status}: ${response.statusText}`
+        `Request failed with ${response.status}: ${response.statusText}`,
       )
       return null
     }
@@ -120,7 +120,7 @@ export async function searchWeb(
           status: response.status,
           statusText: response.statusText,
         },
-        'Failed to parse JSON response'
+        'Failed to parse JSON response',
       )
       return null
     }
@@ -136,7 +136,7 @@ export async function searchWeb(
           fetchDuration,
           totalDuration: Date.now() - apiStartTime,
         },
-        'Invalid response format - missing or invalid answer field'
+        'Invalid response format - missing or invalid answer field',
       )
       return null
     }
@@ -151,7 +151,7 @@ export async function searchWeb(
         totalDuration,
         success: true,
       },
-      'Completed web search'
+      'Completed web search',
     )
 
     // Return the answer as a single result for compatibility
@@ -172,7 +172,7 @@ export async function searchWeb(
         totalDuration,
         success: false,
       },
-      'Network or other failure during web search'
+      'Network or other failure during web search',
     )
     return null
   }

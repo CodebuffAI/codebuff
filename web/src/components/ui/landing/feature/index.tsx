@@ -10,11 +10,8 @@ import { Section } from '../../section'
 import type { KeyPoint } from '../types'
 import type { ReactNode } from 'react'
 
-
-
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
-
 
 // Helper component for the Learn More link
 function LearnMoreLink({

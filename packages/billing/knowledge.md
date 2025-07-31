@@ -5,6 +5,7 @@ This package contains Codebuff's billing and credit management system.
 ## Overview
 
 The billing system handles:
+
 - Credit balance calculation and tracking
 - Monthly credit grants and resets
 - Auto top-up functionality
@@ -21,6 +22,7 @@ The billing system handles:
 ## Dependencies
 
 Currently depends on code from the `common` package for:
+
 - Database access (`common/db`)
 - Stripe integration (`common/util/stripe`)
 - Logging (`common/util/logger`)

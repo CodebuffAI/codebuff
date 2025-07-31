@@ -5,12 +5,14 @@ import { collectParentInstructions } from '../templates/strings'
 
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { FileTreeNode, ProjectFileContext } from '@codebuff/common/util/file'
-
+import type {
+  FileTreeNode,
+  ProjectFileContext,
+} from '@codebuff/common/util/file'
 
 // Helper to create a mock ProjectFileContext
 const createMockFileContext = (
-  agentTemplates: Record<string, DynamicAgentTemplate>
+  agentTemplates: Record<string, DynamicAgentTemplate>,
 ): ProjectFileContext => ({
   projectRoot: '/test',
   cwd: '/test',
@@ -105,13 +107,13 @@ describe('Parent Instructions Injection', () => {
     // Test parent instructions collection directly
     const parentInstructions = await collectParentInstructions(
       'researcher',
-      agentRegistry
+      agentRegistry,
     )
 
     // Verify that parent instructions are collected
     expect(parentInstructions).toHaveLength(1)
     expect(parentInstructions[0]).toBe(
-      'Spawn knowledge-keeper when you find documentation gaps.'
+      'Spawn knowledge-keeper when you find documentation gaps.',
     )
   })
 
@@ -144,7 +146,7 @@ describe('Parent Instructions Injection', () => {
     // Test parent instructions collection directly
     const parentInstructions = await collectParentInstructions(
       'researcher',
-      agentRegistry
+      agentRegistry,
     )
 
     // Verify that no parent instructions are collected
@@ -214,7 +216,7 @@ describe('Parent Instructions Injection', () => {
     // Test parent instructions collection directly
     const parentInstructions = await collectParentInstructions(
       'researcher',
-      agentRegistry
+      agentRegistry,
     )
 
     // Verify that both parent instructions are collected

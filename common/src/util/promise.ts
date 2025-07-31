@@ -7,7 +7,7 @@ export async function withRetry<T>(
     retryIf?: (error: any) => boolean
     onRetry?: (error: any, attempt: number) => void
     retryDelayMs?: number
-  } = {}
+  } = {},
 ): Promise<T> {
   const {
     maxRetries = 3,
@@ -51,7 +51,7 @@ export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
-  timeoutMessage: string = `Operation timed out after ${timeoutMs}ms`
+  timeoutMessage: string = `Operation timed out after ${timeoutMs}ms`,
 ): Promise<T> {
   let timeoutId: NodeJS.Timeout
 

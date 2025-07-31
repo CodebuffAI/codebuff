@@ -202,7 +202,7 @@ describe('getPartialJsonDelta', () => {
       const previous = '{"other": "value"}'
 
       expect(() => getPartialJsonDelta(content, previous)).toThrow(
-        'Content must be previous content plus new content'
+        'Content must be previous content plus new content',
       )
     })
 

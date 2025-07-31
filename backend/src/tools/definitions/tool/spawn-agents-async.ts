@@ -2,7 +2,6 @@ import { getToolCallString } from '@codebuff/common/tools/utils'
 
 import type { ToolDescription } from '../tool-def-type'
 
-
 const toolName = 'spawn_agents_async'
 export const spawnAgentsAsyncTool = {
   toolName,

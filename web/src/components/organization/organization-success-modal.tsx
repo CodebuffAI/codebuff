@@ -1,6 +1,12 @@
 'use client'
 
-import { CheckCircle, Users, GitBranch, CreditCard, BarChart3 } from 'lucide-react'
+import {
+  CheckCircle,
+  Users,
+  GitBranch,
+  CreditCard,
+  BarChart3,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -37,7 +43,7 @@ export function OrganizationSuccessModal({
             <strong>{organizationName}</strong> has been successfully created.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div>
             <h4 className="font-medium mb-3">What's next?</h4>

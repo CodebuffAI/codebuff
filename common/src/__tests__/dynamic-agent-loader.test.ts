@@ -4,10 +4,7 @@ import {
   dynamicAgentService,
   DynamicAgentService,
 } from '../templates/dynamic-agent-service'
-import {
-  clearMockedModules,
-  mockModule,
-} from '../testing/mock-modules'
+import { clearMockedModules, mockModule } from '../testing/mock-modules'
 
 import type { ProjectFileContext } from '../util/file'
 
@@ -42,7 +39,7 @@ describe('Dynamic Agent Loader', () => {
     mockModule('@codebuff/backend/util/file-resolver', () => ({
       resolvePromptField: (
         field: string | { path: string },
-        basePath: string
+        basePath: string,
       ) => {
         if (typeof field === 'string') {
           return field
@@ -94,7 +91,7 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await dynamicAgentService.loadAgents(
-      fileContext.agentTemplates || {}
+      fileContext.agentTemplates || {},
     )
 
     expect(result.validationErrors).toHaveLength(0)
@@ -125,12 +122,12 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await dynamicAgentService.loadAgents(
-      fileContext.agentTemplates || {}
+      fileContext.agentTemplates || {},
     )
 
     expect(result.validationErrors).toHaveLength(1)
     expect(result.validationErrors[0].message).toContain(
-      'Invalid subagents: nonexistent_agent'
+      'Invalid subagents: nonexistent_agent',
     )
   })
 
@@ -156,7 +153,7 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await dynamicAgentService.loadAgents(
-      fileContext.agentTemplates || {}
+      fileContext.agentTemplates || {},
     )
 
     // Should have dynamic templates
@@ -200,7 +197,7 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await testService.loadAgents(
-      fileContext.agentTemplates || {}
+      fileContext.agentTemplates || {},
     )
 
     expect(result.validationErrors).toHaveLength(0)
@@ -239,15 +236,15 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await testService.loadAgents(
-      fileContext.agentTemplates || {}
+      fileContext.agentTemplates || {},
     )
 
     expect(result.validationErrors).toHaveLength(1)
     expect(result.validationErrors[0].message).toContain(
-      'Invalid inputSchema.prompt'
+      'Invalid inputSchema.prompt',
     )
     expect(result.validationErrors[0].message).toContain(
-      'Schema must allow string or undefined values'
+      'Schema must allow string or undefined values',
     )
     expect(result.templates).not.toHaveProperty('invalid_schema_agent')
   })
@@ -277,7 +274,7 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await testService.loadAgents(
-      fileContext.agentTemplates || {}
+      fileContext.agentTemplates || {},
     )
 
     expect(result.validationErrors).toHaveLength(0)
@@ -322,14 +319,14 @@ describe('Dynamic Agent Loader', () => {
     }
 
     const result = await testService.loadAgents(
-      fileContext.agentTemplates || {}
+      fileContext.agentTemplates || {},
     )
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
     expect(result.templates).toHaveProperty('spawner_agent')
     expect(result.templates.spawner_agent.subagents).toContain(
-      'git-committer' // Normalized without prefix
+      'git-committer', // Normalized without prefix
     )
   })
 })

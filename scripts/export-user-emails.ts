@@ -32,9 +32,9 @@ async function exportUserEmails(): Promise<void> {
             // Escape fields that contain commas or quotes
             field.includes(',') || field.includes('"')
               ? `"${field.replace(/"/g, '""')}"`
-              : field
+              : field,
           )
-          .join(',')
+          .join(','),
       ),
     ].join('\n')
 

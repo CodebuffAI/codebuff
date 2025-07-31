@@ -1,18 +1,12 @@
 import { pluralize } from '@codebuff/common/util/string'
-import {
-  green,
-  yellow,
-  cyan,
-  bold,
-  gray,
-} from 'picocolors'
+import { green, yellow, cyan, bold, gray } from 'picocolors'
 import stringWidth from 'string-width'
 import wrapAnsi from 'wrap-ansi'
 
 import {
   getSubagentData,
   getSubagentFormattedContent,
-  getRecentSubagents
+  getRecentSubagents,
 } from '../subagent-storage'
 import { enterSubagentListBuffer } from './subagent-list'
 import {
@@ -24,9 +18,7 @@ import {
   MOVE_CURSOR,
 } from '../utils/terminal'
 
-import type {
-  SubagentData} from '../subagent-storage';
-
+import type { SubagentData } from '../subagent-storage'
 
 /**
  * Wrap a line to fit within terminal width using robust npm packages
@@ -71,7 +63,7 @@ export function displaySubagentList(agents: SubagentData[]) {
         ? gray(agent.prompt)
         : gray('(no prompt)')
       console.log(
-        `  ${status} ${bold(agent.agentId)} ${gray(`(${agent.agentType})`)}`
+        `  ${status} ${bold(agent.agentId)} ${gray(`(${agent.agentType})`)}`,
       )
       console.log(`    ${promptPreview}`)
       console.log()
@@ -82,7 +74,7 @@ export function displaySubagentList(agents: SubagentData[]) {
 export function enterSubagentBuffer(
   rl: any,
   agentId: string,
-  onExit: () => void
+  onExit: () => void,
 ) {
   if (isInSubagentBuffer) {
     console.log(yellow('Already in subagent buffer mode!'))

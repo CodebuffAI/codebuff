@@ -44,10 +44,7 @@ export async function checkOrganizationPermission(
         organization: schema.org,
       })
       .from(schema.orgMember)
-      .innerJoin(
-        schema.org,
-        eq(schema.orgMember.org_id, schema.org.id)
-      )
+      .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
       .where(
         and(
           eq(schema.orgMember.org_id, organizationId),
@@ -69,7 +66,9 @@ export async function checkOrganizationPermission(
     const { role, organization } = membership[0]
 
     // Check if user has required role
-    const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
+    const allowedRoles = Array.isArray(requiredRole)
+      ? requiredRole
+      : [requiredRole]
     const roleHierarchy: Record<OrganizationRole, number> = {
       member: 1,
       admin: 2,
@@ -77,7 +76,7 @@ export async function checkOrganizationPermission(
     }
 
     const userRoleLevel = roleHierarchy[role]
-    const requiredLevel = Math.min(...allowedRoles.map(r => roleHierarchy[r]))
+    const requiredLevel = Math.min(...allowedRoles.map((r) => roleHierarchy[r]))
 
     if (userRoleLevel < requiredLevel) {
       logger.warn(
@@ -120,7 +119,7 @@ export async function checkOrganizationPermission(
 export function withOrganizationPermission(
   requiredRole: OrganizationRole | OrganizationRole[] = 'member'
 ) {
-  return async function<T extends { params: { orgId: string } }>(
+  return async function <T extends { params: { orgId: string } }>(
     handler: (
       request: Request,
       context: T,
@@ -129,16 +128,16 @@ export function withOrganizationPermission(
   ) {
     return async (request: Request, context: T): Promise<Response> => {
       const { orgId } = context.params
-      const permissionResult = await checkOrganizationPermission(orgId, requiredRole)
+      const permissionResult = await checkOrganizationPermission(
+        orgId,
+        requiredRole
+      )
 
       if (!permissionResult.success) {
-        return new Response(
-          JSON.stringify({ error: permissionResult.error }),
-          {
-            status: permissionResult.status || 500,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        )
+        return new Response(JSON.stringify({ error: permissionResult.error }), {
+          status: permissionResult.status || 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
       }
 
       return handler(request, context, permissionResult)

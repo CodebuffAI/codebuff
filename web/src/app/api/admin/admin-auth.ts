@@ -9,7 +9,9 @@ import { logger } from '@/util/logger'
  * Check if the current user is a Codebuff admin
  * Returns the admin user if authorized, or a NextResponse error if not
  */
-export async function checkAdminAuth(): Promise<utils.AdminUser | NextResponse> {
+export async function checkAdminAuth(): Promise<
+  utils.AdminUser | NextResponse
+> {
   const session = await getServerSession(authOptions)
 
   // Use shared admin check utility
@@ -35,11 +37,11 @@ export function withAdminAuth<T extends any[]>(
 ) {
   return async (...args: T): Promise<NextResponse> => {
     const authResult = await checkAdminAuth()
-    
+
     if (authResult instanceof NextResponse) {
       return authResult // Return the error response
     }
-    
+
     return handler(authResult, ...args)
   }
 }

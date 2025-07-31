@@ -50,7 +50,7 @@ function setLogPath(p: string): void {
       },
       timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
     },
-    fileStream // <-- no worker thread involved
+    fileStream, // <-- no worker thread involved
   )
 }
 
@@ -67,7 +67,7 @@ function sendAnalyticsAndLog(
     setLogPath(
       process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
         ? path.join(__dirname, '../../../debug', 'npm-app.log')
-        : path.join(getCurrentChatDir(), 'log.jsonl')
+        : path.join(getCurrentChatDir(), 'log.jsonl'),
     )
   }
 
@@ -113,7 +113,7 @@ function logAsErrorIfNeeded(toTrack: {
     logError(
       new Error(toTrack.msg),
       toTrack.loggerContext.userId ?? 'unknown',
-      { ...toTrack.data, context: toTrack.loggerContext }
+      { ...toTrack.data, context: toTrack.loggerContext },
     )
     flushAnalytics()
   }
@@ -133,5 +133,5 @@ export const logger: Record<LogLevel, pino.LogFn> = Object.fromEntries(
       (data: any, msg?: string, ...args: any[]) =>
         sendAnalyticsAndLog(level, data, msg, ...args),
     ]
-  })
+  }),
 ) as Record<LogLevel, pino.LogFn>

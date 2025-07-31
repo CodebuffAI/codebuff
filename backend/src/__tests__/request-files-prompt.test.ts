@@ -5,7 +5,7 @@ import {
   spyOn as bunSpyOn,
   describe,
   expect,
-  it
+  it,
 } from 'bun:test'
 
 // Import the entire module to spy on its exports
@@ -13,22 +13,25 @@ import * as checkNewFilesNecessaryModule from '../find-files/check-new-files-nec
 import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
 import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
 
-import type { CostMode} from '@codebuff/common/constants';
+import type { CostMode } from '@codebuff/common/constants'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { CoreMessage } from 'ai'
-import type {
-  Mock} from 'bun:test';
+import type { Mock } from 'bun:test'
 
 // Restore module-level mocks using bunMockFn for the mock implementations
 bunMockFn.module('../find-files/check-new-files-necessary', () => ({
   checkNewFilesNecessary: bunMockFn(() =>
-    Promise.resolve({ newFilesNecessary: true, response: 'YES', duration: 100 })
+    Promise.resolve({
+      newFilesNecessary: true,
+      response: 'YES',
+      duration: 100,
+    }),
   ),
 }))
 
 bunMockFn.module('../llm-apis/gemini-with-fallbacks', () => ({
   promptFlashWithFallbacks: bunMockFn(() =>
-    Promise.resolve('file1.ts\nfile2.ts')
+    Promise.resolve('file1.ts\nfile2.ts'),
   ),
 }))
 
@@ -112,7 +115,7 @@ describe('requestRelevantFiles', () => {
     // Use the directly imported bunSpyOn
     getCustomFilePickerConfigForOrgSpy = bunSpyOn(
       OriginalRequestFilesPromptModule,
-      'getCustomFilePickerConfigForOrg'
+      'getCustomFilePickerConfigForOrg',
     ).mockResolvedValue(null)
 
     // Reset behavior and clear call history for module mocks
@@ -145,10 +148,10 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockRepoId
+      mockRepoId,
     )
     expect(
-      geminiWithFallbacksModule.promptFlashWithFallbacks
+      geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalled()
     expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
@@ -170,10 +173,10 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockRepoId
+      mockRepoId,
     )
     expect(
-      geminiWithFallbacksModule.promptFlashWithFallbacks
+      geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalled()
     expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
@@ -194,7 +197,7 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockRepoId
+      mockRepoId,
     )
     expect(result).toBeArray()
     if (result) {
@@ -218,15 +221,15 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockRepoId
+      mockRepoId,
     )
     expect(
-      geminiWithFallbacksModule.promptFlashWithFallbacks
+      geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         useFinetunedModel: finetunedVertexModels.ft_filepicker_010,
-      })
+      }),
     )
     expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
@@ -246,16 +249,16 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockRepoId
+      mockRepoId,
     )
     const expectedModel = finetunedVertexModels.ft_filepicker_010
     expect(
-      geminiWithFallbacksModule.promptFlashWithFallbacks
+      geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         useFinetunedModel: expectedModel,
-      })
+      }),
     )
     expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
@@ -281,12 +284,12 @@ describe('requestRelevantFiles', () => {
       mockFingerprintId,
       mockUserInputId,
       mockUserId,
-      mockRepoId
+      mockRepoId,
     )
 
     expect(result).toBeNull()
     expect(
-      geminiWithFallbacksModule.promptFlashWithFallbacks
+      geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).not.toHaveBeenCalled()
     expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })

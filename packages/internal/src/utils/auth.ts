@@ -98,7 +98,7 @@ export async function checkAuthToken({
  * This is a generic version that can be used with any session object
  */
 export async function checkSessionIsAdmin(
-  session: { user?: { id?: string } } | null
+  session: { user?: { id?: string } } | null,
 ): Promise<AdminUser | null> {
   if (!session?.user?.id) {
     return null
@@ -113,7 +113,7 @@ export async function checkSessionIsAdmin(
  * Returns the admin user if authorized, null if not
  */
 export async function checkUserIsCodebuffAdmin(
-  userId: string
+  userId: string,
 ): Promise<AdminUser | null> {
   try {
     // Get the user from the database to verify email

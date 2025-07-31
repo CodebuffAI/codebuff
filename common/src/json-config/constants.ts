@@ -9,7 +9,7 @@ export const StartupProcessSchema = z
       .string()
       .min(1, 'Process name is required')
       .describe(
-        'A user-friendly name for the process. Should be one word and unique.'
+        'A user-friendly name for the process. Should be one word and unique.',
       ),
     command: z
       .string()
@@ -28,13 +28,13 @@ export const StartupProcessSchema = z
       .string()
       .optional()
       .describe(
-        "Path to write the process's stdout. If not specified, stderr is not stored."
+        "Path to write the process's stdout. If not specified, stderr is not stored.",
       ),
     stderrFile: z
       .string()
       .optional()
       .describe(
-        "Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile."
+        "Path to write the process's stderr. If not specified, stderr will be put into the stdoutFile.",
       ),
   })
   .describe('Defines a single startup process.')
@@ -45,7 +45,7 @@ export const FileChangeHook = z
       .string()
       .min(1, 'Hook name is required')
       .describe(
-        'A user-friendly name for the hook. Should be one word and unique.'
+        'A user-friendly name for the hook. Should be one word and unique.',
       ),
     command: z
       .string()
@@ -82,21 +82,16 @@ export const CodebuffConfigSchema = z
       .number()
       .default(12)
       .describe(
-        'Maximum number of turns agent will take before being forced to end'
+        'Maximum number of turns agent will take before being forced to end',
       ),
-    baseAgent: z
-      .string()
-      .optional()
-      .describe('Specify default base agent'),
+    baseAgent: z.string().optional().describe('Specify default base agent'),
     subagents: z
       .array(z.string())
       .optional()
-      .describe(
-        'Specify complete list of subagents for the base agent'
-      ),
+      .describe('Specify complete list of subagents for the base agent'),
   })
   .describe(
-    `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration. This schema can be found at https://www.codebuff.com/config`
+    `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration. This schema can be found at https://www.codebuff.com/config`,
   )
 
 /**

@@ -71,7 +71,7 @@ export function createCountDetector(options: CountDetectorOptions) {
     const now = Date.now()
 
     const recentEvents = history.filter(
-      (event) => now - event.timestamp <= options.timeWindow
+      (event) => now - event.timestamp <= options.timeWindow,
     )
 
     if (recentEvents.length < options.threshold) {
@@ -85,9 +85,10 @@ export function createCountDetector(options: CountDetectorOptions) {
 
     for (const event of recentEvents) {
       // Custom comparison for objects (like key events)
-      const isSameValue = typeof event.value === 'object' && typeof lastValue === 'object'
-        ? JSON.stringify(event.value) === JSON.stringify(lastValue)
-        : event.value === lastValue
+      const isSameValue =
+        typeof event.value === 'object' && typeof lastValue === 'object'
+          ? JSON.stringify(event.value) === JSON.stringify(lastValue)
+          : event.value === lastValue
 
       if (isSameValue) {
         repeatCount++
@@ -187,7 +188,9 @@ export function createTimeBetweenDetector(options: TimeBetweenDetectorOptions) {
 }
 
 // Factory function for TIMEOUT-based detectors
-export function createTimeoutDetector<TContext extends Record<string, any> = Record<string, any>>(options: {
+export function createTimeoutDetector<
+  TContext extends Record<string, any> = Record<string, any>,
+>(options: {
   reason: string
   timeoutMs: number
   onHang?: () => void

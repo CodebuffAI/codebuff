@@ -57,7 +57,7 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
 export async function applyAndRevertChanges(
   projectRoot: string,
   changes: FileChanges,
-  onApply: () => Promise<void>
+  onApply: () => Promise<void>,
 ) {
   const filesChanged = changes.map((change) => change.path)
   const files = Object.fromEntries(
@@ -67,7 +67,7 @@ export async function applyAndRevertChanges(
         ? fs.readFileSync(fullPath, 'utf-8')
         : '[DOES_NOT_EXIST]'
       return [filePath, oldContent]
-    })
+    }),
   )
   applyChanges(projectRoot, changes)
   try {

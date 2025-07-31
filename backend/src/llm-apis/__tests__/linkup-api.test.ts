@@ -81,13 +81,13 @@ describe('Linkup API', () => {
       new Response(JSON.stringify(mockResponse), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      })
+      }),
     )
 
     const result = await searchWeb('React tutorial')
 
     expect(result).toBe(
-      'React is a JavaScript library for building user interfaces. You can learn how to build your first React application by following the official documentation.'
+      'React is a JavaScript library for building user interfaces. You can learn how to build your first React application by following the official documentation.',
     )
 
     // Verify fetch was called with correct parameters
@@ -104,7 +104,7 @@ describe('Linkup API', () => {
           depth: 'standard',
           outputType: 'sourcedAnswer',
         }),
-      })
+      }),
     )
   })
 
@@ -125,7 +125,7 @@ describe('Linkup API', () => {
       new Response(JSON.stringify(mockResponse), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      })
+      }),
     )
 
     const result = await searchWeb('React patterns', {
@@ -133,7 +133,7 @@ describe('Linkup API', () => {
     })
 
     expect(result).toBe(
-      'Advanced React patterns include render props, higher-order components, and custom hooks for building reusable and maintainable components.'
+      'Advanced React patterns include render props, higher-order components, and custom hooks for building reusable and maintainable components.',
     )
 
     // Verify fetch was called with correct parameters
@@ -145,7 +145,7 @@ describe('Linkup API', () => {
           depth: 'deep',
           outputType: 'sourcedAnswer',
         }),
-      })
+      }),
     )
   })
 
@@ -154,7 +154,7 @@ describe('Linkup API', () => {
       new Response('Internal Server Error', {
         status: 500,
         statusText: 'Internal Server Error',
-      })
+      }),
     )
 
     const result = await searchWeb('test query')
@@ -175,7 +175,7 @@ describe('Linkup API', () => {
       new Response(JSON.stringify({ invalid: 'format' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      })
+      }),
     )
 
     const result = await searchWeb('test query')
@@ -188,7 +188,7 @@ describe('Linkup API', () => {
       new Response(JSON.stringify({ sources: [] }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      })
+      }),
     )
 
     const result = await searchWeb('test query')
@@ -205,7 +205,7 @@ describe('Linkup API', () => {
       new Response(JSON.stringify(mockResponse), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      })
+      }),
     )
 
     const result = await searchWeb('test query')
@@ -225,7 +225,7 @@ describe('Linkup API', () => {
       new Response(JSON.stringify(mockResponse), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      })
+      }),
     )
 
     await searchWeb('test query')
@@ -239,7 +239,7 @@ describe('Linkup API', () => {
           depth: 'standard',
           outputType: 'sourcedAnswer',
         }),
-      })
+      }),
     )
   })
 
@@ -248,7 +248,7 @@ describe('Linkup API', () => {
       new Response('invalid json{', {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      })
+      }),
     )
 
     const result = await searchWeb('test query')
@@ -266,7 +266,7 @@ describe('Linkup API', () => {
         status: 404,
         statusText: 'Not Found',
         headers: { 'Content-Type': 'text/plain' },
-      })
+      }),
     )
 
     const result = await searchWeb('test query for 404')
@@ -281,7 +281,7 @@ describe('Linkup API', () => {
         requestUrl: 'https://api.linkup.so/v1/search',
         query: 'test query for 404',
       }),
-      expect.stringContaining('404')
+      expect.stringContaining('404'),
     )
   })
 })

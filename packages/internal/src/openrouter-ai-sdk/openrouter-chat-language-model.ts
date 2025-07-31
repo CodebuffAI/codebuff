@@ -1,4 +1,3 @@
-
 import {
   InvalidResponseDataError,
   UnsupportedFunctionalityError,
@@ -12,7 +11,6 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils'
 import { z } from 'zod'
-
 
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages'
 import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs'
@@ -43,7 +41,7 @@ import type {
 import type { ParseResult } from '@ai-sdk/provider-utils'
 
 function isFunctionTool(
-  tool: LanguageModelV1FunctionTool | LanguageModelV1ProviderDefinedTool
+  tool: LanguageModelV1FunctionTool | LanguageModelV1ProviderDefinedTool,
 ): tool is LanguageModelV1FunctionTool {
   return 'parameters' in tool
 }
@@ -78,7 +76,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
   constructor(
     modelId: OpenRouterChatModelId,
     settings: OpenRouterChatSettings,
-    config: OpenRouterChatConfig
+    config: OpenRouterChatConfig,
   ) {
     this.modelId = modelId
     this.settings = settings
@@ -195,7 +193,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
   }
 
   async doGenerate(
-    options: Parameters<LanguageModelV1['doGenerate']>[0]
+    options: Parameters<LanguageModelV1['doGenerate']>[0],
   ): Promise<DoGenerateOutput> {
     const args = this.getArgs(options)
 
@@ -208,7 +206,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
-        OpenRouterNonStreamChatCompletionResponseSchema
+        OpenRouterNonStreamChatCompletionResponseSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -350,7 +348,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
   }
 
   async doStream(
-    options: Parameters<LanguageModelV1['doStream']>[0]
+    options: Parameters<LanguageModelV1['doStream']>[0],
   ): Promise<DoStreamOutput> {
     const args = this.getArgs(options)
 
@@ -378,7 +376,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       },
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(
-        OpenRouterStreamChatCompletionChunkSchema
+        OpenRouterStreamChatCompletionChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -546,7 +544,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               }
             }
             const mappedLogprobs = mapOpenRouterChatLogProbsOutput(
-              choice?.logprobs
+              choice?.logprobs,
             )
             if (mappedLogprobs?.length) {
               if (logprobs === undefined) {
@@ -723,7 +721,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               ...(hasProviderMetadata ? { providerMetadata } : {}),
             })
           },
-        })
+        }),
       ),
       rawCall: { rawPrompt, rawSettings },
       rawResponse: { headers: responseHeaders },
@@ -782,7 +780,7 @@ const OpenRouterNonStreamChatCompletionResponseSchema =
                   name: z.string(),
                   arguments: z.string(),
                 }),
-              })
+              }),
             )
             .optional(),
         }),
@@ -798,16 +796,16 @@ const OpenRouterNonStreamChatCompletionResponseSchema =
                     z.object({
                       token: z.string(),
                       logprob: z.number(),
-                    })
+                    }),
                   ),
-                })
+                }),
               )
               .nullable(),
           })
           .nullable()
           .optional(),
         finish_reason: z.string().optional().nullable(),
-      })
+      }),
     ),
   })
 
@@ -833,7 +831,7 @@ const OpenRouterStreamChatCompletionChunkSchema = z.union([
                     name: z.string().nullish(),
                     arguments: z.string().nullish(),
                   }),
-                })
+                }),
               )
               .nullish(),
           })
@@ -849,16 +847,16 @@ const OpenRouterStreamChatCompletionChunkSchema = z.union([
                     z.object({
                       token: z.string(),
                       logprob: z.number(),
-                    })
+                    }),
                   ),
-                })
+                }),
               )
               .nullable(),
           })
           .nullish(),
         finish_reason: z.string().nullable().optional(),
         index: z.number(),
-      })
+      }),
     ),
   }),
   OpenRouterErrorResponseSchema,
@@ -867,7 +865,7 @@ const OpenRouterStreamChatCompletionChunkSchema = z.union([
 function prepareToolsAndToolChoice(
   mode: Parameters<LanguageModelV1['doGenerate']>[0]['mode'] & {
     type: 'regular'
-  }
+  },
 ) {
   // when the tools array is empty, change it to undefined to prevent errors:
   const tools = mode.tools?.length ? mode.tools : undefined

@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 
-
 import {
   codebuffConfigFile,
   codebuffConfigFileBackup,
@@ -12,8 +11,7 @@ import { yellow } from 'picocolors'
 
 import { getProjectRoot } from '../project-files'
 
-import type {
-  CodebuffConfig} from '@codebuff/common/json-config/constants';
+import type { CodebuffConfig } from '@codebuff/common/json-config/constants'
 
 /**
  * Simple JSONC parser that strips comments and trailing commas
@@ -101,8 +99,8 @@ export function loadCodebuffConfig(): CodebuffConfig {
           `Warning: Invalid ${codebuffConfigFile} configuration. Please check the schema:\n` +
             result.error.errors
               .map((err) => `- ${err.path.join('.')}: ${err.message}`)
-              .join('\n')
-        )
+              .join('\n'),
+        ),
       )
       return getDefaultConfig()
     }
@@ -112,14 +110,14 @@ export function loadCodebuffConfig(): CodebuffConfig {
     if (error instanceof SyntaxError) {
       console.warn(
         yellow(
-          `Warning: Invalid JSON in ${codebuffConfigFile}. Please check the syntax.`
-        )
+          `Warning: Invalid JSON in ${codebuffConfigFile}. Please check the syntax.`,
+        ),
       )
     } else {
       console.warn(
         yellow(
-          `Warning: Error reading ${codebuffConfigFile} configuration file.`
-        )
+          `Warning: Error reading ${codebuffConfigFile} configuration file.`,
+        ),
       )
     }
     return getDefaultConfig()

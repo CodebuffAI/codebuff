@@ -9,7 +9,7 @@ import { logger } from './util/logger'
 
 export const parseAndGetDiffBlocksSingleFile = (
   newContent: string,
-  oldFileContent: string
+  oldFileContent: string,
 ) => {
   const diffBlocksThatDidntMatch: {
     searchContent: string
@@ -32,7 +32,7 @@ export const parseAndGetDiffBlocksSingleFile = (
       const newChange = tryToDoStringReplacementWithExtraIndentation(
         oldFileContent,
         change.searchContent,
-        change.replaceContent
+        change.replaceContent,
       )
       if (newChange) {
         logger.debug('Matched with indentation modification')
@@ -70,7 +70,7 @@ export const parseAndGetDiffBlocksSingleFile = (
           // Find the actual content with original whitespace
           const actualContent = oldFileContent.slice(
             realIndex,
-            realIndex + searchLength
+            realIndex + searchLength,
           )
           if (oldFileContent.includes(actualContent)) {
             logger.debug('Matched with whitespace removed')
@@ -94,7 +94,7 @@ export const parseAndGetDiffBlocksSingleFile = (
 export const tryToDoStringReplacementWithExtraIndentation = (
   oldFileContent: string,
   searchContent: string,
-  replaceContent: string
+  replaceContent: string,
 ) => {
   for (let i = 1; i <= 12; i++) {
     const searchContentWithIndentation = searchContent
@@ -136,7 +136,7 @@ export async function retryDiffBlocksPrompt(
   fingerprintId: string,
   userInputId: string,
   userId: string | undefined,
-  diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[]
+  diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[],
 ) {
   const newPrompt =
     `The assistant failed to find a match for the following changes. Please help the assistant understand what the changes should be.
@@ -174,7 +174,7 @@ Provide a new set of SEARCH/REPLACE changes to make the intended edit from the o
         newDiffBlocksThatDidntMatch,
         filePath,
       },
-      `retryDiffBlocksPrompt failed ${filePath}`
+      `retryDiffBlocksPrompt failed ${filePath}`,
     )
   } else {
     logger.debug(
@@ -185,7 +185,7 @@ Provide a new set of SEARCH/REPLACE changes to make the intended edit from the o
         newDiffBlocksThatDidntMatch,
         filePath,
       },
-      `retryDiffBlocksPrompt result ${filePath}`
+      `retryDiffBlocksPrompt result ${filePath}`,
     )
   }
 

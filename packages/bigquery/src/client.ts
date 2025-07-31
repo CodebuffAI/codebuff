@@ -1,16 +1,9 @@
 import { logger } from '@codebuff/common/util/logger'
 import { BigQuery } from '@google-cloud/bigquery'
 
-import {
-  RELABELS_SCHEMA,
-  TRACES_SCHEMA,
-} from './schema'
+import { RELABELS_SCHEMA, TRACES_SCHEMA } from './schema'
 
-import type {
-  BaseTrace,
-  GetRelevantFilesTrace,
-  Relabel,
-  Trace} from './schema';
+import type { BaseTrace, GetRelevantFilesTrace, Relabel, Trace } from './schema'
 
 const DATASET =
   process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'
@@ -26,7 +19,7 @@ let client: BigQuery | null = null
 function getClient(): BigQuery {
   if (!client) {
     throw new Error(
-      'BigQuery client not initialized. Call setupBigQuery first.'
+      'BigQuery client not initialized. Call setupBigQuery first.',
     )
   }
   return client
@@ -72,7 +65,7 @@ export async function setupBigQuery(dataset: string = DATASET) {
         code: (error as any).code,
         details: (error as any).details,
       },
-      'Failed to initialize BigQuery'
+      'Failed to initialize BigQuery',
     )
     throw error // Re-throw to be caught by caller
   }
@@ -93,13 +86,13 @@ export async function insertTrace(trace: Trace, dataset: string = DATASET) {
 
     logger.debug(
       { traceId: trace.id, type: trace.type },
-      'Inserted trace into BigQuery'
+      'Inserted trace into BigQuery',
     )
     return true
   } catch (error) {
     logger.error(
       { error, traceId: trace.id },
-      'Failed to insert trace into BigQuery'
+      'Failed to insert trace into BigQuery',
     )
     return false
   }
@@ -107,7 +100,7 @@ export async function insertTrace(trace: Trace, dataset: string = DATASET) {
 
 export async function insertRelabel(
   relabel: Relabel,
-  dataset: string = DATASET
+  dataset: string = DATASET,
 ) {
   try {
     // Stringify payload if needed
@@ -129,7 +122,7 @@ export async function insertRelabel(
   } catch (error) {
     logger.error(
       { error, relabelId: relabel.id },
-      'Failed to insert relabel into BigQuery'
+      'Failed to insert relabel into BigQuery',
     )
     return false
   }
@@ -137,7 +130,7 @@ export async function insertRelabel(
 
 export async function getRecentTraces(
   limit: number = 10,
-  dataset: string = DATASET
+  dataset: string = DATASET,
 ) {
   const query = `
     SELECT * FROM ${dataset}.${TRACES_TABLE}
@@ -155,7 +148,7 @@ export async function getRecentTraces(
 
 export async function getRecentRelabels(
   limit: number = 10,
-  dataset: string = DATASET
+  dataset: string = DATASET,
 ) {
   const query = `
     SELECT * FROM ${dataset}.${RELABELS_TABLE}
@@ -175,7 +168,7 @@ export async function getTracesWithoutRelabels(
   model: string,
   limit: number = 100,
   userId: string | undefined = undefined,
-  dataset: string = DATASET
+  dataset: string = DATASET,
 ) {
   // TODO: Optimize query, maybe only get traces in last 30 days etc
   const query = `
@@ -209,7 +202,7 @@ export async function getTracesWithoutRelabels(
 export async function getTracesWithRelabels(
   model: string,
   limit: number = 100,
-  dataset: string = DATASET
+  dataset: string = DATASET,
 ) {
   // Get traces that DO have matching relabels for the specified model
   const query = `
@@ -268,7 +261,7 @@ export async function getTracesAndRelabelsForUser(
   limit: number = 50,
   cursor: string | undefined = undefined,
   dataset: string = DATASET,
-  joinType: 'INNER' | 'LEFT' = 'LEFT'
+  joinType: 'INNER' | 'LEFT' = 'LEFT',
 ) {
   // Get recent traces for the user and any associated relabels
   const query = `
@@ -344,7 +337,7 @@ export async function getTracesAndAllDataForUser(
   userId?: string,
   limit = 50,
   pageCursor?: string,
-  dataset = DATASET
+  dataset = DATASET,
 ): Promise<TraceBundle[]> {
   const EXTRA_TRACE_TYPES = [
     'get-expanded-file-context-for-training',
@@ -433,7 +426,7 @@ export async function getTracesAndAllDataForUser(
         ...r,
         payload:
           typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload,
-      })
+      }),
     )
 
     const relabels: Relabel[] = (row.relabels || []).map((r: any) => ({

@@ -8,7 +8,7 @@ import { Saxy } from '@codebuff/common/util/saxy'
 
 import { defaultToolCallRenderer } from './tool-renderers'
 
-import type { ToolCallRenderer } from './tool-renderers';
+import type { ToolCallRenderer } from './tool-renderers'
 
 /**
  * Creates a transform stream that processes XML tool calls
@@ -18,7 +18,7 @@ import type { ToolCallRenderer } from './tool-renderers';
  */
 export function createXMLStreamParser(
   renderer: Record<string, ToolCallRenderer>,
-  callback?: (chunk: string) => void
+  callback?: (chunk: string) => void,
 ) {
   // Create parser with tool schema validation
   const parser = new Saxy({ [toolXmlName]: [] })
@@ -112,7 +112,7 @@ export function createXMLStreamParser(
           const output = toolRenderer.onParamEnd(
             currentParam,
             toolName,
-            result[currentParam]
+            result[currentParam],
           )
           if (typeof output === 'string') {
             parser.push(output)
@@ -157,7 +157,7 @@ export function createXMLStreamParser(
             toolName,
             typeof result[key] === 'string'
               ? result[key]
-              : JSON.stringify(result[key])
+              : JSON.stringify(result[key]),
           )
           if (typeof output === 'string') {
             parser.push(output)
@@ -174,7 +174,7 @@ export function createXMLStreamParser(
       Object.entries(result).map(([k, v]) => [
         k,
         typeof v === 'string' ? v : JSON.stringify(v),
-      ])
+      ]),
     )
   })
 
@@ -190,7 +190,7 @@ export function createXMLStreamParser(
         const output = toolRenderer.onParamEnd(
           currentParam,
           toolName,
-          params[currentParam]
+          params[currentParam],
         )
         if (typeof output === 'string') {
           parser.push(output)

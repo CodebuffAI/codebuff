@@ -133,7 +133,7 @@ export const createSearchReplaceBlock = (search: string, replace: string) => {
 
 export function printFileTree(
   nodes: FileTreeNode[],
-  depth: number = 0
+  depth: number = 0,
 ): string {
   let result = ''
   const indentation = ' '.repeat(depth)
@@ -149,7 +149,7 @@ export function printFileTree(
 export function printFileTreeWithTokens(
   nodes: FileTreeNode[],
   fileTokenScores: Record<string, Record<string, number>>,
-  path: string[] = []
+  path: string[] = [],
 ): string {
   let result = ''
   const depth = path.length
@@ -189,7 +189,7 @@ export function printFileTreeWithTokens(
  * @returns the file contents with a newline character.
  */
 export const ensureEndsWithNewline = (
-  contents: string | null
+  contents: string | null,
 ): string | null => {
   if (contents === null || contents === '') {
     // Leave empty file as is

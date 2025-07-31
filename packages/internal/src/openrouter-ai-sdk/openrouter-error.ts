@@ -1,5 +1,5 @@
-import { createJsonErrorResponseHandler } from '@ai-sdk/provider-utils';
-import { z } from 'zod';
+import { createJsonErrorResponseHandler } from '@ai-sdk/provider-utils'
+import { z } from 'zod'
 
 export const OpenRouterErrorResponseSchema = z.object({
   error: z.object({
@@ -8,11 +8,11 @@ export const OpenRouterErrorResponseSchema = z.object({
     type: z.string().nullable(),
     param: z.any().nullable(),
   }),
-});
+})
 
-export type OpenRouterErrorData = z.infer<typeof OpenRouterErrorResponseSchema>;
+export type OpenRouterErrorData = z.infer<typeof OpenRouterErrorResponseSchema>
 
 export const openrouterFailedResponseHandler = createJsonErrorResponseHandler({
   errorSchema: OpenRouterErrorResponseSchema,
   errorToMessage: (data) => data.error.message,
-});
+})

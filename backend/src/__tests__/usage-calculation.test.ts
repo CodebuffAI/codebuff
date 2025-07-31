@@ -79,7 +79,7 @@ describe('Usage Calculation System', () => {
     const { usageThisCycle } = await calculateUsageAndBalance(
       'test-user',
       new Date('2024-01-01'),
-      new Date('2024-01-15') // Pass current time when grants are active
+      new Date('2024-01-15'), // Pass current time when grants are active
     )
 
     expect(usageThisCycle).toBe(400) // 200 + 200 = 400 total usage
@@ -115,7 +115,7 @@ describe('Usage Calculation System', () => {
     const { balance, usageThisCycle } = await calculateUsageAndBalance(
       'test-user',
       new Date('2024-01-01'),
-      new Date('2024-01-16') // Current time after expiry
+      new Date('2024-01-16'), // Current time after expiry
     )
 
     expect(balance.totalRemaining).toBe(0) // Expired grant doesn't count
@@ -161,7 +161,7 @@ describe('Usage Calculation System', () => {
     const { balance } = await calculateUsageAndBalance(
       'test-user',
       new Date('2024-01-01'),
-      new Date('2024-01-15') // Pass current time when grants are active
+      new Date('2024-01-15'), // Pass current time when grants are active
     )
 
     expect(balance.totalRemaining).toBe(0)
@@ -216,7 +216,7 @@ describe('Usage Calculation System', () => {
     const { balance, usageThisCycle } = await calculateUsageAndBalance(
       'test-user',
       new Date('2024-01-01'),
-      new Date('2024-01-15') // Pass current time when grants are active
+      new Date('2024-01-15'), // Pass current time when grants are active
     )
 
     // Settlement: 100 positive balance - 50 debt = 50 remaining

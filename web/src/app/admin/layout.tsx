@@ -7,8 +7,6 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-
-
 interface AdminLayoutProps {
   children: React.ReactNode
 }
@@ -23,7 +21,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
 
   // Check if user is admin using the internal utility
   const adminUser = await utils.checkSessionIsAdmin(session)
-  
+
   if (!adminUser) {
     return (
       <div className="container mx-auto py-6 px-4">

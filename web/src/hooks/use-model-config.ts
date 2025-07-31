@@ -11,9 +11,7 @@ interface OrgFeature {
 }
 
 async function fetchModelConfig(orgId: string): Promise<ModelConfig> {
-  const response = await fetch(
-    `/api/admin/orgs/${orgId}/features/model_config`
-  )
+  const response = await fetch(`/api/admin/orgs/${orgId}/features/model_config`)
   if (!response.ok) {
     if (response.status === 404) {
       return { model: '' } // Default config if not found

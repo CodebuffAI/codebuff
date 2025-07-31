@@ -9,7 +9,7 @@ import type { FullEvalLog } from './types'
 function formatEvalSummaryForEmail(
   evalResults: FullEvalLog[],
   analyses: PostEvalAnalysis[],
-  title?: string
+  title?: string,
 ): {
   subject: string
   message: string
@@ -17,31 +17,31 @@ function formatEvalSummaryForEmail(
   // Calculate overall metrics across all eval sets
   const totalRuns = evalResults.reduce(
     (sum, result) => sum + result.overall_metrics.total_runs,
-    0
+    0,
   )
   const successfulRuns = evalResults.reduce(
     (sum, result) => sum + result.overall_metrics.successful_runs,
-    0
+    0,
   )
   const avgOverallScore =
     evalResults.reduce(
       (sum, result) => sum + result.overall_metrics.average_overall,
-      0
+      0,
     ) / evalResults.length
   const avgCompletion =
     evalResults.reduce(
       (sum, result) => sum + result.overall_metrics.average_completion,
-      0
+      0,
     ) / evalResults.length
   const avgEfficiency =
     evalResults.reduce(
       (sum, result) => sum + result.overall_metrics.average_efficiency,
-      0
+      0,
     ) / evalResults.length
   const avgCodeQuality =
     evalResults.reduce(
       (sum, result) => sum + result.overall_metrics.average_code_quality,
-      0
+      0,
     ) / evalResults.length
 
   const subject = `Codebuf Eval Results - ${title ? title : new Date().toLocaleDateString()} - Overall Score: ${avgOverallScore.toFixed(1)}/10`
@@ -62,7 +62,7 @@ ${evalResults
     (result) => `${result.test_repo_name}:
   - Success: ${result.overall_metrics.successful_runs}/${result.overall_metrics.total_runs}
   - Overall: ${result.overall_metrics.average_overall.toFixed(1)}/10
-  - Completion: ${result.overall_metrics.average_completion.toFixed(1)}/10`
+  - Completion: ${result.overall_metrics.average_completion.toFixed(1)}/10`,
   )
   .join('\n')}`
 
@@ -74,7 +74,7 @@ ${evalResults
         severityWeight: { critical: 4, high: 3, medium: 2, low: 1 }[
           problem.severity
         ],
-      }))
+      })),
     )
     .sort((a, b) => {
       if (a.severityWeight !== b.severityWeight) {
@@ -88,15 +88,15 @@ ${allProblems
   .map(
     (
       problem,
-      i
+      i,
     ) => `${i + 1}. [${problem.severity.toUpperCase()}] ${problem.title}
    Frequency: ${(problem.frequency * 100).toFixed(1)}%
-   ${problem.description}`
+   ${problem.description}`,
   )
   .join('\n\n')}`
 
   const allRecommendations = analyses.flatMap(
-    (analysis) => analysis.recommendations
+    (analysis) => analysis.recommendations,
   )
   const uniqueRecommendations = [...new Set(allRecommendations)]
 
@@ -130,7 +130,7 @@ export async function sendEvalResultsEmail(
   analyses: PostEvalAnalysis[],
   recipientEmail: string = process.env.EVAL_RESULTS_EMAIL ||
     'team@codebuff.com',
-  title?: string
+  title?: string,
 ): Promise<boolean> {
   console.log(`📧 Sending eval results email to ${recipientEmail}...`)
   const emailContent = formatEvalSummaryForEmail(evalResults, analyses, title)

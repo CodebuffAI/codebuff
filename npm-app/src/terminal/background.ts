@@ -12,9 +12,8 @@ import {
   spawnAndTrack,
 } from '../background-process-manager'
 
-import type {
-  BackgroundProcessInfo} from '../background-process-manager';
-import type { WriteStream } from 'fs';
+import type { BackgroundProcessInfo } from '../background-process-manager'
+import type { WriteStream } from 'fs'
 
 export function runBackgroundCommand(
   options: {
@@ -29,7 +28,7 @@ export function runBackgroundCommand(
     result: string
     stdout: string
     exitCode: number | null
-  }) => void
+  }) => void,
 ): void {
   const { toolCallId, command, mode, cwd, stdoutFile, stderrFile } = options
   const isWindows = os.platform() === 'win32'
@@ -55,7 +54,7 @@ export function runBackgroundCommand(
     // An error should have been thrown when we called `spawn`
     assert(
       childProcess.pid !== undefined,
-      'Failed to spawn process: no PID assigned.'
+      'Failed to spawn process: no PID assigned.',
     )
 
     const processId = childProcess.pid
@@ -121,7 +120,7 @@ export function runBackgroundCommand(
     childProcess.on('error', (error) => {
       processInfo.status = 'error'
       processInfo.stderrBuffer.push(
-        `\nError spawning command: ${error.message}`
+        `\nError spawning command: ${error.message}`,
       )
       processInfo.endTime = Date.now()
 

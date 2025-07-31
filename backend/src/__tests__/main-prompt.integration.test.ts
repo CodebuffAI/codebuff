@@ -1,6 +1,5 @@
 import { TEST_USER_ID } from '@codebuff/common/constants'
 
-
 // Mock imports needed for setup within the test
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
@@ -13,8 +12,6 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-
-
 
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
@@ -71,13 +68,13 @@ describe.skip('mainPrompt (Integration)', () => {
         ws: WebSocket,
         userInputId: string,
         toolName: string,
-        args: Record<string, any>
+        args: Record<string, any>,
       ) => {
         return {
           success: true,
           result: `Tool call success: ${{ toolName, args }}` as any,
         }
-      }
+      },
     )
   })
 
@@ -317,10 +314,10 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       'src/util/messages.ts': initialContent,
     })
     spyOn(websocketAction, 'requestOptionalFile').mockResolvedValue(
-      initialContent
+      initialContent,
     )
     spyOn(checkTerminalCommandModule, 'checkTerminalCommand').mockResolvedValue(
-      null
+      null,
     )
 
     // Mock LLM calls
@@ -343,9 +340,9 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
               content: initialContent,
             },
           ],
-          {}
+          {},
         ),
-      }
+      },
     )
 
     const action = {
@@ -376,12 +373,12 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 
     // Find the write_file tool call
     const writeFileCall = requestToolCallSpy.mock.calls.find(
-      (call: any) => call[1] === 'write_file'
+      (call: any) => call[1] === 'write_file',
     )
     expect(writeFileCall).toBeDefined()
     expect(writeFileCall[2].path).toBe('src/util/messages.ts')
     expect(writeFileCall[2].content.trim()).toBe(
-      `@@ -46,32 +46,8 @@\n   }\n   return message.content.map((c) => ('text' in c ? c.text : '')).join('\\n')\n }\n \n-export function castAssistantMessage(message: Message): Message {\n-  if (message.role !== 'assistant') {\n-    return message\n-  }\n-  if (typeof message.content === 'string') {\n-    return {\n-      content: \`<previous_assistant_message>\${message.content}</previous_assistant_message>\`,\n-      role: 'user' as const,\n-    }\n-  }\n-  return {\n-    role: 'user' as const,\n-    content: message.content.map((m) => {\n-      if (m.type === 'text') {\n-        return {\n-          ...m,\n-          text: \`<previous_assistant_message>\${m.text}</previous_assistant_message>\`,\n-        }\n-      }\n-      return m\n-    }),\n-  }\n-}\n-\n // Number of terminal command outputs to keep in full form before simplifying\n const numTerminalCommandsToKeep = 5\n \n /**`.trim()
+      `@@ -46,32 +46,8 @@\n   }\n   return message.content.map((c) => ('text' in c ? c.text : '')).join('\\n')\n }\n \n-export function castAssistantMessage(message: Message): Message {\n-  if (message.role !== 'assistant') {\n-    return message\n-  }\n-  if (typeof message.content === 'string') {\n-    return {\n-      content: \`<previous_assistant_message>\${message.content}</previous_assistant_message>\`,\n-      role: 'user' as const,\n-    }\n-  }\n-  return {\n-    role: 'user' as const,\n-    content: message.content.map((m) => {\n-      if (m.type === 'text') {\n-        return {\n-          ...m,\n-          text: \`<previous_assistant_message>\${m.text}</previous_assistant_message>\`,\n-        }\n-      }\n-      return m\n-    }),\n-  }\n-}\n-\n // Number of terminal command outputs to keep in full form before simplifying\n const numTerminalCommandsToKeep = 5\n \n /**`.trim(),
     )
   }, 60000) // Increase timeout for real LLM call
 
@@ -400,11 +397,11 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         'src/util/messages.ts': initialContent,
       })
       spyOn(websocketAction, 'requestOptionalFile').mockResolvedValue(
-        initialContent
+        initialContent,
       )
       spyOn(
         checkTerminalCommandModule,
-        'checkTerminalCommand'
+        'checkTerminalCommand',
       ).mockResolvedValue(null)
 
       // Mock LLM calls
@@ -427,9 +424,9 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
                 content: initialContent,
               },
             ],
-            {}
+            {},
           ),
-        }
+        },
       )
 
       const action = {
@@ -457,7 +454,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 
       // Find the write_file tool call
       const writeFileCall = requestToolCallSpy.mock.calls.find(
-        (call: any) => call[1] === 'write_file'
+        (call: any) => call[1] === 'write_file',
       )
       expect(writeFileCall).toBeDefined()
       expect(writeFileCall[2].path).toBe('packages/backend/src/index.ts')
@@ -471,7 +468,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 -
 -}
 \\ No newline at end of file
-        `.trim()
+        `.trim(),
       )
     }, 60000) // Increase timeout for real LLM call
   })

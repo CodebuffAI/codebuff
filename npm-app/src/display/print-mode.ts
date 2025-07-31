@@ -2,7 +2,6 @@ import { originalConsoleError, originalConsoleLog } from './overrides'
 
 import type { PrintModeObject } from '@codebuff/common/types/print-mode'
 
-
 let printModeEnabled: boolean = false
 export function setPrintMode(enabled: boolean) {
   printModeEnabled = enabled
