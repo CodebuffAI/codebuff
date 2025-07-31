@@ -8,8 +8,8 @@ import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { JsonViewer } from '@/components/agent/json-viewer'
+import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
 import { cn } from '@/lib/utils'
 
 interface AgentDetailPageProps {
@@ -112,6 +112,15 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
     )
     .orderBy(schema.agentConfig.created_at)
 
+  // Get the latest version for the full agent ID
+  const latestVersion =
+    allVersions.sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )[0]?.version || params.version
+
+  const fullAgentId = `${params.id}/${params.agentId}@${latestVersion}`
+
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="max-w-4xl mx-auto">
@@ -157,13 +166,18 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                       )}
                     </span>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <Code className="h-4 w-4" />
-                    <span>Agent ID: {params.agentId}</span>
-                  </div>
                 </div>
               </div>
-              <div className="flex space-x-2">
+              <div className="flex flex-col items-end space-y-3">
+                <div className="flex items-center space-x-2 text-sm">
+                  <code className="bg-muted/50 px-2 py-1 rounded text-xs font-mono text-muted-foreground">
+                    {publisherData.id}/{params.agentId}@{latestVersion}
+                  </code>
+                  <EnhancedCopyButton
+                    value={fullAgentId}
+                    className="p-1 text-muted-foreground/60 hover:text-muted-foreground"
+                  />
+                </div>
                 <Button variant="outline" size="sm">
                   <Download className="h-4 w-4 mr-2" />
                   Download
@@ -209,10 +223,10 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                             {index === 0 && (
                               <Badge
                                 className={cn(
-                                  'text-xs px-1.5 py-0 border',
+                                  'text-xs px-1.5 py-0 border pointer-events-none',
                                   version.version === params.version
                                     ? 'bg-background text-foreground border-background'
-                                    : 'bg-foreground text-background border-foreground'
+                                    : 'bg-muted text-muted-foreground border-muted'
                                 )}
                               >
                                 Latest
