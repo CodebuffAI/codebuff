@@ -27,7 +27,7 @@ const TEMPLATE_TYPES_PATH = path.join(TYPES_DIR, AGENT_CONFIG_FILE)
 const TOOL_DEFINITIONS_FILE = 'tools.d.ts'
 const TOOL_DEFINITIONS_PATH = path.join(TYPES_DIR, TOOL_DEFINITIONS_FILE)
 
-export const agentAwareBase = (
+export const baseAgentBuilder = (
   model: Model,
   allAvailableAgents?: string[],
 ): Omit<AgentTemplate, 'id'> => {

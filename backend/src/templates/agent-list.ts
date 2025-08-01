@@ -1,7 +1,7 @@
 import { models } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
-import { agentAwareBase } from './agents/agent-aware-base'
+import { baseAgentBuilder } from './agents/base-agent-builder'
 import { agentBuilder } from './agents/agent-builder'
 import { dryRun } from './agents/archive/dry-run'
 import { ask } from './agents/ask'
@@ -48,9 +48,9 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
       id: AgentTemplateTypes.claude4_gemini_thinking,
       ...thinkingBase(models.openrouter_claude_sonnet_4),
     },
-    [AgentTemplateTypes.agent_aware_base]: {
-      id: AgentTemplateTypes.agent_aware_base,
-      ...agentAwareBase(models.openrouter_claude_sonnet_4),
+    [AgentTemplateTypes.base_agent_builder]: {
+      id: AgentTemplateTypes.base_agent_builder,
+      ...baseAgentBuilder(models.openrouter_claude_sonnet_4),
     },
 
     [AgentTemplateTypes.thinker]: {

@@ -2,7 +2,7 @@ import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'example-1',
-  displayName: 'Ruby the Code Reviewer (Level 1)',
+  displayName: 'Ruby the Code Reviewer (Example 1)',
   model: 'anthropic/claude-3.5-haiku-20241022',
 
   toolNames: ['read_files', 'write_file', 'set_output', 'end_turn'],
@@ -39,8 +39,6 @@ const config: AgentConfig = {
       },
     },
   },
-
-  displayName: 'Ruby the Code Reviewer (Example 1)',
   parentPrompt:
     'Reviews code for quality, best practices, and potential improvements. Good for beginners learning code review fundamentals.',
 

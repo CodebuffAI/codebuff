@@ -22,7 +22,7 @@ export const AGENT_PERSONAS = {
     purpose: 'Base agent that orchestrates the full response.',
   } as const,
 
-  agent_aware_base: {
+  base_agent_builder: {
     displayName: 'Buffy the Enthusiastic Agent Builder',
     purpose:
       'Enhanced base agent that can create custom agents and handle all coding tasks',

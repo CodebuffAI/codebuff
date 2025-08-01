@@ -61,7 +61,7 @@ export const AgentTemplateTypeList = [
   'base_experimental',
   'claude4_gemini_thinking',
   'superagent',
-  'agent_aware_base',
+  'base_agent_builder',
 
   // Ask mode
   'ask',
