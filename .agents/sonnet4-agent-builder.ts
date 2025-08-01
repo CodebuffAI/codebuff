@@ -66,6 +66,111 @@ const config: AgentConfig = {
   instructionsPrompt:
     'You are helping to create or edit an agent template. The user will describe what kind of agent they want to create or how they want to modify an existing agent.\n\nFor new agents, analyze their request and create a complete agent template that:\n- Has a clear purpose and appropriate capabilities\n- Leaves out fields that are not needed.\n- Uses only the tools it needs\n- Follows naming conventions\n- Is properly structured\n\nFor editing existing agents:\n- First read the existing agent file they want to edit using read_files\n- Understand the current structure and functionality\n- Make the requested changes while preserving what works\n- Maintain best practices and ensure the agent still works effectively\n- Use str_replace for targeted edits or write_file for major restructuring\n\nWhen editing, always start by reading the current agent file to understand its structure before making changes. Ask clarifying questions if needed, then create or update the template file in the appropriate location.\n\nIMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.',
   stepPrompt: '',
+
+  // Generator function that defines the agent's execution flow
+  handleSteps: function* ({ agentState, prompt, params }) {
+    const AGENT_TEMPLATES_DIR = '.agents'
+    const TYPES_DIR = `${AGENT_TEMPLATES_DIR}/types`
+    const TEMPLATE_TYPES_PATH = `${TYPES_DIR}/agent-config.ts`
+    const TOOL_DEFINITIONS_PATH = `${TYPES_DIR}/tools.d.ts`
+
+    // Step 1: Create directory structure
+    yield {
+      toolName: 'run_terminal_command',
+      args: {
+        command: `mkdir -p ${TYPES_DIR}`,
+        process_type: 'SYNC',
+        timeout_seconds: 10,
+      },
+    }
+
+    // Step 2: Read and write the agent config template
+    const { toolResult: configResult } = yield {
+      toolName: 'read_files',
+      args: {
+        paths: ['common/src/util/agent-config.ts'],
+      },
+    }
+
+    if (configResult?.result) {
+      yield {
+        toolName: 'write_file',
+        args: {
+          path: TEMPLATE_TYPES_PATH,
+          instructions: 'Create agent template type definitions file',
+          content: configResult.result,
+        },
+      }
+    }
+
+    // Step 3: Read and write the tools definitions
+    const { toolResult: toolsResult } = yield {
+      toolName: 'read_files',
+      args: {
+        paths: ['common/src/util/tools.d.ts'],
+      },
+    }
+
+    if (toolsResult?.result) {
+      yield {
+        toolName: 'write_file',
+        args: {
+          path: TOOL_DEFINITIONS_PATH,
+          instructions: 'Create tools type file',
+          content: toolsResult.result,
+        },
+      }
+    }
+
+    // Step 4: Add user message with requirements for agent creation or editing
+    const isEditMode = params?.editMode === true
+
+    if (isEditMode) {
+      // Edit mode - the prompt should already contain the edit request
+      // No need to add additional message, the user prompt contains everything
+    } else {
+      // Creation mode - add structured requirements
+      const requirements = {
+        name: params?.name || 'Custom Agent',
+        purpose:
+          params?.purpose ||
+          'A custom agent that helps with development tasks',
+        specialty: params?.specialty || 'general development',
+        model: params?.model || 'anthropic/claude-4-sonnet-20250522',
+      }
+      yield {
+        toolName: 'add_message',
+        args: {
+          role: 'user',
+          content: `Create a new agent template with the following specifications:
+
+**Agent Details:**
+- Name: ${requirements.name}
+- Purpose: ${requirements.purpose}
+- Specialty: ${requirements.specialty}
+- Model: ${requirements.model}
+- Agent ID: ${requirements.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')}
+
+**Requirements:**
+- Create the agent template file in ${AGENT_TEMPLATES_DIR}
+- Always start the file with: import type { AgentConfig } from './types/agent-config'
+- Use the AgentConfig interface
+- Include appropriate tools based on the specialty
+- Write a comprehensive system prompt
+- Follow naming conventions and best practices
+- Export a default configuration object
+
+Please create the complete agent template now.`,
+        },
+      }
+    }
+
+    // Step 5: Complete agent creation process
+    yield 'STEP_ALL'
+  },
 }
 
 export default config
