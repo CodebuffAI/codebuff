@@ -1,3 +1,4 @@
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { z } from 'zod/v4'
 
 import type { AgentTemplate } from '../types'
@@ -11,7 +12,7 @@ const paramsSchema = z.object({
 })
 
 export const fileExplorer = {
-  id: 'file_explorer',
+  id: AgentTemplateTypes.file_explorer,
   displayName: 'Dora the File Explorer',
   parentPrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
