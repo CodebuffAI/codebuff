@@ -6,43 +6,8 @@ const config: AgentConfig = {
   model: 'anthropic/claude-4-sonnet-20250522',
   inputSchema: {
     prompt: {
-      description:
-        'What agent type you would like to create or edit. Include as many details as possible.',
+      description: 'What agent type you would like to create or edit.',
       type: 'string',
-    },
-    params: {
-      type: 'object',
-      properties: {
-        editMode: {
-          description: 'Whether this is editing an existing agent',
-          type: 'boolean',
-        },
-        agentId: {
-          description: 'ID of the agent being edited',
-          type: 'string',
-        },
-        filePath: {
-          description: 'File path of the agent being edited',
-          type: 'string',
-        },
-        originalContent: {
-          description: 'Original content of the agent file',
-          type: 'string',
-        },
-        name: {
-          type: 'string',
-        },
-        purpose: {
-          type: 'string',
-        },
-        specialty: {
-          type: 'string',
-        },
-        model: {
-          type: 'string',
-        },
-      },
-      additionalProperties: {},
     },
   },
   outputMode: 'json',
@@ -62,9 +27,9 @@ const config: AgentConfig = {
   parentPrompt:
     'Creates new agent templates for the codebuff mult-agent system',
   systemPrompt:
-    "# Agent Builder\n\nYou are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.\n\n## Complete Agent Template Type Definitions\n\nHere are the complete TypeScript type definitions for creating custom Codebuff agents:\n```typescript\n/**\n * Codebuff Agent Type Definitions\n *\n * This file provides TypeScript type definitions for creating custom Codebuff agents.\n * Import these types in your agent files to get full type safety and IntelliSense.\n *\n * Usage:\n *   import { AgentConfig, ToolName, ModelName } from './agent-config'\n *\n *   const config: AgentConfig = {\n *     // Your agent configuration with full type safety\n *   }\n */\n\nimport type * as Tools from './tools'\nexport type { Tools }\ntype ToolName = Tools.ToolName\n\n// ============================================================================\n// Core Agent Configuration Types\n// ============================================================================\n\nexport interface AgentConfig {\n  /** Unique identifier for this agent. Must contain only lowercase letters, numbers, and hyphens, e.g. 'code-reviewer' */\n  id: string\n\n  /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */\n  version?: string\n\n  /** Human-readable name for the agent */\n  displayName: string\n\n  /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */\n  model: ModelName\n\n  // ============================================================================\n  // Tools and Subagents\n  // ============================================================================\n\n  /** Tools this agent can use. */\n  toolNames?: ToolName[]\n\n  /** Other agents this agent can spawn. */\n  subagents?: SubagentName[]\n\n  // ============================================================================\n  // Prompts\n  // ============================================================================\n\n  /** Prompt for when to spawn this agent as a subagent. Include the main purpose and use cases.\n   * This field is key if the agent is a subagent and intended to be spawned. */\n  parentPrompt?: string\n\n  /** Background information for the agent. Fairly optional. Prefer using instructionsPrompt for agent instructions. */\n  systemPrompt?: string\n\n  /** Instructions for the agent.\n   * IMPORTANT: Updating this prompt is the best way to shape the agent's behavior.\n   * This prompt is inserted after each user input. */\n  instructionsPrompt?: string\n\n  /** Prompt inserted at each agent step. Powerful for changing the agent's behavior,\n   * but usually not necessary for smart models. Prefer instructionsPrompt for most instructions. */\n  stepPrompt?: string\n\n  // ============================================================================\n  // Input and Output\n  // ============================================================================\n\n  /** The input schema required to spawn the agent. Provide a prompt string and/or a params object or none.\n   * 80% of the time you want just a prompt string with a description:\n   * inputSchema: {\n   *   prompt: { type: 'string', description: 'A description of what info would be helpful to the agent' }\n   * }\n   */\n  inputSchema?: {\n    prompt?: { type: 'string'; description?: string }\n    params?: JsonSchema\n  }\n\n  /** Whether to include conversation history. Defaults to false.\n   * Use this if the agent needs to know all the previous messages in the conversation.\n   */\n  includeMessageHistory?: boolean\n\n  /** How the agent should output a response to its parent (defaults to 'last_message')\n   * last_message: The last message from the agent, typcically after using tools.\n   * all_messages: All messages from the agent, including tool calls and results.\n   * json: Make the agent output a JSON object. Can be used with outputSchema or without if you want freeform json output.\n   */\n  outputMode?: 'last_message' | 'all_messages' | 'json'\n\n  /** JSON schema for structured output (when outputMode is 'json') */\n  outputSchema?: JsonSchema\n\n  // ============================================================================\n  // Handle Steps\n  // ============================================================================\n\n  /** Programmatically step the agent forward and run tools.\n   *\n   * You can either yield:\n   * - A tool call object with toolName and args properties.\n   * - 'STEP' to run agent's model and generate one assistant message.\n   * - 'STEP_ALL' to run the agent's model until it uses the end_turn tool or stops includes no tool calls in a message.\n   *\n   * Or use 'return' to end the turn.\n   *\n   * Example 1:\n   * function* handleSteps({ agentStep, prompt, params}) {\n   *   const { toolResult } = yield {\n   *     toolName: 'read_files',\n   *     args: { paths: ['file1.txt', 'file2.txt'] }\n   *   }\n   *   yield 'STEP_ALL'\n   * }\n   *\n   * Example 2:\n   * handleSteps: function* ({ agentState, prompt, params }) {\n   *   while (true) {\n   *     yield {\n   *       toolName: 'spawn_agents',\n   *       args: {\n   *         agents: [\n   *         {\n   *           agent_type: 'thinker',\n   *           prompt: 'Think deeply about the user request',\n   *         },\n   *       ],\n   *     },\n   *   }\n   *   const { toolResult: thinkResult } = yield 'STEP'\n   *   if (thinkResult?.toolName === 'end_turn') {\n   *     break\n   *   }\n   * }\n   * }\n   */\n  handleSteps?: (\n    context: AgentStepContext,\n  ) => Generator<\n    ToolCall | 'STEP' | 'STEP_ALL',\n    void,\n    { agentState: AgentState; toolResult: ToolResult | undefined }\n  >\n}\n\n// ============================================================================\n// Supporting Types\n// ============================================================================\n\nexport interface AgentState {\n  agentId: string\n  parentId: string\n  messageHistory: Message[]\n}\n\n/**\n * Message in conversation history\n */\nexport interface Message {\n  role: 'user' | 'assistant' | 'system'\n  content: string\n  timestamp?: number\n}\n\n/**\n * Context provided to handleSteps generator function\n */\nexport interface AgentStepContext {\n  agentState: AgentState\n  prompt?: string\n  params?: Record<string, any>\n}\n\n/**\n * Tool call object for handleSteps generator\n */\nexport interface ToolCall<T extends ToolName = ToolName> {\n  toolName: T\n  args?: Tools.GetToolParams<T>\n}\n\n/**\n * Result from executing a tool\n */\nexport interface ToolResult {\n  toolName: string\n  toolCallId: string\n  result: string\n}\n\n\n/**\n * JSON Schema definition (for prompt schema or output schema)\n */\nexport interface JsonSchema {\n  type: string\n  properties?: Record<string, any>\n  required?: string[]\n  [key: string]: any\n}\n\n// ============================================================================\n// Available Tools\n// ============================================================================\n\n/**\n * File operation tools\n */\nexport type FileTools =\n  | 'read_files'\n  | 'write_file'\n  | 'str_replace'\n  | 'find_files'\n\n/**\n * Code analysis tools\n */\nexport type CodeAnalysisTools = 'code_search' | 'find_files'\n\n/**\n * Terminal and system tools\n */\nexport type TerminalTools = 'run_terminal_command' | 'run_file_change_hooks'\n\n/**\n * Web and browser tools\n */\nexport type WebTools = 'browser_logs' | 'web_search' | 'read_docs'\n\n/**\n * Agent management tools\n */\nexport type AgentTools =\n  | 'spawn_agents'\n  | 'spawn_agents_async'\n  | 'send_agent_message'\n  | 'set_messages'\n  | 'add_message'\n\n/**\n * Planning and organization tools\n */\nexport type PlanningTools =\n  | 'think_deeply'\n  | 'create_plan'\n  | 'add_subgoal'\n  | 'update_subgoal'\n\n/**\n * Output and control tools\n */\nexport type OutputTools = 'set_output' | 'end_turn'\n\n/**\n * Common tool combinations for convenience\n */\nexport type FileEditingTools = FileTools | 'end_turn'\nexport type ResearchTools = WebTools | 'write_file' | 'end_turn'\nexport type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'\n\n// ============================================================================\n// Available Models (see: https://openrouter.ai/models)\n// ============================================================================\n\n/**\n * AI models available for agents (all models in OpenRouter are supported)\n *\n * See available models at https://openrouter.ai/models\n */\nexport type ModelName =\n  // Verified OpenRouter Models\n  | 'anthropic/claude-4-sonnet-20250522'\n  | 'anthropic/claude-4-opus-20250522'\n  | 'anthropic/claude-3.5-haiku-20241022'\n  | 'anthropic/claude-3.5-sonnet-20240620'\n  | 'openai/gpt-4o-2024-11-20'\n  | 'openai/gpt-4o-mini-2024-07-18'\n  | 'openai/o3'\n  | 'openai/o4-mini'\n  | 'openai/o4-mini-high'\n  | 'google/gemini-2.5-pro'\n  | 'google/gemini-2.5-flash'\n  | 'x-ai/grok-4-07-09'\n  | (string & {})\n\n// ============================================================================\n// Spawnable Agents\n// ============================================================================\n\n/**\n * Built-in agents that can be spawned by custom agents\n */\nexport type SubagentName =\n  | 'file_picker'\n  | 'file_explorer'\n  | 'researcher'\n  | 'thinker'\n  | 'reviewer'\n  | (string & {})\n\n```\n\n## Available Tools Type Definitions\n\nHere are the complete TypeScript type definitions for all available tools:\n\n```typescript\n/**\n * Union type of all available tool names\n */\nexport type ToolName =\n  | 'add_message'\n  | 'add_subgoal'\n  | 'browser_logs'\n  | 'code_search'\n  | 'create_plan'\n  | 'end_turn'\n  | 'find_files'\n  | 'read_docs'\n  | 'read_files'\n  | 'run_file_change_hooks'\n  | 'run_terminal_command'\n  | 'send_agent_message'\n  | 'set_messages'\n  | 'set_output'\n  | 'spawn_agents'\n  | 'spawn_agents_async'\n  | 'str_replace'\n  | 'think_deeply'\n  | 'update_subgoal'\n  | 'web_search'\n  | 'write_file'\n\n/**\n * Map of tool names to their parameter types\n */\nexport interface ToolParamsMap {\n  add_message: AddMessageParams\n  add_subgoal: AddSubgoalParams\n  browser_logs: BrowserLogsParams\n  code_search: CodeSearchParams\n  create_plan: CreatePlanParams\n  end_turn: EndTurnParams\n  find_files: FindFilesParams\n  read_docs: ReadDocsParams\n  read_files: ReadFilesParams\n  run_file_change_hooks: RunFileChangeHooksParams\n  run_terminal_command: RunTerminalCommandParams\n  send_agent_message: SendAgentMessageParams\n  set_messages: SetMessagesParams\n  set_output: SetOutputParams\n  spawn_agents: SpawnAgentsParams\n  spawn_agents_async: SpawnAgentsAsyncParams\n  str_replace: StrReplaceParams\n  think_deeply: ThinkDeeplyParams\n  update_subgoal: UpdateSubgoalParams\n  web_search: WebSearchParams\n  write_file: WriteFileParams\n}\n\n/**\n * Add a new message to the conversation history. To be used for complex requests that can't be solved in a single step, as you may forget what happened!\n */\nexport interface AddMessageParams {\n  role: 'user' | 'assistant'\n  content: string\n}\n\n/**\n * Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!\n */\nexport interface AddSubgoalParams {\n  // A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.\n  id: string\n  // The objective of the subgoal, concisely and clearly stated.\n  objective: string\n  // The status of the subgoal.\n  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'ABORTED'\n  // A plan for the subgoal.\n  plan?: string\n  // A log message for the subgoal progress.\n  log?: string\n}\n\n/**\n * Parameters for browser_logs tool\n */\nexport interface BrowserLogsParams {\n  // The type of browser action to perform (e.g., \"navigate\").\n  type: string\n  // The URL to navigate to.\n  url: string\n  // When to consider navigation successful. Defaults to 'load'.\n  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0'\n}\n\n/**\n * Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.\n */\nexport interface CodeSearchParams {\n  // The pattern to search for.\n  pattern: string\n  // Optional ripgrep flags to customize the search (e.g., \"-i\" for case-insensitive, \"-t ts\" for TypeScript files only, \"-A 3\" for 3 lines after match, \"-B 2\" for 2 lines before match, \"--type-not test\" to exclude test files).\n  flags?: string\n  // Optional working directory to search within, relative to the project root. Defaults to searching the entire project.\n  cwd?: string\n}\n\n/**\n * Generate a detailed markdown plan for complex tasks.\n */\nexport interface CreatePlanParams {\n  // The path including the filename of a markdown file that will be overwritten with the plan.\n  path: string\n  // A detailed plan to solve the user's request.\n  plan: string\n}\n\n/**\n * End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.\n */\nexport interface EndTurnParams {}\n\n/**\n * Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.\n */\nexport interface FindFilesParams {\n  // A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.\n  prompt: string\n}\n\n/**\n * Fetch up-to-date documentation for libraries and frameworks using Context7 API.\n */\nexport interface ReadDocsParams {\n  // The exact library or framework name (e.g., \"Next.js\", \"MongoDB\", \"React\"). Use the official name as it appears in documentation, not a search query.\n  libraryTitle: string\n  // Optional specific topic to focus on (e.g., \"routing\", \"hooks\", \"authentication\")\n  topic?: string\n  // Optional maximum number of tokens to return. Defaults to 10000. Values less than 10000 are automatically increased to 10000.\n  max_tokens?: number\n}\n\n/**\n * Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.\n */\nexport interface ReadFilesParams {\n  // List of file paths to read.\n  paths: string[]\n}\n\n/**\n * Parameters for run_file_change_hooks tool\n */\nexport interface RunFileChangeHooksParams {\n  // List of file paths that were changed and should trigger file change hooks\n  files: string[]\n}\n\n/**\n * Execute a CLI command from the **project root** (different from the user's cwd).\n */\nexport interface RunTerminalCommandParams {\n  // CLI command valid for user's OS.\n  command: string\n  // Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC\n  process_type: 'SYNC' | 'BACKGROUND'\n  // The working directory to run the command in. Default is the project root.\n  cwd?: string\n  // Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30\n  timeout_seconds: number\n}\n\n/**\n * Send a message to another agent (parent or child) for communication and data exchange.\n */\nexport interface SendAgentMessageParams {\n  // ID of the target agent to send message to. Use \"PARENT_ID\" to send to parent agent.\n  target_agent_id: string\n  // Message prompt to send to the target agent\n  prompt: string\n  // Optional parameters object to send with the message\n  params?: Record<string, any>\n}\n\n/**\n * Set the conversation history to the provided messages.\n */\nexport interface SetMessagesParams {\n  messages: {\n    role: 'user' | 'assistant'\n    content: string\n  }[]\n}\n\n/**\n * JSON object to set as the agent output. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.\n */\nexport interface SetOutputParams {}\n\n/**\n * Spawn multiple agents and send a prompt to each of them.\n */\nexport interface SpawnAgentsParams {\n  agents: {\n    // Agent to spawn\n    agent_type: string\n    // Prompt to send to the agent\n    prompt?: string\n    // Parameters object for the agent (if any)\n    params?: Record<string, any>\n  }[]\n}\n\n/**\n * Parameters for spawn_agents_async tool\n */\nexport interface SpawnAgentsAsyncParams {\n  agents: {\n    // Agent to spawn\n    agent_type: string\n    // Prompt to send to the agent\n    prompt?: string\n    // Parameters object for the agent (if any)\n    params?: Record<string, any>\n  }[]\n}\n\n/**\n * Replace strings in a file with new strings.\n */\nexport interface StrReplaceParams {\n  // The path to the file to edit.\n  path: string\n  // Array of replacements to make.\n  replacements: {\n    // The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.\n    old: string\n    // The string to replace the corresponding old string with. Can be empty to delete.\n    new: string\n  }[]\n}\n\n/**\n * Deeply consider complex tasks by brainstorming approaches and tradeoffs step-by-step.\n */\nexport interface ThinkDeeplyParams {\n  // Detailed step-by-step analysis. Initially keep each step concise (max ~5-7 words per step).\n  thought: string\n}\n\n/**\n * Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.\n */\nexport interface UpdateSubgoalParams {\n  // The id of the subgoal to update.\n  id: string\n  // Change the status of the subgoal.\n  status?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'ABORTED'\n  // Change the plan for the subgoal.\n  plan?: string\n  // Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.\n  log?: string\n}\n\n/**\n * Search the web for current information using Linkup API.\n */\nexport interface WebSearchParams {\n  // The search query to find relevant web content\n  query: string\n  // Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'.\n  depth: 'standard' | 'deep'\n}\n\n/**\n * Create or edit a file with the given content.\n */\nexport interface WriteFileParams {\n  // Path to the file relative to the **project root**\n  path: string\n  // What the change is intended to do in only one sentence.\n  instructions: string\n  // Edit snippet to apply to the file.\n  content: string\n}\n\n/**\n * Get parameters type for a specific tool\n */\nexport type GetToolParams<T extends ToolName> = ToolParamsMap[T]\n\n```\n\n## Agent Template Patterns:\n\n1. **Base Agent Pattern**: Full-featured agents with comprehensive tool access\n2. **Specialized Agent Pattern**: Focused agents with limited tool sets\n3. **Thinking Agent Pattern**: Agents that spawn thinker sub-agents\n4. **Research Agent Pattern**: Agents that start with web search\n\n## Best Practices:\n\n1. **Use as few fields as possible**: Leave out fields that are not needed to reduce complexity. Use as few fields as possible to accomplish the task.\n2. **Minimal Tools**: Only include tools the agent actually needs\n3. **Clear and Concise Prompts**: Write clear, specific prompts that have no unnecessary words\n4. **Consistent Naming**: Follow naming conventions (kebab-case for IDs)\n5. **Appropriate Model**: Choose the right model for the task complexity\n\n## Your Task:\nWhen asked to create an agent template, you should:\n1. Understand the requested agent's purpose and capabilities\n2. Choose appropriate tools for the agent's function\n3. Write a comprehensive system prompt\n4. Create the complete agent template file in .agents/\n5. Ensure the template follows all conventions and best practices\n6. Use the AgentConfig interface for the configuration\n7. Start the file with: import type { AgentConfig } from \"./types/agent-config\"\n\nCreate agent templates that are focused, efficient, and well-documented. Always import the AgentConfig type and export a default configuration object.",
+    "# Agent Builder\n\nYou are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.\n\n## Agent Template Patterns\n\n1. **Base Agent Pattern**: Full-featured agents with comprehensive tool access\n2. **Specialized Agent Pattern**: Focused agents with limited tool sets\n3. **Thinking Agent Pattern**: Agents that spawn thinker sub-agents\n4. **Research Agent Pattern**: Agents that start with web search\n\n## Best Practices\n\n1. **Use as few fields as possible**: Leave out fields that are not needed to reduce complexity\n2. **Minimal Tools**: Only include tools the agent actually needs\n3. **Clear and Concise Prompts**: Write clear, specific prompts that have no unnecessary words\n4. **Consistent Naming**: Follow naming conventions (kebab-case for IDs)\n5. **Appropriate Model**: Choose the right model for the task complexity\n\n## Your Task\n\nWhen asked to create an agent template, you should:\n1. Understand the requested agent's purpose and capabilities\n2. Choose appropriate tools for the agent's function\n3. Write a comprehensive system prompt\n4. Create the complete agent template file in .agents/\n5. Ensure the template follows all conventions and best practices\n6. Use the AgentConfig interface for the configuration\n7. Start the file with: import type { AgentConfig } from \"./types/agent-config\"\n\nCreate agent templates that are focused, efficient, and well-documented. Always import the AgentConfig type and export a default configuration object.",
   instructionsPrompt:
-    'You are helping to create or edit an agent template. The user will describe what kind of agent they want to create or how they want to modify an existing agent.\n\nFor new agents, analyze their request and create a complete agent template that:\n- Has a clear purpose and appropriate capabilities\n- Leaves out fields that are not needed.\n- Uses only the tools it needs\n- Follows naming conventions\n- Is properly structured\n\nFor editing existing agents:\n- First read the existing agent file they want to edit using read_files\n- Understand the current structure and functionality\n- Make the requested changes while preserving what works\n- Maintain best practices and ensure the agent still works effectively\n- Use str_replace for targeted edits or write_file for major restructuring\n\nWhen editing, always start by reading the current agent file to understand its structure before making changes. Ask clarifying questions if needed, then create or update the template file in the appropriate location.\n\nIMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.',
+    'You are helping to create or edit an agent template. The user will describe what kind of agent they want to create or how they want to modify an existing agent.\n\n## Example Agents for Reference\n\nYou have access to three example agents in `.agents/examples/` that demonstrate different complexity levels:\n\n1. **Level 1 - Code Reviewer**: Simple agent with basic tools (read_files, write_file, set_output, end_turn)\n2. **Level 2 - Test Generator**: Intermediate agent with subagents and handleSteps logic\n3. **Level 3 - Documentation Writer**: Advanced agent with comprehensive tools, multiple subagents, and complex orchestration\n\n**IMPORTANT**: When creating new agents, first examine these examples to find connections and patterns that relate to the user\'s request. Look for:\n- Similar tool combinations\n- Comparable complexity levels\n- Related functionality patterns\n- Appropriate model choices\n- Relevant prompt structures\n\nUse these examples as inspiration and starting points, adapting their patterns to fit the user\'s specific needs.\n\nFor new agents, analyze their request and create a complete agent template that:\n- Has a clear purpose and appropriate capabilities\n- Leaves out fields that are not needed\n- Uses only the tools it needs\n- Follows naming conventions\n- Is properly structured\n- Draws inspiration from relevant example agents\n\nFor editing existing agents:\n- First read the existing agent file they want to edit using read_files\n- Understand the current structure and functionality\n- Make the requested changes while preserving what works\n- Maintain best practices and ensure the agent still works effectively\n- Use str_replace for targeted edits or write_file for major restructuring\n\nWhen editing, always start by reading the current agent file to understand its structure before making changes. Ask clarifying questions if needed, then create or update the template file in the appropriate location.\n\nIMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.',
   stepPrompt: '',
 
   // Generator function that defines the agent's execution flow
@@ -122,52 +87,59 @@ const config: AgentConfig = {
       }
     }
 
-    // Step 4: Add user message with requirements for agent creation or editing
-    const isEditMode = params?.editMode === true
+    // Step 4: Copy example agents for reference
+    const { toolResult: exampleAgentsResult } = yield {
+      toolName: 'read_files',
+      args: {
+        paths: [
+          'common/src/util/example-agents/level-1-code-reviewer.ts',
+          'common/src/util/example-agents/level-2-test-generator.ts',
+          'common/src/util/example-agents/level-3-documentation-writer.ts'
+        ],
+      },
+    }
 
-    if (isEditMode) {
-      // Edit mode - the prompt should already contain the edit request
-      // No need to add additional message, the user prompt contains everything
-    } else {
-      // Creation mode - add structured requirements
-      const requirements = {
-        name: params?.name || 'Custom Agent',
-        purpose:
-          params?.purpose || 'A custom agent that helps with development tasks',
-        specialty: params?.specialty || 'general development',
-        model: params?.model || 'anthropic/claude-4-sonnet-20250522',
+    if (exampleAgentsResult?.result) {
+      const exampleFiles = exampleAgentsResult.result.split('\n\n').filter(Boolean)
+      
+      // Write level 1 example
+      if (exampleFiles[0]) {
+        yield {
+          toolName: 'write_file',
+          args: {
+            path: `${AGENT_TEMPLATES_DIR}/examples/level-1-code-reviewer.ts`,
+            instructions: 'Copy level 1 example agent',
+            content: exampleFiles[0],
+          },
+        }
       }
-      yield {
-        toolName: 'add_message',
-        args: {
-          role: 'user',
-          content: `Create a new agent template with the following specifications:
-
-**Agent Details:**
-- Name: ${requirements.name}
-- Purpose: ${requirements.purpose}
-- Specialty: ${requirements.specialty}
-- Model: ${requirements.model}
-- Agent ID: ${requirements.name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '')}
-
-**Requirements:**
-- Create the agent template file in ${AGENT_TEMPLATES_DIR}
-- Always start the file with: import type { AgentConfig } from './types/agent-config'
-- Use the AgentConfig interface
-- Include appropriate tools based on the specialty
-- Write a comprehensive system prompt
-- Follow naming conventions and best practices
-- Export a default configuration object
-
-Please create the complete agent template now.`,
-        },
+      
+      // Write level 2 example
+      if (exampleFiles[1]) {
+        yield {
+          toolName: 'write_file',
+          args: {
+            path: `${AGENT_TEMPLATES_DIR}/examples/level-2-test-generator.ts`,
+            instructions: 'Copy level 2 example agent',
+            content: exampleFiles[1],
+          },
+        }
+      }
+      
+      // Write level 3 example
+      if (exampleFiles[2]) {
+        yield {
+          toolName: 'write_file',
+          args: {
+            path: `${AGENT_TEMPLATES_DIR}/examples/level-3-documentation-writer.ts`,
+            instructions: 'Copy level 3 example agent',
+            content: exampleFiles[2],
+          },
+        }
       }
     }
 
-    // Step 5: Complete agent creation process
+    // Step 5: Let the agent ask questions and understand what the user wants
     yield 'STEP_ALL'
   },
 }

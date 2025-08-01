@@ -15,7 +15,7 @@ import type { Model } from '@codebuff/common/constants'
 import type { ToolName } from '@codebuff/common/tools/constants'
 
 const TEMPLATE_RELATIVE_PATH =
-  `../../../../common/src/util/${AGENT_CONFIG_FILE}` as const
+  `../../../../common/src/util/types/${AGENT_CONFIG_FILE}` as const
 // Import to validate path exists at compile time
 import(TEMPLATE_RELATIVE_PATH)
 
@@ -41,7 +41,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
   try {
     const toolsPath = path.join(
       __dirname,
-      '../../../../common/src/util/tools.d.ts',
+      '../../../../common/src/util/types/tools.d.ts',
     )
     toolDefinitionsContent = fs.readFileSync(toolsPath, 'utf8')
   } catch (error) {
