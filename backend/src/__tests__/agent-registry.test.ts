@@ -58,7 +58,7 @@ mockModule('../util/logger', () => ({
 }))
 
 // Create mock static templates that will be used by the agent registry
-const mockStaticTemplates = {
+const mockStaticTemplates: Record<string, AgentTemplate> = {
   base: {
     id: 'base',
     displayName: 'Base Agent',
@@ -88,11 +88,6 @@ const mockStaticTemplates = {
     inputSchema: {},
   },
 }
-
-// Mock agent-list
-mockModule('../templates/agent-list', () => ({
-  agentTemplates: mockStaticTemplates,
-}))
 
 // Mock validation functions
 mockModule('@codebuff/common/templates/agent-validation', () => ({
