@@ -2,7 +2,7 @@
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
-  id: 'level-3-documentation-writer',
+  id: 'example-3',
   displayName: 'Doc the Documentation Writer (Level 3)',
   model: 'google/gemini-2.5-pro',
   
@@ -23,6 +23,7 @@ const config: AgentConfig = {
     'end_turn'
   ],
   
+  displayName: 'Doc the Documentation Writer (Example 3)',
   subagents: ['file-explorer', 'researcher', 'thinker'],
   
   includeMessageHistory: true,

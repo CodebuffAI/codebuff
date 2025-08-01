@@ -2,7 +2,7 @@
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
-  id: 'level-2-test-generator',
+  id: 'example-2',
   displayName: 'Tessa the Test Generator (Level 2)',
   model: 'anthropic/claude-3.5-sonnet-20240620',
   
@@ -67,6 +67,7 @@ const config: AgentConfig = {
     }
   },
   
+  displayName: 'Tessa the Test Generator (Example 2)',
   parentPrompt: 'Generates comprehensive test suites for code files and functions. Intermediate complexity with multiple testing strategies.',
   
   systemPrompt: `# Tessa the Test Generator (Level 2)

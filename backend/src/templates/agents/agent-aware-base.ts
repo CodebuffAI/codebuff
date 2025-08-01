@@ -57,23 +57,27 @@ export const agentAwareBase = (
   const exampleAgentContents: Record<string, string> = {}
 
   try {
-    const exampleAgentsDir = path.join(
-      __dirname,
-      '../../../../common/src/util/example-agents',
-    )
-    const files = fs.readdirSync(exampleAgentsDir)
+    const exampleAgentsDir = path.join(__dirname, `${COMMON_UTIL_PATH}`)
+    // Check if directory exists before trying to read it
+    if (fs.existsSync(exampleAgentsDir)) {
+      const files = fs.readdirSync(exampleAgentsDir)
 
-    files
-      .filter((file) => file.endsWith('.ts'))
-      .forEach((filename) => {
-        try {
-          const fullPath = path.join(exampleAgentsDir, filename)
-          const content = fs.readFileSync(fullPath, 'utf8')
-          exampleAgentContents[filename] = content
-        } catch (error) {
-          console.warn(`Could not read example agent ${filename}:`, error)
-        }
-      })
+      files
+        .filter((file) => file.endsWith('.ts') && file.startsWith('example-'))
+        .forEach((filename) => {
+          try {
+            const fullPath = path.join(exampleAgentsDir, filename)
+            const content = fs.readFileSync(fullPath, 'utf8')
+            exampleAgentContents[filename] = content
+          } catch (error) {
+            console.warn(`Could not read example agent ${filename}:`, error)
+          }
+        })
+    } else {
+      console.warn(
+        `Example agents directory does not exist: ${exampleAgentsDir}`,
+      )
+    }
   } catch (error) {
     console.warn('Could not read example agents directory:', error)
   }
@@ -216,9 +220,9 @@ You can now proceed directly to agent creation or editing.
 
 Three example agents are now available in your \`.agents/\` directory:
 
-1. **level-1-code-reviewer.ts**: Simple agent with basic tools (read_files, write_file, set_output, end_turn)
-2. **level-2-test-generator.ts**: Intermediate agent with subagents and handleSteps logic
-3. **level-3-documentation-writer.ts**: Advanced agent with comprehensive tools, multiple subagents, and complex orchestration
+1. **example-1.ts**: Simple agent with basic tools (read_files, write_file, set_output, end_turn)
+2. **example-2.ts**: Intermediate agent with subagents and handleSteps logic
+3. **example-3.ts**: Advanced agent with comprehensive tools, multiple subagents, and complex orchestration
 
 **IMPORTANT**: Examine these examples to find connections and patterns that relate to the user's request. Look for:
 - Similar tool combinations
@@ -260,6 +264,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
           command: `mkdir -p ${TYPES_DIR}`,
           process_type: 'SYNC',
           timeout_seconds: 10,
+          cb_easp: false,
         },
       }
 
@@ -270,6 +275,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
           path: TEMPLATE_TYPES_PATH,
           instructions: 'Create agent template type definitions file',
           content: agentTemplateContent,
+          cb_easp: false,
         },
       }
 
@@ -280,6 +286,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
           path: TOOL_DEFINITIONS_PATH,
           instructions: 'Create tools type file',
           content: toolDefinitionsContent,
+          cb_easp: false,
         },
       }
 
@@ -290,6 +297,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
           role: 'assistant',
           content:
             "I'll read the example agent files to understand the patterns and then help you create your agent.",
+          cb_easp: false,
         },
       }
 
@@ -299,9 +307,10 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
           yield {
             toolName: 'write_file',
             args: {
-              path: `${AGENT_TEMPLATES_DIR}/${filename}`,
+              path: `${AGENT_TEMPLATES_DIR}${filename}`,
               instructions: `Copy example agent file ${filename}`,
               content: content,
+              cb_easp: false,
             },
           }
         }

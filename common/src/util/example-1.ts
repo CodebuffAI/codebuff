@@ -1,25 +1,20 @@
-// @ts-nocheck
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
-  id: 'level-1-code-reviewer',
+  id: 'example-1',
   displayName: 'Ruby the Code Reviewer (Level 1)',
   model: 'anthropic/claude-3.5-haiku-20241022',
-  
-  toolNames: [
-    'read_files',
-    'write_file',
-    'set_output',
-    'end_turn'
-  ],
-  
+
+  toolNames: ['read_files', 'write_file', 'set_output', 'end_turn'],
+
   inputSchema: {
     prompt: {
       type: 'string',
-      description: 'Files or code areas you want reviewed for quality and best practices'
-    }
+      description:
+        'Files or code areas you want reviewed for quality and best practices',
+    },
   },
-  
+
   outputMode: 'json',
   outputSchema: {
     type: 'object',
@@ -34,19 +29,21 @@ const config: AgentConfig = {
             line: { type: 'number' },
             severity: { type: 'string' },
             issue: { type: 'string' },
-            suggestion: { type: 'string' }
-          }
-        }
+            suggestion: { type: 'string' },
+          },
+        },
       },
       positives: {
         type: 'array',
-        items: { type: 'string' }
-      }
-    }
+        items: { type: 'string' },
+      },
+    },
   },
-  
-  parentPrompt: 'Reviews code for quality, best practices, and potential improvements. Good for beginners learning code review fundamentals.',
-  
+
+  displayName: 'Ruby the Code Reviewer (Example 1)',
+  parentPrompt:
+    'Reviews code for quality, best practices, and potential improvements. Good for beginners learning code review fundamentals.',
+
   systemPrompt: `# Ruby the Code Reviewer (Level 1)
 
 You are a friendly code reviewer focused on helping developers improve their code quality. You provide constructive feedback on:
@@ -71,7 +68,7 @@ You are a friendly code reviewer focused on helping developers improve their cod
 - Simple performance issues
 - Code duplication
 - Basic security concerns`,
-  
+
   instructionsPrompt: `Review the provided code and provide structured feedback. Focus on:
 
 1. **Read the files** that need review
@@ -81,7 +78,7 @@ You are a friendly code reviewer focused on helping developers improve their cod
    - Specific issues with file, line, severity, and suggestions
    - Positive aspects worth highlighting
 
-Keep feedback constructive and educational. Prioritize the most impactful improvements.`
+Keep feedback constructive and educational. Prioritize the most impactful improvements.`,
 }
 
 export default config
