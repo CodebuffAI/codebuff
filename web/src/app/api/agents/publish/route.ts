@@ -1,7 +1,7 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { validateAgents } from '@codebuff/common/templates/agent-validation'
-import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
+import { publishAgentsRequestSchema } from '@codebuff/common/types/api/agents/publish'
 import {
   checkAuthToken,
   determineNextVersion,
@@ -11,27 +11,20 @@ import {
 import { desc, eq, and, or } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { z } from 'zod'
-
-import { logger } from '@/util/logger'
 
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
 
+import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import type { Version } from '@codebuff/internal'
 import type { NextRequest } from 'next/server'
 
-// Schema for publishing an agent
-const publishAgentRequestSchema = z.object({
-  data: DynamicAgentTemplateSchema,
-  publisherId: z.string().optional(),
-  authToken: z.string(),
-})
+import { logger } from '@/util/logger'
 
 export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body = await request.json()
-    const parseResult = publishAgentRequestSchema.safeParse(body)
+    const parseResult = publishAgentsRequestSchema.safeParse(body)
     if (!parseResult.success) {
       const errorMessages = parseResult.error.issues.map((issue) => {
         const path = issue.path.length > 0 ? `${issue.path.join('.')}: ` : ''
@@ -49,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { data, publisherId, authToken } = parseResult.data
-    const agentId = data.id
+    const agents = data as DynamicAgentTemplate[] // data is now an array of agents
 
     // Try cookie-based auth first, then fall back to authToken validation using proper function
     let userId: string | undefined
@@ -68,9 +61,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const validationResult = validateAgents({
-      [agentId]: data,
-    })
+    // Validate all agents
+    const agentMap = agents.reduce(
+      (
+        acc: Record<string, DynamicAgentTemplate>,
+        agent: DynamicAgentTemplate
+      ) => {
+        acc[agent.id] = agent
+        return acc
+      },
+      {} as Record<string, DynamicAgentTemplate>
+    )
+
+    const validationResult = validateAgents(agentMap)
 
     if (validationResult.validationErrors.length > 0) {
       const errorDetails = validationResult.validationErrors
@@ -184,74 +187,96 @@ export async function POST(request: NextRequest) {
 
     const publisher = selectedPublisher
 
-    // Determine the version to use (auto-increment if not provided)
-    let version: Version
-    try {
-      version = await determineNextVersion(agentId, publisher.id, data.version)
-    } catch (error) {
-      return NextResponse.json(
-        {
-          error: 'Version determination failed',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-        { status: 400 }
-      )
+    // Process all agents atomically
+    const agentVersions: { id: string; version: Version; data: any }[] = []
+
+    // First, determine versions for all agents and check for conflicts
+    for (const agent of agents) {
+      try {
+        const version = await determineNextVersion(
+          agent.id,
+          publisher.id,
+          agent.version
+        )
+
+        // Check if this version already exists
+        const versionAlreadyExists = await versionExists(
+          agent.id,
+          version,
+          publisher.id
+        )
+        if (versionAlreadyExists) {
+          return NextResponse.json(
+            {
+              error: 'Version already exists',
+              details: `Agent '${agent.id}' version '${version}' already exists for publisher '${publisher.id}'`,
+            },
+            { status: 409 }
+          )
+        }
+
+        agentVersions.push({
+          id: agent.id,
+          version,
+          data: { ...agent, version },
+        })
+      } catch (error) {
+        return NextResponse.json(
+          {
+            error: 'Version determination failed',
+            details: `Failed for agent '${agent.id}': ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+          { status: 400 }
+        )
+      }
     }
 
-    // Check if this version already exists
-    const versionAlreadyExists = await versionExists(
-      agentId,
-      version,
-      publisher.id
-    )
-    if (versionAlreadyExists) {
-      return NextResponse.json(
-        {
-          error: 'Version already exists',
-          details: `Agent '${agentId}' version '${version}' already exists for publisher '${publisher.id}'`,
-        },
-        { status: 409 }
-      )
-    }
-
-    // Insert the new agent config with the determined version
-    const dataWithVersion = { ...data, version }
-    const newAgent = await db
-      .insert(schema.agentConfig)
-      .values({
-        id: agentId,
-        version: stringifyVersion(version),
-        publisher_id: publisher.id,
-        data: dataWithVersion,
-      })
-      .returning()
-      .then((rows) => rows[0])
+    // If we get here, all agents can be published. Insert them all in a transaction
+    const newAgents = await db.transaction(async (tx) => {
+      const results = []
+      for (const { id, version, data } of agentVersions) {
+        const newAgent = await tx
+          .insert(schema.agentConfig)
+          .values({
+            id,
+            version: stringifyVersion(version),
+            publisher_id: publisher.id,
+            data,
+          })
+          .returning()
+          .then((rows) => rows[0])
+        results.push(newAgent)
+      }
+      return results
+    })
 
     logger.info(
       {
         userId,
         publisherId: publisher.id,
-        agentId,
-        version,
-        agentTemplateId: newAgent.id,
+        agentIds: newAgents.map((a) => a.id),
+        agentCount: newAgents.length,
       },
-      'Agent published successfully'
+      'Agents published successfully'
     )
 
     return NextResponse.json(
       {
         success: true,
-        agent: {
-          id: newAgent.id,
-          version: newAgent.version,
-          publisherId: publisher.id,
-          createdAt: newAgent.created_at,
-        },
+        publisherId: publisher.id,
+        agents: newAgents.map((agent) => ({
+          id: agent.id,
+          version: agent.version,
+          displayName: (agent.data as any).displayName,
+        })),
       },
       { status: 201 }
     )
-  } catch (error) {
-    logger.error({ error }, 'Error handling /api/agents/publish request')
+  } catch (error: any) {
+    logger.error(
+      { name: error.name, message: error.message, stack: error.stack },
+      'Error handling /api/agents/publish request'
+    )
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

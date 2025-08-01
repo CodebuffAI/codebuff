@@ -105,13 +105,13 @@ if (require.main === module) {
     'after',
     `
 Examples:
-  $ codebuff                            # Start in current directory
+  $ codebuff                                  # Start in current directory
   $ codebuff -p "tell me about the codebase"  # Print mode (non-interactive)
-  $ codebuff --cwd my-project           # Start in specific directory
-  $ codebuff --trace                    # Enable subagent trace logging to .agents/traces/*.log
-  $ codebuff --create nextjs my-app     # Create and scaffold a new Next.js project
-  $ codebuff publish my-agent           # Publish agent template to store
-  $ codebuff --agent file_picker "find relevant files for authentication"
+  $ codebuff --cwd my-project                 # Start in specific directory
+  $ codebuff --trace                          # Enable subagent trace logging to .agents/traces/*.log
+  $ codebuff --create nextjs my-app           # Create and scaffold a new Next.js project
+  $ codebuff publish my-agent                 # Publish agent template to store
+  $ codebuff --agent file-picker "find relevant files for authentication"
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
 
 For all commands and options, run 'codebuff' and then type 'help'.
@@ -136,9 +136,9 @@ For all commands and options, run 'codebuff' and then type 'help'.
 
   // Handle publish command
   if (args[0] === 'publish') {
-    const agentName = args[1]
+    const agentNames = args.slice(1)
     const publisherId = options.publisher
-    await handlePublish(agentName, publisherId)
+    await handlePublish(agentNames, publisherId)
     process.exit(0)
   }
 

@@ -7,35 +7,18 @@ import { loadLocalAgents } from '../agents/load-agents'
 import { websiteUrl } from '../config'
 import { getUserCredentials } from '../credentials'
 
+import type {
+  PublishAgentsErrorResponse,
+  PublishAgentsResponse,
+} from '@codebuff/common/types/api/agents/publish'
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
-
-interface PublishResponse {
-  success: boolean
-  agentId?: string
-  version?: string
-  message?: string
-  error?: string
-  details?: string
-  statusCode?: number
-  availablePublishers?: Array<{
-    id: string
-    name: string
-    ownershipType: 'user' | 'organization'
-    organizationName?: string
-  }>
-  validationErrors?: Array<{
-    code: string
-    message: string
-    path: (string | number)[]
-  }>
-}
 
 /**
  * Handle the publish command to upload agent templates to the backend
  * @param agentId The id of the agent to publish (required)
  * @param publisherId The id of the publisher to use (optional)
  */ export async function handlePublish(
-  agentId?: string,
+  agentIds: string[],
   publisherId?: string,
 ): Promise<void> {
   const user = getUserCredentials()
@@ -45,10 +28,9 @@ interface PublishResponse {
     return
   }
 
-  if (!agentId) {
-    console.log(red('Agent id is required. Usage: publish <agent-id>'))
+  if (agentIds?.length === 0) {
     console.log(
-      yellow('This prevents accidentally publishing all agents at once.'),
+      red('Agent id is required. Usage: publish <agent-id> [agent-id2] ...'),
     )
 
     // Show available agents
@@ -84,126 +66,122 @@ interface PublishResponse {
       return
     }
 
-    // Find the specific agent
-    const matchingTemplate = Object.entries(agentTemplates).find(
-      ([key, template]) =>
-        key === agentId ||
-        template.id === agentId ||
-        template.displayName === agentId,
-    )
+    const matchingTemplates: Record<string, DynamicAgentTemplate> = {}
+    for (const agentId of agentIds) {
+      // Find the specific agent
+      const matchingTemplate = Object.entries(agentTemplates).find(
+        ([key, template]) =>
+          key === agentId ||
+          template.id === agentId ||
+          template.displayName === agentId,
+      )
 
-    if (!matchingTemplate) {
-      console.log(red(`Agent "${agentId}" not found. Available agents:`))
-      Object.values(agentTemplates).forEach((template) => {
-        console.log(`  - ${template.displayName} (${template.id})`)
-      })
-      return
+      if (!matchingTemplate) {
+        console.log(red(`Agent "${agentId}" not found. Available agents:`))
+        Object.values(agentTemplates).forEach((template) => {
+          console.log(`  - ${template.displayName} (${template.id})`)
+        })
+        return
+      }
+
+      matchingTemplates[matchingTemplate[0]] = matchingTemplate[1]
     }
-    const [key, template] = matchingTemplate
-    console.log(
-      yellow(`Publishing ${template.displayName} (${template.id})...`),
-    )
+    console.log(yellow(`Publishing:`))
+    for (const [key, template] of Object.entries(matchingTemplates)) {
+      console.log(`  - ${template.displayName} (${template.id})`)
+    }
 
     try {
-      const result = await publishAgentTemplate(
-        template,
+      const result = await publishAgentTemplates(
+        Object.values(matchingTemplates),
         user.authToken!,
         publisherId,
       )
 
       if (result.success) {
-        console.log(
-          green(
-            `✅ Successfully published ${template.displayName} v${result.version}`,
-          ),
-        )
-        console.log(cyan(`   Agent ID: ${result.agentId}`))
-      } else {
-        console.log(
-          red(`❌ Failed to publish ${template.displayName}: ${result.error}`),
-        )
-        // Check if the error is about missing publisher (403 status)
-        if (result.statusCode === 403) {
-          console.log()
-
-          // Check if this is a "no publisher" error vs "multiple publishers" error
-          if (result.error?.includes('No publisher associated with user')) {
-            console.log(
-              cyan(
-                'Please visit the website to create your publisher profile:',
-              ),
-            )
-            console.log(yellow(`${websiteUrl}/publishers`))
-            console.log()
-            console.log('A publisher profile allows you to:')
-            console.log('  • Publish and manage your agents')
-            console.log('  • Build your reputation in the community')
-            console.log('  • Organize agents under your name or organization')
-            console.log()
-          } else if (
-            result.availablePublishers &&
-            result.availablePublishers.length > 0
-          ) {
-            // Show available publishers
-            console.log(
-              cyan(
-                'You have access to multiple publishers. Please specify which one to use:',
-              ),
-            )
-            console.log()
-            console.log(cyan('Available publishers:'))
-            result.availablePublishers.forEach((publisher) => {
-              const orgInfo = publisher.organizationName
-                ? ` (${publisher.organizationName})`
-                : ''
-              const typeInfo =
-                publisher.ownershipType === 'organization'
-                  ? ' [Organization]'
-                  : ' [Personal]'
-              console.log(
-                `  • ${yellow(publisher.id)} - ${publisher.name}${orgInfo}${typeInfo}`,
-              )
-            })
-            console.log()
-            console.log('Run one of these commands:')
-            result.availablePublishers.forEach((publisher) => {
-              console.log(
-                yellow(
-                  `  codebuff publish ${agentId} --publisher ${publisher.id}`,
-                ),
-              )
-            })
-            console.log()
-            console.log(cyan('Or visit the website to manage your publishers:'))
-            console.log(yellow(`${websiteUrl}/publishers`))
-            console.log()
-          } else {
-            // Generic 403 error
-            console.log(cyan('You may need to specify which publisher to use.'))
-            console.log()
-            console.log('Try running:')
-            console.log(
-              yellow(`  publish ${agentId} --publisher <publisher-id>`),
-            )
-            console.log()
-            console.log(
-              cyan('Visit the website to see your available publishers:'),
-            )
-            console.log(yellow(`${websiteUrl}/publishers`))
-            console.log()
-          }
-        } else {
+        console.log(green(`✅ Successfully published:`))
+        for (const agent of result.agents) {
           console.log(
-            red(
-              `❌ Failed to publish ${template.displayName}: ${result.error}`,
+            cyan(
+              `  - ${agent.displayName} (${result.publisherId}/${agent.id}@${agent.version})`,
             ),
           )
         }
+        return
+      }
+
+      console.log(red(`❌ Failed to publish agents: ${result.error}`))
+      if (result.statusCode !== 403) {
+        return
+      }
+
+      // Check if this is a "no publisher" error vs "multiple publishers" error
+      if (result.error?.includes('No publisher associated with user')) {
+        console.log()
+        console.log(
+          cyan('Please visit the website to create your publisher profile:'),
+        )
+        console.log(yellow(`${websiteUrl}/publishers`))
+        console.log()
+        console.log('A publisher profile allows you to:')
+        console.log('  • Publish and manage your agents')
+        console.log('  • Build your reputation in the community')
+        console.log('  • Organize agents under your name or organization')
+        console.log()
+      } else if (
+        result.availablePublishers &&
+        result.availablePublishers.length > 0
+      ) {
+        // Show available publishers
+        console.log(
+          cyan(
+            'You have access to multiple publishers. Please specify which one to use:',
+          ),
+        )
+        console.log()
+        console.log(cyan('Available publishers:'))
+        result.availablePublishers.forEach((publisher) => {
+          const orgInfo = publisher.organizationName
+            ? ` (${publisher.organizationName})`
+            : ''
+          const typeInfo =
+            publisher.ownershipType === 'organization'
+              ? ' [Organization]'
+              : ' [Personal]'
+          console.log(
+            `  • ${yellow(publisher.id)} - ${publisher.name}${orgInfo}${typeInfo}`,
+          )
+        })
+        console.log()
+        console.log('Run one of these commands:')
+        result.availablePublishers.forEach((publisher) => {
+          console.log(
+            yellow(
+              `  codebuff publish ${agentIds.join(' ')} --publisher ${publisher.id}`,
+            ),
+          )
+        })
+        console.log()
+        console.log(cyan('Or visit the website to manage your publishers:'))
+        console.log(yellow(`${websiteUrl}/publishers`))
+        console.log()
+      } else {
+        // Generic 403 error
+        console.log(cyan('You may need to specify which publisher to use.'))
+        console.log()
+        console.log('Try running:')
+        console.log(
+          yellow(`  publish ${agentIds.join(' ')} --publisher <publisher-id>`),
+        )
+        console.log()
+        console.log(cyan('Visit the website to see your available publishers:'))
+        console.log(yellow(`${websiteUrl}/publishers`))
+        console.log()
       }
     } catch (error) {
       console.log(
         red(
-          `❌ Error publishing ${template.displayName}: ${error instanceof Error ? error.message : String(error)}`,
+          `❌ Error publishing agents: ${error instanceof Error ? error.message : String(error)}`,
         ),
       )
       // Avoid logger.error here as it can cause sonic boom errors that mask the real error
@@ -221,13 +199,13 @@ interface PublishResponse {
 }
 
 /**
- * Publish an agent template to the backend
+ * Publish agent templates to the backend
  */
-async function publishAgentTemplate(
-  data: DynamicAgentTemplate,
+async function publishAgentTemplates(
+  data: DynamicAgentTemplate[],
   authToken: string,
   publisherId?: string,
-): Promise<PublishResponse> {
+): Promise<PublishAgentsResponse & { statusCode?: number }> {
   try {
     const response = await fetch(`${websiteUrl}/api/agents/publish`, {
       method: 'POST',
@@ -241,17 +219,19 @@ async function publishAgentTemplate(
       }),
     })
 
-    let result: any
+    let result: PublishAgentsResponse
     try {
       result = await response.json()
     } catch (jsonError) {
       return {
         success: false,
         error: `Failed to parse server response: ${response.status} ${response.statusText}`,
+        statusCode: response.status,
       }
     }
 
     if (!response.ok) {
+      result = result as PublishAgentsErrorResponse
       // Extract detailed error information from the response
       let errorMessage =
         result.error || `HTTP ${response.status}: ${response.statusText}`
@@ -284,10 +264,8 @@ async function publishAgentTemplate(
     }
 
     return {
-      success: true,
-      agentId: result.agent?.id,
-      version: result.agent?.version,
-      message: result.message,
+      ...result,
+      statusCode: response.status,
     }
   } catch (error) {
     // Handle network errors, timeouts, etc.
