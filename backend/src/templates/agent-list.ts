@@ -1,6 +1,7 @@
 import { models } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
+import { agentAwareBase } from './agents/agent-aware-base'
 import { agentBuilder } from './agents/agent-builder'
 import { dryRun } from './agents/archive/dry-run'
 import { ask } from './agents/ask'
@@ -47,6 +48,10 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
       id: AgentTemplateTypes.claude4_gemini_thinking,
       ...thinkingBase(models.openrouter_claude_sonnet_4),
     },
+    [AgentTemplateTypes.agent_aware_base]: {
+      id: AgentTemplateTypes.agent_aware_base,
+      ...agentAwareBase(models.openrouter_claude_sonnet_4),
+    },
 
     [AgentTemplateTypes.thinker]: {
       id: AgentTemplateTypes.thinker,
@@ -72,8 +77,8 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
       id: AgentTemplateTypes.reviewer,
       ...reviewer(models.gemini2_5_pro_preview),
     },
-    [AgentTemplateTypes.sonnet4_agent_builder]: {
-      id: AgentTemplateTypes.sonnet4_agent_builder,
+    [AgentTemplateTypes.agent_builder]: {
+      id: AgentTemplateTypes.agent_builder,
       ...agentBuilder(models.openrouter_claude_sonnet_4),
     },
     [AgentTemplateTypes.file_explorer]: fileExplorer as any as AgentTemplate,

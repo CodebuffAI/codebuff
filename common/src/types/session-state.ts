@@ -61,6 +61,7 @@ export const AgentTemplateTypeList = [
   'base_experimental',
   'claude4_gemini_thinking',
   'superagent',
+  'agent_aware_base',
 
   // Ask mode
   'ask',
@@ -75,7 +76,7 @@ export const AgentTemplateTypeList = [
   'file_explorer',
   'researcher',
   'reviewer',
-  'sonnet4_agent_builder',
+  'agent_builder',
   'example_programmatic',
 ] as const
 type UnderscoreToDash<S extends string> = S extends `${infer L}_${infer R}`

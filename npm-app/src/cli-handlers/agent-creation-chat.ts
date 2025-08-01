@@ -85,10 +85,10 @@ Model: ${requirements.model}
 Please create a complete TypeScript agent template file in the ${AGENT_TEMPLATES_DIR} directory with proper types and a comprehensive system prompt.`
 
   try {
-    // Use the resetAgent helper to properly switch to agent-builder
+    // Use the resetAgent helper to properly switch to agent-aware-base which automatically spawns the agent builder
     const cliInstance = CLI.getInstance()
     await cliInstance.resetAgent(
-      AgentTemplateTypes.sonnet4_agent_builder,
+      AgentTemplateTypes.agent_aware_base,
       {
         name: requirements.name,
         purpose: requirements.purpose,

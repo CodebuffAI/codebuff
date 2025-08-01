@@ -544,23 +544,33 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
   }
 }
 
-function startDirectAgentCreation(onExit: () => void) {
-  // Send request directly to @Bob the Agent Builder without questionnaire
-  const prompt = `@Bob the Agent Builder create a new custom agent template for me. Please ask me what kind of agent I'd like to create and help me build it.`
+async function startDirectAgentCreation(onExit: () => void) {
+  // Switch to agent-aware-base which automatically spawns Bob the Agent Builder for agent creation
+  const prompt = `Create a new custom agent template for me. Please ask me what kind of agent I'd like to create and help me build it.`
 
   console.log(
-    green('\n🤖 Starting agent creation with Bob the Agent Builder...'),
+    green(
+      '\n🤖 Starting agent creation with Buffy the Enthusiastic Agent Builder...',
+    ),
   )
-  console.log(gray('Tell Bob what kind of agent you want to create.'))
+  console.log(
+    gray(
+      'Buffy will connect you with Bob the Agent Builder to create your custom agent.',
+    ),
+  )
 
-  const cliInstance = CLI.getInstance()
-  // Pre-fill the prompt and simulate Enter key press to send it
-  cliInstance.freshPrompt(prompt)
-
-  // Simulate pressing Enter to send the prompt
-  setTimeout(() => {
-    cliInstance.rl.write('\n')
-  }, 100)
+  try {
+    const cliInstance = CLI.getInstance()
+    // Switch to agent-aware-base which automatically spawns the agent builder for agent creation
+    await cliInstance.resetAgent(
+      AgentTemplateTypes.agent_aware_base,
+      undefined,
+      prompt,
+    )
+    cliInstance.freshPrompt()
+  } catch (error) {
+    console.error(red('Error starting agent creation:'), error)
+  }
 
   onExit()
 }
