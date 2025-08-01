@@ -9,6 +9,8 @@ import {
   CheckCircle,
 } from 'lucide-react'
 
+import { pluralize } from '@codebuff/common/util/string'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -195,7 +197,7 @@ export function BillingStatus({
               <div className="flex items-center">
                 <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                 <span className="font-medium text-sm sm:text-base">
-                  Team Seats
+                  {pluralize(billingStatus.seatCount, 'Seat')}
                 </span>
               </div>
               <span className="text-lg sm:text-xl font-bold">

@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
+import { pluralize } from '@codebuff/common/util/string'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

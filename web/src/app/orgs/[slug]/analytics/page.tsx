@@ -259,7 +259,7 @@ export default function OrganizationAnalyticsPage() {
                 {analytics.currentBalance.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
-                {pluralize(analytics.currentBalance, 'Credit')} remaining
+                {pluralize(analytics.currentBalance, 'credit')} remaining
               </p>
             </CardContent>
           </Card>
@@ -276,7 +276,7 @@ export default function OrganizationAnalyticsPage() {
                 {analytics.usageThisCycle.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
-                {pluralize(analytics.usageThisCycle, 'Credit')} consumed
+                {pluralize(analytics.usageThisCycle, 'credit')} consumed
               </p>
             </CardContent>
           </Card>
@@ -293,7 +293,7 @@ export default function OrganizationAnalyticsPage() {
                 {analytics.costProjection.averageDaily.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
-                {pluralize(analytics.costProjection.averageDaily, 'Credit')} per
+                {pluralize(analytics.costProjection.averageDaily, 'credit')} per
                 day
               </p>
             </CardContent>

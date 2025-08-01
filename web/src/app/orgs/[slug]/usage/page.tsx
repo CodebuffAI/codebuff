@@ -293,7 +293,7 @@ export default function UsagePage() {
                 {usageData?.topUsers?.length || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {pluralize(usageData?.topUsers?.length || 0, 'User')} with usage
+                {pluralize(usageData?.topUsers?.length || 0, 'user')} with usage
               </p>
             </CardContent>
           </Card>

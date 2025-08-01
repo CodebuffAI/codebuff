@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
+import { pluralize } from '@codebuff/common/util/string'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -163,7 +165,9 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
               <div className="text-2xl font-bold">
                 {report.totalCreditsUsed.toLocaleString()}
               </div>
-              <div className="text-sm text-muted-foreground">Total Credits</div>
+              <div className="text-sm text-muted-foreground">
+                {pluralize(report.totalCreditsUsed, 'Credit')}
+              </div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold">
@@ -198,7 +202,9 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
 
           {/* Top Users */}
           <div>
-            <h4 className="font-medium mb-3">Top Users by Usage</h4>
+            <h4 className="font-medium mb-3">
+              Top {pluralize(report.topUsers.length, 'User')} by Usage
+            </h4>
             <div className="space-y-2">
               {report.topUsers.slice(0, 5).map((user, index) => (
                 <div key={index} className="flex items-center justify-between">
@@ -223,7 +229,10 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
 
           {/* Top Repositories */}
           <div>
-            <h4 className="font-medium mb-3">Top Repositories by Usage</h4>
+            <h4 className="font-medium mb-3">
+              Top {pluralize(report.topRepositories.length, 'Repository')} by
+              Usage
+            </h4>
             <div className="space-y-2">
               {report.topRepositories.slice(0, 5).map((repo, index) => (
                 <div key={index} className="flex items-center justify-between">
@@ -243,7 +252,7 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
             </div>
           </div>
 
-          {/* Daily Usage Chart (simplified) */}
+          {/* Daily Usage Chart */}
           <div>
             <h4 className="font-medium mb-3">Daily Usage Trend</h4>
             <div className="h-32 flex items-end space-x-1">

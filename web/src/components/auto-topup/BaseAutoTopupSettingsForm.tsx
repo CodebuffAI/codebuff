@@ -1,3 +1,4 @@
+import { pluralize } from '@codebuff/common/util/string'
 import { Info } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
@@ -63,13 +64,9 @@ export function BaseAutoTopupSettingsForm({
   // Check threshold limits
   useEffect(() => {
     if (threshold < MIN_THRESHOLD_CREDITS) {
-      setThresholdError(
-        `Minimum ${MIN_THRESHOLD_CREDITS.toLocaleString()} credits`
-      )
+      setThresholdError(`Minimum ${pluralize(MIN_THRESHOLD_CREDITS, 'credit')}`)
     } else if (threshold > MAX_THRESHOLD_CREDITS) {
-      setThresholdError(
-        `Maximum ${MAX_THRESHOLD_CREDITS.toLocaleString()} credits`
-      )
+      setThresholdError(`Maximum ${pluralize(MAX_THRESHOLD_CREDITS, 'credit')}`)
     } else {
       setThresholdError('')
     }
@@ -78,13 +75,9 @@ export function BaseAutoTopupSettingsForm({
   // Check top-up credit limits
   useEffect(() => {
     if (topUpAmountCredits < MIN_TOPUP_CREDITS) {
-      setTopUpCreditsError(
-        `Minimum ${MIN_TOPUP_CREDITS.toLocaleString()} credits`
-      )
+      setTopUpCreditsError(`Minimum ${pluralize(MIN_TOPUP_CREDITS, 'credit')}`)
     } else if (topUpAmountCredits > MAX_TOPUP_CREDITS) {
-      setTopUpCreditsError(
-        `Maximum ${MAX_TOPUP_CREDITS.toLocaleString()} credits`
-      )
+      setTopUpCreditsError(`Maximum ${pluralize(MAX_TOPUP_CREDITS, 'credit')}`)
     } else {
       setTopUpCreditsError('')
     }

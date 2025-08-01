@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { pluralize } from '@codebuff/common/util/string'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -206,7 +208,7 @@ export function AdvancedMonitor({
               <div className="flex items-center space-x-2">
                 {getTrendIcon(data.creditVelocity.trend)}
                 <span className="text-lg font-bold">
-                  {data.creditVelocity.current.toLocaleString()} credits/hour
+                  {pluralize(data.creditVelocity.current, 'credit')}/hour
                 </span>
               </div>
             </div>
@@ -250,26 +252,32 @@ export function AdvancedMonitor({
                 <p className="text-2xl font-bold">
                   {data.burnRate.daily.toLocaleString()}
                 </p>
-                <p className="text-xs text-muted-foreground">Daily</p>
+                <p className="text-xs text-muted-foreground">
+                  {pluralize(data.burnRate.daily, 'credit')} daily
+                </p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold">
                   {data.burnRate.weekly.toLocaleString()}
                 </p>
-                <p className="text-xs text-muted-foreground">Weekly</p>
+                <p className="text-xs text-muted-foreground">
+                  {pluralize(data.burnRate.weekly, 'credit')} weekly
+                </p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold">
                   {data.burnRate.monthly.toLocaleString()}
                 </p>
-                <p className="text-xs text-muted-foreground">Monthly</p>
+                <p className="text-xs text-muted-foreground">
+                  {pluralize(data.burnRate.monthly, 'credit')} monthly
+                </p>
               </div>
             </div>
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Credits Remaining</span>
                 <span className="text-lg font-bold">
-                  {data.burnRate.daysRemaining} days
+                  {pluralize(data.burnRate.daysRemaining, 'day')}
                 </span>
               </div>
               <Progress
@@ -330,17 +338,23 @@ export function AdvancedMonitor({
               <p className="text-2xl font-bold text-red-600">
                 {data.alerts.critical}
               </p>
-              <p className="text-xs text-muted-foreground">Critical</p>
+              <p className="text-xs text-muted-foreground">
+                {pluralize(data.alerts.critical, 'Critical Alert')}
+              </p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-yellow-600">
                 {data.alerts.warnings}
               </p>
-              <p className="text-xs text-muted-foreground">Warnings</p>
+              <p className="text-xs text-muted-foreground">
+                {pluralize(data.alerts.warnings, 'Warning')}
+              </p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold">{data.alerts.active}</p>
-              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-xs text-muted-foreground">
+                {pluralize(data.alerts.active, 'Alert')} Total
+              </p>
             </div>
           </div>
         </CardContent>

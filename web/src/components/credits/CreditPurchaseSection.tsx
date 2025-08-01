@@ -1,4 +1,5 @@
 import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
+import { pluralize } from '@codebuff/common/util/string'
 import { Loader2 as Loader } from 'lucide-react'
 import { useState } from 'react'
 
@@ -94,9 +95,9 @@ export function CreditPurchaseSection({
     if (isNaN(numCredits)) {
       setCustomError('Please enter a valid number')
     } else if (numCredits < minCredits) {
-      setCustomError(`Minimum ${minCredits.toLocaleString()} credits`)
+      setCustomError(`Minimum ${pluralize(minCredits, 'credit')}`)
     } else if (numCredits > maxCredits) {
-      setCustomError(`Maximum ${maxCredits.toLocaleString()} credits`)
+      setCustomError(`Maximum ${pluralize(maxCredits, 'credit')}`)
     } else {
       setCustomError('')
     }
@@ -161,7 +162,7 @@ export function CreditPurchaseSection({
                   max={maxCredits}
                   value={customCredits}
                   onChange={(e) => handleCustomCreditsChange(e.target.value)}
-                  placeholder={`${minCredits.toLocaleString()} - ${maxCredits.toLocaleString()} credits`}
+                  placeholder={`${pluralize(minCredits, 'credit')} - ${pluralize(maxCredits, 'credit')}`}
                   className={cn(customError && 'border-destructive')}
                   disabled={isProcessing || cooldownActive}
                 />

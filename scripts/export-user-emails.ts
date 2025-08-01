@@ -2,6 +2,7 @@ import { writeFileSync } from 'fs'
 
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
+import { pluralize } from '@codebuff/common/util/string'
 
 async function exportUserEmails(): Promise<void> {
   console.log('Exporting user emails...\n')
@@ -43,7 +44,9 @@ async function exportUserEmails(): Promise<void> {
     const filename = `user-emails-${timestamp}.csv`
     writeFileSync(filename, csvContent)
 
-    console.log(`\nExported ${users.length} user emails to ${filename}`)
+    console.log(
+      `\nExported ${pluralize(users.length, 'user email')} to ${filename}`,
+    )
   } catch (error) {
     console.error('Error exporting user emails:', error)
   }

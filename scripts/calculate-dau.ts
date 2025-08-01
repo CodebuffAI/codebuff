@@ -1,5 +1,6 @@
 import { db } from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
+import { pluralize } from '@codebuff/common/util/string'
 import { sql } from 'drizzle-orm'
 
 async function calculateDAU() {
@@ -24,7 +25,7 @@ async function calculateDAU() {
   dailyStats.forEach((stat) => {
     const users = parseInt(stat.uniqueUsers)
     totalUsers += users
-    console.log(`${stat.date}: ${users} users`)
+    console.log(`${stat.date}: ${pluralize(users, 'user')}`)
   })
 
   // Calculate and print average

@@ -109,6 +109,14 @@ export const randBoolFromStr = (str: string) => {
 export const pluralize = (count: number, word: string) => {
   if (count === 1) return `${count} ${word}`
 
+  // Handle words ending in f/fe first (before other rules)
+  if (word.endsWith('f')) {
+    return `${count} ${word.slice(0, -1) + 'ves'}`
+  }
+  if (word.endsWith('fe')) {
+    return `${count} ${word.slice(0, -2) + 'ves'}`
+  }
+
   // Handle words ending in 'y' (unless preceded by a vowel)
   if (word.endsWith('y') && !word.match(/[aeiou]y$/)) {
     return `${count} ${word.slice(0, -1) + 'ies'}`
@@ -117,14 +125,6 @@ export const pluralize = (count: number, word: string) => {
   // Handle words ending in s, sh, ch, x, z, o
   if (word.match(/[sxz]$/) || word.match(/[cs]h$/) || word.match(/o$/)) {
     return `${count} ${word + 'es'}`
-  }
-
-  // Handle words ending in f/fe
-  if (word.endsWith('f')) {
-    return `${count} ${word.slice(0, -1) + 'ves'}`
-  }
-  if (word.endsWith('fe')) {
-    return `${count} ${word.slice(0, -2) + 'ves'}`
   }
 
   return `${count} ${word + 's'}`

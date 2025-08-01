@@ -285,7 +285,7 @@ export function TeamManagement({
       if (added > 0) {
         toast({
           title: 'Success',
-          description: `${added} member(s) added successfully${skipped.length > 0 ? `, ${skipped.length} skipped` : ''}`,
+          description: `${pluralize(added, 'member')} added successfully${skipped.length > 0 ? `, ${pluralize(skipped.length, 'invitation')} skipped` : ''}`,
         })
       }
 

@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { pluralize } from '@codebuff/common/util/string'
 import { uniq } from 'lodash'
 
 import { getLanguageConfig } from './languages'
@@ -68,7 +69,6 @@ export async function getFileTokenScores(
       }
     }
   }
-
   // Build a map of tokens to their defining files for O(1) lookup
   const tokenDefinitionMap = new Map<string, string>()
   const highestScores = new Map<string, number>()
@@ -128,7 +128,9 @@ export async function getFileTokenScores(
 
   if (DEBUG_PARSING) {
     const endTime = Date.now()
-    console.log(`Parsed ${filePaths.length} files in ${endTime - startTime}ms`)
+    console.log(
+      `Parsed ${pluralize(filePaths.length, 'file')} in ${endTime - startTime}ms`,
+    )
 
     fs.writeFileSync(
       '../debug/debug-parse.json',
