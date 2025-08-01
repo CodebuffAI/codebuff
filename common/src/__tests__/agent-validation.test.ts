@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, test } from 'bun:test'
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  test,
+} from 'bun:test'
 
 import { validateAgents } from '../templates/agent-validation'
 import { DynamicAgentConfigSchema } from '../types/dynamic-agent-template'
@@ -216,7 +224,7 @@ describe('Agent Validation', () => {
             instructionsPrompt: 'Test user prompt',
             stepPrompt: 'Test step prompt',
             inputSchema: {
-              prompt: null as any, // Invalid - null schema
+              prompt: {} as any, // invalid prompt schema
             },
             outputMode: 'last_message',
             includeMessageHistory: true,
@@ -230,7 +238,7 @@ describe('Agent Validation', () => {
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].message).toContain(
-        'Failed to convert inputSchema.prompt to Zod',
+        'Invalid inputSchema.prompt in invalid-schema-agent.ts',
       )
       expect(result.templates).not.toHaveProperty('invalid_schema_agent')
     })
@@ -538,7 +546,7 @@ describe('Agent Validation', () => {
               instructionsPrompt: 'Test user prompt',
               stepPrompt: 'Test step prompt',
               inputSchema: {
-                prompt: null as any, // Invalid - null schema
+                prompt: 10 as any, // Invalid - number schema
               },
               outputMode: 'last_message',
               includeMessageHistory: true,
@@ -813,7 +821,9 @@ describe('Agent Validation', () => {
       expect(result.templates['test-agent']).toBeDefined()
 
       // Verify the loaded template's handleSteps field matches the original toString
-      expect(result.templates['test-agent'].handleSteps).toBe(expectedStringified)
+      expect(result.templates['test-agent'].handleSteps).toBe(
+        expectedStringified,
+      )
       expect(typeof result.templates['test-agent'].handleSteps).toBe('string')
     })
   })

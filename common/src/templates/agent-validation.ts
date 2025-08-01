@@ -283,8 +283,16 @@ function convertInputSchema(
   const fileContext = filePath ? ` in ${filePath}` : ''
 
   // Handle prompt schema
-  if (inputPromptSchema && Object.keys(inputPromptSchema).length > 0) {
+  if (inputPromptSchema) {
     try {
+      if (
+        typeof inputPromptSchema !== 'object' ||
+        Object.keys(inputPromptSchema).length === 0
+      ) {
+        throw new Error(
+          `Invalid inputSchema.prompt${fileContext}: Schema must be a valid non-empty JSON schema object. Found: ${typeof inputPromptSchema}`,
+        )
+      }
       const promptZodSchema = convertJsonSchemaToZod(inputPromptSchema)
       // Validate that the schema results in string or undefined
       const testResult = promptZodSchema.safeParse('test')
@@ -312,14 +320,22 @@ function convertInputSchema(
         error instanceof Error ? error.message : 'Unknown error'
       throw new Error(
         `Failed to convert inputSchema.prompt to Zod${fileContext}: ${errorMessage}. ` +
-          `Please check that your inputSchema.prompt is a valid JSON schema object.`,
+          `Please check that your inputSchema.prompt is a valid non-empty JSON schema object.`,
       )
     }
   }
 
   // Handle params schema
-  if (paramsSchema && Object.keys(paramsSchema).length > 0) {
+  if (paramsSchema) {
     try {
+      if (
+        typeof paramsSchema !== 'object' ||
+        Object.keys(paramsSchema).length === 0
+      ) {
+        throw new Error(
+          `Invalid inputSchema.params${fileContext}: Schema must be a valid non-empty JSON schema object. Found: ${typeof paramsSchema}`,
+        )
+      }
       const paramsZodSchema = convertJsonSchemaToZod(paramsSchema)
       result.params = paramsZodSchema
     } catch (error) {
@@ -327,7 +343,7 @@ function convertInputSchema(
         error instanceof Error ? error.message : 'Unknown error'
       throw new Error(
         `Failed to convert inputSchema.params to Zod${fileContext}: ${errorMessage}. ` +
-          `Please check that your inputSchema.params is a valid JSON schema object.`,
+          `Please check that your inputSchema.params is a valid non-empty JSON schema object.`,
       )
     }
   }
