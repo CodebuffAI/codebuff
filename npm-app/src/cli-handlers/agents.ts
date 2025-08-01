@@ -76,35 +76,12 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
     },
   ]
 
-  // Add edit option if there are custom agents
+  // Get custom agent files for display purposes
   const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
   let customAgentFiles: string[] = []
   if (fs.existsSync(agentsDir)) {
     const files = fs.readdirSync(agentsDir)
     customAgentFiles = filterCustomAgentFiles(files)
-  }
-
-  if (customAgentFiles.length > 0) {
-    const cliInstance = CLI.getInstance()
-
-    const editAgentOption =
-      cliInstance.agent === AgentTemplateTypes.sonnet4_agent_builder
-        ? {
-            id: '__edit_agent__',
-            name: '← Back to Base Agent',
-            description: 'Switch back to the default Codebuff assistant',
-            isBuiltIn: false,
-            isEditAgent: true,
-          }
-        : {
-            id: '__edit_agent__',
-            name: '✏️ Edit Agents',
-            description: 'Edit existing custom agents',
-            isBuiltIn: false,
-            isEditAgent: true,
-          }
-
-    actions.push(editAgentOption)
   }
 
   // Add agents section header
@@ -417,7 +394,7 @@ function renderAgentsList() {
   }
 
   // Display status line at bottom
-  const statusLine = `\n${gray(`Use ↑/↓/j/k to navigate, Enter to select, n to create new, ESC to go back`)}`
+  const statusLine = `\n${gray(`Use ↑/↓/j/k to navigate, Enter to select, ESC to go back`)}`
 
   process.stdout.write(statusLine)
   process.stdout.write(HIDE_CURSOR)
@@ -462,10 +439,7 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
 
         if (selectedAgent.isCreateNew) {
           exitAgentsBuffer(rl)
-          startAgentCreationChat(rl, onExit, () => {})
-        } else if (selectedAgent.isEditAgent) {
-          exitAgentsBuffer(rl)
-          startAgentEditFlow(rl, onExit)
+          startDirectAgentCreation(onExit)
         } else {
           exitAgentsBuffer(rl)
           // Start spinner for agent switching
@@ -504,7 +478,6 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
         centerSelectedItem()
       }
 
-      const statusLine = `\n${gray(`Use ↑/↓/j/k to navigate, Enter to select, ESC to go back`)}`
       renderAgentsList()
       return
     }
@@ -571,93 +544,25 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
   }
 }
 
-function startAgentCreationChatHandler(rl: any, onExit: () => void) {
-  startAgentCreationChat(rl, onExit, async (requirements) => {
-    await createAgentFromRequirements(requirements)
-    onExit()
-  })
-}
+function startDirectAgentCreation(onExit: () => void) {
+  // Send request directly to @Bob the Agent Builder without questionnaire
+  const prompt = `@Bob the Agent Builder create a new custom agent template for me. Please ask me what kind of agent I'd like to create and help me build it.`
 
-function startAgentEditFlow(rl: any, onExit: () => void) {
+  console.log(
+    green('\n🤖 Starting agent creation with Bob the Agent Builder...'),
+  )
+  console.log(gray('Tell Bob what kind of agent you want to create.'))
+
   const cliInstance = CLI.getInstance()
+  // Pre-fill the prompt and simulate Enter key press to send it
+  cliInstance.freshPrompt(prompt)
 
-  if (cliInstance.agent === AgentTemplateTypes.sonnet4_agent_builder) {
-    cliInstance
-      .resetAgent(undefined) // Reset to base agent (no specific agent)
-      .then(() => {
-        cliInstance.freshPrompt()
-      })
-      .catch((error) => {
-        console.error(red('Error switching back to base agent:'), error)
-        onExit()
-      })
-    return
-  }
+  // Simulate pressing Enter to send the prompt
+  setTimeout(() => {
+    cliInstance.rl.write('\n')
+  }, 100)
 
-  // Get list of custom agents to show in the prompt
-  const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
-  if (!fs.existsSync(agentsDir)) {
-    console.log(yellow('No custom agents found to edit.'))
-    onExit()
-    return
-  }
-
-  const files = fs.readdirSync(agentsDir)
-  const customAgentFiles = filterCustomAgentFiles(files)
-
-  if (customAgentFiles.length === 0) {
-    console.log(yellow('No custom agents found to edit.'))
-    onExit()
-    return
-  }
-
-  // Build list of available agents for the prompt
-  const localAgents = getLoadedAgentNames()
-  const agentsList = customAgentFiles
-    .map((file) => {
-      const agentId = extractAgentIdFromFileName(file)
-      const agentName = localAgents[agentId] || agentId
-      const filePath = path.join(agentsDir, file)
-      return `- **${agentName}** (${agentId}) - ${path.relative(getProjectRoot(), filePath)}`
-    })
-    .join('\n')
-
-  // Create edit prompt for agent-builder
-  const editPrompt = `I want to edit one of my existing custom agent templates. Here are the available agents:
-
-${agentsList}
-
-Please help me modify one of these agents. Just tell me which agent you'd like to edit and what changes you want to make. I can:
-- Change the agent's name, purpose, or specialty
-- Update the system prompt
-- Modify the tools and capabilities
-- Adjust the model or other settings
-- Update the parentInstructions
-
-Which agent would you like to edit and what changes do you want to make?`
-
-  // Use the agent-builder to edit agents
-  cliInstance
-    .resetAgent(
-      AgentTemplateTypes.sonnet4_agent_builder,
-      {
-        editMode: true,
-      },
-      editPrompt,
-    )
-    .then(() => {
-      console.log(green(`\n✏️ Ready to edit your agents!`))
-      console.log(
-        gray(
-          'Tell the agent-builder which agent to edit and what changes to make.',
-        ),
-      )
-      cliInstance.freshPrompt()
-    })
-    .catch((error) => {
-      console.error(red('Error starting agent edit:'), error)
-      onExit()
-    })
+  onExit()
 }
 
 // Cleanup function

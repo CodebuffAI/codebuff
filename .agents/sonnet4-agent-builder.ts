@@ -71,7 +71,7 @@ const config: AgentConfig = {
   handleSteps: function* ({ agentState, prompt, params }) {
     const AGENT_TEMPLATES_DIR = '.agents'
     const TYPES_DIR = `${AGENT_TEMPLATES_DIR}/types`
-    const TEMPLATE_TYPES_PATH = `${TYPES_DIR}/agent-config.ts`
+    const TEMPLATE_TYPES_PATH = `${TYPES_DIR}/agent-config.d.ts`
     const TOOL_DEFINITIONS_PATH = `${TYPES_DIR}/tools.d.ts`
 
     // Step 1: Create directory structure
@@ -88,7 +88,7 @@ const config: AgentConfig = {
     const { toolResult: configResult } = yield {
       toolName: 'read_files',
       args: {
-        paths: ['common/src/util/agent-config.ts'],
+        paths: ['common/src/util/types/agent-config.ts'],
       },
     }
 
@@ -107,7 +107,7 @@ const config: AgentConfig = {
     const { toolResult: toolsResult } = yield {
       toolName: 'read_files',
       args: {
-        paths: ['common/src/util/tools.d.ts'],
+        paths: ['common/src/util/types/tools.d.ts'],
       },
     }
 
@@ -133,8 +133,7 @@ const config: AgentConfig = {
       const requirements = {
         name: params?.name || 'Custom Agent',
         purpose:
-          params?.purpose ||
-          'A custom agent that helps with development tasks',
+          params?.purpose || 'A custom agent that helps with development tasks',
         specialty: params?.specialty || 'general development',
         model: params?.model || 'anthropic/claude-4-sonnet-20250522',
       }
