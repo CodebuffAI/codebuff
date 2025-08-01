@@ -48,11 +48,11 @@ export function isInSubagentBufferMode(): boolean {
 }
 
 /**
- * Display a formatted list of subagents with enhanced styling
+ * Display a formatted list of traces with enhanced styling
  */
 export function displaySubagentList(agents: SubagentData[]) {
-  console.log(bold(cyan('🤖 Available Subagents')))
-  console.log(gray(`Found ${pluralize(agents.length, 'subagent')}`))
+  console.log(bold(cyan('🤖 Available Traces')))
+  console.log(gray(`Found ${pluralize(agents.length, 'trace')}`))
   console.log()
   if (agents.length === 0) {
     console.log(gray('  (none)'))
@@ -81,10 +81,10 @@ export function enterSubagentBuffer(
     return
   }
 
-  // Validate agent ID exists
+  // Validate trace ID exists
   const agentData = getSubagentData(agentId)
   if (!agentData) {
-    console.log(yellow(`No subagent found with ID: ${agentId}`))
+    console.log(yellow(`No trace found with ID: ${agentId}`))
     const recentSubagents = getRecentSubagents(5)
     displaySubagentList(recentSubagents)
     return

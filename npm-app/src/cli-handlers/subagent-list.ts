@@ -14,7 +14,7 @@ import {
 let isInSubagentListBuffer = false
 let originalKeyHandlers: ((str: string, key: any) => void)[] = []
 // Make selectedIndex persistent across menu transitions
-// This maintains selection when navigating between subagent list and individual views
+// This maintains selection when navigating between trace list and individual views
 let persistentSelectedIndex = -1 // -1 means not initialized
 let scrollOffset = 0
 let allContentLines: string[] = []
@@ -34,30 +34,31 @@ export function isInSubagentListMode(): boolean {
 
 export function enterSubagentListBuffer(rl: any, onExit: () => void) {
   if (isInSubagentListBuffer) {
-    console.log(yellow('Already in subagent list mode!'))
+    console.log(yellow('Already in trace list mode!'))
     return
   }
 
-  // Get subagents in chronological order
+  // Get traces in chronological order
   subagentList = getSubagentsChronological(50) // Get more for the list
 
   if (subagentList.length === 0) {
-    console.log(yellow('No subagents found from previous runs.'))
+    console.log(yellow('No traces found from previous runs.'))
     console.log(
       gray(
-        'Subagents will appear here after you use spawn_agents in a conversation.',
+        'Traces will appear here after you use spawn_agents in a conversation.',
       ),
     )
+    onExit() // Return control to user
     return
   }
 
   // Initialize selectedIndex: reset to last item when entering from main screen,
-  // or use persistent value if returning from individual subagent view
+  // or use persistent value if returning from individual trace view
   if (
     persistentSelectedIndex === -1 ||
     persistentSelectedIndex >= subagentList.length
   ) {
-    // First time or invalid index - select the most recent subagent (last in chronological list)
+    // First time or invalid index - select the most recent trace (last in chronological list)
     persistentSelectedIndex = Math.max(0, subagentList.length - 1)
   }
   // Use the persistent selected index
@@ -129,8 +130,8 @@ function centerSelectedItem() {
 
 // Define header lines as a separate function
 const getHeaderLines = (terminalWidth: number) => [
-  bold(cyan('🤖 ')) + bold(magenta('Subagent History')),
-  gray(`${pluralize(subagentList.length, 'subagent run')} `),
+  bold(cyan('🤖 ')) + bold(magenta('Trace History')),
+  gray(`${pluralize(subagentList.length, 'trace run')} `),
   '',
   gray('─'.repeat(terminalWidth)),
   '',
@@ -143,9 +144,9 @@ function buildAllContentLines() {
   const selectedIndex = persistentSelectedIndex
 
   if (subagentList.length === 0) {
-    lines.push(yellow('No subagents found.'))
+    lines.push(yellow('No traces found.'))
   } else {
-    // Build all content lines for all subagents
+    // Build all content lines for all traces
     for (let i = 0; i < subagentList.length; i++) {
       subagentLinePositions.push(lines.length) // Store the starting line number
       const agent = subagentList[i]
@@ -357,7 +358,7 @@ function setupSubagentListKeyHandler(rl: any, onExit: () => void) {
       return
     }
 
-    // Handle Enter - select current subagent
+    // Handle Enter - select current trace
     if (key && key.name === 'return') {
       if (
         subagentList.length > 0 &&
@@ -366,7 +367,7 @@ function setupSubagentListKeyHandler(rl: any, onExit: () => void) {
         const selectedAgent = subagentList[persistentSelectedIndex]
         exitSubagentListBuffer(rl)
 
-        // Enter the individual subagent buffer
+        // Enter the individual trace buffer
         enterSubagentBuffer(rl, selectedAgent.agentId, onExit)
       }
       return
@@ -446,7 +447,7 @@ export function resetSubagentSelectionToLast() {
   persistentSelectedIndex = -1 // This will trigger reset to last item on next entry
 }
 
-// Cleanup function to ensure we exit subagent list buffer on process termination
+// Cleanup function to ensure we exit trace list buffer on process termination
 export function cleanupSubagentListBuffer() {
   if (isInSubagentListBuffer) {
     process.stdout.write(SHOW_CURSOR)

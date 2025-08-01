@@ -38,7 +38,7 @@ export const interactiveCommandDetails: CommandInfo[] = [
     baseCommand: 'help',
     description: 'Display help information',
     isSlashCommand: true,
-    commandText: '', // Empty commandText ensures it's not shown in the main interactive list
+    commandText: '',
     aliases: ['h'], // Optional: if you want /h to also work for tab completion
     requireSlash: false,
   },
@@ -52,14 +52,23 @@ export const interactiveCommandDetails: CommandInfo[] = [
   {
     commandText: '"login"',
     baseCommand: 'login',
+    aliases: ['signin'],
     description: 'Authenticate your session',
-    isSlashCommand: false,
+    isSlashCommand: true,
+    requireSlash: false,
+  },
+  {
+    commandText: '"logout"',
+    baseCommand: 'logout',
+    aliases: ['signout'],
+    description: 'Sign out of your session',
+    isSlashCommand: true,
     requireSlash: false,
   },
   {
     commandText: '"diff" or "d"',
     baseCommand: 'diff',
-    aliases: ['d'],
+    aliases: ['d', 'dof', 'doff', 'dofff', 'dif', 'iff', 'difff'],
     description: 'Show last assistant change diff',
     isSlashCommand: true,
     requireSlash: false,
@@ -88,9 +97,11 @@ export const interactiveCommandDetails: CommandInfo[] = [
   },
   {
     commandText: '"usage" or "credits"',
+    baseCommand: 'usage',
+    aliases: ['credits'],
     description: 'View remaining / bonus AI credits',
+    isSlashCommand: true,
     requireSlash: false,
-    // This entry will be expanded into two slash commands: /usage and /credits
   },
   {
     commandText: '"reset"',
@@ -135,20 +146,7 @@ export const interactiveCommandDetails: CommandInfo[] = [
     commandText: '',
     requireSlash: false,
   },
-  {
-    baseCommand: 'usage',
-    description: 'View AI credits usage',
-    isSlashCommand: true,
-    commandText: '',
-    requireSlash: false,
-  },
-  {
-    baseCommand: 'credits',
-    description: 'View AI credits balance',
-    isSlashCommand: false,
-    commandText: '',
-    requireSlash: false,
-  },
+
   {
     baseCommand: 'ask',
     description: "Switch to ask mode (won't modify code)",
@@ -186,11 +184,12 @@ export const interactiveCommandDetails: CommandInfo[] = [
   },
 
   {
-    baseCommand: 'subagent',
-    description: 'Show subagent list or view specific subagent by ID',
+    baseCommand: 'trace',
+    description: 'Show trace list or view specific trace by ID',
     isSlashCommand: true,
     commandText: '',
-    params: '[agent-id]',
+    params: '[trace-id]',
+    aliases: ['traces'],
     requireSlash: false,
   },
 
@@ -199,14 +198,24 @@ export const interactiveCommandDetails: CommandInfo[] = [
     description: `Manage custom agent templates in ${AGENT_TEMPLATES_DIR}`,
     isSlashCommand: true,
     commandText: '"agents"',
+    aliases: ['agent'],
     requireSlash: false,
   },
 
   {
     commandText: '"exit" or Ctrl-C x2',
     baseCommand: 'exit',
+    aliases: ['quit', 'q'],
     description: 'Quit Codebuff',
     isSlashCommand: true,
+    requireSlash: false,
+  },
+  {
+    baseCommand: 'konami',
+    description: 'Easter egg',
+    isSlashCommand: false, // Hidden from slash menu
+    commandText: '', // Hidden from main menu
+    aliases: ['uuddlrlrba', 'codebuffy'],
     requireSlash: false,
   },
 ]

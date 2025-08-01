@@ -397,10 +397,17 @@ export class CLI {
       const slashCommands = getSlashCommands()
       const currentInput = line.substring(1) // Text after '/'
 
-      const matches = slashCommands
-        .map((cmd) => cmd.baseCommand) // Get base command strings
-        .filter((cmdName) => cmdName && cmdName.startsWith(currentInput))
-        .map((cmdName) => `/${cmdName}`) // Add back the slash for display
+      // Get all command names (base commands + aliases) that match the input
+      const allCommandNames = slashCommands.flatMap((cmd) => [
+        cmd.baseCommand,
+        ...(cmd.aliases || []),
+      ])
+      const matches = allCommandNames
+        .filter(
+          (cmdName): cmdName is string =>
+            !!cmdName && cmdName.startsWith(currentInput),
+        )
+        .map((cmdName) => `/${cmdName}`)
 
       if (matches.length > 0) {
         return [matches, line] // Return all matches and the full line typed so far
@@ -704,7 +711,23 @@ export class CLI {
    * @param command The command to check (without leading slash)
    */
   private isKnownSlashCommand(command: string): boolean {
-    return getSlashCommands().some((cmd) => cmd.baseCommand === command)
+    return getSlashCommands().some(
+      (cmd) => cmd.baseCommand === command || cmd.aliases?.includes(command),
+    )
+  }
+
+  /**
+   * Checks if input matches a command (base command or any of its aliases)
+   * @param input The input to check
+   * @param baseCommand The base command to look for
+   */
+  private isCommandOrAlias(input: string, baseCommand: string): boolean {
+    const commandInfo = interactiveCommandDetails.find(
+      (cmd) => cmd.baseCommand === baseCommand,
+    )
+    return (
+      input === baseCommand || (commandInfo?.aliases?.includes(input) ?? false)
+    )
   }
 
   /**
@@ -741,7 +764,6 @@ export class CLI {
       const message = costModeMatch[2]?.trim() || ''
       const hasSlash = userInput.startsWith('/')
 
-      // Check if this command requires a slash for local processing
       const commandInfo = interactiveCommandDetails.find(
         (cmd) => cmd.baseCommand === mode,
       )
@@ -749,7 +771,7 @@ export class CLI {
 
       // If command requires slash but no slash provided, forward to backend
       if (requiresSlash && !hasSlash) {
-        return userInput // Forward to backend
+        return userInput
       }
 
       // Track the cost mode command usage
@@ -789,16 +811,14 @@ export class CLI {
 
       if (!message) {
         this.freshPrompt()
-        return null // Fully handled, no message to forward
+        return null
       }
 
-      // Return the message part to be processed as user input
       return message
     }
 
-    // Handle empty slash command
     if (userInput === '/') {
-      return userInput // Let it be processed as a prompt
+      return userInput
     }
 
     // Track slash command usage if it starts with '/'
@@ -819,17 +839,17 @@ export class CLI {
       })
     }
 
-    if (cleanInput === 'help' || cleanInput === 'h') {
+    if (this.isCommandOrAlias(cleanInput, 'help')) {
       displayMenu()
       this.freshPrompt()
       return null
     }
-    if (cleanInput === 'login' || cleanInput === 'signin') {
+    if (this.isCommandOrAlias(cleanInput, 'login')) {
       await Client.getInstance().login()
       checkpointManager.clearCheckpoints()
       return null
     }
-    if (cleanInput === 'logout' || cleanInput === 'signout') {
+    if (this.isCommandOrAlias(cleanInput, 'logout')) {
       await Client.getInstance().logout()
       this.freshPrompt()
       return null
@@ -854,11 +874,11 @@ export class CLI {
       return null
     }
 
-    if (cleanInput === 'usage' || cleanInput === 'credits') {
+    if (this.isCommandOrAlias(cleanInput, 'usage')) {
       await Client.getInstance().getUsage()
       return null
     }
-    if (cleanInput === 'quit' || cleanInput === 'exit' || cleanInput === 'q') {
+    if (this.isCommandOrAlias(cleanInput, 'exit')) {
       await this.handleExit()
       return null
     }
@@ -886,74 +906,74 @@ export class CLI {
       this.freshPrompt()
       return null
     }
-    if (['diff', 'doff', 'dif', 'iff', 'd'].includes(cleanInput)) {
+    if (this.isCommandOrAlias(cleanInput, 'diff')) {
       handleDiff()
       this.freshPrompt()
       return null
     }
-    if (
-      cleanInput === 'uuddlrlrba' ||
-      cleanInput === 'konami' ||
-      cleanInput === 'codebuffy'
-    ) {
+    if (this.isCommandOrAlias(cleanInput, 'konami')) {
       showEasterEgg(this.freshPrompt.bind(this))
       return null
     }
 
-    // Handle subagent command
-    if (cleanInput.startsWith('subagent ')) {
-      const agentId = cleanInput.substring('subagent '.length).trim()
+    // Handle trace command (with alternate words support)
+    const [commandBase] = cleanInput.split(' ')
+    if (this.isCommandOrAlias(commandBase, 'trace')) {
+      const spaceIndex = cleanInput.indexOf(' ')
+      if (spaceIndex > 0) {
+        // Handle trace with ID
+        const agentId = cleanInput.substring(spaceIndex + 1).trim()
 
-      if (!agentId) {
-        console.log(
-          yellow('Please provide a subagent ID. Usage: subagent <agent-id>'),
-        )
-        const recentSubagents = getRecentSubagents(10)
-        displaySubagentList(recentSubagents)
-        if (recentSubagents.length === 0) {
-          // Give control back to user when no subagents exist
-          this.freshPrompt()
-        } else {
-          // Pre-fill the prompt with '/subagent ' for easy completion
-          this.freshPrompt('/subagent ')
+        if (!agentId) {
+          console.log(
+            yellow(
+              `Please provide a trace ID. Usage: ${commandBase} <trace-id>`,
+            ),
+          )
+          const recentSubagents = getRecentSubagents(10)
+          displaySubagentList(recentSubagents)
+          if (recentSubagents.length === 0) {
+            // Give control back to user when no subagents exist
+            this.freshPrompt()
+          } else {
+            // Pre-fill the prompt with the command for easy completion
+            this.freshPrompt(`/${commandBase} `)
+          }
+          return null
         }
+
+        if (isInSubagentBufferMode()) {
+          console.log(
+            yellow('Already in trace buffer mode! Press ESC to exit.'),
+          )
+          this.freshPrompt()
+          return null
+        }
+
+        enterSubagentBuffer(this.rl, agentId, () => {
+          // Callback when exiting subagent buffer
+          console.log(green('\nExited trace buffer mode!'))
+          this.freshPrompt()
+        })
+        return null
+      } else {
+        // Handle bare trace command - show trace list
+        if (isInSubagentListMode()) {
+          console.log(yellow('Already in trace list mode! Press ESC to exit.'))
+          this.freshPrompt()
+          return null
+        }
+
+        // Reset selection to last item when entering from main screen
+        resetSubagentSelectionToLast()
+        enterSubagentListBuffer(this.rl, () => {
+          this.freshPrompt()
+        })
         return null
       }
-
-      if (isInSubagentBufferMode()) {
-        console.log(
-          yellow('Already in subagent buffer mode! Press ESC to exit.'),
-        )
-        this.freshPrompt()
-        return null
-      }
-
-      enterSubagentBuffer(this.rl, agentId, () => {
-        // Callback when exiting subagent buffer
-        console.log(green('\nExited subagent buffer mode!'))
-        this.freshPrompt()
-      })
-      return null
     }
 
-    // Handle bare 'subagent' command (without space) - show subagent list
-    if (cleanInput === 'subagent') {
-      if (isInSubagentListMode()) {
-        console.log(yellow('Already in subagent list mode! Press ESC to exit.'))
-        this.freshPrompt()
-        return null
-      }
-
-      // Reset selection to last item when entering from main screen
-      resetSubagentSelectionToLast()
-      enterSubagentListBuffer(this.rl, () => {
-        this.freshPrompt()
-      })
-      return null
-    }
-
-    // Handle 'agents' command - show agent management interface
-    if (cleanInput === 'agents') {
+    if (this.isCommandOrAlias(cleanInput, 'agents')) {
       if (isInAgentsMode()) {
         console.log(yellow('Already in agents mode! Press ESC to exit.'))
         this.freshPrompt()
