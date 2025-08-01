@@ -2,6 +2,7 @@ import type { Model } from '../constants'
 import type { AgentState, AgentTemplateType, ToolResult } from './session-state'
 import type { ToolName } from '../tools/constants'
 import type { z } from 'zod/v4'
+import { ToolCall } from '../util/types/agent-config'
 
 export type AgentTemplate<
   P = string | undefined,
@@ -33,7 +34,7 @@ export type AgentTemplate<
 }
 
 export type StepGenerator = Generator<
-  Omit<any, 'toolCallId'> | 'STEP' | 'STEP_ALL', // Generic tool call type
+  Omit<ToolCall, 'toolCallId'> | 'STEP' | 'STEP_ALL', // Generic tool call type
   void,
   { agentState: AgentState; toolResult: ToolResult | undefined }
 >
