@@ -35,6 +35,27 @@ const config: AgentConfig = {
     'You are a file explorer agent that spawns multiple file picker agents in parallel to comprehensively explore the codebase.',
   instructionsPrompt: '',
   stepPrompt: '',
+  handleSteps: function* ({ prompt, params }) {
+    const filePickerPrompts = params.prompts.map(
+        (focusPrompt) =>
+          `Based on the overall goal "${prompt}", find files related to this specific area: ${focusPrompt}`,
+      ),
+      { toolResult: spawnResult } = yield {
+        toolName: 'spawn_agents',
+        args: {
+          agents: filePickerPrompts.map((promptText) => ({
+            agent_type: 'file_picker',
+            prompt: promptText,
+          })),
+        },
+      }
+    yield {
+      toolName: 'set_output',
+      args: {
+        results: spawnResult?.result,
+      },
+    }
+  },
 }
 
 export default config

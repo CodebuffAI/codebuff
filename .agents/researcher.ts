@@ -22,6 +22,13 @@ const config: AgentConfig = {
   instructionsPrompt: '',
   stepPrompt:
     "Don't forget to end your response with the end_turn tool: <end_turn></end_turn>",
+  handleSteps: function* ({ agentState, prompt, params }) {
+    yield {
+      toolName: 'web_search',
+      args: { prompt },
+    }
+    yield 'STEP_ALL'
+  },
 }
 
 export default config

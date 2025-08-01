@@ -21,6 +21,13 @@ const config: AgentConfig = {
     'Provide a short analysis of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.\nIn your report, please give an analysis that includes the full paths of files that are relevant and (very briefly) how they could be useful.',
   stepPrompt:
     'Do not use the find_files tool or any tools again. Just give your response.',
+  handleSteps: function* ({ agentState, prompt, params }) {
+    yield {
+      toolName: 'find_files',
+      args: { prompt },
+    }
+    yield 'STEP_ALL'
+  },
 }
 
 export default config
