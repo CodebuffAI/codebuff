@@ -252,25 +252,6 @@ describe('DynamicAgentConfigSchema', () => {
       })
     })
 
-    it('should accept template with any parentInstructions agent ID at schema level', () => {
-      const template = {
-        ...validBaseTemplate,
-        parentInstructions: {
-          invalid_agent_id: 'Some instruction',
-          custom_agent: 'Another instruction',
-        },
-      }
-
-      const result = DynamicAgentConfigSchema.safeParse(template)
-      expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data.parentInstructions).toEqual({
-          invalid_agent_id: 'Some instruction',
-          custom_agent: 'Another instruction',
-        })
-      }
-    })
-
     it('should reject template with outputMode json but missing set_output tool', () => {
       const template = {
         ...validBaseTemplate,

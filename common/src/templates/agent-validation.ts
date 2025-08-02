@@ -1,13 +1,10 @@
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
+import { normalizeAgentNames } from '../util/agent-name-normalization'
 import {
-  formatParentInstructionsError,
   formatSubagentError,
-  validateParentInstructions,
   validateSubagents,
 } from '../util/agent-template-validation'
-
-import { normalizeAgentNames } from '../util/agent-name-normalization'
 import { logger } from '../util/logger'
 
 import type { ToolName } from '../tools/constants'
@@ -171,23 +168,6 @@ export function validateSingleAgent(
           error: formatSubagentError(
             subagentValidation.invalidAgents,
             subagentValidation.availableAgents,
-          ),
-        }
-      }
-    }
-
-    // Validate parent instructions if they exist
-    if (template.parentInstructions) {
-      const parentInstructionsValidation = validateParentInstructions(
-        template.parentInstructions,
-        dynamicAgentIds,
-      )
-      if (!parentInstructionsValidation.valid) {
-        return {
-          success: false,
-          error: formatParentInstructionsError(
-            parentInstructionsValidation.invalidAgents,
-            parentInstructionsValidation.availableAgents,
           ),
         }
       }
