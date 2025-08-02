@@ -14,7 +14,7 @@ Prefer to use spawn_agents unless you really need this ability to spawn asynchro
 
 Example:
 ${getToolCallString(toolName, {
-  agents: JSON.stringify([
+  agents: [
     {
       agent_type: 'file_picker',
       prompt: 'Find files related to authentication',
@@ -24,7 +24,7 @@ ${getToolCallString(toolName, {
       prompt: 'Research best practices for user authentication',
       params: { keywords: ['authentication', 'nextjs', 'auth0'] },
     },
-  ]),
+  ],
 })}
     `.trim(),
 } satisfies ToolDescription

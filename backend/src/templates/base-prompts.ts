@@ -115,17 +115,21 @@ ${getToolCallString('read_files', { paths: ['src/components/foo.tsx'] })}
 
 Now, I'll add the console.log at the beginning of the Foo component:
 
-${getToolCallString('write_file', {
+${getToolCallString('str_replace', {
   path: 'src/components/foo.tsx',
-  content: `// ... existing code ...
-function Foo(props: {
-bar: string
+  replacements: [
+    {
+      old: `function Foo(props: {
+  bar: string
 }) {
-console.log("Foo props:", props);
-// ... rest of the function ...
-}
-// ... existing code ...
 `,
+      new: `function Foo(props: {
+  bar: string
+})
+  console.log("Foo props:", props);
+`,
+    },
+  ],
 })}
 
 Let me check my changes

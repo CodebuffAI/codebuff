@@ -18,10 +18,10 @@ Example:
 ${getToolCallString(toolName, {
   target_agent_id: 'PARENT_ID',
   prompt: 'Found 5 authentication-related files',
-  params: JSON.stringify({
+  params: {
     files: ['src/auth.ts', 'src/login.ts'],
     confidence: 0.9,
-  }),
+  },
 })}
     `.trim(),
 } satisfies ToolDescription

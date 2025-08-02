@@ -8,7 +8,7 @@ export const findFilesTool = {
   description: `
 Example:
 ${getToolCallString(toolName, {
-  description: 'The implementation of function foo',
+  prompt: 'The implementation of function foo',
 })}
 
 Purpose: Better fulfill the user request by reading files which could contain information relevant to the user's request.

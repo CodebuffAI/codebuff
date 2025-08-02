@@ -12,13 +12,13 @@ The prompt field is a simple string, while params is a JSON object that gets val
 
 Example:
 ${getToolCallString(toolName, {
-  agents: JSON.stringify([
+  agents: [
     {
       agent_type: 'planner',
       prompt: 'Create a plan for implementing user authentication',
       params: { filePaths: ['src/auth.ts', 'src/user.ts'] },
     },
-  ]),
+  ],
 })}
     `.trim(),
 } satisfies ToolDescription

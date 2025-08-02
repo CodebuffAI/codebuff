@@ -83,7 +83,6 @@ describe.skip('mainPrompt (Integration)', () => {
       },
     }
 
-
     spyOn(websocketAction, 'requestToolCall').mockImplementation(
       async (
         ws: WebSocket,
@@ -349,7 +348,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       {
         role: 'assistant',
         content: getToolCallString('read_files', {
-          paths: 'src/util/messages.ts',
+          paths: ['src/util/messages.ts'],
         }),
       },
       {
@@ -434,7 +433,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         {
           role: 'assistant',
           content: getToolCallString('read_files', {
-            paths: 'packages/backend/src/index.ts',
+            paths: ['packages/backend/src/index.ts'],
           }),
         },
         {

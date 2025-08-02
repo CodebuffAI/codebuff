@@ -47,7 +47,7 @@ describe('createXMLStreamParser', () => {
   test('handles multiple tool calls in sequence', async () => {
     const xml =
       getToolCallString('run_terminal_command', { command: 'ls' }) +
-      getToolCallString('read_files', { paths: 'file.txt' })
+      getToolCallString('read_files', { paths: ['file.txt'] })
     let result = ''
 
     const processor = createXMLStreamParser(toolRenderers)
@@ -78,7 +78,7 @@ describe('createXMLStreamParser', () => {
     const xml =
       getToolCallString('run_terminal_command', { command: 'ls' }) +
       'Some text between tool calls' +
-      getToolCallString('read_files', { paths: 'file.txt' })
+      getToolCallString('read_files', { paths: ['file.txt'] })
     let result = ''
 
     const processor = createXMLStreamParser(toolRenderers)

@@ -96,10 +96,14 @@ However, **DO NOT** narrate the tool or parameter names themselves.
 User: can you update the console logs in example/file.ts?
 Assistant: Sure thing! Let's update that file!
 
-${getToolCallString('write_file', {
+${getToolCallString('str_replace', {
   path: 'path/to/example/file.ts',
-  instructions: 'Update the console logs',
-  content: "console.log('Hello from Buffy!');",
+  replacements: [
+    {
+      old: "console.log('Hello world!');\n",
+      new: "console.log('Hello from Buffy!');\n",
+    },
+  ],
 })}
 
 All done with the update!

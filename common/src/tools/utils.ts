@@ -8,10 +8,13 @@ import { llmToolCallSchema } from './list'
 import { closeXml } from '../util/xml'
 
 import type { StringToolResultPart, ToolName } from './constants'
+import type z from 'zod/v4'
 
 export function getToolCallString<T extends ToolName | (string & {})>(
   toolName: T,
-  params: Record<string, any>,
+  params: T extends ToolName
+    ? z.input<(typeof llmToolCallSchema)[T]['parameters']>
+    : Record<string, any>,
   ...endsAgentStep: T extends ToolName ? [] : [boolean]
 ): string {
   const endsAgentStepValue =
