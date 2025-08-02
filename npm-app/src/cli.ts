@@ -1170,10 +1170,12 @@ export class CLI {
       const isAfterSpace = currentLine.endsWith(' @')
 
       if (isAtStart || isAfterSpace) {
+        const localAgentInfoPromise = getLocalAgentInfo()
         // Add a small delay to allow paste detection to work
-        setTimeout(() => {
+        setTimeout(async () => {
           // Check again if we're still not pasting after the delay
           if (!this.isPasting) {
+            await localAgentInfoPromise
             this.displayAgentMenu()
             // Re-read the current line from readline to avoid stale data
             const updatedLine = this.pastedContent + (this.rl as any).line
