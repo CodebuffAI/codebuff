@@ -4,7 +4,6 @@ import { DynamicAgentTemplateSchema } from '../../../types/dynamic-agent-templat
 
 export const publishAgentsRequestSchema = z.object({
   data: DynamicAgentTemplateSchema.array(),
-  publisherId: z.string().optional(),
   authToken: z.string(),
 })
 export type PublishAgentsRequest = z.infer<typeof publishAgentsRequestSchema>

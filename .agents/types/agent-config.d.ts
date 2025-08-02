@@ -10,7 +10,7 @@
  *   const config: AgentConfig = {
  *     // ... your agent configuration with full type safety ...
  *   }
- *   
+ *
  *   export default config
  */
 
@@ -24,6 +24,9 @@ export interface AgentConfig {
 
   /** Version string (if not provided, will default to '0.0.1' and be bumped on each publish) */
   version?: string
+
+  /** Publisher ID for the agent. Must be provided if you want to publish the agent. */
+  publisher?: string
 
   /** Human-readable name for the agent */
   displayName: string

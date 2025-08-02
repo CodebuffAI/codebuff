@@ -93,10 +93,4 @@ export const cliOptions: CliParam[] = [
     menuDescription: 'Log subagent messages to trace files',
     hidden: false,
   },
-  {
-    flags: '--publisher <publisher-id>',
-    description: 'Specify which publisher to use when publishing agents',
-    menuDescription: 'Specify publisher for agent publishing',
-    hidden: false,
-  },
 ]

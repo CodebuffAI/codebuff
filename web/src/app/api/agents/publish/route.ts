@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data, publisherId, authToken } = parseResult.data
+    const { data, authToken } = parseResult.data
     const agents = data as DynamicAgentTemplate[] // data is now an array of agents
 
     // Try cookie-based auth first, then fall back to authToken validation using proper function
@@ -60,6 +60,35 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Check that all agents have publisher field set
+    const agentsWithoutPublisher = agents.filter((agent) => !agent.publisher)
+    if (agentsWithoutPublisher.length > 0) {
+      const agentIds = agentsWithoutPublisher
+        .map((agent) => agent.id)
+        .join(', ')
+      return NextResponse.json(
+        {
+          error: 'Publisher field required',
+          details: `All agents must have the "publisher" field set. Missing for agents: ${agentIds}`,
+        },
+        { status: 400 }
+      )
+    }
+
+    // Check that all agents use the same publisher
+    const publisherIds = [...new Set(agents.map((agent) => agent.publisher))]
+    if (publisherIds.length > 1) {
+      return NextResponse.json(
+        {
+          error: 'Multiple publishers not allowed',
+          details: `All agents in a single request must use the same publisher. Found: ${publisherIds.join(', ')}`,
+        },
+        { status: 400 }
+      )
+    }
+
+    const requestedPublisherId = publisherIds[0]!
 
     // Validate all agents
     const agentMap = agents.reduce(
@@ -90,8 +119,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Look up publishers the user has access to (owned by user or their organizations)
-    const publishers = await db
+    // Verify user has access to the requested publisher
+    const publisherResult = await db
       .select({
         publisher: schema.publisher,
         organization: schema.org,
@@ -106,86 +135,33 @@ export async function POST(request: NextRequest) {
         )
       )
       .where(
-        or(
-          eq(schema.publisher.user_id, userId),
-          and(
-            eq(schema.orgMember.user_id, userId),
-            or(
-              eq(schema.orgMember.role, 'owner'),
-              eq(schema.orgMember.role, 'admin')
+        and(
+          eq(schema.publisher.id, requestedPublisherId),
+          or(
+            eq(schema.publisher.user_id, userId),
+            and(
+              eq(schema.orgMember.user_id, userId),
+              or(
+                eq(schema.orgMember.role, 'owner'),
+                eq(schema.orgMember.role, 'admin')
+              )
             )
           )
         )
       )
-      .orderBy(desc(schema.publisher.updated_at))
-    if (publishers.length === 0) {
+      .limit(1)
+
+    if (publisherResult.length === 0) {
       return NextResponse.json(
         {
-          error: 'No publisher associated with user',
-          details: 'User must have a publisher to publish agents',
+          error: 'Publisher not found or not accessible',
+          details: `Publisher '${requestedPublisherId}' not found or you don't have permission to publish to it`,
         },
         { status: 403 }
       )
     }
 
-    // If a specific publisher is requested, find it
-    let selectedPublisher
-    if (publisherId) {
-      const matchingPublisher = publishers.find(
-        ({ publisher }) => publisher.id === publisherId
-      )
-      if (!matchingPublisher) {
-        // Format available publishers for error message
-        const availablePublishers = publishers.map(
-          ({ publisher, organization }) => ({
-            id: publisher.id,
-            name: publisher.name,
-            ownershipType: publisher.user_id ? 'user' : 'organization',
-            organizationName: organization?.name,
-          })
-        )
-
-        return NextResponse.json(
-          {
-            error: 'Specified publisher not found or not accessible',
-            details: `Publisher '${publisherId}' not found. You have access to: ${availablePublishers
-              .map(
-                (p) =>
-                  `${p.id} (${p.name}${p.organizationName ? ` - ${p.organizationName}` : ''})`
-              )
-              .join(', ')}`,
-            availablePublishers,
-          },
-          { status: 403 }
-        )
-      }
-      selectedPublisher = matchingPublisher.publisher
-    } else if (publishers.length > 1) {
-      // Multiple publishers available, need to specify which one
-      const availablePublishers = publishers.map(
-        ({ publisher, organization }) => ({
-          id: publisher.id,
-          name: publisher.name,
-          ownershipType: publisher.user_id ? 'user' : 'organization',
-          organizationName: organization?.name,
-        })
-      )
-
-      return NextResponse.json(
-        {
-          error: 'Multiple publishers available',
-          details:
-            'You have access to multiple publishers. Please specify which one to use with the --publisher flag.',
-          availablePublishers,
-        },
-        { status: 403 }
-      )
-    } else {
-      // Use the only available publisher
-      selectedPublisher = publishers[0].publisher
-    }
-
-    const publisher = selectedPublisher
+    const publisher = publisherResult[0].publisher
 
     // Process all agents atomically
     const agentVersions: { id: string; version: Version; data: any }[] = []

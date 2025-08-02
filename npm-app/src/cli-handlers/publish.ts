@@ -16,11 +16,7 @@ import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-
 /**
  * Handle the publish command to upload agent templates to the backend
  * @param agentId The id of the agent to publish (required)
- * @param publisherId The id of the publisher to use (optional)
- */ export async function handlePublish(
-  agentIds: string[],
-  publisherId?: string,
-): Promise<void> {
+ */ export async function handlePublish(agentIds: string[]): Promise<void> {
   const user = getUserCredentials()
 
   if (!user) {
@@ -95,7 +91,6 @@ import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-
       const result = await publishAgentTemplates(
         Object.values(matchingTemplates),
         user.authToken!,
-        publisherId,
       )
 
       if (result.success) {
@@ -111,73 +106,27 @@ import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-
       }
 
       console.log(red(`❌ Failed to publish agents: ${result.error}`))
-      if (result.statusCode !== 403) {
-        return
-      }
 
-      // Check if this is a "no publisher" error vs "multiple publishers" error
-      if (result.error?.includes('No publisher associated with user')) {
+      // Show helpful guidance based on error type
+      if (result.error?.includes('Publisher field required')) {
         console.log()
-        console.log(
-          cyan('Please visit the website to create your publisher profile:'),
-        )
-        console.log(yellow(`${websiteUrl}/publishers`))
-        console.log()
-        console.log('A publisher profile allows you to:')
-        console.log('  • Publish and manage your agents')
-        console.log('  • Build your reputation in the community')
-        console.log('  • Organize agents under your name or organization')
+        console.log(cyan('Add a "publisher" field to your agent templates:'))
+        console.log(yellow('  "publisher": "<publisher-id>"'))
         console.log()
       } else if (
-        result.availablePublishers &&
-        result.availablePublishers.length > 0
+        result.error?.includes('Publisher not found or not accessible')
       ) {
-        // Show available publishers
+        console.log()
         console.log(
           cyan(
-            'You have access to multiple publishers. Please specify which one to use:',
+            'Check that the publisher ID is correct and you have access to it.',
           ),
         )
         console.log()
-        console.log(cyan('Available publishers:'))
-        result.availablePublishers.forEach((publisher) => {
-          const orgInfo = publisher.organizationName
-            ? ` (${publisher.organizationName})`
-            : ''
-          const typeInfo =
-            publisher.ownershipType === 'organization'
-              ? ' [Organization]'
-              : ' [Personal]'
-          console.log(
-            `  • ${yellow(publisher.id)} - ${publisher.name}${orgInfo}${typeInfo}`,
-          )
-        })
-        console.log()
-        console.log('Run one of these commands:')
-        result.availablePublishers.forEach((publisher) => {
-          console.log(
-            yellow(
-              `  codebuff publish ${agentIds.join(' ')} --publisher ${publisher.id}`,
-            ),
-          )
-        })
-        console.log()
-        console.log(cyan('Or visit the website to manage your publishers:'))
-        console.log(yellow(`${websiteUrl}/publishers`))
-        console.log()
-      } else {
-        // Generic 403 error
-        console.log(cyan('You may need to specify which publisher to use.'))
-        console.log()
-        console.log('Try running:')
-        console.log(
-          yellow(`  publish ${agentIds.join(' ')} --publisher <publisher-id>`),
-        )
-        console.log()
-        console.log(cyan('Visit the website to see your available publishers:'))
-        console.log(yellow(`${websiteUrl}/publishers`))
-        console.log()
       }
+
+      console.log(cyan('Visit the website to manage your publishers:'))
+      console.log(yellow(`${websiteUrl}/publishers`))
     } catch (error) {
       console.log(
         red(
@@ -204,7 +153,6 @@ import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-
 async function publishAgentTemplates(
   data: DynamicAgentTemplate[],
   authToken: string,
-  publisherId?: string,
 ): Promise<PublishAgentsResponse & { statusCode?: number }> {
   try {
     const response = await fetch(`${websiteUrl}/api/agents/publish`, {
@@ -215,7 +163,6 @@ async function publishAgentTemplates(
       body: JSON.stringify({
         data,
         authToken,
-        ...(publisherId && { publisherId }),
       }),
     })
 

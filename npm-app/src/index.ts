@@ -137,8 +137,7 @@ For all commands and options, run 'codebuff' and then type 'help'.
   // Handle publish command
   if (args[0] === 'publish') {
     const agentNames = args.slice(1)
-    const publisherId = options.publisher
-    await handlePublish(agentNames, publisherId)
+    await handlePublish(agentNames)
     process.exit(0)
   }
 

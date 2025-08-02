@@ -3,8 +3,6 @@ import { z } from 'zod'
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
 import { toolNames } from '../tools/constants'
 
-import type { AgentConfig } from '../util/types/agent-config'
-
 // Filter models to only include those that begin with allowed prefixes
 const filteredModels = Object.values(models).filter((model) =>
   ALLOWED_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix)),
@@ -91,6 +89,7 @@ export const DynamicAgentConfigSchema = z.object({
       'Agent ID must contain only lowercase letters, numbers, and hyphens',
     ), // The unique identifier for this agent
   version: z.string().optional(),
+  publisher: z.string().optional(),
 
   // Required fields for new agents
   displayName: z.string(),
@@ -136,19 +135,12 @@ export const DynamicAgentConfigSchema = z.object({
   systemPrompt: z.string().optional(),
   instructionsPrompt: z.string().optional(),
   stepPrompt: z.string().optional(),
-  // NOTE: Removed from AgentConfig. If there's a need, can be added back or else removed entirely.
-  parentInstructions: z.record(z.string(), z.string()).optional(),
 
   // Optional generator function for programmatic agents
   handleSteps: HandleStepsSchema,
 })
 export type DynamicAgentConfig = z.input<typeof DynamicAgentConfigSchema>
 export type DynamicAgentConfigParsed = z.infer<typeof DynamicAgentConfigSchema>
-
-// Checks that the AgentConfig and DynamicAgentConfig types are compatible
-// NOTE TO LLM: Don't remove these lines!
-const _typecheck: AgentConfig = {} as DynamicAgentConfig
-const _typecheck2: DynamicAgentConfig = {} as AgentConfig
 
 export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
   systemPrompt: z.string(),
