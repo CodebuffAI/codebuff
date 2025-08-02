@@ -6,7 +6,6 @@ import {
   openrouterModels,
   AGENT_CONFIG_FILE,
 } from '@codebuff/common/constants'
-import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
 
@@ -264,7 +263,6 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
           command: `mkdir -p ${TYPES_DIR}`,
           process_type: 'SYNC',
           timeout_seconds: 10,
-          cb_easp: false,
         },
       }
 
@@ -275,7 +273,6 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
           path: TEMPLATE_TYPES_PATH,
           instructions: 'Create agent template type definitions file',
           content: agentTemplateContent,
-          cb_easp: false,
         },
       }
 
@@ -286,7 +283,6 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
           path: TOOL_DEFINITIONS_PATH,
           instructions: 'Create tools type file',
           content: toolDefinitionsContent,
-          cb_easp: false,
         },
       }
 
@@ -297,7 +293,6 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
           role: 'assistant',
           content:
             "I'll read the example agent files to understand the patterns and then help you create your agent.",
-          cb_easp: false,
         },
       }
 
@@ -310,7 +305,6 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
               path: `${AGENT_TEMPLATES_DIR}${filename}`,
               instructions: `Copy example agent file ${filename}`,
               content: content,
-              cb_easp: false,
             },
           }
         }
