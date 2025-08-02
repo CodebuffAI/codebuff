@@ -147,7 +147,7 @@ Explain your reasoning in detail.`,
       console.log('Agent reasoning:', agentResponse.reasoning)
 
       if (agentResponse.decision === 'continue' && !agentResponse.next_prompt) {
-        throw new Error('Agent decided to continue but provided no next_prompt')
+        agentResponse.next_prompt = 'continue'
       }
 
       // If continuing, run CodeBuff with the agent's prompt
