@@ -26,7 +26,7 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
     },
     [AgentTemplateTypes.base_lite]: {
       id: AgentTemplateTypes.base_lite,
-      ...base('openrouter/horizon-beta'),
+      ...base(models.openrouter_gemini2_5_flash),
     },
     [AgentTemplateTypes.base_max]: {
       id: AgentTemplateTypes.base_max,
