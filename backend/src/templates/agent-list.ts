@@ -1,11 +1,11 @@
 import { models } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
-import { baseAgentBuilder } from './agents/base-agent-builder'
 import { agentBuilder } from './agents/agent-builder'
 import { dryRun } from './agents/archive/dry-run'
 import { ask } from './agents/ask'
 import { base } from './agents/base'
+import { baseAgentBuilder } from './agents/base-agent-builder'
 import { fileExplorer } from './agents/file-explorer'
 import { filePicker } from './agents/file-picker'
 import { planner } from './agents/planner'
@@ -22,7 +22,7 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
   {
     [AgentTemplateTypes.base]: {
       id: AgentTemplateTypes.base,
-      ...base(models.openrouter_claude_sonnet_4),
+      ...base('openrouter/horizon-beta'),
     },
     [AgentTemplateTypes.base_lite]: {
       id: AgentTemplateTypes.base_lite,
