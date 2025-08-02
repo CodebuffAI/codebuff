@@ -21,6 +21,7 @@ import { judgeEvalRun } from './judge-git-eval'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { AgentDecisionSchema } from './types'
 
+import type { AgentStep } from '../scaffolding'
 import type {
   AgentDecision,
   CodebuffTrace,
@@ -87,10 +88,18 @@ export async function runSingleEval(
         throw new Error(processError)
       }
 
+      function renderAgentStep(step: AgentStep): string {
+        const { response, toolCalls, toolResults } = step
+        return [
+          `\`\`\`text_response\n${response}\n\`\`\``,
+          `\`\`\`tool_calls\n${JSON.stringify(toolCalls, null, 2)}\n\`\`\``,
+          `\`\`\`tool_results\n${JSON.stringify(toolResults, null, 2)}\n\`\`\``,
+        ].join('\n\n')
+      }
       const renderedTrace = trace
         .map(
           ({ prompt, steps }) =>
-            `You: ${prompt}\n\nCodebuff:${steps.map(({ response }) => response).join('\n\n')}`,
+            `You: ${prompt}\n\nCodebuff:${steps.map(renderAgentStep).join('\n\n')}`,
         )
         .join('\n\n')
 
@@ -108,6 +117,8 @@ Current spec to implement:
 
 Your conversation with Codebuff so far:
 <conversation>${renderedTrace}</conversation>
+
+Note that files can only be changed with tools. If no tools are called, no files were changed.
 
 You must decide whether to:
 1. 'continue' - Generate a follow-up prompt for Codebuff
