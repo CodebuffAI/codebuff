@@ -20,7 +20,10 @@ ${getToolCallString(toolName, {
   path: 'path/to/file',
   replacements: [
     { old: 'This is the old string', new: 'This is the new string' },
-    { old: 'line to delete\n', new: '' },
+    {
+      old: '\n\t\t// @codebuff delete this log line please\n\t\tconsole.log("Hello, world!");\n',
+      new: '\n',
+    },
   ],
 })}
     `.trim(),
