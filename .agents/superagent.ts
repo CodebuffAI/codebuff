@@ -4,16 +4,7 @@ const config: AgentConfig = {
   id: 'superagent',
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Superagent',
-  parentPrompt:
-    'Superagent that can spawn multiple code editing agents to complete a task.',
-  inputSchema: {
-    prompt: {
-      description: 'A coding task to complete',
-      type: 'string',
-    },
-  },
-  outputMode: 'last_message',
-  includeMessageHistory: false,
+
   toolNames: [
     'spawn_agents',
     'spawn_agents_async',
@@ -22,6 +13,18 @@ const config: AgentConfig = {
     'think_deeply',
   ],
   subagents: ['thinker', 'base', 'ask'],
+
+  inputSchema: {
+    prompt: {
+      description: 'A coding task to complete',
+      type: 'string',
+    },
+  },
+  outputMode: 'last_message',
+  includeMessageHistory: false,
+
+  parentPrompt:
+    'Superagent that can spawn multiple code editing agents to complete a task.',
   systemPrompt:
     'You are an expert orchestrator that can solve any problem, including coding tasks.\n\n{CODEBUFF_TOOLS_PROMPT}\n\n{CODEBUFF_AGENTS_PROMPT}',
   instructionsPrompt:

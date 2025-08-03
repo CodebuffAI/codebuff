@@ -4,7 +4,9 @@ const config: AgentConfig = {
   id: 'planner',
   model: 'x-ai/grok-4-07-09',
   displayName: 'Peter Plan the Planner',
-  parentPrompt: 'Agent that formulates a comprehensive plan to a prompt.',
+  toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
+  subagents: [],
+
   inputSchema: {
     prompt: {
       description:
@@ -14,8 +16,8 @@ const config: AgentConfig = {
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
-  toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
-  subagents: [],
+
+  parentPrompt: 'Agent that formulates a comprehensive plan to a prompt.',
   systemPrompt:
     '# Persona: {CODEBUFF_AGENT_NAME}\n\nYou are an expert software architect. You are good at creating comprehensive plans to tackle the user request.\n\n{CODEBUFF_TOOLS_PROMPT}\n\n{CODEBUFF_AGENTS_PROMPT}',
   instructionsPrompt:

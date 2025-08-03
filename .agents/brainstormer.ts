@@ -6,6 +6,18 @@ const config: AgentConfig = {
   displayName: 'Brian the Brainstormer',
   model: 'anthropic/claude-4-sonnet-20250522',
 
+  includeMessageHistory: true,
+  inputSchema: {
+    prompt: {
+      type: 'string',
+      description: 'The problem or topic to brainstorm about.',
+    },
+  },
+  outputMode: 'last_message',
+
+  toolNames: ['end_turn'],
+  subagents: ['thinker', 'researcher'],
+
   parentPrompt:
     'Acts as a creative thought partner, generating ideas and exploring alternative viewpoints to help think through problems.',
 
@@ -46,34 +58,6 @@ Remember: Your goal is to expand thinking, not to provide definitive answers. He
 
   stepPrompt:
     "Continue brainstorming and exploring ideas. When you're done, use the end_turn tool.",
-
-  inputSchema: {
-    prompt: {
-      type: 'string',
-      description: 'The problem or topic to brainstorm about.',
-    },
-  },
-
-  includeMessageHistory: true,
-  outputMode: 'last_message',
-
-  toolNames: ['end_turn'],
-
-  subagents: ['thinker', 'researcher'],
-
-  // parentInstructions: {
-  //   base: 'Spawn brainstormer when you need creative alternatives, want to challenge assumptions, or explore different approaches to implementation problems',
-  //   base_lite:
-  //     "Use brainstormer for quick creative insights when you're stuck or need fresh perspectives on simple problems",
-  //   base_max:
-  //     'Leverage brainstormer for deep creative exploration of complex problems with multiple potential solution paths',
-  //   thinker:
-  //     'Collaborate with brainstormer when analytical thinking needs creative angles or assumption challenging',
-  //   researcher:
-  //     'Use brainstormer to suggest creative search angles and alternative information sources for research',
-  //   reviewer:
-  //     'Engage brainstormer for creative problem-solving approaches to code review and innovative improvement suggestions',
-  // },
 }
 
 export default config

@@ -4,8 +4,6 @@ const config: AgentConfig = {
   id: 'thinker',
   model: 'x-ai/grok-4-07-09',
   displayName: 'Theo the Theorizer',
-  parentPrompt:
-    'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   inputSchema: {
     prompt: {
       description: 'The problem you are trying to solve',
@@ -16,6 +14,8 @@ const config: AgentConfig = {
   includeMessageHistory: true,
   toolNames: ['end_turn'],
   subagents: [],
+  parentPrompt:
+    'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   systemPrompt:
     '# Persona: {CODEBUFF_AGENT_NAME}\n\nYou are an expert programmer.\n\n{CODEBUFF_TOOLS_PROMPT}\n\n{CODEBUFF_AGENTS_PROMPT}',
   instructionsPrompt:

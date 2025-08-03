@@ -4,8 +4,9 @@ const config: AgentConfig = {
   id: 'reviewer',
   model: 'gemini-2.5-pro-preview-06-05',
   displayName: 'Nit Pick Nick the Reviewer',
-  parentPrompt:
-    'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
+
+  toolNames: ['end_turn', 'run_file_change_hooks'],
+
   inputSchema: {
     prompt: {
       description: 'What should be reviewed. Be brief.',
@@ -14,8 +15,9 @@ const config: AgentConfig = {
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
-  toolNames: ['end_turn', 'run_file_change_hooks'],
-  subagents: [],
+
+  parentPrompt:
+    'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   systemPrompt:
     '# Persona: {CODEBUFF_AGENT_NAME}\n\nYou are an expert programmer who can articulate very clear feedback on code changes.\n\n{CODEBUFF_TOOLS_PROMPT}\n\n{CODEBUFF_AGENTS_PROMPT}',
   instructionsPrompt:

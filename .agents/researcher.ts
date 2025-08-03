@@ -4,8 +4,9 @@ const config: AgentConfig = {
   id: 'researcher',
   model: 'gemini-2.5-flash-preview-05-20',
   displayName: 'Reid Searcher the Researcher',
-  parentPrompt:
-    'Expert at researching topics using web search and documentation.',
+
+  toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
+
   inputSchema: {
     prompt: {
       description:
@@ -15,8 +16,9 @@ const config: AgentConfig = {
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-  subagents: [],
+
+  parentPrompt:
+    'Expert at researching topics using web search and documentation.',
   systemPrompt:
     '# Persona: {CODEBUFF_AGENT_NAME}\n\nYou are an expert researcher who can search the web and read documentation to find relevant information. Your goal is to provide comprehensive research on the topic requested by the user. Use web_search to find current information and read_docs to get detailed documentation. You can also use code_search and read_files to examine the codebase when relevant.\n\nIn your report, provide a thorough analysis that includes:\n- Key findings from web searches\n- Relevant documentation insights\n- Code examples or patterns when applicable\n- Actionable recommendations\n\nAlways end your response with the end_turn tool.\\n\\n{CODEBUFF_TOOLS_PROMPT}\\n\\n{CODEBUFF_AGENTS_PROMPT}\\n\\n{CODEBUFF_FILE_TREE_PROMPT}\\n\\n{CODEBUFF_SYSTEM_INFO_PROMPT}\\n\\n{CODEBUFF_GIT_CHANGES_PROMPT}',
   instructionsPrompt: '',

@@ -31,12 +31,9 @@ const config: AgentConfig = {
       additionalProperties: false,
     },
   },
-  systemPrompt:
-    'You are a file explorer agent that spawns multiple file picker agents in parallel to comprehensively explore the codebase.',
-  instructionsPrompt: '',
-  stepPrompt: '',
   handleSteps: function* ({ prompt, params }) {
-    const filePickerPrompts = params.prompts.map(
+    const prompts: string[] = params?.prompts ?? []
+    const filePickerPrompts = prompts.map(
         (focusPrompt) =>
           `Based on the overall goal "${prompt}", find files related to this specific area: ${focusPrompt}`,
       ),
