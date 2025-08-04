@@ -1,11 +1,11 @@
-import { version } from './version'
+import { publisher, version } from './constants'
 
 import type { AgentConfig, AgentStepContext } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'changes-reviewer',
   version,
-  publisher: 'codebuff',
+  publisher,
   displayName: 'Changes Reviewer',
   model: 'x-ai/grok-4',
 

@@ -1,11 +1,11 @@
-import { version } from './version'
+import { publisher, version } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'knowledge-keeper',
   version,
-  publisher: 'codebuff',
+  publisher,
   displayName: 'Kendra the Knowledge Keeper',
   model: 'anthropic/claude-4-sonnet-20250522',
 

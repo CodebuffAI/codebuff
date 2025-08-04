@@ -1,11 +1,11 @@
-import { version } from './version'
+import { publisher, version } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'file-explorer',
   version,
-  publisher: 'codebuff',
+  publisher,
   displayName: 'Dora the File Explorer',
   parentPrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',

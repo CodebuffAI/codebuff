@@ -1,11 +1,11 @@
-import { version } from './version'
+import { publisher, version } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'brainstormer',
   version,
-  publisher: 'codebuff',
+  publisher,
   displayName: 'Brian the Brainstormer',
   model: 'anthropic/claude-4-sonnet-20250522',
 

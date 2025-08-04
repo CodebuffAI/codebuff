@@ -1,4 +1,4 @@
-import { version } from './version'
+import { publisher, version } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
@@ -12,7 +12,7 @@ import type { AgentConfig } from './types/agent-config'
 const config: AgentConfig = {
   id: 'charles',
   version,
-  publisher: 'codebuff',
+  publisher,
   displayName: 'Charles - Deep Sea Tuna Researcher',
   model: 'anthropic/claude-4-sonnet-20250522',
 

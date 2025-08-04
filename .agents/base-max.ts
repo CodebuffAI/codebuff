@@ -1,11 +1,11 @@
-import { version } from './version'
+import { publisher, version } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'base-max',
   version,
-  publisher: 'codebuff',
+  publisher,
   model: 'anthropic/claude-4-opus-20250522',
   displayName: 'Buffy the Enthusiastic Coding Assistant',
 

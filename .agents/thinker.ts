@@ -1,13 +1,14 @@
-import { version } from './version'
+import { publisher, version } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'thinker',
-  publisher: 'codebuff',
   version,
+  publisher,
   model: 'x-ai/grok-4-07-09',
   displayName: 'Theo the Theorizer',
+
   inputSchema: {
     prompt: {
       description: 'The problem you are trying to solve',

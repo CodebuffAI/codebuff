@@ -1,11 +1,11 @@
-import { version } from './version'
+import { publisher, version } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'base-experimental',
   version,
-  publisher: 'codebuff',
+  publisher,
   model: 'gemini-2.5-pro-preview-06-05',
   displayName: 'Buffy the Enthusiastic Coding Assistant',
 

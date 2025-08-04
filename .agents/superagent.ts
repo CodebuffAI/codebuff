@@ -1,11 +1,11 @@
-import { version } from './version'
+import { publisher, version } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'superagent',
   version,
-  publisher: 'codebuff',
+  publisher,
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Superagent',
 
