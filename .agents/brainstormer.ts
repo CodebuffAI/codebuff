@@ -1,8 +1,11 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'brainstormer',
-  version: '1.0.0',
+  version,
+  publisher: 'codebuff',
   displayName: 'Brian the Brainstormer',
   model: 'anthropic/claude-4-sonnet-20250522',
 
@@ -16,7 +19,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
 
   toolNames: ['end_turn'],
-  subagents: ['thinker', 'researcher'],
+  subagents: [`codebuff/thinker@${version}`, `codebuff/researcher@${version}`],
 
   parentPrompt:
     'Acts as a creative thought partner, generating ideas and exploring alternative viewpoints to help think through problems.',

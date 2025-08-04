@@ -151,7 +151,7 @@ export function validateSingleAgent(
 } {
   const {
     filePath,
-    skipSubagentValidation = false,
+    skipSubagentValidation = true,
     dynamicAgentIds = [],
   } = options || {}
 

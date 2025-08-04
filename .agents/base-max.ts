@@ -1,9 +1,14 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'base-max',
+  version,
+  publisher: 'codebuff',
   model: 'anthropic/claude-4-opus-20250522',
   displayName: 'Buffy the Enthusiastic Coding Assistant',
+
   inputSchema: {
     prompt: {
       description: 'A coding task to complete',
@@ -28,11 +33,11 @@ const config: AgentConfig = {
     'update_subgoal',
   ],
   subagents: [
-    'file-explorer',
-    'file-picker',
-    'researcher',
-    'thinker',
-    'reviewer',
+    `codebuff/file-explorer@${version}`,
+    `codebuff/file-picker@${version}`,
+    `codebuff/researcher@${version}`,
+    `codebuff/thinker@${version}`,
+    `codebuff/reviewer@${version}`,
   ],
   parentPrompt: 'Base agent that orchestrates the full response.',
   systemPrompt:

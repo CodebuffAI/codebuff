@@ -1,7 +1,11 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'file-explorer',
+  version,
+  publisher: 'codebuff',
   displayName: 'Dora the File Explorer',
   parentPrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
@@ -9,7 +13,7 @@ const config: AgentConfig = {
   outputMode: 'json',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  subagents: ['file-picker'],
+  subagents: [`codebuff/file-picker@${version}`],
   inputSchema: {
     prompt: {
       description: 'What you need to accomplish by exploring the codebase',

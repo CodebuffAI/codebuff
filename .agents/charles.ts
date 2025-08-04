@@ -1,3 +1,5 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 /**
@@ -9,6 +11,8 @@ import type { AgentConfig } from './types/agent-config'
  */
 const config: AgentConfig = {
   id: 'charles',
+  version,
+  publisher: 'codebuff',
   displayName: 'Charles - Deep Sea Tuna Researcher',
   model: 'anthropic/claude-4-sonnet-20250522',
 
@@ -23,7 +27,7 @@ const config: AgentConfig = {
   ],
 
   // Subagents for specialized research tasks
-  subagents: ['researcher', 'thinker'],
+  subagents: [`codebuff/researcher@0.0.1`, 'codebuff/thinker@0.0.1'],
 
   // Input schema for research requests
   inputSchema: {

@@ -1,8 +1,11 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'knowledge-keeper',
-  version: '1.0.0',
+  version,
+  publisher: 'codebuff',
   displayName: 'Kendra the Knowledge Keeper',
   model: 'anthropic/claude-4-sonnet-20250522',
 
@@ -15,7 +18,10 @@ const config: AgentConfig = {
     'spawn_agents',
     'end_turn',
   ],
-  subagents: ['file-picker', 'researcher'],
+  subagents: [
+    `codebuff/file-picker@${version}`,
+    `codebuff/researcher@${version}`,
+  ],
 
   inputSchema: {
     prompt: {

@@ -1,7 +1,11 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'superagent',
+  version,
+  publisher: 'codebuff',
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Superagent',
 
@@ -12,7 +16,11 @@ const config: AgentConfig = {
     'end_turn',
     'think_deeply',
   ],
-  subagents: ['thinker', 'base', 'ask'],
+  subagents: [
+    `codebuff/thinker@${version}`,
+    `codebuff/base@${version}`,
+    `codebuff/ask@${version}`,
+  ],
 
   inputSchema: {
     prompt: {

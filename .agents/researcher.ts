@@ -1,7 +1,12 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'researcher',
+  version,
+  publisher: 'codebuff',
+
   model: 'gemini-2.5-flash-preview-05-20',
   displayName: 'Reid Searcher the Researcher',
 

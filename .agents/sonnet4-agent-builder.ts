@@ -1,9 +1,14 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'sonnet4-agent-builder',
+  version,
+  publisher: 'codebuff',
   displayName: 'Bob the Agent Builder',
   model: 'anthropic/claude-4-sonnet-20250522',
+
   toolNames: [
     'write_file',
     'str_replace',
@@ -15,7 +20,7 @@ const config: AgentConfig = {
     'set_output',
     'end_turn',
   ],
-  subagents: ['file-picker'],
+  subagents: [`codebuff/file-picker@${version}`],
 
   inputSchema: {
     prompt: {

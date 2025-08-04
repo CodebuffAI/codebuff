@@ -1,7 +1,11 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'thinker',
+  publisher: 'codebuff',
+  version,
   model: 'x-ai/grok-4-07-09',
   displayName: 'Theo the Theorizer',
   inputSchema: {

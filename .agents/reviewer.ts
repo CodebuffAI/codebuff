@@ -1,7 +1,11 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'reviewer',
+  version,
+  publisher: 'codebuff',
   model: 'gemini-2.5-pro-preview-06-05',
   displayName: 'Nit Pick Nick the Reviewer',
 

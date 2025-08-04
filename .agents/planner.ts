@@ -1,7 +1,11 @@
+import { version } from './version'
+
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'planner',
+  version,
+  publisher: 'codebuff',
   model: 'x-ai/grok-4-07-09',
   displayName: 'Peter Plan the Planner',
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],

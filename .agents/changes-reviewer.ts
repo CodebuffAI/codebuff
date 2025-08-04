@@ -1,10 +1,14 @@
-import { AgentConfig, AgentStepContext } from './types/agent-config'
+import { version } from './version'
+
+import type { AgentConfig, AgentStepContext } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'changes-reviewer',
-  version: '0.0.1',
+  version,
+  publisher: 'codebuff',
   displayName: 'Changes Reviewer',
   model: 'x-ai/grok-4',
+
   includeMessageHistory: false,
 
   inputSchema: {

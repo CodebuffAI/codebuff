@@ -8,7 +8,7 @@ import {
   stringifyVersion,
   versionExists,
 } from '@codebuff/internal'
-import { desc, eq, and, or } from 'drizzle-orm'
+import { eq, and, or } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
@@ -19,6 +19,18 @@ import type { Version } from '@codebuff/internal'
 import type { NextRequest } from 'next/server'
 
 import { logger } from '@/util/logger'
+
+async function getPublishedAgentIds(publisherId: string) {
+  const agents = await db
+    .select({
+      id: schema.agentConfig.id,
+      version: schema.agentConfig.version,
+    })
+    .from(schema.agentConfig)
+    .where(eq(schema.agentConfig.publisher_id, publisherId))
+
+  return new Set(agents.map((a) => `${publisherId}/${a.id}@${a.version}`))
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -185,7 +197,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               error: 'Version already exists',
-              details: `Agent '${agent.id}' version '${version}' already exists for publisher '${publisher.id}'`,
+              details: `Agent '${agent.id}' version '${stringifyVersion(version)}' already exists for publisher '${publisher.id}'`,
             },
             { status: 409 }
           )
@@ -194,7 +206,7 @@ export async function POST(request: NextRequest) {
         agentVersions.push({
           id: agent.id,
           version,
-          data: { ...agent, version },
+          data: { ...agent, version: stringifyVersion(version) },
         })
       } catch (error) {
         return NextResponse.json(
@@ -204,6 +216,45 @@ export async function POST(request: NextRequest) {
           },
           { status: 400 }
         )
+      }
+    }
+
+    // Verify that all spawnable agents are either published or part of this request
+    const publishingAgentIds = new Set(
+      agentVersions.map(
+        (agent) =>
+          `${requestedPublisherId}/${agent.id}@${stringifyVersion(agent.version)}`
+      )
+    )
+    const publishedAgentIds = await getPublishedAgentIds(requestedPublisherId)
+
+    for (const agent of agents) {
+      if (agent.subagents) {
+        for (const subagent of agent.subagents) {
+          const versionMatch = subagent.match(/^([^/]+)\/(.+)@(.+)$/)
+          if (!versionMatch) {
+            return NextResponse.json(
+              {
+                error: 'Invalid spawnable agent format',
+                details: `Agent '${agent.id}' references spawnable agent '${subagent}' with an invalid format. Expected format: {publisherId}/{agentId}@{version}`,
+              },
+              { status: 400 }
+            )
+          }
+
+          if (
+            !publishingAgentIds.has(subagent) &&
+            !publishedAgentIds.has(subagent)
+          ) {
+            return NextResponse.json(
+              {
+                error: 'Invalid spawnable agent',
+                details: `Agent '${agent.id}' references spawnable agent '${subagent}' which is not published and not included in this request.`,
+              },
+              { status: 400 }
+            )
+          }
+        }
       }
     }
 

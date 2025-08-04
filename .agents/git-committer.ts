@@ -1,8 +1,11 @@
-import { AgentConfig, AgentStepContext } from './types/agent-config'
+import { version } from './version'
+
+import type { AgentConfig, AgentStepContext } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'git-committer',
-  version: '0.0.1',
+  version,
+  publisher: 'codebuff',
   displayName: 'Git Committer',
   model: 'anthropic/claude-4-sonnet-20250522',
 
