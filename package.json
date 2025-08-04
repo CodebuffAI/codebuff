@@ -11,7 +11,8 @@
     "web",
     "packages/*",
     "scripts",
-    "evals"
+    "evals",
+    "sdk"
   ],
   "scripts": {
     "dev": "bash scripts/dev.sh",

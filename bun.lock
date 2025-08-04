@@ -121,6 +121,7 @@
       "dependencies": {
         "@codebuff/code-map": "workspace:*",
         "@codebuff/common": "workspace:*",
+        "@codebuff/sdk": "workspace:*",
         "@types/diff": "5.2.1",
         "@types/micromatch": "^4.0.9",
         "@vscode/ripgrep": "1.15.9",
@@ -215,6 +216,17 @@
       "devDependencies": {
         "@types/bun": "^1.2.11",
         "@types/lodash": "^4.14.195",
+        "@types/node": "22",
+      },
+    },
+    "sdk": {
+      "name": "@codebuff/sdk",
+      "version": "1.0.0",
+      "dependencies": {
+        "@codebuff/common": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.2.11",
         "@types/node": "22",
       },
     },
@@ -476,6 +488,8 @@
     "@codebuff/npm-app": ["@codebuff/npm-app@workspace:npm-app"],
 
     "@codebuff/scripts": ["@codebuff/scripts@workspace:scripts"],
+
+    "@codebuff/sdk": ["@codebuff/sdk@workspace:sdk"],
 
     "@codebuff/web": ["@codebuff/web@workspace:web"],
 
