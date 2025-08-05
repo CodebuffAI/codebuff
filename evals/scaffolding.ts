@@ -26,7 +26,7 @@ import type {
   requestToolCall as originalRequestToolCall,
 } from '@codebuff/backend/websockets/websocket-action'
 import type { FileChanges } from '@codebuff/common/actions'
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
@@ -158,14 +158,15 @@ export async function runAgentStepScaffolding(
   mockWs.close = mock()
 
   let fullResponse = ''
-  const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(fileContext)
+  const { agentTemplates: localAgentTemplates } =
+    assembleLocalAgentTemplates(fileContext)
 
   const result = await runAgentStep(mockWs, {
     userId: TEST_USER_ID,
     userInputId: generateCompactId(),
     clientSessionId: sessionId,
     fingerprintId: 'test-fingerprint-id',
-    onResponseChunk: (chunk: string | PrintModeObject) => {
+    onResponseChunk: (chunk: string | PrintModeEvent) => {
       if (typeof chunk !== 'string') {
         return
       }
