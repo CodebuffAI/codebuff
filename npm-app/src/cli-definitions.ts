@@ -33,7 +33,7 @@ export const cliOptions: CliParam[] = [
   {
     flags: '--agent <agent-id>',
     description:
-      'Specify which agent to invoke (e.g., "file_picker", "reviewer", "base")',
+      'Specify which agent to invoke (e.g., "file-picker", "reviewer", "base")',
     menuDescription: 'Invoke a specific agent by ID',
     hidden: false,
   },

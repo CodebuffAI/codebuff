@@ -302,8 +302,8 @@ export type ModelName =
  * Built-in agents that can be spawned by custom agents
  */
 export type SubagentName =
-  | 'file_picker'
-  | 'file_explorer'
+  | 'file-picker'
+  | 'file-explorer'
   | 'researcher'
   | 'thinker'
   | 'reviewer'

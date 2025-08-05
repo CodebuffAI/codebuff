@@ -45,7 +45,7 @@ const config: AgentConfig = {
         toolName: 'spawn_agents',
         args: {
           agents: filePickerPrompts.map((promptText) => ({
-            agent_type: 'file_picker',
+            agent_type: 'file-picker',
             prompt: promptText,
           })),
         },

@@ -20,7 +20,7 @@ export const fileExplorer = {
   outputMode: 'json',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  subagents: ['file_picker'],
+  subagents: ['file-picker'],
   inputSchema: {
     prompt: z
       .string()
@@ -43,7 +43,7 @@ export const fileExplorer = {
       toolName: 'spawn_agents' as const,
       args: {
         agents: filePickerPrompts.map((promptText) => ({
-          agent_type: 'file_picker' as const,
+          agent_type: 'file-picker' as const,
           prompt: promptText,
         })),
       },

@@ -16,7 +16,7 @@ Example:
 ${getToolCallString(toolName, {
   agents: [
     {
-      agent_type: 'file_picker',
+      agent_type: 'file-picker',
       prompt: 'Find files related to authentication',
     },
     {
