@@ -31,7 +31,7 @@ const config: AgentConfig = {
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {
       toolName: 'web_search',
-      args: { prompt },
+      args: { query: prompt },
     }
     yield 'STEP_ALL'
   },
