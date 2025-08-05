@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test'
-import { AgentTemplateTypes } from 'src/types/session-state'
 
 import {
   DynamicAgentConfigSchema,
   DynamicAgentTemplateSchema,
 } from '../types/dynamic-agent-template'
+import { AgentTemplateTypes } from '../types/session-state'
 import {
   formatParentInstructionsError,
   validateParentInstructions,
