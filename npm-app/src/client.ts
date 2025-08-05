@@ -96,7 +96,7 @@ import type {
 } from '@codebuff/common/actions'
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
 import type { CostMode } from '@codebuff/common/constants'
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   SessionState,
   ToolResult,
@@ -1154,7 +1154,7 @@ export class Client {
   }
 
   private subscribeToResponse(
-    onChunk: (chunk: string | PrintModeObject) => void,
+    onChunk: (chunk: string | PrintModeEvent) => void,
     userInputId: string,
     onStreamStart: () => void,
     prompt: string,

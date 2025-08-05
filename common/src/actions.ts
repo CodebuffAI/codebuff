@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { costModes } from './constants'
 import { GrantTypeValues } from './types/grant'
-import { printModeObjectSchema } from './types/print-mode'
+import { printModeEventSchema } from './types/print-mode'
 import {
   SessionStateSchema,
   toolCallSchema,
@@ -132,7 +132,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('response-chunk'),
     userInputId: z.string(),
-    chunk: z.union([z.string(), printModeObjectSchema]),
+    chunk: z.union([z.string(), printModeEventSchema]),
   }),
   z.object({
     type: z.literal('subagent-response-chunk'),

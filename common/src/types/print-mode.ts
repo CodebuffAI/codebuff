@@ -43,7 +43,7 @@ export const printModeFinishSchema = z.object({
 })
 export type PrintModeFinish = z.infer<typeof printModeFinishSchema>
 
-export const printModeObjectSchema = z.discriminatedUnion('type', [
+export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeErrorSchema,
   printModeDownloadStatusSchema,
   printModeFinishSchema,
@@ -52,4 +52,4 @@ export const printModeObjectSchema = z.discriminatedUnion('type', [
   printModeToolResultSchema,
 ])
 
-export type PrintModeObject = z.infer<typeof printModeObjectSchema>
+export type PrintModeEvent = z.infer<typeof printModeEventSchema>

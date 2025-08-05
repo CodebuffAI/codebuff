@@ -14,7 +14,7 @@ import type { ClientToolCall, CodebuffToolCall } from './constants'
 import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ToolResult } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -105,7 +105,7 @@ export interface ExecuteToolCallParams<T extends ToolName = ToolName> {
   clientSessionId: string
   userInputId: string
   fullResponse: string
-  onResponseChunk: (chunk: string | PrintModeObject) => void
+  onResponseChunk: (chunk: string | PrintModeEvent) => void
   state: Record<string, any>
   userId: string | undefined
   autoInsertEndStepParam?: boolean

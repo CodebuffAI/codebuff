@@ -1,11 +1,31 @@
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { AgentTemplateType } from '@codebuff/common/types/session-state'
+
 export type CodebuffClientOptions = {
   apiKey: { type: 'string'; value: string } | { type: 'env' }
   cwd: string
-  abortController: AbortController
 }
 
-export type Context = {}
+export type InputType =
+  | { prompt: string; params?: Record<string, any> }
+  | { prompt?: string; params: Record<string, any> }
+  | { prompt: string; params: Record<string, any> }
 
-export type NewChatOptions = {}
+export type ChatContext = {
+  agentId: string
+  chatId?: string
+}
 
-export type ContinueChatOptions = {}
+export type NewChatOptions = {
+  agent: AgentTemplateType
+  input: InputType
+  handleEvent: (event: PrintModeEvent) => void
+}
+
+export type ContinueChatOptions = {
+  context: ChatContext
+  agent?: AgentTemplateType
+  input: InputType
+  chatId?: string
+  handleEvent: (event: PrintModeEvent) => void
+}

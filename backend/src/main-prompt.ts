@@ -14,7 +14,7 @@ import { requestToolCall } from './websockets/websocket-action'
 import type { ClientToolCall } from './tools/constants'
 import type { ClientAction } from '@codebuff/common/actions'
 import type { CostMode } from '@codebuff/common/constants'
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   SessionState,
   ToolResult,
@@ -25,7 +25,7 @@ import { AgentTemplate } from './templates/types'
 export interface MainPromptOptions {
   userId: string | undefined
   clientSessionId: string
-  onResponseChunk: (chunk: string | PrintModeObject) => void
+  onResponseChunk: (chunk: string | PrintModeEvent) => void
   localAgentTemplates: Record<string, AgentTemplate>
 }
 

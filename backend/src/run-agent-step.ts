@@ -40,7 +40,7 @@ import { getRequestContext } from './websockets/request-context'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentTemplateType,
   AgentState,
@@ -54,7 +54,7 @@ export interface AgentOptions {
   userInputId: string
   clientSessionId: string
   fingerprintId: string
-  onResponseChunk: (chunk: string | PrintModeObject) => void
+  onResponseChunk: (chunk: string | PrintModeEvent) => void
 
   agentType: AgentTemplateType
   fileContext: ProjectFileContext
@@ -516,7 +516,7 @@ export const loopAgentSteps = async (
 
     userId: string | undefined
     clientSessionId: string
-    onResponseChunk: (chunk: string | PrintModeObject) => void
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
   },
 ) => {
   const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)

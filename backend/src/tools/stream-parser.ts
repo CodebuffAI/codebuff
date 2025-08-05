@@ -11,7 +11,7 @@ import type { CodebuffToolCall } from './constants'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   Subgoal,
@@ -42,7 +42,7 @@ export async function processStreamWithTools<T extends string>(options: {
   messages: CodebuffMessage[]
   agentState: AgentState
   agentContext: Record<string, Subgoal>
-  onResponseChunk: (chunk: string | PrintModeObject) => void
+  onResponseChunk: (chunk: string | PrintModeEvent) => void
   fullResponse: string
 }) {
   const {
