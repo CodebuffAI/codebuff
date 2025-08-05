@@ -12,7 +12,7 @@ import type {
   StepGenerator,
 } from '@codebuff/common/types/agent-template'
 import type { CodebuffToolCall } from './tools/constants'
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
@@ -63,7 +63,7 @@ export async function runProgrammaticStep(
     userInputId: string
     clientSessionId: string
     fingerprintId: string
-    onResponseChunk: (chunk: string | PrintModeObject) => void
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
     ws: WebSocket

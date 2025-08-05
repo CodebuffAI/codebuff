@@ -21,7 +21,7 @@ import { logger } from '../util/logger'
 import { renderReadFilesResult } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -383,7 +383,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session-delete-function-integration',
       localAgentTemplates: mockLocalAgentTemplates,
-      onResponseChunk: (chunk: string | PrintModeObject) => {
+      onResponseChunk: (chunk: string | PrintModeEvent) => {
         if (typeof chunk !== 'string') {
           return
         }
@@ -479,7 +479,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
             stepPrompt: '',
           },
         },
-        onResponseChunk: (chunk: string | PrintModeObject) => {
+        onResponseChunk: (chunk: string | PrintModeEvent) => {
           if (typeof chunk !== 'string') {
             return
           }

@@ -11,7 +11,7 @@ import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { SendSubagentChunk } from './spawn-agents'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
@@ -129,7 +129,10 @@ export const handleSpawnAgentsAsync = ((params: {
     for (const { agent_type: agentTypeStr, prompt, params } of agents) {
       try {
         const agentType = agentTypeStr as AgentTemplateType
-        const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
+        const agentTemplate = await getAgentTemplate(
+          agentType,
+          localAgentTemplates,
+        )
 
         if (!agentTemplate) {
           throw new Error(`Agent type ${agentTypeStr} not found.`)
@@ -205,7 +208,7 @@ export const handleSpawnAgentsAsync = ((params: {
               toolResults: [],
               userId,
               clientSessionId,
-              onResponseChunk: (chunk: string | PrintModeObject) => {
+              onResponseChunk: (chunk: string | PrintModeEvent) => {
                 if (typeof chunk !== 'string') {
                   return
                 }

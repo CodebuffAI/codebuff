@@ -1,6 +1,6 @@
 import { spawn } from 'child_process'
 
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 const CODEBUFF_BINARY = 'codebuff'
 
@@ -11,7 +11,7 @@ export function processStream({
 }: {
   codebuffArgs: string[]
   authToken?: string
-  handleEvent: (event: PrintModeObject) => void
+  handleEvent: (event: PrintModeEvent) => void
 }): Promise<void> {
   let buffer = ''
 

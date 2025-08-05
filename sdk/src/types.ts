@@ -1,4 +1,4 @@
-import type { PrintModeObject } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
 export type CodebuffClientOptions = {
@@ -19,7 +19,7 @@ export type ChatContext = {
 export type NewChatOptions = {
   agent: AgentTemplateType
   input: InputType
-  handleEvent: (event: PrintModeObject) => void
+  handleEvent: (event: PrintModeEvent) => void
 }
 
 export type ContinueChatOptions = {
@@ -27,5 +27,5 @@ export type ContinueChatOptions = {
   agent?: AgentTemplateType
   input: InputType
   chatId?: string
-  handleEvent: (event: PrintModeObject) => void
+  handleEvent: (event: PrintModeEvent) => void
 }
