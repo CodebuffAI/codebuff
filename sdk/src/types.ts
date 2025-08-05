@@ -1,3 +1,4 @@
+import type { PrintModeObject } from '@codebuff/common/types/print-mode'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
 export type CodebuffClientOptions = {
@@ -5,21 +6,26 @@ export type CodebuffClientOptions = {
   cwd: string
 }
 
+export type InputType =
+  | { prompt: string; params?: Record<string, any> }
+  | { prompt?: string; params: Record<string, any> }
+  | { prompt: string; params: Record<string, any> }
+
 export type ChatContext = {
-  chatId: string
   agentId: string
+  chatId?: string
 }
 
 export type NewChatOptions = {
   agent: AgentTemplateType
-  prompt: string
-  params?: Record<string, any>
+  input: InputType
+  handleEvent: (event: PrintModeObject) => void
 }
 
 export type ContinueChatOptions = {
   context: ChatContext
   agent?: AgentTemplateType
-  prompt: string
-  params?: Record<string, any>
+  input: InputType
   chatId?: string
+  handleEvent: (event: PrintModeObject) => void
 }

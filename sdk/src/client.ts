@@ -1,5 +1,7 @@
 import { execFileSync } from 'child_process'
 
+import { processStream } from './process-stream'
+
 import type {
   CodebuffClientOptions,
   ChatContext,
@@ -29,8 +31,15 @@ export class CodebuffClient {
     this.cwd = cwd
   }
 
-  public newChat({ agent, prompt, params }: NewChatOptions): ChatContext {
-    const args = [prompt, '-p', '--agent', agent]
+  public async runNewChat({
+    agent,
+    input: { prompt, params },
+    handleEvent,
+  }: NewChatOptions): Promise<ChatContext> {
+    const args = ['-p', '--agent', agent]
+    if (prompt) {
+      args.push(prompt)
+    }
     if (params) {
       args.push('--params', JSON.stringify(params))
     }
@@ -38,25 +47,29 @@ export class CodebuffClient {
       args.push('--cwd', this.cwd)
     }
 
-    const a = execFileSync(CODEBUFF_BINARY, args, {
-      stdio: 'pipe',
-      env: { CODEBUFF_API_KEY: this.authToken },
+    await processStream({
+      codebuffArgs: args,
+      authToken: this.authToken,
+      handleEvent,
     })
 
     return {
       agentId: agent,
-      chatId: '', // TODO
     }
   }
 
-  public continueChat({
+  // WIP
+  private async continueChat({
     agent,
-    prompt,
-    params,
+    input: { prompt, params },
     context,
-  }: ContinueChatOptions): ChatContext {
+    handleEvent,
+  }: ContinueChatOptions): Promise<ChatContext> {
     agent = agent ?? context.agentId
-    const args = [prompt, '-p', '--agent', agent]
+    const args = ['-p', '--agent', agent]
+    if (prompt) {
+      args.push(prompt)
+    }
     if (params) {
       args.push('--params', JSON.stringify(params))
     }
@@ -64,14 +77,14 @@ export class CodebuffClient {
       args.push('--cwd', this.cwd)
     }
 
-    const a = execFileSync(CODEBUFF_BINARY, args, {
-      stdio: 'pipe',
-      env: { CODEBUFF_API_KEY: this.authToken },
+    await processStream({
+      codebuffArgs: args,
+      authToken: this.authToken,
+      handleEvent,
     })
 
     return {
       agentId: agent,
-      chatId: '', // TODO
     }
   }
 }
