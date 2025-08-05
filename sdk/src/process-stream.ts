@@ -1,8 +1,8 @@
 import { spawn } from 'child_process'
 
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import { CODEBUFF_BINARY } from './constants'
 
-const CODEBUFF_BINARY = 'codebuff'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 export function processStream({
   codebuffArgs,

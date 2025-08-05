@@ -1,5 +1,6 @@
 import { execFileSync } from 'child_process'
 
+import { CODEBUFF_BINARY } from './constants'
 import { processStream } from './process-stream'
 
 import type {
@@ -8,8 +9,6 @@ import type {
   ContinueChatOptions,
   NewChatOptions,
 } from './types'
-
-const CODEBUFF_BINARY = 'codebuff'
 
 export class CodebuffClient {
   private authToken: string
