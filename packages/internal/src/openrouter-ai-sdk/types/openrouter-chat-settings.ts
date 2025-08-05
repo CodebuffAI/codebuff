@@ -15,7 +15,7 @@ The exact effect will vary per model, but values between -1 and 1 should
 decrease or increase likelihood of selection; values like -100 or 100
 should result in a ban or exclusive selection of the relevant token.
 
-As an example, you can pass {"50256": -100} to prevent the <|endoftext|>
+As an example, you can pass {"50256": -100} to prevent the <|{'endoftext'}|>
 token from being generated.
 */
   logitBias?: Record<number, number>
