@@ -60,18 +60,18 @@ export interface AgentConfig {
   }
 
   /** Whether to include conversation history from the parent agent in context.
-   * 
+   *
    * Defaults to false.
    * Use this if the agent needs to know all the previous messages in the conversation.
    */
   includeMessageHistory?: boolean
 
   /** How the agent should output a response to its parent (defaults to 'last_message')
-   * 
+   *
    * last_message: The last message from the agent, typcically after using tools.
-   * 
+   *
    * all_messages: All messages from the agent, including tool calls and results.
-   * 
+   *
    * json: Make the agent output a JSON object. Can be used with outputSchema or without if you want freeform json output.
    */
   outputMode?: 'last_message' | 'all_messages' | 'json'
@@ -84,7 +84,7 @@ export interface AgentConfig {
   // ============================================================================
 
   /** Prompt for when to spawn this agent as a subagent. Include the main purpose and use cases.
-   * 
+   *
    * This field is key if the agent is a subagent and intended to be spawned. */
   parentPrompt?: string
 
@@ -92,13 +92,13 @@ export interface AgentConfig {
   systemPrompt?: string
 
   /** Instructions for the agent.
-   * 
+   *
    * IMPORTANT: Updating this prompt is the best way to shape the agent's behavior.
    * This prompt is inserted after each user input. */
   instructionsPrompt?: string
 
   /** Prompt inserted at each agent step.
-   * 
+   *
    * Powerful for changing the agent's behavior, but usually not necessary for smart models.
    * Prefer instructionsPrompt for most instructions. */
   stepPrompt?: string
@@ -281,7 +281,7 @@ export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'
 export type ModelName =
   // Verified OpenRouter Models
   | 'anthropic/claude-4-sonnet-20250522'
-  | 'anthropic/claude-4-opus-20250522'
+  | 'anthropic/claude-opus-4.1'
   | 'anthropic/claude-3.5-haiku-20241022'
   | 'anthropic/claude-3.5-sonnet-20240620'
   | 'openai/gpt-4o-2024-11-20'

@@ -6,7 +6,7 @@ const config: AgentConfig = {
   id: 'base-max',
   version,
   publisher,
-  model: 'anthropic/claude-4-opus-20250522',
+  model: 'anthropic/claude-opus-4.1',
   displayName: 'Buffy the Enthusiastic Coding Assistant',
 
   inputSchema: {

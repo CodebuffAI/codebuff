@@ -281,7 +281,7 @@ export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'
 export type ModelName =
   // Verified OpenRouter Models
   | 'anthropic/claude-4-sonnet-20250522'
-  | 'anthropic/claude-4-opus-20250522'
+  | 'anthropic/claude-opus-4.1'
   | 'anthropic/claude-3.5-haiku-20241022'
   | 'anthropic/claude-3.5-sonnet-20240620'
   | 'openai/gpt-4o-2024-11-20'

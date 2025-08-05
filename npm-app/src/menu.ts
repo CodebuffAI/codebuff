@@ -272,14 +272,6 @@ export function displayGreeting(costMode: CostMode, username: string | null) {
     console.log(`${costModeDescription[costMode]}`)
   }
 
-  if (costMode === 'max') {
-    console.log(
-      blueBright(
-        '\n\nMax mode is now even more powerful, though more expensive, as it uses Claude Opus.\n\n',
-      ),
-    )
-  }
-
   if (!isValidProjectRoot(getProjectRoot())) {
     console.info(
       `Welcome! Codebuff is your AI pair programmer that edits your codebase through natural conversation.

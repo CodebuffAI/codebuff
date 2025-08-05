@@ -188,7 +188,7 @@ export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
 
 export const openrouterModels = {
   openrouter_claude_sonnet_4: 'anthropic/claude-4-sonnet-20250522',
-  openrouter_claude_opus_4: 'anthropic/claude-4-opus-20250522',
+  openrouter_claude_opus_4: 'anthropic/claude-opus-4.1',
   openrouter_claude_3_5_haiku: 'anthropic/claude-3.5-haiku-20241022',
   openrouter_claude_3_5_sonnet: 'anthropic/claude-3.5-sonnet-20240620',
   openrouter_gpt4o: 'openai/gpt-4o-2024-11-20',
