@@ -1,3 +1,4 @@
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { resolveAgentId } from '@codebuff/common/util/agent-name-normalization'
 import { describe, expect, it, beforeEach } from 'bun:test'
 
@@ -22,8 +23,8 @@ describe('Agent ID Resolution', () => {
         parentPrompt: 'Test',
         inputSchema: {},
       },
-      file_picker: {
-        id: 'file_picker',
+      [AgentTemplateTypes.file_picker]: {
+        id: AgentTemplateTypes.file_picker,
         displayName: 'Fletcher',
         systemPrompt: 'Test',
         instructionsPrompt: 'Test',
@@ -86,7 +87,7 @@ describe('Agent ID Resolution', () => {
   describe('Direct ID Resolution', () => {
     it('should resolve built-in agent IDs directly', () => {
       expect(resolveAgentId('base', mockRegistry)).toBe('base')
-      expect(resolveAgentId('file_picker', mockRegistry)).toBe('file_picker')
+      expect(resolveAgentId('file-picker', mockRegistry)).toBe('file-picker')
     })
 
     it('should resolve custom agent IDs directly', () => {
@@ -115,7 +116,7 @@ describe('Agent ID Resolution', () => {
     it('should not add prefix to built-in agents', () => {
       // Built-in agents should be found directly, not with prefix
       expect(resolveAgentId('base', mockRegistry)).toBe('base')
-      expect(resolveAgentId('file_picker', mockRegistry)).toBe('file_picker')
+      expect(resolveAgentId('file-picker', mockRegistry)).toBe('file-picker')
     })
   })
 

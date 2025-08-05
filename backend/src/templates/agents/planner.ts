@@ -9,8 +9,8 @@ import type { Model } from '@codebuff/common/constants'
 
 export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
-  displayName: AGENT_PERSONAS['planner'].displayName,
-  parentPrompt: AGENT_PERSONAS['planner'].purpose,
+  displayName: AGENT_PERSONAS.planner.displayName,
+  parentPrompt: AGENT_PERSONAS.planner.purpose,
   inputSchema: {
     prompt: z
       .string()

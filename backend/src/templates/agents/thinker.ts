@@ -9,8 +9,8 @@ import type { Model } from '@codebuff/common/constants'
 
 export const thinker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
-  displayName: AGENT_PERSONAS['thinker'].displayName,
-  parentPrompt: AGENT_PERSONAS['thinker'].purpose,
+  displayName: AGENT_PERSONAS.thinker.displayName,
+  parentPrompt: AGENT_PERSONAS.thinker.purpose,
   inputSchema: {
     prompt: z.string().describe('The problem you are trying to solve'),
   },

@@ -132,7 +132,7 @@ describe('DynamicAgentConfigSchema', () => {
         ...validBaseTemplate,
         parentInstructions: {
           researcher: 'Spawn when you need research',
-          file_picker: 'Spawn when you need files',
+          [AgentTemplateTypes.file_picker]: 'Spawn when you need files',
           base: 'Spawn for general tasks',
         },
       }
@@ -363,7 +363,7 @@ describe('DynamicAgentConfigSchema', () => {
         invalid_agent: 'Invalid instruction',
         another_invalid: 'Another invalid instruction',
       }
-      const dynamicAgentIds = ['custom_agent']
+      const dynamicAgentIds = ['custom-agent']
 
       const result = validateParentInstructions(
         parentInstructions,
@@ -372,12 +372,12 @@ describe('DynamicAgentConfigSchema', () => {
       expect(result.valid).toBe(false)
       expect(result.invalidAgents).toEqual(['invalid_agent', 'another_invalid'])
       expect(result.availableAgents).toContain('researcher')
-      expect(result.availableAgents).toContain('custom_agent')
+      expect(result.availableAgents).toContain('custom-agent')
     })
 
     it('should format parent instructions error message correctly', () => {
       const invalidAgents = ['invalid_agent', 'another_invalid']
-      const availableAgents = ['researcher', 'file_picker', 'custom_agent']
+      const availableAgents = ['researcher', 'file-picker', 'custom-agent']
 
       const errorMessage = formatParentInstructionsError(
         invalidAgents,
@@ -387,7 +387,7 @@ describe('DynamicAgentConfigSchema', () => {
         'Invalid parent instruction agent IDs: invalid_agent, another_invalid',
       )
       expect(errorMessage).toContain(
-        'Available agents: researcher, file_picker, custom_agent',
+        'Available agents: researcher, file-picker, custom-agent',
       )
     })
   })

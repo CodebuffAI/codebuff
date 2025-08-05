@@ -1,3 +1,5 @@
+import type { AgentTemplateTypes } from 'src/types/session-state'
+
 // Define agent personas with their shared characteristics
 export const AGENT_PERSONAS = {
   // Base agents - all use Buffy persona
@@ -73,14 +75,16 @@ export const AGENT_PERSONAS = {
     purpose:
       'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   } as const,
-  sonnet4_agent_builder: {
+  agent_builder: {
     displayName: 'Bob the Agent Builder',
     purpose: 'Creates new agent templates for the codebuff mult-agent system',
     hidden: false,
   } as const,
-} as const satisfies Record<
-  string,
-  { displayName: string; purpose: string; hidden?: boolean }
+} as const satisfies Partial<
+  Record<
+    keyof typeof AgentTemplateTypes,
+    { displayName: string; purpose: string; hidden?: boolean }
+  >
 >
 
 // Agent IDs list from AGENT_PERSONAS keys
