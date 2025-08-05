@@ -6,11 +6,9 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 export function processStream({
   codebuffArgs,
-  authToken,
   handleEvent,
 }: {
   codebuffArgs: string[]
-  authToken?: string
   handleEvent: (event: PrintModeEvent) => void
 }): Promise<void> {
   let buffer = ''
@@ -29,9 +27,6 @@ export function processStream({
   }
 
   const env = { ...process.env }
-  if (authToken) {
-    env.CODEBUFF_API_KEY = authToken
-  }
   const child = spawn(CODEBUFF_BINARY, codebuffArgs, {
     stdio: 'pipe',
     env,

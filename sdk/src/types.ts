@@ -2,7 +2,6 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
 export type CodebuffClientOptions = {
-  apiKey: { type: 'string'; value: string } | { type: 'env' }
   cwd: string
 }
 

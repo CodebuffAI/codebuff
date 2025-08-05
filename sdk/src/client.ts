@@ -13,22 +13,21 @@ import type {
 } from './types'
 
 export class CodebuffClient {
-  private authToken: string
-
   public cwd: string
 
-  constructor({ apiKey, cwd }: CodebuffClientOptions) {
+  constructor({ cwd }: CodebuffClientOptions) {
     // TODO: download binary automatically
     if (execFileSync('which', [CODEBUFF_BINARY]).toString().trim() === '') {
       throw new Error(
         'Codebuff binary not found. Please run "npm i -g codebuff"',
       )
     }
+    if (!process.env[API_KEY_ENV_VAR]) {
+      throw new Error(
+        `Codebuff API key not found. Please set the ${API_KEY_ENV_VAR} environment variable.`,
+      )
+    }
 
-    this.authToken =
-      apiKey.type === 'string'
-        ? apiKey.value
-        : process.env[API_KEY_ENV_VAR] ?? ''
     this.cwd = cwd
   }
 
@@ -51,7 +50,6 @@ export class CodebuffClient {
 
     await processStream({
       codebuffArgs: args,
-      authToken: this.authToken,
       handleEvent,
     })
 
@@ -82,7 +80,6 @@ export class CodebuffClient {
 
     await processStream({
       codebuffArgs: args,
-      authToken: this.authToken,
       handleEvent,
     })
 
