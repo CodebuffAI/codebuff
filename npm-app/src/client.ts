@@ -25,6 +25,7 @@ import {
   SHOULD_ASK_CONFIG,
   UserState,
   ASYNC_AGENTS_ENABLED,
+  API_KEY_ENV_VAR,
 } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
@@ -1055,7 +1056,7 @@ export class Client {
       sessionState: this.sessionState,
       toolResults,
       fingerprintId: await this.fingerprintId,
-      authToken: this.user?.authToken,
+      authToken: process.env[API_KEY_ENV_VAR] || this.user?.authToken,
       costMode: this.costMode,
       model: this.model,
       repoUrl: loggerContext.repoUrl,

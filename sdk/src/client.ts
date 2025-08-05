@@ -1,5 +1,7 @@
 import { execFileSync } from 'child_process'
 
+import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
+
 import { CODEBUFF_BINARY } from './constants'
 import { processStream } from './process-stream'
 
@@ -26,7 +28,7 @@ export class CodebuffClient {
     this.authToken =
       apiKey.type === 'string'
         ? apiKey.value
-        : process.env.CODEBUFF_API_KEY ?? ''
+        : process.env[API_KEY_ENV_VAR] ?? ''
     this.cwd = cwd
   }
 

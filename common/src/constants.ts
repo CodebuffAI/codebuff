@@ -6,6 +6,8 @@ export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 export const AGENT_TEMPLATES_DIR = '.agents/'
 export const AGENT_CONFIG_FILE = 'agent-config.d.ts'
 
+export const API_KEY_ENV_VAR = 'CODEBUFF_API_KEY'
+
 // Enable async agents to run tool calls even when main user input is cancelled
 export const ASYNC_AGENTS_ENABLED = true
 
