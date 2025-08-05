@@ -186,10 +186,12 @@ export interface AgentStepContext {
 /**
  * Tool call object for handleSteps generator
  */
-export interface ToolCall<T extends ToolName = ToolName> {
-  toolName: T
-  args?: Tools.GetToolParams<T>
-}
+export type ToolCall<T extends ToolName = ToolName> = {
+  [K in T]: {
+    toolName: K
+    args?: Tools.GetToolParams<K>
+  }
+}[T]
 
 /**
  * Result from executing a tool

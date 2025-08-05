@@ -28,9 +28,9 @@ const config: AgentConfig = {
   stepPrompt:
     'Do not use the find_files tool or any tools again. Just give your response.',
   handleSteps: function* ({ agentState, prompt, params }) {
-    yield {
+    const toolResult = yield {
       toolName: 'find_files',
-      args: { prompt },
+      args: { prompt: prompt ?? '' },
     }
     yield 'STEP_ALL'
   },
