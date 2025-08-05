@@ -6,11 +6,6 @@ export type CodebuffClientOptions = {
   cwd: string
 }
 
-export type InputType =
-  | { prompt: string; params?: Record<string, any> }
-  | { prompt?: string; params: Record<string, any> }
-  | { prompt: string; params: Record<string, any> }
-
 export type ChatContext = {
   agentId: string
   chatId?: string
@@ -18,14 +13,16 @@ export type ChatContext = {
 
 export type NewChatOptions = {
   agent: AgentTemplateType
-  input: InputType
+  prompt: string
+  params?: Record<string, any>
   handleEvent: (event: PrintModeEvent) => void
 }
 
 export type ContinueChatOptions = {
   context: ChatContext
   agent?: AgentTemplateType
-  input: InputType
+  prompt: string
+  params?: Record<string, any>
   chatId?: string
   handleEvent: (event: PrintModeEvent) => void
 }

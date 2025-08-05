@@ -34,10 +34,11 @@ export class CodebuffClient {
 
   public async runNewChat({
     agent,
-    input: { prompt, params },
+    prompt,
+    params,
     handleEvent,
   }: NewChatOptions): Promise<ChatContext> {
-    const args = ['-p', '--agent', agent]
+    const args = [prompt, '-p', '--agent', agent]
     if (prompt) {
       args.push(prompt)
     }
@@ -62,12 +63,13 @@ export class CodebuffClient {
   // WIP
   private async continueChat({
     agent,
-    input: { prompt, params },
+    prompt,
+    params,
     context,
     handleEvent,
   }: ContinueChatOptions): Promise<ChatContext> {
     agent = agent ?? context.agentId
-    const args = ['-p', '--agent', agent]
+    const args = [prompt, '-p', '--agent', agent]
     if (prompt) {
       args.push(prompt)
     }

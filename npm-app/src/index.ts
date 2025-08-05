@@ -187,8 +187,7 @@ For all commands and options, run 'codebuff' and then type 'help'.
     if (!hasPrompt && !hasParams) {
       printModeLog({
         type: 'error',
-        message:
-          'Error: Print mode requires either a prompt or --params to be set',
+        message: 'Error: Print mode requires a prompt to be set',
       })
       process.exit(1)
     }
