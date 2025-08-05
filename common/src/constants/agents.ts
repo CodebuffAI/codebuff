@@ -1,4 +1,4 @@
-import type { AgentTemplateTypes } from 'src/types/session-state'
+import type { AgentTemplateTypes } from '../types/session-state'
 
 // Define agent personas with their shared characteristics
 export const AGENT_PERSONAS = {
