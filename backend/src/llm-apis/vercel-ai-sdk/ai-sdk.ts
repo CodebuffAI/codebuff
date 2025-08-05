@@ -6,7 +6,6 @@ import {
   openaiModels,
 } from '@codebuff/common/constants'
 import {
-  endsAgentStepParam,
   endToolTag,
   startToolTag,
   toolNameParam,
@@ -122,21 +121,20 @@ export const promptAiSdkStream = async function* (
         },
         'Error from AI SDK',
       )
-      if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
-        const errorBody = APICallError.isInstance(chunk.error)
-          ? chunk.error.responseBody
-          : undefined
-        const mainErrorMessage =
-          chunk.error instanceof Error
-            ? chunk.error.message
-            : typeof chunk.error === 'string'
-              ? chunk.error
-              : JSON.stringify(chunk.error)
-        const errorMessage = `Error from AI SDK (model ${options.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
-        throw new Error(errorMessage, {
-          cause: chunk.error,
-        })
-      }
+
+      const errorBody = APICallError.isInstance(chunk.error)
+        ? chunk.error.responseBody
+        : undefined
+      const mainErrorMessage =
+        chunk.error instanceof Error
+          ? chunk.error.message
+          : typeof chunk.error === 'string'
+            ? chunk.error
+            : JSON.stringify(chunk.error)
+      const errorMessage = `Error from AI SDK (model ${options.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
+      throw new Error(errorMessage, {
+        cause: chunk.error,
+      })
     }
     if (chunk.type === 'reasoning') {
       if (!reasoning) {
@@ -150,9 +148,7 @@ export const promptAiSdkStream = async function* (
     if (chunk.type === 'text-delta') {
       if (reasoning) {
         reasoning = false
-        yield `",
-  ${JSON.stringify(endsAgentStepParam)}: false
-}${endToolTag}\n\n`
+        yield `"\n}${endToolTag}\n\n`
       }
       content += chunk.textDelta
       yield chunk.textDelta
