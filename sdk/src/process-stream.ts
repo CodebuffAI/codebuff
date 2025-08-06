@@ -2,7 +2,7 @@ import { spawn } from 'child_process'
 
 import { CODEBUFF_BINARY } from './constants'
 
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '../../common/src/types/print-mode'
 
 export function processStream({
   codebuffArgs,
@@ -35,15 +35,13 @@ export function processStream({
   child.stdout.on('data', onData)
   child.stderr.on('data', onData)
 
-  const { promise, resolve, reject } = Promise.withResolvers<void>()
-
-  child.on('close', (code) => {
-    if (code === 0) {
-      resolve()
-    } else {
-      reject(new Error(`Codebuff exited with code ${code}`))
-    }
+  return new Promise<void>((resolve, reject) => {
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(new Error(`Codebuff exited with code ${code}`))
+      }
+    })
   })
-
-  return promise
 }

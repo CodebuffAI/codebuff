@@ -2,7 +2,7 @@
   "name": "@codebuff/sdk",
   "private": false,
   "access": "public",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "MIT",
   "type": "module",
@@ -51,7 +51,7 @@
     "url": "https://github.com/codebuff/codebuff/issues"
   },
   "dependencies": {
-    "@codebuff/common": "workspace:*"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "22",

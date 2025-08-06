@@ -1,7 +1,6 @@
 import { execFileSync } from 'child_process'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
-
+import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import { CODEBUFF_BINARY } from './constants'
 import { processStream } from './process-stream'
 

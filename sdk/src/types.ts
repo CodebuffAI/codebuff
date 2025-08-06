@@ -1,5 +1,5 @@
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { AgentTemplateType } from '@codebuff/common/types/session-state'
+import type { PrintModeEvent } from '../../common/src/types/print-mode'
+import type { AgentTemplateType } from '../../common/src/types/session-state'
 
 export type CodebuffClientOptions = {
   cwd: string

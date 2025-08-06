@@ -39,24 +39,16 @@ function main() {
   log('Preparing package.json for publishing...')
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'))
   
-  // Remove workspace dependencies and replace with actual versions
-  if (packageJson.dependencies && packageJson.dependencies['@codebuff/common']) {
-    // For now, we'll make it a peer dependency since it's not published yet
-    delete packageJson.dependencies['@codebuff/common']
-    if (!packageJson.peerDependencies) {
-      packageJson.peerDependencies = {}
-    }
-    packageJson.peerDependencies['@codebuff/common'] = '*'
-  }
+  // No workspace dependencies to handle anymore
   
   // Update paths for publishing from dist directory
-  packageJson.main = './index.js'
-  packageJson.types = './index.d.ts'
+  packageJson.main = './sdk/src/index.js'
+  packageJson.types = './sdk/src/index.d.ts'
   packageJson.exports = {
     '.': {
-      types: './index.d.ts',
-      import: './index.js',
-      default: './index.js'
+      types: './sdk/src/index.d.ts',
+      import: './sdk/src/index.js',
+      default: './sdk/src/index.js'
     }
   }
   
