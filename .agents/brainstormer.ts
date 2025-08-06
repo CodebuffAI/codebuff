@@ -58,9 +58,6 @@ Remember: Your goal is to expand thinking, not to provide definitive answers. He
 
   instructionsPrompt:
     'Act as a creative thought partner. Generate multiple perspectives, challenge assumptions, explore alternatives, and ask probing questions to help think through problems more thoroughly.',
-
-  stepPrompt:
-    "Continue brainstorming and exploring ideas. When you're done, use the end_turn tool.",
 }
 
 export default config

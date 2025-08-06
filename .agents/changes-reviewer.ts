@@ -71,13 +71,13 @@ Use the following guidelines to review the changes and suggest improvements:
     }
 
     // Step 4: Extract file paths from git diff and status output
-    const gitDiffOutput = gitDiffResult?.result || ''
+    const gitDiffOutput = gitDiffResult || ''
     const changedFiles = gitDiffOutput
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith('??') && !line.includes('OSC'))
 
-    const gitStatusOutput = gitStatusResult?.result || ''
+    const gitStatusOutput = gitStatusResult || ''
     const untrackedFiles = gitStatusOutput
       .split('\n')
       .map((line) => line.trim())

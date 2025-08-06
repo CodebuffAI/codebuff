@@ -53,7 +53,7 @@ const config: AgentConfig = {
     yield {
       toolName: 'set_output',
       args: {
-        results: spawnResult?.result,
+        results: spawnResult,
       },
     }
   },

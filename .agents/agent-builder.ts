@@ -3,7 +3,7 @@ import { publisher, version } from './constants'
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
-  id: 'sonnet4-agent-builder',
+  id: 'agent-builder',
   version,
   publisher,
   displayName: 'Bob the Agent Builder',
@@ -17,7 +17,6 @@ const config: AgentConfig = {
     'code_search',
     'spawn_agents',
     'add_message',
-    'set_output',
     'end_turn',
   ],
   subagents: [`codebuff/file-picker@${version}`],
@@ -28,7 +27,6 @@ const config: AgentConfig = {
       type: 'string',
     },
   },
-  outputMode: 'json',
   includeMessageHistory: false,
 
   parentPrompt:
@@ -70,7 +68,7 @@ Create agent templates that are focused, efficient, and well-documented. Always 
 
 You have access to three example agents in \`.agents/examples/\` that demonstrate different complexity levels:
 
-1. **Level 1 - Code Reviewer**: Simple agent with basic tools (read_files, write_file, set_output, end_turn)
+1. **Level 1 - Code Reviewer**: Simple agent with basic tools (read_files, write_file, end_turn)
 2. **Level 2 - Test Generator**: Intermediate agent with subagents and handleSteps logic
 3. **Level 3 - Documentation Writer**: Advanced agent with comprehensive tools, multiple subagents, and complex orchestration
 
@@ -170,9 +168,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
     }
 
     if (exampleAgentsResult) {
-      const exampleFiles = exampleAgentsResult
-        .split('\n\n')
-        .filter(Boolean)
+      const exampleFiles = exampleAgentsResult.split('\n\n').filter(Boolean)
 
       // Write example 1
       if (exampleFiles[0]) {

@@ -25,11 +25,6 @@ const config: AgentConfig = {
 
 You are an expert at finding relevant files in a codebase.
 
-
-{CODEBUFF_TOOLS_PROMPT}
-
-{CODEBUFF_AGENTS_PROMPT}
-
 {CODEBUFF_FILE_TREE_PROMPT}
 
 {CODEBUFF_SYSTEM_INFO_PROMPT}
@@ -40,7 +35,7 @@ In your report, please give an analysis that includes the full paths of files th
   stepPrompt:
     'Do not use the find_files tool or any tools again. Just give your response.',
   handleSteps: function* ({ agentState, prompt, params }) {
-    const toolResult = yield {
+    yield {
       toolName: 'find_files',
       args: { prompt: prompt ?? '' },
     }

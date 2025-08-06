@@ -33,20 +33,8 @@ In your report, provide a thorough analysis that includes:
 - Code examples or patterns when applicable
 - Actionable recommendations
 
-Always end your response with the end_turn tool.\
-\
-{CODEBUFF_TOOLS_PROMPT}\
-\
-{CODEBUFF_AGENTS_PROMPT}\
-\
-{CODEBUFF_FILE_TREE_PROMPT}\
-\
-{CODEBUFF_SYSTEM_INFO_PROMPT}\
-\
-{CODEBUFF_GIT_CHANGES_PROMPT}`,
-  instructionsPrompt: '',
-  stepPrompt:
-    "Don't forget to end your response with the end_turn tool: <end_turn></end_turn>",
+Always end your response with the end_turn tool.`,
+  stepPrompt: "Don't forget to end your response with the end_turn tool.",
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {
       toolName: 'web_search',

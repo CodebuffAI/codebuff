@@ -334,8 +334,7 @@ User cwd: {CODEBUFF_USER_CWD}
           ],
         },
       }
-      const { toolResult: thinkResult } = yield 'STEP'
-      if (thinkResult?.toolName === 'end_turn') break
+      yield 'STEP'
     }
   },
 }

@@ -9,23 +9,7 @@ const config: AgentConfig = {
   displayName: 'Git Committer',
   model: 'anthropic/claude-4-sonnet-20250522',
 
-  toolNames: [
-    'read_files',
-    'run_terminal_command',
-    'set_output',
-    'add_message',
-    'end_turn',
-  ],
-
-  outputSchema: {
-    type: 'object',
-    properties: {
-      success: { type: 'boolean' },
-      message: { type: 'string' },
-      commitHash: { type: 'string' },
-    },
-    required: ['success', 'message'],
-  },
+  toolNames: ['read_files', 'run_terminal_command', 'add_message', 'end_turn'],
 
   inputSchema: {
     prompt: {
@@ -45,9 +29,6 @@ const config: AgentConfig = {
 
   instructionsPrompt:
     'Follow the steps to create a good commit: analyze changes with git diff and git log, read relevant files for context, stage appropriate files, analyze changes, and create a commit with proper formatting including the Codebuff footer.',
-
-  stepPrompt:
-    'Continue with the git commit process. Make sure to end your response by using set_output to output a structured summary of what you committed and whether it was successful.',
 
   handleSteps: function* ({ agentState, prompt, params }: AgentStepContext) {
     // Step 1: Run git diff and git log to analyze changes
