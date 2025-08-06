@@ -14,7 +14,7 @@ function main() {
 
   try {
     const content = compileToolDefinitions()
-    const outputPath = join(process.cwd(), 'common/src/util/tools.d.ts')
+    const outputPath = join(process.cwd(), 'common/src/util/types/tools.d.ts')
 
     writeFileSync(outputPath, content, 'utf8')
 
