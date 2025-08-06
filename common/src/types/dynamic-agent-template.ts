@@ -179,4 +179,35 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
       path: ['toolNames'],
     },
   )
+  .refine(
+    (data) => {
+      // If 'set_output' tool is included, outputMode must be 'json'
+      if (data.toolNames.includes('set_output') && data.outputMode !== 'json') {
+        return false
+      }
+      return true
+    },
+    {
+      message:
+        "'set_output' tool requires outputMode to be 'json'. Change outputMode to 'json' or remove 'set_output' from toolNames.",
+      path: ['outputMode'],
+    },
+  )
+  .refine(
+    (data) => {
+      // If subagents array is non-empty, 'spawn_agents' tool must be included
+      if (
+        data.subagents.length > 0 &&
+        !data.toolNames.includes('spawn_agents')
+      ) {
+        return false
+      }
+      return true
+    },
+    {
+      message:
+        "Non-empty subagents array requires the 'spawn_agents' tool. Add 'spawn_agents' to toolNames or remove subagents.",
+      path: ['toolNames'],
+    },
+  )
 export type DynamicAgentTemplate = z.infer<typeof DynamicAgentTemplateSchema>

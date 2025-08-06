@@ -760,6 +760,35 @@ describe('Agent Validation', () => {
       }
     })
 
+    test('should reject set_output tool without json output mode', () => {
+      const {
+        DynamicAgentTemplateSchema,
+      } = require('../types/dynamic-agent-template')
+
+      const agentConfig = {
+        id: 'test-agent',
+        version: '1.0.0',
+        displayName: 'Test Agent',
+        parentPrompt: 'Testing',
+        model: 'claude-3-5-sonnet-20241022',
+        outputMode: 'last_message' as const, // Not json
+        toolNames: ['end_turn', 'set_output'], // Has set_output
+        subagents: [],
+        systemPrompt: 'Test',
+        instructionsPrompt: 'Test',
+        stepPrompt: 'Test',
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(agentConfig)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        const errorMessage = result.error.issues[0]?.message || ''
+        expect(errorMessage).toContain(
+          "'set_output' tool requires outputMode to be 'json'",
+        )
+      }
+    })
+
     test('should validate that handleSteps is a generator function', async () => {
       const agentTemplates = {
         'test-agent.ts': {

@@ -281,6 +281,91 @@ describe('DynamicAgentConfigSchema', () => {
       const result = DynamicAgentTemplateSchema.safeParse(template)
       expect(result.success).toBe(true)
     })
+
+    it('should reject template with set_output tool but non-json outputMode', () => {
+      const template = {
+        ...validBaseTemplate,
+        outputMode: 'last_message' as const,
+        toolNames: ['end_turn', 'set_output'], // set_output without json mode
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        const setOutputError = result.error.issues.find((issue) =>
+          issue.message.includes(
+            "'set_output' tool requires outputMode to be 'json'",
+          ),
+        )
+        expect(setOutputError).toBeDefined()
+        expect(setOutputError?.message).toContain(
+          "'set_output' tool requires outputMode to be 'json'",
+        )
+      }
+    })
+
+    it('should reject template with set_output tool and all_messages outputMode', () => {
+      const template = {
+        ...validBaseTemplate,
+        outputMode: 'all_messages' as const,
+        toolNames: ['end_turn', 'set_output'], // set_output without json mode
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        const setOutputError = result.error.issues.find((issue) =>
+          issue.message.includes(
+            "'set_output' tool requires outputMode to be 'json'",
+          ),
+        )
+        expect(setOutputError).toBeDefined()
+      }
+    })
+
+    it('should reject template with non-empty subagents but missing spawn_agents tool', () => {
+      const template = {
+        ...validBaseTemplate,
+        subagents: ['researcher', 'file-picker'], // Non-empty subagents
+        toolNames: ['end_turn', 'read_files'], // Missing spawn_agents
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        const spawnAgentsError = result.error.issues.find((issue) =>
+          issue.message.includes(
+            "Non-empty subagents array requires the 'spawn_agents' tool",
+          ),
+        )
+        expect(spawnAgentsError).toBeDefined()
+        expect(spawnAgentsError?.message).toContain(
+          "Non-empty subagents array requires the 'spawn_agents' tool",
+        )
+      }
+    })
+
+    it('should accept template with non-empty subagents and spawn_agents tool', () => {
+      const template = {
+        ...validBaseTemplate,
+        subagents: ['researcher', 'file-picker'],
+        toolNames: ['end_turn', 'spawn_agents'],
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(true)
+    })
+
+    it('should accept template with empty subagents and no spawn_agents tool', () => {
+      const template = {
+        ...validBaseTemplate,
+        subagents: [], // Empty subagents
+        toolNames: ['end_turn', 'read_files'], // No spawn_agents needed
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(true)
+    })
   })
 
   describe('Edge Cases', () => {
