@@ -1,16 +1,12 @@
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
-import { normalizeAgentNames } from '../util/agent-name-normalization'
 import {
   formatSubagentError,
   validateSubagents,
 } from '../util/agent-template-validation'
 import { logger } from '../util/logger'
-
-import type { ToolName } from '../tools/constants'
 import type { AgentTemplate } from '../types/agent-template'
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
-import type { AgentTemplateType } from '../types/session-state'
 
 export interface DynamicAgentValidationError {
   filePath: string
@@ -173,10 +169,6 @@ export function validateSingleAgent(
       }
     }
 
-    const validatedSubagents = normalizeAgentNames(
-      template.subagents,
-    ) as AgentTemplateType[]
-
     // Convert schemas and handle validation errors
     let inputSchema: AgentTemplate['inputSchema']
     try {
@@ -221,8 +213,6 @@ export function validateSingleAgent(
       ...template,
       outputSchema,
       inputSchema,
-      toolNames: template.toolNames as ToolName[],
-      subagents: validatedSubagents,
     }
 
     return {

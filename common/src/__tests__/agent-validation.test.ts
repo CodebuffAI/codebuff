@@ -312,7 +312,7 @@ describe('Agent Validation', () => {
       expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
       expect(result.templates).toHaveProperty('spawner_agent')
       expect(result.templates.spawner_agent.subagents).toContain(
-        'git-committer', // Normalized without prefix
+        'CodebuffAI/git-committer', // Full agent ID with prefix
       )
     })
   })

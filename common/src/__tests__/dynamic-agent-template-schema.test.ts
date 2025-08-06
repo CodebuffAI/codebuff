@@ -5,10 +5,6 @@ import {
   DynamicAgentTemplateSchema,
 } from '../types/dynamic-agent-template'
 import { AgentTemplateTypes } from '../types/session-state'
-import {
-  formatParentInstructionsError,
-  validateParentInstructions,
-} from '../util/agent-template-validation'
 
 describe('DynamicAgentConfigSchema', () => {
   const validBaseTemplate = {
@@ -338,57 +334,6 @@ describe('DynamicAgentConfigSchema', () => {
 
       const result = DynamicAgentConfigSchema.safeParse(template)
       expect(result.success).toBe(true)
-    })
-  })
-
-  describe('Parent Instructions Runtime Validation', () => {
-    it('should validate parent instructions with valid agent IDs', () => {
-      const parentInstructions = {
-        [AgentTemplateTypes.researcher]: 'Spawn when you need research',
-        [AgentTemplateTypes.file_picker]: 'Spawn when you need files',
-        'custom-agent': 'Spawn for custom tasks',
-      }
-      const dynamicAgentIds = ['custom-agent']
-      const result = validateParentInstructions(
-        parentInstructions,
-        dynamicAgentIds,
-      )
-      expect(result.valid).toBe(true)
-      expect(result.invalidAgents).toEqual([])
-    })
-
-    it('should reject parent instructions with invalid agent IDs', () => {
-      const parentInstructions = {
-        researcher: 'Spawn when you need research',
-        invalid_agent: 'Invalid instruction',
-        another_invalid: 'Another invalid instruction',
-      }
-      const dynamicAgentIds = ['custom-agent']
-
-      const result = validateParentInstructions(
-        parentInstructions,
-        dynamicAgentIds,
-      )
-      expect(result.valid).toBe(false)
-      expect(result.invalidAgents).toEqual(['invalid_agent', 'another_invalid'])
-      expect(result.availableAgents).toContain('researcher')
-      expect(result.availableAgents).toContain('custom-agent')
-    })
-
-    it('should format parent instructions error message correctly', () => {
-      const invalidAgents = ['invalid_agent', 'another_invalid']
-      const availableAgents = ['researcher', 'file-picker', 'custom-agent']
-
-      const errorMessage = formatParentInstructionsError(
-        invalidAgents,
-        availableAgents,
-      )
-      expect(errorMessage).toContain(
-        'Invalid parent instruction agent IDs: invalid_agent, another_invalid',
-      )
-      expect(errorMessage).toContain(
-        'Available agents: researcher, file-picker, custom-agent',
-      )
     })
   })
 })

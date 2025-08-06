@@ -1,5 +1,16 @@
-import { describe, expect, it, beforeEach, afterEach, spyOn, mock } from 'bun:test'
-import { clearMockedModules, mockModule } from '@codebuff/common/testing/mock-modules'
+import {
+  describe,
+  expect,
+  it,
+  beforeEach,
+  afterEach,
+  spyOn,
+  mock,
+} from 'bun:test'
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 
 import {
@@ -89,47 +100,70 @@ const mockStaticTemplates: Record<string, AgentTemplate> = {
   },
 }
 
-// Mock validation functions
-mockModule('@codebuff/common/templates/agent-validation', () => ({
-  validateAgents: (agentTemplates: Record<string, DynamicAgentTemplate> = {}) => {
-    const templates: Record<string, AgentTemplate> = { ...mockStaticTemplates }
-    const validationErrors: any[] = []
-
-    for (const key in agentTemplates) {
-      const template = agentTemplates[key]
-      if (template.id === 'invalid-agent') {
-        validationErrors.push({
-          filePath: key,
-          message: 'Invalid agent configuration',
-        })
-      } else {
-        templates[template.id] = template as AgentTemplate
-      }
-    }
-
-    return { templates, validationErrors }
-  },
-  validateSingleAgent: (template: DynamicAgentTemplate, options?: any) => {
-    if (template.id?.includes('invalid-db-agent')) {
-      return {
-        success: false,
-        error: 'Invalid database agent',
-      }
-    }
-    return {
-      success: true,
-      agentTemplate: template as AgentTemplate,
-    }
-  },
+// Mock static agent templates
+mockModule('@codebuff/backend/templates/agent-list', () => ({
+  agentTemplates: mockStaticTemplates,
 }))
+
+// We'll spy on the validation functions instead of mocking the entire module
 
 describe('Agent Registry', () => {
   let mockFileContext: ProjectFileContext
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clear cache before each test
     clearDatabaseCache()
     mockFileContext = getStubProjectFileContext()
+
+    // Spy on validation functions
+    const validationModule = await import(
+      '@codebuff/common/templates/agent-validation'
+    )
+    spyOn(validationModule, 'validateAgents').mockImplementation(
+      (agentTemplates: Record<string, DynamicAgentTemplate> = {}) => {
+        // Start with static templates (simulating the real behavior)
+        const templates: Record<string, AgentTemplate> = {
+          ...mockStaticTemplates,
+        }
+        const validationErrors: any[] = []
+
+        for (const key in agentTemplates) {
+          const template = agentTemplates[key]
+          if (template.id === 'invalid-agent') {
+            validationErrors.push({
+              filePath: key,
+              message: 'Invalid agent configuration',
+            })
+            // Don't add invalid agents to templates (this simulates validation failure)
+          } else {
+            templates[template.id] = template as AgentTemplate
+          }
+        }
+
+        return { templates, validationErrors }
+      },
+    )
+
+    spyOn(validationModule, 'validateSingleAgent').mockImplementation(
+      (template: DynamicAgentTemplate, options?: any) => {
+        // Check for malformed agents (missing required fields)
+        if (
+          template.id === 'malformed-agent' ||
+          !template.systemPrompt ||
+          !template.instructionsPrompt ||
+          !template.stepPrompt
+        ) {
+          return {
+            success: false,
+            error: 'Invalid agent configuration - missing required fields',
+          }
+        }
+        return {
+          success: true,
+          agentTemplate: template as AgentTemplate,
+        }
+      },
+    )
   })
 
   afterEach(() => {
@@ -155,7 +189,7 @@ describe('Agent Registry', () => {
           inputSchema: {},
         } as AgentTemplate,
       }
-      
+
       const result = await getAgentTemplate('my-agent', localAgents)
       expect(result).toBeTruthy()
       expect(result?.id).toBe('my-agent')
@@ -172,7 +206,10 @@ describe('Agent Registry', () => {
     })
 
     it('should return null for invalid agent ID formats', async () => {
-      const result = await getAgentTemplate('invalid/format/with/too/many/slashes', {})
+      const result = await getAgentTemplate(
+        'invalid/format/with/too/many/slashes',
+        {},
+      )
       expect(result).toBeNull()
     })
   })
@@ -207,13 +244,19 @@ describe('Agent Registry', () => {
       }
 
       const dbModule = await import('@codebuff/common/db')
-      spyOn(dbModule.default, 'select').mockImplementation(() => ({
-        from: () => ({
-          where: () => Promise.resolve([mockAgentData]),
-        }),
-      }) as any)
+      spyOn(dbModule.default, 'select').mockImplementation(
+        () =>
+          ({
+            from: () => ({
+              where: () => Promise.resolve([mockAgentData]),
+            }),
+          }) as any,
+      )
 
-      const result = await getAgentTemplate('test-publisher/test-agent@1.0.0', {})
+      const result = await getAgentTemplate(
+        'test-publisher/test-agent@1.0.0',
+        {},
+      )
       expect(result).toBeTruthy()
       expect(result?.id).toBe('test-publisher/test-agent@1.0.0')
     })
@@ -267,19 +310,28 @@ describe('Agent Registry', () => {
       }
 
       const dbModule = await import('@codebuff/common/db')
-      const selectSpy = spyOn(dbModule.default, 'select').mockImplementation(() => ({
-        from: () => ({
-          where: () => Promise.resolve([mockAgentData]),
-        }),
-      }) as any)
+      const selectSpy = spyOn(dbModule.default, 'select').mockImplementation(
+        () =>
+          ({
+            from: () => ({
+              where: () => Promise.resolve([mockAgentData]),
+            }),
+          }) as any,
+      )
 
       // First call - should hit database
-      const result1 = await getAgentTemplate('test-publisher/cached-agent@1.0.0', {})
+      const result1 = await getAgentTemplate(
+        'test-publisher/cached-agent@1.0.0',
+        {},
+      )
       expect(result1).toBeTruthy()
       expect(selectSpy).toHaveBeenCalledTimes(1)
 
       // Second call - should use cache
-      const result2 = await getAgentTemplate('test-publisher/cached-agent@1.0.0', {})
+      const result2 = await getAgentTemplate(
+        'test-publisher/cached-agent@1.0.0',
+        {},
+      )
       expect(result2).toBeTruthy()
       expect(result2?.displayName).toBe('Cached Agent')
       expect(selectSpy).toHaveBeenCalledTimes(1)
@@ -308,11 +360,13 @@ describe('Agent Registry', () => {
       }
 
       const result = assembleLocalAgentTemplates(fileContext)
-      
+
       // Should have dynamic template
       expect(result.agentTemplates).toHaveProperty('custom-agent')
-      expect(result.agentTemplates['custom-agent'].displayName).toBe('Custom Agent')
-      
+      expect(result.agentTemplates['custom-agent'].displayName).toBe(
+        'Custom Agent',
+      )
+
       // Should have no validation errors
       expect(result.validationErrors).toHaveLength(0)
     })
@@ -330,10 +384,10 @@ describe('Agent Registry', () => {
       }
 
       const result = assembleLocalAgentTemplates(fileContext)
-      
+
       // Should not have invalid template
       expect(result.agentTemplates).not.toHaveProperty('invalid-agent')
-      
+
       // Should have validation errors
       expect(result.validationErrors.length).toBeGreaterThan(0)
     })
@@ -345,10 +399,10 @@ describe('Agent Registry', () => {
       }
 
       const result = assembleLocalAgentTemplates(fileContext)
-      
+
       // Should have no validation errors
       expect(result.validationErrors).toHaveLength(0)
-      
+
       // Should return some agent templates (static ones from our mock)
       expect(Object.keys(result.agentTemplates).length).toBeGreaterThan(0)
     })
@@ -379,11 +433,14 @@ describe('Agent Registry', () => {
       }
 
       const dbModule = await import('@codebuff/common/db')
-      const selectSpy = spyOn(dbModule.default, 'select').mockImplementation(() => ({
-        from: () => ({
-          where: () => Promise.resolve([mockAgentData]),
-        }),
-      }) as any)
+      const selectSpy = spyOn(dbModule.default, 'select').mockImplementation(
+        () =>
+          ({
+            from: () => ({
+              where: () => Promise.resolve([mockAgentData]),
+            }),
+          }) as any,
+      )
 
       // First call - should hit database and populate cache
       await getAgentTemplate('test-publisher/cache-test-agent@1.0.0', {})
@@ -430,16 +487,34 @@ describe('Agent Registry', () => {
 
     it('should handle malformed database response', async () => {
       const dbModule = await import('@codebuff/common/db')
-      spyOn(dbModule.default, 'select').mockImplementation(() => ({
-        from: () => ({
-          where: () => Promise.resolve([{
-            // Missing required fields
-            id: 'malformed-agent',
-          }]),
-        }),
-      }) as any)
+      spyOn(dbModule.default, 'select').mockImplementation(
+        () =>
+          ({
+            from: () => ({
+              where: () =>
+                Promise.resolve([
+                  {
+                    id: 'malformed-agent',
+                    publisher_id: 'publisher',
+                    version: '1.0.0',
+                    major: 1,
+                    minor: 0,
+                    patch: 0,
+                    data: {
+                      id: 'malformed-agent',
+                      displayName: 'Malformed Agent',
+                      // Missing required fields like systemPrompt, instructionsPrompt, stepPrompt
+                    },
+                  },
+                ]),
+            }),
+          }) as any,
+      )
 
-      const result = await getAgentTemplate('publisher/malformed-agent@1.0.0', {})
+      const result = await getAgentTemplate(
+        'publisher/malformed-agent@1.0.0',
+        {},
+      )
       expect(result).toBeNull()
     })
   })

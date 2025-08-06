@@ -1,4 +1,3 @@
-import { normalizeAgentName } from './agent-name-normalization'
 import { AGENT_PERSONAS } from '../constants/agents'
 
 export interface AgentInfo {
@@ -29,7 +28,7 @@ export function getLocalAgents(
   localAgents: Record<string, { displayName: string; purpose?: string }>,
 ): AgentInfo[] {
   return Object.entries(localAgents).map(([agentId, config]) => ({
-    id: normalizeAgentName(agentId),
+    id: agentId,
     displayName: config.displayName,
     purpose: config.purpose,
     isBuiltIn: false,
@@ -62,13 +61,12 @@ export function resolveNameToId(
 /**
  * Resolve agent ID to display name
  */
-export function resolveIdToName(
+function resolveIdToName(
   agentId: string,
   localAgents: Record<string, { displayName: string; purpose?: string }> = {},
 ): string | null {
-  const normalizedId = normalizeAgentName(agentId)
   const agents = getAllAgents(localAgents)
-  const agent = agents.find((a) => a.id === normalizedId)
+  const agent = agents.find((a) => a.id === agentId)
   return agent?.displayName || null
 }
 
@@ -84,18 +82,5 @@ export function getAgentDisplayName(
     (resolveNameToId(agentIdOrName, localAgents)
       ? agentIdOrName
       : agentIdOrName)
-  )
-}
-
-/**
- * Get agent ID from display name or ID, with fallback
- */
-export function getAgentId(
-  agentIdOrName: string,
-  localAgents: Record<string, { displayName: string; purpose?: string }> = {},
-): string {
-  return (
-    resolveNameToId(agentIdOrName, localAgents) ||
-    normalizeAgentName(agentIdOrName)
   )
 }

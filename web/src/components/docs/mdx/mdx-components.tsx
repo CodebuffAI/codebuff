@@ -5,11 +5,7 @@ import React, { useState, useEffect } from 'react'
 
 import { CodeDemo } from './code-demo'
 import { MarkdownTable } from './markdown-table'
-import {
-  AgentOverrideSchemaDisplay,
-  AgentTemplateSchemaDisplay,
-  SchemaDisplay,
-} from './schema-display'
+import { AgentTemplateSchemaDisplay, SchemaDisplay } from './schema-display'
 
 import type {
   HTMLAttributes,
@@ -259,7 +255,6 @@ const components = {
   CodeDemo,
   MarkdownTable,
   SchemaDisplay,
-  AgentOverrideSchemaDisplay,
   AgentTemplateSchemaDisplay,
 }
 
