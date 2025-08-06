@@ -97,7 +97,7 @@ describe('Agent Validation', () => {
             systemPrompt: 'You are a creative brainstormer.',
             instructionsPrompt: 'Help brainstorm ideas.',
             stepPrompt: 'Continue brainstorming.',
-            toolNames: ['end_turn'],
+            toolNames: ['end_turn', 'spawn_agents'],
             subagents: ['thinker', 'researcher'],
             outputMode: 'last_message',
             includeMessageHistory: true,
@@ -106,6 +106,7 @@ describe('Agent Validation', () => {
       }
 
       const result = validateAgents(fileContext.agentTemplates || {})
+
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('brainstormer')
@@ -147,7 +148,7 @@ describe('Agent Validation', () => {
         ...mockFileContext,
         agentTemplates: {
           'custom.ts': {
-            id: 'custom_agent',
+            id: 'custom-agent',
             version: '1.0.0',
             displayName: 'Custom',
             parentPrompt: 'Custom agent',
@@ -166,7 +167,7 @@ describe('Agent Validation', () => {
       const result = validateAgents(fileContext.agentTemplates || {})
 
       // Should have dynamic templates
-      expect(result.templates).toHaveProperty('custom_agent') // Dynamic
+      expect(result.templates).toHaveProperty('custom-agent') // Dynamic
     })
 
     it('should handle agents with JSON schemas', async () => {
@@ -174,7 +175,7 @@ describe('Agent Validation', () => {
         ...mockFileContext,
         agentTemplates: {
           'schema-agent.ts': {
-            id: 'schema_agent',
+            id: 'schema-agent',
             version: '1.0.0',
             displayName: 'Schema Agent',
             parentPrompt: 'Agent with JSON schemas',
@@ -204,10 +205,11 @@ describe('Agent Validation', () => {
 
       const result = validateAgents(fileContext.agentTemplates || {})
 
+
       expect(result.validationErrors).toHaveLength(0)
-      expect(result.templates).toHaveProperty('schema_agent')
-      expect(result.templates.schema_agent.inputSchema.prompt).toBeDefined()
-      expect(result.templates.schema_agent.inputSchema.params).toBeDefined()
+      expect(result.templates).toHaveProperty('schema-agent')
+      expect(result.templates['schema-agent'].inputSchema.prompt).toBeDefined()
+      expect(result.templates['schema-agent'].inputSchema.params).toBeDefined()
     })
 
     it('should return validation errors for invalid schemas', async () => {
@@ -215,7 +217,7 @@ describe('Agent Validation', () => {
         ...mockFileContext,
         agentTemplates: {
           'invalid-schema-agent.ts': {
-            id: 'invalid_schema_agent',
+            id: 'invalid-schema-agent',
             version: '1.0.0',
             displayName: 'Invalid Schema Agent',
             parentPrompt: 'Agent with invalid schemas',
@@ -238,9 +240,9 @@ describe('Agent Validation', () => {
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].message).toContain(
-        'Invalid inputSchema.prompt in invalid-schema-agent.ts',
+        'Schema validation failed',
       )
-      expect(result.templates).not.toHaveProperty('invalid_schema_agent')
+      expect(result.templates).not.toHaveProperty('invalid-schema-agent')
     })
 
     it('should handle missing override field as non-override template', async () => {
@@ -248,7 +250,7 @@ describe('Agent Validation', () => {
         ...mockFileContext,
         agentTemplates: {
           'no-override-field.ts': {
-            id: 'no_override_agent',
+            id: 'no-override-agent',
             version: '1.0.0',
             // No override field - should be treated as non-override
             displayName: 'No Override Agent',
@@ -267,8 +269,9 @@ describe('Agent Validation', () => {
 
       const result = validateAgents(fileContext.agentTemplates || {})
 
+
       expect(result.validationErrors).toHaveLength(0)
-      expect(result.templates).toHaveProperty('no_override_agent')
+      expect(result.templates).toHaveProperty('no-override-agent')
     })
 
     it('should validate spawnable agents including dynamic agents from first pass', async () => {
@@ -276,7 +279,7 @@ describe('Agent Validation', () => {
         ...mockFileContext,
         agentTemplates: {
           'git-committer.ts': {
-            id: 'CodebuffAI/git-committer',
+            id: 'codebuffai-git-committer',
             version: '0.0.1',
             displayName: 'Git Committer',
             parentPrompt: 'A git committer agent',
@@ -290,7 +293,7 @@ describe('Agent Validation', () => {
             toolNames: ['end_turn'],
           },
           'spawner.ts': {
-            id: 'spawner_agent',
+            id: 'spawner-agent',
             version: '1.0.0',
             displayName: 'Spawner Agent',
             parentPrompt: 'Agent that can spawn git-committer',
@@ -298,21 +301,22 @@ describe('Agent Validation', () => {
             systemPrompt: 'Test system prompt',
             instructionsPrompt: 'Test user prompt',
             stepPrompt: 'Test step prompt',
-            subagents: ['CodebuffAI/git-committer'], // Should be valid after first pass
+            subagents: ['codebuffai-git-committer'], // Should be valid after first pass
             outputMode: 'last_message',
             includeMessageHistory: true,
-            toolNames: ['end_turn'],
+            toolNames: ['end_turn', 'spawn_agents'],
           },
         },
       }
 
       const result = validateAgents(fileContext.agentTemplates || {})
 
+
       expect(result.validationErrors).toHaveLength(0)
-      expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
-      expect(result.templates).toHaveProperty('spawner_agent')
-      expect(result.templates.spawner_agent.subagents).toContain(
-        'CodebuffAI/git-committer', // Full agent ID with prefix
+      expect(result.templates).toHaveProperty('codebuffai-git-committer')
+      expect(result.templates).toHaveProperty('spawner-agent')
+      expect(result.templates['spawner-agent'].subagents).toContain(
+        'codebuffai-git-committer', // Full agent ID with prefix
       )
     })
   })
@@ -324,7 +328,7 @@ describe('Agent Validation', () => {
           ...mockFileContext,
           agentTemplates: {
             'no-prompt-schema.ts': {
-              id: 'no_prompt_schema_agent',
+              id: 'no-prompt-schema-agent',
               version: '1.0.0',
               displayName: 'No Prompt Schema Agent',
               parentPrompt: 'Test agent without prompt schema',
@@ -344,9 +348,9 @@ describe('Agent Validation', () => {
         const result = validateAgents(fileContext.agentTemplates || {})
 
         expect(result.validationErrors).toHaveLength(0)
-        expect(result.templates).toHaveProperty('no_prompt_schema_agent')
+        expect(result.templates).toHaveProperty('no-prompt-schema-agent')
         expect(
-          result.templates.no_prompt_schema_agent.inputSchema.prompt,
+          result.templates['no-prompt-schema-agent'].inputSchema.prompt,
         ).toBeUndefined()
       })
 
@@ -355,7 +359,7 @@ describe('Agent Validation', () => {
           ...mockFileContext,
           agentTemplates: {
             'no-params-schema.ts': {
-              id: 'no_params_schema_agent',
+              id: 'no-params-schema-agent',
               version: '1.0.0',
               displayName: 'No Params Schema Agent',
               parentPrompt: 'Test agent without params schema',
@@ -375,9 +379,9 @@ describe('Agent Validation', () => {
         const result = validateAgents(fileContext.agentTemplates || {})
 
         expect(result.validationErrors).toHaveLength(0)
-        expect(result.templates).toHaveProperty('no_params_schema_agent')
+        expect(result.templates).toHaveProperty('no-params-schema-agent')
         expect(
-          result.templates.no_params_schema_agent.inputSchema.params,
+          result.templates['no-params-schema-agent'].inputSchema.params,
         ).toBeUndefined()
       })
     })
@@ -388,7 +392,7 @@ describe('Agent Validation', () => {
           ...mockFileContext,
           agentTemplates: {
             'both-schemas.ts': {
-              id: 'both_schemas_agent',
+              id: 'both-schemas-agent',
               version: '1.0.0',
               displayName: 'Both Schemas Agent',
               parentPrompt: 'Test agent with both schemas',
@@ -430,9 +434,9 @@ describe('Agent Validation', () => {
         const result = validateAgents(fileContext.agentTemplates || {})
 
         expect(result.validationErrors).toHaveLength(0)
-        expect(result.templates).toHaveProperty('both_schemas_agent')
+        expect(result.templates).toHaveProperty('both-schemas-agent')
 
-        const template = result.templates.both_schemas_agent
+        const template = result.templates['both-schemas-agent']
         expect(template.inputSchema.prompt).toBeDefined()
         expect(template.inputSchema.params).toBeDefined()
 
@@ -456,7 +460,7 @@ describe('Agent Validation', () => {
           ...mockFileContext,
           agentTemplates: {
             'complex-schema.ts': {
-              id: 'complex_schema_agent',
+              id: 'complex-schema-agent',
               version: '1.0.0',
               displayName: 'Complex Schema Agent',
               parentPrompt: 'Test agent with complex nested schema',
@@ -501,10 +505,10 @@ describe('Agent Validation', () => {
         const result = validateAgents(fileContext.agentTemplates || {})
 
         expect(result.validationErrors).toHaveLength(0)
-        expect(result.templates).toHaveProperty('complex_schema_agent')
+        expect(result.templates).toHaveProperty('complex-schema-agent')
 
         const paramsSchema =
-          result.templates.complex_schema_agent.inputSchema.params!
+          result.templates['complex-schema-agent'].inputSchema.params!
 
         // Test valid complex object
         const validParams = {
@@ -537,7 +541,7 @@ describe('Agent Validation', () => {
           ...mockFileContext,
           agentTemplates: {
             'error-context.ts': {
-              id: 'error_context_agent',
+              id: 'error-context-agent',
               version: '1.0.0',
               displayName: 'Error Context Agent',
               parentPrompt: 'Test agent for error context',
@@ -559,7 +563,7 @@ describe('Agent Validation', () => {
         const result = validateAgents(fileContext.agentTemplates || {})
 
         expect(result.validationErrors).toHaveLength(1)
-        expect(result.validationErrors[0].message).toContain('in error-context')
+        expect(result.validationErrors[0].message).toContain('Schema validation failed')
         expect(result.validationErrors[0].filePath).toBe('error-context.ts')
       })
     })
@@ -570,7 +574,7 @@ describe('Agent Validation', () => {
           ...mockFileContext,
           agentTemplates: {
             'git-committer.ts': {
-              id: 'CodebuffAI/git-committer',
+              id: 'codebuffai-git-committer',
               version: '0.0.1',
               displayName: 'Git Committer',
               parentPrompt:
@@ -605,9 +609,9 @@ describe('Agent Validation', () => {
         const result = validateAgents(fileContext.agentTemplates || {})
 
         expect(result.validationErrors).toHaveLength(0)
-        expect(result.templates).toHaveProperty('CodebuffAI/git-committer')
+        expect(result.templates).toHaveProperty('codebuffai-git-committer')
 
-        const template = result.templates['CodebuffAI/git-committer']
+        const template = result.templates['codebuffai-git-committer']
         const paramsSchema = template.inputSchema.params!
 
         expect(paramsSchema.safeParse('').success).toBe(false) // Too short
@@ -629,14 +633,14 @@ describe('Agent Validation', () => {
           ...mockFileContext,
           agentTemplates: {
             'empty-schema.ts': {
-              id: 'empty_schema_agent',
+              id: 'empty-schema-agent',
               version: '1.0.0',
               displayName: 'Empty Schema Agent',
-              parentPrompt: 'Test agent with empty schema',
               model: 'anthropic/claude-4-sonnet-20250522',
               systemPrompt: 'Test system prompt',
               instructionsPrompt: 'Test user prompt',
               stepPrompt: 'Test step prompt',
+              parentPrompt: 'Test agent with empty schema',
               inputSchema: {},
               outputMode: 'last_message',
               includeMessageHistory: true,
@@ -649,11 +653,11 @@ describe('Agent Validation', () => {
         const result = validateAgents(fileContext.agentTemplates || {})
 
         expect(result.validationErrors).toHaveLength(0)
-        expect(result.templates).toHaveProperty('empty_schema_agent')
+        expect(result.templates).toHaveProperty('empty-schema-agent')
 
         // Empty schemas should have no prompt schema
         expect(
-          result.templates.empty_schema_agent.inputSchema.prompt,
+          result.templates['empty-schema-agent'].inputSchema.prompt,
         ).toBeUndefined()
       })
     })
@@ -808,7 +812,6 @@ describe('Agent Validation', () => {
       expect(result.validationErrors[0].message).toContain('generator function')
       expect(result.validationErrors[0].message).toContain('function*')
     })
-
     test('should verify loaded template handleSteps matches original function toString', async () => {
       // Create a generator function
       const originalFunction = function* ({

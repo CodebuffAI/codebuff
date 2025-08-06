@@ -5,6 +5,10 @@ import {
   validateSubagents,
 } from '../util/agent-template-validation'
 import { logger } from '../util/logger'
+import {
+  DynamicAgentConfigSchema,
+  DynamicAgentTemplateSchema,
+} from '../types/dynamic-agent-template'
 import type { AgentTemplate } from '../types/agent-template'
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 
@@ -48,9 +52,7 @@ export function collectAgentIds(
 /**
  * Validate and load dynamic agent templates from user-provided agentTemplates
  */
-export function validateAgents(
-  agentTemplates: Record<string, DynamicAgentTemplate> = {},
-): {
+export function validateAgents(agentTemplates: Record<string, any> = {}): {
   templates: Record<string, AgentTemplate>
   validationErrors: DynamicAgentValidationError[]
 } {
@@ -73,8 +75,8 @@ export function validateAgents(
 
   // Pass 2: Load and validate each agent template
   for (const agentKey of agentKeys) {
+    const content = agentTemplates[agentKey]
     try {
-      const content = agentTemplates[agentKey]
       if (!content) {
         continue
       }
@@ -92,21 +94,31 @@ export function validateAgents(
         continue
       }
 
-      if (templates[content.id]) {
+      if (templates[validationResult.agentTemplate!.id]) {
+        const agentContext = validationResult.agentTemplate!.displayName 
+          ? `Agent "${validationResult.agentTemplate!.id}" (${validationResult.agentTemplate!.displayName})`
+          : `Agent "${validationResult.agentTemplate!.id}"`
+        
         validationErrors.push({
           filePath: agentKey,
-          message: `Duplicate agent ID: ${content.id}`,
+          message: `${agentContext}: Duplicate agent ID`,
         })
         continue
       }
-      templates[content.id] = validationResult.agentTemplate!
+      templates[validationResult.agentTemplate!.id] =
+        validationResult.agentTemplate!
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error'
 
+      // Try to extract agent context for better error messages
+      const agentContext = content?.id 
+        ? `Agent "${content.id}"${content.displayName ? ` (${content.displayName})` : ''}`
+        : `Agent in ${agentKey}`
+      
       validationErrors.push({
         filePath: agentKey,
-        message: `Error in agent template ${agentKey}: ${errorMessage}`,
+        message: `${agentContext}: ${errorMessage}`,
       })
 
       logger.warn(
@@ -127,14 +139,14 @@ export function validateAgents(
  * This is a plain function equivalent to the core logic of loadSingleAgent.
  *
  * @param dynamicAgentIds - Array of all available dynamic agent IDs for validation
- * @param template - The dynamic agent template to validate
+ * @param template - The raw agent template to validate (any type)
  * @param options - Optional configuration object
  * @param options.filePath - Optional file path for error context
  * @param options.skipSubagentValidation - Skip subagent validation when loading from database
  * @returns Validation result with either the converted AgentTemplate or an error
  */
 export function validateSingleAgent(
-  template: DynamicAgentTemplate,
+  template: any,
   options?: {
     dynamicAgentIds?: string[]
     filePath?: string
@@ -152,10 +164,39 @@ export function validateSingleAgent(
   } = options || {}
 
   try {
+    // First validate against the Zod schema
+    let validatedConfig: DynamicAgentTemplate
+    try {
+      const typedAgentConfig = DynamicAgentConfigSchema.parse(template)
+
+      // Convert handleSteps function to string if present
+      let handleStepsString: string | undefined
+      if (template.handleSteps) {
+        handleStepsString = template.handleSteps.toString()
+      }
+
+      validatedConfig = DynamicAgentTemplateSchema.parse({
+        ...typedAgentConfig,
+        systemPrompt: typedAgentConfig.systemPrompt || '',
+        instructionsPrompt: typedAgentConfig.instructionsPrompt || '',
+        stepPrompt: typedAgentConfig.stepPrompt || '',
+        handleSteps: handleStepsString,
+      })
+    } catch (error: any) {
+      // Try to extract agent context for better error messages
+      const agentContext = template.id 
+        ? `Agent "${template.id}"${template.displayName ? ` (${template.displayName})` : ''}`
+        : filePath ? `Agent in ${filePath}` : 'Agent'
+      
+      return {
+        success: false,
+        error: `${agentContext}: Schema validation failed: ${error.message}`,
+      }
+    }
     // Validate subagents (skip if requested, e.g., for database agents)
     if (!skipSubagentValidation) {
       const subagentValidation = validateSubagents(
-        template.subagents,
+        validatedConfig.subagents,
         dynamicAgentIds,
       )
       if (!subagentValidation.valid) {
@@ -173,44 +214,60 @@ export function validateSingleAgent(
     let inputSchema: AgentTemplate['inputSchema']
     try {
       inputSchema = convertInputSchema(
-        template.inputSchema?.prompt,
-        template.inputSchema?.params,
+        validatedConfig.inputSchema?.prompt,
+        validatedConfig.inputSchema?.params,
         filePath,
       )
     } catch (error) {
+      // Try to extract agent context for better error messages
+      const agentContext = validatedConfig.id 
+        ? `Agent "${validatedConfig.id}"${validatedConfig.displayName ? ` (${validatedConfig.displayName})` : ''}`
+        : filePath ? `Agent in ${filePath}` : 'Agent'
+      
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : 'Schema conversion failed',
+        error: `${agentContext}: ${
+          error instanceof Error ? error.message : 'Schema conversion failed'
+        }`,
       }
     }
 
     // Convert outputSchema if present
     let outputSchema: AgentTemplate['outputSchema']
-    if (template.outputSchema) {
+    if (validatedConfig.outputSchema) {
       try {
-        outputSchema = convertJsonSchemaToZod(template.outputSchema)
+        outputSchema = convertJsonSchemaToZod(validatedConfig.outputSchema)
       } catch (error) {
+        // Try to extract agent context for better error messages
+        const agentContext = validatedConfig.id 
+          ? `Agent "${validatedConfig.id}"${validatedConfig.displayName ? ` (${validatedConfig.displayName})` : ''}`
+          : filePath ? `Agent in ${filePath}` : 'Agent'
+        
         return {
           success: false,
-          error: `Failed to convert outputSchema to Zod: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: `${agentContext}: Failed to convert outputSchema to Zod: ${error instanceof Error ? error.message : 'Unknown error'}`,
         }
       }
     }
 
     // Validate handleSteps if present
-    if (template.handleSteps) {
-      if (!isValidGeneratorFunction(template.handleSteps)) {
+    if (validatedConfig.handleSteps) {
+      if (!isValidGeneratorFunction(validatedConfig.handleSteps)) {
+        // Try to extract agent context for better error messages
+        const agentContext = validatedConfig.id 
+          ? `Agent "${validatedConfig.id}"${validatedConfig.displayName ? ` (${validatedConfig.displayName})` : ''}`
+          : filePath ? `Agent in ${filePath}` : 'Agent'
+        
         return {
           success: false,
-          error: `handleSteps must be a generator function: "function* (params) { ... }". Found: ${template.handleSteps.substring(0, 50)}...`,
+          error: `${agentContext}: handleSteps must be a generator function: "function* (params) { ... }". Found: ${validatedConfig.handleSteps.substring(0, 50)}...`,
         }
       }
     }
 
     // Convert to internal AgentTemplate format
     const agentTemplate: AgentTemplate = {
-      ...template,
+      ...validatedConfig,
       outputSchema,
       inputSchema,
     }
@@ -223,9 +280,14 @@ export function validateSingleAgent(
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error'
 
+    // Try to extract agent context for better error messages
+    const agentContext = template?.id 
+      ? `Agent "${template.id}"${template.displayName ? ` (${template.displayName})` : ''}`
+      : filePath ? `Agent in ${filePath}` : 'Agent'
+    
     return {
       success: false,
-      error: `Error validating agent template: ${errorMessage}`,
+      error: `${agentContext}: Error validating agent template: ${errorMessage}`,
     }
   }
 }
@@ -317,6 +379,5 @@ function convertInputSchema(
       )
     }
   }
-
   return result
 }

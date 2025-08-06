@@ -137,7 +137,7 @@ export const DynamicAgentConfigSchema = z.object({
   stepPrompt: z.string().optional(),
 
   // Optional generator function for programmatic agents
-  handleSteps: HandleStepsSchema,
+  handleSteps: z.union([HandleStepsSchema, z.string()]).optional(),
 })
 export type DynamicAgentConfig = z.input<typeof DynamicAgentConfigSchema>
 export type DynamicAgentConfigParsed = z.infer<typeof DynamicAgentConfigSchema>

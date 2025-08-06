@@ -1,19 +1,13 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { DynamicAgentConfigSchema } from '@codebuff/common/types/dynamic-agent-template'
 import { cyan, green } from 'picocolors'
 
 import { getAllTsFiles, getAgentsDirectory } from './agent-utils'
 
 import type { CodebuffConfig } from '@codebuff/common/json-config/constants'
-import type {
-  DynamicAgentConfigParsed,
-  DynamicAgentTemplate,
-} from '@codebuff/common/types/dynamic-agent-template'
 
-export let loadedAgents: Record<string, DynamicAgentTemplate> = {}
-
+export let loadedAgents: Record<string, any> = {}
 export async function loadLocalAgents({
   verbose = false,
 }: {
@@ -55,27 +49,13 @@ export async function loadLocalAgents({
 
       if (!agentConfig) continue
 
-      let typedAgentConfig: DynamicAgentConfigParsed
-      try {
-        typedAgentConfig = DynamicAgentConfigSchema.parse(agentConfig)
-      } catch (error: any) {
-        console.error('Invalid agent format:', fullPath, error)
-        continue
-      }
-
       // Convert handleSteps function to string if present
-      let handleStepsString: string | undefined
+      let processedAgentConfig = { ...agentConfig }
       if (agentConfig.handleSteps) {
-        handleStepsString = agentConfig.handleSteps.toString()
+        processedAgentConfig.handleSteps = agentConfig.handleSteps.toString()
       }
 
-      loadedAgents[fileName] = {
-        ...typedAgentConfig,
-        systemPrompt: typedAgentConfig.systemPrompt || '',
-        instructionsPrompt: typedAgentConfig.instructionsPrompt || '',
-        stepPrompt: typedAgentConfig.stepPrompt || '',
-        handleSteps: handleStepsString,
-      }
+      loadedAgents[fileName] = processedAgentConfig
     }
   } catch (error) {}
 
