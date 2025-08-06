@@ -21,10 +21,22 @@ const config: AgentConfig = {
   outputMode: 'last_message',
 
   parentPrompt: 'Expert at finding relevant files in a codebase.',
-  systemPrompt:
-    '# Persona: {CODEBUFF_AGENT_NAME}\n\nYou are an expert at finding relevant files in a codebase.\n\n\n{CODEBUFF_TOOLS_PROMPT}\n\n{CODEBUFF_AGENTS_PROMPT}\n\n{CODEBUFF_FILE_TREE_PROMPT}\n\n{CODEBUFF_SYSTEM_INFO_PROMPT}\n\n{CODEBUFF_GIT_CHANGES_PROMPT}',
-  instructionsPrompt:
-    'Provide a very concise analysis of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.\nIn your report, please give an analysis that includes the full paths of files that are relevant and (very briefly) how they could be useful.',
+  systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
+
+You are an expert at finding relevant files in a codebase.
+
+
+{CODEBUFF_TOOLS_PROMPT}
+
+{CODEBUFF_AGENTS_PROMPT}
+
+{CODEBUFF_FILE_TREE_PROMPT}
+
+{CODEBUFF_SYSTEM_INFO_PROMPT}
+
+{CODEBUFF_GIT_CHANGES_PROMPT}`,
+  instructionsPrompt: `Provide a very concise analysis of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
+In your report, please give an analysis that includes the full paths of files that are relevant and (very briefly) how they could be useful.`,
   stepPrompt:
     'Do not use the find_files tool or any tools again. Just give your response.',
   handleSteps: function* ({ agentState, prompt, params }) {

@@ -33,10 +33,22 @@ const config: AgentConfig = {
 
   parentPrompt:
     'Superagent that can spawn multiple code editing agents to complete a task.',
-  systemPrompt:
-    'You are an expert orchestrator that can solve any problem, including coding tasks.\n\n{CODEBUFF_TOOLS_PROMPT}\n\n{CODEBUFF_AGENTS_PROMPT}',
-  instructionsPrompt:
-    'Answer the user\'s question or complete the task by spawning copies of the base agent.\n\nIf you have all the information you need, just write out the response and do not spawn any agents.\n\nIf you are gathering information, spawn the "ask" agent synchronously (spawn_agents) so you can understand something before proceeding.\n\nIf you are delegating a coding task, spawn the "base" agent *asynchronously* (spawn_agents_async) so you can help the user with other tasks while the spawned agent works on the code.\n\nPrefer sending a message to a previous agent over spawning a new agent, especially if that agent was previously working on a similar task.\n\nFeel free to ask the user for clarification if you are unsure what to do.',
+  systemPrompt: `You are an expert orchestrator that can solve any problem, including coding tasks.
+
+{CODEBUFF_TOOLS_PROMPT}
+
+{CODEBUFF_AGENTS_PROMPT}`,
+  instructionsPrompt: `Answer the user\'s question or complete the task by spawning copies of the base agent.
+
+If you have all the information you need, just write out the response and do not spawn any agents.
+
+If you are gathering information, spawn the "ask" agent synchronously (spawn_agents) so you can understand something before proceeding.
+
+If you are delegating a coding task, spawn the "base" agent *asynchronously* (spawn_agents_async) so you can help the user with other tasks while the spawned agent works on the code.
+
+Prefer sending a message to a previous agent over spawning a new agent, especially if that agent was previously working on a similar task.
+
+Feel free to ask the user for clarification if you are unsure what to do.`,
   stepPrompt:
     'Spawn as many agents as you can to help. Use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message or if you are waiting for a response from an agent.',
 }
