@@ -1,0 +1,14 @@
+# Source files
+src/
+
+# Development files
+tsconfig.json
+bun.lockb
+.DS_Store
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+
+# Build artifacts
+*.tsbuildinfo
