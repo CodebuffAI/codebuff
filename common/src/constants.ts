@@ -1,3 +1,5 @@
+import { isExplicitlyDefinedModel } from './util/model-utils'
+
 export const STOP_MARKER = '[' + 'END]'
 export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
 export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
@@ -291,12 +293,11 @@ export const providerModelNames = {
 
 export type Model = (typeof models)[keyof typeof models] | (string & {})
 
-const modelsGeneric = Object.values(models) satisfies string[] as string[]
 const nonCacheableModels = [
   models.openrouter_grok_4,
 ] satisfies string[] as string[]
 export function supportsCacheControl(model: Model): boolean {
-  if (!modelsGeneric.includes(model)) {
+  if (!isExplicitlyDefinedModel(model)) {
     // Default to no cache control for unknown models
     return false
   }

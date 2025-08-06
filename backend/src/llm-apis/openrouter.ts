@@ -1,4 +1,5 @@
 import { models } from '@codebuff/common/constants'
+import { isExplicitlyDefinedModel } from '@codebuff/common/util/model-utils'
 import { env } from '@codebuff/internal/env'
 import { createOpenRouter } from '@codebuff/internal/openrouter-ai-sdk'
 
@@ -15,13 +16,18 @@ const providerOrder = {
 } as const
 
 export function openRouterLanguageModel(model: Model) {
-  const extraBody: Record<string, any> = {}
-  if (model in providerOrder) {
-    extraBody.provider = {
-      order: providerOrder[model as keyof typeof providerOrder],
-      allow_fallbacks: false,
-    }
+  const extraBody: Record<string, any> = {
+    // transforms: ['middle-out'],
   }
+
+  // Set allow_fallbacks based on whether model is explicitly defined
+  const isExplicitlyDefined = isExplicitlyDefinedModel(model)
+
+  extraBody.provider = {
+    order: providerOrder[model as keyof typeof providerOrder],
+    allow_fallbacks: !isExplicitlyDefined,
+  }
+
   return createOpenRouter({
     apiKey: env.OPEN_ROUTER_API_KEY,
     headers: {
