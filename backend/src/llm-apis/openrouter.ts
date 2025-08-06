@@ -17,7 +17,7 @@ const providerOrder = {
 
 export function openRouterLanguageModel(model: Model) {
   const extraBody: Record<string, any> = {
-    // transforms: ['middle-out'],
+    transforms: ['middle-out'],
   }
 
   // Set allow_fallbacks based on whether model is explicitly defined
