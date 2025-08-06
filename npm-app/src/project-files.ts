@@ -313,7 +313,6 @@ export const getProjectFileContext = async (
       projectRoot,
       allFilePaths,
     )
-    await loadLocalAgents({ verbose: false })
 
     // Load codebuff configuration
     const codebuffConfig = loadCodebuffConfig()

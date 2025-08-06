@@ -56,7 +56,13 @@ async function codebuff({
   const readyPromise = Promise.all([
     initFileContextPromise,
     processCleanupPromise,
+
+    loadLocalAgents({ verbose: true }).then(() =>
+      displayLoadedAgents(codebuffConfig),
+    ),
   ])
+
+  const codebuffConfig = loadCodebuffConfig()
 
   // Initialize the CLI singleton
   CLI.initialize(readyPromise, {
@@ -68,10 +74,6 @@ async function codebuff({
     print,
     trace,
   })
-  const codebuffConfig = loadCodebuffConfig()
-  await loadLocalAgents({ verbose: true }).then(() =>
-    displayLoadedAgents(codebuffConfig),
-  )
   const cli = CLI.getInstance()
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })
