@@ -127,13 +127,13 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
       },
     }
 
-    if (configResult?.result) {
+    if (configResult) {
       yield {
         toolName: 'write_file',
         args: {
           path: TEMPLATE_TYPES_PATH,
           instructions: 'Create agent template type definitions file',
-          content: configResult.result,
+          content: configResult,
         },
       }
     }
@@ -146,13 +146,13 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
       },
     }
 
-    if (toolsResult?.result) {
+    if (toolsResult) {
       yield {
         toolName: 'write_file',
         args: {
           path: TOOL_DEFINITIONS_PATH,
           instructions: 'Create tools type file',
-          content: toolsResult.result,
+          content: toolsResult,
         },
       }
     }
@@ -169,8 +169,8 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
       },
     }
 
-    if (exampleAgentsResult?.result) {
-      const exampleFiles = exampleAgentsResult.result
+    if (exampleAgentsResult) {
+      const exampleFiles = exampleAgentsResult
         .split('\n\n')
         .filter(Boolean)
 

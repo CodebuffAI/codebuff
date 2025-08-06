@@ -148,7 +148,7 @@ export async function runProgrammaticStep(
     messages: agentState.messageHistory.map((msg) => ({ ...msg })),
   }
 
-  let toolResult: ToolResult | undefined
+  let toolResult: string | undefined
   let endTurn = false
 
   try {
@@ -232,7 +232,7 @@ export async function runProgrammaticStep(
       state.agentState.messageHistory = state.messages
 
       // Get the latest tool result
-      toolResult = toolResults[toolResults.length - 1]
+      toolResult = toolResults[toolResults.length - 1]?.result
 
       if (toolCall.toolName === 'end_turn') {
         endTurn = true

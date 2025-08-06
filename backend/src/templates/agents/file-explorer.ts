@@ -53,7 +53,7 @@ export const fileExplorer = {
     yield {
       toolName: 'set_output' as const,
       args: {
-        results: spawnResult?.result,
+        results: spawnResult,
       },
     }
   },

@@ -151,7 +151,7 @@ export interface AgentConfig {
   ) => Generator<
     ToolCall | 'STEP' | 'STEP_ALL',
     void,
-    { agentState: AgentState; toolResult: ToolResult | undefined }
+    { agentState: AgentState; toolResult: string | undefined }
   >
 }
 

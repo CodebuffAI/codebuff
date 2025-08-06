@@ -45,10 +45,7 @@ export const thinkingBase = (
           ],
         },
       }
-      const { toolResult: thinkResult } = yield 'STEP'
-      if (thinkResult?.toolName === 'end_turn') {
-        break
-      }
+      yield 'STEP'
     }
   },
 })

@@ -378,7 +378,7 @@ describe('runProgrammaticStep', () => {
 
     it('should comprehensively test STEP_ALL functionality with multiple tools and state management', async () => {
       // Track all tool results and state changes for verification
-      const toolResultsReceived: (ToolResult | undefined)[] = []
+      const toolResultsReceived: (string | undefined)[] = []
       const stateSnapshots: AgentState[] = []
       let stepCount = 0
 
@@ -573,10 +573,9 @@ describe('runProgrammaticStep', () => {
 
       // Verify tool results were passed back to generator
       expect(toolResultsReceived).toHaveLength(7)
-      expect(toolResultsReceived[0]?.toolName).toBe('read_files')
-      expect(toolResultsReceived[0]?.result).toContain('authenticate')
-      expect(toolResultsReceived[3]?.toolName).toBe('add_subgoal')
-      expect(toolResultsReceived[6]?.toolName).toBe('set_output')
+      expect(toolResultsReceived[0]).toContain('authenticate')
+      expect(toolResultsReceived[3]).toContain('auth-analysis')
+      expect(toolResultsReceived[6]).toContain('Output set successfully')
 
       // Verify state management throughout execution
       expect(stateSnapshots).toHaveLength(7)
@@ -638,7 +637,7 @@ describe('runProgrammaticStep', () => {
 
     it('should pass tool results back to generator', async () => {
       const toolResults: ToolResult[] = []
-      let receivedToolResult: ToolResult | undefined
+      let receivedToolResult: string | undefined
 
       const mockGenerator = (function* () {
         const input1 = yield {
@@ -664,11 +663,7 @@ describe('runProgrammaticStep', () => {
 
       await runProgrammaticStep(mockAgentState, mockParams)
 
-      expect(receivedToolResult).toEqual({
-        toolName: 'read_files',
-        toolCallId: 'test-id',
-        result: 'file content',
-      })
+      expect(receivedToolResult).toEqual('file content')
     })
   })
 

@@ -36,7 +36,7 @@ export type AgentTemplate<
 export type StepGenerator = Generator<
   Omit<ToolCall, 'toolCallId'> | 'STEP' | 'STEP_ALL', // Generic tool call type
   void,
-  { agentState: AgentState; toolResult: ToolResult | undefined }
+  { agentState: AgentState; toolResult: string | undefined }
 >
 
 export type StepHandler<

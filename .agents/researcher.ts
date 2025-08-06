@@ -50,7 +50,7 @@ Always end your response with the end_turn tool.\
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {
       toolName: 'web_search',
-      args: { query: prompt },
+      args: { query: prompt ?? '', depth: 'standard' },
     }
     yield 'STEP_ALL'
   },
