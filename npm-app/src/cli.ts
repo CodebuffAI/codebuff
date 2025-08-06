@@ -4,7 +4,10 @@ import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
-import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
+import {
+  API_KEY_ENV_VAR,
+  ASYNC_AGENTS_ENABLED,
+} from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getAllAgents,
@@ -624,11 +627,10 @@ export class CLI {
 
     // In print mode, skip greeting and interactive setup
     if (this.printMode) {
-      if (!client.user) {
+      if (!client.user && !process.env[API_KEY_ENV_VAR]) {
         printModeLog({
           type: 'error',
-          message:
-            'Print mode requires authentication. Please run "codebuff login" first.',
+          message: `Print mode requires authentication. Please run "codebuff login" or set the ${API_KEY_ENV_VAR} environment variable first.`,
         })
         process.exit(1)
       }
