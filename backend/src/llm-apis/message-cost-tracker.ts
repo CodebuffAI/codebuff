@@ -24,7 +24,7 @@ import { sendAction } from '../websockets/websocket-action'
 import type { ClientState } from '../websockets/switchboard'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 
-export const PROFIT_MARGIN = 0.3
+export const PROFIT_MARGIN = 0.055
 
 // Pricing details:
 // - https://www.anthropic.com/pricing#anthropic-api
