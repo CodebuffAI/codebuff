@@ -54,9 +54,8 @@ function main() {
   
   // Update files field to include all built files
   packageJson.files = [
-    '*.js',
-    '*.d.ts',
-    '*.d.ts.map',
+    'sdk/',
+    'common/',
     'README.md',
     'CHANGELOG.md'
   ]
