@@ -13,7 +13,7 @@ const config: AgentConfig = {
   outputMode: 'json',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  subagents: [`codebuff/file-picker@${version}`],
+  subagents: [`file-picker`],
   inputSchema: {
     prompt: {
       description: 'What you need to accomplish by exploring the codebase',

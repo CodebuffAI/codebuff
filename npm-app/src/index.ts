@@ -55,12 +55,10 @@ async function codebuff({
 
   // Only load local agents if no specific agent is requested
   const loadLocalAgentsPromise = new Promise<void>((resolve) => {
-    if (!agent) {
-      loadLocalAgents({ verbose: true }).then(() => {
-        const codebuffConfig = loadCodebuffConfig()
-        displayLoadedAgents(codebuffConfig)
-      })
-    }
+    loadLocalAgents({ verbose: true }).then(() => {
+      const codebuffConfig = loadCodebuffConfig()
+      displayLoadedAgents(codebuffConfig)
+    })
     resolve()
   })
 

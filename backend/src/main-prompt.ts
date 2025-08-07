@@ -168,10 +168,13 @@ export const mainPrompt = async (
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
 
-  // Update the main agent template with subagents from codebuff config or add all dynamic agents
-  const updatedSubagents =
-    fileContext.codebuffConfig?.subagents ??
-    uniq([...mainAgentTemplate.subagents, ...availableAgents])
+  let updatedSubagents = mainAgentTemplate.subagents
+  if (!agentId) {
+    // If --agent is not specified, use the subagents from the codebuff config or add all local agents
+    updatedSubagents =
+      fileContext.codebuffConfig?.subagents ??
+      uniq([...mainAgentTemplate.subagents, ...availableAgents])
+  }
   mainAgentTemplate.subagents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate
 
