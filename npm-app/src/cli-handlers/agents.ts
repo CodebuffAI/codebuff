@@ -12,10 +12,6 @@ import { green, yellow, cyan, magenta, bold, gray, red } from 'picocolors'
 import { loadLocalAgents, getLoadedAgentNames } from '../agents/load-agents'
 import { CLI } from '../cli'
 import { getProjectRoot } from '../project-files'
-import {
-  startAgentCreationChat,
-  createAgentFromRequirements,
-} from './agent-creation-chat'
 import { Spinner } from '../utils/spinner'
 import {
   ENTER_ALT_BUFFER,
