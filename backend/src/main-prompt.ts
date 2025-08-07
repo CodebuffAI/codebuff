@@ -1,5 +1,5 @@
 import { uniq } from 'lodash'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'

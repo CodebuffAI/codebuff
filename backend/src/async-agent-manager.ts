@@ -3,7 +3,7 @@ import { logger } from './util/logger'
 
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 export interface AsyncAgentInfo {
   agentState: AgentState

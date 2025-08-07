@@ -4,12 +4,6 @@ import { z } from 'zod'
 import { logger } from '../util/logger'
 import { getUserIdFromAuthToken } from '../websockets/websocket-action'
 
-import type {
-  Request as ExpressRequest,
-  Response as ExpressResponse,
-  NextFunction,
-} from 'express'
-
 const isRepoCoveredRequestSchema = z.object({
   owner: z.string(),
   repo: z.string(),
@@ -17,48 +11,49 @@ const isRepoCoveredRequestSchema = z.object({
 })
 
 async function isRepoCoveredHandler(
-  req: ExpressRequest,
-  res: ExpressResponse,
-  next: NextFunction,
-): Promise<void | ExpressResponse> {
+  req: Request,
+  ok: (body: any, init?: ResponseInit) => Response,
+): Promise<Response> {
   try {
-    const { owner, repo, remoteUrl } = isRepoCoveredRequestSchema.parse(
-      req.body,
-    )
+    const body = await req.json()
+    const { owner, repo, remoteUrl } = isRepoCoveredRequestSchema.parse(body)
 
-    // Get user ID from Authorization header
-    const authHeader = req.headers.authorization
+    const authHeader = req.headers.get('authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res
-        .status(401)
-        .json({ error: 'Missing or invalid authorization header' })
+      return new Response(
+        JSON.stringify({ error: 'Missing or invalid authorization header' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } },
+      )
     }
 
-    const authToken = authHeader.substring(7) // Remove 'Bearer ' prefix
+    const authToken = authHeader.substring(7)
     const userId = await getUserIdFromAuthToken(authToken)
-
     if (!userId) {
-      return res.status(401).json({ error: 'Invalid authentication token' })
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication token' }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
     }
 
-    // Check if repository is covered by an organization
     const orgLookup = await findOrganizationForRepository(userId, remoteUrl)
-
-    return res.status(200).json({
+    return ok({
       isCovered: orgLookup.found,
       organizationName: orgLookup.organizationName,
-      organizationId: orgLookup.organizationId, // Keep organizationId for now, might be used elsewhere
-      organizationSlug: orgLookup.organizationSlug, // Add organizationSlug
+      organizationId: orgLookup.organizationId,
+      organizationSlug: orgLookup.organizationSlug,
     })
   } catch (error) {
     logger.error({ error }, 'Error handling /api/orgs/is-repo-covered request')
     if (error instanceof z.ZodError) {
-      return res
-        .status(400)
-        .json({ error: 'Invalid request body', issues: error.errors })
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body', issues: error.errors }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      )
     }
-    next(error)
-    return
+    return new Response('Something broke!', { status: 500 })
   }
 }
 

@@ -34,7 +34,7 @@ import type {
   ToolResult,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 const DEBUG_MODE = true
 

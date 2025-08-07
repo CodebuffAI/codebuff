@@ -9,7 +9,7 @@ import type {
   FileProcessingState,
   OptionalFileProcessingState,
 } from './write-file'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 export const handleStrReplace = ((params: {
   previousToolCallFinished: Promise<void>

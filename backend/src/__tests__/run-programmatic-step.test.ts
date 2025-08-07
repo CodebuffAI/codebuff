@@ -32,7 +32,7 @@ import type {
   AgentState,
   ToolResult,
 } from '@codebuff/common/types/session-state'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 describe('runProgrammaticStep', () => {
   let mockTemplate: AgentTemplate

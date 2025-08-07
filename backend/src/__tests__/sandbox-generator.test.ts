@@ -8,7 +8,7 @@ import { mockFileContext, MockWebSocket } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 describe('QuickJS Sandbox Generator', () => {
   let mockAgentState: AgentState

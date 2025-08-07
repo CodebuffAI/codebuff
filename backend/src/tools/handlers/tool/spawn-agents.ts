@@ -13,7 +13,7 @@ import type {
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 export type SendSubagentChunk = (data: {
   userInputId: string

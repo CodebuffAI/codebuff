@@ -23,7 +23,7 @@ import * as websocketAction from '../websockets/websocket-action'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 // --- Shared Mocks & Helpers ---
 

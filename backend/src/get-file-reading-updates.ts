@@ -15,7 +15,7 @@ import { requestFiles } from './websockets/websocket-action'
 
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 const getInitialFiles = (fileContext: ProjectFileContext) => {
   const { userKnowledgeFiles, knowledgeFiles } = fileContext

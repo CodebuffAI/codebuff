@@ -29,7 +29,7 @@ import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 describe('read_docs tool with researcher agent', () => {
   beforeAll(() => {

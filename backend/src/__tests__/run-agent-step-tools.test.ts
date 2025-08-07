@@ -28,7 +28,7 @@ import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 describe('runAgentStep - set_output tool', () => {
   beforeAll(() => {
@@ -148,7 +148,8 @@ describe('runAgentStep - set_output tool', () => {
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
-    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates: localAgentTemplates } =
+      assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -188,7 +189,8 @@ describe('runAgentStep - set_output tool', () => {
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
-    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates: localAgentTemplates } =
+      assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -233,7 +235,8 @@ describe('runAgentStep - set_output tool', () => {
       existingField: 'original value',
       anotherField: 'unchanged',
     }
-    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates: localAgentTemplates } =
+      assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -269,7 +272,8 @@ describe('runAgentStep - set_output tool', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
     agentState.output = { existingField: 'value' }
-    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates: localAgentTemplates } =
+      assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,

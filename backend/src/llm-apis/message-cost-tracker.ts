@@ -13,7 +13,7 @@ import { stripeServer } from '@codebuff/common/util/stripe'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
 import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
-import { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 import { getRequestContext } from '../context/app-context'
 import { logger, withLoggerContext } from '../util/logger'

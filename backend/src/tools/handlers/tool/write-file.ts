@@ -7,7 +7,7 @@ import { requestOptionalFile } from '../../../websockets/websocket-action'
 import type { ClientToolCall, CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 type FileProcessingTools = 'write_file' | 'str_replace' | 'create_plan'
 export type FileProcessing<

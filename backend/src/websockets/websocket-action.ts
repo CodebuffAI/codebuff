@@ -33,7 +33,7 @@ import type {
   UsageResponse,
 } from '@codebuff/common/actions'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 /**
  * Sends an action to the client via WebSocket

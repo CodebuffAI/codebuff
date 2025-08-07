@@ -20,7 +20,7 @@ import * as loggerModule from '../util/logger'
 import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
 import type { Mock } from 'bun:test'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 describe('Subagent Streaming', () => {
   let mockSendSubagentChunk: Mock<SendSubagentChunk>

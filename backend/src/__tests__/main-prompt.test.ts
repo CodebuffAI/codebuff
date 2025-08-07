@@ -36,7 +36,7 @@ import * as processFileBlockModule from '../process-file-block'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 const mockAgentStream = (streamOutput: string) => {
   spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {

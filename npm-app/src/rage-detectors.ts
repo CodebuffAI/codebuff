@@ -1,5 +1,5 @@
 import { sleep } from '@codebuff/common/util/promise'
-import { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 import {
   createCountDetector,

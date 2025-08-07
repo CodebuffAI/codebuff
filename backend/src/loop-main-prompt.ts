@@ -7,7 +7,7 @@ import type {
   SessionState,
   ToolResult,
 } from '@codebuff/common/types/session-state'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 const DEFAULT_MAX_ITERATIONS = 20
 

@@ -1,4 +1,4 @@
-import { WebSocket } from 'ws'
+// Delete ws client import; use global WebSocket provided by Bun
 
 import type { ClientAction, ServerAction } from '../actions'
 import type {

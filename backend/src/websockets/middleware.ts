@@ -21,7 +21,7 @@ import { logger } from '../util/logger'
 
 import type { UserInfo } from './auth'
 import type { ClientAction, ServerAction } from '@codebuff/common/actions'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from 'bun'
 
 type MiddlewareCallback = (
   action: ClientAction,
