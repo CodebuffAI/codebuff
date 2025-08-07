@@ -11,57 +11,111 @@ npm install @codebuff/sdk
 ## Prerequisites
 
 1. Install the Codebuff CLI globally:
+
    ```bash
    npm install -g codebuff
    ```
 
-2. Set your API key:
+2. Login to `codebuff` to store the API key in your local config:
    ```bash
-   export CODEBUFF_API_KEY="your-api-key"
+   codebuff login
    ```
 
 ## Usage
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
+import * as fs from 'fs'
+import * as os from 'os'
 
-const client = new CodebuffClient({
-  cwd: process.cwd()
+import { WebSocketHandler, getInitialSessionState } from '@codebuff/sdk'
+
+const client = new WebSocketHandler({
+  onWebsocketError: (error) => {
+    console.log({ error }, 'onWebsocketError')
+  },
+  onWebsocketReconnect: () => {
+    console.log('onWebsocketReconnect')
+  },
+  onRequestReconnect: async () => {
+    console.log('onRequestReconnect')
+  },
+  readFiles: async (input) => {
+    console.log({ input }, 'readFiles')
+    return {}
+  },
+  handleToolCall: async ({
+    type,
+    toolName,
+    requestId,
+    userInputId,
+    args,
+    timeout,
+  }) => {
+    console.log(
+      { type, toolName, requestId, userInputId, args, timeout },
+      'handleToolCall',
+    )
+    return { success: true, toolCallResult: 'asdf' }
+  },
+  onCostResponse: async (action) => {
+    console.log({ action }, 'onCostResponse')
+  },
+  onUsageResponse: async (action) => {
+    console.log({ action }, 'onUsageResponse')
+  },
+  onResponseChunk: async (action) => {
+    console.log({ action }, 'onResponseChunk')
+  },
+  onSubagentResponseChunk: async (action) => {
+    console.log({ action }, 'onSubagentResponseChunk')
+  },
+  onPromptResponse: async (response) => {
+    console.log({ response }, 'onPromptResponse')
+  },
+  // Available after running `codebuff login`
+  apiKey: JSON.parse(
+    fs
+      .readFileSync(os.homedir() + '/.config/manicode/credentials.json')
+      .toString(),
+  ).default.authToken,
 })
 
-// Start a new chat with an agent
-await client.runNewChat({
-  agent: 'base',
-  prompt: 'Add a new function to calculate fibonacci numbers',
-  handleEvent: (event) => {
-    console.log(event)
-  }
+console.log('connecting')
+await client.connect()
+console.log('connected')
+client.sendInput({
+  prompt: 'can you run echo "hi" for me?',
+  promptId: 'some-prompt-id-12345',
+  costMode: 'normal',
+  sessionState: getInitialSessionState({
+    projectRoot: os.homedir() + '/github/codebuff',
+    cwd: os.homedir() + '/github/codebuff',
+    fileTree: [],
+    fileTokenScores: {},
+    tokenCallers: {},
+    knowledgeFiles: {},
+    userKnowledgeFiles: {},
+    agentTemplates: {},
+    gitChanges: {
+      status: '',
+      diff: '',
+      diffCached: '',
+      lastCommitMessages: '',
+    },
+    changesSinceLastChat: {},
+    shellConfigFiles: {},
+    systemInfo: {
+      platform: process.platform,
+      shell: 'bash',
+      nodeVersion: process.version,
+      arch: process.arch,
+      homedir: os.homedir() + '/github/codebuff',
+      cpus: 16,
+    },
+  }),
+  toolResults: [],
 })
 ```
-
-## API Reference
-
-### CodebuffClient
-
-#### Constructor
-
-```typescript
-new CodebuffClient({ cwd: string })
-```
-
-#### Methods
-
-##### runNewChat(options)
-
-Starts a new chat session with a Codebuff agent.
-
-**Parameters:**
-- `agent`: The agent type to use (e.g., 'base', 'base-lite', 'base-max')
-- `prompt`: The instruction to send to the agent
-- `params`: Optional parameters for the agent
-- `handleEvent`: Callback function to handle streaming events
-
-**Returns:** Promise<ChatContext>
 
 ## License
 
