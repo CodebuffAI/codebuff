@@ -1,3 +1,3 @@
 export { CodebuffClient } from './client'
-
-export * from './types'
+export { WebSocketHandler } from './websocket-client'
+export { getInitialSessionState } from '../../common/src/types/session-state'

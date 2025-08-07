@@ -5,10 +5,10 @@ import type { ServerAction, ClientAction } from '../../common/src/actions'
 import type { WebSocket } from 'ws'
 
 export type WebSocketHandlerOptions = {
-  onWebsocketError: (error: WebSocket.ErrorEvent) => void
-  onWebsocketReconnect: () => void
-  onRequestReconnect: () => Promise<void>
-  onResponseError: (
+  onWebsocketError?: (error: WebSocket.ErrorEvent) => void
+  onWebsocketReconnect?: () => void
+  onRequestReconnect?: () => Promise<void>
+  onResponseError?: (
     error: Extract<ServerAction, { type: 'action-error' }>,
   ) => Promise<void>
   readFiles: (
@@ -22,40 +22,41 @@ export type WebSocketHandlerOptions = {
       'type' | 'requestId'
     >
   >
-  onCostResponse: (
+  onCostResponse?: (
     action: Extract<ServerAction, { type: 'message-cost-response' }>,
   ) => Promise<void>
-  onUsageResponse: (
+  onUsageResponse?: (
     action: Extract<ServerAction, { type: 'usage-response' }>,
   ) => Promise<void>
 
-  onResponseChunk: (
+  onResponseChunk?: (
     action: Extract<ServerAction, { type: 'response-chunk' }>,
   ) => Promise<void>
-  onSubagentResponseChunk: (
+  onSubagentResponseChunk?: (
     action: Extract<ServerAction, { type: 'subagent-response-chunk' }>,
   ) => Promise<void>
 
-  onPromptResponse: (
+  onPromptResponse?: (
     action: Extract<ServerAction, { type: 'prompt-response' }>,
   ) => Promise<void>
 
   apiKey: string
 }
 
+type WebSocketHandlerOptionsWithDefaults = Required<WebSocketHandlerOptions>
+
 export class WebSocketHandler {
   private cbWebSocket: APIRealtimeClient
-  private onRequestReconnect: NonNullable<
-    WebSocketHandlerOptions['onRequestReconnect']
-  >
-  private onResponseError: WebSocketHandlerOptions['onResponseError']
-  private readFiles: WebSocketHandlerOptions['readFiles']
-  private handleToolCall: WebSocketHandlerOptions['handleToolCall']
-  private onCostResponse: WebSocketHandlerOptions['onCostResponse']
-  private onUsageResponse: WebSocketHandlerOptions['onUsageResponse']
-  private onResponseChunk: WebSocketHandlerOptions['onResponseChunk']
-  private onSubagentResponseChunk: WebSocketHandlerOptions['onSubagentResponseChunk']
-  private onPromptResponse: WebSocketHandlerOptions['onPromptResponse']
+  private onRequestReconnect: WebSocketHandlerOptionsWithDefaults['onRequestReconnect']
+
+  private onResponseError: WebSocketHandlerOptionsWithDefaults['onResponseError']
+  private readFiles: WebSocketHandlerOptionsWithDefaults['readFiles']
+  private handleToolCall: WebSocketHandlerOptionsWithDefaults['handleToolCall']
+  private onCostResponse: WebSocketHandlerOptionsWithDefaults['onCostResponse']
+  private onUsageResponse: WebSocketHandlerOptionsWithDefaults['onUsageResponse']
+  private onResponseChunk: WebSocketHandlerOptionsWithDefaults['onResponseChunk']
+  private onSubagentResponseChunk: WebSocketHandlerOptionsWithDefaults['onSubagentResponseChunk']
+  private onPromptResponse: WebSocketHandlerOptionsWithDefaults['onPromptResponse']
   private apiKey: string
 
   constructor({
