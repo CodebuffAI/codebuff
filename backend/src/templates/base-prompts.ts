@@ -224,9 +224,9 @@ export const baseAgentUserInputPrompt = (model: Model) => {
     PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +
     '\n\n<system_instructions>' +
     buildArray(
-      'Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. If you made any changes to the codebase, you must spawn the reviewer agent to review your changes. Then, finally you must use the end_turn tool at the end of your response. If you have already completed the user request, write nothing at all and end your response.',
+      "Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. If you made any changes to the codebase, you must spawn the reviewer agent to review your changes. Use the end_turn tool only when you are explicitly waiting for the user's next input or when you have fully completed the task (including executing any plan and tool actions); do not end immediately after planning. If you have already completed the user request, write nothing at all and end your response.",
 
-      "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool.",
+      "Ask clarifying questions only when ambiguity would materially change the implementation; otherwise make a reasonable assumption (state it briefly) and proceed, or ask one targeted, non-blocking question. When clarifying, do not spawn the reviewer or other agents yet. Wait for the user's reply so you don't hide information.",
 
       'Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.',
 
@@ -282,7 +282,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
       (isFlash || isGeminiPro) &&
         'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.',
 
-      'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
+      "Use the end_turn tool only when you are explicitly waiting for the user's next input or have fully completed the task; do not end immediately after planning. Execute the plan and necessary tools first.",
     ).join('\n\n') +
     closeXml('system_instructions')
   )
