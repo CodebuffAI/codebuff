@@ -53,16 +53,22 @@ async function codebuff({
 
   const initFileContextPromise = initProjectFileContextWithWorker(projectRoot)
 
+  // Only load local agents if no specific agent is requested
+  const loadLocalAgentsPromise = new Promise<void>((resolve) => {
+    if (!agent) {
+      loadLocalAgents({ verbose: true }).then(() => {
+        const codebuffConfig = loadCodebuffConfig()
+        displayLoadedAgents(codebuffConfig)
+      })
+    }
+    resolve()
+  })
+
   const readyPromise = Promise.all([
     initFileContextPromise,
     processCleanupPromise,
-
-    loadLocalAgents({ verbose: true }).then(() =>
-      displayLoadedAgents(codebuffConfig),
-    ),
+    loadLocalAgentsPromise,
   ])
-
-  const codebuffConfig = loadCodebuffConfig()
 
   // Initialize the CLI singleton
   CLI.initialize(readyPromise, {
@@ -74,6 +80,7 @@ async function codebuff({
     print,
     trace,
   })
+
   const cli = CLI.getInstance()
 
   await cli.printInitialPrompt({ initialInput, runInitFlow })

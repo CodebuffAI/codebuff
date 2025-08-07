@@ -234,7 +234,8 @@ export const callMainPrompt = async (
   const { fileContext } = action.sessionState
 
   // Assemble local agent templates from fileContext
-  const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(fileContext)
+  const { agentTemplates: localAgentTemplates } =
+    assembleLocalAgentTemplates(fileContext)
 
   const result = await mainPrompt(ws, action, {
     userId,

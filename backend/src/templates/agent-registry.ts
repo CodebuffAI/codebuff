@@ -100,17 +100,14 @@ async function fetchAgentFromDatabase(parsedAgentId: {
 
     const rawAgentData = agentConfig.data as DynamicAgentTemplate
 
-    // Ensure the agent has the full publisher/agent-id@version as its ID
-    const agentDataWithId = {
-      ...rawAgentData,
-      id: `${publisherId}/${agentId}@${agentConfig.version}`,
-    }
-
-    // Use validateSingleAgent to convert to AgentTemplate type
-    const validationResult = validateSingleAgent(agentDataWithId, {
-      filePath: `${publisherId}/${agentId}@${agentConfig.version}`,
-      skipSubagentValidation: true,
-    })
+    // Validate the raw agent data with the original agentId (not full identifier)
+    const validationResult = validateSingleAgent(
+      { ...rawAgentData, id: agentId },
+      {
+        filePath: `${publisherId}/${agentId}@${agentConfig.version}`,
+        skipSubagentValidation: true,
+      },
+    )
 
     if (!validationResult.success) {
       logger.error(
@@ -118,7 +115,6 @@ async function fetchAgentFromDatabase(parsedAgentId: {
           publisherId,
           agentId,
           version: agentConfig.version,
-          fullAgentId: agentDataWithId.id,
           error: validationResult.error,
         },
         'fetchAgentFromDatabase: Agent validation failed',
@@ -126,18 +122,23 @@ async function fetchAgentFromDatabase(parsedAgentId: {
       return null
     }
 
+    // Set the correct full agent ID for the final template
+    const agentTemplate = {
+      ...validationResult.agentTemplate!,
+      id: `${publisherId}/${agentId}@${agentConfig.version}`,
+    }
+
     logger.debug(
       {
         publisherId,
         agentId,
         version: agentConfig.version,
-        fullAgentId: agentDataWithId.id,
-        agentConfig,
+        fullAgentId: agentTemplate.id,
       },
       'fetchAgentFromDatabase: Successfully loaded and validated agent from database',
     )
 
-    return validationResult.agentTemplate!
+    return agentTemplate
   } catch (error) {
     logger.error(
       { publisherId, agentId, version, error },
