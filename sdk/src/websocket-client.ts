@@ -41,19 +41,6 @@ export type WebSocketHandlerOptions = {
   ) => Promise<void>
 }
 
-type asdf = Exclude<
-  ServerAction['type'],
-  | 'action-error'
-  | 'read-files'
-  | 'tool-call-request'
-  | 'response-chunk'
-  | 'request-reconnect'
-  | 'subagent-response-chunk'
-  | 'usage-response'
-  | 'message-cost-response'
-  | 'prompt-response'
->
-
 export class WebSocketHandler {
   private cbWebSocket: APIRealtimeClient
   private onRequestReconnect: NonNullable<
