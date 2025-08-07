@@ -60,10 +60,14 @@ export class APIRealtimeClient {
   connectTimeout?: any
   heartbeat?: any
   hadError = false
-  onError: () => void
+  onError: (event: WebSocket.ErrorEvent) => void
   onReconnect: () => void
 
-  constructor(url: string, onError: () => void, onReconnect: () => void) {
+  constructor(
+    url: string,
+    onError: (event: WebSocket.ErrorEvent) => void,
+    onReconnect: () => void,
+  ) {
     this.url = url
     this.txid = 0
     this.txns = new Map()
@@ -94,7 +98,7 @@ export class APIRealtimeClient {
     }
     this.ws.onerror = (ev) => {
       if (!this.hadError) {
-        this.onError()
+        this.onError(ev)
         this.hadError = true
       }
       // this can fire without an onclose if this is the first time we ever try

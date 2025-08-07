@@ -1,20 +1,14 @@
 import { execFileSync } from 'child_process'
 
-import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import { CODEBUFF_BINARY } from './constants'
 import { processStream } from './process-stream'
+import { API_KEY_ENV_VAR } from '../../common/src/constants'
 
-import type {
-  CodebuffClientOptions,
-  ChatContext,
-  ContinueChatOptions,
-  NewChatOptions,
-} from './types'
-
+/** @deprecated Migrate to WebSocketHandler */
 export class CodebuffClient {
   public cwd: string
 
-  constructor({ cwd }: CodebuffClientOptions) {
+  constructor({ cwd }: { cwd: string }) {
     // TODO: download binary automatically
     if (execFileSync('which', [CODEBUFF_BINARY]).toString().trim() === '') {
       throw new Error(
@@ -35,37 +29,14 @@ export class CodebuffClient {
     prompt,
     params,
     handleEvent,
-  }: NewChatOptions): Promise<ChatContext> {
-    const args = [prompt, '-p', '--agent', agent]
-    if (prompt) {
-      args.push(prompt)
-    }
-    if (params) {
-      args.push('--params', JSON.stringify(params))
-    }
-    if (this.cwd) {
-      args.push('--cwd', this.cwd)
-    }
-
-    await processStream({
-      codebuffArgs: args,
-      handleEvent,
-    })
-
-    return {
-      agentId: agent,
-    }
-  }
-
-  // WIP
-  private async continueChat({
-    agent,
-    prompt,
-    params,
-    context,
-    handleEvent,
-  }: ContinueChatOptions): Promise<ChatContext> {
-    agent = agent ?? context.agentId
+  }: {
+    agent: string
+    prompt: string
+    params?: Record<string, any>
+    handleEvent: (event: any) => void
+  }): Promise<{
+    agentId: string
+  }> {
     const args = [prompt, '-p', '--agent', agent]
     if (prompt) {
       args.push(prompt)

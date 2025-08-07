@@ -832,17 +832,6 @@ export class Client {
       }
     })
 
-    this.webSocket.subscribe('npm-version-status', (action) => {
-      const { isUpToDate } = action
-      if (!isUpToDate) {
-        console.warn(
-          yellow(
-            `\nThere's a new version of Codebuff! Please update to ensure proper functionality.\nUpdate now by running: npm install -g codebuff`,
-          ),
-        )
-      }
-    })
-
     this.webSocket.subscribe('message-cost-response', (action) => {
       const parsedAction = MessageCostResponseSchema.safeParse(action)
       if (!parsedAction.success) return
@@ -932,25 +921,6 @@ export class Client {
       this.lastWarnedPct = config.threshold
       this.freshPrompt()
     }
-  }
-
-  async generateCommitMessage(stagedChanges: string): Promise<string> {
-    return new Promise(async (resolve, reject) => {
-      const unsubscribe = this.webSocket.subscribe(
-        'commit-message-response',
-        (action) => {
-          unsubscribe()
-          resolve(action.commitMessage)
-        },
-      )
-
-      this.webSocket.sendAction({
-        type: 'generate-commit-message',
-        fingerprintId: await this.fingerprintId,
-        authToken: this.user?.authToken,
-        stagedChanges,
-      })
-    })
   }
 
   async sendUserInput(prompt: string): Promise<{
@@ -1576,7 +1546,7 @@ Go to https://www.codebuff.com/config for more information.`) +
       this.setUsage(parsedAction.data)
     })
 
-    const initAction: ClientAction = {
+    const initAction: Extract<ClientAction, { type: 'init' }> = {
       type: 'init',
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,

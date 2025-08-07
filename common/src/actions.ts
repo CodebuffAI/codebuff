@@ -8,7 +8,7 @@ import {
   toolCallSchema,
   toolResultSchema,
 } from './types/session-state'
-import { FileVersionSchema, ProjectFileContextSchema } from './util/file'
+import { ProjectFileContextSchema } from './util/file'
 
 export const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -96,22 +96,6 @@ export const InitResponseSchema = z
   )
 export type InitResponse = z.infer<typeof InitResponseSchema>
 
-export const ResponseCompleteSchema = z
-  .object({
-    type: z.literal('response-complete'),
-    userInputId: z.string(),
-    response: z.string(),
-    changes: CHANGES,
-    changesAlreadyApplied: CHANGES,
-    addedFileVersions: z.array(FileVersionSchema),
-    resetFileVersions: z.boolean(),
-  })
-  .merge(
-    UsageReponseSchema.omit({
-      type: true,
-    }).partial(),
-  )
-
 export const MessageCostResponseSchema = z.object({
   type: z.literal('message-cost-response'),
   promptId: z.string(),
@@ -142,7 +126,6 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     chunk: z.string(),
     prompt: z.string().optional(),
   }),
-  ResponseCompleteSchema,
   PromptResponseSchema,
   z.object({
     type: z.literal('read-files'),
@@ -157,26 +140,6 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     args: z.record(z.any()),
     timeout: z.number().optional(),
   }),
-  z.object({
-    type: z.literal('tool-call'),
-    userInputId: z.string(),
-    response: z.string(),
-    data: toolCallSchema,
-    changes: CHANGES,
-    changesAlreadyApplied: CHANGES,
-    addedFileVersions: z.array(FileVersionSchema),
-    resetFileVersions: z.boolean(),
-  }),
-  z.object({
-    type: z.literal('terminal-command-result'),
-    userInputId: z.string(),
-    result: z.string(),
-  }),
-  z.object({
-    type: z.literal('npm-version-status'),
-    isUpToDate: z.boolean(),
-    latestVersion: z.string(),
-  }),
   InitResponseSchema,
   UsageReponseSchema,
   MessageCostResponseSchema,
@@ -185,10 +148,6 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     message: z.string(),
     error: z.string().optional(),
     remainingBalance: z.number().optional(),
-  }),
-  z.object({
-    type: z.literal('commit-message-response'),
-    commitMessage: z.string(),
   }),
   z.object({
     // The server is imminently going to shutdown, and the client should reconnect
