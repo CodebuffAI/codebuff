@@ -1,4 +1,5 @@
 import type { WebSocket } from 'bun'
+import { logger } from '../util/logger'
 
 export type ClientState = {
   sessionId?: string
@@ -46,7 +47,7 @@ export class Switchboard {
 
     // If this was the last client, resolve the promise
     if (this.clients.size === 0 && this.allClientsDisconnectedResolver) {
-      console.log('Last client disconnected. Resolving promise.')
+      logger.info('Last client disconnected. Resolving promise.')
       this.allClientsDisconnectedResolver(true)
       this.allClientsDisconnectedResolver = null
       this.allClientsDisconnectedPromise = Promise.resolve(true)
@@ -75,7 +76,7 @@ export class Switchboard {
   waitForAllClientsDisconnected(): Promise<true> {
     // If there are no clients, resolve immediately
     if (this.clients.size === 0) {
-      console.log('No clients connected. Resolving immediately.')
+      logger.info('No clients connected. Resolving immediately.')
       return Promise.resolve(true)
     }
 

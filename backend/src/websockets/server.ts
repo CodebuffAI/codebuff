@@ -9,8 +9,7 @@ import { onWebsocketAction } from './websocket-action'
 import { logger } from '../util/logger'
 
 import type { ServerMessage } from '@codebuff/common/websockets/websocket-schema'
-
-export type BunWS = WebSocket
+import type { WebSocket as BunWebSocket } from 'bun'
 
 export const SWITCHBOARD = new Switchboard()
 
@@ -31,7 +30,7 @@ function serializeError(err: unknown) {
 }
 
 async function processMessage(
-  ws: BunWS,
+  ws: BunWebSocket,
   clientSessionId: string,
   data: string | Uint8Array,
 ): Promise<ServerMessage<'ack'>> {
@@ -53,19 +52,19 @@ async function processMessage(
     const { type, txid } = msg
     switch (type) {
       case 'subscribe': {
-        SWITCHBOARD.subscribe(ws as any, ...msg.topics)
+        SWITCHBOARD.subscribe(ws, ...msg.topics)
         break
       }
       case 'unsubscribe': {
-        SWITCHBOARD.unsubscribe(ws as any, ...msg.topics)
+        SWITCHBOARD.unsubscribe(ws, ...msg.topics)
         break
       }
       case 'ping': {
-        SWITCHBOARD.markSeen(ws as any)
+        SWITCHBOARD.markSeen(ws)
         break
       }
       case 'action': {
-        onWebsocketAction(ws as any, clientSessionId, msg)
+        onWebsocketAction(ws, clientSessionId, msg)
         break
       }
       default:
@@ -88,41 +87,46 @@ export function startBunWebSocketServer({ pathname }: { pathname: string }) {
   logger.info(`Web socket route registered at ${pathname}.`)
 }
 
-export function handleWsOpen(ws: BunWS) {
-  SWITCHBOARD.connect(ws as any)
+export function handleWsOpen(ws: BunWebSocket) {
+  SWITCHBOARD.connect(ws)
   const clientSessionId =
-    SWITCHBOARD.clients.get(ws as any)?.sessionId ?? 'mc-client-unknown'
+    SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'
   setSessionConnected(clientSessionId, true)
 }
 
-export async function handleWsMessage(ws: BunWS, message: string | Uint8Array) {
+export async function handleWsMessage(
+  ws: BunWebSocket,
+  message: string | Uint8Array,
+) {
   const clientSessionId =
-    SWITCHBOARD.clients.get(ws as any)?.sessionId ?? 'mc-client-unknown'
+    SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'
   const result = await processMessage(ws, clientSessionId, message)
   try {
     ws.send(JSON.stringify(result))
   } catch {}
 }
 
-export function handleWsClose(ws: BunWS) {
+export function handleWsClose(ws: BunWebSocket) {
   const clientSessionId =
-    SWITCHBOARD.clients.get(ws as any)?.sessionId ?? 'mc-client-unknown'
+    SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'
   setSessionConnected(clientSessionId, false)
   if (ASYNC_AGENTS_ENABLED) {
     asyncAgentManager.cleanupSession(clientSessionId)
   }
-  SWITCHBOARD.disconnect(ws as any)
+  SWITCHBOARD.disconnect(ws)
 }
 
-export function startDeadConnectionCleaner(wss: { clients: Set<BunWS> }) {
+export function startDeadConnectionCleaner(_wss?: {
+  clients: Set<BunWebSocket>
+}) {
   const interval = setInterval(() => {
     const now = Date.now()
     try {
-      for (const ws of wss.clients) {
+      for (const ws of SWITCHBOARD.clients.keys()) {
         try {
-          const client = SWITCHBOARD.getClient(ws as any)
-          const lastSeen = client.lastSeen
-          if (lastSeen < now - CONNECTION_TIMEOUT_MS) {
+          const client = SWITCHBOARD.getClient(ws)
+          if (client.lastSeen < now - CONNECTION_TIMEOUT_MS) {
+            SWITCHBOARD.disconnect(ws)
             try {
               ws.close()
             } catch {}
@@ -136,13 +140,13 @@ export function startDeadConnectionCleaner(wss: { clients: Set<BunWS> }) {
   return () => clearInterval(interval)
 }
 
-export const sendMessage = (ws: BunWS, server: ServerMessage) => {
+export const sendMessage = (ws: BunWebSocket, server: ServerMessage) => {
   ws.send(JSON.stringify(server))
 }
 
 export function sendRequestReconnect() {
   for (const ws of SWITCHBOARD.clients.keys()) {
-    sendMessage(ws as any, {
+    sendMessage(ws, {
       type: 'action',
       data: { type: 'request-reconnect' },
     })

@@ -73,7 +73,7 @@ export const AGENT_PERSONAS = {
   reviewer: {
     displayName: 'Nit Pick Nick the Reviewer',
     purpose:
-      'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
+      'Reviews recent file changes; validates via run_file_change_hooks (typecheck/tests/lint) and reports pass/fail with fix suggestions; does not edit files.',
   } as const,
   agent_builder: {
     displayName: 'Bob the Agent Builder',
