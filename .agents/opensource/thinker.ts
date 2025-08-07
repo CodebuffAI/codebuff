@@ -3,7 +3,7 @@ import type { AgentConfig } from '../types/agent-config'
 const config: AgentConfig = {
   id: 'oss-model-thinker',
   publisher: 'codebuff',
-  model: 'meta-llama/llama-4-maverick-8b:fast',
+  model: 'qwen/qwen3-235b-a22b-thinking-2507:fast',
   displayName: 'Theo the Thinker',
   parentPrompt:
     'Deep thinking agent, optimized for complex reasoning and step-by-step analysis.',

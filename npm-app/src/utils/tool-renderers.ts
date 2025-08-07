@@ -1,4 +1,3 @@
-import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
 import { capitalize, snakeToTitleCase } from '@codebuff/common/util/string'
 import { bold, gray, strikethrough } from 'picocolors'
@@ -8,6 +7,12 @@ import { getProjectRoot } from '../project-files'
 import { Spinner } from './spinner'
 
 import type { ToolName } from '@codebuff/common/tools/constants'
+
+interface SpawnAgentConfig {
+  agent_type: string
+  prompt?: string
+  params?: Record<string, any>
+}
 
 /**
  * Interface for handling tool call rendering
@@ -47,6 +52,41 @@ export interface ToolCallRenderer {
 }
 
 let toolStart = true
+
+/**
+ * Shared function for rendering spawn agents parameters
+ */
+const renderSpawnAgentsParam = (
+  paramName: string,
+  toolName: string,
+  content: string,
+) => {
+  if (paramName === 'agents') {
+    let agents: SpawnAgentConfig[] = []
+    try {
+      agents = JSON.parse(content)
+    } catch (e) {
+      return null
+    }
+    if (agents.length > 0) {
+      const client = Client.getInstance(false)
+      return gray(
+        agents
+          .map((props: SpawnAgentConfig) => {
+            const agentType = props.agent_type
+            const prompt = props.prompt
+            const agentName =
+              (client?.agentNames && client.agentNames[agentType]) || agentType
+
+            return `@${bold(agentName)}:\n${prompt || 'No prompt provided'}`
+          })
+          .join('\n\n') + '\n',
+      )
+    }
+  }
+  return null
+}
+
 /**
  * Default renderer for tool calls that formats them nicely for the console
  */
@@ -258,42 +298,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     onToolStart: (toolName) => {
       return '\n\n' + gray(`[${bold('Spawn Agents')}]`) + '\n'
     },
-    onParamEnd: (paramName, toolName, content) => {
-      if (paramName === 'agents') {
-        let agents = []
-        try {
-          agents = JSON.parse(content)
-        } catch (e) {
-          return null
-        }
-        if (agents.length > 0) {
-          return gray(
-            agents
-              .map((props: any) => {
-                const agentType = props?.agent_type
-                const prompt = props?.prompt
-                // Try to get agent name from client's stored names (includes dynamic agents),
-                // fallback to static personas, then agent type
-                const client = Client.getInstance(false) // Don't throw if not initialized
-                const agentName =
-                  (client?.agentNames && client.agentNames[agentType]) ||
-                  AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
-                    ?.displayName ||
-                  null
-
-                if (!agentName) {
-                  // Invalid agent type - skip it
-                  return null
-                }
-
-                return `@${bold(agentName)}:\n${prompt || 'No prompt provided'}`
-              })
-              .join('\n\n') + '\n',
-          )
-        }
-      }
-      return null
-    },
+    onParamEnd: renderSpawnAgentsParam,
     onToolEnd: () => {
       return () => {
         Spinner.get().start('Agents running...')
@@ -305,42 +310,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     onToolStart: (toolName) => {
       return '\n\n' + gray(`[${bold('Spawn Agents')}]`) + '\n'
     },
-    onParamEnd: (paramName, toolName, content) => {
-      if (paramName === 'agents') {
-        let agents = []
-        try {
-          agents = JSON.parse(content)
-        } catch (e) {
-          return null
-        }
-        if (agents.length > 0) {
-          return gray(
-            agents
-              .map((props: any) => {
-                const agentType = props?.agent_type
-                const prompt = props?.prompt
-                // Try to get agent name from client's stored names (includes dynamic agents),
-                // fallback to static personas, then agent type
-                const client = Client.getInstance(false) // Don't throw if not initialized
-                const agentName =
-                  (client?.agentNames && client.agentNames[agentType]) ||
-                  AGENT_PERSONAS[agentType as keyof typeof AGENT_PERSONAS]
-                    ?.displayName ||
-                  null
-
-                if (!agentName) {
-                  // Invalid agent type - skip it
-                  return null
-                }
-
-                return `@${bold(agentName)}:\n${prompt || 'No prompt provided'}`
-              })
-              .join('\n\n') + '\n',
-          )
-        }
-      }
-      return null
-    },
+    onParamEnd: renderSpawnAgentsParam,
     onToolEnd: () => {
       return () => {
         Spinner.get().start('Agents running...')

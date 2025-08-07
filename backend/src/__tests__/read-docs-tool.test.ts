@@ -94,6 +94,19 @@ describe('read_docs tool with researcher agent', () => {
     const mockDocumentation =
       'React is a JavaScript library for building user interfaces...'
 
+    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [
+      {
+        id: 'react-123',
+        title: 'React',
+        description: 'A JavaScript library for building user interfaces',
+        branch: 'main',
+        lastUpdateDate: '2023-01-01',
+        state: 'finalized',
+        totalTokens: 10000,
+        totalSnippets: 100,
+        totalPages: 50,
+      },
+    ])
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
       async () => mockDocumentation,
     )
@@ -153,6 +166,19 @@ describe('read_docs tool with researcher agent', () => {
     const mockDocumentation =
       'React hooks allow you to use state and other React features...'
 
+    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [
+      {
+        id: 'react-123',
+        title: 'React',
+        description: 'A JavaScript library for building user interfaces',
+        branch: 'main',
+        lastUpdateDate: '2023-01-01',
+        state: 'finalized',
+        totalTokens: 10000,
+        totalSnippets: 100,
+        totalPages: 50,
+      },
+    ])
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
       async () => mockDocumentation,
     )
@@ -199,6 +225,8 @@ describe('read_docs tool with researcher agent', () => {
   })
 
   test('should handle case when no documentation is found', async () => {
+    // Mock both searchLibraries and fetchContext7LibraryDocumentation to avoid network calls
+    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [])
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
       async () => null,
     )
@@ -252,6 +280,19 @@ describe('read_docs tool with researcher agent', () => {
   test('should handle API errors gracefully', async () => {
     const mockError = new Error('Network timeout')
 
+    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [
+      {
+        id: 'react-123',
+        title: 'React',
+        description: 'A JavaScript library for building user interfaces',
+        branch: 'main',
+        lastUpdateDate: '2023-01-01',
+        state: 'finalized',
+        totalTokens: 10000,
+        totalSnippets: 100,
+        totalPages: 50,
+      },
+    ])
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
       async () => {
         throw mockError
@@ -308,6 +349,19 @@ describe('read_docs tool with researcher agent', () => {
   })
 
   test('should include topic in error message when specified', async () => {
+    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [
+      {
+        id: 'react-123',
+        title: 'React',
+        description: 'A JavaScript library for building user interfaces',
+        branch: 'main',
+        lastUpdateDate: '2023-01-01',
+        state: 'finalized',
+        totalTokens: 10000,
+        totalSnippets: 100,
+        totalPages: 50,
+      },
+    ])
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
       async () => null,
     )
@@ -360,6 +414,19 @@ describe('read_docs tool with researcher agent', () => {
   })
 
   test('should handle non-Error exceptions', async () => {
+    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [
+      {
+        id: 'react-123',
+        title: 'React',
+        description: 'A JavaScript library for building user interfaces',
+        branch: 'main',
+        lastUpdateDate: '2023-01-01',
+        state: 'finalized',
+        totalTokens: 10000,
+        totalSnippets: 100,
+        totalPages: 50,
+      },
+    ])
     spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
       async () => {
         throw 'String error'

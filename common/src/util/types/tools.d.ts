@@ -76,8 +76,6 @@ export interface CodeSearchParams {
   "flags"?: string
   // Optional working directory to search within, relative to the project root. Defaults to searching the entire project.
   "cwd"?: string
-  // Easp flag must be set to true
-  "cb_easp"?: boolean
 }
 
 /**

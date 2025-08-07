@@ -139,10 +139,7 @@ export interface AgentConfig {
    *       ],
    *     },
    *   }
-   *   const { toolResult: thinkResult } = yield 'STEP'
-   *   if (thinkResult?.toolName === 'end_turn') {
-   *     break
-   *   }
+   *   yield 'STEP'
    * }
    * }
    */
@@ -151,7 +148,7 @@ export interface AgentConfig {
   ) => Generator<
     ToolCall | 'STEP' | 'STEP_ALL',
     void,
-    { agentState: AgentState; toolResult: string | undefined }
+    { agentState: AgentState; toolResult: ToolResult | undefined }
   >
 }
 

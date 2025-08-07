@@ -3,7 +3,7 @@ import type { AgentConfig } from '../types/agent-config'
 const config: AgentConfig = {
   id: 'oss-model-researcher',
   publisher: 'codebuff',
-  model: 'qwen/qwen3-235b-a22b-thinking-2507',
+  model: 'z-ai/glm-4.5:fast',
   displayName: 'Reid the Researcher',
   parentPrompt:
     'Expert researcher for comprehensive web search and documentation analysis, focusing on external research and actionable insights from external sources.',
