@@ -54,12 +54,12 @@ export const Navbar = async () => {
         >
           Pricing
         </Link>
-        <Link
+        {/* <Link
           href="/agents"
           className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
         >
           Agent Store
-        </Link>
+        </Link> */}
 
         {session && (
           <Link
@@ -91,12 +91,12 @@ export const Navbar = async () => {
                 Pricing
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
+            {/* <DropdownMenuItem asChild>
               <Link href="/agents" className="flex items-center">
                 <Bot className="mr-2 h-4 w-4" />
                 Agent Store
               </Link>
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
 
             {session && (
               <DropdownMenuItem asChild>
