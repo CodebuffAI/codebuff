@@ -39,6 +39,8 @@ export type WebSocketHandlerOptions = {
   onPromptResponse: (
     action: Extract<ServerAction, { type: 'prompt-response' }>,
   ) => Promise<void>
+
+  apiKey: string
 }
 
 export class WebSocketHandler {
@@ -54,6 +56,7 @@ export class WebSocketHandler {
   private onResponseChunk: WebSocketHandlerOptions['onResponseChunk']
   private onSubagentResponseChunk: WebSocketHandlerOptions['onSubagentResponseChunk']
   private onPromptResponse: WebSocketHandlerOptions['onPromptResponse']
+  private apiKey: string
 
   constructor({
     onWebsocketError = () => {},
@@ -69,6 +72,8 @@ export class WebSocketHandler {
     onSubagentResponseChunk = async () => {},
 
     onPromptResponse = async () => {},
+
+    apiKey,
   }: WebSocketHandlerOptions) {
     this.cbWebSocket = new APIRealtimeClient(
       WEBSOCKET_URL,
@@ -87,6 +92,8 @@ export class WebSocketHandler {
     this.onSubagentResponseChunk = onSubagentResponseChunk
 
     this.onPromptResponse = onPromptResponse
+
+    this.apiKey = apiKey
   }
 
   public async connect() {
@@ -100,32 +107,6 @@ export class WebSocketHandler {
 
   public close() {
     this.cbWebSocket.close()
-  }
-
-  public async init({
-    authToken: apiKey,
-    fileContext,
-    repoUrl,
-  }: Extract<ClientAction, { type: 'init' }>): Promise<
-    Extract<ServerAction, { type: 'init-response' }>
-  > {
-    let resolve!: (v: Extract<ServerAction, { type: 'init-response' }>) => void
-    const promise = new Promise<
-      Extract<ServerAction, { type: 'init-response' }>
-    >((res) => {
-      resolve = res
-    })
-    this.cbWebSocket.subscribe('init-response', resolve)
-
-    this.cbWebSocket.sendAction({
-      type: 'init',
-      fingerprintId: 'codebuff-sdk',
-      authToken: apiKey,
-      fileContext,
-      repoUrl,
-    })
-
-    return promise
   }
 
   private setupSubscriptions() {
@@ -169,5 +150,35 @@ export class WebSocketHandler {
 
     // Handle full response from prompt
     this.cbWebSocket.subscribe('prompt-response', this.onPromptResponse)
+  }
+
+  private getInputDefaultOptions() {
+    return {
+      ...({
+        type: 'prompt',
+        fingerprintId: 'codebuff-sdk',
+      } as const),
+      authToken: this.apiKey,
+    }
+  }
+
+  public sendInput(
+    action: Omit<
+      Extract<ClientAction, { type: 'prompt' }>,
+      keyof ReturnType<typeof this.getInputDefaultOptions>
+    >,
+  ) {
+    this.cbWebSocket.sendAction({
+      ...action,
+      ...this.getInputDefaultOptions(),
+    })
+  }
+
+  public cancelInput({ promptId }: { promptId: string }) {
+    this.cbWebSocket.sendAction({
+      type: 'cancel-user-input',
+      authToken: this.apiKey,
+      promptId,
+    })
   }
 }

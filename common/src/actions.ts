@@ -47,12 +47,6 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     repoUrl: z.string().optional(),
   }),
   z.object({
-    type: z.literal('generate-commit-message'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    stagedChanges: z.string(),
-  }),
-  z.object({
     type: z.literal('tool-call-response'),
     requestId: z.string(),
     success: z.boolean(),
