@@ -26,6 +26,7 @@ export async function GET() {
         auto_topup_enabled: true,
         auto_topup_threshold: true,
         auto_topup_amount: true,
+        created_at: true,
       },
     })
 
@@ -43,6 +44,7 @@ export async function GET() {
       auto_topup_threshold: user.auto_topup_threshold ?? 500,
       auto_topup_amount: user.auto_topup_amount ?? 2000,
       auto_topup_blocked_reason,
+      created_at: user.created_at,
     }
 
     return NextResponse.json(response)

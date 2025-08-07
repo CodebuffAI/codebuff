@@ -11,4 +11,5 @@ export interface UserProfile {
   auto_topup_threshold: number | null
   auto_topup_amount: number | null
   auto_topup_blocked_reason: string | null
+  created_at: Date | null
 }

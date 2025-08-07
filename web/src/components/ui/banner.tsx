@@ -10,6 +10,7 @@ import posthog from 'posthog-js'
 import { Suspense, useState } from 'react'
 
 import { Button } from './button'
+import { useUserProfile } from '@/hooks/use-user-profile'
 
 function BannerContent() {
   const [isVisible, setIsVisible] = useState(true)
@@ -17,7 +18,18 @@ function BannerContent() {
   const referrer = searchParams.get('referrer')
   const { data: session } = useSession()
 
-  if (!isVisible || !session?.user) return null
+  const { data: userProfile } = useUserProfile()
+
+  if (!isVisible || !session?.user || !userProfile) return null
+
+  // Check if account is less than a week old
+  const isNewAccount = userProfile.created_at
+    ? new Date().getTime() - new Date(userProfile.created_at).getTime() <
+      7 * 24 * 60 * 60 * 1000
+    : false
+
+  // Only show banner for new accounts (less than a week old)
+  if (!isNewAccount) return null
 
   const isPersonalReferral = !!referrer
 
