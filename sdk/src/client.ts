@@ -14,6 +14,7 @@ import {
   SessionState,
 } from '../../common/src/types/session-state'
 import { getFiles } from '../../npm-app/src/project-files'
+import { PrintModeEvent } from '../../common/src/types/print-mode'
 
 export type ClientToolName =
   | 'read_files'
@@ -43,9 +44,15 @@ type RunState = {
 
 export class CodebuffClient {
   public cwd: string
+
   private readonly websocketHandler: WebSocketHandler
   private readonly overrideTools: CodebuffClientOptions['overrideTools']
   private readonly fingerprintId = `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`
+
+  private readonly promptIdToHandleEvent: Record<
+    string,
+    (event: PrintModeEvent) => void
+  > = {}
   private readonly promptIdToResolveResponse: Record<
     string,
     { resolve: (response: any) => void; reject: (error: any) => void }
@@ -69,7 +76,9 @@ export class CodebuffClient {
     this.overrideTools = overrideTools
     this.websocketHandler = new WebSocketHandler({
       apiKey,
-      onWebsocketError: () => {},
+      onWebsocketError: (error) => {
+        onError({ message: error.message })
+      },
       onWebsocketReconnect: () => {},
       onRequestReconnect: async () => {},
       onResponseError: async (error) => {
@@ -80,7 +89,13 @@ export class CodebuffClient {
       onCostResponse: async () => {},
       onUsageResponse: async () => {},
 
-      onResponseChunk: async () => {},
+      onResponseChunk: async (action) => {
+        const { userInputId, chunk } = action
+        const handleEvent = this.promptIdToHandleEvent[userInputId]
+        if (handleEvent && typeof chunk === 'object') {
+          handleEvent(chunk)
+        }
+      },
       onSubagentResponseChunk: async () => {},
 
       onPromptResponse: this.handlePromptResponse.bind(this),
@@ -97,8 +112,8 @@ export class CodebuffClient {
    * @param agent - The agent to run, e.g. 'base' or 'codebuff/file-picker@0.0.1'
    * @param prompt - The user prompt, e.g. 'Add a console.log to the index file'
    * @param params - (Optional) The parameters to pass to the agent.
-   * @param handleEvent - A function to handle events.
    *
+   * @param handleEvent - (Optional) A function to handle events.
    * @param previousState - (Optional) Continue a previous run with the return value of a previous run.
    *
    * @param allFiles - (Optional) All the files in the project, in an object of file path to file content. Improves codebuff's ability to locate files.
@@ -120,7 +135,7 @@ export class CodebuffClient {
     agent: string
     prompt: string
     params?: Record<string, any>
-    handleEvent: (event: any) => void
+    handleEvent?: (event: PrintModeEvent) => void
     previousState?: RunState
     allFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
@@ -137,6 +152,9 @@ export class CodebuffClient {
         maxAgentSteps,
       })
     const toolResults = previousState?.toolResults ?? []
+    if (handleEvent) {
+      this.promptIdToHandleEvent[promptId] = handleEvent
+    }
     this.websocketHandler.sendInput({
       promptId,
       prompt,

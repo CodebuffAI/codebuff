@@ -1,7 +1,7 @@
 import z from 'zod'
 import fs from 'fs'
 import path from 'path'
-import { applyPatch } from '@codebuff/common/util/patch'
+import { applyPatch } from '../../../common/src/util/patch'
 
 const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
