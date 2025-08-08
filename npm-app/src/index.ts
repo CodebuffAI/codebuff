@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 
+import * as fs from 'fs'
+import * as os from 'os'
+
 import { type CostMode } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'
+import { CodebuffClient } from '@codebuff/sdk'
 
 import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
 import { CLI } from './cli'
@@ -22,7 +26,7 @@ import {
 } from './project-files'
 import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
-import { recreateShell } from './terminal/run-command'
+import { recreateShell, runTerminalCommand } from './terminal/run-command'
 import { initAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 
@@ -40,50 +44,54 @@ async function codebuff({
   cwd,
   trace,
 }: CliOptions) {
-  enableSquashNewlines()
-  const workingDir = getWorkingDirectory()
-  const projectRoot = getProjectRoot()
-  await recreateShell(workingDir)
+  const apiKey = JSON.parse(
+    fs
+      .readFileSync(os.homedir() + '/.config/manicode-dev/credentials.json')
+      .toString(),
+  ).default.authToken
 
-  // Kill all processes we failed to kill before
-  const processCleanupPromise = logAndHandleStartup()
-
-  initAnalytics()
-  rageDetectors.startupTimeDetector.start()
-
-  const initFileContextPromise = initProjectFileContextWithWorker(projectRoot)
-
-  // Only load local agents if no specific agent is requested
-  const loadLocalAgentsPromise = new Promise<void>((resolve) => {
-    loadLocalAgents({ verbose: true }).then(() => {
-      const codebuffConfig = loadCodebuffConfig()
-      displayLoadedAgents(codebuffConfig)
-    })
-    resolve()
+  const client = new CodebuffClient({
+    apiKey,
+    cwd: cwd ?? process.cwd(),
+    onError: (error) => {
+      console.error(red(error.message))
+    },
+    overrideTools: {
+      run_terminal_command: async (args) => {
+        const { command, mode, timeout, cwd } = args
+        const result = await runTerminalCommand(
+          'id',
+          command,
+          mode,
+          mode,
+          timeout,
+          cwd,
+        )
+        return {
+          toolResultMessage: result.result,
+        }
+      },
+    },
   })
 
-  const readyPromise = Promise.all([
-    initFileContextPromise,
-    processCleanupPromise,
-    loadLocalAgentsPromise,
-  ])
-
-  // Initialize the CLI singleton
-  CLI.initialize(readyPromise, {
-    git,
-    costMode,
-    model,
-    agent,
-    params,
-    print,
-    trace,
+  const run = await client.run({
+    agent: agent ?? 'base',
+    prompt: initialInput ?? 'hi',
+    handleEvent: (event) => {
+      console.log('event:', event)
+    },
   })
 
-  const cli = CLI.getInstance()
+  await client.run({
+    agent: agent ?? 'base',
+    prompt: 'thank you',
+    previousRun: run,
+    handleEvent: (event) => {
+      console.log('event:', event)
+    },
+  })
 
-  await cli.printInitialPrompt({ initialInput, runInitFlow })
-
-  rageDetectors.startupTimeDetector.end()
+  process.exit(0)
 }
 
 if (require.main === module) {
