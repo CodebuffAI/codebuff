@@ -19,6 +19,8 @@ import { getFiles } from './tools/read-files'
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
 export type CodebuffClientOptions = {
+  // Provide an API key or set the CODEBUFF_API_KEY environment variable.
+  apiKey?: string
   cwd: string
   onError: (error: { message: string }) => void
   overrideTools: Partial<
@@ -57,7 +59,7 @@ export class CodebuffClient {
     { resolve: (response: any) => void; reject: (error: any) => void }
   > = {}
 
-  constructor({ cwd, onError, overrideTools }: CodebuffClientOptions) {
+  constructor({ apiKey, cwd, onError, overrideTools }: CodebuffClientOptions) {
     // TODO: download binary automatically
     const isWindows = process.platform === 'win32'
     if (
@@ -69,17 +71,17 @@ export class CodebuffClient {
         `Could not find ${CODEBUFF_BINARY} in PATH. Please run "npm i -g codebuff" to install codebuff.`,
       )
     }
-    if (!process.env[API_KEY_ENV_VAR]) {
+    const foundApiKey = apiKey ?? process.env[API_KEY_ENV_VAR]
+    if (!foundApiKey) {
       throw new Error(
-        `Codebuff API key not found. Please set the ${API_KEY_ENV_VAR} environment variable.`,
+        `Codebuff API key not found. Please provide an apiKey in the constructor of CodebuffClient or set the ${API_KEY_ENV_VAR} environment variable.`,
       )
     }
-    const apiKey = process.env[API_KEY_ENV_VAR]
 
     this.cwd = cwd
     this.overrideTools = overrideTools
     this.websocketHandler = new WebSocketHandler({
-      apiKey,
+      apiKey: foundApiKey,
       onWebsocketError: (error) => {
         onError({ message: error.message })
       },
@@ -130,7 +132,7 @@ export class CodebuffClient {
     prompt,
     params,
     handleEvent,
-    previousState,
+    previousRun,
     allFiles,
     knowledgeFiles,
     agentConfig,
@@ -140,7 +142,7 @@ export class CodebuffClient {
     prompt: string
     params?: Record<string, any>
     handleEvent?: (event: PrintModeEvent) => void
-    previousState?: RunState
+    previousRun?: RunState
     allFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
     agentConfig?: Record<string, any>
@@ -150,14 +152,14 @@ export class CodebuffClient {
 
     const promptId = Math.random().toString(36).substring(2, 15)
     const sessionState =
-      previousState?.sessionState ??
+      previousRun?.sessionState ??
       initialSessionState(this.cwd, {
         knowledgeFiles,
         agentConfig,
         allFiles,
         maxAgentSteps,
       })
-    const toolResults = previousState?.toolResults ?? []
+    const toolResults = previousRun?.toolResults ?? []
     if (handleEvent) {
       this.promptIdToHandleEvent[promptId] = handleEvent
     }

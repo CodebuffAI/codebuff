@@ -26,97 +26,40 @@ npm install @codebuff/sdk
 ```typescript
 import * as fs from 'fs'
 import * as os from 'os'
+import { CodebuffClient } from '@codebuff/sdk'
 
-import { WebSocketHandler, getInitialSessionState } from '@codebuff/sdk'
+// Available after running `codebuff login`
+const apiKey = JSON.parse(
+  fs
+    .readFileSync(os.homedir() + '/.config/manicode/credentials.json')
+    .toString(),
+).default.authToken
 
-const client = new WebSocketHandler({
-  onWebsocketError: (error) => {
-    console.log({ error }, 'onWebsocketError')
-  },
-  onWebsocketReconnect: () => {
-    console.log('onWebsocketReconnect')
-  },
-  onResponseError: async (error) => {
-    console.log({ error }, 'onResponseError')
-  },
-  onRequestReconnect: async () => {
-    console.log('onRequestReconnect')
-  },
-  readFiles: async (input) => {
-    console.log({ input }, 'readFiles')
-    return {}
-  },
-  handleToolCall: async ({
-    type,
-    toolName,
-    requestId,
-    userInputId,
-    args,
-    timeout,
-  }) => {
-    console.log(
-      { type, toolName, requestId, userInputId, args, timeout },
-      'handleToolCall',
-    )
-    return { success: true, toolCallResult: 'asdf' }
-  },
-  onCostResponse: async (action) => {
-    console.log({ action }, 'onCostResponse')
-  },
-  onUsageResponse: async (action) => {
-    console.log({ action }, 'onUsageResponse')
-  },
-  onResponseChunk: async (action) => {
-    console.log({ action }, 'onResponseChunk')
-  },
-  onSubagentResponseChunk: async (action) => {
-    console.log({ action }, 'onSubagentResponseChunk')
-  },
-  onPromptResponse: async (response) => {
-    console.log({ response }, 'onPromptResponse')
-  },
-  // Available after running `codebuff login`
-  apiKey: JSON.parse(
-    fs
-      .readFileSync(os.homedir() + '/.config/manicode/credentials.json')
-      .toString(),
-  ).default.authToken,
+const client = new CodebuffClient({
+  apiKey,
+  cwd: process.cwd(),
+  onError: (e) => console.error('Codebuff error:', e.message),
+  // Optional: Override the implementation of specific tools.
+  overrideTools: {},
 })
 
-console.log('connecting')
-await client.connect()
-console.log('connected')
-client.sendInput({
-  prompt: 'can you run echo "hi" for me?',
-  promptId: 'some-prompt-id-12345',
-  costMode: 'normal',
-  sessionState: getInitialSessionState({
-    projectRoot: os.homedir() + '/github/codebuff',
-    cwd: os.homedir() + '/github/codebuff',
-    fileTree: [],
-    fileTokenScores: {},
-    tokenCallers: {},
-    knowledgeFiles: {},
-    userKnowledgeFiles: {},
-    agentTemplates: {},
-    gitChanges: {
-      status: '',
-      diff: '',
-      diffCached: '',
-      lastCommitMessages: '',
-    },
-    changesSinceLastChat: {},
-    shellConfigFiles: {},
-    systemInfo: {
-      platform: process.platform,
-      shell: 'bash',
-      nodeVersion: process.version,
-      arch: process.arch,
-      homedir: os.homedir() + '/github/codebuff',
-      cpus: 16,
-    },
-  }),
-  toolResults: [],
+// Single run
+const run1 = await client.run({
+  agent: 'base',
+  prompt: 'Add console.log("Hello from Codebuff") to src/index.ts',
+})
+
+// Continue same session with follow‑up
+const run2 = await client.run({
+  agent: 'base',
+  prompt: 'Create a basic test file for it',
+  previousRun: run1,
+
+  // Stream events (optional)
+  handleEvent: (event) => {
+    // event includes streamed updates like assistant messages and tool calls
+    console.log('event:', event)
+  },
 })
 ```
 
