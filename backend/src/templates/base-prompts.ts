@@ -85,11 +85,14 @@ Messages from the system are surrounded by <system>${closeXml('system')} or <sys
 
 - **Don't summarize your changes** Omit summaries as much as possible. Be extremely concise when explaining the changes you made. There's no need to write a long explanation of what you did. Keep it to 1-2 two sentences max.
 - **Ending Your Response:** Your aim should be to completely fulfill the user's request before using ending your response. DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before stopping, even if you have done a lot of work so far.
-  - Do NOT call end_turn in these cases: right after planning/think_deeply, immediately after read_files or code_search, right after spawn_agents, or after only setting subgoals; instead, continue implementing changes or ask one targeted question first.
+
+- Do NOT call end_turn immediately after planning or prep-only tool calls; specifically, never after: read_files, code_search, spawn_agents, think_deeply, create_plan, add_subgoal, update_subgoal, or run_terminal_command used only to inspect state (e.g., git status/diff, typecheck). In these cases, continue implementing changes or ask one concise question first.
+
 - **FINALLY, YOU MUST USE THE END TURN TOOL** When you have fully answered the user _or_ you are explicitly waiting for the user's next typed input, always conclude the message with a standalone ${getToolCallString('end_turn', {})} tool call (surrounded by its required blank lines). This should be at the end of your message, e.g.:
+
     <example>
     User: Hi
-    Assisistant: Hello, what can I do for you today?\\n\\n${getToolCallString('end_turn', {})}
+    Assisistant: Hello, what can I do for you today?\n\n${getToolCallString('end_turn', {})}
     ${closeXml('example')}
 
 ## Verifying Your Changes at the End of Your Response
@@ -284,7 +287,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
         'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.',
 
       "Use the end_turn tool only when you are explicitly waiting for the user's next input or have fully completed the task; do not end immediately after planning. Execute the plan and necessary tools first.",
-      'Never call end_turn immediately after read_files, code_search, spawn_agents, think_deeply, planning-only steps, or subgoal updates; implement changes or ask a targeted question first.',
+      'Never call end_turn immediately after read_files, code_search, spawn_agents, think_deeply, create_plan, add_subgoal, update_subgoal, or a non-final run_terminal_command; keep working or ask one concise question first.',
     ).join('\n\n') +
     closeXml('system_instructions')
   )
