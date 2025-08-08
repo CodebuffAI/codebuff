@@ -1,3 +1,7 @@
+import { setupBigQuery } from '@codebuff/bigquery'
+import { flushAnalytics, initAnalytics } from '@codebuff/common/analytics'
+import { env } from '@codebuff/internal'
+
 import {
   getTracesForUserHandler,
   relabelForUserHandler,
@@ -14,9 +18,6 @@ import {
   handleWsClose,
   startDeadConnectionCleaner,
 } from './websockets/server'
-import { setupBigQuery } from '@codebuff/bigquery'
-import { flushAnalytics, initAnalytics } from '@codebuff/common/analytics'
-import { env } from '@codebuff/internal'
 
 const port = env.PORT
 
@@ -36,6 +37,85 @@ setupBigQuery().catch((err) => {
 
 initAnalytics()
 
+// Express-like tiny router
+type Handler = (
+  req: Request,
+  utils: { json: typeof ok; text: typeof text },
+) => Promise<Response> | Response
+
+function text(body: string, status = 200) {
+  return new Response(body, { status })
+}
+
+function ok(body: any, init?: ResponseInit) {
+  return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers || {}),
+    },
+    ...init,
+  })
+}
+
+// Delete routes array; replace with routeKey/routeTable for O(1) lookup
+// const routes: Array<{ method: string; path: string; handler: Handler }> = []
+const routeKey = (method: string, path: string) => `${method} ${path}`
+const routeTable: Record<string, Handler> = {}
+
+const router = {
+  get: (path: string, handler: Handler) =>
+    (routeTable[routeKey('GET', path)] = handler),
+  post: (path: string, handler: Handler) =>
+    (routeTable[routeKey('POST', path)] = handler),
+  options: (path: string, handler: Handler) =>
+    (routeTable[routeKey('OPTIONS', path)] = handler),
+}
+
+// Reuse a shared utils object instead of creating per request
+const utils = { json: ok, text }
+
+// Routes
+router.get('/', (_req, { text }) => text('Codebuff Backend Server'))
+router.get('/healthz', (_req, { text }) => text('ok'))
+
+router.post('/api/usage', (req, { json }) => usageHandler(req, json))
+router.post('/api/orgs/is-repo-covered', (req, { json }) =>
+  isRepoCoveredHandler(req, json),
+)
+
+router.options('/api/admin/relabel-for-user', () => {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
+})
+
+router.get('/api/admin/relabel-for-user', async (req, { json }) => {
+  await checkAdmin(req)
+  return getTracesForUserHandler(req, json)
+})
+
+router.post('/api/admin/relabel-for-user', async (req, { json }) => {
+  await checkAdmin(req)
+  return relabelForUserHandler(req, json)
+})
+
+async function handleWithRouter(req: Request): Promise<Response> {
+  const url = new URL(req.url)
+  const method = req.method.toUpperCase()
+
+  const handler = routeTable[routeKey(method, url.pathname)]
+  if (handler) {
+    return await handler(req, utils)
+  }
+  return new Response('Not Found', { status: 404 })
+}
+
 const server = Bun.serve({
   port,
   fetch: async (req, server) => {
@@ -45,56 +125,9 @@ const server = Bun.serve({
       return new Response('Upgrade failed', { status: 426 })
     }
 
-    // Pure Bun routing
     try {
-      // CORS preflight for admin endpoint
-      if (
-        req.method === 'OPTIONS' &&
-        url.pathname === '/api/admin/relabel-for-user'
-      ) {
-        return new Response(null, {
-          status: 204,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          },
-        })
-      }
-
-      if (url.pathname === '/') return new Response('Codebuff Backend Server')
-      if (url.pathname === '/healthz') return new Response('ok')
-
-      // JSON helpers
-      const json = async <T = any>() => (await req.json()) as T
-      const ok = (body: any, init?: ResponseInit) =>
-        new Response(typeof body === 'string' ? body : JSON.stringify(body), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            ...(init?.headers || {}),
-          },
-          ...init,
-        })
-
-      // Map previous handlers
-      if (req.method === 'POST' && url.pathname === '/api/usage') {
-        return await usageHandler(req, ok)
-      }
-      if (
-        req.method === 'POST' &&
-        url.pathname === '/api/orgs/is-repo-covered'
-      ) {
-        return await isRepoCoveredHandler(req, ok)
-      }
-      if (url.pathname === '/api/admin/relabel-for-user') {
-        // Minimal auth check
-        await checkAdmin(req)
-        if (req.method === 'GET') return await getTracesForUserHandler(req, ok)
-        if (req.method === 'POST') return await relabelForUserHandler(req, ok)
-      }
-
-      return new Response('Not Found', { status: 404 })
+      // Delegate to express-like router
+      return await handleWithRouter(req)
     } catch (err) {
       const status = (err as any)?.status ?? 500
       const message = (err as any)?.message ?? 'Something broke!'
