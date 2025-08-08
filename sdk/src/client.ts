@@ -19,7 +19,6 @@ import { PrintModeEvent } from '../../common/src/types/print-mode'
 export type ClientToolName =
   | 'read_files'
   | 'write_file'
-  | 'str_replace'
   | 'run_terminal_command'
 
 export type CodebuffClientOptions = {
@@ -216,7 +215,11 @@ export class CodebuffClient {
     const args = action.args
     let result: string
     try {
-      const override = this.overrideTools[toolName as ClientToolName]
+      let override = this.overrideTools[toolName as ClientToolName]
+      if (!override && toolName === 'str_replace') {
+        // Note: write_file and str_replace have the same implementation, so reuse their write_file override.
+        override = this.overrideTools['write_file']
+      }
       if (override) {
         const overrideResult = await override(args)
         result = overrideResult.toolResultMessage
@@ -231,7 +234,7 @@ export class CodebuffClient {
         )
       } else {
         throw new Error(
-          `Tool not implemented in sdk. Please provide an override or modify your agent to not use this tool: ${toolName}`,
+          `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,
         )
       }
     } catch (error) {
