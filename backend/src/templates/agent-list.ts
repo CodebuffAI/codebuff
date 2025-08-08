@@ -22,7 +22,7 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
   {
     [AgentTemplateTypes.base]: {
       id: AgentTemplateTypes.base,
-      ...base('openai/gpt-5'),
+      ...base(models.openrouter_gpt5),
     },
     [AgentTemplateTypes.base_lite]: {
       id: AgentTemplateTypes.base_lite,
