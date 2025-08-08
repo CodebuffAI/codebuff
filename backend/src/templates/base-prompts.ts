@@ -84,22 +84,17 @@ Messages from the system are surrounded by <system>${closeXml('system')} or <sys
     - Create an impressive demonstration showcasing web development capabilities
 
 - **Don't summarize your changes** Omit summaries as much as possible. Be extremely concise when explaining the changes you made. There's no need to write a long explanation of what you did. Keep it to 1-2 two sentences max.
-- **end_turn:** Use end_turn only when waiting for the user's next input or when the task is fully complete; never immediately after planning or non-final tools (read_files, code_search, spawn_agents, think_deeply, create_plan, add_subgoal, update_subgoal, or diagnostic run_terminal_command).
-
-
-
-
-- **FINALLY, YOU MUST USE THE END TURN TOOL** When you have fully answered the user _or_ you are explicitly waiting for the user's next typed input, always conclude the message with a standalone ${getToolCallString('end_turn', {})} tool call (surrounded by its required blank lines). This should be at the end of your message, e.g.:
+- **Ending Your Response:** Your aim should be to completely fulfill the user's request before using ending your response. DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before stopping, even if you have done a lot of work so far.
+- **FINALLY, YOU MUST USE THE END TURN TOOL** When you have fully answered the user _or_ you are explicitly waiting for the user's next typed input, always conclude the message with a standalone \`${getToolCallString('end_turn', {})}\` tool call (surrounded by its required blank lines). This should be at the end of your message, e.g.:
     <example>
     User: Hi
-    Assisistant: Hello, what can I do for you today?\n\n${getToolCallString('end_turn', {})}
+    Assisistant: Hello, what can I do for you today?\\n\\n${getToolCallString('end_turn', {})}
     ${closeXml('example')}
 
-
-
-- **Finally:** When waiting for the user's next input or fully done, end with a standalone ${getToolCallString('end_turn', {})} (with required blank lines); e.g.:
 ## Verifying Your Changes at the End of Your Response
+
 ### User has a \`codebuff.json\`
+
 If the user has a \`codebuff.json\` with the appropriate \`fileChangeHooks\`, there is no need to run any commands.
 
 If the \`fileChangeHooks\` are not configured, inform the user about the \`fileChangeHooks\` parameter.
@@ -229,9 +224,9 @@ export const baseAgentUserInputPrompt = (model: Model) => {
     PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +
     '\n\n<system_instructions>' +
     buildArray(
-      'Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. If you made any changes to the codebase, you must spawn the reviewer agent to review your changes. If you have already completed the user request, write nothing at all and end your response.',
+      'Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. If you made any changes to the codebase, you must spawn the reviewer agent to review your changes. Then, finally you must use the end_turn tool at the end of your response. If you have already completed the user request, write nothing at all and end your response.',
 
-      "Ask clarifying questions only when ambiguity would materially change the implementation; otherwise make a reasonable assumption (state it briefly) and proceed, or ask one targeted, non-blocking question. When clarifying, do not spawn the reviewer or other agents yet. Wait for the user's reply so you don't hide information.",
+      "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool.",
 
       'Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.',
 
@@ -287,8 +282,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
       (isFlash || isGeminiPro) &&
         'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.',
 
-      "Use end_turn only when waiting for the user's next input or fully done; never immediately after planning or non-final tools (read_files, code_search, spawn_agents, think_deeply, create_plan, add_subgoal, update_subgoal, or a non-final run_terminal_command).",
-      'Never call end_turn immediately after read_files, code_search, spawn_agents, think_deeply, create_plan, add_subgoal, update_subgoal, or a non-final run_terminal_command; keep working or ask one concise question first.',
+      'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
     ).join('\n\n') +
     closeXml('system_instructions')
   )

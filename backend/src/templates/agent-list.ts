@@ -22,11 +22,11 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
   {
     [AgentTemplateTypes.base]: {
       id: AgentTemplateTypes.base,
-      ...base(models.openrouter_gpt5),
+      ...base(models.openrouter_claude_sonnet_4),
     },
     [AgentTemplateTypes.base_lite]: {
       id: AgentTemplateTypes.base_lite,
-      ...base(models.openrouter_gemini2_5_flash),
+      ...base(models.openrouter_gpt5),
     },
     [AgentTemplateTypes.base_max]: {
       id: AgentTemplateTypes.base_max,
