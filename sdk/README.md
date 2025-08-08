@@ -36,6 +36,9 @@ const client = new WebSocketHandler({
   onWebsocketReconnect: () => {
     console.log('onWebsocketReconnect')
   },
+  onResponseError: async (error) => {
+    console.log({ error }, 'onResponseError')
+  },
   onRequestReconnect: async () => {
     console.log('onRequestReconnect')
   },
