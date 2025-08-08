@@ -13,8 +13,8 @@ import {
   getInitialSessionState,
   SessionState,
 } from '../../common/src/types/session-state'
-import { getFiles } from '../../npm-app/src/project-files'
 import { PrintModeEvent } from '../../common/src/types/print-mode'
+import { getFiles } from './tools/read-files'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
@@ -215,7 +215,7 @@ export class CodebuffClient {
       const overrideResult = await override(filePath)
       return overrideResult.files
     }
-    return getFiles(filePath)
+    return getFiles(filePath, this.cwd)
   }
 
   private async handleToolCall(
