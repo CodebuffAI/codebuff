@@ -13,6 +13,9 @@ export function changeFile(
   parameters: unknown,
   cwd: string,
 ): { toolResultMessage: string } {
+  if (cwd.includes('../')) {
+    throw new Error('cwd cannot include ../')
+  }
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
 

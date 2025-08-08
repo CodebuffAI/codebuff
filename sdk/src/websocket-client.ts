@@ -58,6 +58,7 @@ export class WebSocketHandler {
   private onSubagentResponseChunk: WebSocketHandlerOptionsWithDefaults['onSubagentResponseChunk']
   private onPromptResponse: WebSocketHandlerOptionsWithDefaults['onPromptResponse']
   private apiKey: string
+  private isConnected = false
 
   constructor({
     onWebsocketError = () => {},
@@ -98,8 +99,11 @@ export class WebSocketHandler {
   }
 
   public async connect() {
-    await this.cbWebSocket.connect()
-    this.setupSubscriptions()
+    if (!this.isConnected) {
+      await this.cbWebSocket.connect()
+      this.setupSubscriptions()
+      this.isConnected = true
+    }
   }
 
   public reconnect() {

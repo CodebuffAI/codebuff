@@ -16,24 +16,24 @@ import {
 import { getFiles } from '../../npm-app/src/project-files'
 import { PrintModeEvent } from '../../common/src/types/print-mode'
 
-export type ClientToolName =
-  | 'read_files'
-  | 'write_file'
-  | 'run_terminal_command'
+type ClientToolName = 'write_file' | 'run_terminal_command'
 
 export type CodebuffClientOptions = {
   cwd: string
   onError: (error: { message: string }) => void
-  overrideTools: Record<
-    ClientToolName,
-    (
-      args: Extract<ServerAction, { type: 'tool-call-request' }>['args'],
-    ) => Promise<{ toolResultMessage: string }>
-  > & {
-    readFiles: (
-      filePath: string[],
-    ) => Promise<{ files: Record<string, string | null> }>
-  }
+  overrideTools: Partial<
+    Record<
+      ClientToolName,
+      (
+        args: Extract<ServerAction, { type: 'tool-call-request' }>['args'],
+      ) => Promise<{ toolResultMessage: string }>
+    > & {
+      // Include read_files separately, since it has a different signature.
+      read_files: (
+        filePath: string[],
+      ) => Promise<{ files: Record<string, string | null> }>
+    }
+  >
 }
 
 type RunState = {
@@ -59,9 +59,14 @@ export class CodebuffClient {
 
   constructor({ cwd, onError, overrideTools }: CodebuffClientOptions) {
     // TODO: download binary automatically
-    if (execFileSync('which', [CODEBUFF_BINARY]).toString().trim() === '') {
+    const isWindows = process.platform === 'win32'
+    if (
+      execFileSync(isWindows ? 'where' : 'which', [CODEBUFF_BINARY])
+        .toString()
+        .trim() === ''
+    ) {
       throw new Error(
-        `Could not find ${CODEBUFF_BINARY} in PATH. Please run "npm i -g codebuff" to install the codebuff.`,
+        `Could not find ${CODEBUFF_BINARY} in PATH. Please run "npm i -g codebuff" to install codebuff.`,
       )
     }
     if (!process.env[API_KEY_ENV_VAR]) {
@@ -141,6 +146,8 @@ export class CodebuffClient {
     agentConfig?: Record<string, any>
     maxAgentSteps?: number
   }): Promise<RunState> {
+    await this.websocketHandler.connect()
+
     const promptId = Math.random().toString(36).substring(2, 15)
     const sessionState =
       previousState?.sessionState ??
@@ -190,17 +197,20 @@ export class CodebuffClient {
     }
 
     if (promiseActions) {
-      const { sessionState, toolResults } = action
+      const { sessionState, toolResults } = parsedAction.data
       const state: RunState = {
         sessionState,
         toolResults,
       }
       promiseActions.resolve(state)
+
+      delete this.promptIdToResolveResponse[action.promptId]
+      delete this.promptIdToHandleEvent[action.promptId]
     }
   }
 
   private async readFiles(filePath: string[]) {
-    const override = this.overrideTools.readFiles
+    const override = this.overrideTools.read_files
     if (override) {
       const overrideResult = await override(filePath)
       return overrideResult.files
@@ -262,6 +272,7 @@ export class CodebuffClient {
 function initialSessionState(
   cwd: string,
   options: {
+    // TODO: Parse allFiles into fileTree, fileTokenScores, tokenCallers
     allFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
     agentConfig?: Record<string, any>
@@ -289,11 +300,11 @@ function initialSessionState(
     shellConfigFiles: {},
     systemInfo: {
       platform: process.platform,
-      shell: 'bash',
+      shell: process.platform === 'win32' ? 'cmd.exe' : 'bash',
       nodeVersion: process.version,
       arch: process.arch,
       homedir: os.homedir(),
-      cpus: 16,
+      cpus: os.cpus().length ?? 1,
     },
   })
 
