@@ -157,7 +157,6 @@ export class WebSocketHandler {
     return {
       ...({
         type: 'prompt',
-        fingerprintId: 'codebuff-sdk',
       } as const),
       authToken: this.apiKey,
     }
