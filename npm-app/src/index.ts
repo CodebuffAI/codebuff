@@ -44,6 +44,8 @@ async function codebuff({
   cwd,
   trace,
 }: CliOptions) {
+  await recreateShell(cwd ?? process.cwd())
+
   const apiKey = JSON.parse(
     fs
       .readFileSync(os.homedir() + '/.config/manicode-dev/credentials.json')
@@ -58,13 +60,13 @@ async function codebuff({
     },
     overrideTools: {
       run_terminal_command: async (args) => {
-        const { command, mode, timeout, cwd } = args
+        const { command, mode, process_type, timeout_seconds, cwd } = args
         const result = await runTerminalCommand(
           'id',
           command,
           mode,
-          mode,
-          timeout,
+          process_type,
+          timeout_seconds,
           cwd,
         )
         return {
@@ -74,6 +76,9 @@ async function codebuff({
     },
   })
 
+  console.log('client created')
+  console.log('starting run')
+
   const run = await client.run({
     agent: agent ?? 'base',
     prompt: initialInput ?? 'hi',
@@ -82,7 +87,9 @@ async function codebuff({
     },
   })
 
-  await client.run({
+  console.log('run1 complete')
+
+  const run2 = await client.run({
     agent: agent ?? 'base',
     prompt: 'thank you',
     previousRun: run,
@@ -90,6 +97,7 @@ async function codebuff({
       console.log('event:', event)
     },
   })
+  console.log('run2 complete')
 
   process.exit(0)
 }
