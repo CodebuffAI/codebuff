@@ -25,9 +25,6 @@ export type WebSocketHandlerOptions = {
   onCostResponse?: (
     action: Extract<ServerAction, { type: 'message-cost-response' }>,
   ) => Promise<void>
-  onUsageResponse?: (
-    action: Extract<ServerAction, { type: 'usage-response' }>,
-  ) => Promise<void>
 
   onResponseChunk?: (
     action: Extract<ServerAction, { type: 'response-chunk' }>,
@@ -53,7 +50,6 @@ export class WebSocketHandler {
   private readFiles: WebSocketHandlerOptionsWithDefaults['readFiles']
   private handleToolCall: WebSocketHandlerOptionsWithDefaults['handleToolCall']
   private onCostResponse: WebSocketHandlerOptionsWithDefaults['onCostResponse']
-  private onUsageResponse: WebSocketHandlerOptionsWithDefaults['onUsageResponse']
   private onResponseChunk: WebSocketHandlerOptionsWithDefaults['onResponseChunk']
   private onSubagentResponseChunk: WebSocketHandlerOptionsWithDefaults['onSubagentResponseChunk']
   private onPromptResponse: WebSocketHandlerOptionsWithDefaults['onPromptResponse']
@@ -68,7 +64,6 @@ export class WebSocketHandler {
     readFiles,
     handleToolCall,
     onCostResponse = async () => {},
-    onUsageResponse = async () => {},
 
     onResponseChunk = async () => {},
     onSubagentResponseChunk = async () => {},
@@ -88,7 +83,6 @@ export class WebSocketHandler {
     this.readFiles = readFiles
     this.handleToolCall = handleToolCall
     this.onCostResponse = onCostResponse
-    this.onUsageResponse = onUsageResponse
 
     this.onResponseChunk = onResponseChunk
     this.onSubagentResponseChunk = onSubagentResponseChunk
@@ -140,8 +134,6 @@ export class WebSocketHandler {
     })
 
     this.cbWebSocket.subscribe('message-cost-response', this.onCostResponse)
-
-    this.cbWebSocket.subscribe('usage-response', this.onUsageResponse)
 
     // Used to handle server restarts gracefully
     this.cbWebSocket.subscribe('request-reconnect', this.onRequestReconnect)

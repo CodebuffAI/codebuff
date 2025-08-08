@@ -3,18 +3,17 @@ import os from 'os'
 
 import { CODEBUFF_BINARY } from './constants'
 import { changeFile } from './tools/change-file'
+import { getFiles } from './tools/read-files'
 import { WebSocketHandler } from './websocket-client'
-import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import {
   PromptResponseSchema,
   type ServerAction,
 } from '../../common/src/actions'
-import {
-  getInitialSessionState,
-  SessionState,
-} from '../../common/src/types/session-state'
-import { PrintModeEvent } from '../../common/src/types/print-mode'
-import { getFiles } from './tools/read-files'
+import { API_KEY_ENV_VAR } from '../../common/src/constants'
+import { getInitialSessionState } from '../../common/src/types/session-state'
+
+import type { PrintModeEvent } from '../../common/src/types/print-mode'
+import type { SessionState } from '../../common/src/types/session-state'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
@@ -93,7 +92,6 @@ export class CodebuffClient {
       readFiles: this.readFiles.bind(this),
       handleToolCall: this.handleToolCall.bind(this),
       onCostResponse: async () => {},
-      onUsageResponse: async () => {},
 
       onResponseChunk: async (action) => {
         const { userInputId, chunk } = action
