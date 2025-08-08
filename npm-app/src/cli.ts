@@ -638,6 +638,18 @@ export class CLI {
       // Normal interactive mode
       if (client.user) {
         displayGreeting(this.costMode, client.user.name)
+
+        // Show selected agent when provided via --agent
+        if (this.agent) {
+          try {
+            const localAgentInfo = await getLocalAgentInfo()
+            const agentDisplayName = getAgentDisplayName(
+              this.agent || 'base',
+              localAgentInfo,
+            )
+            console.log(gray(`\nAgent: ${bold(agentDisplayName)}`))
+          } catch {}
+        }
       } else {
         console.log(
           `Welcome to Codebuff! Give us a sec to get your account set up...`,
