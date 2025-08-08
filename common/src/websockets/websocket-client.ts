@@ -228,27 +228,9 @@ export class APIRealtimeClient {
   }
 
   async sendAction(action: ClientAction) {
-    try {
-      return await this.sendMessage('action', {
-        data: action,
-      })
-    } catch (e) {
-      // Print the error message for debugging.
-      console.error(
-        'Error sending action:',
-        action.type,
-        typeof e === 'object' && e !== null && 'message' in e ? e.message : e,
-      )
-
-      console.log()
-      console.log('Codebuff is exiting due to an error.')
-      console.log('Make sure you are on the latest version of Codebuff!')
-      console.log('-----------------------------------')
-      console.log('Please run: npm install -g codebuff')
-      console.log('-----------------------------------')
-
-      process.exit(1)
-    }
+    return await this.sendMessage('action', {
+      data: action,
+    })
   }
 
   subscribe<T extends ServerAction['type']>(
