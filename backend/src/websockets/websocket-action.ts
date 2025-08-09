@@ -7,7 +7,6 @@ import {
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import { buildArray } from '@codebuff/common/util/array'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { eq } from 'drizzle-orm'
@@ -24,7 +23,6 @@ import { protec } from './middleware'
 import { sendMessage } from './server'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { logger, withLoggerContext } from '../util/logger'
-import { asSystemMessage } from '../util/messages'
 
 import type {
   ClientAction,
@@ -167,46 +165,13 @@ const onPrompt = async (
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
         let response =
-          e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
-
-        const newMessages = buildArray(
-          ...action.sessionState.mainAgentState.messageHistory,
-          prompt && {
-            role: 'user' as const,
-            content: prompt,
-          },
-          {
-            role: 'user' as const,
-            content: asSystemMessage(`Received error from server: ${response}`),
-          },
-        )
+          e && typeof e === 'object' && 'message' in e ? `${e.message}` : `${e}`
 
         sendAction(ws, {
-          type: 'response-chunk',
+          type: 'prompt-error',
           userInputId: promptId,
-          chunk: { type: 'error', message: response },
+          message: response,
         })
-        sendAction(ws, {
-          type: 'response-chunk',
-          userInputId: promptId,
-          chunk: response,
-        })
-        setTimeout(() => {
-          sendAction(ws, {
-            type: 'prompt-response',
-            promptId,
-            // Send back original sessionState.
-            sessionState: {
-              ...action.sessionState,
-              mainAgentState: {
-                ...action.sessionState.mainAgentState,
-                messageHistory: newMessages,
-              },
-            },
-            toolCalls: [],
-            toolResults: [],
-          })
-        }, 100)
       } finally {
         endUserInput(userId, promptId)
         const usageResponse = await genUsageResponse(

@@ -734,7 +734,9 @@ export class Client {
   }
 
   private setupSubscriptions() {
-    this.webSocket.subscribe('action-error', (action) => {
+    const onError = (
+      action: ServerAction<'action-error'> | ServerAction<'prompt-error'>,
+    ): void => {
       if (action.error === 'Insufficient credits') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
         logger.info(
@@ -770,7 +772,9 @@ export class Client {
       }
       this.freshPrompt()
       return
-    })
+    }
+    this.webSocket.subscribe('action-error', onError)
+    this.webSocket.subscribe('prompt-error', onError)
 
     this.webSocket.subscribe('read-files', (a) => {
       const { filePaths, requestId } = a
