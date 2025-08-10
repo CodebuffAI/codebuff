@@ -86,7 +86,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
         .passthrough()
         .optional(),
     },
-    outputMode: 'json',
+    outputMode: 'structured_output',
     includeMessageHistory: false,
     toolNames: [
       'write_file',

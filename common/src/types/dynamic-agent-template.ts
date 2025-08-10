@@ -126,8 +126,8 @@ export const DynamicAgentConfigSchema = z.object({
   inputSchema: InputSchemaObjectSchema,
   includeMessageHistory: z.boolean().default(true),
   outputMode: z
-    .enum(['last_message', 'all_messages', 'json'])
-    .default('last_message'), // Will be overridden to 'json' if outputSchema is present
+    .enum(['last_message', 'all_messages', 'structured_output'])
+    .default('last_message'),
   outputSchema: JsonSchemaSchema.optional(), // Optional JSON schema for output validation
 
   // Prompts
@@ -150,23 +150,23 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
 })
   .refine(
     (data) => {
-      // If outputSchema is provided, outputMode must be explicitly set to 'json'
-      if (data.outputSchema && data.outputMode !== 'json') {
+      // If outputSchema is provided, outputMode must be explicitly set to 'structured_output'
+      if (data.outputSchema && data.outputMode !== 'structured_output') {
         return false
       }
       return true
     },
     {
       message:
-        "outputSchema requires outputMode to be explicitly set to 'json'.",
+        "outputSchema requires outputMode to be explicitly set to 'structured_output'.",
       path: ['outputMode'],
     },
   )
   .refine(
     (data) => {
-      // If outputMode is 'json', 'set_output' tool must be included
+      // If outputMode is 'structured_output', 'set_output' tool must be included
       if (
-        data.outputMode === 'json' &&
+        data.outputMode === 'structured_output' &&
         !data.toolNames.includes('set_output')
       ) {
         return false
@@ -175,21 +175,24 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
     },
     {
       message:
-        "outputMode 'json' requires the 'set_output' tool. Add 'set_output' to toolNames.",
+        "outputMode 'structured_output' requires the 'set_output' tool. Add 'set_output' to toolNames.",
       path: ['toolNames'],
     },
   )
   .refine(
     (data) => {
-      // If 'set_output' tool is included, outputMode must be 'json'
-      if (data.toolNames.includes('set_output') && data.outputMode !== 'json') {
+      // If 'set_output' tool is included, outputMode must be 'structured_output'
+      if (
+        data.toolNames.includes('set_output') &&
+        data.outputMode !== 'structured_output'
+      ) {
         return false
       }
       return true
     },
     {
       message:
-        "'set_output' tool requires outputMode to be 'json'. Change outputMode to 'json' or remove 'set_output' from toolNames.",
+        "'set_output' tool requires outputMode to be 'structured_output'. Change outputMode to 'structured_output' or remove 'set_output' from toolNames.",
       path: ['outputMode'],
     },
   )

@@ -248,10 +248,10 @@ describe('DynamicAgentConfigSchema', () => {
       })
     })
 
-    it('should reject template with outputMode json but missing set_output tool', () => {
+    it('should reject template with outputMode structured_output but missing set_output tool', () => {
       const template = {
         ...validBaseTemplate,
-        outputMode: 'json' as const,
+        outputMode: 'structured_output' as const,
         toolNames: ['end_turn', 'read_files'], // Missing set_output
       }
 
@@ -261,20 +261,20 @@ describe('DynamicAgentConfigSchema', () => {
         // Find the specific error about set_output tool
         const setOutputError = result.error.issues.find((issue) =>
           issue.message.includes(
-            "outputMode 'json' requires the 'set_output' tool",
+            "outputMode 'structured_output' requires the 'set_output' tool",
           ),
         )
         expect(setOutputError).toBeDefined()
         expect(setOutputError?.message).toContain(
-          "outputMode 'json' requires the 'set_output' tool",
+          "outputMode 'structured_output' requires the 'set_output' tool",
         )
       }
     })
 
-    it('should accept template with outputMode json and set_output tool', () => {
+    it('should accept template with outputMode structured_output and set_output tool', () => {
       const template = {
         ...validBaseTemplate,
-        outputMode: 'json' as const,
+        outputMode: 'structured_output' as const,
         toolNames: ['end_turn', 'set_output'],
       }
 
@@ -282,11 +282,11 @@ describe('DynamicAgentConfigSchema', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should reject template with set_output tool but non-json outputMode', () => {
+    it('should reject template with set_output tool but non-structured_output outputMode', () => {
       const template = {
         ...validBaseTemplate,
         outputMode: 'last_message' as const,
-        toolNames: ['end_turn', 'set_output'], // set_output without json mode
+        toolNames: ['end_turn', 'set_output'], // set_output without structured_output mode
       }
 
       const result = DynamicAgentTemplateSchema.safeParse(template)
@@ -294,12 +294,12 @@ describe('DynamicAgentConfigSchema', () => {
       if (!result.success) {
         const setOutputError = result.error.issues.find((issue) =>
           issue.message.includes(
-            "'set_output' tool requires outputMode to be 'json'",
+            "'set_output' tool requires outputMode to be 'structured_output'",
           ),
         )
         expect(setOutputError).toBeDefined()
         expect(setOutputError?.message).toContain(
-          "'set_output' tool requires outputMode to be 'json'",
+          "'set_output' tool requires outputMode to be 'structured_output'",
         )
       }
     })
@@ -308,7 +308,7 @@ describe('DynamicAgentConfigSchema', () => {
       const template = {
         ...validBaseTemplate,
         outputMode: 'all_messages' as const,
-        toolNames: ['end_turn', 'set_output'], // set_output without json mode
+        toolNames: ['end_turn', 'set_output'], // set_output without structured_output mode
       }
 
       const result = DynamicAgentTemplateSchema.safeParse(template)
@@ -316,7 +316,7 @@ describe('DynamicAgentConfigSchema', () => {
       if (!result.success) {
         const setOutputError = result.error.issues.find((issue) =>
           issue.message.includes(
-            "'set_output' tool requires outputMode to be 'json'",
+            "'set_output' tool requires outputMode to be 'structured_output'",
           ),
         )
         expect(setOutputError).toBeDefined()

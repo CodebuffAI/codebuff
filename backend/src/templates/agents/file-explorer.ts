@@ -17,7 +17,7 @@ export const fileExplorer = {
   parentPrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
   model: 'anthropic/claude-4-sonnet-20250522',
-  outputMode: 'json',
+  outputMode: 'structured_output',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
   subagents: ['file-picker'],

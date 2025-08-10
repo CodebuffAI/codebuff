@@ -15,7 +15,7 @@ const config: AgentConfig = {
     },
   },
 
-  outputMode: 'json',
+  outputMode: 'structured_output',
   outputSchema: {
     type: 'object',
     properties: {

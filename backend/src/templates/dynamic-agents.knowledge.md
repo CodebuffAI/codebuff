@@ -198,7 +198,7 @@ yield { toolName: 'write_file', args: { path: '...', content: '...' } }
 // Search code
 yield { toolName: 'code_search', args: { pattern: '...' } }
 
-// Set final output (required for outputMode: 'json')
+// Set final output (required for outputMode: 'structured_output')
 yield { toolName: 'set_output', args: { result: {...} } }
 ```
 

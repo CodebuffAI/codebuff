@@ -120,7 +120,7 @@ export const baseAgentBuilder = (
         .passthrough()
         .optional(),
     },
-    outputMode: 'json',
+    outputMode: 'structured_output',
     includeMessageHistory: false,
     toolNames: [
       'create_plan',

@@ -69,7 +69,7 @@ describe('Agent Validation', () => {
       displayName: 'Test Agent',
       parentPrompt: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
-      outputMode: 'json' as const,
+      outputMode: 'structured_output' as const,
       toolNames: ['set_output'],
       subagents: [],
       includeMessageHistory: true,
@@ -671,7 +671,7 @@ describe('Agent Validation', () => {
         displayName: 'Test Agent',
         parentPrompt: 'Testing handleSteps',
         model: 'claude-3-5-sonnet-20241022',
-        outputMode: 'json' as const,
+        outputMode: 'structured_output' as const,
         toolNames: ['set_output'],
         systemPrompt: 'You are a test agent',
         instructionsPrompt: 'Process: {prompt}',
@@ -746,7 +746,7 @@ describe('Agent Validation', () => {
         displayName: 'Test Agent',
         parentPrompt: 'Testing',
         model: 'claude-3-5-sonnet-20241022',
-        outputMode: 'json' as const,
+        outputMode: 'structured_output' as const,
         toolNames: ['end_turn'], // Missing set_output
         subagents: [],
         systemPrompt: 'Test',
@@ -775,7 +775,7 @@ describe('Agent Validation', () => {
         displayName: 'Test Agent',
         parentPrompt: 'Testing',
         model: 'claude-3-5-sonnet-20241022',
-        outputMode: 'last_message' as const, // Not json
+        outputMode: 'last_message' as const, // Not structured_output
         toolNames: ['end_turn', 'set_output'], // Has set_output
         subagents: [],
         systemPrompt: 'Test',
@@ -788,7 +788,7 @@ describe('Agent Validation', () => {
       if (!result.success) {
         const errorMessage = result.error.issues[0]?.message || ''
         expect(errorMessage).toContain(
-          "'set_output' tool requires outputMode to be 'json'",
+          "'set_output' tool requires outputMode to be 'structured_output'",
         )
       }
     })

@@ -27,7 +27,7 @@ export type AgentTemplate<
     params?: z.ZodSchema<T>
   }
   includeMessageHistory: boolean
-  outputMode: 'last_message' | 'all_messages' | 'json'
+  outputMode: 'last_message' | 'all_messages' | 'structured_output'
   outputSchema?: z.ZodSchema<any>
 
   handleSteps?: StepHandler<P, T> | string // Function or string of the generator code for running in a sandbox
