@@ -11,7 +11,6 @@ import { readDocsTool } from './tool/read-docs'
 import { readFilesTool } from './tool/read-files'
 import { runFileChangeHooksTool } from './tool/run-file-change-hooks'
 import { runTerminalCommandTool } from './tool/run-terminal-command'
-import { sendAgentMessageTool } from './tool/send-agent-message'
 import { setMessagesTool } from './tool/set-messages'
 import { setOutputTool } from './tool/set-output'
 import { spawnAgentsTool } from './tool/spawn-agents'
@@ -39,7 +38,6 @@ const toolDescriptions = {
   read_files: readFilesTool,
   run_file_change_hooks: runFileChangeHooksTool,
   run_terminal_command: runTerminalCommandTool,
-  send_agent_message: sendAgentMessageTool,
   set_messages: setMessagesTool,
   set_output: setOutputTool,
   spawn_agents: spawnAgentsTool,

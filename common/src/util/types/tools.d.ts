@@ -13,7 +13,6 @@ export type ToolName =
   | 'read_files'
   | 'run_file_change_hooks'
   | 'run_terminal_command'
-  | 'send_agent_message'
   | 'set_messages'
   | 'set_output'
   | 'spawn_agents'
@@ -40,7 +39,6 @@ export interface ToolParamsMap {
   read_files: ReadFilesParams
   run_file_change_hooks: RunFileChangeHooksParams
   run_terminal_command: RunTerminalCommandParams
-  send_agent_message: SendAgentMessageParams
   set_messages: SetMessagesParams
   set_output: SetOutputParams
   spawn_agents: SpawnAgentsParams
@@ -164,18 +162,6 @@ export interface RunTerminalCommandParams {
   cwd?: string
   /** Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30 */
   timeout_seconds: number
-}
-
-/**
- * Send a message to another agent (parent or child) for communication and data exchange.
- */
-export interface SendAgentMessageParams {
-  /** ID of the target agent to send message to. Use "PARENT_ID" to send to parent agent. */
-  target_agent_id: string
-  /** Message prompt to send to the target agent */
-  prompt: string
-  /** Optional parameters object to send with the message */
-  params?: Record<string, any>
 }
 
 /**

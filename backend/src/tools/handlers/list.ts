@@ -9,7 +9,6 @@ import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
 import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
 import { handleRunTerminalCommand } from './tool/run-terminal-command'
-import { handleSendAgentMessage } from './tool/send-agent-message'
 import { handleSetMessages } from './tool/set-messages'
 import { handleSetOutput } from './tool/set-output'
 import { handleSpawnAgents } from './tool/spawn-agents'
@@ -45,7 +44,6 @@ export const codebuffToolHandlers = {
   read_files: handleReadFiles,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
-  send_agent_message: handleSendAgentMessage,
   set_messages: handleSetMessages,
   set_output: handleSetOutput,
   spawn_agents: handleSpawnAgents,

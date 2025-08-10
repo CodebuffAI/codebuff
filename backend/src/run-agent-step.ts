@@ -212,18 +212,6 @@ export const runAgentStep = async (
       // Update status to running for existing agents
       asyncAgentManager.updateAgentState(agentState, 'running')
     }
-
-    // Check for pending messages from other agents
-    const pendingMessages = asyncAgentManager.getAndClearMessages(
-      agentState.agentId,
-    )
-    for (const message of pendingMessages) {
-      toolResults.push({
-        toolName: 'send_agent_message',
-        toolCallId: generateCompactId(),
-        result: `Message from agent ${message.fromAgentId}:\n\nPrompt: ${message.prompt}${message.params ? `\n\nParams: ${JSON.stringify(message.params, null, 2)}` : ''}`,
-      })
-    }
   }
 
   const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)

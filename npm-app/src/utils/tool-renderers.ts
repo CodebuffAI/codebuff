@@ -341,18 +341,6 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       }
     },
   },
-
-  send_agent_message: {
-    onToolStart: (toolName) => {
-      return '\n\n' + gray(`[${bold('Send Agent Message')}]`) + '\n'
-    },
-    onParamChunk: (content, paramName, toolName) => {
-      if (paramName === 'prompt') {
-        return gray(content)
-      }
-      return null
-    },
-  },
   add_message: {
     // Don't render anything
   },

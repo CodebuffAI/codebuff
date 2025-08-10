@@ -20,7 +20,6 @@ export const toolNames = [
   'read_files',
   'run_file_change_hooks',
   'run_terminal_command',
-  'send_agent_message',
   'set_messages',
   'set_output',
   'spawn_agents',
