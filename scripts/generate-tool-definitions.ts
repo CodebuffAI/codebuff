@@ -2,6 +2,7 @@
 
 import { writeFileSync } from 'fs'
 import { join } from 'path'
+import { execSync } from 'child_process'
 
 import { compileToolDefinitions } from '@codebuff/common/tools/compile-tool-definitions'
 
@@ -17,6 +18,10 @@ function main() {
     const outputPath = join(process.cwd(), 'common/src/util/types/tools.d.ts')
 
     writeFileSync(outputPath, content, 'utf8')
+
+    // Format the generated file with prettier
+    console.log('🎨 Formatting generated file...')
+    execSync(`npx prettier --write "${outputPath}"`, { stdio: 'inherit' })
 
     console.log('✅ Successfully generated tools.d.ts')
     console.log(`📁 Output: ${outputPath}`)
