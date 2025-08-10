@@ -14,6 +14,7 @@ import { getInitialSessionState } from '../../common/src/types/session-state'
 
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
+import type { AgentConfig } from '../../common/src/util/types/agent-config'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
@@ -116,7 +117,7 @@ export class CodebuffClient {
    * @param previousRun - (Optional) JSON state returned from a previous run() call. Use this to continue a conversation or session with the agent, maintaining context from previous interactions.
    * @param projectFiles - (Optional) All the files in your project as a plain JavaScript object. Keys should be the full path from your current directory to each file, and values should be the string contents of the file. Example: { "src/index.ts": "console.log('hi')" }. This helps Codebuff pick good source files for context.
    * @param knowledgeFiles - (Optional) Knowledge files to inject into every run() call. Uses the same schema as projectFiles - keys are file paths and values are file contents. These files are added directly to the agent's context.
-   * @param agentConfig - (Optional) If you defined your own custom agent, pass the agent configuration here. The key should be the agent ID (e.g., 'my-custom-agent'), and the value should be the compiled agent configuration. We will provide a utility function to load and compile agents in the future to make this easier.
+   * @param agentConfigs - (Optional) Array of custom agent configurations. Each object should satisfy the AgentConfig type.
    * @param maxAgentSteps - (Optional) Maximum number of steps the agent can take before stopping. Use this as a safety measure in case your agent starts going off the rails. A reasonable number is around 20.
    *
    * @returns A Promise that resolves to a RunState JSON object which you can pass to a subsequent run() call to continue the run.
@@ -129,7 +130,7 @@ export class CodebuffClient {
     previousRun,
     projectFiles,
     knowledgeFiles,
-    agentConfig,
+    agentConfigs,
     maxAgentSteps,
   }: {
     agent: string
@@ -139,7 +140,7 @@ export class CodebuffClient {
     previousRun?: RunState
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
-    agentConfig?: Record<string, any>
+    agentConfigs?: AgentConfig[]
     maxAgentSteps?: number
   }): Promise<RunState> {
     await this.websocketHandler.connect()
@@ -149,7 +150,7 @@ export class CodebuffClient {
       previousRun?.sessionState ??
       initialSessionState(this.cwd, {
         knowledgeFiles,
-        agentConfig,
+        agentConfigs,
         projectFiles,
         maxAgentSteps,
       })
@@ -271,11 +272,26 @@ function initialSessionState(
     // TODO: Parse projectFiles into fileTree, fileTokenScores, tokenCallers
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
-    agentConfig?: Record<string, any>
+    agentConfigs?: AgentConfig[]
     maxAgentSteps?: number
   },
 ) {
-  const { knowledgeFiles = {}, agentConfig = {} } = options
+  const { knowledgeFiles = {}, agentConfigs = [] } = options
+
+  // Process agentConfigs array and convert handleSteps functions to strings
+  const processedAgentTemplates: Record<string, any> = {}
+  agentConfigs.forEach((config) => {
+    const processedConfig = { ...config } as Record<string, any>
+    if (
+      processedConfig.handleSteps &&
+      typeof processedConfig.handleSteps === 'function'
+    ) {
+      processedConfig.handleSteps = processedConfig.handleSteps.toString()
+    }
+    if (processedConfig.id) {
+      processedAgentTemplates[processedConfig.id] = processedConfig
+    }
+  })
 
   const initialState = getInitialSessionState({
     projectRoot: cwd,
@@ -285,7 +301,7 @@ function initialSessionState(
     tokenCallers: {},
     knowledgeFiles,
     userKnowledgeFiles: {},
-    agentTemplates: agentConfig,
+    agentTemplates: processedAgentTemplates,
     gitChanges: {
       status: '',
       diff: '',
