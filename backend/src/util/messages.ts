@@ -302,7 +302,7 @@ export function expireMessages(
       
       // Remove messages that have expired
       if (m.timeToLive === 'agentStep') return false
-      if (m.timeToLive === 'userPrompt' && endOf === 'agentStep') return false
+      if (m.timeToLive === 'userPrompt' && endOf === 'userPrompt') return false
       
       return true
     },
