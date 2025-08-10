@@ -23,7 +23,7 @@ export type CodebuffClientOptions = {
   apiKey?: string
   cwd: string
   onError: (error: { message: string }) => void
-  overrideTools: Partial<
+  overrideTools?: Partial<
     Record<
       ClientToolName,
       (
@@ -47,7 +47,9 @@ export class CodebuffClient {
   public cwd: string
 
   private readonly websocketHandler: WebSocketHandler
-  private readonly overrideTools: CodebuffClientOptions['overrideTools']
+  private readonly overrideTools: NonNullable<
+    CodebuffClientOptions['overrideTools']
+  >
   private readonly fingerprintId = `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`
 
   private readonly promptIdToHandleEvent: Record<
@@ -79,7 +81,7 @@ export class CodebuffClient {
     }
 
     this.cwd = cwd
-    this.overrideTools = overrideTools
+    this.overrideTools = overrideTools ?? {}
     this.websocketHandler = new WebSocketHandler({
       apiKey: foundApiKey,
       onWebsocketError: (error) => {
