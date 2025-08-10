@@ -7,7 +7,7 @@ import { type CostMode } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'
-import { CodebuffClient } from '@codebuff/sdk'
+import { CodebuffClient, type AgentConfig } from '@codebuff/sdk'
 
 import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
 import { CLI } from './cli'
@@ -79,12 +79,26 @@ async function codebuff({
   console.log('client created')
   console.log('starting run')
 
+  const agentConfig: AgentConfig = {
+    id: 'my-awesome-agent',
+    displayName: 'My awesome agent',
+    model: 'openai/gpt-5',
+    instructionsPrompt: 'Do something awesome',
+  }
   const run = await client.run({
     agent: agent ?? 'base',
     prompt: initialInput ?? 'hi',
     handleEvent: (event) => {
       console.log('event:', event)
     },
+    agentConfigs: [
+      {
+        id: 'my-awesome-agent',
+        displayName: 'My awesome agent',
+        model: 'openai/gpt-5',
+        instructionsPrompt: 'Do something awesome',
+      },
+    ],
   })
 
   console.log('run1 complete')
