@@ -14,7 +14,7 @@ import { getInitialSessionState } from '../../common/src/types/session-state'
 
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
-import type { AgentConfig } from '../../common/src/util/types/agent-config'
+import type { AgentConfig } from './util/types/agent-config'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 

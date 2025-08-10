@@ -20,7 +20,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "bun run copy-types && tsc",
+    "copy-types": "mkdir -p src/util/types && cp ../common/src/util/types/agent-config.d.ts src/util/types/agent-config.ts && cp ../common/src/util/types/tools.d.ts src/util/types/tools.ts",
     "clean": "rm -rf dist",
     "prepare-dist": "node scripts/publish.js --dry-run",
     "publish-sdk": "node scripts/publish.js --public",
