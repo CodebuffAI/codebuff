@@ -21,6 +21,7 @@ import {
 
 // Mock imports
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
+import * as liveUserInputs from '../live-user-inputs'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
@@ -53,6 +54,12 @@ describe('runAgentStep - set_output tool', () => {
       Promise.resolve(true),
     )
 
+    // Mock live user inputs to always return true (simulating active session)
+    spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
+    spyOn(liveUserInputs, 'startUserInput').mockImplementation(() => {})
+    spyOn(liveUserInputs, 'endUserInput').mockImplementation(() => {})
+    spyOn(liveUserInputs, 'setSessionConnected').mockImplementation(() => {})
+
     spyOn(websocketAction, 'requestFiles').mockImplementation(
       async (ws: any, paths: string[]) => {
         const results: Record<string, string | null> = {}
@@ -80,10 +87,7 @@ describe('runAgentStep - set_output tool', () => {
       },
     )
 
-    spyOn(websocketAction, 'requestToolCall').mockImplementation(async () => ({
-      success: true,
-      result: 'Tool call success' as any,
-    }))
+    // Don't mock requestToolCall for integration test - let real tool execution happen
 
     // Mock LLM APIs
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
@@ -148,7 +152,8 @@ describe('runAgentStep - set_output tool', () => {
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
-    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates: localAgentTemplates } =
+      assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -180,7 +185,6 @@ describe('runAgentStep - set_output tool', () => {
         status: 'success',
         findings: ['Bug in auth.ts', 'Missing validation'],
       }) + getToolCallString('end_turn', {})
-    console.log('mockResponse', mockResponse)
 
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
       yield mockResponse
@@ -188,7 +192,8 @@ describe('runAgentStep - set_output tool', () => {
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
-    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates: localAgentTemplates } =
+      assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -233,7 +238,8 @@ describe('runAgentStep - set_output tool', () => {
       existingField: 'original value',
       anotherField: 'unchanged',
     }
-    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates: localAgentTemplates } =
+      assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -269,7 +275,8 @@ describe('runAgentStep - set_output tool', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
     agentState.output = { existingField: 'value' }
-    const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates: localAgentTemplates } =
+      assembleLocalAgentTemplates(mockFileContext)
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -305,7 +312,7 @@ describe('runAgentStep - set_output tool', () => {
       toolNames: ['read_files', 'end_turn'],
       subagents: [],
       systemPrompt: 'Test system prompt',
-      instructionsPrompt: 'Test user prompt',
+      instructionsPrompt: 'Test instructions prompt',
       stepPrompt: 'Test agent step prompt',
       handleSteps: function* ({ agentState, prompt, params }) {
         // Yield one tool call
@@ -368,51 +375,180 @@ describe('runAgentStep - set_output tool', () => {
     // (The programmatic step tool results don't count toward this calculation)
     expect(result.shouldEndTurn).toBe(true)
 
-    const messageHistory = result.agentState.messageHistory
+    const finalMessages = result.agentState.messageHistory
 
-    // Verify exactly five messages were added: user prompt, user input prompt, tool call, tool result, and assistant response
-    expect(messageHistory.length).toBe(initialMessageCount + 5)
+    // Verify the exact sequence of messages in the final message history
+    // The stepPrompt with timeToLive: 'agentStep' is removed by expireMessages
+    const expectedMessages = [
+      {
+        role: 'user',
+        content: expect.stringContaining('Test the handleSteps functionality'),
+      },
+      {
+        role: 'user',
+        content: expect.stringContaining('Test instructions prompt'),
+      },
+      {
+        role: 'user',
+        content: expect.stringContaining('read_files'),
+      },
+      {
+        role: 'user',
+        content: expect.stringContaining('testFunction'),
+      },
+      {
+        role: 'assistant',
+        content: 'Continuing with the analysis...',
+      },
+    ]
 
-    // Get the five new messages
-    const newMessages = messageHistory.slice(initialMessageCount)
+    const newMessages = finalMessages.slice(initialMessageCount)
 
-    // First message: user prompt (user role)
-    const userPromptMessage = newMessages[0]
-    expect(userPromptMessage.role).toBe('user')
-    expect(typeof userPromptMessage.content).toBe('string')
-    expect(userPromptMessage.content).toContain(
-      'Test the handleSteps functionality',
-    )
-
-    // Second message: user input prompt (user role)
-    const instructionsPromptMessage = newMessages[1]
-    expect(instructionsPromptMessage.role).toBe('user')
-    expect(typeof instructionsPromptMessage.content).toBe('string')
-    expect(instructionsPromptMessage.content).toContain('Test user prompt')
-
-    // Third message: read_files tool call (user role)
-    const toolCallMessage = newMessages[2]
-    expect(toolCallMessage.role).toBe('user')
-    expect(typeof toolCallMessage.content).toBe('string')
-    expect(toolCallMessage.content).toContain('read_files')
-    expect(toolCallMessage.content).toContain('src/test.ts')
-
-    // Fourth message: read_files tool result (user role)
-    const toolResultMessage = newMessages[3]
-    expect(toolResultMessage.role).toBe('user')
-    expect(typeof toolResultMessage.content).toBe('string')
-    expect(toolResultMessage.content).toContain('testFunction')
-
-    // Fifth message: assistant response (assistant role)
-    const assistantMessage = newMessages[4]
-    expect(assistantMessage.role).toBe('assistant')
-    expect(typeof assistantMessage.content).toBe('string')
-    expect(assistantMessage.content).toBe('Continuing with the analysis...')
+    expectedMessages.forEach((expected, index) => {
+      expect(newMessages[index]).toMatchObject(expected)
+    })
+    expect(newMessages).toHaveLength(expectedMessages.length)
 
     // Verify requestFiles was called with correct parameters
     expect(websocketAction.requestFiles).toHaveBeenCalledWith(
       expect.any(Object), // WebSocket
       ['src/test.ts'],
     )
+  })
+
+  it('should spawn agent inline that deletes last two assistant messages', async () => {
+    // Create a mock inline agent template that deletes messages
+    const mockInlineAgentTemplate: AgentTemplate = {
+      id: 'message-deleter-agent',
+      displayName: 'Message Deleter Agent',
+      parentPrompt: 'Deletes assistant messages',
+      model: 'claude-3-5-sonnet-20241022',
+      inputSchema: {},
+      outputMode: 'json' as const,
+      includeMessageHistory: true,
+      toolNames: ['set_messages', 'end_turn'],
+      subagents: [],
+      systemPrompt: 'Delete messages system prompt',
+      instructionsPrompt: 'Delete messages instructions prompt',
+      stepPrompt: 'Delete messages step prompt',
+      handleSteps: function* ({ agentState, prompt, params }) {
+        // Delete the last two assistant messages by doing two iterations
+        const messages = [...agentState.messageHistory]
+
+        // First iteration: find and remove the last assistant message
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === 'assistant') {
+            messages.splice(i, 1)
+            break
+          }
+        }
+
+        // Second iteration: find and remove the next-to-last assistant message
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === 'assistant') {
+            messages.splice(i, 1)
+            break
+          }
+        }
+
+        // Set the updated messages
+        yield {
+          toolName: 'set_messages',
+          args: { messages },
+        }
+      },
+    }
+
+    // Create a parent agent template that can spawn the inline agent
+    const mockParentAgentTemplate: AgentTemplate = {
+      id: 'parent-agent',
+      displayName: 'Parent Agent',
+      parentPrompt: 'Parent agent that spawns inline agents',
+      model: 'claude-3-5-sonnet-20241022',
+      inputSchema: {},
+      outputMode: 'json' as const,
+      includeMessageHistory: true,
+      toolNames: ['spawn_agent_inline', 'end_turn'],
+      subagents: ['message-deleter-agent'],
+      systemPrompt: 'Parent system prompt',
+      instructionsPrompt: 'Parent instructions prompt',
+      stepPrompt: 'Parent step prompt',
+    }
+
+    // Mock the agent registry to include both agents
+    const mockAgentRegistry = {
+      'parent-agent': mockParentAgentTemplate,
+      'message-deleter-agent': mockInlineAgentTemplate,
+    }
+
+    // Mock the LLM stream to spawn the inline agent
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+      yield getToolCallString('spawn_agent_inline', {
+        agent_type: 'message-deleter-agent',
+        prompt: 'Delete the last two assistant messages',
+      })
+    })
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+
+    // Add some initial messages including assistant messages to delete
+    agentState.messageHistory = [
+      { role: 'user', content: 'Hello' },
+      { role: 'assistant', content: 'Hi there!' },
+      { role: 'user', content: 'How are you?' },
+      { role: 'assistant', content: 'I am doing well, thank you!' },
+      { role: 'user', content: 'Can you help me?' },
+      { role: 'assistant', content: 'Of course, I would be happy to help!' },
+    ]
+
+    const result = await runAgentStep(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        userId: TEST_USER_ID,
+        userInputId: 'test-input',
+        clientSessionId: 'test-session',
+        fingerprintId: 'test-fingerprint',
+        onResponseChunk: () => {},
+        agentType: 'parent-agent' as any,
+        fileContext: mockFileContext,
+        localAgentTemplates: mockAgentRegistry,
+        agentState,
+        prompt: 'Spawn an inline agent to clean up messages',
+        params: undefined,
+      },
+    )
+
+    const finalMessages = result.agentState.messageHistory
+
+    // This integration test demonstrates that spawn_agent_inline tool calls are executed successfully!
+    // The inline agent runs its handleSteps function and executes tool calls
+
+    // Verify the exact sequence of messages in the final message history
+    // The inline agent's instructionsPrompt and stepPrompt should be removed by expireMessages
+    const expectedMessages = [
+      { role: 'user', content: 'Hello' },
+      { role: 'assistant', content: 'Hi there!' },
+      { role: 'user', content: 'How are you?' },
+      { role: 'assistant', content: 'I am doing well, thank you!' },
+      { role: 'user', content: 'Can you help me?' },
+      {
+        role: 'user',
+        content: expect.stringContaining(
+          'Spawn an inline agent to clean up messages',
+        ),
+      },
+      {
+        role: 'user',
+        content: expect.stringContaining(
+          'Delete the last two assistant messages',
+        ),
+      },
+    ]
+
+    expectedMessages.forEach((expected, index) => {
+      expect(finalMessages[index]).toMatchObject(expected)
+    })
+    expect(finalMessages).toHaveLength(expectedMessages.length)
   })
 })

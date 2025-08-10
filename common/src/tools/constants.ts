@@ -25,6 +25,7 @@ export const toolNames = [
   'set_output',
   'spawn_agents',
   'spawn_agents_async',
+  'spawn_agent_inline',
   'str_replace',
   'think_deeply',
   'update_subgoal',

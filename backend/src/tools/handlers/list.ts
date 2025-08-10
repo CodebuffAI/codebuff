@@ -14,6 +14,7 @@ import { handleSetMessages } from './tool/set-messages'
 import { handleSetOutput } from './tool/set-output'
 import { handleSpawnAgents } from './tool/spawn-agents'
 import { handleSpawnAgentsAsync } from './tool/spawn-agents-async'
+import { handleSpawnAgentInline } from './tool/spawn-agent-inline'
 import { handleStrReplace } from './tool/str-replace'
 import { handleThinkDeeply } from './tool/think-deeply'
 import { handleUpdateSubgoal } from './tool/update-subgoal'
@@ -49,6 +50,7 @@ export const codebuffToolHandlers = {
   set_output: handleSetOutput,
   spawn_agents: handleSpawnAgents,
   spawn_agents_async: handleSpawnAgentsAsync,
+  spawn_agent_inline: handleSpawnAgentInline,
   str_replace: handleStrReplace,
   think_deeply: handleThinkDeeply,
   update_subgoal: handleUpdateSubgoal,

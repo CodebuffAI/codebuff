@@ -16,6 +16,7 @@ import { setMessagesTool } from './tool/set-messages'
 import { setOutputTool } from './tool/set-output'
 import { spawnAgentsTool } from './tool/spawn-agents'
 import { spawnAgentsAsyncTool } from './tool/spawn-agents-async'
+import { spawnAgentInlineTool } from './tool/spawn-agent-inline'
 import { strReplaceTool } from './tool/str-replace'
 import { thinkDeeplyTool } from './tool/think-deeply'
 import { updateSubgoalTool } from './tool/update-subgoal'
@@ -43,6 +44,7 @@ const toolDescriptions = {
   set_output: setOutputTool,
   spawn_agents: spawnAgentsTool,
   spawn_agents_async: spawnAgentsAsyncTool,
+  spawn_agent_inline: spawnAgentInlineTool,
   str_replace: strReplaceTool,
   think_deeply: thinkDeeplyTool,
   update_subgoal: updateSubgoalTool,
