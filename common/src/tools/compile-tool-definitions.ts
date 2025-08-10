@@ -77,7 +77,7 @@ function jsonSchemaToTypeScript(schema: any): string {
       ([key, prop]: [string, any]) => {
         const isOptional = !schema.required?.includes(key)
         const propType = getTypeFromJsonSchema(prop)
-        const comment = prop.description ? `  // ${prop.description}\n` : ''
+        const comment = prop.description ? `  /** ${prop.description} */\n` : ''
         return `${comment}  "${key}"${isOptional ? '?' : ''}: ${propType}`
       },
     )

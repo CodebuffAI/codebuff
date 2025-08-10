@@ -65,15 +65,15 @@ export interface AddMessageParams {
  * Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!
  */
 export interface AddSubgoalParams {
-  // A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use.
+  /** A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use. */
   id: string
-  // The objective of the subgoal, concisely and clearly stated.
+  /** The objective of the subgoal, concisely and clearly stated. */
   objective: string
-  // The status of the subgoal.
+  /** The status of the subgoal. */
   status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'ABORTED'
-  // A plan for the subgoal.
+  /** A plan for the subgoal. */
   plan?: string
-  // A log message for the subgoal progress.
+  /** A log message for the subgoal progress. */
   log?: string
 }
 
@@ -81,11 +81,11 @@ export interface AddSubgoalParams {
  * Parameters for browser_logs tool
  */
 export interface BrowserLogsParams {
-  // The type of browser action to perform (e.g., "navigate").
+  /** The type of browser action to perform (e.g., "navigate"). */
   type: string
-  // The URL to navigate to.
+  /** The URL to navigate to. */
   url: string
-  // When to consider navigation successful. Defaults to 'load'.
+  /** When to consider navigation successful. Defaults to 'load'. */
   waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0'
 }
 
@@ -93,11 +93,11 @@ export interface BrowserLogsParams {
  * Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.
  */
 export interface CodeSearchParams {
-  // The pattern to search for.
+  /** The pattern to search for. */
   pattern: string
-  // Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not test" to exclude test files).
+  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not test" to exclude test files). */
   flags?: string
-  // Optional working directory to search within, relative to the project root. Defaults to searching the entire project.
+  /** Optional working directory to search within, relative to the project root. Defaults to searching the entire project. */
   cwd?: string
 }
 
@@ -105,9 +105,9 @@ export interface CodeSearchParams {
  * Generate a detailed markdown plan for complex tasks.
  */
 export interface CreatePlanParams {
-  // The path including the filename of a markdown file that will be overwritten with the plan.
+  /** The path including the filename of a markdown file that will be overwritten with the plan. */
   path: string
-  // A detailed plan to solve the user's request.
+  /** A detailed plan to solve the user's request. */
   plan: string
 }
 
@@ -120,7 +120,7 @@ export interface EndTurnParams {}
  * Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.
  */
 export interface FindFilesParams {
-  // A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within.
+  /** A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within. */
   prompt: string
 }
 
@@ -128,11 +128,11 @@ export interface FindFilesParams {
  * Fetch up-to-date documentation for libraries and frameworks using Context7 API.
  */
 export interface ReadDocsParams {
-  // The exact library or framework name (e.g., "Next.js", "MongoDB", "React"). Use the official name as it appears in documentation, not a search query.
+  /** The exact library or framework name (e.g., "Next.js", "MongoDB", "React"). Use the official name as it appears in documentation, not a search query. */
   libraryTitle: string
-  // Optional specific topic to focus on (e.g., "routing", "hooks", "authentication")
+  /** Optional specific topic to focus on (e.g., "routing", "hooks", "authentication") */
   topic?: string
-  // Optional maximum number of tokens to return. Defaults to 10000. Values less than 10000 are automatically increased to 10000.
+  /** Optional maximum number of tokens to return. Defaults to 10000. Values less than 10000 are automatically increased to 10000. */
   max_tokens?: number
 }
 
@@ -140,7 +140,7 @@ export interface ReadDocsParams {
  * Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.
  */
 export interface ReadFilesParams {
-  // List of file paths to read.
+  /** List of file paths to read. */
   paths: string[]
 }
 
@@ -148,7 +148,7 @@ export interface ReadFilesParams {
  * Parameters for run_file_change_hooks tool
  */
 export interface RunFileChangeHooksParams {
-  // List of file paths that were changed and should trigger file change hooks
+  /** List of file paths that were changed and should trigger file change hooks */
   files: string[]
 }
 
@@ -156,13 +156,13 @@ export interface RunFileChangeHooksParams {
  * Execute a CLI command from the **project root** (different from the user's cwd).
  */
 export interface RunTerminalCommandParams {
-  // CLI command valid for user's OS.
+  /** CLI command valid for user's OS. */
   command: string
-  // Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC
+  /** Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC */
   process_type: 'SYNC' | 'BACKGROUND'
-  // The working directory to run the command in. Default is the project root.
+  /** The working directory to run the command in. Default is the project root. */
   cwd?: string
-  // Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30
+  /** Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30 */
   timeout_seconds: number
 }
 
@@ -170,11 +170,11 @@ export interface RunTerminalCommandParams {
  * Send a message to another agent (parent or child) for communication and data exchange.
  */
 export interface SendAgentMessageParams {
-  // ID of the target agent to send message to. Use "PARENT_ID" to send to parent agent.
+  /** ID of the target agent to send message to. Use "PARENT_ID" to send to parent agent. */
   target_agent_id: string
-  // Message prompt to send to the target agent
+  /** Message prompt to send to the target agent */
   prompt: string
-  // Optional parameters object to send with the message
+  /** Optional parameters object to send with the message */
   params?: Record<string, any>
 }
 
@@ -198,11 +198,11 @@ export interface SetOutputParams {}
  */
 export interface SpawnAgentsParams {
   agents: {
-    // Agent to spawn
+    /** Agent to spawn */
     agent_type: string
-    // Prompt to send to the agent
+    /** Prompt to send to the agent */
     prompt?: string
-    // Parameters object for the agent (if any)
+    /** Parameters object for the agent (if any) */
     params?: Record<string, any>
   }[]
 }
@@ -212,11 +212,11 @@ export interface SpawnAgentsParams {
  */
 export interface SpawnAgentsAsyncParams {
   agents: {
-    // Agent to spawn
+    /** Agent to spawn */
     agent_type: string
-    // Prompt to send to the agent
+    /** Prompt to send to the agent */
     prompt?: string
-    // Parameters object for the agent (if any)
+    /** Parameters object for the agent (if any) */
     params?: Record<string, any>
   }[]
 }
@@ -225,11 +225,11 @@ export interface SpawnAgentsAsyncParams {
  * Spawn a single agent that runs within the current message history.
  */
 export interface SpawnAgentInlineParams {
-  // Agent to spawn
+  /** Agent to spawn */
   agent_type: string
-  // Prompt to send to the agent
+  /** Prompt to send to the agent */
   prompt?: string
-  // Parameters object for the agent (if any)
+  /** Parameters object for the agent (if any) */
   params?: Record<string, any>
 }
 
@@ -237,13 +237,13 @@ export interface SpawnAgentInlineParams {
  * Replace strings in a file with new strings.
  */
 export interface StrReplaceParams {
-  // The path to the file to edit.
+  /** The path to the file to edit. */
   path: string
-  // Array of replacements to make.
+  /** Array of replacements to make. */
   replacements: {
-    // The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.
+    /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
     old: string
-    // The string to replace the corresponding old string with. Can be empty to delete.
+    /** The string to replace the corresponding old string with. Can be empty to delete. */
     new: string
   }[]
 }
@@ -252,7 +252,7 @@ export interface StrReplaceParams {
  * Deeply consider complex tasks by brainstorming approaches and tradeoffs step-by-step.
  */
 export interface ThinkDeeplyParams {
-  // Detailed step-by-step analysis. Initially keep each step concise (max ~5-7 words per step).
+  /** Detailed step-by-step analysis. Initially keep each step concise (max ~5-7 words per step). */
   thought: string
 }
 
@@ -260,13 +260,13 @@ export interface ThinkDeeplyParams {
  * Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.
  */
 export interface UpdateSubgoalParams {
-  // The id of the subgoal to update.
+  /** The id of the subgoal to update. */
   id: string
-  // Change the status of the subgoal.
+  /** Change the status of the subgoal. */
   status?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'ABORTED'
-  // Change the plan for the subgoal.
+  /** Change the plan for the subgoal. */
   plan?: string
-  // Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go.
+  /** Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go. */
   log?: string
 }
 
@@ -274,9 +274,9 @@ export interface UpdateSubgoalParams {
  * Search the web for current information using Linkup API.
  */
 export interface WebSearchParams {
-  // The search query to find relevant web content
+  /** The search query to find relevant web content */
   query: string
-  // Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'.
+  /** Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'. */
   depth: 'standard' | 'deep'
 }
 
@@ -284,11 +284,11 @@ export interface WebSearchParams {
  * Create or edit a file with the given content.
  */
 export interface WriteFileParams {
-  // Path to the file relative to the **project root**
+  /** Path to the file relative to the **project root** */
   path: string
-  // What the change is intended to do in only one sentence.
+  /** What the change is intended to do in only one sentence. */
   instructions: string
-  // Edit snippet to apply to the file.
+  /** Edit snippet to apply to the file. */
   content: string
 }
 
