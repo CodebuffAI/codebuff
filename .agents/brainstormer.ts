@@ -18,7 +18,7 @@ const config: AgentConfig = {
   },
   outputMode: 'last_message',
 
-  toolNames: ['end_turn'],
+  toolNames: ['spawn_agents', 'end_turn'],
   subagents: [`codebuff/thinker@${version}`, `codebuff/researcher@${version}`],
 
   parentPrompt:

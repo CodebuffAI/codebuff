@@ -19,7 +19,7 @@ const config: AgentConfig = {
   },
 
   includeMessageHistory: false,
-  outputMode: 'json',
+  outputMode: 'last_message',
 
   parentPrompt:
     'Spawn when you need to commit code changes to git with an appropriate commit message',
