@@ -107,23 +107,19 @@ export class CodebuffClient {
   }
 
   /**
-   * Run an agent.
+   * Run a Codebuff agent with the specified options.
    *
-   * Pass an agent id, a prompt, and an event handler, plus options.
+   * @param agent - The agent to run. Use 'base' for the default agent, or specify a custom agent ID if you made your own agent config.
+   * @param prompt - The user prompt describing what you want the agent to do.
+   * @param params - (Optional) Additional parameters for the agent. Most agents don't use this, but some custom agents can take a JSON object as input in addition to the user prompt string.
+   * @param handleEvent - (Optional) Callback function that receives every event during execution (assistant messages, tool calls, etc.). This allows you to stream the agent's progress in real-time. We will likely add a token-by-token streaming callback in the future.
+   * @param previousRun - (Optional) JSON state returned from a previous run() call. Use this to continue a conversation or session with the agent, maintaining context from previous interactions.
+   * @param projectFiles - (Optional) All the files in your project as a plain JavaScript object. Keys should be the full path from your current directory to each file, and values should be the string contents of the file. Example: { "src/index.ts": "console.log('hi')" }. This helps Codebuff pick good source files for context.
+   * @param knowledgeFiles - (Optional) Knowledge files to inject into every run() call. Uses the same schema as projectFiles - keys are file paths and values are file contents. These files are added directly to the agent's context.
+   * @param agentConfig - (Optional) If you defined your own custom agent, pass the agent configuration here. The key should be the agent ID (e.g., 'my-custom-agent'), and the value should be the compiled agent configuration. We will provide a utility function to load and compile agents in the future to make this easier.
+   * @param maxAgentSteps - (Optional) Maximum number of steps the agent can take before stopping. Use this as a safety measure in case your agent starts going off the rails. A reasonable number is around 20.
    *
-   * Returns the state of the run, which can be passed to a subsequent run to continue the run.
-   *
-   * @param agent - The agent to run, e.g. 'base' or 'codebuff/file-picker@0.0.1'
-   * @param prompt - The user prompt, e.g. 'Add a console.log to the index file'
-   * @param params - (Optional) The parameters to pass to the agent.
-   *
-   * @param handleEvent - (Optional) A function to handle events.
-   * @param previousState - (Optional) Continue a previous run with the return value of a previous run.
-   *
-   * @param allFiles - (Optional) All the files in the project, in an object of file path to file content. Improves codebuff's ability to locate files.
-   * @param knowledgeFiles - (Optional) The knowledge files to pass to the agent.
-   * @param agentTemplates - (Optional) The agent templates to pass to the agent.
-   * @param maxAgentSteps - (Optional) The maximum number of agent steps the main agent can run before stopping.
+   * @returns A Promise that resolves to a RunState JSON object which you can pass to a subsequent run() call to continue the run.
    */
   public async run({
     agent,
@@ -131,7 +127,7 @@ export class CodebuffClient {
     params,
     handleEvent,
     previousRun,
-    allFiles,
+    projectFiles,
     knowledgeFiles,
     agentConfig,
     maxAgentSteps,
@@ -141,7 +137,7 @@ export class CodebuffClient {
     params?: Record<string, any>
     handleEvent?: (event: PrintModeEvent) => void
     previousRun?: RunState
-    allFiles?: Record<string, string>
+    projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
     agentConfig?: Record<string, any>
     maxAgentSteps?: number
@@ -154,7 +150,7 @@ export class CodebuffClient {
       initialSessionState(this.cwd, {
         knowledgeFiles,
         agentConfig,
-        allFiles,
+        projectFiles,
         maxAgentSteps,
       })
     const toolResults = previousRun?.toolResults ?? []
@@ -272,8 +268,8 @@ export class CodebuffClient {
 function initialSessionState(
   cwd: string,
   options: {
-    // TODO: Parse allFiles into fileTree, fileTokenScores, tokenCallers
-    allFiles?: Record<string, string>
+    // TODO: Parse projectFiles into fileTree, fileTokenScores, tokenCallers
+    projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
     agentConfig?: Record<string, any>
     maxAgentSteps?: number
