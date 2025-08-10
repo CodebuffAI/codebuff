@@ -107,6 +107,31 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 const LOW_BALANCE_THRESHOLD = 100
 
+async function sendActionAndHandleError(
+  ws: APIRealtimeClient,
+  action: ClientAction,
+) {
+  try {
+    return await ws.sendAction(action)
+  } catch (e) {
+    // Print the error message for debugging.
+    console.error(
+      'Error sending action:',
+      action.type,
+      typeof e === 'object' && e !== null && 'message' in e ? e.message : e,
+    )
+
+    console.log()
+    console.log('Codebuff is exiting due to an error.')
+    console.log('Make sure you are on the latest version of Codebuff!')
+    console.log('-----------------------------------')
+    console.log('Please run: npm install -g codebuff')
+    console.log('-----------------------------------')
+
+    process.exit(1)
+  }
+}
+
 const WARNING_CONFIG = {
   [UserState.LOGGED_OUT]: {
     message: () => `Type "login" to unlock full access and get free credits!`,
@@ -750,7 +775,7 @@ export class Client {
       const { filePaths, requestId } = a
       const files = getFiles(filePaths)
 
-      this.webSocket.sendAction({
+      sendActionAndHandleError(this.webSocket, {
         type: 'read-files-response',
         files,
         requestId,
@@ -778,7 +803,7 @@ export class Client {
           'User input ID mismatch - rejecting tool call request',
         )
 
-        this.webSocket.sendAction({
+        sendActionAndHandleError(this.webSocket, {
           type: 'tool-call-response',
           requestId,
           success: false,
@@ -804,7 +829,7 @@ export class Client {
         if (this.userInputId) {
           Spinner.get().start('Processing results...')
         }
-        this.webSocket.sendAction({
+        sendActionAndHandleError(this.webSocket, {
           type: 'tool-call-response',
           requestId,
           success: true,
@@ -823,7 +848,7 @@ export class Client {
 
         // Send error response back to backend
         Spinner.get().start('Fixing...')
-        this.webSocket.sendAction({
+        sendActionAndHandleError(this.webSocket, {
           type: 'tool-call-response',
           requestId,
           success: false,
@@ -1032,7 +1057,7 @@ export class Client {
       repoUrl: loggerContext.repoUrl,
       // repoName: loggerContext.repoName,
     }
-    this.webSocket.sendAction(action)
+    sendActionAndHandleError(this.webSocket, action)
 
     return {
       responsePromise,
@@ -1116,7 +1141,7 @@ export class Client {
       (id) => id !== this.userInputId,
     )
 
-    this.webSocket.sendAction({
+    sendActionAndHandleError(this.webSocket, {
       type: 'cancel-user-input',
       authToken: this.user?.authToken,
       promptId: this.userInputId,
@@ -1554,7 +1579,7 @@ Go to https://www.codebuff.com/config for more information.`) +
       // Add repoUrl here as per the diff for client.ts
       repoUrl: loggerContext.repoUrl,
     }
-    this.webSocket.sendAction(initAction)
+    sendActionAndHandleError(this.webSocket, initAction)
 
     await this.fetchStoredApiKeyTypes()
   }

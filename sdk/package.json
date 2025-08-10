@@ -2,25 +2,27 @@
   "name": "@codebuff/sdk",
   "private": false,
   "access": "public",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/sdk/src/index.js",
+  "types": "./dist/sdk/src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/sdk/src/index.d.ts",
+      "import": "./dist/sdk/src/index.js",
+      "default": "./dist/sdk/src/index.js"
     }
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "bun run copy-types && tsc",
+    "copy-types": "mkdir -p src/types && cp ../common/src/util/types/agent-config.d.ts src/types/agent-config.ts && cp ../common/src/util/types/tools.d.ts src/types/tools.ts",
     "clean": "rm -rf dist",
     "prepare-dist": "node scripts/publish.js --dry-run",
     "publish-sdk": "node scripts/publish.js --public",

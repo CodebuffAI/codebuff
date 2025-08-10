@@ -3,18 +3,18 @@ import os from 'os'
 
 import { CODEBUFF_BINARY } from './constants'
 import { changeFile } from './tools/change-file'
+import { getFiles } from './tools/read-files'
 import { WebSocketHandler } from './websocket-client'
-import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import {
   PromptResponseSchema,
   type ServerAction,
 } from '../../common/src/actions'
-import {
-  getInitialSessionState,
-  SessionState,
-} from '../../common/src/types/session-state'
-import { PrintModeEvent } from '../../common/src/types/print-mode'
-import { getFiles } from './tools/read-files'
+import { API_KEY_ENV_VAR } from '../../common/src/constants'
+import { getInitialSessionState } from '../../common/src/types/session-state'
+
+import type { PrintModeEvent } from '../../common/src/types/print-mode'
+import type { SessionState } from '../../common/src/types/session-state'
+import type { AgentConfig } from './types/agent-config'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
@@ -23,7 +23,7 @@ export type CodebuffClientOptions = {
   apiKey?: string
   cwd: string
   onError: (error: { message: string }) => void
-  overrideTools: Partial<
+  overrideTools?: Partial<
     Record<
       ClientToolName,
       (
@@ -47,7 +47,9 @@ export class CodebuffClient {
   public cwd: string
 
   private readonly websocketHandler: WebSocketHandler
-  private readonly overrideTools: CodebuffClientOptions['overrideTools']
+  private readonly overrideTools: NonNullable<
+    CodebuffClientOptions['overrideTools']
+  >
   private readonly fingerprintId = `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`
 
   private readonly promptIdToHandleEvent: Record<
@@ -79,7 +81,7 @@ export class CodebuffClient {
     }
 
     this.cwd = cwd
-    this.overrideTools = overrideTools
+    this.overrideTools = overrideTools ?? {}
     this.websocketHandler = new WebSocketHandler({
       apiKey: foundApiKey,
       onWebsocketError: (error) => {
@@ -93,7 +95,6 @@ export class CodebuffClient {
       readFiles: this.readFiles.bind(this),
       handleToolCall: this.handleToolCall.bind(this),
       onCostResponse: async () => {},
-      onUsageResponse: async () => {},
 
       onResponseChunk: async (action) => {
         const { userInputId, chunk } = action
@@ -109,23 +110,19 @@ export class CodebuffClient {
   }
 
   /**
-   * Run an agent.
+   * Run a Codebuff agent with the specified options.
    *
-   * Pass an agent id, a prompt, and an event handler, plus options.
+   * @param agent - The agent to run. Use 'base' for the default agent, or specify a custom agent ID if you made your own agent config.
+   * @param prompt - The user prompt describing what you want the agent to do.
+   * @param params - (Optional) Additional parameters for the agent. Most agents don't use this, but some custom agents can take a JSON object as input in addition to the user prompt string.
+   * @param handleEvent - (Optional) Callback function that receives every event during execution (assistant messages, tool calls, etc.). This allows you to stream the agent's progress in real-time. We will likely add a token-by-token streaming callback in the future.
+   * @param previousRun - (Optional) JSON state returned from a previous run() call. Use this to continue a conversation or session with the agent, maintaining context from previous interactions.
+   * @param projectFiles - (Optional) All the files in your project as a plain JavaScript object. Keys should be the full path from your current directory to each file, and values should be the string contents of the file. Example: { "src/index.ts": "console.log('hi')" }. This helps Codebuff pick good source files for context.
+   * @param knowledgeFiles - (Optional) Knowledge files to inject into every run() call. Uses the same schema as projectFiles - keys are file paths and values are file contents. These files are added directly to the agent's context.
+   * @param agentConfigs - (Optional) Array of custom agent configurations. Each object should satisfy the AgentConfig type.
+   * @param maxAgentSteps - (Optional) Maximum number of steps the agent can take before stopping. Use this as a safety measure in case your agent starts going off the rails. A reasonable number is around 20.
    *
-   * Returns the state of the run, which can be passed to a subsequent run to continue the run.
-   *
-   * @param agent - The agent to run, e.g. 'base' or 'codebuff/file-picker@0.0.1'
-   * @param prompt - The user prompt, e.g. 'Add a console.log to the index file'
-   * @param params - (Optional) The parameters to pass to the agent.
-   *
-   * @param handleEvent - (Optional) A function to handle events.
-   * @param previousState - (Optional) Continue a previous run with the return value of a previous run.
-   *
-   * @param allFiles - (Optional) All the files in the project, in an object of file path to file content. Improves codebuff's ability to locate files.
-   * @param knowledgeFiles - (Optional) The knowledge files to pass to the agent.
-   * @param agentTemplates - (Optional) The agent templates to pass to the agent.
-   * @param maxAgentSteps - (Optional) The maximum number of agent steps the main agent can run before stopping.
+   * @returns A Promise that resolves to a RunState JSON object which you can pass to a subsequent run() call to continue the run.
    */
   public async run({
     agent,
@@ -133,9 +130,9 @@ export class CodebuffClient {
     params,
     handleEvent,
     previousRun,
-    allFiles,
+    projectFiles,
     knowledgeFiles,
-    agentConfig,
+    agentConfigs,
     maxAgentSteps,
   }: {
     agent: string
@@ -143,9 +140,9 @@ export class CodebuffClient {
     params?: Record<string, any>
     handleEvent?: (event: PrintModeEvent) => void
     previousRun?: RunState
-    allFiles?: Record<string, string>
+    projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
-    agentConfig?: Record<string, any>
+    agentConfigs?: AgentConfig[]
     maxAgentSteps?: number
   }): Promise<RunState> {
     await this.websocketHandler.connect()
@@ -155,8 +152,8 @@ export class CodebuffClient {
       previousRun?.sessionState ??
       initialSessionState(this.cwd, {
         knowledgeFiles,
-        agentConfig,
-        allFiles,
+        agentConfigs,
+        projectFiles,
         maxAgentSteps,
       })
     const toolResults = previousRun?.toolResults ?? []
@@ -274,14 +271,29 @@ export class CodebuffClient {
 function initialSessionState(
   cwd: string,
   options: {
-    // TODO: Parse allFiles into fileTree, fileTokenScores, tokenCallers
-    allFiles?: Record<string, string>
+    // TODO: Parse projectFiles into fileTree, fileTokenScores, tokenCallers
+    projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
-    agentConfig?: Record<string, any>
+    agentConfigs?: AgentConfig[]
     maxAgentSteps?: number
   },
 ) {
-  const { knowledgeFiles = {}, agentConfig = {} } = options
+  const { knowledgeFiles = {}, agentConfigs = [] } = options
+
+  // Process agentConfigs array and convert handleSteps functions to strings
+  const processedAgentTemplates: Record<string, any> = {}
+  agentConfigs.forEach((config) => {
+    const processedConfig = { ...config } as Record<string, any>
+    if (
+      processedConfig.handleSteps &&
+      typeof processedConfig.handleSteps === 'function'
+    ) {
+      processedConfig.handleSteps = processedConfig.handleSteps.toString()
+    }
+    if (processedConfig.id) {
+      processedAgentTemplates[processedConfig.id] = processedConfig
+    }
+  })
 
   const initialState = getInitialSessionState({
     projectRoot: cwd,
@@ -291,7 +303,7 @@ function initialSessionState(
     tokenCallers: {},
     knowledgeFiles,
     userKnowledgeFiles: {},
-    agentTemplates: agentConfig,
+    agentTemplates: processedAgentTemplates,
     gitChanges: {
       status: '',
       diff: '',

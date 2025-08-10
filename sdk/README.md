@@ -60,8 +60,51 @@ const run2 = await client.run({
     // event includes streamed updates like assistant messages and tool calls
     console.log('event:', event)
   },
+
+  // Custom agents (optional)
+  agentConfigs: [
+    {
+      id: 'my-awesome-agent',
+      model: 'openai/gpt-5',
+      displayName: 'My awesome agent'
+      instructionsPrompt: 'Do something awesome'
+      // ... other AgentConfig properties
+    },
+  ],
 })
 ```
+
+## API Reference
+
+### `client.run(options)`
+
+Runs a Codebuff agent with the specified options.
+
+#### Parameters
+
+- **`agent`** (string, required): The agent to run. Use `'base'` for the default agent, or specify a custom agent ID if you made your own agent config.
+
+- **`prompt`** (string, required): The user prompt describing what you want the agent to do.
+
+- **`params`** (object, optional): Additional parameters for the agent. Most agents don't use this, but some custom agents can take a JSON object as input in addition to the user prompt string.
+
+- **`handleEvent`** (function, optional): Callback function that receives every event during execution (assistant messages, tool calls, etc.). This allows you to stream the agent's progress in real-time. We will likely add a token-by-token streaming callback in the future.
+
+- **`previousRun`** (object, optional): JSON state returned from a previous `run()` call. Use this to continue a conversation or session with the agent, maintaining context from previous interactions.
+
+- **`projectFiles`** (object, optional): All the files in your project as a plain JavaScript object. Keys should be the full path from your current directory to each file, and values should be the string contents of the file. Example: `{ "src/index.ts": "console.log('hi')" }`. This helps Codebuff pick good source files for context. Note: This parameter was previously named `allFiles` but has been renamed for clarity.
+
+- **`knowledgeFiles`** (object, optional): Knowledge files to inject into every `run()` call. Uses the same schema as `projectFiles` - keys are file paths and values are file contents. These files are added directly to the agent's context.
+
+- **`agentConfigs`** (array, optional): Array of custom agent configurations. Each object should satisfy the AgentConfig type.
+- **`maxAgentSteps`** (number, optional): Maximum number of steps the agent can take before stopping. Use this as a safety measure in case your agent starts going off the rails. A reasonable number is around 20.
+
+#### Returns
+
+Returns a Promise that resolves to a `RunState` object containing:
+
+- `sessionState`: The current session state that can be passed to subsequent runs
+- `toolResults`: Results from any tools that were executed during the run
 
 ## License
 
