@@ -17,6 +17,7 @@ export const runTerminalCommandParams = {
       process_type: z
         .enum(['SYNC', 'BACKGROUND'])
         .default('SYNC')
+        .optional()
         .describe(
           `Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC`,
         ),
@@ -29,6 +30,7 @@ export const runTerminalCommandParams = {
       timeout_seconds: z
         .number()
         .default(30)
+        .optional()
         .describe(
           `Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30`,
         ),
