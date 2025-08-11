@@ -1,11 +1,9 @@
 import { models } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
-import { agentBuilder } from './agents/agent-builder'
 import { dryRun } from './agents/archive/dry-run'
 import { ask } from './agents/ask'
 import { base } from './agents/base'
-import { baseAgentBuilder } from './agents/base-agent-builder'
 import { fileExplorer } from './agents/file-explorer'
 import { filePicker } from './agents/file-picker'
 import { planner } from './agents/planner'
@@ -17,6 +15,7 @@ import { thinkingBase } from './agents/thinking-base'
 
 import type { AgentTemplate } from './types'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
+import { agentBuilder } from './agents/agent-builder'
 
 export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
   {
@@ -47,10 +46,6 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
     [AgentTemplateTypes.claude4_gemini_thinking]: {
       id: AgentTemplateTypes.claude4_gemini_thinking,
       ...thinkingBase(models.openrouter_claude_sonnet_4),
-    },
-    [AgentTemplateTypes.base_agent_builder]: {
-      id: AgentTemplateTypes.base_agent_builder,
-      ...baseAgentBuilder(models.openrouter_claude_sonnet_4),
     },
 
     [AgentTemplateTypes.thinker]: {

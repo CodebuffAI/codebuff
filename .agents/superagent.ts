@@ -12,7 +12,6 @@ const config: AgentConfig = {
   toolNames: [
     'spawn_agents',
     'spawn_agents_async',
-    'send_agent_message',
     'end_turn',
     'think_deeply',
   ],

@@ -74,9 +74,9 @@ export interface AgentConfig {
    *
    * json: Make the agent output a JSON object. Can be used with outputSchema or without if you want freeform json output.
    */
-  outputMode?: 'last_message' | 'all_messages' | 'json'
+  outputMode?: 'last_message' | 'all_messages' | 'structured_output'
 
-  /** JSON schema for structured output (when outputMode is 'json') */
+  /** JSON schema for structured output (when outputMode is 'structured_output') */
   outputSchema?: JsonSchema
 
   // ============================================================================
@@ -148,7 +148,7 @@ export interface AgentConfig {
   ) => Generator<
     ToolCall | 'STEP' | 'STEP_ALL',
     void,
-    { agentState: AgentState; toolResult: ToolResult | undefined }
+    { agentState: AgentState; toolResult: string | undefined }
   >
 }
 

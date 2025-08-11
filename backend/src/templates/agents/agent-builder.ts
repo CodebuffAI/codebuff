@@ -6,7 +6,6 @@ import {
   openrouterModels,
   AGENT_CONFIG_FILE,
 } from '@codebuff/common/constants'
-
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
 
@@ -14,19 +13,24 @@ import type { AgentTemplate } from '../types'
 import type { Model } from '@codebuff/common/constants'
 import type { ToolName } from '@codebuff/common/tools/constants'
 
+const COMMON_UTIL_PATH = '../../../../common/src/util'
 const TEMPLATE_RELATIVE_PATH =
-  `../../../../common/src/util/types/${AGENT_CONFIG_FILE}` as const
+  `${COMMON_UTIL_PATH}/types/${AGENT_CONFIG_FILE}` as const
 // Import to validate path exists at compile time
 import(TEMPLATE_RELATIVE_PATH)
 
 const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
 const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
 const TYPES_DIR = path.join(AGENT_TEMPLATES_DIR, 'types')
+const EXAMPLES_DIR = path.join(AGENT_TEMPLATES_DIR, 'examples')
 const TEMPLATE_TYPES_PATH = path.join(TYPES_DIR, AGENT_CONFIG_FILE)
 const TOOL_DEFINITIONS_FILE = 'tools.d.ts'
 const TOOL_DEFINITIONS_PATH = path.join(TYPES_DIR, TOOL_DEFINITIONS_FILE)
 
-export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
+export const agentBuilder = (
+  model: Model,
+  allAvailableAgents?: string[],
+): Omit<AgentTemplate, 'id'> => {
   // Read the AGENT_CONFIG_FILE content dynamically
   // The import above ensures this path exists at compile time
   let agentTemplateContent = ''
@@ -41,7 +45,7 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
   try {
     const toolsPath = path.join(
       __dirname,
-      '../../../../common/src/util/types/tools.d.ts',
+      `${COMMON_UTIL_PATH}/types/tools.d.ts`,
     )
     toolDefinitionsContent = fs.readFileSync(toolsPath, 'utf8')
   } catch (error) {
@@ -49,9 +53,42 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
     toolDefinitionsContent = '// Tool definitions not available'
   }
 
+  // Read example agent files from common package
+  const exampleAgentContents: Record<string, string> = {}
+
+  try {
+    const exampleAgentsDir = path.join(__dirname, `${COMMON_UTIL_PATH}`)
+    // Check if directory exists before trying to read it
+    if (fs.existsSync(exampleAgentsDir)) {
+      const files = fs.readdirSync(exampleAgentsDir)
+
+      files
+        .filter(
+          (file) => file.endsWith('.ts') && file.startsWith('diff-reviewer'),
+        )
+        .forEach((filename) => {
+          try {
+            const fullPath = path.join(exampleAgentsDir, filename)
+            const content = fs.readFileSync(fullPath, 'utf8')
+            exampleAgentContents[filename] = content
+          } catch (error) {
+            console.warn(`Could not read example agent ${filename}:`, error)
+          }
+        })
+    } else {
+      console.warn(
+        `Example agents directory does not exist: ${exampleAgentsDir}`,
+      )
+    }
+  } catch (error) {
+    console.warn('Could not read example agents directory:', error)
+  }
+
   return {
-    displayName: 'Bob the Agent Builder',
     model,
+    displayName: 'Bob the Agent Builder',
+    parentPrompt:
+      'Enhanced base agent that can create custom agents and handle all coding tasks with deterministic agent creation behavior',
     inputSchema: {
       prompt: z
         .string()
@@ -61,23 +98,6 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
         ),
       params: z
         .object({
-          editMode: z
-            .boolean()
-            .optional()
-            .describe('Whether this is editing an existing agent'),
-          agentId: z
-            .string()
-            .optional()
-            .describe('ID of the agent being edited'),
-          filePath: z
-            .string()
-            .optional()
-            .describe('File path of the agent being edited'),
-          originalContent: z
-            .string()
-            .optional()
-            .describe('Original content of the agent file'),
-          // Keep existing params as well
           name: z.string().optional(),
           purpose: z.string().optional(),
           specialty: z.string().optional(),
@@ -99,13 +119,29 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       'set_output',
       'end_turn',
     ] satisfies ToolName[],
-    subagents: [AgentTemplateTypes.file_picker],
-    parentPrompt:
-      'Creates new agent templates for the codebuff mult-agent system',
+    subagents: allAvailableAgents
+      ? (allAvailableAgents as any[])
+      : [
+          AgentTemplateTypes.file_picker,
+          AgentTemplateTypes.researcher,
+          AgentTemplateTypes.thinker,
+          AgentTemplateTypes.reviewer,
+          AgentTemplateTypes.agent_builder,
+        ],
+
     systemPrompt: [
-      '# Agent Builder',
+      '# Bob the Agent Builder',
       '',
       'You are an expert agent builder specialized in creating new agent templates for the codebuff system. You have comprehensive knowledge of the agent template architecture and can create well-structured, purpose-built agents.',
+      '',
+      '## Environment Setup Complete',
+      '',
+      'Your environment has been automatically prepared with:',
+      '- Agent template type definitions in `.agents/types/agent-config.d.ts`',
+      '- Tool type definitions in `.agents/types/tools.d.ts`',
+      '- Example agent files copied to `.agents/` directory for reference',
+      '',
+      'All necessary files are now available in your working directory.',
       '',
       '## Complete Agent Template Type Definitions',
       '',
@@ -131,11 +167,11 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
       '',
       '## Best Practices:',
       '',
-      '1. **Use as few fields as possible**: Leave out fields that are not needed to reduce complexity. Use as few fields as possible to accomplish the task.',
+      '1. **Use as few fields as possible**: Leave out fields that are not needed to reduce complexity',
       '2. **Minimal Tools**: Only include tools the agent actually needs',
       '3. **Clear and Concise Prompts**: Write clear, specific prompts that have no unnecessary words',
       '4. **Consistent Naming**: Follow naming conventions (kebab-case for IDs)',
-      '5. **Appropriate Model**: Choose the right model for the task complexity',
+      '5. **Appropriate Model**: Choose the right model for the task complexity. Default is claude-4-sonnet-20250522 for medium-high complexity tasks, and openai/gpt-5 for all other tasks.',
       '',
       '## Your Task:',
       'When asked to create an agent template, you should:',
@@ -151,32 +187,51 @@ export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
     ].join('\n'),
     instructionsPrompt: `You are helping to create or edit an agent template. The user will describe what kind of agent they want to create or how they want to modify an existing agent.
 
-For new agents, analyze their request and create a complete agent template that:
+## Environment Ready
+
+Your environment has been automatically set up with:
+- Type definitions in \`.agents/types/\`
+- Example agent files in \`.agents/\` directory
+- All necessary scaffolding complete
+
+You can now proceed directly to agent creation or editing.
+
+## Example Agents Available
+
+Three example agents are now available in your \`.agents/\` directory which are all diff reviewers of increasing complexity. These can serve as examples of well-made agents at different stages of complexity.
+
+**IMPORTANT**: Examine these examples to find connections and patterns that relate to the user's request. Look for:
+- Similar tool combinations
+- Comparable complexity levels
+- Related functionality patterns
+- Appropriate model choices
+- Relevant prompt structures
+
+Use these examples as inspiration and starting points, adapting their patterns to fit the user's specific needs.
+
+## For New Agents
+
+Analyze their request and create a complete agent template that:
 - Has a clear purpose and appropriate capabilities
-- Leaves out fields that are not needed.
+- Leaves out fields that are not needed
 - Uses only the tools it needs
 - Follows naming conventions
 - Is properly structured
+- Draws inspiration from relevant example agents
 
-For editing existing agents:
-- First read the existing agent file they want to edit using read_files
-- Understand the current structure and functionality
-- Make the requested changes while preserving what works
-- Maintain best practices and ensure the agent still works effectively
-- Use str_replace for targeted edits or write_file for major restructuring
+## For Creating New Agents
 
-When editing, always start by reading the current agent file to understand its structure before making changes. Ask clarifying questions if needed, then create or update the template file in the appropriate location.
+The agent builder is focused on creating new agent templates based on user specifications.
 
 IMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.`,
     stepPrompt: '',
 
-    // Generator function that defines the agent's execution flow
     handleSteps: function* ({ agentState, prompt, params }) {
       // Step 1: Create directory structure
       yield {
         toolName: 'run_terminal_command',
         args: {
-          command: `mkdir -p ${TYPES_DIR}`,
+          command: `mkdir -p ${TYPES_DIR} && mkdir -p ${EXAMPLES_DIR}`,
           process_type: 'SYNC',
           timeout_seconds: 10,
         },
@@ -202,53 +257,31 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
         },
       }
 
-      // Step 4: Add user message with requirements for agent creation or editing
-      const isEditMode = params?.editMode === true
+      // Step 4: Add message about reading example files and then read them
+      yield {
+        toolName: 'add_message',
+        args: {
+          role: 'assistant',
+          content:
+            "I'll read the example agent files to understand the patterns and then help you create your agent.",
+        },
+      }
 
-      if (isEditMode) {
-        // Edit mode - the prompt should already contain the edit request
-        // No need to add additional message, the user prompt contains everything
-      } else {
-        // Creation mode - add structured requirements
-        const requirements = {
-          name: params?.name || 'Custom Agent',
-          purpose:
-            params?.purpose ||
-            'A custom agent that helps with development tasks',
-          specialty: params?.specialty || 'general development',
-          model: params?.model || DEFAULT_MODEL,
-        }
-        yield {
-          toolName: 'add_message',
-          args: {
-            role: 'user',
-            content: `Create a new agent template with the following specifications:
-
-**Agent Details:**
-- Name: ${requirements.name}
-- Purpose: ${requirements.purpose}
-- Specialty: ${requirements.specialty}
-- Model: ${requirements.model}
-- Agent ID: ${requirements.name
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, '-')
-              .replace(/^-+|-+$/g, '')}
-
-**Requirements:**
-- Create the agent template file in ${AGENT_TEMPLATES_DIR}
-- Always start the file with: import type { AgentConfig } from './types/agent-config'
-- Use the AgentConfig interface
-- Include appropriate tools based on the specialty
-- Write a comprehensive system prompt
-- Follow naming conventions and best practices
-- Export a default configuration object
-
-Please create the complete agent template now.`,
-          },
+      // Step 5: Copy example agent files to .agents/ directory
+      for (const [filename, content] of Object.entries(exampleAgentContents)) {
+        if (content) {
+          yield {
+            toolName: 'write_file',
+            args: {
+              path: `${EXAMPLES_DIR}/${filename}`,
+              instructions: `Copy example agent file ${filename}`,
+              content: content,
+            },
+          }
         }
       }
 
-      // Step 5: Complete agent creation process
+      // Step 6: Complete agent creation process
       yield 'STEP_ALL'
     },
   }

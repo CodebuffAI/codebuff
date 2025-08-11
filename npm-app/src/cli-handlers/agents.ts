@@ -541,7 +541,7 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
 }
 
 async function startDirectAgentCreation(onExit: () => void) {
-  // Switch to base-agent-builder which automatically spawns Bob the Agent Builder for agent creation
+  // Switch to agent-builder which automatically spawns Bob the Agent Builder for agent creation
   const prompt = `Create a new custom agent template for me. Please ask me what kind of agent I'd like to create and help me build it.`
 
   console.log(
@@ -557,9 +557,9 @@ async function startDirectAgentCreation(onExit: () => void) {
 
   try {
     const cliInstance = CLI.getInstance()
-    // Switch to base-agent-builder which automatically spawns the agent builder for agent creation
+    // Switch to agent-builder which automatically spawns the agent builder for agent creation
     await cliInstance.resetAgent(
-      AgentTemplateTypes.base_agent_builder,
+      AgentTemplateTypes.agent_builder,
       undefined,
       prompt,
     )
