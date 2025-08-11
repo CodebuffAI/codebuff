@@ -25,7 +25,7 @@ describe('QuickJS Sandbox Generator', () => {
       messageHistory: [],
       output: undefined,
       agentContext: {},
-      spawnableAgents: [],
+      subagents: [],
       stepsRemaining: 10,
     }
 

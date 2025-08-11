@@ -41,7 +41,13 @@ export interface AgentConfig {
   /** Tools this agent can use. */
   toolNames?: ToolName[]
 
-  /** Other agents this agent can spawn. */
+  /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
+   *
+   * Use the fully qualified agent id from the agent store, including publisher and version: 'codebuff/file-picker@0.0.1'
+   * (publisher and version are required!)
+   * 
+   * Or, use the agent id from a local agent file in your .agents directory: 'file-picker'.
+   */
   spawnableAgents?: string[]
 
   // ============================================================================

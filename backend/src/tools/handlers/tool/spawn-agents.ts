@@ -161,7 +161,7 @@ export const handleSpawnAgents = ((params: {
           agentId,
           agentType,
           agentContext: {},
-          spawnableAgents: [],
+          subagents: [],
           messageHistory: subAgentMessages,
           stepsRemaining: 20, // MAX_AGENT_STEPS
           output: undefined,

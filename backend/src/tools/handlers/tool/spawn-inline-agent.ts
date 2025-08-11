@@ -19,6 +19,7 @@ import type { WebSocket } from 'ws'
 export const handleSpawnAgentInline = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'spawn_agent_inline'>
+
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
@@ -89,7 +90,7 @@ export const handleSpawnAgentInline = ((params: {
     )
   }
 
-  const triggerSpawnAgentInline = async () => {
+  const triggerSpawnInlineAgent = async () => {
     const agentType = agentTypeStr as AgentTemplateType
     const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
 
@@ -148,7 +149,7 @@ export const handleSpawnAgentInline = ((params: {
         agentId,
         parentId: childAgentState.parentId,
       },
-      `Spawning agent inline — ${agentType} (${agentId})`,
+      `Spawning inline agent — ${agentType} (${agentId})`,
     )
 
     // Import loopAgentSteps dynamically to avoid circular dependency
@@ -190,7 +191,7 @@ export const handleSpawnAgentInline = ((params: {
   }
 
   return {
-    result: previousToolCallFinished.then(triggerSpawnAgentInline),
+    result: previousToolCallFinished.then(triggerSpawnInlineAgent),
     state: {},
   }
 }) satisfies CodebuffToolHandlerFunction<'spawn_agent_inline'>
