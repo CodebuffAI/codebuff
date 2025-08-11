@@ -1,42 +1,39 @@
 import { validateAgents } from '@codebuff/common/templates/agent-validation'
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
 
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
 
 import type { NextRequest } from 'next/server'
 
 interface ValidateAgentsRequest {
-  agentConfigs: Record<string, any>
+  agentConfigs: any[]
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = (await request.json()) as ValidateAgentsRequest
     const { agentConfigs } = body
 
-    if (!agentConfigs || typeof agentConfigs !== 'object') {
+    if (!agentConfigs || !Array.isArray(agentConfigs)) {
       return NextResponse.json(
         {
           error:
-            'Invalid request: agentConfigs must be an object, with keys being the agent IDs and values of type AgentConfig',
+            'Invalid request: agentConfigs must be an array of AgentConfig objects',
         },
         { status: 400 }
       )
     }
 
-    const { templates: configs, validationErrors } = validateAgents(agentConfigs)
+    const configsObject = Object.fromEntries(
+      agentConfigs.map((config) => [config.id, config])
+    )
+    const { templates: configs, validationErrors } =
+      validateAgents(configsObject)
 
     if (validationErrors.length > 0) {
       logger.warn(
-        { errorCount: validationErrors.length, userId: session.user.id },
-        'Agent config validation errors found',
+        { errorCount: validationErrors.length },
+        'Agent config validation errors found'
       )
     }
 
@@ -49,11 +46,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     logger.error(
       { error: error instanceof Error ? error.message : String(error) },
-      'Error validating agent configs',
+      'Error validating agent configs'
     )
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

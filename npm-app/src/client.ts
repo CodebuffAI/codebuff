@@ -1548,8 +1548,7 @@ Go to https://www.codebuff.com/config for more information.`) +
     }
 
     await validateAgentConfigsIfAuthenticated(
-      this.user,
-      fileContext.agentTemplates,
+      Object.values(fileContext.agentTemplates),
     )
 
     this.webSocket.subscribe('init-response', (a) => {

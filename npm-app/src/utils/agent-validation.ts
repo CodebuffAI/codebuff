@@ -6,28 +6,25 @@ import { logger } from './logger'
 import type { User } from '@codebuff/common/util/credentials'
 
 /**
- * Validates agent configs using the REST API if user is authenticated
- * @param user The user object (null if not authenticated)
+ * Validates agent configs using the REST API
  * @param agentConfigs The agent configs to validate
  */
 export async function validateAgentConfigsIfAuthenticated(
-  user: User | undefined,
-  agentConfigs: Record<string, any> | undefined,
+  agentConfigs: any[]
 ): Promise<void> {
-  // Only validate if user is authenticated and there are agent configs
-  const agentConfigKeys = Object.keys(agentConfigs || {})
-
-  if (!user || !agentConfigs || agentConfigKeys.length === 0) {
+  // Only validate if there are agent configs
+  if (!agentConfigs || agentConfigs.length === 0) {
     return
   }
 
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+
     const response = await fetch(`${websiteUrl}/api/agents/validate`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: `next-auth.session-token=${user.authToken}`,
-      },
+      headers,
       body: JSON.stringify({ agentConfigs }),
     })
 
