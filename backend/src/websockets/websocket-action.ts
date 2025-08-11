@@ -7,7 +7,6 @@ import {
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import { formatValidationErrorMessage } from '@codebuff/common/util/agent-template-validation'
 import { buildArray } from '@codebuff/common/util/array'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -296,25 +295,6 @@ const onInit = async (
       return
     }
 
-    // Assemble local agent templates from fileContext
-    const { agentTemplates, validationErrors } =
-      assembleLocalAgentTemplates(fileContext)
-
-    if (validationErrors.length > 0) {
-      logger.warn(
-        { errorCount: validationErrors.length },
-        'Agent template validation errors found',
-      )
-    }
-
-    const errorMessage = formatValidationErrorMessage(validationErrors)
-
-    // Get all agent names for frontend
-    const allAgentNames: Record<string, string> = {}
-    for (const [id, template] of Object.entries(agentTemplates)) {
-      allAgentNames[id] = template.displayName
-    }
-
     // Send combined init and usage response
     const usageResponse = await genUsageResponse(
       fingerprintId,
@@ -324,10 +304,6 @@ const onInit = async (
     sendAction(ws, {
       ...usageResponse,
       type: 'init-response',
-      message: errorMessage
-        ? `**Agent Template Validation Errors:**\n${errorMessage}`
-        : undefined,
-      agentNames: allAgentNames,
     })
   })
 }

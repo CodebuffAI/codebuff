@@ -25,7 +25,7 @@ import { filterObject } from '@codebuff/common/util/object'
 import { createPatch } from 'diff'
 import { green } from 'picocolors'
 
-import { loadedAgents, loadLocalAgents } from './agents/load-agents'
+import { loadLocalAgents } from './agents/load-agents'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CONFIG_DIR } from './credentials'
 import { loadCodebuffConfig } from './json-config/parser'
@@ -277,16 +277,6 @@ export const getProjectFileContext = async (
       )
     })
 
-    // Separate agent template files from knowledge files
-    const agentTemplatePaths = allFilePaths.filter((filePath) => {
-      const lowercaseFilePath = filePath.toLowerCase()
-      return (
-        filePath.startsWith(AGENT_TEMPLATES_DIR) &&
-        (lowercaseFilePath.endsWith('.json') ||
-          lowercaseFilePath.endsWith('.md'))
-      )
-    })
-
     // Filter out agent template paths from knowledge files to avoid duplication
     const filteredKnowledgeFilePaths = knowledgeFilePaths.filter(
       (filePath) => !filePath.startsWith(AGENT_TEMPLATES_DIR),
@@ -295,11 +285,6 @@ export const getProjectFileContext = async (
     const knowledgeFiles = getExistingFiles(filteredKnowledgeFilePaths)
     const knowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(knowledgeFiles)
-
-    // Load agent template files
-    const agentTemplateFiles = getExistingFiles(agentTemplatePaths)
-    const agentTemplateFilesWithScrapedContent =
-      await addScrapedContentToFiles(agentTemplateFiles)
 
     // Get knowledge files from user's home directory
     const homeDir = os.homedir()
@@ -324,7 +309,7 @@ export const getProjectFileContext = async (
       fileTokenScores: tokenScores,
       tokenCallers,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
-      agentTemplates: loadedAgents,
+      agentTemplates: await loadLocalAgents({ verbose: false }),
       codebuffConfig,
       shellConfigFiles,
       systemInfo: getSystemInfo(),

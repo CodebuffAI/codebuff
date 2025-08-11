@@ -81,6 +81,7 @@ import {
   storeSubagentChunk,
 } from './subagent-storage'
 import { handleToolCall } from './tool-handlers'
+import { validateAgentConfigsIfAuthenticated } from './utils/agent-validation'
 import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
@@ -1545,6 +1546,11 @@ Go to https://www.codebuff.com/config for more information.`) +
     if (!fileContext) {
       throw new Error('Failed to initialize project file context')
     }
+
+    await validateAgentConfigsIfAuthenticated(
+      this.user,
+      fileContext.agentTemplates,
+    )
 
     this.webSocket.subscribe('init-response', (a) => {
       const parsedAction = InitResponseSchema.safeParse(a)
