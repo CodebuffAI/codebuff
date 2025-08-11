@@ -12,9 +12,9 @@ import {
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import { getInitialSessionState } from '../../common/src/types/session-state'
 
+import type { AgentConfig } from './types/agent-config'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
-import type { AgentConfig } from './types/agent-config'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
@@ -27,7 +27,7 @@ export type CodebuffClientOptions = {
     Record<
       ClientToolName,
       (
-        args: Extract<ServerAction, { type: 'tool-call-request' }>['args'],
+        args: ServerAction<'tool-call-request'>['args'],
       ) => Promise<{ toolResultMessage: string }>
     > & {
       // Include read_files separately, since it has a different signature.
@@ -40,7 +40,7 @@ export type CodebuffClientOptions = {
 
 type RunState = {
   sessionState: SessionState
-  toolResults: Extract<ServerAction, { type: 'prompt-response' }>['toolResults']
+  toolResults: ServerAction<'prompt-response'>['toolResults']
 }
 
 export class CodebuffClient {
@@ -176,9 +176,7 @@ export class CodebuffClient {
     })
   }
 
-  private async handlePromptResponse(
-    action: Extract<ServerAction, { type: 'prompt-response' }>,
-  ) {
+  private async handlePromptResponse(action: ServerAction<'prompt-response'>) {
     const promiseActions =
       this.promptIdToResolveResponse[action?.promptId ?? '']
 
@@ -217,9 +215,7 @@ export class CodebuffClient {
     return getFiles(filePath, this.cwd)
   }
 
-  private async handleToolCall(
-    action: Extract<ServerAction, { type: 'tool-call-request' }>,
-  ) {
+  private async handleToolCall(action: ServerAction<'tool-call-request'>) {
     const toolName = action.toolName
     const args = action.args
     let result: string

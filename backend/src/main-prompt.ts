@@ -1,8 +1,6 @@
-import { uniq } from 'lodash'
-import type { WebSocket } from 'ws'
-
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { uniq } from 'lodash'
 
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
@@ -21,6 +19,7 @@ import type {
   ToolResult,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
+import type { WebSocket } from 'ws'
 
 export interface MainPromptOptions {
   userId: string | undefined
@@ -31,7 +30,7 @@ export interface MainPromptOptions {
 
 export const mainPrompt = async (
   ws: WebSocket,
-  action: Extract<ClientAction, { type: 'prompt' }>,
+  action: ClientAction<'prompt'>,
   options: MainPromptOptions,
 ): Promise<{
   sessionState: SessionState

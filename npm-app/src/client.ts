@@ -1575,7 +1575,7 @@ Go to https://www.codebuff.com/config for more information.`) +
       this.setUsage(parsedAction.data)
     })
 
-    const initAction: Extract<ClientAction, { type: 'init' }> = {
+    const initAction: ClientAction<'init'> = {
       type: 'init',
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,

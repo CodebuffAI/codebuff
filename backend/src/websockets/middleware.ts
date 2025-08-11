@@ -53,7 +53,7 @@ export class WebSocketMiddleware {
 
   use<T extends ClientAction['type']>(
     callback: (
-      action: Extract<ClientAction, { type: T }>,
+      action: ClientAction<T>,
       clientSessionId: string,
       ws: WebSocket,
       userInfo: UserInfo | undefined,
@@ -100,14 +100,14 @@ export class WebSocketMiddleware {
 
   run<T extends ClientAction['type']>(
     baseAction: (
-      action: Extract<ClientAction, { type: T }>,
+      action: ClientAction<T>,
       clientSessionId: string,
       ws: WebSocket,
     ) => void,
     options: { silent?: boolean } = {},
   ) {
     return async (
-      action: Extract<ClientAction, { type: T }>,
+      action: ClientAction<T>,
       clientSessionId: string,
       ws: WebSocket,
     ) => {

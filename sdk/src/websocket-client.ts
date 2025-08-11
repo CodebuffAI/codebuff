@@ -8,34 +8,23 @@ export type WebSocketHandlerOptions = {
   onWebsocketError?: (error: WebSocket.ErrorEvent) => void
   onWebsocketReconnect?: () => void
   onRequestReconnect?: () => Promise<void>
-  onResponseError?: (
-    error: Extract<ServerAction, { type: 'action-error' }>,
-  ) => Promise<void>
+  onResponseError?: (error: ServerAction<'action-error'>) => Promise<void>
   readFiles: (
     filePath: string[],
-  ) => Promise<Extract<ClientAction, { type: 'read-files-response' }>['files']>
+  ) => Promise<ClientAction<'read-files-response'>['files']>
   handleToolCall: (
-    action: Extract<ServerAction, { type: 'tool-call-request' }>,
-  ) => Promise<
-    Omit<
-      Extract<ClientAction, { type: 'tool-call-response' }>,
-      'type' | 'requestId'
-    >
-  >
+    action: ServerAction<'tool-call-request'>,
+  ) => Promise<Omit<ClientAction<'tool-call-response'>, 'type' | 'requestId'>>
   onCostResponse?: (
-    action: Extract<ServerAction, { type: 'message-cost-response' }>,
+    action: ServerAction<'message-cost-response'>,
   ) => Promise<void>
 
-  onResponseChunk?: (
-    action: Extract<ServerAction, { type: 'response-chunk' }>,
-  ) => Promise<void>
+  onResponseChunk?: (action: ServerAction<'response-chunk'>) => Promise<void>
   onSubagentResponseChunk?: (
-    action: Extract<ServerAction, { type: 'subagent-response-chunk' }>,
+    action: ServerAction<'subagent-response-chunk'>,
   ) => Promise<void>
 
-  onPromptResponse?: (
-    action: Extract<ServerAction, { type: 'prompt-response' }>,
-  ) => Promise<void>
+  onPromptResponse?: (action: ServerAction<'prompt-response'>) => Promise<void>
 
   apiKey: string
 }
@@ -160,7 +149,7 @@ export class WebSocketHandler {
 
   public sendInput(
     action: Omit<
-      Extract<ClientAction, { type: 'prompt' }>,
+      ClientAction<'prompt'>,
       keyof ReturnType<typeof this.getInputDefaultOptions>
     >,
   ) {

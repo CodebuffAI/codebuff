@@ -132,7 +132,7 @@ export async function genUsageResponse(
  * @param ws - The WebSocket connection
  */
 const onPrompt = async (
-  action: Extract<ClientAction, { type: 'prompt' }>,
+  action: ClientAction<'prompt'>,
   clientSessionId: string,
   ws: WebSocket,
 ) => {
@@ -187,7 +187,7 @@ const onPrompt = async (
 
 export const callMainPrompt = async (
   ws: WebSocket,
-  action: Extract<ClientAction, { type: 'prompt' }>,
+  action: ClientAction<'prompt'>,
   options: {
     userId: string
     promptId: string
@@ -246,11 +246,7 @@ export const callMainPrompt = async (
  * @param ws - The WebSocket connection
  */
 const onInit = async (
-  {
-    fileContext,
-    fingerprintId,
-    authToken,
-  }: Extract<ClientAction, { type: 'init' }>,
+  { fileContext, fingerprintId, authToken }: ClientAction<'init'>,
   clientSessionId: string,
   ws: WebSocket,
 ) => {
@@ -284,7 +280,7 @@ const onInit = async (
 const onCancelUserInput = async ({
   authToken,
   promptId,
-}: Extract<ClientAction, { type: 'cancel-user-input' }>) => {
+}: ClientAction<'cancel-user-input'>) => {
   const userId = await getUserIdFromAuthToken(authToken)
   if (!userId) {
     logger.error({ authToken }, 'User id not found for authToken')
@@ -313,7 +309,7 @@ const callbacksByAction = {} as Record<
 export const subscribeToAction = <T extends ClientAction['type']>(
   type: T,
   callback: (
-    action: Extract<ClientAction, { type: T }>,
+    action: ClientAction<T>,
     clientSessionId: string,
     ws: WebSocket,
   ) => void,
