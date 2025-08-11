@@ -79,10 +79,10 @@ export function displayLoadedAgents(codebuffConfig: CodebuffConfig) {
     console.log(`\n${green('Configured base agent:')} ${cyan(baseAgent)}`)
   }
 
-  const subagents = codebuffConfig.subagents
-  if (subagents) {
+  const spawnableAgents = codebuffConfig.spawnableAgents
+  if (spawnableAgents) {
     console.log(
-      `${green('Configured subagents:')} ${subagents
+      `${green('Configured spawnable agents:')} ${spawnableAgents
         .map((name) => cyan(name))
         .join(', ')}\n`,
     )

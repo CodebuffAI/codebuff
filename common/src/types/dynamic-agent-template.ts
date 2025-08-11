@@ -95,7 +95,7 @@ export const DynamicAgentConfigSchema = z.object({
   displayName: z.string(),
   model: z.string(),
 
-  // Tools and subagents
+  // Tools and spawnable agents
   toolNames: z
     .array(z.enum(toolNames))
     .optional()
@@ -120,7 +120,7 @@ export const DynamicAgentConfigSchema = z.object({
         }
       },
     ),
-  subagents: z.array(z.string()).optional().default([]),
+  spawnableAgents: z.array(z.string()).optional().default([]),
 
   // Input and output
   inputSchema: InputSchemaObjectSchema,
@@ -198,9 +198,9 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
   )
   .refine(
     (data) => {
-      // If subagents array is non-empty, 'spawn_agents' tool must be included
+      // If spawnableAgents array is non-empty, 'spawn_agents' tool must be included
       if (
-        data.subagents.length > 0 &&
+        data.spawnableAgents.length > 0 &&
         !data.toolNames.includes('spawn_agents')
       ) {
         return false
@@ -209,7 +209,7 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
     },
     {
       message:
-        "Non-empty subagents array requires the 'spawn_agents' tool. Add 'spawn_agents' to toolNames or remove subagents.",
+        "Non-empty spawnableAgents array requires the 'spawn_agents' tool. Add 'spawn_agents' to toolNames or remove spawnableAgents.",
       path: ['toolNames'],
     },
   )

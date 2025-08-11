@@ -3,16 +3,16 @@ import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 import { getAgentTemplate } from './agent-registry'
 
-export async function buildSubagentsDescription(
-  subagents: AgentTemplateType[],
+export async function buildSpawnableAgentsDescription(
+  spawnableAgents: AgentTemplateType[],
   agentTemplates: Record<string, AgentTemplate>,
 ): Promise<string> {
-  if (subagents.length === 0) {
+  if (spawnableAgents.length === 0) {
     return ''
   }
 
   const subAgentTypesAndTemplates = await Promise.all(
-    subagents.map(async (agentType) => {
+    spawnableAgents.map(async (agentType) => {
       return [
         agentType,
         await getAgentTemplate(agentType, agentTemplates),
@@ -44,7 +44,7 @@ params: ${schemaToJsonStr(params)}`
 
   return `\n\n## Spawnable Agents
 
-Use the spawn_agents tool to spawn subagents to help you complete the user request. Here are the available agents by their agent_type:
+Use the spawn_agents tool to spawn agents to help you complete the user request. Here are the available agents by their agent_type:
 
 ${agentsDescription}`
 }

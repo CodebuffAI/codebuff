@@ -90,7 +90,7 @@ describe('runProgrammaticStep', () => {
       outputMode: 'structured_output',
       includeMessageHistory: true,
       toolNames: ['read_files', 'write_file', 'end_turn'],
-      subagents: [],
+      spawnableAgents: [],
 
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',

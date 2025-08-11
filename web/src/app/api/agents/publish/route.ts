@@ -229,8 +229,8 @@ export async function POST(request: NextRequest) {
     const publishedAgentIds = await getPublishedAgentIds(requestedPublisherId)
 
     for (const agent of agents) {
-      if (agent.subagents) {
-        for (const subagent of agent.subagents) {
+      if (agent.spawnableAgents) {
+        for (const subagent of agent.spawnableAgents) {
           const versionMatch = subagent.match(/^([^/]+)\/(.+)@(.+)$/)
           if (!versionMatch) {
             return NextResponse.json(

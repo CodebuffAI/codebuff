@@ -42,7 +42,7 @@ export interface AgentConfig {
   toolNames?: ToolName[]
 
   /** Other agents this agent can spawn. */
-  subagents?: string[]
+  spawnableAgents?: string[]
 
   // ============================================================================
   // Input and Output

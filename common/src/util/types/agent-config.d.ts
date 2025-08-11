@@ -42,7 +42,7 @@ export interface AgentConfig {
   toolNames?: ToolName[]
 
   /** Other agents this agent can spawn. */
-  subagents?: SubagentName[]
+  spawnableAgents?: string[]
 
   // ============================================================================
   // Input and Output
@@ -166,9 +166,8 @@ export interface AgentState {
  * Message in conversation history
  */
 export interface Message {
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant'
   content: string
-  timestamp?: number
 }
 
 /**
@@ -189,15 +188,6 @@ export type ToolCall<T extends ToolName = ToolName> = {
     args?: Tools.GetToolParams<K>
   }
 }[T]
-
-/**
- * Result from executing a tool
- */
-export interface ToolResult {
-  toolName: string
-  toolCallId: string
-  result: string
-}
 
 /**
  * JSON Schema definition (for prompt schema or output schema)
@@ -318,21 +308,6 @@ export type ModelName =
   | 'moonshotai/kimi-k2:fast'
   | 'z-ai/glm-4.5'
   | 'z-ai/glm-4.5:fast'
-  | (string & {})
-
-// ============================================================================
-// Spawnable Agents
-// ============================================================================
-
-/**
- * Built-in agents that can be spawned by custom agents
- */
-export type SubagentName =
-  | 'file-picker'
-  | 'file-explorer'
-  | 'researcher'
-  | 'thinker'
-  | 'reviewer'
   | (string & {})
 
 import type * as Tools from './tools'

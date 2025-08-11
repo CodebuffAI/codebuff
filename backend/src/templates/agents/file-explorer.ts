@@ -20,7 +20,7 @@ export const fileExplorer = {
   outputMode: 'structured_output',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  subagents: ['file-picker'],
+  spawnableAgents: ['file-picker'],
   inputSchema: {
     prompt: z
       .string()

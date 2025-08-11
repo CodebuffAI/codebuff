@@ -21,7 +21,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
-  subagents: [], // ARCHIVED: [AgentTemplateTypes.dry_run],
+  spawnableAgents: [], // ARCHIVED: [AgentTemplateTypes.dry_run],
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 

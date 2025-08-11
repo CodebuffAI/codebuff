@@ -34,7 +34,7 @@ export const AgentStateSchema: z.ZodType<{
   agentId: string
   agentType: AgentTemplateType | null
   agentContext: Record<string, Subgoal>
-  subagents: AgentState[]
+  spawnableAgents: AgentState[]
   messageHistory: CodebuffMessage[]
   stepsRemaining: number
   output?: Record<string, any>
@@ -44,7 +44,7 @@ export const AgentStateSchema: z.ZodType<{
     agentId: z.string(),
     agentType: z.string().nullable(),
     agentContext: z.record(z.string(), subgoalSchema),
-    subagents: AgentStateSchema.array(),
+    spawnableAgents: AgentStateSchema.array(),
     messageHistory: CodebuffMessageSchema.array(),
     stepsRemaining: z.number(),
     output: z.record(z.string(), z.any()).optional(),
@@ -105,7 +105,7 @@ export function getInitialSessionState(
       agentId: 'main-agent',
       agentType: null,
       agentContext: {},
-      subagents: [],
+      spawnableAgents: [],
       messageHistory: [],
       stepsRemaining: 12,
       output: undefined,

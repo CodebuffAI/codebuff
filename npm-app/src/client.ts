@@ -1351,7 +1351,7 @@ Go to https://www.codebuff.com/config for more information.`) +
           setMessages(this.sessionState.mainAgentState.messageHistory)
         }
 
-        // Mark any subagents as inactive when the main response completes
+        // Mark any spawnable agents as inactive when the main response completes
         // This is a simple heuristic - in practice you might want more sophisticated tracking
         const allSubagentIds = getAllSubagentIds()
         allSubagentIds.forEach((agentId: string) => {

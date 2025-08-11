@@ -47,7 +47,7 @@ describe('handleSteps Parsing Tests', () => {
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'structured_output' as const,
       toolNames: ['set_output'],
-      subagents: [],
+      spawnableAgents: [],
       includeMessageHistory: true,
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',
@@ -143,7 +143,7 @@ describe('handleSteps Parsing Tests', () => {
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'structured_output' as const,
       toolNames: ['end_turn'], // Missing set_output
-      subagents: [],
+      spawnableAgents: [],
       systemPrompt: 'Test',
       instructionsPrompt: 'Test',
       stepPrompt: 'Test',

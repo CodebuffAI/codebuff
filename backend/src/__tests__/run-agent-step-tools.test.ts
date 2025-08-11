@@ -20,8 +20,8 @@ import {
 } from 'bun:test'
 
 // Mock imports
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import * as liveUserInputs from '../live-user-inputs'
+import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import * as websocketAction from '../websockets/websocket-action'
@@ -57,7 +57,7 @@ describe('runAgentStep - set_output tool', () => {
       outputMode: 'structured_output' as const,
       includeMessageHistory: true,
       toolNames: ['set_output', 'end_turn'],
-      subagents: [],
+      spawnableAgents: [],
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test instructions prompt',
       stepPrompt: 'Test agent step prompt',
@@ -331,7 +331,7 @@ describe('runAgentStep - set_output tool', () => {
       outputMode: 'structured_output' as const,
       includeMessageHistory: true,
       toolNames: ['read_files', 'end_turn'],
-      subagents: [],
+      spawnableAgents: [],
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test instructions prompt',
       stepPrompt: 'Test agent step prompt',
@@ -448,7 +448,7 @@ describe('runAgentStep - set_output tool', () => {
       outputMode: 'structured_output' as const,
       includeMessageHistory: true,
       toolNames: ['set_messages', 'end_turn'],
-      subagents: [],
+      spawnableAgents: [],
       systemPrompt: 'Delete messages system prompt',
       instructionsPrompt: 'Delete messages instructions prompt',
       stepPrompt: 'Delete messages step prompt',
@@ -490,7 +490,7 @@ describe('runAgentStep - set_output tool', () => {
       outputMode: 'structured_output' as const,
       includeMessageHistory: true,
       toolNames: ['spawn_agent_inline', 'end_turn'],
-      subagents: ['message-deleter-agent'],
+      spawnableAgents: ['message-deleter-agent'],
       systemPrompt: 'Parent system prompt',
       instructionsPrompt: 'Parent instructions prompt',
       stepPrompt: 'Parent step prompt',

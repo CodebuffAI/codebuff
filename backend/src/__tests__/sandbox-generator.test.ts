@@ -25,7 +25,7 @@ describe('QuickJS Sandbox Generator', () => {
       messageHistory: [],
       output: undefined,
       agentContext: {},
-      subagents: [],
+      spawnableAgents: [],
       stepsRemaining: 10,
     }
 
@@ -38,7 +38,7 @@ describe('QuickJS Sandbox Generator', () => {
       outputMode: 'structured_output',
       includeMessageHistory: false,
       toolNames: ['set_output'],
-      subagents: [],
+      spawnableAgents: [],
       inputSchema: {},
       systemPrompt: '',
       instructionsPrompt: '',

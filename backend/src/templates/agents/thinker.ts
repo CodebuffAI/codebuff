@@ -17,7 +17,7 @@ export const thinker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  subagents: [],
+  spawnableAgents: [],
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 

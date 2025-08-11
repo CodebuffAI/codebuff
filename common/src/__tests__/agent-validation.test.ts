@@ -71,7 +71,7 @@ describe('Agent Validation', () => {
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'structured_output' as const,
       toolNames: ['set_output'],
-      subagents: [],
+      spawnableAgents: [],
       includeMessageHistory: true,
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',
@@ -98,7 +98,7 @@ describe('Agent Validation', () => {
             instructionsPrompt: 'Help brainstorm ideas.',
             stepPrompt: 'Continue brainstorming.',
             toolNames: ['end_turn', 'spawn_agents'],
-            subagents: ['thinker', 'researcher'],
+            spawnableAgents: ['thinker', 'researcher'],
             outputMode: 'last_message',
             includeMessageHistory: true,
           },
@@ -106,7 +106,6 @@ describe('Agent Validation', () => {
       }
 
       const result = validateAgents(fileContext.agentTemplates || {})
-
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('brainstormer')
@@ -127,7 +126,7 @@ describe('Agent Validation', () => {
             systemPrompt: 'Test',
             instructionsPrompt: 'Test',
             stepPrompt: 'Test',
-            subagents: ['nonexistent_agent'],
+            spawnableAgents: ['nonexistent_agent'],
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
@@ -139,7 +138,7 @@ describe('Agent Validation', () => {
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].message).toContain(
-        'Invalid subagents: nonexistent_agent',
+        'Invalid spawnable agents: nonexistent_agent',
       )
     })
 
@@ -159,7 +158,7 @@ describe('Agent Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            subagents: [],
+            spawnableAgents: [],
           },
         },
       }
@@ -198,13 +197,12 @@ describe('Agent Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            subagents: [],
+            spawnableAgents: [],
           },
         },
       }
 
       const result = validateAgents(fileContext.agentTemplates || {})
-
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('schema-agent')
@@ -231,7 +229,7 @@ describe('Agent Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            subagents: [],
+            spawnableAgents: [],
           },
         },
       }
@@ -262,13 +260,12 @@ describe('Agent Validation', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
-            subagents: [],
+            spawnableAgents: [],
           },
         },
       }
 
       const result = validateAgents(fileContext.agentTemplates || {})
-
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('no-override-agent')
@@ -287,7 +284,7 @@ describe('Agent Validation', () => {
             systemPrompt: 'You are an expert software developer.',
             instructionsPrompt: 'Create a commit message.',
             stepPrompt: 'Make sure to end your response.',
-            subagents: [], // No spawnable agents
+            spawnableAgents: [], // No spawnable agents
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn'],
@@ -301,7 +298,7 @@ describe('Agent Validation', () => {
             systemPrompt: 'Test system prompt',
             instructionsPrompt: 'Test user prompt',
             stepPrompt: 'Test step prompt',
-            subagents: ['codebuffai-git-committer'], // Should be valid after first pass
+            spawnableAgents: ['codebuffai-git-committer'], // Should be valid after first pass
             outputMode: 'last_message',
             includeMessageHistory: true,
             toolNames: ['end_turn', 'spawn_agents'],
@@ -311,11 +308,10 @@ describe('Agent Validation', () => {
 
       const result = validateAgents(fileContext.agentTemplates || {})
 
-
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('codebuffai-git-committer')
       expect(result.templates).toHaveProperty('spawner-agent')
-      expect(result.templates['spawner-agent'].subagents).toContain(
+      expect(result.templates['spawner-agent'].spawnableAgents).toContain(
         'codebuffai-git-committer', // Full agent ID with prefix
       )
     })
@@ -339,7 +335,7 @@ describe('Agent Validation', () => {
               outputMode: 'last_message',
               includeMessageHistory: true,
               toolNames: ['end_turn'],
-              subagents: [],
+              spawnableAgents: [],
               // No inputSchema
             },
           },
@@ -370,7 +366,7 @@ describe('Agent Validation', () => {
               outputMode: 'last_message',
               includeMessageHistory: true,
               toolNames: ['end_turn'],
-              subagents: [],
+              spawnableAgents: [],
               // No paramsSchema
             },
           },
@@ -423,7 +419,7 @@ describe('Agent Validation', () => {
                   required: ['mode'],
                 },
               },
-              subagents: [],
+              spawnableAgents: [],
               outputMode: 'last_message',
               includeMessageHistory: true,
               toolNames: ['end_turn'],
@@ -497,7 +493,7 @@ describe('Agent Validation', () => {
               outputMode: 'last_message',
               includeMessageHistory: true,
               toolNames: ['end_turn'],
-              subagents: [],
+              spawnableAgents: [],
             },
           },
         }
@@ -555,7 +551,7 @@ describe('Agent Validation', () => {
               outputMode: 'last_message',
               includeMessageHistory: true,
               toolNames: ['end_turn'],
-              subagents: [],
+              spawnableAgents: [],
             },
           },
         }
@@ -563,7 +559,9 @@ describe('Agent Validation', () => {
         const result = validateAgents(fileContext.agentTemplates || {})
 
         expect(result.validationErrors).toHaveLength(1)
-        expect(result.validationErrors[0].message).toContain('Schema validation failed')
+        expect(result.validationErrors[0].message).toContain(
+          'Schema validation failed',
+        )
         expect(result.validationErrors[0].filePath).toBe('error-context.ts')
       })
     })
@@ -601,7 +599,7 @@ describe('Agent Validation', () => {
               outputMode: 'last_message',
               includeMessageHistory: true,
               toolNames: ['end_turn'],
-              subagents: [],
+              spawnableAgents: [],
             },
           },
         }
@@ -645,7 +643,7 @@ describe('Agent Validation', () => {
               outputMode: 'last_message',
               includeMessageHistory: true,
               toolNames: ['end_turn'],
-              subagents: [],
+              spawnableAgents: [],
             },
           },
         }
@@ -747,11 +745,11 @@ describe('Agent Validation', () => {
         parentPrompt: 'Testing',
         model: 'claude-3-5-sonnet-20241022',
         outputMode: 'structured_output' as const,
-        toolNames: ['end_turn'], // Missing set_output
-        subagents: [],
         systemPrompt: 'Test',
         instructionsPrompt: 'Test',
         stepPrompt: 'Test',
+        toolNames: ['end_turn'], // Missing set_output
+        spawnableAgents: [],
         handleSteps:
           'function* () { yield { toolName: "set_output", args: {} } }',
       }
@@ -777,7 +775,7 @@ describe('Agent Validation', () => {
         model: 'claude-3-5-sonnet-20241022',
         outputMode: 'last_message' as const, // Not structured_output
         toolNames: ['end_turn', 'set_output'], // Has set_output
-        subagents: [],
+        spawnableAgents: [],
         systemPrompt: 'Test',
         instructionsPrompt: 'Test',
         stepPrompt: 'Test',

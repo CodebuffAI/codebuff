@@ -20,7 +20,7 @@ export const superagent = (
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'spawn_agents_async', 'end_turn', 'think_deeply'],
-  subagents: allAvailableAgents
+  spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [
         AgentTemplateTypes.thinker,

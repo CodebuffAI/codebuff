@@ -24,7 +24,7 @@ export const thinkingBase = (
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: baseAgentToolNames,
-  subagents: allAvailableAgents
+  spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : baseAgentSubagents,
 

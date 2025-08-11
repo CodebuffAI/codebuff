@@ -119,7 +119,7 @@ describe('DynamicAgentConfigSchema', () => {
         expect(result.data.outputMode).toBe('last_message')
         expect(result.data.includeMessageHistory).toBe(true)
         expect(result.data.toolNames).toEqual([])
-        expect(result.data.subagents).toEqual([])
+        expect(result.data.spawnableAgents).toEqual([])
       }
     })
 
@@ -323,10 +323,10 @@ describe('DynamicAgentConfigSchema', () => {
       }
     })
 
-    it('should reject template with non-empty subagents but missing spawn_agents tool', () => {
+    it('should reject template with non-empty spawnableAgents but missing spawn_agents tool', () => {
       const template = {
         ...validBaseTemplate,
-        subagents: ['researcher', 'file-picker'], // Non-empty subagents
+        spawnableAgents: ['researcher', 'file-picker'], // Non-empty spawnableAgents
         toolNames: ['end_turn', 'read_files'], // Missing spawn_agents
       }
 
@@ -335,20 +335,20 @@ describe('DynamicAgentConfigSchema', () => {
       if (!result.success) {
         const spawnAgentsError = result.error.issues.find((issue) =>
           issue.message.includes(
-            "Non-empty subagents array requires the 'spawn_agents' tool",
+            "Non-empty spawnableAgents array requires the 'spawn_agents' tool",
           ),
         )
         expect(spawnAgentsError).toBeDefined()
         expect(spawnAgentsError?.message).toContain(
-          "Non-empty subagents array requires the 'spawn_agents' tool",
+          "Non-empty spawnableAgents array requires the 'spawn_agents' tool",
         )
       }
     })
 
-    it('should accept template with non-empty subagents and spawn_agents tool', () => {
+    it('should accept template with non-empty spawnableAgents and spawn_agents tool', () => {
       const template = {
         ...validBaseTemplate,
-        subagents: ['researcher', 'file-picker'],
+        spawnableAgents: ['researcher', 'file-picker'],
         toolNames: ['end_turn', 'spawn_agents'],
       }
 
@@ -356,10 +356,10 @@ describe('DynamicAgentConfigSchema', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should accept template with empty subagents and no spawn_agents tool', () => {
+    it('should accept template with empty spawnableAgents and no spawn_agents tool', () => {
       const template = {
         ...validBaseTemplate,
-        subagents: [], // Empty subagents
+        spawnableAgents: [], // Empty spawnableAgents
         toolNames: ['end_turn', 'read_files'], // No spawn_agents needed
       }
 

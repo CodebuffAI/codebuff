@@ -119,7 +119,7 @@ export const agentBuilder = (
       'set_output',
       'end_turn',
     ] satisfies ToolName[],
-    subagents: allAvailableAgents
+    spawnableAgents: allAvailableAgents
       ? (allAvailableAgents as any[])
       : [
           AgentTemplateTypes.file_picker,

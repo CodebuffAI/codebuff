@@ -37,7 +37,7 @@ export const base = (
     'think_deeply',
     'update_subgoal',
   ],
-  subagents: allAvailableAgents
+  spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [
         AgentTemplateTypes.file_explorer,

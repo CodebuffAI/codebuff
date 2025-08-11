@@ -1,13 +1,13 @@
-import {
+import type {
   AgentConfig,
   AgentStepContext,
 } from '@codebuff/common/util/types/agent-config.d'
 
 const config: AgentConfig = {
-  id: 'diff-reviewer-3',
-
-  displayName: 'Diff Reviewer (Level 3)',
+  id: 'changes-reviewer-3',
+  displayName: 'Changes Reviewer (Level 3)',
   model: 'openai/gpt-5',
+
   inputSchema: {
     prompt: {
       type: 'string',
@@ -18,7 +18,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
 
   toolNames: ['read_files', 'run_terminal_command', 'spawn_agents'],
-  spawnableAgents: ['james/file-explorer@0.1.3'],
+  spawnableAgents: ['codebuff/file-explorer@0.0.1'],
 
   parentPrompt: 'Spawn when you need to review code changes in the git diff',
 

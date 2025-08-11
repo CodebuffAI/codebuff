@@ -6,7 +6,7 @@ const toolName = 'spawn_agents_async'
 export const spawnAgentsAsyncTool = {
   toolName,
   description: `
-Use this tool to spawn subagents asynchronously to help you complete the user request. Unlike spawn_agents, this tool does not wait for the agents to complete and allows the parent agent to continue execution. The subagents can continue to run even if the parent agent ends its turn.
+Use this tool to spawn agents asynchronously to help you complete the user request. Unlike spawn_agents, this tool does not wait for the agents to complete and allows the parent agent to continue execution. The spawned agents can continue to run even if the parent agent ends its turn.
 
 The spawned agents run independently. The parent agent can end its turn without waiting for the async agents to complete.
 
