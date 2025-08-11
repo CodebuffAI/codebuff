@@ -201,11 +201,13 @@ export const callMainPrompt = async (
   const { agentTemplates: localAgentTemplates, validationErrors } =
     assembleLocalAgentTemplates(fileContext)
 
-  sendAction(ws, {
-    type: 'prompt-error',
-    message: `Invalid agent config: ${validationErrors.map((err) => err.message).join('\n')}`,
-    userInputId: promptId,
-  })
+  if (validationErrors.length > 0) {
+    sendAction(ws, {
+      type: 'prompt-error',
+      message: `Invalid agent config: ${validationErrors.map((err) => err.message).join('\n')}`,
+      userInputId: promptId,
+    })
+  }
 
   const result = await mainPrompt(ws, action, {
     userId,
