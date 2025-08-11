@@ -198,8 +198,14 @@ export const callMainPrompt = async (
   const { fileContext } = action.sessionState
 
   // Assemble local agent templates from fileContext
-  const { agentTemplates: localAgentTemplates } =
+  const { agentTemplates: localAgentTemplates, validationErrors } =
     assembleLocalAgentTemplates(fileContext)
+
+  sendAction(ws, {
+    type: 'prompt-error',
+    message: `Invalid agent config: ${validationErrors.map((err) => err.message).join('\n')}`,
+    userInputId: promptId,
+  })
 
   const result = await mainPrompt(ws, action, {
     userId,
