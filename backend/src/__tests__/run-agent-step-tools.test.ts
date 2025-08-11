@@ -24,7 +24,6 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import * as liveUserInputs from '../live-user-inputs'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
-import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
@@ -32,6 +31,8 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
 describe('runAgentStep - set_output tool', () => {
+  let testAgent: AgentTemplate
+
   beforeAll(() => {
     // Mock logger
     mockModule('@codebuff/backend/util/logger', () => ({
@@ -46,6 +47,22 @@ describe('runAgentStep - set_output tool', () => {
   })
 
   beforeEach(async () => {
+    // Create a test agent that supports set_output
+    testAgent = {
+      id: 'test-set-output-agent',
+      displayName: 'Test Set Output Agent',
+      parentPrompt: 'Testing set_output functionality',
+      model: 'claude-3-5-sonnet-20241022',
+      inputSchema: {},
+      outputMode: 'structured_output' as const,
+      includeMessageHistory: true,
+      toolNames: ['set_output', 'end_turn'],
+      subagents: [],
+      systemPrompt: 'Test system prompt',
+      instructionsPrompt: 'Test instructions prompt',
+      stepPrompt: 'Test agent step prompt',
+    }
+
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
     analytics.initAnalytics()
@@ -152,8 +169,9 @@ describe('runAgentStep - set_output tool', () => {
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
-    const { agentTemplates: localAgentTemplates } =
-      assembleLocalAgentTemplates(mockFileContext)
+    const localAgentTemplates = {
+      'test-set-output-agent': testAgent,
+    }
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -163,7 +181,7 @@ describe('runAgentStep - set_output tool', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'base',
+        agentType: 'test-set-output-agent',
         fileContext: mockFileContext,
         localAgentTemplates,
         agentState,
@@ -192,8 +210,9 @@ describe('runAgentStep - set_output tool', () => {
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
-    const { agentTemplates: localAgentTemplates } =
-      assembleLocalAgentTemplates(mockFileContext)
+    const localAgentTemplates = {
+      'test-set-output-agent': testAgent,
+    }
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -203,7 +222,7 @@ describe('runAgentStep - set_output tool', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'base',
+        agentType: 'test-set-output-agent',
         fileContext: mockFileContext,
         localAgentTemplates,
         agentState,
@@ -238,8 +257,9 @@ describe('runAgentStep - set_output tool', () => {
       existingField: 'original value',
       anotherField: 'unchanged',
     }
-    const { agentTemplates: localAgentTemplates } =
-      assembleLocalAgentTemplates(mockFileContext)
+    const localAgentTemplates = {
+      'test-set-output-agent': testAgent,
+    }
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -249,7 +269,7 @@ describe('runAgentStep - set_output tool', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'base',
+        agentType: 'test-set-output-agent',
         fileContext: mockFileContext,
         localAgentTemplates,
         agentState,
@@ -275,8 +295,9 @@ describe('runAgentStep - set_output tool', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
     agentState.output = { existingField: 'value' }
-    const { agentTemplates: localAgentTemplates } =
-      assembleLocalAgentTemplates(mockFileContext)
+    const localAgentTemplates = {
+      'test-set-output-agent': testAgent,
+    }
 
     const result = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -286,7 +307,7 @@ describe('runAgentStep - set_output tool', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'base',
+        agentType: 'test-set-output-agent',
         fileContext: mockFileContext,
         localAgentTemplates,
         agentState,
@@ -362,7 +383,7 @@ describe('runAgentStep - set_output tool', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'test-handlesteps-agent' as any,
+        agentType: 'test-handlesteps-agent',
         fileContext: mockFileContext,
         localAgentTemplates: mockAgentRegistry,
         agentState,
@@ -510,7 +531,7 @@ describe('runAgentStep - set_output tool', () => {
         clientSessionId: 'test-session',
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
-        agentType: 'parent-agent' as any,
+        agentType: 'parent-agent',
         fileContext: mockFileContext,
         localAgentTemplates: mockAgentRegistry,
         agentState,
