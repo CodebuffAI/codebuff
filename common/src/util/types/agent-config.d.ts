@@ -273,24 +273,51 @@ export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'
 // ============================================================================
 
 /**
- * AI models available for agents (all models in OpenRouter are supported)
+ * AI models available for agents. Pick from our selection of recommended models or choose any model in OpenRouter.
  *
  * See available models at https://openrouter.ai/models
  */
 export type ModelName =
-  // Verified OpenRouter Models
+  // Recommended Models
+
+  // OpenAI
+  | 'openai/gpt-5'
+  | 'openai/gpt-5-mini'
+  | 'openai/gpt-5-nano'
+
+  // Anthropic
   | 'anthropic/claude-4-sonnet-20250522'
   | 'anthropic/claude-opus-4.1'
-  | 'anthropic/claude-3.5-haiku-20241022'
-  | 'anthropic/claude-3.5-sonnet-20240620'
-  | 'openai/gpt-4o-2024-11-20'
-  | 'openai/gpt-4o-mini-2024-07-18'
-  | 'openai/o3'
-  | 'openai/o4-mini'
-  | 'openai/o4-mini-high'
+
+  // Gemini
   | 'google/gemini-2.5-pro'
   | 'google/gemini-2.5-flash'
+  | 'google/gemini-2.5-flash-lite'
+
+  // X-AI
   | 'x-ai/grok-4-07-09'
+
+  // Qwen
+  | 'qwen/qwen3-coder'
+  | 'qwen/qwen3-coder:fast'
+  | 'qwen/qwen3-235b-a22b-2507'
+  | 'qwen/qwen3-235b-a22b-2507:fast'
+  | 'qwen/qwen3-235b-a22b-thinking-2507'
+  | 'qwen/qwen3-235b-a22b-thinking-2507:fast'
+  | 'qwen/qwen3-30b-a3b'
+  | 'qwen/qwen3-30b-a3b:fast'
+
+  // DeepSeek
+  | 'deepseek/deepseek-chat-v3-0324'
+  | 'deepseek/deepseek-chat-v3-0324:fast'
+  | 'deepseek/deepseek-r1-0528'
+  | 'deepseek/deepseek-r1-0528:fast'
+
+  // Other open source models
+  | 'moonshotai/kimi-k2'
+  | 'moonshotai/kimi-k2:fast'
+  | 'z-ai/glm-4.5'
+  | 'z-ai/glm-4.5:fast'
   | (string & {})
 
 // ============================================================================
