@@ -15,7 +15,6 @@ import { thinkingBase } from './agents/thinking-base'
 
 import type { AgentTemplate } from './types'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
-import { agentBuilder } from './agents/agent-builder'
 
 export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
   {
@@ -71,10 +70,6 @@ export const agentTemplates: Record<AgentTemplateType | string, AgentTemplate> =
     [AgentTemplateTypes.reviewer]: {
       id: AgentTemplateTypes.reviewer,
       ...reviewer(models.gemini2_5_pro_preview),
-    },
-    [AgentTemplateTypes.agent_builder]: {
-      id: AgentTemplateTypes.agent_builder,
-      ...agentBuilder(models.openrouter_claude_sonnet_4),
     },
     [AgentTemplateTypes.file_explorer]: fileExplorer as any as AgentTemplate,
   }
