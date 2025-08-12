@@ -219,6 +219,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
     model === models.gemini2_5_flash ||
     model === models.gemini2_5_flash_thinking
   const isGeminiPro = model === models.gemini2_5_pro_preview
+  const isGPT5 = model === models.openrouter_gpt5
 
   return (
     PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +
@@ -283,6 +284,9 @@ export const baseAgentUserInputPrompt = (model: Model) => {
         'You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.',
 
       'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
+
+      isGPT5 &&
+        'Important note about end_turn: This tool is NOT a stop token for ending your current response. Instead, it allows you to work across multiple LLM calls by signaling when you want user feedback before continuing. Think of it as a way to pause and get input, not as a way to terminate your current output. Use it when you have completed a meaningful chunk of work and want the user to review or provide direction before proceeding.',
     ).join('\n\n') +
     closeXml('system_instructions')
   )
