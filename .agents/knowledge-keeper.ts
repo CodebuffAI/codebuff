@@ -18,10 +18,7 @@ const config: AgentConfig = {
     'spawn_agents',
     'end_turn',
   ],
-  subagents: [
-    `codebuff/file-picker@${version}`,
-    `codebuff/researcher@${version}`,
-  ],
+  subagents: ['file-picker', 'researcher'],
 
   inputSchema: {
     prompt: {

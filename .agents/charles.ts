@@ -27,7 +27,7 @@ const config: AgentConfig = {
   ],
 
   // Subagents for specialized research tasks
-  subagents: [`codebuff/researcher@0.0.1`, 'codebuff/thinker@0.0.1'],
+  subagents: ['researcher', 'thinker'],
 
   // Input schema for research requests
   inputSchema: {

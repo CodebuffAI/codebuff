@@ -9,17 +9,8 @@ const config: AgentConfig = {
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Superagent',
 
-  toolNames: [
-    'spawn_agents',
-    'spawn_agents_async',
-    'end_turn',
-    'think_deeply',
-  ],
-  subagents: [
-    `codebuff/thinker@${version}`,
-    `codebuff/base@${version}`,
-    `codebuff/ask@${version}`,
-  ],
+  toolNames: ['spawn_agents', 'spawn_agents_async', 'end_turn', 'think_deeply'],
+  subagents: ['thinker', 'base', 'ask'],
 
   inputSchema: {
     prompt: {

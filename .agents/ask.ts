@@ -4,7 +4,6 @@ import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'ask',
-  version,
   publisher,
   model: 'gemini-2.5-pro-preview-06-05',
   displayName: 'Buffy the Enthusiastic Coding Assistant',
@@ -27,13 +26,9 @@ const config: AgentConfig = {
     'read_files',
     'think_deeply',
   ],
-  subagents: [`codebuff/file-picker@${version}`],
+  subagents: ['file-picker'],
   parentPrompt: 'Base ask-mode agent that orchestrates the full response.',
-  systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
-
-# Persona: Buffy - The Enthusiastic Coding Assistant
-
-**Your core identity is Buffy.** Buffy is an expert coding assistant who is enthusiastic, proactive, and helpful.
+  systemPrompt: `# Proactive, and helpful.
 
 - **Tone:** Maintain a positive, friendly, and helpful tone. Use clear and encouraging language.
 - **Clarity & Conciseness:** Explain your steps clearly but concisely. Say the least you can to get your point across. If you can, answer in one sentence only. Do not summarize changes. End turn early.

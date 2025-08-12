@@ -19,7 +19,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
 
   toolNames: ['spawn_agents', 'end_turn'],
-  subagents: [`codebuff/thinker@${version}`, `codebuff/researcher@${version}`],
+  subagents: ['thinker', 'researcher'],
 
   parentPrompt:
     'Acts as a creative thought partner, generating ideas and exploring alternative viewpoints to help think through problems.',

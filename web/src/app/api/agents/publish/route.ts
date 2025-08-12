@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify that all spawnable agents are either published or part of this request
+    // Transform and validate subagent references
     const publishingAgentIds = new Set(
       agentVersions.map(
         (agent) =>
@@ -228,33 +228,53 @@ export async function POST(request: NextRequest) {
     )
     const publishedAgentIds = await getPublishedAgentIds(requestedPublisherId)
 
-    for (const agent of agents) {
+    // Transform subagent names to full format and validate
+    for (const agentVersion of agentVersions) {
+      const agent = agentVersion.data
       if (agent.subagents) {
-        for (const subagent of agent.subagents) {
-          const versionMatch = subagent.match(/^([^/]+)\/(.+)@(.+)$/)
-          if (!versionMatch) {
-            return NextResponse.json(
-              {
-                error: 'Invalid spawnable agent format',
-                details: `Agent '${agent.id}' references spawnable agent '${subagent}' with an invalid format. Expected format: {publisherId}/{agentId}@{version}`,
-              },
-              { status: 400 }
-            )
-          }
+        const transformedSubagents: string[] = []
 
-          if (
-            !publishingAgentIds.has(subagent) &&
-            !publishedAgentIds.has(subagent)
-          ) {
-            return NextResponse.json(
-              {
-                error: 'Invalid spawnable agent',
-                details: `Agent '${agent.id}' references spawnable agent '${subagent}' which is not published and not included in this request.`,
-              },
-              { status: 400 }
-            )
+        for (const subagent of agent.subagents) {
+          // Check if already in full format
+          const versionMatch = subagent.match(/^([^/]+)\/(.+)@(.+)$/)
+          if (versionMatch) {
+            // Already in full format, validate it exists
+            if (
+              !publishingAgentIds.has(subagent) &&
+              !publishedAgentIds.has(subagent)
+            ) {
+              return NextResponse.json(
+                {
+                  error: 'Invalid spawnable agent',
+                  details: `Agent '${agent.id}' references spawnable agent '${subagent}' which is not published and not included in this request.`,
+                },
+                { status: 400 }
+              )
+            }
+            transformedSubagents.push(subagent)
+          } else {
+            // Transform simple name to full format
+            const transformedName = `${requestedPublisherId}/${subagent}@${stringifyVersion(agentVersion.version)}`
+
+            // Check if the transformed name exists
+            if (
+              !publishingAgentIds.has(transformedName) &&
+              !publishedAgentIds.has(transformedName)
+            ) {
+              return NextResponse.json(
+                {
+                  error: 'Invalid spawnable agent',
+                  details: `Agent '${agent.id}' references spawnable agent '${subagent}' which resolves to '${transformedName}' but is not published and not included in this request.`,
+                },
+                { status: 400 }
+              )
+            }
+            transformedSubagents.push(transformedName)
           }
         }
+
+        // Update the agent data with transformed subagent names
+        agent.subagents = transformedSubagents
       }
     }
 

@@ -32,11 +32,11 @@ const config: AgentConfig = {
     'update_subgoal',
   ],
   subagents: [
-    `codebuff/file-explorer@${version}`,
-    `codebuff/file-picker@${version}`,
-    `codebuff/researcher@${version}`,
-    `codebuff/thinker@${version}`,
-    `codebuff/reviewer@${version}`,
+    'file-explorer',
+    'file-picker',
+    'researcher',
+    'thinker',
+    'reviewer',
   ],
   parentPrompt: 'Base agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
