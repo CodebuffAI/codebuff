@@ -322,13 +322,12 @@ Important: When editing an existing file with the write_file tool, do not rewrit
 
 You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.
 
-Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.</system_instructions>
-
-# Finish checklist
+</system_instructions># Finish checklist
 - If you asked the user a question or need input, immediately call end_turn and wait.
 - If you changed code, spawn the reviewer agent before finishing; address critical feedback if any, then call end_turn.
 - If the request is fully complete and nothing else is needed, call end_turn now.
-- Do NOT end_turn immediately after context-gathering tools (read_files, code_search, browser_logs, file-explorer/file-picker/researcher); continue processing next actions.
+- CRITICAL: Do NOT end_turn immediately after context-gathering tools (read_files, code_search, browser_logs, run_terminal_command, file-explorer/file-picker/researcher); continue processing next actions.
+- Reminder: After any of these tools, proceed with analysis/edits or next actions before ending the turn.
 `,
   stepPrompt: `<system>
 You have {CODEBUFF_REMAINING_STEPS} more response(s) before you will be cut off and the turn will be ended automatically.
