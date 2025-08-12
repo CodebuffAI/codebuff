@@ -7,31 +7,19 @@ import { type CostMode } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { Command, Option } from 'commander'
 import { red } from 'picocolors'
-import { CodebuffClient, type AgentConfig } from '@codebuff/sdk'
+import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
 
-import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
-import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { handlePublish } from './cli-handlers/publish'
 import { npmAppVersion } from './config'
 import { createTemplateProject } from './create-template-project'
 import { printModeLog, setPrintMode } from './display/print-mode'
-import { enableSquashNewlines } from './display/squash-newlines'
-import { loadCodebuffConfig } from './json-config/parser'
-import {
-  getProjectRoot,
-  getWorkingDirectory,
-  initializeProjectRootAndWorkingDir,
-  initProjectFileContextWithWorker,
-} from './project-files'
-import { rageDetectors } from './rage-detectors'
-import { logAndHandleStartup } from './startup-process-handler'
+import { initializeProjectRootAndWorkingDir } from './project-files'
 import { recreateShell, runTerminalCommand } from './terminal/run-command'
-import { initAnalytics, trackEvent } from './utils/analytics'
+import { trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 
 import type { CliOptions } from './types'
-import { validateAgentDefinitionsIfAuthenticated } from './utils/agent-validation'
 
 async function codebuff({
   initialInput,
@@ -80,11 +68,12 @@ async function codebuff({
   console.log('client created')
   console.log('starting run')
 
-  const agentConfig: AgentConfig = {
+  const agentDefinition: AgentDefinition = {
     id: 'my-awesome-agent',
     displayName: 'My awesome agent',
     model: 'openai/gpt-5',
     instructionsPrompt: 'Do something awesome',
+    spawnerPrompt: 'Spawner for my awesome agent',
   }
   const run = await client.run({
     agent: agent ?? 'base',
@@ -92,7 +81,7 @@ async function codebuff({
     handleEvent: (event) => {
       console.log('event:', event)
     },
-    agentConfigs: [
+    agentDefinitions: [
       {
         id: 'my-awesome-agent',
         displayName: 'My awesome agent',
