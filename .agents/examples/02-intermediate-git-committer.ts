@@ -1,15 +1,11 @@
-import { publisher, version } from './constants'
-
 import type {
   AgentDefinition,
   AgentStepContext,
-} from './types/agent-definition'
+} from '../types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'git-committer',
-  version,
-  publisher,
-  displayName: 'Git Committer',
+  displayName: 'Intermediate Git Committer',
   model: 'anthropic/claude-4-sonnet-20250522',
   toolNames: ['read_files', 'run_terminal_command', 'add_message', 'end_turn'],
 
@@ -20,9 +16,6 @@ const definition: AgentDefinition = {
     },
   },
 
-  includeMessageHistory: false,
-  outputMode: 'last_message',
-
   spawnPurposePrompt:
     'Spawn when you need to commit code changes to git with an appropriate commit message',
 
@@ -30,10 +23,10 @@ const definition: AgentDefinition = {
     'You are an expert software developer. Your job is to create a git commit with a really good commit message.',
 
   instructionsPrompt:
-    'Follow the steps to create a good commit: analyze changes with git diff and git log, read relevant files for context, stage appropriate files, analyze changes, and create a commit with proper formatting including the Codebuff footer.',
+    'Follow the steps to create a good commit: analyze changes with git diff and git log, read relevant files for context, stage appropriate files, analyze changes, and create a commit with proper formatting.',
 
   handleSteps: function* ({ agentState, prompt, params }: AgentStepContext) {
-    // Step 1: Run git diff and git log to analyze changes
+    // Step 1: Run git diff and git log to analyze changes.
     yield {
       toolName: 'run_terminal_command',
       args: {
@@ -52,7 +45,7 @@ const definition: AgentDefinition = {
       },
     }
 
-    // Step 2: Let AI analyze the changes and read relevant files for context
+    // Step 2: Put words in AI's mouth so it will read files next.
     yield {
       toolName: 'add_message',
       args: {
@@ -62,16 +55,16 @@ const definition: AgentDefinition = {
       },
     }
 
-    // Step 3: Let AI decide which files to read and stage
+    // Step 3: Let AI generate a step to decide which files to read.
     yield 'STEP'
 
-    // Step 4: Let AI analyze staged changes and compose commit message
+    // Step 4: Put words in AI's mouth to analyze the changes and create a commit.
     yield {
       toolName: 'add_message',
       args: {
         role: 'assistant',
         content:
-          "Now I'll analyze the staged changes and create a commit with the proper Codebuff footer format.",
+          "Now I'll analyze the changes and create a commit with a good commit message.",
       },
     }
 

@@ -3,24 +3,23 @@ import * as path from 'path'
 
 // Import files to replicate in the user's .agents directory:
 
-// import readme from '../../../.agents/README.md' with { type: 'text' }
-// @ts-ignore - No default import, but we are importing as text so it's fine
-import agentDefinitionTypes from '../../../.agents/types/agent-definition' with { type: 'text' }
-// @ts-ignore - No default import, but we are importing as text so it's fine
-import toolsTypes from '../../../.agents/types/tools' with { type: 'text' }
-import diffReviewer1 from '../../../.agents/examples/diff-reviewer-1' with { type: 'text' }
-import diffReviewer2 from '../../../.agents/examples/diff-reviewer-2' with { type: 'text' }
-import diffReviewer3 from '../../../.agents/examples/diff-reviewer-3' with { type: 'text' }
-import myCustomAgent from '../../../.agents/my-custom-agent' with { type: 'text' }
-// @ts-ignore - It complains about the .md file, but it works.
-import readmeContent from '../../../.agents/README.md' with { type: 'text' }
-
 import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
 import {
   filterCustomAgentFiles,
   extractAgentIdFromFileName,
 } from '@codebuff/common/util/agent-file-utils'
 import { green, yellow, cyan, magenta, bold, gray, red } from 'picocolors'
+
+import basicDiffReviewer from '../../../.agents/examples/01-basic-diff-reviewer' with { type: 'text' }
+import intermediateGitCommitter from '../../../.agents/examples/02-intermediate-git-committer' with { type: 'text' }
+import advancedFileExplorer from '../../../.agents/examples/03-advanced-file-explorer' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import agentDefinitionTypes from '../../../.agents/types/agent-definition' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import toolsTypes from '../../../.agents/types/tools' with { type: 'text' }
+// @ts-ignore - It complains about the .md file, but it works.
+import readmeContent from '../../../.agents/README.md' with { type: 'text' }
+import myCustomAgent from '../../../.agents/my-custom-agent' with { type: 'text' }
 
 import { loadLocalAgents, getLoadedAgentNames } from '../agents/load-agents'
 import { CLI } from '../cli'
@@ -608,19 +607,19 @@ async function createExampleAgentFiles() {
       description: 'Your first custom agent example',
     },
     {
-      path: path.join(examplesDir, 'diff-reviewer-1.ts'),
-      content: diffReviewer1,
-      description: 'Diff reviewer agent example 1',
+      path: path.join(examplesDir, '01-basic-diff-reviewer.ts'),
+      content: basicDiffReviewer,
+      description: 'Basic diff reviewer agent example',
     },
     {
-      path: path.join(examplesDir, 'diff-reviewer-2.ts'),
-      content: diffReviewer2,
-      description: 'Diff reviewer agent example 2',
+      path: path.join(examplesDir, '02-intermediate-git-committer.ts'),
+      content: intermediateGitCommitter,
+      description: 'Intermediate git commiter agent example',
     },
     {
-      path: path.join(examplesDir, 'diff-reviewer-3.ts'),
-      content: diffReviewer3,
-      description: 'Diff reviewer agent example 3',
+      path: path.join(examplesDir, '03-advanced-file-explorer.ts'),
+      content: advancedFileExplorer,
+      description: 'Advanced file explorer agent example',
     },
   ]
 

@@ -1,8 +1,8 @@
 import type { AgentDefinition } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: 'diff-reviewer-1',
-  displayName: 'Diff Reviewer (Level 1)',
+  id: 'basic-diff-reviewer',
+  displayName: 'Basic Diff Reviewer',
   model: 'anthropic/claude-4-sonnet-20250522',
   toolNames: ['read_files', 'run_terminal_command'],
 

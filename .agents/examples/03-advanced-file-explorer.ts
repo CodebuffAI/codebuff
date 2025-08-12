@@ -1,22 +1,17 @@
-import { publisher, version } from './constants'
-
-import type { AgentDefinition } from './types/agent-definition'
+import type { AgentDefinition } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: 'file-explorer',
-  version,
-  publisher,
+  id: 'advanced-file-explorer',
   displayName: 'Dora the File Explorer',
-  model: 'anthropic/claude-4-sonnet-20250522',
+  model: 'openai/gpt-5',
 
   spawnPurposePrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
 
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  spawnableAgents: [`file-picker`],
+  spawnableAgents: [`codebuff/file-picker@0.0.1`],
 
-  outputMode: 'structured_output',
   inputSchema: {
     prompt: {
       description: 'What you need to accomplish by exploring the codebase',
@@ -38,6 +33,7 @@ const definition: AgentDefinition = {
       additionalProperties: false,
     },
   },
+  outputMode: 'structured_output',
   outputSchema: {
     type: 'object',
     properties: {
@@ -60,7 +56,7 @@ const definition: AgentDefinition = {
         toolName: 'spawn_agents',
         args: {
           agents: filePickerPrompts.map((promptText) => ({
-            agent_type: 'file-picker',
+            agent_type: 'codebuff/file-picker@0.0.1',
             prompt: promptText,
           })),
         },
