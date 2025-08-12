@@ -157,7 +157,7 @@ export async function getAgentPrompt<T extends StringField>(
 
   let addendum = ''
 
-  // Add parent instructions for instructionsPrompt
+  // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
     addendum +=
       '\n\n' +
