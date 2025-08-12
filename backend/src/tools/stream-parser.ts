@@ -98,11 +98,11 @@ export async function processStreamWithTools<T extends string>(options: {
   function toolCallback<T extends ToolName>(toolName: T) {
     return {
       onTagStart: () => {},
-      onTagEnd: async (_: string, args: Record<string, string>) => {
+      onTagEnd: async (_: string, input: Record<string, string>) => {
         // delegated to reusable helper
         previousToolCallFinished = executeToolCall({
           toolName,
-          args,
+          input,
           toolCalls,
           toolResults,
           previousToolCallFinished,
@@ -130,7 +130,7 @@ export async function processStreamWithTools<T extends string>(options: {
       toolResults.push({
         toolName,
         toolCallId: generateCompactId(),
-        result: error,
+        output: { type: 'text', value: error },
       })
     },
     onResponseChunk,

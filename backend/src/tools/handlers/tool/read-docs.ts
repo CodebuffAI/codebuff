@@ -28,7 +28,7 @@ export const handleReadDocs = (({
   result: Promise<string>
   state: {}
 } => {
-  const { libraryTitle, topic, max_tokens } = toolCall.args
+  const { libraryTitle, topic, max_tokens } = toolCall.input
   const { userId, fingerprintId, repoId } = state
   if (!userId) {
     throw new Error('Internal error for read_docs: Missing userId in state')

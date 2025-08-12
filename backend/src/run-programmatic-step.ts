@@ -6,11 +6,11 @@ import { SandboxManager } from './util/quickjs-sandbox'
 import { getRequestContext } from './websockets/request-context'
 import { sendAction } from './websockets/websocket-action'
 
+import type { CodebuffToolCall } from './tools/constants'
 import type {
   AgentTemplate,
   StepGenerator,
 } from '@codebuff/common/types/agent-template'
-import type { CodebuffToolCall } from './tools/constants'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -192,7 +192,7 @@ export async function runProgrammaticStep(
       if (toolCall.toolName !== 'add_message') {
         const toolCallString = getToolCallString(
           toolCall.toolName,
-          toolCall.args,
+          toolCall.input,
         )
         state.messages.push({
           role: 'assistant' as const,
@@ -210,7 +210,7 @@ export async function runProgrammaticStep(
       // Execute the tool synchronously and get the result immediately
       await executeToolCall({
         toolName: toolCall.toolName,
-        args: toolCall.args,
+        input: toolCall.input,
         toolCalls,
         toolResults,
         previousToolCallFinished: Promise.resolve(),
@@ -232,7 +232,7 @@ export async function runProgrammaticStep(
       state.agentState.messageHistory = state.messages
 
       // Get the latest tool result
-      toolResult = toolResults[toolResults.length - 1]?.result
+      toolResult = toolResults[toolResults.length - 1]?.output.value
 
       if (toolCall.toolName === 'end_turn') {
         endTurn = true

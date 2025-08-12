@@ -1,7 +1,7 @@
 import { models } from '@codebuff/common/constants'
 import { isExplicitlyDefinedModel } from '@codebuff/common/util/model-utils'
 import { env } from '@codebuff/internal/env'
-import { createOpenRouter } from '@codebuff/internal/openrouter-ai-sdk'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 
 import type { Model } from '@codebuff/common/constants'
 

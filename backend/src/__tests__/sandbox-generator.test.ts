@@ -76,7 +76,7 @@ describe('QuickJS Sandbox Generator', () => {
       function* ({ agentState, prompt, params }) {
         yield {
           toolName: 'set_output',
-          args: {
+          input: {
             message: 'Hello from QuickJS sandbox!',
             prompt: prompt,
             agentId: agentState.agentId

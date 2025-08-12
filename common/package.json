@@ -36,7 +36,7 @@
     "@types/pg": "^8.11.10",
     "@types/readable-stream": "^4.0.18",
     "@types/seedrandom": "^3.0.8",
-    "ai": "4.3.16",
+    "ai": "5.0.0",
     "drizzle-kit": "0.28.1",
     "drizzle-orm": "0.36.4",
     "ignore": "5.3.2",

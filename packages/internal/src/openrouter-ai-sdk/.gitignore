@@ -1,5 +1,0 @@
-node_modules
-dist
-./internal
-
-.env.e2e*

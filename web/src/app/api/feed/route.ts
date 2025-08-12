@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 const SubstackPostSchema = z.object({
   title: z.string(),

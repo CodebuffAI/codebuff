@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { CLIENT_ACTION_SCHEMA, SERVER_ACTION_SCHEMA } from '../actions'
 

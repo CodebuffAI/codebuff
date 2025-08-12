@@ -54,7 +54,7 @@ export const handleSpawnAgents = ((params: {
     getLatestState,
     state,
   } = params
-  const { agents } = toolCall.args
+  const { agents } = toolCall.input
   const {
     ws,
     fingerprintId,

@@ -6,6 +6,7 @@ import { PLACEHOLDER } from '../types'
 
 import type { AgentTemplate } from '../types'
 import type { Model } from '@codebuff/common/constants'
+import type { ToolCall } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
@@ -46,10 +47,13 @@ Always end your response with the end_turn tool.\\n\\n` +
   stepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
 
   handleSteps: function* ({ agentState, prompt, params }) {
-    yield {
-      toolName: 'web_search',
-      args: { query: prompt },
+    if (prompt !== undefined) {
+      yield {
+        toolName: 'web_search',
+        input: { query: prompt, depth: 'standard' },
+      } satisfies ToolCall
     }
+
     yield 'STEP_ALL'
   },
 })
