@@ -1,5 +1,10 @@
 import { render, screen } from '@testing-library/react'
 
+// Mock next-auth session to avoid requiring a SessionProvider
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({ data: null, status: 'unauthenticated' }),
+}))
+
 import Home from '../../app/page'
 
 // Mock window.matchMedia

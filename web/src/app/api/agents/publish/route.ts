@@ -12,13 +12,18 @@ import { eq, and, or, desc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
+import { logger } from '@/util/logger'
+
+import {
+  resolveAndValidateSubagents,
+  SubagentResolutionError,
+  type AgentVersionEntry,
+} from './subagent-resolution'
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
 
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import type { Version } from '@codebuff/internal'
 import type { NextRequest } from 'next/server'
-
-import { logger } from '@/util/logger'
 
 async function getPublishedAgentIds(publisherId: string) {
   const agents = await db
@@ -219,12 +224,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Transform and validate subagent references
-    // Build a quick map of agents being published in this batch (id -> version)
-    const publishingVersionsById = new Map<string, string>(
-      agentVersions.map(({ id, version }) => [id, stringifyVersion(version)])
-    )
-    // For validating fully-qualified references within the same publisher
+    // Simplified: build small helpers then delegate to the pure resolver
     const publishingAgentIds = new Set(
       agentVersions.map(
         (agent) =>
@@ -233,15 +233,15 @@ export async function POST(request: NextRequest) {
     )
     const publishedAgentIds = await getPublishedAgentIds(requestedPublisherId)
 
-    // Helper to resolve latest published version for a given (publisherId, agentId)
+    const existsInSamePublisher = (full: string) =>
+      publishingAgentIds.has(full) || publishedAgentIds.has(full)
+
     async function getLatestPublishedVersion(
       publisherId: string,
       agentId: string
     ): Promise<string | null> {
       const latest = await db
-        .select({
-          version: schema.agentConfig.version,
-        })
+        .select({ version: schema.agentConfig.version })
         .from(schema.agentConfig)
         .where(
           and(
@@ -259,90 +259,27 @@ export async function POST(request: NextRequest) {
       return latest?.version ?? null
     }
 
-    // Transform subagent names to fully-qualified format, preferring versions from this publish batch,
-    // otherwise resolving to the latest already-published version.
-    for (const agentVersion of agentVersions) {
-      const agent = agentVersion.data
-      if (!agent.subagents) continue
+    const agentEntries: AgentVersionEntry[] = agentVersions.map((av) => ({
+      id: av.id,
+      version: stringifyVersion(av.version),
+      data: av.data,
+    }))
 
-      const transformedSubagents: string[] = []
-      for (const subagent of agent.subagents) {
-        // Already fully-qualified? expected format: publisher/id@version
-        const fullMatch = subagent.match(/^([^/]+)\/(.+)@(.+)$/)
-        if (fullMatch) {
-          const fullKey = subagent
-          // Validate existence within same-publisher scope (batch or previously published)
-          if (
-            !publishingAgentIds.has(fullKey) &&
-            !publishedAgentIds.has(fullKey)
-          ) {
-            return NextResponse.json(
-              {
-                error: 'Invalid spawnable agent',
-                details: `Agent '${agent.id}' references spawnable agent '${subagent}' which is not published and not included in this request.`,
-              },
-              { status: 400 }
-            )
-          }
-          transformedSubagents.push(fullKey)
-          continue
-        }
-
-        // Handle 'publisher/id' (no version) or 'id' (no publisher, no version)
-        let targetPublisher = requestedPublisherId
-        let targetId = subagent
-        const publisherIdMatch = subagent.match(/^([^/]+)\/(.+)$/)
-        if (publisherIdMatch) {
-          targetPublisher = publisherIdMatch[1]!
-          targetId = publisherIdMatch[2]!
-        }
-
-        // Prefer version from this publish batch when targeting our current publisher
-        let resolvedVersion: string | null = null
-        if (
-          targetPublisher === requestedPublisherId &&
-          publishingVersionsById.has(targetId)
-        ) {
-          resolvedVersion = publishingVersionsById.get(targetId)!
-        } else {
-          // Otherwise, resolve to latest published version for that (publisher, id)
-          resolvedVersion = await getLatestPublishedVersion(
-            targetPublisher,
-            targetId
-          )
-        }
-
-        if (!resolvedVersion) {
-          return NextResponse.json(
-            {
-              error: 'Invalid spawnable agent',
-              details: `Agent '${agent.id}' references spawnable agent '${subagent}' which does not have any published versions to resolve to.`,
-            },
-            { status: 400 }
-          )
-        }
-
-        const transformedName = `${targetPublisher}/${targetId}@${resolvedVersion}`
-        // If referencing same publisher, we can do a quick existence check using our cached sets
-        if (
-          targetPublisher === requestedPublisherId &&
-          !publishingAgentIds.has(transformedName) &&
-          !publishedAgentIds.has(transformedName)
-        ) {
-          return NextResponse.json(
-            {
-              error: 'Invalid spawnable agent',
-              details: `Agent '${agent.id}' references spawnable agent '${subagent}' which resolves to '${transformedName}' but is not published and not included in this request.`,
-            },
-            { status: 400 }
-          )
-        }
-
-        transformedSubagents.push(transformedName)
+    try {
+      await resolveAndValidateSubagents({
+        agents: agentEntries,
+        requestedPublisherId,
+        existsInSamePublisher,
+        getLatestPublishedVersion,
+      })
+    } catch (err) {
+      if (err instanceof SubagentResolutionError) {
+        return NextResponse.json(
+          { error: 'Invalid spawnable agent', details: err.message },
+          { status: 400 }
+        )
       }
-
-      // Update the agent data with transformed subagent names
-      agent.subagents = transformedSubagents
+      throw err
     }
 
     // If we get here, all agents can be published. Insert them all in a transaction
