@@ -15,6 +15,7 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 
 export const handleSpawnAgentInline = ((params: {
   previousToolCallFinished: Promise<void>
@@ -135,7 +136,7 @@ export const handleSpawnAgentInline = ((params: {
       agentContext: agentState!.agentContext, // Inherit parent context directly
       subagents: [],
       messageHistory: getLatestState().messages, // Share the same message array
-      stepsRemaining: 20, // MAX_AGENT_STEPS
+      stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
       output: undefined,
       parentId: agentState!.agentId,
     }

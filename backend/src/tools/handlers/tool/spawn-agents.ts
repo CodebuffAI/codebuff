@@ -14,6 +14,7 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 
 export type SendSubagentChunk = (data: {
   userInputId: string
@@ -163,7 +164,7 @@ export const handleSpawnAgents = ((params: {
           agentContext: {},
           subagents: [],
           messageHistory: subAgentMessages,
-          stepsRemaining: 20, // MAX_AGENT_STEPS
+          stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
           output: undefined,
           parentId: agentState!.agentId,
         }

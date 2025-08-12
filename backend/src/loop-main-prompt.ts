@@ -1,3 +1,4 @@
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { mainPrompt } from './main-prompt'
 
 import type { MainPromptOptions } from './main-prompt'
@@ -9,8 +10,6 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { WebSocket } from 'ws'
 
-const DEFAULT_MAX_ITERATIONS = 20
-
 export async function loopMainPrompt(
   ws: WebSocket,
   action: ClientAction<'prompt'>,
@@ -20,7 +19,7 @@ export async function loopMainPrompt(
   toolCalls: Array<ClientToolCall>
   toolResults: Array<ToolResult>
 }> {
-  const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS
+  const maxIterations = options.maxIterations ?? MAX_AGENT_STEPS_DEFAULT
   let { sessionState, toolResults, toolCalls } = await mainPrompt(
     ws,
     action,
