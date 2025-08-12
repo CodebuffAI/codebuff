@@ -20,7 +20,7 @@ const definition: AgentDefinition = {
   toolNames: ['spawn_agents', 'end_turn'],
   spawnableAgents: [`thinker`, `researcher`],
 
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Acts as a creative thought partner, generating ideas and exploring alternative viewpoints to help think through problems.',
 
   systemPrompt: `# Persona: Brian the Brainstormer - Creative Thought Partner

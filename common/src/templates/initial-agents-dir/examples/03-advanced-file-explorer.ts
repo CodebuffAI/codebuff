@@ -5,7 +5,7 @@ const definition: AgentDefinition = {
   displayName: 'Dora the File Explorer',
   model: 'openai/gpt-5',
 
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
 
   includeMessageHistory: false,

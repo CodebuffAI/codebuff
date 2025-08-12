@@ -131,7 +131,7 @@ export const DynamicAgentDefinitionSchema = z.object({
   outputSchema: JsonSchemaSchema.optional(), // Optional JSON schema for output validation
 
   // Prompts
-  spawnPurposePrompt: z.string().optional(),
+  spawnerPrompt: z.string().optional(),
   systemPrompt: z.string().optional(),
   instructionsPrompt: z.string().optional(),
   stepPrompt: z.string().optional(),

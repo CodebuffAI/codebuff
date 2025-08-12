@@ -92,7 +92,7 @@ export interface AgentDefinition {
   /** Prompt for when and why to spawn this agent. Include the main purpose and use cases.
    *
    * This field is key if the agent is intended to be spawned by other agents. */
-  spawnPurposePrompt?: string
+  spawnerPrompt?: string
 
   /** Background information for the agent. Fairly optional. Prefer using instructionsPrompt for agent instructions. */
   systemPrompt?: string

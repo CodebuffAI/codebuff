@@ -19,7 +19,7 @@ const definition: AgentDefinition = {
   outputMode: 'last_message',
   includeMessageHistory: true,
 
-  spawnPurposePrompt: 'Agent that formulates a comprehensive plan to a prompt.',
+  spawnerPrompt: 'Agent that formulates a comprehensive plan to a prompt.',
   systemPrompt: `You are an expert software architect. You are good at creating comprehensive plans to tackle the user request.`,
   instructionsPrompt: `Steps for your response:
 1. Use the <think_deeply> tool to think through cruxes for the plan, and tricky cases. Consider alternative approaches. Be sure to close the tool call with </think_deeply>.

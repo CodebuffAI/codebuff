@@ -126,7 +126,7 @@ async function getLocalAgentInfo(): Promise<
         agentType,
         {
           displayName: agentConfig.displayName,
-          purpose: agentConfig.spawnPurposePrompt,
+          purpose: agentConfig.spawnerPrompt,
         },
       ]),
     )

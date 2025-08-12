@@ -51,7 +51,7 @@ describe('runAgentStep - set_output tool', () => {
     testAgent = {
       id: 'test-set-output-agent',
       displayName: 'Test Set Output Agent',
-      spawnPurposePrompt: 'Testing set_output functionality',
+      spawnerPrompt: 'Testing set_output functionality',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
       outputMode: 'structured_output' as const,
@@ -325,7 +325,7 @@ describe('runAgentStep - set_output tool', () => {
     const mockAgentTemplate: AgentTemplate = {
       id: 'test-handlesteps-agent',
       displayName: 'Test HandleSteps Agent',
-      spawnPurposePrompt: 'Testing handleSteps functionality',
+      spawnerPrompt: 'Testing handleSteps functionality',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
       outputMode: 'structured_output' as const,
@@ -442,7 +442,7 @@ describe('runAgentStep - set_output tool', () => {
     const mockInlineAgentTemplate: AgentTemplate = {
       id: 'message-deleter-agent',
       displayName: 'Message Deleter Agent',
-      spawnPurposePrompt: 'Deletes assistant messages',
+      spawnerPrompt: 'Deletes assistant messages',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
       outputMode: 'structured_output' as const,
@@ -484,7 +484,7 @@ describe('runAgentStep - set_output tool', () => {
     const mockParentAgentTemplate: AgentTemplate = {
       id: 'parent-agent',
       displayName: 'Parent Agent',
-      spawnPurposePrompt: 'Parent agent that spawns inline agents',
+      spawnerPrompt: 'Parent agent that spawns inline agents',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
       outputMode: 'structured_output' as const,

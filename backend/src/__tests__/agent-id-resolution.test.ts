@@ -20,7 +20,7 @@ describe('Agent ID Resolution', () => {
         outputMode: 'last_message',
         includeMessageHistory: true,
         model: 'anthropic/claude-4-sonnet-20250522',
-        spawnPurposePrompt: 'Test',
+        spawnerPrompt: 'Test',
         inputSchema: {},
       },
       [AgentTemplateTypes.file_picker]: {
@@ -34,7 +34,7 @@ describe('Agent ID Resolution', () => {
         outputMode: 'last_message',
         includeMessageHistory: true,
         model: 'anthropic/claude-4-sonnet-20250522',
-        spawnPurposePrompt: 'Test',
+        spawnerPrompt: 'Test',
         inputSchema: {},
       },
       // Spawnable agents with org prefix
@@ -49,7 +49,7 @@ describe('Agent ID Resolution', () => {
         outputMode: 'last_message',
         includeMessageHistory: true,
         model: 'google/gemini-2.5-pro',
-        spawnPurposePrompt: 'Test',
+        spawnerPrompt: 'Test',
         inputSchema: {},
       },
       'codebuff/example-agent': {
@@ -63,7 +63,7 @@ describe('Agent ID Resolution', () => {
         outputMode: 'last_message',
         includeMessageHistory: true,
         model: 'anthropic/claude-4-sonnet-20250522',
-        spawnPurposePrompt: 'Test',
+        spawnerPrompt: 'Test',
         inputSchema: {},
       },
       // Custom user agent without prefix
@@ -78,7 +78,7 @@ describe('Agent ID Resolution', () => {
         outputMode: 'last_message',
         includeMessageHistory: true,
         model: 'anthropic/claude-4-sonnet-20250522',
-        spawnPurposePrompt: 'Test',
+        spawnerPrompt: 'Test',
         inputSchema: {},
       },
     }
@@ -145,7 +145,7 @@ describe('Agent ID Resolution', () => {
         outputMode: 'last_message',
         includeMessageHistory: true,
         model: 'anthropic/claude-4-sonnet-20250522',
-        spawnPurposePrompt: 'Test',
+        spawnerPrompt: 'Test',
         inputSchema: {},
       }
 
@@ -171,7 +171,7 @@ describe('Agent ID Resolution', () => {
         outputMode: 'last_message',
         includeMessageHistory: true,
         model: 'anthropic/claude-4-sonnet-20250522',
-        spawnPurposePrompt: 'Test',
+        spawnerPrompt: 'Test',
         inputSchema: {},
       }
 

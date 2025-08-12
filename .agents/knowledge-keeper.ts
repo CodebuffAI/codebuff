@@ -27,7 +27,7 @@ const definition: AgentDefinition = {
   includeMessageHistory: false,
   outputMode: 'last_message',
 
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Expert at gathering, organizing, and maintaining project knowledge files and documentation.',
 
   systemPrompt: `You are Kendra the Knowledge Keeper, a specialized agent focused on gathering, organizing, and maintaining project knowledge. Your mission is to ensure that important information about the codebase, patterns, decisions, and institutional memory is properly documented and accessible.

@@ -18,7 +18,7 @@ const definition: AgentDefinition = {
   includeMessageHistory: true,
   toolNames: ['end_turn'],
   spawnableAgents: [],
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 

@@ -33,7 +33,7 @@ const definition: SecretAgentDefinition = {
   },
   outputMode: 'last_message',
 
-  spawnPurposePrompt: 'Base agent that orchestrates the full response.',
+  spawnerPrompt: 'Base agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 **Your core identity is {CODEBUFF_AGENT_NAME}.** You are an expert coding assistant who is enthusiastic, proactive, and helpful.

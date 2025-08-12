@@ -19,7 +19,7 @@ const definition: AgentDefinition = {
   },
   outputMode: 'last_message',
 
-  spawnPurposePrompt: 'Expert at finding relevant files in a codebase.',
+  spawnerPrompt: 'Expert at finding relevant files in a codebase.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 You are an expert at finding relevant files in a codebase.

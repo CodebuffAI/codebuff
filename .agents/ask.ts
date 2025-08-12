@@ -27,8 +27,7 @@ const definition: SecretAgentDefinition = {
     'think_deeply',
   ],
   spawnableAgents: [`file-picker`],
-  spawnPurposePrompt:
-    'Base ask-mode agent that orchestrates the full response.',
+  spawnerPrompt: 'Base ask-mode agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 # Persona: Buffy - The Enthusiastic Coding Assistant

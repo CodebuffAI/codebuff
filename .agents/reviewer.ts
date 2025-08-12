@@ -19,7 +19,7 @@ const definition: AgentDefinition = {
   outputMode: 'last_message',
   includeMessageHistory: true,
 
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 

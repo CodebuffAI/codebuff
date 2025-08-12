@@ -6,8 +6,7 @@ const definition: AgentDefinition = {
   model: 'anthropic/claude-4-sonnet-20250522',
   toolNames: ['read_files', 'run_terminal_command'],
 
-  spawnPurposePrompt:
-    'Spawn when you need to review code changes in the git diff',
+  spawnerPrompt: 'Spawn when you need to review code changes in the git diff',
 
   instructionsPrompt: `Execute the following steps:
 1. Run git diff

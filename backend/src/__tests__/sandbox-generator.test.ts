@@ -33,7 +33,7 @@ describe('QuickJS Sandbox Generator', () => {
     mockTemplate = {
       id: 'test-vm-agent',
       displayName: 'Test VM Agent',
-      spawnPurposePrompt: 'Test VM isolation',
+      spawnerPrompt: 'Test VM isolation',
       model: 'anthropic/claude-4-sonnet-20250522',
       outputMode: 'structured_output',
       includeMessageHistory: false,
@@ -101,7 +101,7 @@ describe('QuickJS Sandbox Generator', () => {
     // Customize for error test
     mockTemplate.id = 'test-vm-agent-error'
     mockTemplate.displayName = 'Test VM Agent Error'
-    mockTemplate.spawnPurposePrompt = 'Test QuickJS error handling'
+    mockTemplate.spawnerPrompt = 'Test QuickJS error handling'
     mockTemplate.toolNames = []
     mockTemplate.handleSteps = `
       function* ({ agentState, prompt, params }) {

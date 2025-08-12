@@ -5,7 +5,7 @@ const definition: AgentDefinition = {
   publisher: 'codebuff',
   model: 'z-ai/glm-4.5:fast',
   displayName: 'Reid the Researcher',
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Expert researcher for comprehensive web search and documentation analysis, focusing on external research and actionable insights from external sources.',
   inputSchema: {
     prompt: {

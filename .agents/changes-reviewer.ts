@@ -13,7 +13,7 @@ const definition: AgentDefinition = {
 
   includeMessageHistory: false,
 
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Spawn when you need to review code changes in the git diff or staged changes',
 
   toolNames: ['read_files', 'run_terminal_command', 'spawn_agents'],
