@@ -1,5 +1,7 @@
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
+import { publisher } from './constants'
+
 import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
 const paramsSchema = {
@@ -15,12 +17,13 @@ const paramsSchema = {
   required: ['prompts'],
 }
 
-export const fileExplorer = {
+const fileExplorer: SecretAgentDefinition = {
   id: AgentTemplateTypes.file_explorer,
   displayName: 'Dora the File Explorer',
   spawnerPrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
   model: 'anthropic/claude-4-sonnet-20250522',
+  publisher,
   outputMode: 'structured_output',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
@@ -66,4 +69,6 @@ export const fileExplorer = {
       },
     }
   },
-} satisfies SecretAgentDefinition
+}
+
+export default fileExplorer
