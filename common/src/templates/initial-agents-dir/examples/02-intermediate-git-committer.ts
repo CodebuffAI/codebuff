@@ -16,7 +16,7 @@ const definition: AgentDefinition = {
     },
   },
 
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Spawn when you need to commit code changes to git with an appropriate commit message',
 
   systemPrompt:

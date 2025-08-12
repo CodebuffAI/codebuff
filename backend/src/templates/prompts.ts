@@ -1,7 +1,9 @@
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
+
+import { getAgentTemplate } from './agent-registry'
+
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
-import { getAgentTemplate } from './agent-registry'
 
 export async function buildSpawnableAgentsDescription(
   spawnableAgents: AgentTemplateType[],
@@ -30,12 +32,12 @@ params: None`
       }
       const { inputSchema } = agentTemplate
       if (!inputSchema) {
-        return `- ${agentType}: ${agentTemplate.spawnPurposePrompt}
+        return `- ${agentType}: ${agentTemplate.spawnerPrompt}
 prompt: None
 params: None`
       }
       const { prompt, params } = inputSchema
-      return `- ${agentType}: ${agentTemplate.spawnPurposePrompt}
+      return `- ${agentType}: ${agentTemplate.spawnerPrompt}
 prompt: ${schemaToJsonStr(prompt)}
 params: ${schemaToJsonStr(params)}`
     })

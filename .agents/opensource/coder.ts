@@ -5,7 +5,7 @@ const definition: AgentDefinition = {
   publisher: 'codebuff',
   model: 'qwen/qwen3-coder:fast',
   displayName: 'Casey the Coder',
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Expert coding agent for reliable code implementation, debugging, and refactoring with excellent tool calling capabilities.',
   inputSchema: {
     prompt: {

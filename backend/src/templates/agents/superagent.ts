@@ -13,7 +13,7 @@ export const superagent = (
 ): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.superagent.displayName,
-  spawnPurposePrompt: AGENT_PERSONAS.superagent.purpose,
+  spawnerPrompt: AGENT_PERSONAS.superagent.purpose,
   inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },

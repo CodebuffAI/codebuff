@@ -5,7 +5,7 @@ const definition: AgentDefinition = {
   publisher: 'codebuff',
   model: 'openai/gpt-oss-120b:fast',
   displayName: 'Nit Pick Nick the Reviewer',
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Expert code reviewer, specialized for thorough code analysis and feedback.',
   inputSchema: {
     prompt: {

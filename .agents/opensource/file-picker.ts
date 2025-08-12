@@ -5,7 +5,7 @@ const definition: AgentDefinition = {
   publisher: 'codebuff',
   model: 'openai/gpt-oss-120b:fast',
   displayName: 'Fletcher the File Fetcher',
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Expert at finding relevant files for efficient file discovery with edge-optimized performance.',
   inputSchema: {
     prompt: {

@@ -8,7 +8,7 @@ const definition: AgentDefinition = {
   id: 'agent-builder',
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Bob the Agent Builder',
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Enhanced base agent that can create custom agents and handle all coding tasks with deterministic agent creation behavior',
 
   toolNames: [

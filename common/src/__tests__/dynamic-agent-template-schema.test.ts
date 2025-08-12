@@ -11,7 +11,7 @@ describe('DynamicAgentDefinitionSchema', () => {
     id: 'test-agent',
     version: '1.0.0',
     displayName: 'Test Agent',
-    spawnPurposePrompt: 'A test agent',
+    spawnerPrompt: 'A test agent',
     model: 'anthropic/claude-4-sonnet-20250522',
     systemPrompt: 'Test system prompt',
     instructionsPrompt: 'Test user prompt',

@@ -146,7 +146,7 @@ describe('loopAgentSteps STEP behavior', () => {
     mockTemplate = {
       id: 'test-agent',
       displayName: 'Test Agent',
-      spawnPurposePrompt: 'Testing',
+      spawnerPrompt: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
       outputMode: 'structured_output',

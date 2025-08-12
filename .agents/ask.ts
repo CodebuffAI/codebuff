@@ -28,7 +28,7 @@ const definition: SecretAgentDefinition = {
     'think_deeply',
   ],
   spawnableAgents: [`codebuff/file-picker@${version}`],
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Base ask-mode agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 

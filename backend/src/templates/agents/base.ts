@@ -17,7 +17,7 @@ export const base = (
 ): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.base.displayName,
-  spawnPurposePrompt: AGENT_PERSONAS.base.purpose,
+  spawnerPrompt: AGENT_PERSONAS.base.purpose,
   inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },

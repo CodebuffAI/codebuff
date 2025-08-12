@@ -5,7 +5,7 @@ const definition: AgentDefinition = {
   publisher: 'codebuff',
   model: 'qwen/qwen3-235b-a22b-thinking-2507:fast',
   displayName: 'Theo the Thinker',
-  spawnPurposePrompt:
+  spawnerPrompt:
     'Deep thinking agent, optimized for complex reasoning and step-by-step analysis.',
   inputSchema: {
     prompt: {
