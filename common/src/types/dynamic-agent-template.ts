@@ -103,28 +103,7 @@ export const DynamicAgentDefinitionSchema = z.object({
   model: z.string(),
 
   // Tools and spawnable agents
-  toolNames: z
-    .array(z.enum(toolNames))
-    .optional()
-    .default([])
-    .refine((tools) => {
-      if (!tools) return true
-      const validToolNames = toolNames as readonly string[]
-      const invalidTools = tools.filter(
-        (tool) => !validToolNames.includes(tool),
-      )
-      return invalidTools.length === 0
-    })
-    .refine((tools) => {
-      if (!tools) return { message: 'Tools array is undefined' }
-      const validToolNames = toolNames as readonly string[]
-      const invalidTools = tools.filter(
-        (tool) => !validToolNames.includes(tool),
-      )
-      return {
-        message: `Invalid tool names: ${invalidTools.join(', ')}. Available tools: ${toolNames.join(', ')}`,
-      }
-    }),
+  toolNames: z.array(z.enum(toolNames)).optional().default([]),
   spawnableAgents: z.array(z.string()).optional().default([]),
 
   // Input and output
