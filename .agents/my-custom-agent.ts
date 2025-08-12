@@ -7,19 +7,21 @@
  *  > codebuff --agent git-committer
  *
  *  Or, run codebuff normally, and use the '@' menu to mention your agent, and codebuff will spawn it for you.
- * 
- *  Finally, you can publish your agent with 'codebuff publish your-custom-agent'.
+ *
+ *  Finally, you can publish your agent with 'codebuff publish your-custom-agent' so users from around the world can run it.
  */
 
 import type { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: 'git-committer',
+  id: 'my-custom-agent',
   displayName: 'Git Committer',
 
   model: 'anthropic/claude-4-sonnet-20250522',
-  toolNames: ['read_files', 'run_terminal_command', 'spawn_agents'],
   spawnableAgents: ['codebuff/file-explorer@0.0.1'],
+
+  // Check out .agents/types/tools.ts for more information on the tools you can include.
+  toolNames: ['read_files', 'run_terminal_command', 'spawn_agents'],
 
   spawnPurposePrompt:
     'Spawn when you need to commit changes to the git repository',

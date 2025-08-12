@@ -1,91 +1,16 @@
-import * as fs from 'fs'
-import * as path from 'path'
-
-import {
-  AGENT_TEMPLATES_DIR,
-  openrouterModels,
-  AGENT_DEFINITION_FILE,
-} from '@codebuff/common/constants'
+import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
 import z from 'zod/v4'
 
 import type { AgentTemplate } from '../types'
 import type { Model } from '@codebuff/common/constants'
 import type { ToolName } from '@codebuff/common/tools/constants'
 
-const COMMON_UTIL_PATH = '../../../../common/src/util'
-const TEMPLATE_RELATIVE_PATH =
-  `${COMMON_UTIL_PATH}/types/${AGENT_DEFINITION_FILE}` as const
-// Import to validate path exists at compile time
-import(TEMPLATE_RELATIVE_PATH)
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import agentDefinitionContent from '../../../../.agents/types/agent-definition' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import toolsDefinitionContent from '../../../../.agents/types/tools' with { type: 'text' }
 
-const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
-const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
-const TYPES_DIR = path.join(AGENT_TEMPLATES_DIR, 'types')
-const EXAMPLES_DIR = path.join(AGENT_TEMPLATES_DIR, 'examples')
-const TEMPLATE_TYPES_PATH = path.join(TYPES_DIR, AGENT_DEFINITION_FILE)
-const TOOL_DEFINITIONS_FILE = 'tools.d.ts'
-const TOOL_DEFINITIONS_PATH = path.join(TYPES_DIR, TOOL_DEFINITIONS_FILE)
-
-export const agentBuilder = (
-  model: Model,
-  allAvailableAgents?: string[],
-): Omit<AgentTemplate, 'id'> => {
-  // Read the AGENT_CONFIG_FILE content dynamically
-  // The import above ensures this path exists at compile time
-  let agentTemplateContent = ''
-  try {
-    agentTemplateContent = fs.readFileSync(TEMPLATE_PATH, 'utf8')
-  } catch (error) {
-    console.warn(`Could not read ${AGENT_DEFINITION_FILE}:`, error)
-    agentTemplateContent = '// Agent template types not available'
-  }
-  // Read the tools.d.ts content from common package
-  let toolDefinitionsContent = ''
-  try {
-    const toolsPath = path.join(
-      __dirname,
-      `${COMMON_UTIL_PATH}/types/tools.d.ts`,
-    )
-    toolDefinitionsContent = fs.readFileSync(toolsPath, 'utf8')
-  } catch (error) {
-    console.warn(`Could not read tools.d.ts from common:`, error)
-    toolDefinitionsContent = '// Tool definitions not available'
-  }
-
-  // Read example agent files from common package
-  const exampleAgentContents: Record<string, string> = {}
-
-  try {
-    const exampleAgentsDir = path.join(__dirname, `${COMMON_UTIL_PATH}`)
-    // Check if directory exists before trying to read it
-    if (fs.existsSync(exampleAgentsDir)) {
-      const files = fs.readdirSync(exampleAgentsDir)
-
-      files
-        .filter(
-          (file) =>
-            file.endsWith('.ts') &&
-            (file.startsWith('diff-reviewer') ||
-              file === 'your-custom-agent.ts'),
-        )
-        .forEach((filename) => {
-          try {
-            const fullPath = path.join(exampleAgentsDir, filename)
-            const content = fs.readFileSync(fullPath, 'utf8')
-            exampleAgentContents[filename] = content
-          } catch (error) {
-            console.warn(`Could not read example agent ${filename}:`, error)
-          }
-        })
-    } else {
-      console.warn(
-        `Example agents directory does not exist: ${exampleAgentsDir}`,
-      )
-    }
-  } catch (error) {
-    console.warn('Could not read example agents directory:', error)
-  }
-
+export const agentBuilder = (model: Model): Omit<AgentTemplate, 'id'> => {
   return {
     model,
     displayName: 'Bob the Agent Builder',
@@ -98,17 +23,8 @@ export const agentBuilder = (
         .describe(
           'What agent type you would like to create or edit. Include as many details as possible.',
         ),
-      params: z
-        .object({
-          name: z.string().optional(),
-          purpose: z.string().optional(),
-          specialty: z.string().optional(),
-          model: z.string().optional(),
-        })
-        .passthrough()
-        .optional(),
     },
-    outputMode: 'structured_output',
+    outputMode: 'last_message',
     includeMessageHistory: false,
     toolNames: [
       'write_file',
@@ -117,8 +33,6 @@ export const agentBuilder = (
       'read_files',
       'code_search',
       'spawn_agents',
-      'add_message',
-      'set_output',
       'end_turn',
     ] satisfies ToolName[],
     spawnableAgents: [],
@@ -131,9 +45,11 @@ export const agentBuilder = (
       '## Environment Setup Complete',
       '',
       'Your environment has been automatically prepared with:',
-      '- Agent template type definitions in `.agents/types/agent-definition.d.ts`',
-      '- Tool type definitions in `.agents/types/tools.d.ts`',
-      '- Example agent files copied to `.agents/` directory for reference',
+      '- Agent template type definitions in `.agents/types/agent-definition.ts`',
+      '- Tool type definitions in `.agents/types/tools.ts`',
+      '- Example agent files copied to `.agents/examples/` directory for reference',
+      '- Documentation in `.agents/README.md`',
+      '- Your own agent template in `.agents/my-custom-agent.ts`',
       '',
       'All necessary files are now available in your working directory.',
       '',
@@ -141,7 +57,7 @@ export const agentBuilder = (
       '',
       'Here are the complete TypeScript type definitions for creating custom Codebuff agents:',
       '```typescript',
-      agentTemplateContent,
+      agentDefinitionContent,
       '```',
       '',
       '## Available Tools Type Definitions',
@@ -149,7 +65,7 @@ export const agentBuilder = (
       'Here are the complete TypeScript type definitions for all available tools:',
       '',
       '```typescript',
-      toolDefinitionsContent,
+      toolsDefinitionContent,
       '```',
       '',
       '## Agent Template Patterns:',
@@ -185,14 +101,14 @@ export const agentBuilder = (
 
 Your environment has been automatically set up with:
 - Type definitions in \`.agents/types/\`
-- Example agent files in \`.agents/\` directory
+- Example agent files in \`.agents/examples/\` directory
 - All necessary scaffolding complete
 
 You can now proceed directly to agent creation or editing.
 
 ## Example Agents Available
 
-Three example agents are now available in your \`.agents/\` directory which are all diff reviewers of increasing complexity. These can serve as examples of well-made agents at different stages of complexity.
+Three example agents are now available in your \`.agents/examples/\` directory which are all diff reviewers of increasing complexity. These can serve as examples of well-made agents at different stages of complexity.
 
 **IMPORTANT**: Examine these examples to find connections and patterns that relate to the user's request. Look for:
 - Similar tool combinations
@@ -219,70 +135,5 @@ The agent builder is focused on creating new agent templates based on user speci
 
 IMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.`,
     stepPrompt: '',
-
-    handleSteps: function* ({ agentState, prompt, params }) {
-      // Step 1: Create directory structure
-      yield {
-        toolName: 'run_terminal_command',
-        args: {
-          command: `mkdir -p ${TYPES_DIR} && mkdir -p ${EXAMPLES_DIR}`,
-          process_type: 'SYNC',
-          timeout_seconds: 10,
-        },
-      }
-
-      // Step 2: Write the AGENT_DEFINITION_FILE with the template content
-      yield {
-        toolName: 'write_file',
-        args: {
-          path: TEMPLATE_TYPES_PATH,
-          instructions: 'Create agent template type definitions file',
-          content: agentTemplateContent,
-        },
-      }
-
-      // Step 3: Write the tool definitions file (copy from existing tools.d.ts)
-      yield {
-        toolName: 'write_file',
-        args: {
-          path: TOOL_DEFINITIONS_PATH,
-          instructions: 'Create tools type file',
-          content: toolDefinitionsContent,
-        },
-      }
-
-      // Step 4: Add message about reading example files and then read them
-      yield {
-        toolName: 'add_message',
-        args: {
-          role: 'assistant',
-          content:
-            "I'll read the example agent files to understand the patterns and then help you create your agent.",
-        },
-      }
-
-      // Step 5: Copy example agent files to .agents/ directory
-      for (const [filename, content] of Object.entries(exampleAgentContents)) {
-        if (content) {
-          // Copy your-custom-agent.ts to top level .agents directory, others to examples
-          const targetPath =
-            filename === 'your-custom-agent.ts'
-              ? `${AGENT_TEMPLATES_DIR}/${filename}`
-              : `${EXAMPLES_DIR}/${filename}`
-
-          yield {
-            toolName: 'write_file',
-            args: {
-              path: targetPath,
-              instructions: `Copy ${filename === 'your-custom-agent.ts' ? 'custom agent template' : 'example agent'} file ${filename}`,
-              content: content,
-            },
-          }
-        }
-      }
-
-      // Step 6: Complete agent creation process
-      yield 'STEP_ALL'
-    },
   }
 }

@@ -6,7 +6,7 @@ import type {
 const definition: AgentDefinition = {
   id: 'diff-reviewer-2',
   displayName: 'Diff Reviewer (Level 2)',
-  model: 'openai/gpt-5',
+  model: 'anthropic/claude-4-sonnet-20250522',
 
   inputSchema: {
     prompt: {

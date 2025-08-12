@@ -5,9 +5,8 @@ import type {
 
 const definition: AgentDefinition = {
   id: 'diff-reviewer-3',
-
   displayName: 'Diff Reviewer (Level 3)',
-  model: 'openai/gpt-5',
+  model: 'anthropic/claude-4-sonnet-20250522',
   inputSchema: {
     prompt: {
       type: 'string',
@@ -18,7 +17,7 @@ const definition: AgentDefinition = {
   outputMode: 'last_message',
 
   toolNames: ['read_files', 'run_terminal_command', 'spawn_agents'],
-  spawnableAgents: ['james/file-explorer@0.1.3'],
+  spawnableAgents: ['codebuff/file-explorer@0.0.1'],
 
   spawnPurposePrompt:
     'Spawn when you need to review code changes in the git diff',
@@ -77,23 +76,11 @@ Use the following guidelines while reviewing the changes:
       args: {
         role: 'assistant',
         content:
-          'Now I will spawn a file explorer to find any missing codebase context.',
+          'Now I will spawn a file explorer to find any missing codebase context, and then review the changes.',
       },
     }
 
-    yield 'STEP'
-
-    // Step 5: Put words in the AI's mouth to review the changes.
-    yield {
-      toolName: 'add_message',
-      args: {
-        role: 'assistant',
-        content: 'Here is my comprehensive review of the changes.',
-      },
-    }
-
-    // Step 6: Let AI review the changes in a final step. (The last message is also the agent's output.)
-    yield 'STEP'
+    yield 'STEP_ALL'
   },
 }
 

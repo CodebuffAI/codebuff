@@ -1,8 +1,21 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
+// Import files to replicate in the user's .agents directory:
+
+// import readme from '../../../.agents/README.md' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import agentDefinitionTypes from '../../../.agents/types/agent-definition' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import toolsTypes from '../../../.agents/types/tools' with { type: 'text' }
+import diffReviewer1 from '../../../.agents/examples/diff-reviewer-1' with { type: 'text' }
+import diffReviewer2 from '../../../.agents/examples/diff-reviewer-2' with { type: 'text' }
+import diffReviewer3 from '../../../.agents/examples/diff-reviewer-3' with { type: 'text' }
+import myCustomAgent from '../../../.agents/my-custom-agent' with { type: 'text' }
+// @ts-ignore - It complains about the .md file, but it works.
+import readmeContent from '../../../.agents/README.md' with { type: 'text' }
+
 import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import {
   filterCustomAgentFiles,
   extractAgentIdFromFileName,
@@ -541,34 +554,83 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
 }
 
 async function startDirectAgentCreation(onExit: () => void) {
-  // Switch to agent-builder which automatically spawns Bob the Agent Builder for agent creation
-  const prompt = `Create a new custom agent template for me. Please ask me what kind of agent I'd like to create and help me build it.`
-
-  console.log(
-    green(
-      '\n🤖 Starting agent creation with Buffy the Enthusiastic Agent Builder...',
-    ),
-  )
-  console.log(
-    gray(
-      'Buffy will connect you with Bob the Agent Builder to create your custom agent.',
-    ),
-  )
-
   try {
-    const cliInstance = CLI.getInstance()
-    // Switch to agent-builder which automatically spawns the agent builder for agent creation
-    await cliInstance.resetAgent(
-      AgentTemplateTypes.agent_builder,
-      undefined,
-      prompt,
+    await createExampleAgentFiles()
+    console.log(green('\n✅ Created example agent files in .agents directory!'))
+    console.log(
+      gray('Check out the files and edit them to create your custom agents.'),
     )
-    cliInstance.freshPrompt()
+    console.log(
+      gray('Run "codebuff --agent your-agent-id" to test your agents.'),
+    )
   } catch (error) {
-    console.error(red('Error starting agent creation:'), error)
+    console.error(red('Error creating example files:'), error)
   }
 
   onExit()
+}
+
+async function createExampleAgentFiles() {
+  const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
+  const typesDir = path.join(agentsDir, 'types')
+  const examplesDir = path.join(agentsDir, 'examples')
+
+  // Create directories
+  if (!fs.existsSync(agentsDir)) {
+    fs.mkdirSync(agentsDir, { recursive: true })
+  }
+  if (!fs.existsSync(typesDir)) {
+    fs.mkdirSync(typesDir, { recursive: true })
+  }
+  if (!fs.existsSync(examplesDir)) {
+    fs.mkdirSync(examplesDir, { recursive: true })
+  }
+
+  const filesToCreate = [
+    {
+      path: path.join(agentsDir, 'README.md'),
+      content: readmeContent,
+      description: 'Documentation for your agents',
+    },
+    {
+      path: path.join(typesDir, 'agent-definition.ts'),
+      content: agentDefinitionTypes,
+      description: 'TypeScript type definitions for agents',
+    },
+    {
+      path: path.join(typesDir, 'tools.ts'),
+      content: toolsTypes,
+      description: 'TypeScript type definitions for tools',
+    },
+    {
+      path: path.join(agentsDir, 'my-custom-agent.ts'),
+      content: myCustomAgent,
+      description: 'Your first custom agent example',
+    },
+    {
+      path: path.join(examplesDir, 'diff-reviewer-1.ts'),
+      content: diffReviewer1,
+      description: 'Diff reviewer agent example 1',
+    },
+    {
+      path: path.join(examplesDir, 'diff-reviewer-2.ts'),
+      content: diffReviewer2,
+      description: 'Diff reviewer agent example 2',
+    },
+    {
+      path: path.join(examplesDir, 'diff-reviewer-3.ts'),
+      content: diffReviewer3,
+      description: 'Diff reviewer agent example 3',
+    },
+  ]
+
+  console.log(green('\n📁 Creating agent files:'))
+
+  for (const file of filesToCreate) {
+    fs.writeFileSync(file.path, file.content)
+    const relativePath = path.relative(getProjectRoot(), file.path)
+    console.log(gray(`  ✓ ${relativePath} - ${file.description}`))
+  }
 }
 
 // Cleanup function

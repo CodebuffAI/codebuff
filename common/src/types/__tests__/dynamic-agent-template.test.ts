@@ -1,6 +1,6 @@
-import { publishedTools } from 'src/tools/list'
-import type { AgentDefinition } from '../../util/types/agent-definition'
+import type { AgentDefinition } from '../agent-definition'
 import type { DynamicAgentDefinition } from '../dynamic-agent-template'
+import type { publishedTools } from '../../tools/list'
 
 // Create a version of DynamicAgentDefinition where handleSteps is compatible with AgentDefinition
 
