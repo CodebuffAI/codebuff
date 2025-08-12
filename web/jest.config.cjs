@@ -11,6 +11,7 @@ const config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^common/(.*)$': '<rootDir>/../common/src/$1',
+    '^@codebuff/internal/xml-parser$': '<rootDir>/src/test-stubs/xml-parser.ts',
   },
 }
 
