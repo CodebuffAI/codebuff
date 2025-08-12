@@ -1,25 +1,23 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-// Import files to replicate in the user's .agents directory:
-
 import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
 import {
   filterCustomAgentFiles,
   extractAgentIdFromFileName,
 } from '@codebuff/common/util/agent-file-utils'
 import { green, yellow, cyan, magenta, bold, gray, red } from 'picocolors'
-
-import basicDiffReviewer from '../../../.agents/examples/01-basic-diff-reviewer' with { type: 'text' }
-import intermediateGitCommitter from '../../../.agents/examples/02-intermediate-git-committer' with { type: 'text' }
-import advancedFileExplorer from '../../../.agents/examples/03-advanced-file-explorer' with { type: 'text' }
-// @ts-ignore - No default import, but we are importing as text so it's fine
-import agentDefinitionTypes from '../../../.agents/types/agent-definition' with { type: 'text' }
-// @ts-ignore - No default import, but we are importing as text so it's fine
-import toolsTypes from '../../../.agents/types/tools' with { type: 'text' }
+// Import files to replicate in the user's .agents directory. Bun bundler requires relative paths.
 // @ts-ignore - It complains about the .md file, but it works.
-import readmeContent from '../../../.agents/README.md' with { type: 'text' }
-import myCustomAgent from '../../../.agents/my-custom-agent' with { type: 'text' }
+import readmeContent from '../../../common/src/templates/initial-agents-dir/README.md' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import agentDefinitionTypes from '../../../common/src/templates/initial-agents-dir/types/agent-definition' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import toolsTypes from '../../../common/src/templates/initial-agents-dir/types/tools' with { type: 'text' }
+import basicDiffReviewer from '../../../common/src/templates/initial-agents-dir/examples/01-basic-diff-reviewer' with { type: 'text' }
+import intermediateGitCommitter from '../../../common/src/templates/initial-agents-dir/examples/02-intermediate-git-committer' with { type: 'text' }
+import advancedFileExplorer from '../../../common/src/templates/initial-agents-dir/examples/03-advanced-file-explorer' with { type: 'text' }
+import myCustomAgent from '../../../common/src/templates/initial-agents-dir/my-custom-agent' with { type: 'text' }
 
 import { loadLocalAgents, getLoadedAgentNames } from '../agents/load-agents'
 import { CLI } from '../cli'

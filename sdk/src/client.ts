@@ -12,9 +12,9 @@ import {
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import { getInitialSessionState } from '../../common/src/types/session-state'
 
-import type { AgentDefinition } from '../../common/src/types/agent-definition'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
+import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
