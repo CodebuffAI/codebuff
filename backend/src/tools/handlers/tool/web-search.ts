@@ -32,6 +32,10 @@ export const handleWebSearch = ((params: {
   } = params
   const { query, depth } = toolCall.args
   const { userId, fingerprintId, repoId } = state
+
+  // Add defaulting so tests see 'standard' depth at call site
+  const searchDepth = depth ?? 'standard'
+
   if (!fingerprintId) {
     throw new Error(
       'Internal error for web_search: Missing fingerprintId in state',
@@ -42,7 +46,7 @@ export const handleWebSearch = ((params: {
   const searchContext = {
     toolCallId: toolCall.toolCallId,
     query,
-    depth,
+    depth: searchDepth,
     userId,
     agentStepId,
     clientSessionId,
@@ -53,7 +57,8 @@ export const handleWebSearch = ((params: {
 
   const webSearchPromise: Promise<string> = (async () => {
     try {
-      const searchResult = await searchWeb(query, { depth })
+      // Use defaulted depth when calling underlying API
+      const searchResult = await searchWeb(query, { depth: searchDepth })
       const searchDuration = Date.now() - searchStartTime
       const resultLength = searchResult?.length || 0
       const hasResults = Boolean(searchResult && searchResult.trim())
@@ -62,7 +67,7 @@ export const handleWebSearch = ((params: {
       let creditResult = null
       if (userId) {
         const creditsToCharge = Math.round(
-          (depth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN),
+          (searchDepth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN),
         )
         const requestContext = getRequestContext()
         const repoUrl = requestContext?.processedRepoUrl
@@ -94,7 +99,7 @@ export const handleWebSearch = ((params: {
           resultLength,
           hasResults,
           creditsCharged: creditResult?.success
-            ? depth === 'deep'
+            ? searchDepth === 'deep'
               ? 5
               : 1
             : 0,
