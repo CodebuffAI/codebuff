@@ -1,4 +1,4 @@
-import z from 'zod/v4'
+import z from 'zod'
 
 import type { ToolParams } from '../../constants'
 
@@ -11,12 +11,11 @@ export const setMessagesParams = {
     .object({
       messages: z.array(
         z
-          .object({
+          // Make sure to pass through any additional properties!
+          .looseObject({
             role: z.enum(['user', 'assistant']),
             content: z.string(),
-          })
-          // Make sure to pass through any additional properties!
-          .passthrough(),
+          }),
       ),
     })
     .describe(`Set the conversation history to the provided messages.`),

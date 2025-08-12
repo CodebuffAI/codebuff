@@ -86,7 +86,7 @@ function validateArgs(args: WorktreeArgs): ValidationError[] {
   const result = WorktreeArgsSchema.safeParse(args)
 
   if (!result.success) {
-    return result.error.errors.map((err) => ({
+    return result.error.issues.map((err) => ({
       field: err.path.join('.'),
       message: err.message,
     }))

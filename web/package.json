@@ -91,7 +91,7 @@
     "three-globe": "^2.42.3",
     "ts-pattern": "^5.7.0",
     "use-debounce": "^10.0.4",
-    "zod": "3.25.67"
+    "zod": "4.0.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",

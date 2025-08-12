@@ -1,5 +1,5 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import z from 'zod/v4'
+import z from 'zod'
 
 import { PLACEHOLDER } from '../../types'
 

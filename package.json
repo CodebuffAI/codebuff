@@ -38,10 +38,10 @@
   },
   "dependencies": {
     "@t3-oss/env-nextjs": "^0.7.3",
-    "zod": "3.25.67"
+    "zod": "4.0.0"
   },
   "overrides": {
-    "zod": "3.25.67"
+    "zod": "4.0.0"
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.59.16",
