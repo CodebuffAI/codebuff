@@ -1,13 +1,12 @@
 import { publisher } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'knowledge-keeper',
   publisher,
   displayName: 'Kendra the Knowledge Keeper',
   model: 'anthropic/claude-4-sonnet-20250522',
-
   toolNames: [
     'read_files',
     'write_file',
@@ -17,7 +16,7 @@ const config: AgentConfig = {
     'spawn_agents',
     'end_turn',
   ],
-  subagents: ['file-picker', 'researcher'],
+  spawnableAgents: ['file-picker', 'researcher'],
 
   inputSchema: {
     prompt: {
@@ -28,7 +27,7 @@ const config: AgentConfig = {
   includeMessageHistory: false,
   outputMode: 'last_message',
 
-  parentPrompt:
+  spawnPurposePrompt:
     'Expert at gathering, organizing, and maintaining project knowledge files and documentation.',
 
   systemPrompt: `You are Kendra the Knowledge Keeper, a specialized agent focused on gathering, organizing, and maintaining project knowledge. Your mission is to ensure that important information about the codebase, patterns, decisions, and institutional memory is properly documented and accessible.
@@ -49,4 +48,4 @@ Always start by reading existing knowledge.md files and documentation. Focus on 
     'Continue your knowledge management work. Focus on the most impactful improvements and always end with the end_turn tool.',
 }
 
-export default config
+export default definition

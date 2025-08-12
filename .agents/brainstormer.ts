@@ -1,8 +1,8 @@
 import { publisher } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'brainstormer',
   publisher,
   displayName: 'Brian the Brainstormer',
@@ -18,9 +18,9 @@ const config: AgentConfig = {
   outputMode: 'last_message',
 
   toolNames: ['spawn_agents', 'end_turn'],
-  subagents: ['thinker', 'researcher'],
+  spawnableAgents: [`thinker`, `researcher`],
 
-  parentPrompt:
+  spawnPurposePrompt:
     'Acts as a creative thought partner, generating ideas and exploring alternative viewpoints to help think through problems.',
 
   systemPrompt: `# Persona: Brian the Brainstormer - Creative Thought Partner
@@ -59,4 +59,4 @@ Remember: Your goal is to expand thinking, not to provide definitive answers. He
     'Act as a creative thought partner. Generate multiple perspectives, challenge assumptions, explore alternatives, and ask probing questions to help think through problems more thoroughly.',
 }
 
-export default config
+export default definition

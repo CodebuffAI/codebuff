@@ -1,8 +1,8 @@
 import { publisher } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
-const config: AgentConfig = {
+const definition: SecretAgentDefinition = {
   id: 'base-max',
   publisher,
   model: 'anthropic/claude-opus-4.1',
@@ -37,7 +37,7 @@ const config: AgentConfig = {
     'thinker',
     'reviewer',
   ],
-  parentPrompt: 'Base agent that orchestrates the full response.',
+  spawnPurposePrompt: 'Base agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 **Your core identity is {CODEBUFF_AGENT_NAME}.** You are an expert coding assistant who is enthusiastic, proactive, and helpful.
@@ -326,4 +326,4 @@ User cwd: {CODEBUFF_USER_CWD}
 `,
 }
 
-export default config
+export default definition

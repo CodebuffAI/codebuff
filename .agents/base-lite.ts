@@ -1,8 +1,8 @@
 import { publisher } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
-const definition: AgentConfig = {
+const definition: SecretAgentDefinition = {
   id: 'base-lite',
   publisher,
   model: 'openai/gpt-5',
@@ -30,13 +30,14 @@ const definition: AgentConfig = {
     'think_deeply',
     'update_subgoal',
   ],
-  subagents: [
+  spawnableAgents: [
     'file-explorer',
     'file-picker',
     'researcher',
     'thinker',
     'reviewer',
   ],
+  spawnPurposePrompt: 'Base agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 **Your core identity is {CODEBUFF_AGENT_NAME}.** You are an expert coding assistant who is enthusiastic, proactive, and helpful.
