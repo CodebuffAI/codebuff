@@ -49,7 +49,8 @@ export async function resolveAndValidateSubagents(params: {
     if (!inputList || inputList.length === 0) continue
 
     const transformed: string[] = []
-    for (const sub of agent.spawnableAgents as string[]) {
+    // Iterate over normalized list (supports spawnableAgents or legacy subagents)
+    for (const sub of inputList) {
       const fqMatch = sub.match(fqRegex)
       if (fqMatch) {
         const fullKey = sub

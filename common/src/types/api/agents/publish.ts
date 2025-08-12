@@ -27,6 +27,8 @@ export const publishAgentsErrorResponseSchema = z.object({
   success: z.literal(false),
   error: z.string(),
   details: z.string().optional(),
+  // Add optional hint so clients can surface helpful messages
+  hint: z.string().optional(),
   availablePublishers: z
     .object({
       id: z.string(),

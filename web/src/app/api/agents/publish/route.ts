@@ -233,24 +233,6 @@ export async function POST(request: NextRequest) {
     )
     const publishedAgentIds = await getPublishedAgentIds(requestedPublisherId)
 
-    for (const agent of agents) {
-      if (agent.spawnableAgents) {
-        for (const subagent of agent.spawnableAgents) {
-          const versionMatch = subagent.match(/^([^/]+)\/(.+)@(.+)$/)
-          if (!versionMatch) {
-            return NextResponse.json(
-              {
-                error: 'Invalid spawnable agent format',
-                details: `Agent '${agent.id}' references spawnable agent '${subagent}' with an invalid format. Expected format: {publisherId}/{agentId}@{version}`,
-              },
-              { status: 400 }
-            )
-          }
-        }
-      }
-    }
-
-    // Add helper to check if a subagent is included in this publish or already published
     const existsInSamePublisher = (full: string) =>
       publishingAgentIds.has(full) || publishedAgentIds.has(full)
 
@@ -293,7 +275,11 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       if (err instanceof SubagentResolutionError) {
         return NextResponse.json(
-          { error: 'Invalid spawnable agent', details: err.message },
+          {
+            error: 'Invalid spawnable agent',
+            details: err.message,
+            hint: "To fix this, also publish the referenced agent (include it in the same request's data array, or publish it first for the same publisher).",
+          },
           { status: 400 }
         )
       }
