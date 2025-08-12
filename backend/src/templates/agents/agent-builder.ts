@@ -6,7 +6,6 @@ import {
   openrouterModels,
   AGENT_DEFINITION_FILE,
 } from '@codebuff/common/constants'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
 
 import type { AgentTemplate } from '../types'
@@ -64,7 +63,10 @@ export const agentBuilder = (
 
       files
         .filter(
-          (file) => file.endsWith('.ts') && file.startsWith('diff-reviewer'),
+          (file) =>
+            file.endsWith('.ts') &&
+            (file.startsWith('diff-reviewer') ||
+              file === 'your-custom-agent.ts'),
         )
         .forEach((filename) => {
           try {
@@ -119,15 +121,7 @@ export const agentBuilder = (
       'set_output',
       'end_turn',
     ] satisfies ToolName[],
-    spawnableAgents: allAvailableAgents
-      ? (allAvailableAgents as any[])
-      : [
-          AgentTemplateTypes.file_picker,
-          AgentTemplateTypes.researcher,
-          AgentTemplateTypes.thinker,
-          AgentTemplateTypes.reviewer,
-          AgentTemplateTypes.agent_builder,
-        ],
+    spawnableAgents: [],
 
     systemPrompt: [
       '# Bob the Agent Builder',
@@ -270,11 +264,17 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
       // Step 5: Copy example agent files to .agents/ directory
       for (const [filename, content] of Object.entries(exampleAgentContents)) {
         if (content) {
+          // Copy your-custom-agent.ts to top level .agents directory, others to examples
+          const targetPath =
+            filename === 'your-custom-agent.ts'
+              ? `${AGENT_TEMPLATES_DIR}/${filename}`
+              : `${EXAMPLES_DIR}/${filename}`
+
           yield {
             toolName: 'write_file',
             args: {
-              path: `${EXAMPLES_DIR}/${filename}`,
-              instructions: `Copy example agent file ${filename}`,
+              path: targetPath,
+              instructions: `Copy ${filename === 'your-custom-agent.ts' ? 'custom agent template' : 'example agent'} file ${filename}`,
               content: content,
             },
           }
