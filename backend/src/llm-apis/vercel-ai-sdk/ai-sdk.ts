@@ -270,7 +270,7 @@ export const promptAiSdk = async function (
 // Copied over exactly from promptAiSdk but with a schema
 export const promptAiSdkStructured = async function <T>(options: {
   messages: CodebuffMessage[]
-  schema: z.ZodType<T, z.ZodTypeDef, any>
+  schema: z.ZodType<T>
   clientSessionId: string
   fingerprintId: string
   userInputId: string

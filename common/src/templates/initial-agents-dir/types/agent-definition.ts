@@ -62,7 +62,7 @@ export interface AgentDefinition {
    */
   inputSchema?: {
     prompt?: { type: 'string'; description?: string }
-    params?: JsonSchema
+    params?: JsonObjectSchema
   }
 
   /** Whether to include conversation history from the parent agent in context.
@@ -83,7 +83,7 @@ export interface AgentDefinition {
   outputMode?: 'last_message' | 'all_messages' | 'structured_output'
 
   /** JSON schema for structured output (when outputMode is 'structured_output') */
-  outputSchema?: JsonSchema
+  outputSchema?: JsonObjectSchema
 
   // ============================================================================
   // Prompts
@@ -198,12 +198,22 @@ export type ToolCall<T extends ToolName = ToolName> = {
 /**
  * JSON Schema definition (for prompt schema or output schema)
  */
-export interface JsonSchema {
-  type: string
-  properties?: Record<string, any>
+export type JsonSchema = {
+  type?:
+    | 'object'
+    | 'array'
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'null'
+    | 'integer'
+  description?: string
+  properties?: Record<string, JsonSchema | boolean>
   required?: string[]
-  [key: string]: any
+  enum?: Array<string | number | boolean | null>
+  [k: string]: unknown
 }
+export type JsonObjectSchema = JsonSchema & { type: 'object' }
 
 // ============================================================================
 // Available Tools

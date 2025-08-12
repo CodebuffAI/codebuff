@@ -1,5 +1,5 @@
 import type { ToolResultPart } from 'ai'
-import type z from 'zod/v4'
+import type z from 'zod'
 
 export const toolNameParam = 'cb_tool_name'
 export const endsAgentStepParam = 'cb_easp'

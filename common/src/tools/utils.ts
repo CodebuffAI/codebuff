@@ -8,7 +8,7 @@ import { llmToolCallSchema } from './list'
 import { closeXml } from '../util/xml'
 
 import type { StringToolResultPart, ToolName } from './constants'
-import type z from 'zod/v4'
+import type z from 'zod'
 
 export function getToolCallString<T extends ToolName | (string & {})>(
   toolName: T,

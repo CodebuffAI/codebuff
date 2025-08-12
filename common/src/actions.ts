@@ -134,7 +134,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     userInputId: z.string(),
     requestId: z.string(),
     toolName: z.string(),
-    args: z.record(z.any()),
+    args: z.record(z.string(), z.any()),
     timeout: z.number().optional(),
   }),
   InitResponseSchema,

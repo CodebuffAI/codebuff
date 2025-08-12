@@ -1,7 +1,7 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { generateCompactId } from '@codebuff/common/util/string'
-import z from 'zod/v4'
+import z from 'zod'
 
 import { checkLiveUserInput } from '../live-user-inputs'
 import { logger } from '../util/logger'

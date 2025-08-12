@@ -86,11 +86,10 @@ export async function genUsageResponse(
     type: 'usage-response' as const,
     usage: 0,
     remainingBalance: 0,
-    balanceBreakdown: {},
     next_quota_reset: null,
-  }
+  } satisfies UsageResponse
 
-  return withLoggerContext(logContext, async () => {
+  return withLoggerContext<UsageResponse>(logContext, async () => {
     const user = await db.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: {
@@ -113,7 +112,7 @@ export async function genUsageResponse(
         remainingBalance: balanceDetails.totalRemaining,
         balanceBreakdown: balanceDetails.breakdown,
         next_quota_reset: user.next_quota_reset,
-      }
+      } satisfies UsageResponse
     } catch (error) {
       logger.error(
         { error, usage: defaultResp },
@@ -257,7 +256,6 @@ const onInit = async (
       sendAction(ws, {
         usage: 0,
         remainingBalance: 0,
-        balanceBreakdown: {},
         next_quota_reset: null,
         type: 'init-response',
       })
