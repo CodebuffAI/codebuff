@@ -99,9 +99,10 @@ describe('web_search tool with researcher agent', () => {
     displayName: 'Researcher',
     model: 'openai/gpt-4o-mini',
     toolNames: ['web_search', 'end_turn'],
-    handleSteps: function* () {
-      /* minimal no-op to satisfy loader */
-    },
+    systemPrompt: '',
+    stepPrompt: '',
+    instructionsPrompt: '',
+    spawnableAgents: [],
   } as any
 
   // Wrap assembleLocalAgentTemplates to include the researcher template
