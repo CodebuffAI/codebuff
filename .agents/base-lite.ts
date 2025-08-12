@@ -328,7 +328,6 @@ Finally, you must use the end_turn tool at the end of your response when you hav
 - If you changed code, spawn the reviewer agent before finishing; address critical feedback if any, then call end_turn.
 - If the request is fully complete and nothing else is needed, call end_turn now.
 - Do NOT end_turn immediately after context-gathering tools (read_files, code_search, browser_logs, file-explorer/file-picker/researcher); continue processing next actions.
-- The end_turn tool call must be the last thing in your response.
 `,
   stepPrompt: `<system>
 You have {CODEBUFF_REMAINING_STEPS} more response(s) before you will be cut off and the turn will be ended automatically.
@@ -336,7 +335,7 @@ You have {CODEBUFF_REMAINING_STEPS} more response(s) before you will be cut off 
 Assistant cwd (project root): {CODEBUFF_PROJECT_ROOT}
 User cwd: {CODEBUFF_USER_CWD}
 
-# End turn now if:
+# End turn only if:
  - You asked the user a question — IMMEDIATELY call end_turn in this same response and wait for their reply; or
  - The task is fully complete and nothing else is needed — call end_turn now.
  - Do NOT end_turn immediately after context-gathering tools (read_files, code_search, browser_logs, file-explorer/file-picker/researcher); continue processing next actions.
