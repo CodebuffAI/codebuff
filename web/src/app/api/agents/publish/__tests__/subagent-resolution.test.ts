@@ -3,13 +3,13 @@ import { resolveAndValidateSubagents, SubagentResolutionError, type AgentVersion
 describe('resolveAndValidateSubagents', () => {
   const requestedPublisherId = 'me'
 
-  function makeAgents(entries: { id: string; version: string; subagents?: string[] }[]): AgentVersionEntry[] {
-    return entries.map((e) => ({ id: e.id, version: e.version, data: { id: e.id, version: e.version, subagents: e.subagents } }))
+  function makeAgents(entries: { id: string; version: string; spawnableAgents?: string[] }[]): AgentVersionEntry[] {
+    return entries.map((e) => ({ id: e.id, version: e.version, data: { id: e.id, version: e.version, spawnableAgents: e.spawnableAgents } }))
   }
 
   test('simple same-publisher id resolves to batch version when present', async () => {
     const agents = makeAgents([
-      { id: 'file-explorer', version: '1.0.10', subagents: ['file-picker'] },
+      { id: 'file-explorer', version: '1.0.10', spawnableAgents: ['file-picker'] },
       { id: 'file-picker', version: '1.0.11' },
     ])
 
@@ -23,12 +23,12 @@ describe('resolveAndValidateSubagents', () => {
       getLatestPublishedVersion: latest,
     })
 
-    expect(agents[0].data.subagents).toEqual(['me/file-picker@1.0.11'])
+    expect(agents[0].data.spawnableAgents).toEqual(['me/file-picker@1.0.11'])
   })
 
   test('simple same-publisher id resolves to latest published when not in batch', async () => {
     const agents = makeAgents([
-      { id: 'file-explorer', version: '1.0.10', subagents: ['file-picker'] },
+      { id: 'file-explorer', version: '1.0.10', spawnableAgents: ['file-picker'] },
     ])
 
     const exists = (full: string) => full === 'me/file-explorer@1.0.10' || full === 'me/file-picker@1.0.9'
@@ -36,12 +36,12 @@ describe('resolveAndValidateSubagents', () => {
 
     await resolveAndValidateSubagents({ agents, requestedPublisherId, existsInSamePublisher: exists, getLatestPublishedVersion: latest })
 
-    expect(agents[0].data.subagents).toEqual(['me/file-picker@1.0.9'])
+    expect(agents[0].data.spawnableAgents).toEqual(['me/file-picker@1.0.9'])
   })
 
   test('fully-qualified same-publisher refs are kept and validated', async () => {
     const agents = makeAgents([
-      { id: 'file-explorer', version: '1.0.10', subagents: ['me/file-picker@1.0.8'] },
+      { id: 'file-explorer', version: '1.0.10', spawnableAgents: ['me/file-picker@1.0.8'] },
     ])
 
     const exists = (full: string) => full === 'me/file-picker@1.0.8' || full === 'me/file-explorer@1.0.10'
@@ -49,12 +49,12 @@ describe('resolveAndValidateSubagents', () => {
 
     await resolveAndValidateSubagents({ agents, requestedPublisherId, existsInSamePublisher: exists, getLatestPublishedVersion: latest })
 
-    expect(agents[0].data.subagents).toEqual(['me/file-picker@1.0.8'])
+    expect(agents[0].data.spawnableAgents).toEqual(['me/file-picker@1.0.8'])
   })
 
   test('cross-publisher simple refs resolve to latest without same-publisher validation', async () => {
     const agents = makeAgents([
-      { id: 'file-explorer', version: '1.0.10', subagents: ['other/file-picker'] },
+      { id: 'file-explorer', version: '1.0.10', spawnableAgents: ['other/file-picker'] },
     ])
 
     const exists = (full: string) => full === 'me/file-explorer@1.0.10'
@@ -62,12 +62,12 @@ describe('resolveAndValidateSubagents', () => {
 
     await resolveAndValidateSubagents({ agents, requestedPublisherId, existsInSamePublisher: exists, getLatestPublishedVersion: latest })
 
-    expect(agents[0].data.subagents).toEqual(['other/file-picker@2.0.1'])
+    expect(agents[0].data.spawnableAgents).toEqual(['other/file-picker@2.0.1'])
   })
 
   test('throws when simple ref has no published versions', async () => {
     const agents = makeAgents([
-      { id: 'file-explorer', version: '1.0.10', subagents: ['missing'] },
+      { id: 'file-explorer', version: '1.0.10', spawnableAgents: ['missing'] },
     ])
 
     const exists = (full: string) => full === 'me/file-explorer@1.0.10'
@@ -80,7 +80,7 @@ describe('resolveAndValidateSubagents', () => {
 
   test('throws when fully-qualified same-publisher ref does not exist', async () => {
     const agents = makeAgents([
-      { id: 'file-explorer', version: '1.0.10', subagents: ['me/file-picker@1.0.0'] },
+      { id: 'file-explorer', version: '1.0.10', spawnableAgents: ['me/file-picker@1.0.0'] },
     ])
 
     const exists = (full: string) => full === 'me/file-explorer@1.0.10' // not the picker

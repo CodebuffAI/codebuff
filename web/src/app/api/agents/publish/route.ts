@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Simplified: build small helpers then delegate to the pure resolver
+    // Verify that all spawnable agents are either published or part of this request
     const publishingAgentIds = new Set(
       agentVersions.map(
         (agent) =>

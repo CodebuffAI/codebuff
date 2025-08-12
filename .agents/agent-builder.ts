@@ -2,11 +2,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import type { AgentDefinition } from './types/agent-definition'
+
 const agentDefinitionContent = fs.readFileSync(
   path.join(__dirname, 'types/agent-definition.ts'),
   'utf8',
 )
-// @ts-ignore - No default import, but we are importing as text so it's fine
 const toolsDefinitionContent = fs.readFileSync(
   path.join(__dirname, 'types/tools.ts'),
   'utf8',
