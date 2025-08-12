@@ -1,10 +1,9 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'thinker',
-  version,
   publisher,
   model: 'x-ai/grok-4-07-09',
   displayName: 'Theo the Theorizer',

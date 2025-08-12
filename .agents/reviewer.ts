@@ -1,10 +1,9 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'reviewer',
-  version,
   publisher,
   model: 'gemini-2.5-pro-preview-06-05',
   displayName: 'Nit Pick Nick the Reviewer',

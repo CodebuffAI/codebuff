@@ -1,10 +1,9 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'knowledge-keeper',
-  version,
   publisher,
   displayName: 'Kendra the Knowledge Keeper',
   model: 'anthropic/claude-4-sonnet-20250522',

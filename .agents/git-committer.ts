@@ -1,10 +1,9 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentConfig, AgentStepContext } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'git-committer',
-  version,
   publisher,
   displayName: 'Git Committer',
   model: 'anthropic/claude-4-sonnet-20250522',

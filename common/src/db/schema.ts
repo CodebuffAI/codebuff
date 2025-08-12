@@ -461,9 +461,7 @@ export const publisher = pgTable(
 export const agentConfig = pgTable(
   'agent_config',
   {
-    id: text('id')
-      .notNull()
-      .$defaultFn(() => crypto.randomUUID()),
+    id: text('id').notNull(),
     version: text('version').notNull(), // Semantic version e.g., '1.0.0'
     publisher_id: text('publisher_id')
       .notNull()

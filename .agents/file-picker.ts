@@ -1,10 +1,9 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'file-picker',
-  version,
   publisher,
   model: 'gemini-2.5-flash-preview-05-20',
   displayName: 'Fletcher the File Fetcher',

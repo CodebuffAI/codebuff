@@ -1,10 +1,9 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'claude4-gemini-thinking',
-  version,
   publisher,
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Buffy the Enthusiastic Coding Assistant',

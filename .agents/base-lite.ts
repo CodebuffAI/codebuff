@@ -1,10 +1,9 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'base-lite',
-  version,
   publisher,
   model: 'openai/gpt-5',
   displayName: 'Buffy the Enthusiastic Coding Assistant',

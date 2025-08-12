@@ -1,10 +1,9 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'researcher',
-  version,
   publisher,
   model: 'gemini-2.5-flash-preview-05-20',
   displayName: 'Reid Searcher the Researcher',
@@ -34,6 +33,7 @@ In your report, provide a thorough analysis that includes:
 - Actionable recommendations
 
 Always end your response with the end_turn tool.`,
+  instructionsPrompt: `Conduct thorough research on the given topic. Start with web searches to gather current information, then use documentation sources for detailed insights. Provide a comprehensive analysis with actionable recommendations.`,
   stepPrompt: "Don't forget to end your response with the end_turn tool.",
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {

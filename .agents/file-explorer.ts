@@ -1,14 +1,19 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentConfig } from './types/agent-config'
 
 const config: AgentConfig = {
   id: 'file-explorer',
-  version,
   publisher,
   displayName: 'Dora the File Explorer',
   parentPrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
+  systemPrompt:
+    'You are a file-explorer agent. Your role is to orchestrate multiple file-picker agents to identify the most relevant files and directories for a given goal and focus prompts.',
+  instructionsPrompt:
+    'Given a user goal and 1-4 focus prompts, spawn file-picker agents in parallel. Each file-picker should search for files strongly related to its focus area. Aggregate and return their results without alteration.',
+  stepPrompt:
+    '1) Parse the overall goal and provided focus prompts. 2) For each focus prompt, create a clear instruction to a file-picker to find relevant files. 3) Spawn all file-pickers in parallel. 4) Wait for all results. 5) Return a combined structured result.',
   model: 'anthropic/claude-4-sonnet-20250522',
   outputMode: 'structured_output',
   includeMessageHistory: false,
