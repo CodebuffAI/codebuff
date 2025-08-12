@@ -9,11 +9,10 @@ export interface SubagentValidationResult {
  * Centralized validation for spawnable agents.
  * Validates that all spawnable agents reference valid agent types.
  */
-export function validateSubagents(
-  subagents: string[],
+export function validateSpawnableAgents(
+  spawnableAgents: string[],
   dynamicAgentIds: string[],
 ): SubagentValidationResult & { availableAgents: string[] } {
-
   // Build complete list of available agent types (normalized)
   const availableAgentTypes = [
     ...Object.values(AgentTemplateTypes),
@@ -21,8 +20,8 @@ export function validateSubagents(
   ]
 
   // Find invalid agents (those not in available types after normalization)
-  const invalidAgents = subagents.filter(
-    (agent, index) => !availableAgentTypes.includes(subagents[index]),
+  const invalidAgents = spawnableAgents.filter(
+    (agent, index) => !availableAgentTypes.includes(spawnableAgents[index]),
   )
 
   return {
@@ -33,13 +32,13 @@ export function validateSubagents(
 }
 
 /**
- * Formats a validation error message for subagents
+ * Formats a validation error message for spawnable agents
  */
-export function formatSubagentError(
+export function formatSpawnableAgentError(
   invalidAgents: string[],
   availableAgents: string[],
 ): string {
-  let message = `Invalid subagents: ${invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`
+  let message = `Invalid spawnable agents: ${invalidAgents.join(', ')}. Double check the id, including the org prefix if applicable.`
 
   message += `\n\nAvailable agents: ${availableAgents.join(', ')}`
 

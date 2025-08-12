@@ -1,11 +1,11 @@
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { getAgentTemplate } from '../../../templates/agent-registry'
-
 import { logger } from '../../../util/logger'
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
@@ -122,7 +122,7 @@ export const handleSpawnAgents = ((params: {
           throw new Error(`Agent type ${agentTypeStr} not found.`)
         }
 
-        if (!parentAgentTemplate.subagents.includes(agentType)) {
+        if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
           throw new Error(
             `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`,
           )

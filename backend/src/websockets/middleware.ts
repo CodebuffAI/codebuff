@@ -30,12 +30,30 @@ type MiddlewareCallback = (
   userInfo: UserInfo | undefined,
 ) => Promise<void | ServerAction>
 
+function getServerErrorAction<T extends ClientAction>(
+  action: T,
+  error: T extends { type: 'prompt' }
+    ? Omit<ServerAction<'prompt-error'>, 'type' | 'userInputId'>
+    : Omit<ServerAction<'action-error'>, 'type'>,
+): ServerAction<'prompt-error'> | ServerAction<'action-error'> {
+  return action.type === 'prompt'
+    ? {
+        type: 'prompt-error',
+        userInputId: action.promptId,
+        ...error,
+      }
+    : {
+        type: 'action-error',
+        ...error,
+      }
+}
+
 export class WebSocketMiddleware {
   private middlewares: Array<MiddlewareCallback> = []
 
   use<T extends ClientAction['type']>(
     callback: (
-      action: Extract<ClientAction, { type: T }>,
+      action: ClientAction<T>,
       clientSessionId: string,
       ws: WebSocket,
       userInfo: UserInfo | undefined,
@@ -82,14 +100,14 @@ export class WebSocketMiddleware {
 
   run<T extends ClientAction['type']>(
     baseAction: (
-      action: Extract<ClientAction, { type: T }>,
+      action: ClientAction<T>,
       clientSessionId: string,
       ws: WebSocket,
     ) => void,
     options: { silent?: boolean } = {},
   ) {
     return async (
-      action: Extract<ClientAction, { type: T }>,
+      action: ClientAction<T>,
       clientSessionId: string,
       ws: WebSocket,
     ) => {
@@ -222,12 +240,11 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
           },
           'Organization has insufficient credits, gating request.',
         )
-        return {
-          type: 'action-error',
+        return getServerErrorAction(action, {
           error: 'Insufficient organization credits',
           message,
           remainingBalance: orgBalance.netBalance, // Send org balance here
-        }
+        })
       }
     }
 
@@ -280,11 +297,10 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       },
       'Missing user or fingerprint ID',
     )
-    return {
-      type: 'action-error',
+    return getServerErrorAction(action, {
       error: 'Missing user or fingerprint ID',
       message: 'Please log in to continue.',
-    }
+    })
   }
 
   // Get user info for balance calculation
@@ -338,12 +354,11 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
         ? `You have a balance of negative ${pluralize(Math.abs(balance.totalDebt), 'credit')}. Please add credits to continue using Codebuff.`
         : `You do not have enough credits for this action. Please add credits or wait for your next cycle to begin.`
 
-    return {
-      type: 'action-error',
+    return getServerErrorAction(action, {
       error: 'Insufficient credits',
       message,
       remainingBalance: balance.netBalance,
-    }
+    })
   }
 
   // Send initial usage info if we have sufficient credits

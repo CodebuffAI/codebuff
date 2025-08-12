@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { validateAgents } from '../templates/agent-validation'
-import { DynamicAgentConfigSchema } from '../types/dynamic-agent-template'
+import { DynamicAgentDefinitionSchema } from '../types/dynamic-agent-template'
 
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 import type { AgentState } from '../types/session-state'
@@ -43,11 +43,11 @@ describe('handleSteps Parsing Tests', () => {
       id: 'test-agent',
       version: '1.0.0',
       displayName: 'Test Agent',
-      parentPrompt: 'Testing',
+      spawnPurposePrompt: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'structured_output' as const,
       toolNames: ['set_output'],
-      subagents: [],
+      spawnableAgents: [],
       includeMessageHistory: true,
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',
@@ -64,7 +64,7 @@ describe('handleSteps Parsing Tests', () => {
       id: 'test-agent',
       version: '1.0.0',
       displayName: 'Test Agent',
-      parentPrompt: 'Testing handleSteps',
+      spawnPurposePrompt: 'Testing handleSteps',
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'structured_output' as const,
       toolNames: ['set_output'],
@@ -87,7 +87,7 @@ describe('handleSteps Parsing Tests', () => {
       },
     }
 
-    const result = DynamicAgentConfigSchema.safeParse(agentConfig)
+    const result = DynamicAgentDefinitionSchema.safeParse(agentConfig)
     expect(result.success).toBe(true)
 
     if (result.success) {
@@ -139,11 +139,11 @@ describe('handleSteps Parsing Tests', () => {
       id: 'test-agent',
       version: '1.0.0',
       displayName: 'Test Agent',
-      parentPrompt: 'Testing',
+      spawnPurposePrompt: 'Testing handleSteps',
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'structured_output' as const,
       toolNames: ['end_turn'], // Missing set_output
-      subagents: [],
+      spawnableAgents: [],
       systemPrompt: 'Test',
       instructionsPrompt: 'Test',
       stepPrompt: 'Test',

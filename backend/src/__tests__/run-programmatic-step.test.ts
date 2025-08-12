@@ -84,13 +84,13 @@ describe('runProgrammaticStep', () => {
     mockTemplate = {
       id: 'test-agent',
       displayName: 'Test Agent',
-      parentPrompt: 'Testing',
+      spawnPurposePrompt: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
       outputMode: 'structured_output',
       includeMessageHistory: true,
       toolNames: ['read_files', 'write_file', 'end_turn'],
-      subagents: [],
+      spawnableAgents: [],
 
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',

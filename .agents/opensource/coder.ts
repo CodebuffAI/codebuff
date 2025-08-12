@@ -1,11 +1,11 @@
-import type { AgentConfig } from '../types/agent-config'
+import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'oss-model-coder',
   publisher: 'codebuff',
   model: 'qwen/qwen3-coder:fast',
   displayName: 'Casey the Coder',
-  parentPrompt:
+  spawnPurposePrompt:
     'Expert coding agent for reliable code implementation, debugging, and refactoring with excellent tool calling capabilities.',
   inputSchema: {
     prompt: {
@@ -23,7 +23,7 @@ const config: AgentConfig = {
     'run_terminal_command',
     'end_turn',
   ],
-  subagents: [],
+  spawnableAgents: [],
   systemPrompt: `# Persona: Casey the Coder
 
 You are an expert coding specialist, focused exclusively on code implementation, debugging, and refactoring. You excel at:
@@ -67,4 +67,4 @@ You are an expert coding specialist, focused exclusively on code implementation,
   stepPrompt: `Focus on the coding task. Read files, understand the context, then implement the solution. End with the end_turn tool when complete.`,
 }
 
-export default config
+export default definition

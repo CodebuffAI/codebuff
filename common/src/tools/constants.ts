@@ -7,6 +7,8 @@ export const toolXmlName = 'codebuff_tool_call'
 export const startToolTag = `<${toolXmlName}>\n`
 export const endToolTag = `\n</${toolXmlName}>`
 
+export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = ['think_deeply']
+
 // List of all available tools
 export const toolNames = [
   'add_subgoal',
@@ -30,6 +32,26 @@ export const toolNames = [
   'update_subgoal',
   'web_search',
   'write_file',
+] as const
+
+export const publishedTools = [
+  'add_message',
+  'code_search',
+  'end_turn',
+  'find_files',
+  'read_docs',
+  'read_files',
+  'run_file_change_hooks',
+  'run_terminal_command',
+  'set_messages',
+  'set_output',
+  'spawn_agents',
+  'str_replace',
+  'think_deeply',
+  'web_search',
+  'write_file',
+  // 'spawn_agents_async',
+  // 'spawn_agent_inline',
 ] as const
 
 export type ToolName = (typeof toolNames)[number]

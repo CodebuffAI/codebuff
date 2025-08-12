@@ -1,13 +1,12 @@
 import { publisher } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'researcher',
   publisher,
   model: 'gemini-2.5-flash-preview-05-20',
   displayName: 'Reid Searcher the Researcher',
-
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
 
   inputSchema: {
@@ -20,7 +19,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: false,
 
-  parentPrompt:
+  spawnPurposePrompt:
     'Expert at researching topics using web search and documentation.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
@@ -44,4 +43,4 @@ Always end your response with the end_turn tool.`,
   },
 }
 
-export default config
+export default definition

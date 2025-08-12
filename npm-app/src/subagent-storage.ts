@@ -211,7 +211,7 @@ export function getSubagentFormattedContent(agentId: string): string {
 }
 
 /**
- * Get recent subagents (sorted by last activity)
+ * Get recent spawnable agents (sorted by last activity)
  */
 export function getRecentSubagents(limit: number = 10): SubagentData[] {
   return Array.from(subagentStorage.values())
@@ -220,7 +220,7 @@ export function getRecentSubagents(limit: number = 10): SubagentData[] {
 }
 
 /**
- * Get subagents in chronological order (oldest first)
+ * Get spawnable agents in chronological order (oldest first)
  */
 export function getSubagentsChronological(limit: number = 50): SubagentData[] {
   return Array.from(subagentStorage.values())

@@ -1,14 +1,23 @@
 import { publisher } from './constants'
 
-import type { AgentConfig, AgentStepContext } from './types/agent-config'
+import type {
+  AgentDefinition,
+  AgentStepContext,
+} from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'changes-reviewer',
   publisher,
   displayName: 'Changes Reviewer',
   model: 'x-ai/grok-4',
 
   includeMessageHistory: false,
+
+  spawnPurposePrompt:
+    'Spawn when you need to review code changes in the git diff or staged changes',
+
+  toolNames: ['read_files', 'run_terminal_command', 'spawn_agents'],
+  spawnableAgents: ['codebuff/file-explorer@0.0.1'],
 
   inputSchema: {
     prompt: {
@@ -17,11 +26,6 @@ const config: AgentConfig = {
         'Please provide a short description of the changes you want to review',
     },
   },
-  outputMode: 'last_message',
-
-  toolNames: ['read_files', 'run_terminal_command', 'end_turn'],
-
-  parentPrompt: 'Spawn when you need to review code changes',
 
   systemPrompt:
     'You are an expert software developer. Your job is to review code changes and provide helpful feedback.',
@@ -98,9 +102,18 @@ Use the following guidelines to review the changes and suggest improvements:
       }
     }
 
-    // Step 7: Let AI review the changes (and take as many steps as needed)
+    // Step 5: Put words in the AI's mouth to get it to spawn the file explorer.
+    yield {
+      toolName: 'add_message',
+      args: {
+        role: 'assistant',
+        content:
+          'Now I will spawn a file explorer to find any missing codebase context, and then review the changes.',
+      },
+    }
+
     yield 'STEP_ALL'
   },
 }
 
-export default config
+export default definition

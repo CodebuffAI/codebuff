@@ -5,20 +5,20 @@
  * Import these types in your agent files to get full type safety and IntelliSense.
  *
  * Usage in .agents/your-agent.ts:
- *   import { AgentConfig, ToolName, ModelName } from './types/agent-config'
+ *   import { AgentDefinition, ToolName, ModelName } from './types/agent-definition'
  *
- *   const config: AgentConfig = {
+ *   const definition: AgentDefinition = {
  *     // ... your agent configuration with full type safety ...
  *   }
  *
- *   export default config
+ *   export default definition
  */
 
 // ============================================================================
-// Core Agent Configuration Types
+// Agent Definition and Utility Types
 // ============================================================================
 
-export interface AgentConfig {
+export interface AgentDefinition {
   /** Unique identifier for this agent. Must contain only lowercase letters, numbers, and hyphens, e.g. 'code-reviewer' */
   id: string
 
@@ -41,8 +41,14 @@ export interface AgentConfig {
   /** Tools this agent can use. */
   toolNames?: ToolName[]
 
-  /** Other agents this agent can spawn. */
-  subagents?: SubagentName[]
+  /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
+   *
+   * Use the fully qualified agent id from the agent store, including publisher and version: 'codebuff/file-picker@0.0.1'
+   * (publisher and version are required!)
+   *
+   * Or, use the agent id from a local agent file in your .agents directory: 'file-picker'.
+   */
+  spawnableAgents?: string[]
 
   // ============================================================================
   // Input and Output
@@ -83,10 +89,10 @@ export interface AgentConfig {
   // Prompts
   // ============================================================================
 
-  /** Prompt for when to spawn this agent as a subagent. Include the main purpose and use cases.
+  /** Prompt for when and why to spawn this agent. Include the main purpose and use cases.
    *
-   * This field is key if the agent is a subagent and intended to be spawned. */
-  parentPrompt?: string
+   * This field is key if the agent is intended to be spawned by other agents. */
+  spawnPurposePrompt?: string
 
   /** Background information for the agent. Fairly optional. Prefer using instructionsPrompt for agent instructions. */
   systemPrompt?: string
@@ -166,9 +172,8 @@ export interface AgentState {
  * Message in conversation history
  */
 export interface Message {
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant'
   content: string
-  timestamp?: number
 }
 
 /**
@@ -189,15 +194,6 @@ export type ToolCall<T extends ToolName = ToolName> = {
     args?: Tools.GetToolParams<K>
   }
 }[T]
-
-/**
- * Result from executing a tool
- */
-export interface ToolResult {
-  toolName: string
-  toolCallId: string
-  result: string
-}
 
 /**
  * JSON Schema definition (for prompt schema or output schema)
@@ -235,26 +231,17 @@ export type TerminalTools = 'run_terminal_command' | 'run_file_change_hooks'
 /**
  * Web and browser tools
  */
-export type WebTools = 'browser_logs' | 'web_search' | 'read_docs'
+export type WebTools = 'web_search' | 'read_docs'
 
 /**
  * Agent management tools
  */
-export type AgentTools =
-  | 'spawn_agents'
-  | 'spawn_agents_async'
-  | 'send_agent_message'
-  | 'set_messages'
-  | 'add_message'
+export type AgentTools = 'spawn_agents' | 'set_messages' | 'add_message'
 
 /**
  * Planning and organization tools
  */
-export type PlanningTools =
-  | 'think_deeply'
-  | 'create_plan'
-  | 'add_subgoal'
-  | 'update_subgoal'
+export type PlanningTools = 'think_deeply'
 
 /**
  * Output and control tools
@@ -273,39 +260,51 @@ export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'
 // ============================================================================
 
 /**
- * AI models available for agents (all models in OpenRouter are supported)
+ * AI models available for agents. Pick from our selection of recommended models or choose any model in OpenRouter.
  *
  * See available models at https://openrouter.ai/models
  */
 export type ModelName =
-  // Verified OpenRouter Models
+  // Recommended Models
+
+  // OpenAI
+  | 'openai/gpt-5'
+  | 'openai/gpt-5-mini'
+  | 'openai/gpt-5-nano'
+
+  // Anthropic
   | 'anthropic/claude-4-sonnet-20250522'
   | 'anthropic/claude-opus-4.1'
-  | 'anthropic/claude-3.5-haiku-20241022'
-  | 'anthropic/claude-3.5-sonnet-20240620'
-  | 'openai/gpt-4o-2024-11-20'
-  | 'openai/gpt-4o-mini-2024-07-18'
-  | 'openai/o3'
-  | 'openai/o4-mini'
-  | 'openai/o4-mini-high'
+
+  // Gemini
   | 'google/gemini-2.5-pro'
   | 'google/gemini-2.5-flash'
+  | 'google/gemini-2.5-flash-lite'
+
+  // X-AI
   | 'x-ai/grok-4-07-09'
-  | (string & {})
 
-// ============================================================================
-// Spawnable Agents
-// ============================================================================
+  // Qwen
+  | 'qwen/qwen3-coder'
+  | 'qwen/qwen3-coder:fast'
+  | 'qwen/qwen3-235b-a22b-2507'
+  | 'qwen/qwen3-235b-a22b-2507:fast'
+  | 'qwen/qwen3-235b-a22b-thinking-2507'
+  | 'qwen/qwen3-235b-a22b-thinking-2507:fast'
+  | 'qwen/qwen3-30b-a3b'
+  | 'qwen/qwen3-30b-a3b:fast'
 
-/**
- * Built-in agents that can be spawned by custom agents
- */
-export type SubagentName =
-  | 'file-picker'
-  | 'file-explorer'
-  | 'researcher'
-  | 'thinker'
-  | 'reviewer'
+  // DeepSeek
+  | 'deepseek/deepseek-chat-v3-0324'
+  | 'deepseek/deepseek-chat-v3-0324:fast'
+  | 'deepseek/deepseek-r1-0528'
+  | 'deepseek/deepseek-r1-0528:fast'
+
+  // Other open source models
+  | 'moonshotai/kimi-k2'
+  | 'moonshotai/kimi-k2:fast'
+  | 'z-ai/glm-4.5'
+  | 'z-ai/glm-4.5:fast'
   | (string & {})
 
 import type * as Tools from './tools'

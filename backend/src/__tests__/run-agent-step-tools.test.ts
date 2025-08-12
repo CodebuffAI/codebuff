@@ -20,8 +20,8 @@ import {
 } from 'bun:test'
 
 // Mock imports
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import * as liveUserInputs from '../live-user-inputs'
+import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import * as websocketAction from '../websockets/websocket-action'
@@ -51,13 +51,13 @@ describe('runAgentStep - set_output tool', () => {
     testAgent = {
       id: 'test-set-output-agent',
       displayName: 'Test Set Output Agent',
-      parentPrompt: 'Testing set_output functionality',
+      spawnPurposePrompt: 'Testing set_output functionality',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
       outputMode: 'structured_output' as const,
       includeMessageHistory: true,
       toolNames: ['set_output', 'end_turn'],
-      subagents: [],
+      spawnableAgents: [],
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test instructions prompt',
       stepPrompt: 'Test agent step prompt',
@@ -325,13 +325,13 @@ describe('runAgentStep - set_output tool', () => {
     const mockAgentTemplate: AgentTemplate = {
       id: 'test-handlesteps-agent',
       displayName: 'Test HandleSteps Agent',
-      parentPrompt: 'Testing handleSteps functionality',
+      spawnPurposePrompt: 'Testing handleSteps functionality',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
       outputMode: 'structured_output' as const,
       includeMessageHistory: true,
       toolNames: ['read_files', 'end_turn'],
-      subagents: [],
+      spawnableAgents: [],
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test instructions prompt',
       stepPrompt: 'Test agent step prompt',
@@ -442,13 +442,13 @@ describe('runAgentStep - set_output tool', () => {
     const mockInlineAgentTemplate: AgentTemplate = {
       id: 'message-deleter-agent',
       displayName: 'Message Deleter Agent',
-      parentPrompt: 'Deletes assistant messages',
+      spawnPurposePrompt: 'Deletes assistant messages',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
       outputMode: 'structured_output' as const,
       includeMessageHistory: true,
       toolNames: ['set_messages', 'end_turn'],
-      subagents: [],
+      spawnableAgents: [],
       systemPrompt: 'Delete messages system prompt',
       instructionsPrompt: 'Delete messages instructions prompt',
       stepPrompt: 'Delete messages step prompt',
@@ -484,13 +484,13 @@ describe('runAgentStep - set_output tool', () => {
     const mockParentAgentTemplate: AgentTemplate = {
       id: 'parent-agent',
       displayName: 'Parent Agent',
-      parentPrompt: 'Parent agent that spawns inline agents',
+      spawnPurposePrompt: 'Parent agent that spawns inline agents',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
       outputMode: 'structured_output' as const,
       includeMessageHistory: true,
       toolNames: ['spawn_agent_inline', 'end_turn'],
-      subagents: ['message-deleter-agent'],
+      spawnableAgents: ['message-deleter-agent'],
       systemPrompt: 'Parent system prompt',
       instructionsPrompt: 'Parent instructions prompt',
       stepPrompt: 'Parent step prompt',

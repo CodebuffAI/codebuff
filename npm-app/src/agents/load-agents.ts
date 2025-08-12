@@ -28,7 +28,7 @@ export async function loadLocalAgents({
       const relativePath = path.relative(agentsDir, fullPath)
       const fileName = relativePath.replace(/\.ts$/, '').replace(/[/\\]/g, '-')
 
-      let agentConfig: any
+      let agentDefinition: any
       let agentModule: any
       try {
         agentModule = await require(fullPath)
@@ -41,24 +41,25 @@ export async function loadLocalAgents({
       delete require.cache[fullPath]
 
       try {
-        agentConfig = agentModule.default
+        agentDefinition = agentModule.default
       } catch (error: any) {
         console.error('Error loading agent from file:', fullPath, error)
         continue
       }
 
-      if (!agentConfig) continue
+      if (!agentDefinition) continue
 
       // Convert handleSteps function to string if present
-      let processedAgentConfig = { ...agentConfig }
-      if (agentConfig.handleSteps) {
-        processedAgentConfig.handleSteps = agentConfig.handleSteps.toString()
+      let processedAgentDefinition = { ...agentDefinition }
+
+      if (agentDefinition.handleSteps) {
+        processedAgentDefinition.handleSteps =
+          agentDefinition.handleSteps.toString()
       }
 
-      loadedAgents[fileName] = processedAgentConfig
+      loadedAgents[fileName] = processedAgentDefinition
     }
   } catch (error) {}
-
   return loadedAgents
 }
 
@@ -79,10 +80,10 @@ export function displayLoadedAgents(codebuffConfig: CodebuffConfig) {
     console.log(`\n${green('Configured base agent:')} ${cyan(baseAgent)}`)
   }
 
-  const subagents = codebuffConfig.subagents
-  if (subagents) {
+  const spawnableAgents = codebuffConfig.spawnableAgents
+  if (spawnableAgents) {
     console.log(
-      `${green('Configured subagents:')} ${subagents
+      `${green('Configured spawnable agents:')} ${spawnableAgents
         .map((name) => cyan(name))
         .join(', ')}\n`,
     )

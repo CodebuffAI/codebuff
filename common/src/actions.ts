@@ -60,7 +60,10 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   }),
 ])
 
-export type ClientAction = z.infer<typeof CLIENT_ACTION_SCHEMA>
+type ClientActionAny = z.infer<typeof CLIENT_ACTION_SCHEMA>
+export type ClientAction<
+  T extends ClientActionAny['type'] = ClientActionAny['type'],
+> = Extract<ClientActionAny, { type: T }>
 
 export const UsageReponseSchema = z.object({
   type: z.literal('usage-response'),
@@ -144,9 +147,19 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     remainingBalance: z.number().optional(),
   }),
   z.object({
+    type: z.literal('prompt-error'),
+    userInputId: z.string(),
+    message: z.string(),
+    error: z.string().optional(),
+    remainingBalance: z.number().optional(),
+  }),
+  z.object({
     // The server is imminently going to shutdown, and the client should reconnect
     type: z.literal('request-reconnect'),
   }),
 ])
 
-export type ServerAction = z.infer<typeof SERVER_ACTION_SCHEMA>
+type ServerActionAny = z.infer<typeof SERVER_ACTION_SCHEMA>
+export type ServerAction<
+  T extends ServerActionAny['type'] = ServerActionAny['type'],
+> = Extract<ServerActionAny, { type: T }>

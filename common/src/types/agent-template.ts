@@ -1,8 +1,8 @@
 import type { Model } from '../constants'
-import type { AgentState, AgentTemplateType, ToolResult } from './session-state'
+import type { AgentState, AgentTemplateType } from './session-state'
 import type { ToolName } from '../tools/constants'
 import type { z } from 'zod/v4'
-import { ToolCall } from '../util/types/agent-config'
+import type { ToolCall } from '../templates/initial-agents-dir/types/agent-definition'
 
 export type AgentTemplate<
   P = string | undefined,
@@ -13,9 +13,9 @@ export type AgentTemplate<
   model: Model
 
   toolNames: ToolName[]
-  subagents: AgentTemplateType[]
+  spawnableAgents: AgentTemplateType[]
 
-  parentPrompt?: string
+  spawnPurposePrompt?: string
   systemPrompt: string
   instructionsPrompt: string
   stepPrompt: string

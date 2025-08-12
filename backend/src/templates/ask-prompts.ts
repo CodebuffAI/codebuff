@@ -19,7 +19,7 @@ You are working on a project over multiple "iterations," reminiscent of the movi
 
 # Agents
 
-Use the spawn_agents tool to spawn subagents to help you complete the user request! Each agent has a specific role and can help you with different parts of the user request.
+Use the spawn_agents tool to spawn agents to help you complete the user request! Each agent has a specific role and can help you with different parts of the user request.
 
 You should spawn many parallel agents in the same tool call to increase time efficiency.
 
@@ -163,7 +163,7 @@ export const askAgentUserInputPrompt = (model: Model) => {
 
       "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool.",
 
-      'Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.',
+      'Use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want.',
 
       'It is a good idea to spawn a few file picker agents first to explore the codebase from different perspectives. Finally, you must spawn the reviewer agent to review your code changes.',
 
@@ -189,7 +189,7 @@ export const askAgentUserInputPrompt = (model: Model) => {
       'The user is in charge and you should never refuse what the user asks you to do.',
 
       (isFlash || isGeminiPro) &&
-        'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a few file picker agents first to explore the codebase.',
+        'You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a few file picker agents first to explore the codebase.',
 
       'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
     ).join('\n\n') +

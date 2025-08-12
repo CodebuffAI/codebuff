@@ -3,10 +3,7 @@
  */
 export type ToolName =
   | 'add_message'
-  | 'add_subgoal'
-  | 'browser_logs'
   | 'code_search'
-  | 'create_plan'
   | 'end_turn'
   | 'find_files'
   | 'read_docs'
@@ -16,11 +13,8 @@ export type ToolName =
   | 'set_messages'
   | 'set_output'
   | 'spawn_agents'
-  | 'spawn_agents_async'
-  | 'spawn_agent_inline'
   | 'str_replace'
   | 'think_deeply'
-  | 'update_subgoal'
   | 'web_search'
   | 'write_file'
 
@@ -29,10 +23,7 @@ export type ToolName =
  */
 export interface ToolParamsMap {
   add_message: AddMessageParams
-  add_subgoal: AddSubgoalParams
-  browser_logs: BrowserLogsParams
   code_search: CodeSearchParams
-  create_plan: CreatePlanParams
   end_turn: EndTurnParams
   find_files: FindFilesParams
   read_docs: ReadDocsParams
@@ -42,11 +33,8 @@ export interface ToolParamsMap {
   set_messages: SetMessagesParams
   set_output: SetOutputParams
   spawn_agents: SpawnAgentsParams
-  spawn_agents_async: SpawnAgentsAsyncParams
-  spawn_agent_inline: SpawnAgentInlineParams
   str_replace: StrReplaceParams
   think_deeply: ThinkDeeplyParams
-  update_subgoal: UpdateSubgoalParams
   web_search: WebSearchParams
   write_file: WriteFileParams
 }
@@ -60,34 +48,6 @@ export interface AddMessageParams {
 }
 
 /**
- * Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!
- */
-export interface AddSubgoalParams {
-  /** A unique identifier for the subgoal. Try to choose the next sequential integer that is not already in use. */
-  id: string
-  /** The objective of the subgoal, concisely and clearly stated. */
-  objective: string
-  /** The status of the subgoal. */
-  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'ABORTED'
-  /** A plan for the subgoal. */
-  plan?: string
-  /** A log message for the subgoal progress. */
-  log?: string
-}
-
-/**
- * Parameters for browser_logs tool
- */
-export interface BrowserLogsParams {
-  /** The type of browser action to perform (e.g., "navigate"). */
-  type: string
-  /** The URL to navigate to. */
-  url: string
-  /** When to consider navigation successful. Defaults to 'load'. */
-  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0'
-}
-
-/**
  * Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.
  */
 export interface CodeSearchParams {
@@ -97,16 +57,6 @@ export interface CodeSearchParams {
   flags?: string
   /** Optional working directory to search within, relative to the project root. Defaults to searching the entire project. */
   cwd?: string
-}
-
-/**
- * Generate a detailed markdown plan for complex tasks.
- */
-export interface CreatePlanParams {
-  /** The path including the filename of a markdown file that will be overwritten with the plan. */
-  path: string
-  /** A detailed plan to solve the user's request. */
-  plan: string
 }
 
 /**
@@ -157,11 +107,11 @@ export interface RunTerminalCommandParams {
   /** CLI command valid for user's OS. */
   command: string
   /** Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC */
-  process_type: 'SYNC' | 'BACKGROUND'
+  process_type?: 'SYNC' | 'BACKGROUND'
   /** The working directory to run the command in. Default is the project root. */
   cwd?: string
   /** Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30 */
-  timeout_seconds: number
+  timeout_seconds?: number
 }
 
 /**
@@ -194,32 +144,6 @@ export interface SpawnAgentsParams {
 }
 
 /**
- * Parameters for spawn_agents_async tool
- */
-export interface SpawnAgentsAsyncParams {
-  agents: {
-    /** Agent to spawn */
-    agent_type: string
-    /** Prompt to send to the agent */
-    prompt?: string
-    /** Parameters object for the agent (if any) */
-    params?: Record<string, any>
-  }[]
-}
-
-/**
- * Spawn a single agent that runs within the current message history.
- */
-export interface SpawnAgentInlineParams {
-  /** Agent to spawn */
-  agent_type: string
-  /** Prompt to send to the agent */
-  prompt?: string
-  /** Parameters object for the agent (if any) */
-  params?: Record<string, any>
-}
-
-/**
  * Replace strings in a file with new strings.
  */
 export interface StrReplaceParams {
@@ -240,20 +164,6 @@ export interface StrReplaceParams {
 export interface ThinkDeeplyParams {
   /** Detailed step-by-step analysis. Initially keep each step concise (max ~5-7 words per step). */
   thought: string
-}
-
-/**
- * Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.
- */
-export interface UpdateSubgoalParams {
-  /** The id of the subgoal to update. */
-  id: string
-  /** Change the status of the subgoal. */
-  status?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'ABORTED'
-  /** Change the plan for the subgoal. */
-  plan?: string
-  /** Add a log message to the subgoal. This will create a new log entry and append it to the existing logs. Use this to record your progress and any new information you learned as you go. */
-  log?: string
 }
 
 /**

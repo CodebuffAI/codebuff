@@ -38,11 +38,11 @@ describe('Subagent Streaming', () => {
           safeParse: () => ({ success: true }),
         } as any,
       },
-      parentPrompt: '',
+      spawnPurposePrompt: '',
       model: '',
       includeMessageHistory: true,
       toolNames: [],
-      subagents: [],
+      spawnableAgents: [],
       systemPrompt: '',
       instructionsPrompt: '',
       stepPrompt: '',
@@ -120,7 +120,7 @@ describe('Subagent Streaming', () => {
     // Mock parent agent template that can spawn thinker
     const parentTemplate = {
       id: 'base',
-      subagents: ['thinker'],
+      spawnableAgents: ['thinker'],
     } as unknown as AgentTemplate
 
     const toolCall = {
@@ -188,7 +188,7 @@ describe('Subagent Streaming', () => {
 
     const parentTemplate = {
       id: 'base',
-      subagents: ['thinker'],
+      spawnableAgents: ['thinker'],
     } as unknown as AgentTemplate
 
     const toolCall = {

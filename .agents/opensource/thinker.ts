@@ -1,11 +1,11 @@
-import type { AgentConfig } from '../types/agent-config'
+import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'oss-model-thinker',
   publisher: 'codebuff',
   model: 'qwen/qwen3-235b-a22b-thinking-2507:fast',
   displayName: 'Theo the Thinker',
-  parentPrompt:
+  spawnPurposePrompt:
     'Deep thinking agent, optimized for complex reasoning and step-by-step analysis.',
   inputSchema: {
     prompt: {
@@ -16,7 +16,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  subagents: [],
+  spawnableAgents: [],
   systemPrompt: `# Persona: Theo the Thinker
 
 You are an expert programmer, designed for high-reasoning and complex analysis. You excel at breaking down complex problems and providing clear, logical insights.
@@ -36,4 +36,4 @@ You must be extremely concise and to the point.`,
   stepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
 }
 
-export default config
+export default definition

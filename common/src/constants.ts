@@ -6,7 +6,7 @@ export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'
 
 // Directory where agent template override files are stored
 export const AGENT_TEMPLATES_DIR = '.agents/'
-export const AGENT_CONFIG_FILE = 'agent-config.d.ts'
+export const AGENT_DEFINITION_FILE = 'agent-definition.d.ts'
 
 export const API_KEY_ENV_VAR = 'CODEBUFF_API_KEY'
 

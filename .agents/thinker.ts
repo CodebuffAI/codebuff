@@ -1,8 +1,8 @@
 import { publisher } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'thinker',
   publisher,
   model: 'x-ai/grok-4-07-09',
@@ -17,13 +17,12 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  subagents: [],
-  parentPrompt:
+  spawnableAgents: [],
+  spawnPurposePrompt:
     'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 You are an expert programmer.
-
 {CODEBUFF_TOOLS_PROMPT}
 
 {CODEBUFF_AGENTS_PROMPT}`,
@@ -40,4 +39,4 @@ You must be extremely concise and to the point.`,
     "Don't forget to end your response with the end_turn tool: <end_turn></end_turn>",
 }
 
-export default config
+export default definition

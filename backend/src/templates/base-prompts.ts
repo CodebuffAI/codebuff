@@ -19,7 +19,7 @@ You are working on a project over multiple "iterations," reminiscent of the movi
 
 # Agents
 
-Use the spawn_agents tool to spawn subagents to help you complete the user request! Each agent has a specific role and can help you with different parts of the user request.
+Use the spawn_agents tool to spawn agents to help you complete the user request! Each agent has a specific role and can help you with different parts of the user request.
 
 You should spawn many parallel agents in the same tool call to increase time efficiency.
 
@@ -228,7 +228,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
 
       "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool.",
 
-      'Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.',
+      'Use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want.',
 
       'It is a good idea to spawn a file explorer agent first to explore the codebase from different perspectives. Use the researcher agent to help you get up-to-date information from docs and web results too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the file picker, only spawn it *after* you have the file picker results. Finally, you must spawn the reviewer agent to review your code changes.',
       "Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read 20 files. The more files you read, the better context you have on the codebase and the better your response will be.",
@@ -280,7 +280,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
       'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
 
       (isFlash || isGeminiPro) &&
-        'You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.',
+        'You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.',
 
       'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
     ).join('\n\n') +

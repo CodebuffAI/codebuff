@@ -1,8 +1,8 @@
 import { publisher } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'reviewer',
   publisher,
   model: 'gemini-2.5-pro-preview-06-05',
@@ -19,12 +19,13 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: true,
 
-  parentPrompt:
+  spawnPurposePrompt:
     'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
-You are an expert programmer who can articulate very clear feedback on code changes.
 
+const definition: AgentDefinition = {
+You are an expert programmer who can articulate very clear feedback on code changes.
 {CODEBUFF_TOOLS_PROMPT}
 
 {CODEBUFF_AGENTS_PROMPT}`,
@@ -54,4 +55,4 @@ Be concise and to the point. After providing all your feedback, use the end_turn
     "IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>",
 }
 
-export default config
+export default definition

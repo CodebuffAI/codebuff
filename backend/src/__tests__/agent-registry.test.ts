@@ -77,11 +77,11 @@ const mockStaticTemplates: Record<string, AgentTemplate> = {
     instructionsPrompt: 'Test',
     stepPrompt: 'Test',
     toolNames: ['end_turn'],
-    subagents: [],
+    spawnableAgents: [],
     outputMode: 'last_message',
     includeMessageHistory: true,
     model: 'anthropic/claude-4-sonnet-20250522',
-    parentPrompt: 'Test',
+    spawnPurposePrompt: 'Test',
     inputSchema: {},
   },
   file_picker: {
@@ -91,19 +91,14 @@ const mockStaticTemplates: Record<string, AgentTemplate> = {
     instructionsPrompt: 'Test',
     stepPrompt: 'Test',
     toolNames: ['find_files'],
-    subagents: [],
+    spawnableAgents: [],
     outputMode: 'last_message',
     includeMessageHistory: true,
     model: 'google/gemini-2.5-flash',
-    parentPrompt: 'Test',
+    spawnPurposePrompt: 'Test',
     inputSchema: {},
   },
 }
-
-// Mock static agent templates
-mockModule('@codebuff/backend/templates/agent-list', () => ({
-  agentTemplates: mockStaticTemplates,
-}))
 
 // We'll spy on the validation functions instead of mocking the entire module
 
@@ -181,11 +176,11 @@ describe('Agent Registry', () => {
           instructionsPrompt: 'Test',
           stepPrompt: 'Test',
           toolNames: ['end_turn'],
-          subagents: [],
+          spawnableAgents: [],
           outputMode: 'last_message',
           includeMessageHistory: true,
           model: 'anthropic/claude-4-sonnet-20250522',
-          parentPrompt: 'Test',
+          spawnPurposePrompt: 'Test',
           inputSchema: {},
         } as AgentTemplate,
       }
@@ -235,11 +230,11 @@ describe('Agent Registry', () => {
           instructionsPrompt: 'Test instructions',
           stepPrompt: 'Test step prompt',
           toolNames: ['end_turn'],
-          subagents: [],
+          spawnableAgents: [],
           outputMode: 'last_message',
           includeMessageHistory: true,
           model: 'anthropic/claude-4-sonnet-20250522',
-          parentPrompt: 'Test',
+          spawnPurposePrompt: 'Test',
         },
       }
 
@@ -272,11 +267,11 @@ describe('Agent Registry', () => {
           instructionsPrompt: 'Local instructions',
           stepPrompt: 'Local step prompt',
           toolNames: ['end_turn'],
-          subagents: [],
+          spawnableAgents: [],
           outputMode: 'last_message',
           includeMessageHistory: true,
           model: 'anthropic/claude-4-sonnet-20250522',
-          parentPrompt: 'Local test',
+          spawnPurposePrompt: 'Local test',
           inputSchema: {},
         } as AgentTemplate,
       }
@@ -301,11 +296,11 @@ describe('Agent Registry', () => {
           instructionsPrompt: 'Cached instructions',
           stepPrompt: 'Cached step prompt',
           toolNames: ['end_turn'],
-          subagents: [],
+          spawnableAgents: [],
           outputMode: 'last_message',
           includeMessageHistory: true,
           model: 'anthropic/claude-4-sonnet-20250522',
-          parentPrompt: 'Cached test',
+          spawnPurposePrompt: 'Cached test',
         },
       }
 
@@ -350,11 +345,11 @@ describe('Agent Registry', () => {
             instructionsPrompt: 'Custom instructions',
             stepPrompt: 'Custom step prompt',
             toolNames: ['end_turn'],
-            subagents: [],
+            spawnableAgents: [],
             outputMode: 'last_message',
             includeMessageHistory: true,
             model: 'anthropic/claude-4-sonnet-20250522',
-            parentPrompt: 'Custom test',
+            spawnPurposePrompt: 'Custom test',
           },
         },
       }
@@ -424,11 +419,11 @@ describe('Agent Registry', () => {
           instructionsPrompt: 'Cache test instructions',
           stepPrompt: 'Cache test step prompt',
           toolNames: ['end_turn'],
-          subagents: [],
+          spawnableAgents: [],
           outputMode: 'last_message',
           includeMessageHistory: true,
           model: 'anthropic/claude-4-sonnet-20250522',
-          parentPrompt: 'Cache test',
+          spawnPurposePrompt: 'Cache test',
         },
       }
 

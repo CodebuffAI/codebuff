@@ -85,10 +85,10 @@ export const CodebuffConfigSchema = z
         'Maximum number of turns agent will take before being forced to end',
       ),
     baseAgent: z.string().optional().describe('Specify default base agent'),
-    subagents: z
+    spawnableAgents: z
       .array(z.string())
       .optional()
-      .describe('Specify complete list of subagents for the base agent'),
+      .describe('Specify complete list of spawnable agents for the base agent'),
   })
   .describe(
     `Defines the overall Codebuff configuration file (e.g., ${codebuffConfigFile}). This schema defines the top-level structure of the configuration. This schema can be found at https://www.codebuff.com/config`,

@@ -1,11 +1,11 @@
-import type { AgentConfig } from '../types/agent-config'
+import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'oss-model-researcher',
   publisher: 'codebuff',
   model: 'z-ai/glm-4.5:fast',
   displayName: 'Reid the Researcher',
-  parentPrompt:
+  spawnPurposePrompt:
     'Expert researcher for comprehensive web search and documentation analysis, focusing on external research and actionable insights from external sources.',
   inputSchema: {
     prompt: {
@@ -17,7 +17,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-  subagents: [],
+  spawnableAgents: [],
   systemPrompt: `# Persona: Reid the Researcher
 
 You are an expert researcher focused exclusively on external research and documentation analysis. Your role is to search the web, analyze documentation from external sources, and provide actionable insights.
@@ -44,4 +44,4 @@ Always end your response with the end_turn tool.
   stepPrompt: `Make sure to summarize your notes.`,
 }
 
-export default config
+export default definition

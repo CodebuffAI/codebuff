@@ -82,7 +82,6 @@ import {
   storeSubagentChunk,
 } from './subagent-storage'
 import { handleToolCall } from './tool-handlers'
-import { validateAgentConfigsIfAuthenticated } from './utils/agent-validation'
 import { identifyUser, trackEvent } from './utils/analytics'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
@@ -735,7 +734,9 @@ export class Client {
   }
 
   private setupSubscriptions() {
-    this.webSocket.subscribe('action-error', (action) => {
+    const onError = (
+      action: ServerAction<'action-error'> | ServerAction<'prompt-error'>,
+    ): void => {
       if (action.error === 'Insufficient credits') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
         logger.info(
@@ -771,7 +772,9 @@ export class Client {
       }
       this.freshPrompt()
       return
-    })
+    }
+    this.webSocket.subscribe('action-error', onError)
+    this.webSocket.subscribe('prompt-error', onError)
 
     this.webSocket.subscribe('read-files', (a) => {
       const { filePaths, requestId } = a
@@ -1353,7 +1356,7 @@ Go to https://www.codebuff.com/config for more information.`) +
           setMessages(this.sessionState.mainAgentState.messageHistory)
         }
 
-        // Mark any subagents as inactive when the main response completes
+        // Mark any spawnable agents as inactive when the main response completes
         // This is a simple heuristic - in practice you might want more sophisticated tracking
         const allSubagentIds = getAllSubagentIds()
         allSubagentIds.forEach((agentId: string) => {
@@ -1552,10 +1555,6 @@ Go to https://www.codebuff.com/config for more information.`) +
       throw new Error('Failed to initialize project file context')
     }
 
-    await validateAgentConfigsIfAuthenticated(
-      Object.values(fileContext.agentTemplates),
-    )
-
     this.webSocket.subscribe('init-response', (a) => {
       const parsedAction = InitResponseSchema.safeParse(a)
       if (!parsedAction.success) {
@@ -1581,7 +1580,7 @@ Go to https://www.codebuff.com/config for more information.`) +
       this.setUsage(parsedAction.data)
     })
 
-    const initAction: Extract<ClientAction, { type: 'init' }> = {
+    const initAction: ClientAction<'init'> = {
       type: 'init',
       fingerprintId: await this.fingerprintId,
       authToken: this.user?.authToken,

@@ -48,6 +48,7 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
+import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -347,18 +348,18 @@ export const runAgentStep = async (
 
   logger.debug(
     {
-      agentMessages,
+      iteration: iterationNum,
       agentId: agentState.agentId,
+      model,
+      duration: Date.now() - startTime,
+      agentMessages,
       system,
       prompt,
       params,
       agentContext,
-      iteration: iterationNum,
       toolResults,
       systemTokens,
-      model,
       agentTemplate,
-      duration: Date.now() - startTime,
     },
     `Start agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )
@@ -437,27 +438,32 @@ export const runAgentStep = async (
     logger.debug({ summary: fullResponse }, 'Compacted messages')
   }
 
+  const hasNoToolResults =
+    toolCalls.filter(
+      (call) => !TOOLS_WHICH_WONT_FORCE_NEXT_STEP.includes(call.toolName),
+    ).length === 0 &&
+    toolResults.filter(
+      (result) => !TOOLS_WHICH_WONT_FORCE_NEXT_STEP.includes(result.toolName),
+    ).length === 0
+  const shouldEndTurn =
+    toolCalls.some((call) => call.toolName === 'end_turn') || hasNoToolResults
+
   logger.debug(
     {
       iteration: iterationNum,
       agentId: agentState.agentId,
+      model,
       prompt,
+      shouldEndTurn,
+      duration: Date.now() - startTime,
       fullResponse,
-      fullResponseChunks,
+      finalMessageHistoryWithToolResults,
       toolCalls,
       toolResults,
       agentContext: newAgentContext,
-      finalMessageHistoryWithToolResults,
-      model,
-      agentTemplate,
-      duration: Date.now() - startTime,
     },
     `End agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )
-  const shouldEndTurn =
-    toolCalls.some((call) => call.toolName === 'end_turn') ||
-    (toolCalls.length === 0 && toolResults.length === 0)
-
   const newAgentState = {
     ...agentState,
     messageHistory: finalMessageHistoryWithToolResults,

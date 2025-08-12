@@ -4,9 +4,9 @@ import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 import { expireMessages } from '../../../util/messages'
 
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
@@ -17,7 +17,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
 export const handleSpawnAgentInline = ((params: {
-
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'spawn_agent_inline'>
   fileContext: ProjectFileContext
@@ -98,7 +97,7 @@ export const handleSpawnAgentInline = ((params: {
       throw new Error(`Agent type ${agentTypeStr} not found.`)
     }
 
-    if (!parentAgentTemplate.subagents.includes(agentType)) {
+    if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
       throw new Error(
         `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`,
       )

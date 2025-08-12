@@ -3,17 +3,15 @@ import { red, yellow } from 'picocolors'
 import { websiteUrl } from '../config'
 import { logger } from './logger'
 
-import type { User } from '@codebuff/common/util/credentials'
-
 /**
- * Validates agent configs using the REST API
- * @param agentConfigs The agent configs to validate
+ * Validates agent definitions using the REST API
+ * @param agentDefinitions The agent definitions to validate
  */
-export async function validateAgentConfigsIfAuthenticated(
-  agentConfigs: any[]
+export async function validateAgentDefinitionsIfAuthenticated(
+  agentDefinitions: any[],
 ): Promise<void> {
   // Only validate if there are agent configs
-  if (!agentConfigs || agentConfigs.length === 0) {
+  if (!agentDefinitions || agentDefinitions.length === 0) {
     return
   }
 
@@ -25,7 +23,7 @@ export async function validateAgentConfigsIfAuthenticated(
     const response = await fetch(`${websiteUrl}/api/agents/validate`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ agentConfigs }),
+      body: JSON.stringify({ agentDefinitions }),
     })
 
     if (!response.ok) {
@@ -33,7 +31,9 @@ export async function validateAgentConfigsIfAuthenticated(
       const errorMessage =
         (errorData as any).error ||
         `HTTP ${response.status}: ${response.statusText}`
-      console.log(`\n${red('Agent Config Validation Error:')} ${errorMessage}`)
+      console.log(
+        `\n${red('Agent Definition Validation Error:')} ${errorMessage}`,
+      )
       return
     }
 
@@ -44,7 +44,7 @@ export async function validateAgentConfigsIfAuthenticated(
         .map((err: { filePath: string; message: string }) => err.message)
         .join('\n')
       console.log(
-        `\n${yellow('Agent Config Validation Warnings:')}\n${errorMessage}`,
+        `\n${yellow('Agent Definition Validation Warnings:')}\n${errorMessage}`,
       )
     }
   } catch (error) {
@@ -53,7 +53,7 @@ export async function validateAgentConfigsIfAuthenticated(
         errorMessage: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined,
       },
-      'Failed to validate agent configs via REST API',
+      'Failed to validate agent definitions via REST API',
     )
   }
 }
