@@ -26,6 +26,7 @@ import {
 } from 'picocolors'
 
 import { loadLocalAgents, loadedAgents } from './agents/load-agents'
+import { resolveCliAgentId } from './agents/resolve'
 import {
   killAllBackgroundProcesses,
   sendKillSignalToAllBackgroundProcesses,
@@ -550,8 +551,10 @@ export class CLI {
 
     // Get agent display name for user feedback
     const localAgentInfo = await getLocalAgentInfo()
+    // Resolve ID with default publisher when needed
+    const resolvedAgentId = resolveCliAgentId(agent, Object.keys(localAgentInfo))
     const agentDisplayName = getAgentDisplayName(
-      agent || 'base',
+      resolvedAgentId || 'base',
       localAgentInfo,
     )
 
@@ -643,8 +646,10 @@ export class CLI {
         if (this.agent) {
           try {
             const localAgentInfo = await getLocalAgentInfo()
+            // Resolve ID with default publisher when needed
+            const resolvedAgentId = resolveCliAgentId(this.agent, Object.keys(localAgentInfo))
             const agentDisplayName = getAgentDisplayName(
-              this.agent || 'base',
+              resolvedAgentId || 'base',
               localAgentInfo,
             )
             console.log(gray(`\nAgent: ${bold(agentDisplayName)}`))
