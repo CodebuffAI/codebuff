@@ -188,7 +188,7 @@ export async function runProgrammaticStep(
         `${toolCall.toolName} tool call from programmatic agent`,
       )
 
-      // Add user message with the tool call before executing it
+      // Add assistant message with the tool call before executing it
       // Exception: don't add tool call message for add_message since it adds its own message
       if (toolCall.toolName !== 'add_message') {
         const toolCallString = getToolCallString(
@@ -196,9 +196,10 @@ export async function runProgrammaticStep(
           toolCall.args,
         )
         state.messages.push({
-          role: 'user' as const,
-          content: asUserMessage(toolCallString),
+          role: 'assistant' as const,
+          content: toolCallString,
         })
+        onResponseChunk(toolCallString)
         state.sendSubagentChunk({
           userInputId,
           agentId: agentState.agentId,
