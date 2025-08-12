@@ -30,7 +30,7 @@ const definition: SecretAgentDefinition = {
     'think_deeply',
     'update_subgoal',
   ],
-  subagents: [
+  spawnableAgents: [
     'file-explorer',
     'file-picker',
     'researcher',
