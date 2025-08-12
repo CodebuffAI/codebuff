@@ -39,7 +39,7 @@
     "async": "^3.2.6",
     "lodash": "^4.17.21",
     "p-limit": "^6.2.0",
-    "zod": "4.0.0"
+    "zod": "3.25.67"
   },
   "devDependencies": {
     "@types/async": "^3.2.24"

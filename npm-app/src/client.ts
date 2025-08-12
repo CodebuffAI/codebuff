@@ -878,12 +878,12 @@ export class Client {
       if (!parsedAction.success) {
         console.error(
           red('Received invalid usage data from server:'),
-          parsedAction.error.issues,
+          parsedAction.error.errors,
         )
         logger.error(
           {
             errorMessage: 'Received invalid usage data from server',
-            errors: parsedAction.error.issues,
+            errors: parsedAction.error.errors,
           },
           'Invalid usage data from server',
         )
@@ -1286,7 +1286,7 @@ export class Client {
         if (!parsedAction.success) {
           const message = [
             'Received invalid prompt response from server:',
-            JSON.stringify(parsedAction.error.issues),
+            JSON.stringify(parsedAction.error.errors),
             'If this issues persists, please contact support@codebuff.com',
           ].join('\n')
           console.error(message)
@@ -1520,11 +1520,11 @@ Go to https://www.codebuff.com/config for more information.`) +
       )
       // Check if it's a ZodError for more specific feedback
       if (error instanceof z.ZodError) {
-        console.error(red('Data validation failed:'), error.issues)
+        console.error(red('Data validation failed:'), error.errors)
         logger.error(
           {
             errorMessage: 'Data validation failed',
-            errors: error.issues,
+            errors: error.errors,
           },
           'Data validation failed',
         )

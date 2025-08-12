@@ -1,4 +1,4 @@
-import z from 'zod'
+import z from 'zod/v4'
 
 import type { ToolParams } from '../../constants'
 
@@ -8,7 +8,8 @@ export const setOutputParams = {
   toolName,
   endsAgentStep,
   parameters: z
-    .looseObject({})
+    .object({})
+    .passthrough()
     .describe(
       'JSON object to set as the agent output. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.',
     ),

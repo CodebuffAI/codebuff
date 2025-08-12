@@ -184,7 +184,7 @@ export class CodebuffClient {
     if (!parsedAction.success) {
       const message = [
         'Received invalid prompt response from server:',
-        JSON.stringify(parsedAction.error.issues),
+        JSON.stringify(parsedAction.error.errors),
         'If this issues persists, please contact support@codebuff.com',
       ].join('\n')
       if (promiseActions) {

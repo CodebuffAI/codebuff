@@ -98,7 +98,7 @@ async function usageHandler(
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ message: 'Invalid request body', issues: error.issues })
+        .json({ message: 'Invalid request body', issues: error.errors })
     }
     next(error)
     return

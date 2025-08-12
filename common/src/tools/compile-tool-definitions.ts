@@ -1,4 +1,4 @@
-import z from 'zod'
+import z from 'zod/v4'
 
 import { llmToolCallSchema } from './list'
 import { publishedTools } from './constants'
