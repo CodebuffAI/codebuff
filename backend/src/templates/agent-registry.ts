@@ -5,7 +5,6 @@ import { and, desc, eq } from 'drizzle-orm'
 
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { logger } from '../util/logger'
-import { agentTemplates as staticTemplates } from './agent-list'
 import {
   DynamicAgentValidationError,
   validateAgents,
@@ -195,8 +194,8 @@ export function assembleLocalAgentTemplates(fileContext: ProjectFileContext): {
     fileContext.agentTemplates || {},
   )
 
-  // Combine static and dynamic templates
-  const agentTemplates = { ...staticTemplates, ...dynamicTemplates }
+  // Use only dynamic templates provided by the user
+  const agentTemplates = dynamicTemplates
 
   return { agentTemplates, validationErrors }
 }
