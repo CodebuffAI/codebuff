@@ -34,6 +34,26 @@ export const toolNames = [
   'write_file',
 ] as const
 
+export const publishedTools = [
+  'add_message',
+  'code_search',
+  'end_turn',
+  'find_files',
+  'read_docs',
+  'read_files',
+  'run_file_change_hooks',
+  'run_terminal_command',
+  'set_messages',
+  'set_output',
+  'spawn_agents',
+  'str_replace',
+  'think_deeply',
+  'web_search',
+  'write_file',
+  // 'spawn_agents_async',
+  // 'spawn_agent_inline',
+] as const
+
 export type ToolName = (typeof toolNames)[number]
 
 export type ToolParams<T extends ToolName = ToolName> = {

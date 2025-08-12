@@ -1,6 +1,7 @@
 import z from 'zod/v4'
 
-import { llmToolCallSchema, publishedTools } from './list'
+import { llmToolCallSchema } from './list'
+import { publishedTools } from './constants'
 
 /**
  * Compiles all tool definitions into a single TypeScript definition file content.

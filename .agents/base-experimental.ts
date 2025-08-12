@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentDefinition } from './types/agent-definition'
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
-const definition: AgentDefinition = {
+const definition: SecretAgentDefinition = {
   id: 'base-experimental',
   version,
   publisher,

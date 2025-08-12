@@ -1,6 +1,6 @@
-import type { AgentDefinition } from '../types/agent-definition'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
-const definition: AgentDefinition = {
+const definition: SecretAgentDefinition = {
   id: 'oss-model-base',
   publisher: 'codebuff',
   model: 'qwen/qwen3-235b-a22b-2507:fast',
